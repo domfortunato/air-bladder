@@ -704,8 +704,31 @@ Six things that will bite:
 - **The background die and picker had to be added to the NO-BACKGROUND branch**
   of `character-sheet.html`. They hung off the generated branch alone, so a
   character with no background stored had a text box and no way to reach the
-  table — and typing a name grants nothing, because the gear rides
-  `changeBackground`. Invisible while every character arrived generated.
+  table. Invisible while every character arrived generated.
+- **A HAND-BUILT SHEET IS HANDED NOTHING** (user ruling, same day, reversing
+  this feature's first cut — which granted gear on a picked background and was
+  documented as doing so). `HAND_BUILT_FLAG` is stamped by `createBlankActor`,
+  and while it is set a **background, a question answer, a bond and the
+  Barebones failed career** all record the choice and grant no items, no
+  containers and no coins. The empty sheet exists to transcribe a character
+  already rolled on paper: its owner knows what it carries, and granting means
+  deleting a pack's worth of gear nobody asked for.
+  **DURABLE, not "while the sheet is still empty"** — the ruling chose between
+  exactly those two, because an emptiness test changes behaviour the moment the
+  first item is typed and nothing on screen says why.
+  **The way out is Roll Character with Background checked** (the checklist's own
+  default): `_applyRerollParts` clears the mark BEFORE `changeBackground`, or
+  the re-deal would be suppressed by a mark about to stop being true. A bare
+  background die does NOT clear it — pressing that die is still choosing a
+  background.
+  **THERE ARE THREE BOND-GRANTING PATHS AND THE OBVIOUS ONE IS NOT ENOUGH:**
+  `_applyBond`, the sheet's Add-a-bond handler (which creates items DIRECTLY,
+  not through the applier) and `rerollAllBonds`. Suppressing only the first
+  looked like a landed fix; the probe leg that clicks the real Add-a-bond
+  control is what found the gap, and a witness reds that leg alone.
+  A question row's stored `gold` is zeroed too, not merely withheld: a later
+  swap REFUNDS each row's recorded gold, so a row remembering a grant that never
+  happened would pay out coins the character never had.
 - **THE WARDEN IS ASKED NOW**, reversing 2026-08-08's "the Warden's own button
   keeps rolling instantly". That ruling was about an accidental click, which
   only ever threatened a player; this dialog is where the choice is MADE. One

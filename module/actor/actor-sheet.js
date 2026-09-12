@@ -1,4 +1,4 @@
-import { canRegenerateContainers, drawBond, bondRecordFrom, withGrantSource, bondEntitlement, resolveRefs, replaceGrantedContainers, promptBackground, changeBackground, promptFailedCareer, rollFailedCareerName, buildFailedCareerItem, getPortraitManifest, pairedTokenFor, randomPortraitInSameFolder, portraitCategoryFor, regenerateNpc, regenerateHireling, rerollNpcBackground, rerollHirelingCareer, rerollNpcName, rerollNpcFaction, promptHirelingCareer, promptNpcBackground, promptNpcFaction, promptPickOmen, promptPickBond, promptPickQuestionOption, promptPickName, findOmensTable, rollNameFromTable, rollAge, rollTextItems, effectiveAgeFormula, resolveActorBackground, redealBackgroundGear, rerollAllBonds, reorderInventory, postGenerationRolls } from "../character-generator.js";
+import { canRegenerateContainers, drawBond, bondRecordFrom, withGrantSource, bondEntitlement, resolveRefs, replaceGrantedContainers, promptBackground, changeBackground, promptFailedCareer, rollFailedCareerName, buildFailedCareerItem, getPortraitManifest, pairedTokenFor, randomPortraitInSameFolder, portraitCategoryFor, regenerateNpc, regenerateHireling, rerollNpcBackground, rerollHirelingCareer, rerollNpcName, rerollNpcFaction, promptHirelingCareer, promptNpcBackground, promptNpcFaction, promptPickOmen, promptPickBond, promptPickQuestionOption, promptPickName, findOmensTable, rollNameFromTable, rollAge, rollTextItems, effectiveAgeFormula, resolveActorBackground, redealBackgroundGear, rerollAllBonds, reorderInventory, postGenerationRolls, isHandBuilt, clearHandBuilt } from "../character-generator.js";
 import { promptMonsterTier, regenerateMonster } from "../monster-generator.js";
 import { openMarketplace, TRANSPORTS_CATEGORY } from "../marketplace.js";
 import { evaluateFormula, cleanDescription, bindEditorClickAwaySave, formatCount, sourceLabel, askDamageQuality, damageFormulaFor, damageQualityLabel } from "../utils.js";
@@ -2362,7 +2362,12 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     if (this._grantingFailedCareerItem) return;
     this._grantingFailedCareerItem = true;
     try {
-      const item = careerName ? await buildFailedCareerItem(careerName) : null;
+      // Hand-built: the career NAME is the choice, the keepsake is not (user
+      // ruling 2026-09-11, HAND_BUILT_FLAG). Still routed through the replace
+      // with an empty set, so swapping careers clears a previous keepsake.
+      const item = careerName && !isHandBuilt(this.actor)
+        ? await buildFailedCareerItem(careerName)
+        : null;
       await this._replaceGrantedItems("failed-career", item ? [item] : []);
       // _replaceGrantedItems renders nothing (render:false, so a trailing update can
       // re-render once); the bond/question re-rolls have that trailing update, this
@@ -3180,6 +3185,13 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // as one swap (and stamps the provenance flag rolled); unchecked, its
     // freed children re-roll in place against the CURRENT background.
     if (parts.background) {
+      // THE WAY OUT OF HAND-BUILT, and the only one. Asking the dice to deal a
+      // background is asking for a rolled character, so the mark goes BEFORE
+      // the re-deal — clearing it after would let changeBackground suppress the
+      // very gear this gesture exists to hand over. A bare background die does
+      // not come through here and deliberately does not clear it: pressing that
+      // die is still choosing a background. See HAND_BUILT_FLAG.
+      await clearHandBuilt(actor);
       if (!(await changeBackground(actor, null))) return;
     } else {
       // Pre-flight the container permission for every checked part before the
@@ -4461,10 +4473,17 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     const bonds = this._effectiveBonds();
     const idx = bonds.findIndex((b) => b.id === id);
     if (idx < 0) return;
-    const newItems = (drawn.items ?? []).map((it) => withGrantSource(it, `bond:${id}`));
+    // Hand-built: the bond's TEXT is the choice; its gear and coins are not
+    // (user ruling 2026-09-11, HAND_BUILT_FLAG). Empty set rather than a skip,
+    // so re-rolling a bond on such a sheet still clears the last one's grants.
+    const handBuilt = isHandBuilt(this.actor);
+    const drawnGold = handBuilt ? 0 : drawn.gold;
+    const newItems = handBuilt
+      ? []
+      : (drawn.items ?? []).map((it) => withGrantSource(it, `bond:${id}`));
     await this._replaceGrantedItems(`bond:${id}`, newItems);
-    const gold = Math.max(0, (this.actor.system.gold ?? 0) - (bonds[idx].gold ?? 0) + drawn.gold);
-    bonds[idx] = { id, description: drawn.description, gold: drawn.gold };
+    const gold = Math.max(0, (this.actor.system.gold ?? 0) - (bonds[idx].gold ?? 0) + drawnGold);
+    bonds[idx] = { id, description: drawn.description, gold: drawnGold };
     // abNoStatusCard, as on every other bond/question write: the gold swing
     // is the die's, not the player's, and the ledger card read it as a manual
     // edit otherwise (review #18 — this was the one member of the family
@@ -4496,13 +4515,18 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
         avoid: bonds.map((b) => b.description),
       }));
       if (!rec) return;
-      bonds.push(rec.bond);
-      if (rec.items.length) {
+      // Hand-built: the bond's text is the choice, its gear and coins are not
+      // (HAND_BUILT_FLAG). This handler CREATES ITEMS DIRECTLY rather than
+      // going through `_applyBond`, so suppressing it there was not enough —
+      // the probe leg that adds a real bond is what found the gap.
+      const handBuilt = isHandBuilt(this.actor);
+      bonds.push(handBuilt ? { ...rec.bond, gold: 0 } : rec.bond);
+      if (rec.items.length && !handBuilt) {
         // abNoStatusCard here and on the update below: a bond's grants are
         // machinery, same as _replaceGrantedItems.
         await this.actor.createEmbeddedDocuments("Item", rec.items, { render: false, abNoStatusCard: true });
       }
-      const gold = (this.actor.system.gold ?? 0) + rec.bond.gold;
+      const gold = (this.actor.system.gold ?? 0) + (handBuilt ? 0 : rec.bond.gold);
       await this.actor.update({ "system.bonds": bonds, "system.gold": gold }, { abNoStatusCard: true });
     } finally {
       this._rerolling = false;
@@ -4631,12 +4655,21 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    * @param {Object} opt  the chosen/rolled option off the background's table
    */
   async _applyQuestionOption(idx, question, opt) {
-    const newItems = (await resolveRefs(opt.items)).map((it) => withGrantSource(it, `question:${idx}`));
+    // A HAND-BUILT sheet records the answer and is handed nothing — no items,
+    // no containers, no coins (user ruling 2026-09-11; see HAND_BUILT_FLAG).
+    // The replace calls are still made with an EMPTY set rather than skipped,
+    // so swapping between two answers on such a sheet still clears whatever a
+    // previous answer left behind — a sheet that stopped granting must not
+    // also stop tidying up.
+    const handBuilt = isHandBuilt(this.actor);
+    const newItems = handBuilt
+      ? []
+      : (await resolveRefs(opt.items)).map((it) => withGrantSource(it, `question:${idx}`));
     await this._replaceGrantedItems(`question:${idx}`, newItems);
-    await replaceGrantedContainers(this.actor, `question:${idx}`, opt.containers ?? []);
+    await replaceGrantedContainers(this.actor, `question:${idx}`, handBuilt ? [] : (opt.containers ?? []));
     const questions = foundry.utils.duplicate(this.actor.system.questions ?? []);
     const oldGold = questions[idx]?.gold ?? 0;
-    const newGold = opt.bonusGold ?? 0;
+    const newGold = handBuilt ? 0 : (opt.bonusGold ?? 0);
     const gold = Math.max(0, (this.actor.system.gold ?? 0) - oldGold + newGold);
     questions[idx] = { question, answer: opt.description ?? "", gold: newGold };
     // abNoStatusCard: a question swap's gold swing is grant machinery.

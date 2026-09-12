@@ -26,11 +26,21 @@ Monster**, so any of the four can arrive empty.
 **This is not a character builder, and it is not the way to make a character.**
 It is for the table that rolls on paper. Deal your character with the book and
 your own dice, then open an empty sheet and put it in: type the numbers, and use
-the **pick-list buttons** for anything that comes off a table. Picking a
-background grants its gear exactly as rolling one would, which typing its name
-cannot do. An empty sheet arrives with **Character Creation Mode** already on so
-those buttons are there waiting; turn it off when you are finished and the sheet
-goes quiet.
+the **pick-list buttons** for anything that comes off a table. An empty sheet
+arrives with **Character Creation Mode** already on so those buttons are there
+waiting; turn it off when you are finished and the sheet goes quiet.
+
+**An empty sheet is never handed anything.** Choosing a background, a bond, an
+answer to a background question or a failed career records what you chose and
+nothing more — no gear, no coins. You already know what your character is
+carrying, so the sheet does not guess and then leave you deleting a pack's worth
+of things you never asked for. Type your inventory in.
+
+That holds for as long as the sheet lives, not just while it is empty. If you
+change your mind and want the dice to furnish the character after all, use
+**Roll Character** with **Background** ticked: that deals a whole character, and
+from then on the sheet behaves like any other — pick a background later and it
+brings its gear.
 
 If you want a character and you do not have one already, roll it. That is the
 game.

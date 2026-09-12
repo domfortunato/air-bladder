@@ -21,6 +21,40 @@ import { t } from "./i18n-content.js";
  *  importer) tag and read the same namespace rather than hardcoding a copy. */
 export const FLAG_SCOPE = "air-bladder";
 
+/**
+ * HAND-BUILT: this actor was created as an EMPTY SHEET and its owner is filling
+ * it in themselves (user ruling 2026-09-11).
+ *
+ * **While it is set, nothing that would normally GRANT hands anything over.** A
+ * background, a question answer, a bond and the Barebones failed career all
+ * record the choice and stop there — no items, no containers, no gold. The
+ * reason is the whole point of the empty sheet: it exists to transcribe a
+ * character already rolled at the table, so its owner knows what that character
+ * carries and is typing it in. Granting would mean deleting a pack's worth of
+ * gear they never asked for, which is worse than granting nothing.
+ *
+ * It is DURABLE, not "while the sheet is still empty" (the ruling picked
+ * between exactly those two). An emptiness test would change behaviour the
+ * moment the first item was typed, so the second background picked would behave
+ * differently from the first with nothing on screen to say why.
+ *
+ * **The way out is Roll Character with Background checked** — the checklist's
+ * own default. That clears the mark BEFORE it re-deals, so the character
+ * becomes a rolled one and grants resume. A bare background die does NOT clear
+ * it: pressing that die is still choosing a background, which is the gesture
+ * the ruling is about.
+ */
+export const HAND_BUILT_FLAG = "handBuilt";
+
+/** @param {CairnActor} actor @returns {Boolean} */
+export const isHandBuilt = (actor) => actor?.getFlag(FLAG_SCOPE, HAND_BUILT_FLAG) === true;
+
+/** Stop being hand-built: the dice have been asked for a whole character. */
+export const clearHandBuilt = async (actor) => {
+  if (!isHandBuilt(actor)) return;
+  await actor.unsetFlag(FLAG_SCOPE, HAND_BUILT_FLAG);
+};
+
 /*
  * Cairn 2e character generation.
  *
@@ -2314,6 +2348,10 @@ export const createBlankActor = async (kind, { folder = null, ownership = null, 
     // their ids, and nothing new is ever created under it.
     type: kind === "character" ? "character" : "npc",
     system: { hp: { value: BLANK_HP, max: BLANK_HP }, generationEnabled: true },
+    // HAND-BUILT: from here on, a background, a question, a bond and the failed
+    // career all record the choice and grant NOTHING. See HAND_BUILT_FLAG for
+    // why, and for the one way back out.
+    flags: { [FLAG_SCOPE]: { [HAND_BUILT_FLAG]: true } },
   };
   if (kind === "character") data.system.contentSource = source ?? resolveContentSource();
   else data.system.role = kind;
@@ -2974,17 +3012,35 @@ export const changeBackground = async (actor, newBg = null) => {
   // Armor derives to the value the background intends. resolveStartingGear, not a
   // plain reference lookup, so a Barebones background whose gear includes an SRD
   // instruction ("Spellbook", "Random Additional Gear") grants it here too.
-  const gear = tagBackgroundGear(await resolveStartingGear(bg));
+  // ...unless this sheet is HAND-BUILT, in which case the background's name and
+  // its questions land and NOTHING is handed over. See HAND_BUILT_FLAG: the
+  // empty sheet exists to transcribe a character already rolled on paper, and
+  // its owner is typing the gear they already know about.
+  const handBuilt = isHandBuilt(actor);
+  const gear = handBuilt ? [] : tagBackgroundGear(await resolveStartingGear(bg));
   for (const it of gear) {
     if (it.type === "weapon" || it.type === "armor") it.system.equipped = true;
   }
   const choices = await applyChoiceTables(bg);
+  // The question ROWS stay — they are what the pickers below hang on — but a
+  // hand-built sheet banks none of their coins. Zeroing the stored `gold` is
+  // load-bearing rather than tidy: a later swap REFUNDS each question's
+  // recorded gold, so a row remembering a grant that never happened would pay
+  // out coins the character was never given.
+  if (handBuilt) {
+    choices.items = [];
+    choices.containers = [];
+    choices.gold = 0;
+    choices.questions = (choices.questions ?? []).map((q) => ({ ...q, gold: 0 }));
+  }
   const newItems = [...gear, ...choices.items];
   if (newItems.length) await actor.createEmbeddedDocuments("Item", newItems, { render: false, abNoStatusCard: true });
-  await grantContainers(actor, [
-    ...(bg.system.containers ?? []).map((c) => ({ ...c, grantSource: "background" })),
-    ...choices.containers,
-  ]);
+  if (!handBuilt) {
+    await grantContainers(actor, [
+      ...(bg.system.containers ?? []).map((c) => ({ ...c, grantSource: "background" })),
+      ...choices.containers,
+    ]);
+  }
 
   // Clamp bonds to the NEW background's entitlement (ruled 2026-08-02). The
   // upward case stays manual ("Add a bond"), but excess is removed from the
@@ -3149,6 +3205,11 @@ export const rerollAllBonds = async (actor) => {
     .map((i) => i.id);
   if (staleIds.length) await actor.deleteEmbeddedDocuments("Item", staleIds, { render: false, abNoStatusCard: true });
 
+  // Hand-built: the bond TEXT is dealt, its gear and coins are not. Third of
+  // the bond-granting paths and the easiest to miss — the other two are
+  // `_applyBond` and the sheet's Add-a-bond handler, and a probe leg caught
+  // exactly that miss (see HAND_BUILT_FLAG).
+  const handBuilt = isHandBuilt(actor);
   const bonds = [];
   const items = [];
   let newGold = 0;
@@ -3157,9 +3218,11 @@ export const rerollAllBonds = async (actor) => {
       avoid: bonds.map((b) => b.description),
     }));
     if (!rec) continue;
-    bonds.push(rec.bond);
-    items.push(...rec.items);
-    newGold += rec.bond.gold;
+    bonds.push(handBuilt ? { ...rec.bond, gold: 0 } : rec.bond);
+    if (!handBuilt) {
+      items.push(...rec.items);
+      newGold += rec.bond.gold;
+    }
   }
   if (items.length) await actor.createEmbeddedDocuments("Item", items, { render: false, abNoStatusCard: true });
   const oldGold = oldBonds.reduce((n, b) => n + (b.gold ?? 0), 0);
@@ -3590,6 +3653,10 @@ export const createCharacter = async ({ folder = null, ownership = null, source 
  */
 export const regenerateActor = async (actor) => {
   if (!canRegenerateContainers(actor)) return actor; // bail before wiping items
+  // A whole new character is a ROLLED one, whatever this sheet used to be.
+  // Cleared BEFORE the re-deal, or the generation below would be suppressed by
+  // a mark that is about to stop being true.
+  await clearHandBuilt(actor);
   let bg = actor.system.backgroundUuid ? await fromUuid(actor.system.backgroundUuid) : null;
   // A Barebones character made before backgrounds had uuids is keyed by name.
   if (!bg && actor.system.contentSource === "barebones") {

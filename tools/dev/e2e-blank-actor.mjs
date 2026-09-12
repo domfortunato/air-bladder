@@ -211,6 +211,188 @@ else {
     : fail(`the rolled path came out thin: ${JSON.stringify(rolled)}`);
 }
 
+/* -- 8: a hand-built sheet is handed NOTHING -------------------------------- */
+console.log("\nhand-built: choices record, grants do not");
+
+const grants = await page.evaluate(async (prefix) => {
+  const cg = game.cairn.characterGenerator;
+  const out = { errors: [] };
+  const bgs = (await game.packs.get("air-bladder.backgrounds-2e")?.getDocuments()) ?? [];
+  // A background that actually GRANTS something, or every "no items" assertion
+  // below is vacuous — the commonest way a suppression leg passes for free.
+  const bg = bgs.find((b) => (b.system?.startingGear ?? []).length > 1);
+  if (!bg) { out.errors.push("no background with starting gear in the 2e pack"); return out; }
+  out.bgName = bg.name;
+  out.bgGear = bg.system.startingGear.length;
+
+  const settle = async (a) => { await a.sheet?.close(); };
+
+  // (a) hand-built + a PICKED background.
+  const blank = await cg.createBlankActor("character");
+  await blank.update({ name: `${prefix} handbuilt` });
+  const goldBefore = blank._source.system.gold ?? 0;
+  await cg.changeBackground(blank, bg);
+  out.handBuilt = {
+    marked: blank.getFlag("air-bladder", "handBuilt") === true,
+    background: blank._source.system.background,
+    items: blank.items.size,
+    gold: blank._source.system.gold ?? 0,
+    goldBefore,
+    questions: (blank._source.system.questions ?? []).length,
+    questionGold: (blank._source.system.questions ?? []).reduce((n, q) => n + (q.gold ?? 0), 0),
+  };
+
+  // (b) THE CONTROL — the same background, the same call, on a ROLLED
+  // character. Without this, a changeBackground broken to grant nothing at all
+  // would make (a) pass and read as a working feature.
+  const rolled = await cg.createCharacter({ source: "2e" });
+  await rolled.update({ name: `${prefix} rolled bg` });
+  await cg.changeBackground(rolled, bg);
+  out.control = {
+    marked: rolled.getFlag("air-bladder", "handBuilt") === true,
+    background: rolled._source.system.background,
+    items: rolled.items.size,
+  };
+
+  // (c) THE WAY OUT — Roll Character with Background checked clears the mark
+  // and deals the gear. Driven through _applyRerollParts, the checklist's own
+  // applier, rather than through the dialog: the dialog is covered above and
+  // what matters here is the ORDER, that the mark goes before the re-deal.
+  const escapee = await cg.createBlankActor("character");
+  await escapee.update({ name: `${prefix} escapee` });
+  await escapee.sheet.render(true);
+  const deadline = Date.now() + 15000;
+  while (Date.now() < deadline && !escapee.sheet.element?.querySelector(".window-content")) {
+    await new Promise((r) => setTimeout(r, 150));
+  }
+  await escapee.sheet._applyRerollParts({ background: true });
+  out.escape = {
+    stillMarked: escapee.getFlag("air-bladder", "handBuilt") === true,
+    background: escapee._source.system.background,
+    items: escapee.items.size,
+  };
+  await settle(escapee);
+
+  // (d) a BOND on a hand-built sheet: text lands, gear and coins do not.
+  const bonded = await cg.createBlankActor("character");
+  await bonded.update({ name: `${prefix} bonded` });
+  await cg.changeBackground(bonded, bg);
+  await bonded.sheet.render(true);
+  const d2 = Date.now() + 15000;
+  while (Date.now() < d2 && !bonded.sheet.element?.querySelector(".window-content")) {
+    await new Promise((r) => setTimeout(r, 150));
+  }
+  const itemsBeforeBond = bonded.items.size;
+  const goldBeforeBond = bonded._source.system.gold ?? 0;
+  // The REAL "Add a bond" control. Its handler is a private class method, so
+  // there is nothing to call from out here — and clicking is the better test
+  // anyway, since it proves the affordance survives on a hand-built sheet.
+  const addLink = bonded.sheet.element?.querySelector('[data-action="addBond"]');
+  out.bondLink = !!addLink;
+  if (addLink) {
+    addLink.click();
+    // Settle on CONTENT: the click kicks off a draw plus two writes.
+    const d3 = Date.now() + 20000;
+    while (Date.now() < d3 && !(bonded._source.system.bonds ?? []).length) {
+      await new Promise((r) => setTimeout(r, 200));
+    }
+  }
+  const bondRows = bonded._source.system.bonds ?? [];
+  out.bond = {
+    rows: bondRows.length,
+    text: !!bondRows[0]?.description,
+    bondGold: bondRows.reduce((n, b) => n + (b.gold ?? 0), 0),
+    itemsBeforeBond,
+    itemsAfter: bonded.items.size,
+    goldBeforeBond,
+    goldAfter: bonded._source.system.gold ?? 0,
+  };
+  // (e) a QUESTION ANSWER on a hand-built sheet. Driven through the real
+  // applier with a synthetic option that DOES grant — the shipped options vary
+  // and one that happens to grant nothing would pass this for free.
+  const opt = {
+    description: "ZZ a test answer",
+    items: [{ name: "Rations", quantity: 3 }],
+    bonusGold: 25,
+  };
+  const qIdx = 0;
+  const goldBeforeQ = bonded._source.system.gold ?? 0;
+  const itemsBeforeQ = bonded.items.size;
+  await bonded.sheet._applyQuestionOption(qIdx, "ZZ a test question", opt);
+  out.question = {
+    answer: (bonded._source.system.questions ?? [])[qIdx]?.answer ?? "",
+    banked: (bonded._source.system.questions ?? [])[qIdx]?.gold ?? 0,
+    itemsBeforeQ,
+    itemsAfter: bonded.items.size,
+    goldBeforeQ,
+    goldAfter: bonded._source.system.gold ?? 0,
+  };
+  await settle(bonded);
+  return out;
+}, PREFIX);
+
+grants.errors.forEach((e) => fail(e));
+
+if (grants.handBuilt) {
+  const h = grants.handBuilt;
+  h.marked ? ok("a blank actor is marked hand-built") : fail("the hand-built mark was not set");
+  h.background === grants.bgName
+    ? ok(`picking a background records it`, `"${h.background}" (${grants.bgGear} gear refs)`)
+    : fail(`background not recorded: ${JSON.stringify(h.background)}`);
+  h.items === 0
+    ? ok("   …and grants NO items")
+    : fail(`the hand-built sheet was handed ${h.items} item(s)`);
+  // Half-vacuous on purpose and worth knowing: whether this reds under witness
+  // (f) depends on the background drawn, since not every 2e background's
+  // questions bank coins. The GOLD claim is carried properly by the question
+  // leg below, which uses a synthetic option worth 25.
+  h.gold === h.goldBefore && h.questionGold === 0
+    ? ok("   …and no coins, with every question row banking zero")
+    : fail(`gold moved ${h.goldBefore} -> ${h.gold}, question gold ${h.questionGold}`);
+  h.questions > 0
+    ? ok(`   …while the ${h.questions} question rows still land, so the pickers have something to hang on`)
+    : fail("the background's question rows did not land");
+}
+
+if (grants.control) {
+  const c = grants.control;
+  // Not "different from the hand-built one" — the same call, on a sheet without
+  // the mark, must really hand gear over.
+  !c.marked && c.background === grants.bgName && c.items > 0
+    ? ok("CONTROL: the same background on a rolled character still grants", `${c.items} items`)
+    : fail(`the control did not grant: ${JSON.stringify(c)}`);
+}
+
+if (grants.escape) {
+  const e = grants.escape;
+  !e.stillMarked && e.items > 0
+    ? ok("Roll Character with Background checked clears the mark and deals the gear", `${e.items} items`)
+    : fail(`the way out failed: ${JSON.stringify(e)}`);
+}
+
+if (grants.bond) {
+  const b = grants.bond;
+  grants.bondLink
+    ? ok("the Add-a-bond control is on the hand-built sheet")
+    : fail("no addBond control rendered — the whole bond section below is vacuous");
+  b.rows > 0 && b.text
+    ? ok("adding a bond on a hand-built sheet records its text")
+    : fail(`no bond row landed: ${JSON.stringify(b)}`);
+  b.itemsAfter === b.itemsBeforeBond && b.goldAfter === b.goldBeforeBond && b.bondGold === 0
+    ? ok("   …and hands over no gear and no coins")
+    : fail(`the bond granted: items ${b.itemsBeforeBond}->${b.itemsAfter}, gold ${b.goldBeforeBond}->${b.goldAfter}, banked ${b.bondGold}`);
+}
+
+if (grants.question) {
+  const q = grants.question;
+  q.answer === "ZZ a test answer"
+    ? ok("answering a question on a hand-built sheet records the answer")
+    : fail(`the answer did not land: ${JSON.stringify(q.answer)}`);
+  q.itemsAfter === q.itemsBeforeQ && q.goldAfter === q.goldBeforeQ && q.banked === 0
+    ? ok("   …and hands over none of its 3 Rations and none of its 25 gold")
+    : fail(`the answer granted: items ${q.itemsBeforeQ}->${q.itemsAfter}, gold ${q.goldBeforeQ}->${q.goldAfter}, banked ${q.banked}`);
+}
+
 /* -- 6, 7: the dialog itself ------------------------------------------------ */
 console.log("\nthe creation dialog");
 
@@ -342,6 +524,18 @@ process.exit(failed ? 1 : 0);
  *     → 1 red, the CONTROL, and every other leg stayed green. That is what
  *       makes the control worth having: without it, a generator broken to
  *       return nothing would leave this whole file passing.
+ *
+ *  f) `isHandBuilt` forced to `() => false`, defeating the whole suppression
+ *     → 4 red: the background's items, the way out, the bond and the question
+ *       answer. Each of the four grant paths is separately asserted, which is
+ *       what makes (g) below possible.
+ *  g) the `!handBuilt` term dropped from the sheet's Add-a-bond handler ALONE
+ *     → 1 red, the bond leg, and nothing else. That handler creates its items
+ *       DIRECTLY rather than through `_applyBond`, so suppressing it in the
+ *       applier was not enough — and the leg that clicks the real Add-a-bond
+ *       control is the only thing that found the gap. Three bond paths exist
+ *       (`_applyBond`, this handler, `rerollAllBonds`) and a fix to one reads
+ *       exactly like a fix to all three.
  *
  * A METHOD NOTE, because it cost a wrong answer here. Witness (d) first
  * reported "nothing failed — the leg is not real". It was not: the anchor had
