@@ -151,9 +151,13 @@ try {
     // covering the RESTORED state, so the UI is known-good on the day it is
     // unparked.
     const origSettingsGet = game.settings.get;
-    game.settings.get = function (ns, key) {
+    game.settings.get = function (ns, key, ...rest) {
+      // A DOCUMENT request is never shadowed (review #27): core's #setWorld asks
+      // get(ns, key, {document: true}) for the Setting document it will update by
+      // id, and a value handed back here makes it CREATE a duplicate instead.
+      if (rest[0]?.document) return foundry.helpers.ClientSettings.prototype.get.call(this, ns, key, ...rest);
       if (key === "connections-ui-enabled") return true;
-      return origSettingsGet.call(this, ns, key);
+      return origSettingsGet.call(this, ns, key, ...rest);
     };
     try {
       actor.prepareData();

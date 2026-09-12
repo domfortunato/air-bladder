@@ -106,9 +106,13 @@ const claim = await alicePage.evaluate(async ({ pcId, muleUuid }) => {
   // leg exists to witness. The shadow lets the drop reach that wall; the
   // parked-default refusal itself is dev:connections' leg, not this one.
   const origGet = game.settings.get;
-  game.settings.get = function (ns, key) {
+  game.settings.get = function (ns, key, ...rest) {
+    // A DOCUMENT request is never shadowed (review #27): core's #setWorld asks
+    // get(ns, key, {document: true}) for the Setting document it will update by
+    // id, and a value handed back here makes it CREATE a duplicate instead.
+    if (rest[0]?.document) return foundry.helpers.ClientSettings.prototype.get.call(this, ns, key, ...rest);
     if (key === "connections-ui-enabled") return true;
-    return origGet.call(this, ns, key);
+    return origGet.call(this, ns, key, ...rest);
   };
   try {
     await pc.sheet.render(true);
@@ -198,9 +202,13 @@ const buy = await alicePage.evaluate(async (pcId) => {
   // open-shop precondition in-page; the switch-off refusal is the
   // marketplace probe's differential, not this one's. Never a world write.
   const origGet = game.settings.get;
-  game.settings.get = function (ns, key) {
+  game.settings.get = function (ns, key, ...rest) {
+    // A DOCUMENT request is never shadowed (review #27): core's #setWorld asks
+    // get(ns, key, {document: true}) for the Setting document it will update by
+    // id, and a value handed back here makes it CREATE a duplicate instead.
+    if (rest[0]?.document) return foundry.helpers.ClientSettings.prototype.get.call(this, ns, key, ...rest);
     if (key === "allow-player-marketplace") return true;
-    return origGet.call(this, ns, key);
+    return origGet.call(this, ns, key, ...rest);
   };
   try {
   const cat = await mkt.getMarketplaceCatalog();
@@ -284,9 +292,13 @@ const icons = await alicePage.evaluate(async ({ pcId, containerId }) => {
   // only under the in-page shadow. What the leg measures — per-row unlink for
   // the owner of both ends, no trash for a player — is unchanged.
   const origGet = game.settings.get;
-  game.settings.get = function (ns, key) {
+  game.settings.get = function (ns, key, ...rest) {
+    // A DOCUMENT request is never shadowed (review #27): core's #setWorld asks
+    // get(ns, key, {document: true}) for the Setting document it will update by
+    // id, and a value handed back here makes it CREATE a duplicate instead.
+    if (rest[0]?.document) return foundry.helpers.ClientSettings.prototype.get.call(this, ns, key, ...rest);
     if (key === "connections-ui-enabled") return true;
-    return origGet.call(this, ns, key);
+    return origGet.call(this, ns, key, ...rest);
   };
   try {
   // CLOSE first, then render, then POLL — do not sleep a fixed interval on an
@@ -339,9 +351,13 @@ const gmIcons = await gmPage.evaluate(async ({ pcId, containerId }) => {
   const pc = game.actors.get(pcId);
   // Same shadow as Alice's leg — the rows exist only with the UI restored.
   const origGet = game.settings.get;
-  game.settings.get = function (ns, key) {
+  game.settings.get = function (ns, key, ...rest) {
+    // A DOCUMENT request is never shadowed (review #27): core's #setWorld asks
+    // get(ns, key, {document: true}) for the Setting document it will update by
+    // id, and a value handed back here makes it CREATE a duplicate instead.
+    if (rest[0]?.document) return foundry.helpers.ClientSettings.prototype.get.call(this, ns, key, ...rest);
     if (key === "connections-ui-enabled") return true;
-    return origGet.call(this, ns, key);
+    return origGet.call(this, ns, key, ...rest);
   };
   try {
     pc.prepareData();

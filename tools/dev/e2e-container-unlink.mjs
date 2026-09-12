@@ -58,9 +58,13 @@ try {
     // document methods this probe is ABOUT are unaffected by the parking;
     // the parked default itself is dev:connections' leg.
     const origGet = game.settings.get;
-    game.settings.get = function (ns, key) {
+    game.settings.get = function (ns, key, ...rest) {
+      // A DOCUMENT request is never shadowed (review #27): core's #setWorld asks
+      // get(ns, key, {document: true}) for the Setting document it will update by
+      // id, and a value handed back here makes it CREATE a duplicate instead.
+      if (rest[0]?.document) return foundry.helpers.ClientSettings.prototype.get.call(this, ns, key, ...rest);
       if (key === "connections-ui-enabled") return true;
-      return origGet.call(this, ns, key);
+      return origGet.call(this, ns, key, ...rest);
     };
 
     const mk = async () => {

@@ -127,10 +127,14 @@ file = fixture;
 await page.evaluate(({ floor, ceiling }) => {
   const orig = game.settings.get;
   window.__kwAgeShadow = orig;
-  game.settings.get = function (ns, key) {
+  game.settings.get = function (ns, key, ...rest) {
+    // A DOCUMENT request is never shadowed (review #27): core's #setWorld asks
+    // get(ns, key, {document: true}) for the Setting document it will update by
+    // id, and a value handed back here makes it CREATE a duplicate instead.
+    if (rest[0]?.document) return foundry.helpers.ClientSettings.prototype.get.call(this, ns, key, ...rest);
     if (ns === "air-bladder" && key === "min-age") return floor;
     if (ns === "air-bladder" && key === "max-age") return ceiling;
-    return orig.call(this, ns, key);
+    return orig.call(this, ns, key, ...rest);
   };
 }, { floor: FLOOR, ceiling: CEILING });
 try {

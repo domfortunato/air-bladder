@@ -860,9 +860,13 @@ try {
       // the omen legs (same rendered sheet) and comes off before the
       // marketplace section, which needs nothing from the tab.
       const origSettingsGet = game.settings.get;
-      game.settings.get = function (ns2, key) {
+      game.settings.get = function (ns2, key, ...rest) {
+        // A DOCUMENT request is never shadowed (review #27): core's #setWorld asks
+        // get(ns, key, {document: true}) for the Setting document it will update by
+        // id, and a value handed back here makes it CREATE a duplicate instead.
+        if (rest[0]?.document) return foundry.helpers.ClientSettings.prototype.get.call(this, ns2, key, ...rest);
         if (key === "connections-ui-enabled") return true;
-        return origSettingsGet.call(this, ns2, key);
+        return origSettingsGet.call(this, ns2, key, ...rest);
       };
       pc.prepareData();
       await pc.sheet.render(true);
@@ -1424,9 +1428,13 @@ const pickerLeg = await page.evaluate(async () => {
   // renders only under the in-page settings shadow. What the leg measures —
   // display-name labels and sort — is unchanged by the parking.
   const origGet = game.settings.get;
-  game.settings.get = function (ns, key) {
+  game.settings.get = function (ns, key, ...rest) {
+    // A DOCUMENT request is never shadowed (review #27): core's #setWorld asks
+    // get(ns, key, {document: true}) for the Setting document it will update by
+    // id, and a value handed back here makes it CREATE a duplicate instead.
+    if (rest[0]?.document) return foundry.helpers.ClientSettings.prototype.get.call(this, ns, key, ...rest);
     if (key === "connections-ui-enabled") return true;
-    return origGet.call(this, ns, key);
+    return origGet.call(this, ns, key, ...rest);
   };
   try {
     const keeper = await Impl.create({ name: "ZZ Picker Keeper", type: "character" });
@@ -1564,9 +1572,13 @@ const detachLeg = await page.evaluate(async () => {
   const origGet = game.settings.get;
   let asked = null;
   DialogV2.confirm = async (args) => { asked = args; return false; };
-  game.settings.get = function (ns, key) {
+  game.settings.get = function (ns, key, ...rest) {
+    // A DOCUMENT request is never shadowed (review #27): core's #setWorld asks
+    // get(ns, key, {document: true}) for the Setting document it will update by
+    // id, and a value handed back here makes it CREATE a duplicate instead.
+    if (rest[0]?.document) return foundry.helpers.ClientSettings.prototype.get.call(this, ns, key, ...rest);
     if (key === "connections-ui-enabled") return true;
-    return origGet.call(this, ns, key);
+    return origGet.call(this, ns, key, ...rest);
   };
   let cart = null;
   try {

@@ -62,6 +62,10 @@ const flag = await page.evaluate(async () => {
   // ticking Scroll makes a scroll under either setting.
   const origGlogGet = game.settings.get;
   game.settings.get = function (scope, key, ...rest) {
+    // A DOCUMENT request is never shadowed (review #27): core's #setWorld asks
+    // get(ns, key, {document: true}) for the Setting document it updates by id,
+    // and any value handed back makes it CREATE a duplicate. check:probes gates this.
+    if (rest[0]?.document) return foundry.helpers.ClientSettings.prototype.get.call(this, scope, key, ...rest);
     if (scope === game.system.id && key === "enable-glog-magic") return false;
     return origGlogGet.call(this, scope, key, ...rest);
   };
@@ -240,6 +244,10 @@ const rows = await page.evaluate(async () => {
   // GLOG-independent; never write the world's value (probe-preconditions).
   const origGlogGet = game.settings.get;
   game.settings.get = function (scope, key, ...rest) {
+    // A DOCUMENT request is never shadowed (review #27): core's #setWorld asks
+    // get(ns, key, {document: true}) for the Setting document it updates by id,
+    // and any value handed back makes it CREATE a duplicate. check:probes gates this.
+    if (rest[0]?.document) return foundry.helpers.ClientSettings.prototype.get.call(this, scope, key, ...rest);
     if (scope === game.system.id && key === "enable-glog-magic") return false;
     return origGlogGet.call(this, scope, key, ...rest);
   };
@@ -354,6 +362,10 @@ const dialog = await page.evaluate(async (SCROLL_LABEL) => {
     // above is unaffected — ticking Scroll makes a scroll under either setting.
     const origGlogGet = game.settings.get;
     game.settings.get = function (scope, key, ...rest) {
+      // A DOCUMENT request is never shadowed (review #27): core's #setWorld asks
+      // get(ns, key, {document: true}) for the Setting document it updates by id,
+      // and any value handed back makes it CREATE a duplicate. check:probes gates this.
+      if (rest[0]?.document) return foundry.helpers.ClientSettings.prototype.get.call(this, scope, key, ...rest);
       if (scope === game.system.id && key === "enable-glog-magic") return false;
       return origGlogGet.call(this, scope, key, ...rest);
     };

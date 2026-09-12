@@ -106,5 +106,39 @@ staleRunExempt.length === 0
   ? ok(`${NOT_RELEASE_RUN.size} operational script(s) exempt from the run list, all present`)
   : fail(`stale run-list exemption(s) for scripts that no longer exist: ${staleRunExempt.join(", ")}`);
 
+// A `game.settings.get` SHADOW MUST FORWARD EVERY ARGUMENT AND PASS A DOCUMENT
+// REQUEST THROUGH. `ClientSettings#set` → `#setWorld` asks
+// `get(ns, key, {document: true})` for the Setting document it will update by
+// id; a shadow that drops the third argument, or answers that call with a
+// value, hands back no `_id`, and core CREATES a second Setting document for
+// the key. The write then silently does nothing, forever, and the duplicate
+// outlives the probe. The dev world held 131 of these once, and CLAUDE.md then
+// said "every shadow forwards ...rest now" for a day while eighteen shadows in
+// eight probes still did not, and a nineteenth forwarded but answered the
+// document request with `[]` — four more duplicates in one day of sweeps
+// (2026-09-12). A claim about probe hygiene is a copy that drifts unless a
+// gate holds it, so this holds it: every function-form shadow declares a rest
+// parameter and, within its first lines, returns the real getter's answer for
+// `rest[0]?.document`.
+const shadowProblems = [];
+for (const f of files) {
+  const lines = fs.readFileSync(path.join(dir, f), "utf8").split(/\r?\n/);
+  lines.forEach((line, i) => {
+    const m = line.match(/settings\.get = function \(([^)]*)\)/);
+    if (!m) return;
+    if (!/\.\.\.\w+/.test(m[1])) {
+      shadowProblems.push(`${f}:${i + 1} shadows settings.get without a rest parameter — the {document: true} call is dropped`);
+      return;
+    }
+    const window = lines.slice(i + 1, i + 8).join("\n");
+    if (!/rest\[0\]\?\.document\)\s*return\s+foundry\.helpers\.ClientSettings\.prototype\.get\.call\(/.test(window)) {
+      shadowProblems.push(`${f}:${i + 1} shadows settings.get without passing a {document: true} request to ClientSettings.prototype.get`);
+    }
+  });
+}
+shadowProblems.length === 0
+  ? ok("every function-form settings.get shadow forwards its arguments and passes document requests through")
+  : fail(`${shadowProblems.length} settings.get shadow(s) that would make a world-setting write create a duplicate document:\n         ${shadowProblems.join("\n         ")}`);
+
 console.log(failed ? "\nPROBE WIRING CHECK FAILED\n" : "\nprobe wiring check passed\n");
 process.exit(failed ? 1 : 0);

@@ -186,9 +186,13 @@ const parked = await gmPage.evaluate(async ({ pcUuid, freeUuid }) => {
   // Under the shadow the whole UI returns: the tab on the PC sheet, the
   // attach affordance on an unconnected child's header line.
   const origGet = game.settings.get;
-  game.settings.get = function (ns, key) {
+  game.settings.get = function (ns, key, ...rest) {
+    // A DOCUMENT request is never shadowed (review #27): core's #setWorld asks
+    // get(ns, key, {document: true}) for the Setting document it will update by
+    // id, and a value handed back here makes it CREATE a duplicate instead.
+    if (rest[0]?.document) return foundry.helpers.ClientSettings.prototype.get.call(this, ns, key, ...rest);
     if (key === "connections-ui-enabled") return true;
-    return origGet.call(this, ns, key);
+    return origGet.call(this, ns, key, ...rest);
   };
   let attachEl = null;
   try {

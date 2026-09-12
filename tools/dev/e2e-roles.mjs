@@ -583,9 +583,13 @@ try {
     // Parked Connections UI (2026-08-09): the tab this count sits on renders
     // only under the in-page settings shadow. The count logic is unchanged.
     const origGet = game.settings.get;
-    game.settings.get = function (ns, key) {
+    game.settings.get = function (ns, key, ...rest) {
+      // A DOCUMENT request is never shadowed (review #27): core's #setWorld asks
+      // get(ns, key, {document: true}) for the Setting document it will update by
+      // id, and a value handed back here makes it CREATE a duplicate instead.
+      if (rest[0]?.document) return foundry.helpers.ClientSettings.prototype.get.call(this, ns, key, ...rest);
       if (key === "connections-ui-enabled") return true;
-      return origGet.call(this, ns, key);
+      return origGet.call(this, ns, key, ...rest);
     };
     try {
     const pc = await Cls.create({ name: "ZZ Roles Count PC", type: "character" });
@@ -743,9 +747,13 @@ try {
     // own leg BELOW, without the shadow, which is what proves the day-rate
     // control outlived the parking.
     const origGet = game.settings.get;
-    game.settings.get = function (ns, key) {
+    game.settings.get = function (ns, key, ...rest) {
+      // A DOCUMENT request is never shadowed (review #27): core's #setWorld asks
+      // get(ns, key, {document: true}) for the Setting document it will update by
+      // id, and a value handed back here makes it CREATE a duplicate instead.
+      if (rest[0]?.document) return foundry.helpers.ClientSettings.prototype.get.call(this, ns, key, ...rest);
       if (key === "connections-ui-enabled") return true;
-      return origGet.call(this, ns, key);
+      return origGet.call(this, ns, key, ...rest);
     };
     try {
     const pc = await Cls.create({ name: "ZZ Roles Dir PC", type: "character" });
@@ -946,9 +954,13 @@ try {
     // only with the UI restored. The graph-membership and refusal legs are
     // document methods and never consult the flag.
     const origGet = game.settings.get;
-    game.settings.get = function (ns, key) {
+    game.settings.get = function (ns, key, ...rest) {
+      // A DOCUMENT request is never shadowed (review #27): core's #setWorld asks
+      // get(ns, key, {document: true}) for the Setting document it will update by
+      // id, and a value handed back here makes it CREATE a duplicate instead.
+      if (rest[0]?.document) return foundry.helpers.ClientSettings.prototype.get.call(this, ns, key, ...rest);
       if (key === "connections-ui-enabled") return true;
-      return origGet.call(this, ns, key);
+      return origGet.call(this, ns, key, ...rest);
     };
     try {
 
@@ -1294,9 +1306,13 @@ try {
       // identically without the shadow. `prepareData` re-derives the tab flag
       // — her client loaded this PC parked.
       const origGet = game.settings.get;
-      game.settings.get = function (ns, key) {
+      game.settings.get = function (ns, key, ...rest) {
+        // A DOCUMENT request is never shadowed (review #27): core's #setWorld asks
+        // get(ns, key, {document: true}) for the Setting document it will update by
+        // id, and a value handed back here makes it CREATE a duplicate instead.
+        if (rest[0]?.document) return foundry.helpers.ClientSettings.prototype.get.call(this, ns, key, ...rest);
         if (key === "connections-ui-enabled") return true;
-        return origGet.call(this, ns, key);
+        return origGet.call(this, ns, key, ...rest);
       };
       try {
       pc.prepareData();

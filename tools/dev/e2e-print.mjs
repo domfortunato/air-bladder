@@ -112,6 +112,10 @@ const r = await page.evaluate(async ({ xssName }) => {
   // shadow forcing GLOG off; the world's value is the user's, never written.
   const origGetGlog = game.settings.get;
   game.settings.get = function (scope, key, ...rest) {
+    // A DOCUMENT request is never shadowed (review #27): core's #setWorld asks
+    // get(ns, key, {document: true}) for the Setting document it updates by id,
+    // and any value handed back makes it CREATE a duplicate. check:probes gates this.
+    if (rest[0]?.document) return foundry.helpers.ClientSettings.prototype.get.call(this, scope, key, ...rest);
     if (scope === game.system.id && key === "enable-glog-magic") return false;
     return origGetGlog.call(this, scope, key, ...rest);
   };
@@ -485,9 +489,13 @@ const r = await page.evaluate(async ({ xssName }) => {
     return popup2;
   };
   const origGet = game.settings.get;
-  game.settings.get = function (ns, key) {
+  game.settings.get = function (ns, key, ...rest) {
+    // A DOCUMENT request is never shadowed (review #27): core's #setWorld asks
+    // get(ns, key, {document: true}) for the Setting document it will update by
+    // id, and a value handed back here makes it CREATE a duplicate instead.
+    if (rest[0]?.document) return foundry.helpers.ClientSettings.prototype.get.call(this, ns, key, ...rest);
     if (key === "barebones-failed-career") return true;
-    return origGet.call(this, ns, key);
+    return origGet.call(this, ns, key, ...rest);
   };
   try {
     pc.sheet.element.querySelector('[data-action="printSheet"]')?.click();
@@ -730,9 +738,13 @@ const r = await page.evaluate(async ({ xssName }) => {
   await sleep(600);
   const printWithShadow = async (shadow) => {
     const origGet2 = game.settings.get;
-    game.settings.get = function (ns, key) {
+    game.settings.get = function (ns, key, ...rest) {
+      // A DOCUMENT request is never shadowed (review #27): core's #setWorld asks
+      // get(ns, key, {document: true}) for the Setting document it will update by
+      // id, and a value handed back here makes it CREATE a duplicate instead.
+      if (rest[0]?.document) return foundry.helpers.ClientSettings.prototype.get.call(this, ns, key, ...rest);
       if (key in shadow) return shadow[key];
-      return origGet2.call(this, ns, key);
+      return origGet2.call(this, ns, key, ...rest);
     };
     let popup8 = null;
     window.open = (...a) => {

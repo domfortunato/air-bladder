@@ -493,8 +493,18 @@ companion record of who authored what.
     document instead of updating the first. The write then silently does
     nothing and the duplicate outlives the probe. The dev world had **131** of
     them, across `core.time`, `custom-portrait-list` and more, from probes that
-    have shadowed this way for weeks. Every shadow in `tools/dev` forwards
-    `...rest` now.
+    have shadowed this way for weeks. **This line then said "every shadow in
+    `tools/dev` forwards `...rest` now" for a day while EIGHTEEN of them, in
+    eight probes, still called `origGet.call(this, ns, key)`** — and a
+    nineteenth (`portrait-probe`) forwarded the argument but answered the
+    document request with `[]`, which is the same trap in a second shape.
+    Four more duplicates of `custom-portrait-list` accumulated in a day, one
+    per sweep, every one from the portrait-folder scan writing its cache while
+    one of those shadows was installed (2026-09-12). Every function-form
+    shadow now forwards AND passes any `{document: true}` request straight to
+    `ClientSettings.prototype.get`, and `check:probes` refuses a shadow that
+    does either half wrong — a claim about probe hygiene is a copy that
+    drifts unless a gate holds it.
   - **DialogV2 REFUSES a content element with ANY attribute** — "config.content
     element must have no attributes" (dialog.mjs:189), thrown from the
     constructor, so the dialog never opens and the button does nothing. A
