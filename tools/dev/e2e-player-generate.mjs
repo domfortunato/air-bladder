@@ -576,6 +576,58 @@ try {
     enforce.flag === true && enforce.told
       ? ok("switch off: the toggle action refuses past the hidden button (flag unwritten, toast shown)")
       : fail(`switch off enforcement: flag=${enforce.flag} told=${enforce.told}`);
+
+    /* -- the empty-sheet box is not offered to someone it would strand ------
+     * With the switch OFF, a player's sheet renders no pickers at all — this
+     * very section has just measured that. An empty sheet is nothing BUT its
+     * pickers: a bond and a question answer are read-only prose with no other
+     * entry path. So clearing the box handed the player a character with no
+     * background, no gear and no control that could fill any of it in, and no
+     * way back without the Warden deleting the actor (review #26).
+     *
+     * Both states, because withholding the box unconditionally would be the
+     * same defect wearing the other face. The switch is still OFF here; the
+     * on-state is re-measured after flipping it back.
+     * -------------------------------------------------------------------- */
+    const boxShown = () => alice.evaluate(async () => {
+      const cg = await import("/systems/air-bladder/module/character-generator.js");
+      const before = new Set([...document.querySelectorAll(".application.dialog")].map((d) => d.id));
+      const pending = cg.promptCreation("character");
+      let el = null;
+      for (let i = 0; i < 60 && !el; i++) {
+        el = [...document.querySelectorAll(".application.dialog")].find((d) => !before.has(d.id)) ?? null;
+        if (!el) await new Promise((r) => setTimeout(r, 100));
+      }
+      if (!el) { return { opened: false }; }
+      const box = !!el.querySelector('input[name="roll"]');
+      // Answer Create and read what the dialog reports, so this measures the
+      // ANSWER and not just the markup: with no checkbox, `!undefined?.checked`
+      // is true, and an answer of blank:true here would be the stranded sheet
+      // arriving by another route.
+      el.querySelector('button[data-action="create"]')?.click();
+      const answer = await Promise.race([
+        pending,
+        new Promise((r) => setTimeout(() => r({ hung: true }), 6000)),
+      ]);
+      return { opened: true, box, answer };
+    });
+
+    const offBox = await boxShown();
+    offBox.opened && offBox.box === false
+      ? ok("switch off: the creation dialog offers Alice no empty-sheet checkbox")
+      : fail(`switch off: checkbox offered=${offBox.box} opened=${offBox.opened}`);
+    offBox.answer && offBox.answer.blank === false
+      ? ok("   …and its answer is blank:false, not a missing control reading as cleared")
+      : fail(`switch off: the dialog answered ${JSON.stringify(offBox.answer)}`);
+
+    await gm.evaluate((k) => game.settings.set("air-bladder", k, true), RND);
+    await new Promise((r) => setTimeout(r, 800));
+    const onBox = await boxShown();
+    onBox.opened && onBox.box === true
+      ? ok("switch on: Alice is offered the empty-sheet checkbox again")
+      : fail(`switch on: checkbox offered=${onBox.box} opened=${onBox.opened}`);
+    await gm.evaluate((k) => game.settings.set("air-bladder", k, false), RND);
+    await new Promise((r) => setTimeout(r, 500));
     // Re-establish the actor's own flag before the Warden leg. Idempotent
     // when the guard holds (the flag was never written); under the
     // guard-removed witness the enforcement call above DID write it off, and

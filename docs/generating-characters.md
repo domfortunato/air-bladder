@@ -23,6 +23,12 @@ rolled: no background, no gear, no bonds, no traits, no age. Abilities start at
 The same box sits on **Generate NPC**, **Generate Hireling** and **Generate
 Monster**, so any of the four can arrive empty.
 
+Players see the box only where they could use it. An empty sheet is filled in
+with the pick-list buttons, and those belong to Character Creation Mode — which
+the Warden's **Toggle Player Creation Tools** switch can take away. With that
+switch off, a player's dialog just confirms, because an empty sheet they cannot
+fill in is no use to them.
+
 **This is not a character builder, and it is not the way to make a character.**
 It is for the table that rolls on paper. Deal your character with the book and
 your own dice, then open an empty sheet and put it in: type the numbers, and use

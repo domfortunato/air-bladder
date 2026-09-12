@@ -1099,7 +1099,11 @@ Hooks.once("init", () => {
           }));
         }
         game.socket.emit(`system.${game.system.id}`, {
-          action: "pcGenerated", userId: senderId, uuid: actor?.uuid ?? null,
+          // The empty-sheet answer travels BACK too (review #26). An empty
+          // sheet posts no generation card, so without this the asking client
+          // polled ten times at 150ms for a message that could never arrive:
+          // ~1.5s of dead wait between the toast and their own sheet opening.
+          action: "pcGenerated", userId: senderId, uuid: actor?.uuid ?? null, blank: msg.blank === true,
         });
       } catch (err) {
         console.error(`Air Bladder | generatePC failed for ${user.name}:`, err);
@@ -1140,10 +1144,16 @@ Hooks.once("init", () => {
           // over: find it by actor.
           // Poll briefly, because the custom emit can outrun the chat broadcast
           // exactly as it can outrun the actor's (that is why this loop exists).
-          for (let j = 0; j < 10; j++) {
-            const rollMessage = findGenerationRollMessage(actor);
-            if (rollMessage) { await awaitDiceAnimation(rollMessage.id); break; }
-            await new Promise((r) => setTimeout(r, 150));
+          // Skipped for an empty sheet, which rolled nothing and so posts no
+          // card to find. Coerced the same way the request was: only a literal
+          // true skips the wait, so a malformed answer still waits rather than
+          // opening the sheet over an animation.
+          if (msg.blank !== true) {
+            for (let j = 0; j < 10; j++) {
+              const rollMessage = findGenerationRollMessage(actor);
+              if (rollMessage) { await awaitDiceAnimation(rollMessage.id); break; }
+              await new Promise((r) => setTimeout(r, 150));
+            }
           }
           actor.sheet?.render(true);
           return;

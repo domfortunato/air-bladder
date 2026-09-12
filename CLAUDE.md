@@ -755,6 +755,18 @@ Six things that will bite:
   A question row's stored `gold` is zeroed too, not merely withheld: a later
   swap REFUNDS each row's recorded gold, so a row remembering a grant that never
   happened would pay out coins the character never had.
+- **THE BOX IS WITHHELD FROM ANYONE IT WOULD STRAND** (review #26).
+  `createBlankActor` sets `generationEnabled` because the mode is the only
+  thing that renders the pickers — but the SHEET derives that as the actor's
+  flag AND `_mayRandomize`, which for a non-GM reads
+  `allow-player-randomization` on a character and is flatly false on every npc
+  type. With generation allowed and randomization off, a supported
+  combination, a player who cleared the box got a character with no background,
+  no gear and no control on the sheet that could enter either, recoverable only
+  by the Warden deleting the actor. `blankIsFillableBy` answers on the CLICKING
+  client, the relay included. **The callback must ask it too**: with the
+  control absent `!undefined?.checked` is TRUE, so a missing checkbox read as a
+  cleared one and delivered the very sheet the gate exists to prevent.
 - **THE WARDEN IS ASKED NOW**, reversing 2026-08-08's "the Warden's own button
   keeps rolling instantly". That ruling was about an accidental click, which
   only ever threatened a player; this dialog is where the choice is MADE. One

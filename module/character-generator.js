@@ -2172,8 +2172,36 @@ const BLANK_KINDS = {
  *   heading on the only version of this dialog that asks about editions.
  * @returns {Promise<{blank: Boolean, choice: String|null}|null>} null = declined
  */
+/**
+ * Would an empty sheet of this kind be FILLABLE by the user about to make one?
+ *
+ * The empty sheet's whole premise is that Character Creation Mode renders the
+ * pickers, which are the only hand-entry path to a bond or a question answer —
+ * both read-only prose. But the sheet derives that mode as the actor's flag AND
+ * `_mayRandomize`, and for a non-GM that reads `allow-player-randomization` on
+ * a character and is FLATLY false on every npc type (the 2026-08-21 ruling that
+ * the randomization surface there is the Warden's alone).
+ *
+ * So with generation allowed and randomization off — a combination the settings
+ * support on purpose — a player who cleared the box got a character with no
+ * background, no gear and NO CONTROL ON THE SHEET that could fill any of it in,
+ * and no way to recover it without the Warden deleting the actor (review #26).
+ * The checkbox is simply not offered to someone it would strand.
+ *
+ * Read on the CLICKING client, which is the one whose sheet is in question —
+ * the relay asks here too, before the request is ever sent.
+ * @param {"character"|"npc"|"hireling"|"monster"} kind
+ * @returns {Boolean}
+ */
+const blankIsFillableBy = (kind) => {
+  if (game.user.isGM) return true;
+  if (kind !== "character") return false; // _mayRandomize refuses any player on npc types
+  return game.settings.get(SETTINGS_NS, "allow-player-randomization") === true;
+};
+
 export const promptCreation = async (kind, { choices = null, choiceLabel = null, lockChoiceWhenBlank = false, title = null } = {}) => {
   const spec = BLANK_KINDS[kind];
+  const offerBlank = blankIsFillableBy(kind);
   const content = document.createElement("div"); // BARE — see the docblock
   if (choices?.length) {
     const prompt = document.createElement("p");
@@ -2204,7 +2232,10 @@ export const promptCreation = async (kind, { choices = null, choiceLabel = null,
   const hint = document.createElement("p");
   hint.className = "hint";
   hint.textContent = game.i18n.localize(spec.hint);
-  content.append(label, hint);
+  // Only where the resulting sheet could actually be filled in — see
+  // `blankIsFillableBy`. Withheld rather than disabled: a greyed checkbox with
+  // no explanation is a worse answer than a dialog that simply confirms.
+  if (offerBlank) content.append(label, hint);
 
   const picked = await foundry.applications.api.DialogV2.wait({
     window: { title: game.i18n.localize(title ?? spec.title) },
@@ -2226,7 +2257,11 @@ export const promptCreation = async (kind, { choices = null, choiceLabel = null,
         label: game.i18n.localize("CAIRN.Create"),
         default: true,
         callback: (event, button) => ({
-          blank: !button.form.elements.roll?.checked,
+          // `offerBlank &&` matters: with the checkbox withheld there is no
+          // `roll` element, and `!undefined?.checked` is TRUE — so the absent
+          // control would have read as "cleared" and handed exactly the
+          // stranded empty sheet this gate exists to prevent.
+          blank: offerBlank && !button.form.elements.roll?.checked,
           choice: button.form.elements.choice?.value ?? null,
         }),
       },
