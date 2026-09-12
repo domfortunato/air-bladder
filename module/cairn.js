@@ -1,5 +1,5 @@
 // Import Modules
-import { CairnActor } from "./actor/actor.js";
+import { CairnActor, localizeStatusCard } from "./actor/actor.js";
 import { CairnActorSheet } from "./actor/actor-sheet.js";
 import { CairnItem, FATIGUE_NAME, SPELLSCROLL_NAME } from "./item/item.js";
 import { CairnItemSheet } from "./item/item-sheet.js";
@@ -24,7 +24,7 @@ import { registerSettings, SETTINGS_NS, SETTING_GROUPS, migrateSettingsNamespace
 import { ACTOR_DATA_MODELS, ITEM_DATA_MODELS, deriveNpcRole } from "./data-models.js";
 import { connectionHeadroom, connectedOwnershipShape, syncPendingOwnership, OWNERSHIP_SYNC_FLAG } from "./connections.js";
 import { loadContentOverlay, t, translationOf, contentLocalized, tokenDisplayName, actorDisplayName, LOCALIZED_DIRECTORIES, localizeJournalBlocks } from "./i18n-content.js";
-import { injectEncounterButton } from "./encounters.js";
+import { injectEncounterButton, localizeEncounterQty, resolveTable } from "./encounters.js";
 import { bindGrimoireFatigueButton, localizeGlogCastCard } from "./grimoire.js";
 import { nameableTokens } from "./utils.js";
 
@@ -145,8 +145,14 @@ Hooks.once("init", async function () {
   // follow the journal. These fire on every client, which is how a player's
   // open calendar learns about an event the Warden just added — and how it
   // loses one that was removed.
+  //
+  // `updateJournalEntry` is on the list too (review #27): a page's visibility
+  // is its ENTRY's ownership, so the one change that reveals or hides a whole
+  // set of events at once — the Warden raising the hidden journal from NONE
+  // through core's ownership dialog — fires on the entry and on no page. A
+  // player's open calendar gained nothing until the next watch tick.
   for (const hook of ["createJournalEntryPage", "updateJournalEntryPage",
-    "deleteJournalEntryPage", "deleteJournalEntry"]) {
+    "deleteJournalEntryPage", "updateJournalEntry", "deleteJournalEntry"]) {
     Hooks.on(hook, () => refreshValdCalendar());
   }
 });
@@ -562,7 +568,16 @@ const localizeResultCells = (cells) => {
   }
 };
 
-const localizeTableResults = (root) => {
+const localizeTableResults = (message, root) => {
+  const flavor = root?.querySelector?.(".flavor-text");
+  // The scar card (damage.js) stores its flavor in the ACTING client's
+  // language under its own flag, while the scar row beneath it was already
+  // swept per viewer — one card, two languages (review #27). Rebuilt from the
+  // key, and BEFORE the overlay gate: it is an interface string and needs no
+  // content overlay to translate.
+  if (flavor && message?.getFlag?.("air-bladder", "scarCard") === true) {
+    flavor.textContent = game.i18n.localize("CAIRN.ScarFlavor");
+  }
   if (!contentLocalized()) return;
   const cells = root?.querySelectorAll?.(".table-results li");
   if (!cells?.length) return;
@@ -576,6 +591,26 @@ const localizeTableResults = (root) => {
     if (es !== undefined) tableDesc.innerHTML = es;
   }
   localizeResultCells(cells);
+  // The flavor line (review #27): core stamps `TABLE.DrawFlavor` with the
+  // table's RAW name (roll-table.mjs:53-55) and stores it, so a Spanish
+  // sidebar draw read a Spanish sentence around "Warden: NPC - Reactions" over
+  // Spanish rows — the one list of names on this card the overlay never
+  // reached. Rebuilt from the message's own table, resolved through core's id
+  // flag (world first, then the pack index — the encounter button's resolver),
+  // never parsed out of the stored sentence. Two cards claim this line
+  // themselves and are left alone: the Dashboard's draw, relabelled with its
+  // button's UI key in localizeDashboardCard, and the scar card above.
+  if (!flavor || message.getFlag("air-bladder", "dashboardDraw") || message.getFlag("air-bladder", "scarCard")) return;
+  const tableId = message.getFlag("core", "RollTable");
+  if (!tableId) return;
+  resolveTable(tableId).then((table) => {
+    if (!table) return;
+    const es = translationOf("table.name", table.name);
+    if (es === undefined) return;
+    flavor.textContent = game.i18n.format(`TABLE.DrawFlavor${cells.length > 1 ? "Plural" : ""}`, {
+      number: cells.length, name: es,
+    });
+  }).catch((err) => console.error("Air Bladder | draw flavor localization failed", err));
 };
 
 // The RollTable sheet's VIEW mode (14.365: the sticky default for any table
@@ -1075,7 +1110,17 @@ Hooks.once("init", () => {
           // other than a literal true means roll, which is the safe reading —
           // a rolled character can be emptied by hand, a silently empty one
           // looks like generation broke.
-          blank: msg.blank === true,
+          //
+          // AND ONLY WHERE THE PLAYER COULD FILL IT IN (review #27). The box
+          // is withheld on the clicking client from a player whose sheet would
+          // render no pickers (`blankIsFillableBy`: a character, and only
+          // while allow-player-randomization is on), but that is the
+          // affordance half, and this broker is the enforcement half — the
+          // one place a crafted or stale client cannot script around, as the
+          // allow-player-generate refusal above already says. A character is
+          // the only kind this relay mints, so the test is that one switch.
+          blank: msg.blank === true
+            && game.settings.get(SETTINGS_NS, "allow-player-randomization") === true,
           ownership: { [senderId]: CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER },
           // The generation chat card is headed by the ROLLER's name, and the
           // roller is the PLAYER who asked -- this branch runs on the Warden's
@@ -3150,8 +3195,17 @@ Hooks.on("renderRollTableDirectory", (app, html) => {
 });
 
 Hooks.on("renderChatMessageHTML", (message, html, data) => {
-  // Display-only content overlay for RollTable draw cards (see above).
-  localizeTableResults(html);
+  // Display-only content overlay for RollTable draw cards (see above), the
+  // flavor line included.
+  localizeTableResults(message, html);
+
+  // Three older cards composed in the ACTING client's language and stored —
+  // the status bar, the encounter quantity, the scar (that one lives in
+  // localizeTableResults, since it is a draw card). Rebuilt per viewer from a
+  // flag that carries a kind or an English source string, never text
+  // (review #27; the class review #26 fixed on the Dashboard's cards).
+  localizeStatusCard(message, html);
+  localizeEncounterQty(message, html);
 
   // The initiative save's total, coloured by outcome (module/combat.js).
   markInitiativeOutcome(message, html);

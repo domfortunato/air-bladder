@@ -369,7 +369,12 @@ const grants = await page.evaluate(async (prefix) => {
     name: `${prefix} hireling career`,
     "system.abilities.STR.value": 14,
     "system.hp.value": 9, "system.hp.max": 9,
-  });
+    // Critical Damage is part of the transcription too (review #27): the
+    // career write cleared it OUTSIDE the hand-built gate, under
+    // abNoStatusCard, so the one status the sheet wears as a banner vanished
+    // with no card saying so.
+    "system.critical": true,
+  }, { abNoStatusCard: true });
   const careers = await cg.getNpcCareers2e();
   // `gear` is the career's reference list — `items` is what buildHirelingItems
   // returns from it, and asking for the wrong one picked a career that grants
@@ -383,6 +388,7 @@ const grants = await page.evaluate(async (prefix) => {
     items: career.items.size,
     str: career._source.system.abilities?.STR?.value,
     hp: career._source.system.hp?.value,
+    critical: career._source.system.critical,
   };
   await settle(career);
 
@@ -424,6 +430,32 @@ const grants = await page.evaluate(async (prefix) => {
     stillMarked: contract.getFlag("air-bladder", "handBuilt") === true,
   };
   await settle(contract);
+
+  // (i2) THE KEEPSAKE INSIDE changeBackground (review #27). The way-out
+  // gesture passes `ignoreHandBuilt`, and every grant in changeBackground
+  // honoured it — except the failed-career keepsake, written by a helper
+  // called from INSIDE changeBackground that re-read the flag itself. The
+  // flag is cleared only after the call returns, so on the one branch where
+  // the helper runs — a fresh Barebones background colliding with the
+  // stored failed career — it deleted the keepsake and granted nothing.
+  // Staged deliberately: the stored career IS the background about to land.
+  const bbBgs = (await game.packs.get("air-bladder.backgrounds-barebones")?.getDocuments()) ?? [];
+  const bbBg = bbBgs[0];
+  if (!bbBg) {
+    out.errors.push("no Barebones background in the pack");
+  } else {
+    const collide = await cg.createBlankActor("character", { source: "barebones" });
+    await collide.update({ name: `${prefix} collide`, "system.failedCareer": bbBg.name }, { abNoStatusCard: true });
+    const dealtCollide = await cg.changeBackground(collide, bbBg, { ignoreHandBuilt: true });
+    out.collide = {
+      returned: dealtCollide,
+      background: collide._source.system.background,
+      careerRerolled: collide._source.system.failedCareer !== bbBg.name && !!collide._source.system.failedCareer,
+      keepsake: collide.items.some((i) => i.getFlag("air-bladder", "grantSource") === "failed-career"),
+      stillMarked: collide.getFlag("air-bladder", "handBuilt") === true,
+    };
+    await settle(collide);
+  }
 
   // (j) Ticking STARTING GEAR is the second way out. It used to grant while
   // LEAVING the mark set, which is the worst of the three states: tagged items
@@ -537,6 +569,22 @@ if (grants.hirelingCareer) {
   c.str === 14 && c.hp === 9
     ? ok("   …and the TYPED statblock survives (STR 14, HP 9)")
     : fail(`the career overwrote the typed statblock: STR ${c.str} (want 14), HP ${c.hp} (want 9)`);
+  c.critical === true
+    ? ok("   …and so does its Critical Damage (review #27)")
+    : fail("the career cleared a hand-built hireling's Critical Damage under abNoStatusCard");
+}
+
+if (grants.collide) {
+  const k = grants.collide;
+  k.returned === true && k.careerRerolled
+    ? ok(`a Barebones background landing on the stored failed career re-rolls the career  ("${k.background}")`)
+    : fail(`the collision branch did not run: ${JSON.stringify(k)}`);
+  k.keepsake
+    ? ok("   …and the way-out gesture GRANTS the new keepsake — the helper honours ignoreHandBuilt (review #27)")
+    : fail("the keepsake was deleted and none granted: the helper re-read the hand-built flag the caller had overridden");
+  k.stillMarked
+    ? ok("   …leaving the mark to the caller, as the contract above says")
+    : fail("the collision branch cleared the hand-built mark");
 }
 
 if (grants.npcRegen) {

@@ -91,6 +91,24 @@ const STATUS_CARDS = {
  * @param {Actor} actor
  * @param {"critical"|"stabilized"|"dead"} kind
  */
+const statusBannerLine = (spec) =>
+  game.i18n.format("CAIRN.StatusBannerLine", { label: spec.label(), text: game.i18n.localize(spec.text) });
+
+/**
+ * Rebuild a status card's line in THIS viewer's language (renderChatMessageHTML).
+ * The flag is a KIND, looked up with hasOwn so a crafted value — "constructor",
+ * "__proto__" — finds no spec rather than an Object member; the strings come
+ * from the language files, never from the message.
+ * @param {ChatMessage} message
+ * @param {HTMLElement} html
+ */
+export const localizeStatusCard = (message, html) => {
+  const kind = message.getFlag("air-bladder", "statusCard");
+  if (typeof kind !== "string" || !Object.hasOwn(STATUS_CARDS, kind)) return;
+  const span = html.querySelector(".status-banner > span");
+  if (span) span.innerHTML = statusBannerLine(STATUS_CARDS[kind]);
+};
+
 export const postStatusCard = async (actor, kind) => {
   const spec = STATUS_CARDS[kind];
   if (!spec || !actor) return;
@@ -106,7 +124,14 @@ export const postStatusCard = async (actor, kind) => {
     // bars were copied value for value from the sheet's, and one key is what
     // keeps a translator's reordering from splitting the pair.
     content: `<div class="status-banner ${spec.cls}"><i class="fas ${spec.icon}"></i>`
-      + `<span>${game.i18n.format("CAIRN.StatusBannerLine", { label: spec.label(), text: game.i18n.localize(spec.text) })}</span></div>`,
+      + `<span>${statusBannerLine(spec)}</span></div>`,
+    // Composed on the ACTING client and stored, so a Spanish player whose
+    // character an English Warden's hazard dropped to Critical Damage read an
+    // English bar in chat under a Spanish one on the sheet — the docblock's
+    // "identical bar" promise, broken. The flag names the KIND and nothing
+    // else; `localizeStatusCard` rebuilds the line per viewer from the same
+    // table (review #27).
+    flags: { "air-bladder": { statusCard: kind } },
   };
   // A hidden creature's death is not table news. Only a TOKEN can be concealed --
   // a world actor with no token has nothing to hide behind, and concealmentWhisper

@@ -244,9 +244,16 @@ try {
     select.dispatchEvent(new Event("change"));
     out.otherRehidden = form.elements.kindOther.hidden === true;
     out.namePrefilled = form.elements.thingName.value;
+    // BY ID DIFFERENCE, never by name. This read `getName("Heavy Destrier")`,
+    // and the 2026-09-12 sweep found a leftover of that name in the world: the
+    // leg read ITS statblock (identical — same pack document), reported its
+    // missing compendiumSource as the product's, deleted it, and left the
+    // clone it had just minted behind for the next run to trip on. The probe
+    // was wrong before the code was; the stale-state class exactly.
+    const priorIds = new Set(game.actors.map((x) => x.id));
     form.closest("dialog").querySelector('button[data-action="ok"]')?.click();
-    await until(() => !!game.actors.getName("Heavy Destrier"));
-    const a = game.actors.getName("Heavy Destrier");
+    await until(() => game.actors.some((x) => !priorIds.has(x.id) && x.name === "Heavy Destrier"));
+    const a = game.actors.find((x) => !priorIds.has(x.id) && x.name === "Heavy Destrier");
     out.minted = !!a;
     if (a) {
       out.role = a.system.role;

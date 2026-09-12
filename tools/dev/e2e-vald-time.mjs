@@ -439,6 +439,33 @@ try {
 
   const off = await readDash();
 
+  // KEYBOARD FOCUS SURVIVES THE BAND'S RE-RENDER (review #27). Advance Watch
+  // re-renders the `time` part alone, and core restores focus across a part
+  // replacement only to an element it can name by `#id` or `[name]`; without
+  // one, Enter three times advanced ONE watch and stranded the focus on
+  // <body>. Forward then back, so the clock ends where it started.
+  const bandFocus = await page.evaluate(async () => {
+    const app = document.querySelector("#cairn-warden-dashboard");
+    const adv = app?.querySelector("#cairn-warden-dashboard-advance-watch");
+    adv?.focus();
+    const before = document.activeElement?.id ?? "";
+    const t0 = game.time.worldTime;
+    adv?.click();
+    for (let i = 0; i < 40 && game.time.worldTime === t0; i++) await new Promise((r) => setTimeout(r, 100));
+    await new Promise((r) => setTimeout(r, 500));
+    const after = document.activeElement?.id ?? "";
+    app?.querySelector("#cairn-warden-dashboard-back-watch")?.click();
+    for (let i = 0; i < 40 && game.time.worldTime !== t0; i++) await new Promise((r) => setTimeout(r, 100));
+    await new Promise((r) => setTimeout(r, 400));
+    return { before, after, restored: game.time.worldTime === t0 };
+  });
+  bandFocus.before === "cairn-warden-dashboard-advance-watch" && bandFocus.after === bandFocus.before
+    ? ok("keyboard focus survives the time band's re-render (a stable id core can restore)")
+    : fail("focus is lost on the band's re-render", JSON.stringify(bandFocus));
+  bandFocus.restored
+    ? ok("   …and the clock is back where it was")
+    : fail("the focus leg moved the clock and could not move it back", JSON.stringify(bandFocus));
+
   off.tabs === 6
     ? ok("the tab strip is still six — the band is furniture, not a seventh tab")
     : fail("six tabs", String(off.tabs));
@@ -820,6 +847,21 @@ try {
     await new Promise((r) => setTimeout(r, 400));
   });
 
+  // ESTABLISHED, not assumed: an earlier run's "ZZ Probe" events, left behind
+  // when that run ended short of its sweep, marked four days of Mourning and
+  // reddened the festival count below for a reason that was never the
+  // calendar's (2026-09-12). Litter is recognised by this probe's own name
+  // marker — the only handle one run has on what another left — and only a
+  // journal whose pages ALL carry it goes, so a Warden's own calendar stays.
+  const litter = await page.evaluate(async () => {
+    const mine = game.journal.contents.filter((j) => j.flags?.["air-bladder"]?.calendarEvents
+      && j.pages.size > 0 && j.pages.contents.every((p) => /^ZZ Probe/.test(p.name)));
+    const ids = mine.map((j) => j.id);
+    if (ids.length) await getDocumentClass("JournalEntry").deleteDocuments(ids);
+    return ids.length;
+  });
+  if (litter) note(`swept ${litter} event journal(s) an earlier run left behind`);
+
   const cal = await withValdOn(page, async (gt, festivals) => {
     const vc = await import("/systems/air-bladder/module/vald-calendar.js");
     const wc = await import("/systems/air-bladder/module/watch-clock.js");
@@ -841,6 +883,22 @@ try {
 
     const el = () => app.element;
     const days = () => [...el().querySelectorAll(".cairn-calendar-day")];
+
+    // KEYBOARD FOCUS SURVIVES A RE-RENDER (review #27). Every action replaces
+    // the whole part, and core restores focus across a replacement only to an
+    // element it can name by `#id` or `[name]` — so a button with neither
+    // paged one month and stranded the focus on <body>. Next, then back, so
+    // the month legs below still read the month they expect.
+    {
+      const next = document.getElementById("cairn-vald-calendar-next");
+      next?.focus();
+      out.focusBefore = document.activeElement?.id ?? "";
+      next?.click();
+      await new Promise((r) => setTimeout(r, 500));
+      out.focusAfter = document.activeElement?.id ?? "";
+      document.getElementById("cairn-vald-calendar-prev")?.click();
+      await new Promise((r) => setTimeout(r, 400));
+    }
 
     // Shape. `leadingBlanks` is COMPUTED from the first day's weekday, so a
     // zero here is a result and not a restatement of the config.
@@ -977,6 +1035,10 @@ try {
     return out;
   }, FESTIVALS);
 
+  cal.focusBefore === "cairn-vald-calendar-next" && cal.focusAfter === "cairn-vald-calendar-next"
+    ? ok("keyboard focus survives the calendar's re-render (a stable id core can restore, review #27)")
+    : fail("focus is lost on the calendar's re-render",
+      JSON.stringify({ before: cal.focusBefore, after: cal.focusAfter }));
   cal.isButton && cal.opened
     ? ok("with the hack on the clock is a button, and clicking it opens the calendar")
     : fail("the clock is the door", JSON.stringify({ isButton: cal.isButton, opened: cal.opened }));
@@ -1140,6 +1202,20 @@ try {
       // column's slack and grows UPWARD.
       const playersBefore = await alice.evaluate(() =>
         Math.round(document.getElementById("players")?.getBoundingClientRect().top ?? -1));
+      // ESTABLISHED, not assumed: "no weather yet" is world state, and a
+      // previous run that left the day's weather set (2026-09-12, "Then hail"
+      // from the log legs, surviving the sweep at the end) made this leg red
+      // for a reason that was never the clock's. Clear it and let the clock
+      // drop its line before reading; `weatherStart` above still restores
+      // whatever the world held.
+      await page.evaluate(async () => {
+        const gt = await import("/systems/air-bladder/module/game-time.js");
+        await gt.setTodayWeather("");
+      });
+      for (let i = 0; i < 30; i++) {
+        if (!(await alice.evaluate(() => !!document.querySelector("#cairn-watch-clock .cairn-watch-weather")))) break;
+        await new Promise((r) => setTimeout(r, 100));
+      }
       const lineBefore = await alice.evaluate(() =>
         !!document.querySelector("#cairn-watch-clock .cairn-watch-weather"));
 
@@ -1395,6 +1471,45 @@ try {
       ? ok("...and a hidden one is off her calendar and off her sidebar", "concealed, not encrypted")
       : fail("a hidden event shows on the player's calendar", JSON.stringify(aliceSees));
 
+    // A REVEAL REACHES AN OPEN CALENDAR (review #27). A page's visibility is
+    // its ENTRY's ownership, and the Warden raising the hidden journal through
+    // core's ownership dialog fires `updateJournalEntry` — on the entry, on no
+    // page — which the calendar did not follow: Alice's open window gained no
+    // marker until the next watch tick. Both directions, so the hook is what
+    // is measured and not a stray re-render.
+    await alice.evaluate(async () => {
+      const vc = await import("/systems/air-bladder/module/vald-calendar.js");
+      await vc.openValdCalendar();
+      for (let i = 0; i < 40 && !document.getElementById("cairn-vald-calendar"); i++) {
+        await new Promise((r) => setTimeout(r, 50));
+      }
+    });
+    const secretDot = () => alice.evaluate(() =>
+      !!document.querySelector('#cairn-vald-calendar .cairn-calendar-day[data-day="6"] .cairn-calendar-dot.is-warden'));
+    const dotBefore = await secretDot();
+    await page.evaluate((id) =>
+      game.journal.get(id)?.update({ "ownership.default": CONST.DOCUMENT_OWNERSHIP_LEVELS.OBSERVER }), evented.entries.hidden);
+    let dotRevealed = false;
+    for (let i = 0; i < 30 && !dotRevealed; i++) {
+      dotRevealed = await secretDot();
+      if (!dotRevealed) await new Promise((r) => setTimeout(r, 100));
+    }
+    await page.evaluate((id) =>
+      game.journal.get(id)?.update({ "ownership.default": CONST.DOCUMENT_OWNERSHIP_LEVELS.NONE }), evented.entries.hidden);
+    let dotHiddenAgain = false;
+    for (let i = 0; i < 30 && !dotHiddenAgain; i++) {
+      dotHiddenAgain = !(await secretDot());
+      if (!dotHiddenAgain) await new Promise((r) => setTimeout(r, 100));
+    }
+    await alice.evaluate(async () => {
+      const vc = await import("/systems/air-bladder/module/vald-calendar.js");
+      await vc._calendarApp()?.close();
+    });
+    !dotBefore && dotRevealed && dotHiddenAgain
+      ? ok("revealing the hidden journal reaches her OPEN calendar, and hiding it again does too")
+      : fail("an ownership change on the hidden journal did not re-render the player's calendar",
+        JSON.stringify({ dotBefore, dotRevealed, dotHiddenAgain }));
+
     // A PLAYER CANNOT ADD ONE: no control on her window, and the module's own
     // guard refuses a direct call.
     const aliceTried = await alice.evaluate(async () => {
@@ -1507,6 +1622,88 @@ try {
     aliceReads.has && aliceReads.lines === 2
       ? ok("...and the whole table can read it")
       : fail("the log did not reach the player", JSON.stringify(aliceReads));
+
+    /* ---- a player's DECOY is not the log (review #27) -------------------- */
+
+    // The log is found by its flag, and a flag sits on a document any TRUSTED
+    // player may create. A player's journal flagged like ours and found first
+    // captured every line the Warden wrote into a document the player owns.
+    // The module now vouches for its journals by `_stats.lastModifiedBy`, which
+    // the SERVER stamps (14.365 has no `createdBy` — the review's field, and
+    // the first cut of this fix used it: false for every journal, a fresh log
+    // on every write, twelve legs red). Alice is raised to TRUSTED for the leg and put back; the
+    // real log is deleted first so the decoy is the ONLY flagged journal, which
+    // is the arrangement a broken build fails on.
+    const decoy = await (async () => {
+      // Alice is a PLAYER by dev:players' contract — ESTABLISHED here, not
+      // captured: the first cut captured her role and "restored" it, and one
+      // run that ended between the raise and the restore left her TRUSTED for
+      // every probe after it (playergen's relay legs went quietly onto the
+      // direct path and reported a wire that never existed, 2026-09-12). The
+      // restore lives in a finally now and puts back PLAYER, whatever it found.
+      const roleBefore = await page.evaluate(() => game.users.getName("Alice")?.role ?? null);
+      if (roleBefore !== 1) note(`Alice was role ${roleBefore}, not PLAYER — an earlier run leaked it; set back after this leg`);
+      // A ROLE CHANGE LOGS THAT USER OUT (core User#_onUpdate: a changed role
+      // or password "must re-authenticate", user.mjs:364), so Alice's page
+      // leaves /game the moment the Warden's write lands, and an evaluate on
+      // it mid-navigation dies with "Execution context was destroyed" — which
+      // is how one run ended short of its restore and left her TRUSTED for
+      // every probe after it. Rejoin her after each change; a sleep does not
+      // survive a logout, and neither does a waitForFunction on `game.ready`.
+      const rejoin = async (role) => {
+        await new Promise((r) => setTimeout(r, 800));
+        await joinAs(alice, "Alice");
+        const got = await alice.evaluate(() => game.user.role);
+        if (got !== role) note(`Alice rejoined as role ${got}, expected ${role}`);
+      };
+      try {
+      await page.evaluate(async (id) => {
+        await game.journal.get(id)?.delete();
+        await game.users.getName("Alice")?.update({ role: CONST.USER_ROLES.TRUSTED });
+      }, logged.id);
+      await rejoin(2);
+      const decoyId = await alice.evaluate(async () => {
+        const j = await getDocumentClass("JournalEntry").create({
+          name: "ZZ Decoy Weather Log", flags: { "air-bladder": { weatherLog: true } },
+        });
+        return j?.id ?? null;
+      });
+      const result = await page.evaluate(async (decoyId) => {
+        const settings = game.settings;
+        const realGet = settings.get.bind(settings);
+        settings.get = (ns, key, ...rest) =>
+          (ns === "air-bladder" && key === "weather-log" ? true : realGet(ns, key, ...rest));
+        try {
+          const wl = await import("/systems/air-bladder/module/weather-log.js");
+          const logs = () => game.journal.filter((j) => j.flags?.["air-bladder"]?.weatherLog);
+          await wl.recordWeather();
+          for (let i = 0; i < 40 && logs().length < 2; i++) await new Promise((r) => setTimeout(r, 100));
+          const decoyDoc = game.journal.get(decoyId);
+          const mine = logs().filter((j) => j.id !== decoyId);
+          const out = {
+            decoyExists: !!decoyDoc,
+            decoyCreatedByGM: !!game.users.get(decoyDoc?._stats?.lastModifiedBy)?.isGM,
+            decoyPages: decoyDoc?.pages?.size ?? -1,
+            wardenLogs: mine.length,
+            wardenLogPages: mine[0]?.pages?.size ?? 0,
+            wardenLogByGM: !!game.users.get(mine[0]?._stats?.lastModifiedBy)?.isGM,
+          };
+          for (const j of [decoyDoc, ...mine]) await j?.delete();
+          return out;
+        } finally {
+          settings.get = realGet;
+        }
+      }, decoyId);
+      return result;
+      } finally {
+        await page.evaluate(() => game.users.getName("Alice")?.update({ role: CONST.USER_ROLES.PLAYER }));
+        await rejoin(1).catch((e) => note(`Alice's rejoin after the restore failed: ${e.message}`));
+      }
+    })();
+    decoy.decoyExists && !decoy.decoyCreatedByGM && decoy.decoyPages === 0
+      && decoy.wardenLogs === 1 && decoy.wardenLogPages === 1 && decoy.wardenLogByGM
+      ? ok("a player's flagged decoy captures nothing: the Warden's line lands in a journal a Warden made")
+      : fail("the log wrote into a player's decoy journal", JSON.stringify(decoy));
 
     /* ---- two writes at once make ONE journal and TWO lines --------------- */
 

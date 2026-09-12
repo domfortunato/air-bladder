@@ -136,11 +136,17 @@ const rerenderActorSheets = () => {
 };
 
 /**
- * Internal CONFIGURATION keys: in SETTING_KEYS because they must ride the
- * namespace migration, but Warden-invisible by design — caches and flags no
- * settings UI ever shows. Everything else in SETTING_KEYS is Warden-facing and
- * must belong to exactly one group below, which `npm run dev:settings` gates:
- * a setting in neither list is registered, migrated, and unreachable.
+ * Internal CONFIGURATION keys: Warden-invisible by design — caches and flags no
+ * settings UI ever shows. The three that predate the namespace move are ALSO in
+ * SETTING_KEYS, because they must ride the namespace migration;
+ * `vald-weather-today` is not and must not be, because it dates from after the
+ * move, so there is no "cairn.<key>" value to carry and listing it would iterate
+ * a key that cannot exist (the marker rule above). "Internal" does not imply
+ * "migrated" (review #27): a new internal key joins SETTING_KEYS only if a
+ * world could hold it under the old namespace, and none can any more.
+ * Everything else in SETTING_KEYS is Warden-facing and must belong to exactly
+ * one group below, which `npm run dev:settings` gates: a setting in neither
+ * list is registered, migrated, and unreachable.
  */
 export const INTERNAL_SETTING_KEYS = [
   "custom-portrait-list", "disabled-backgrounds", "connections-ui-enabled",

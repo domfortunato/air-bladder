@@ -73,18 +73,24 @@
         {{/if}}
     </div>
 
+    {{!-- Every control here carries a STABLE id (review #27). A click
+          re-renders this part alone, and core restores keyboard focus across
+          a part replacement only to an element it can name by `#id` or
+          `[name]` (handlebars-application.mjs, _preSyncPartState); without
+          one, Enter three times on Advance Watch advanced ONE watch and
+          stranded the focus on <body>. --}}
     <div class="cairn-time-controls">
-        <button type="button" data-action="backWatch"
+        <button type="button" data-action="backWatch" id="cairn-warden-dashboard-back-watch"
                 data-tooltip="{{localize 'CAIRN.Time.Tip.BackWatch'}}">
             <i class="fa-solid fa-backward-step"></i>
             <span>{{localize "CAIRN.Time.BackWatch"}}</span>
         </button>
-        <button type="button" data-action="advanceWatch"
+        <button type="button" data-action="advanceWatch" id="cairn-warden-dashboard-advance-watch"
                 data-tooltip="{{localize 'CAIRN.Time.Tip.AdvanceWatch'}}">
             <i class="fa-solid fa-forward-step"></i>
             <span>{{localize "CAIRN.Time.AdvanceWatch"}}</span>
         </button>
-        <button type="button" data-action="advanceDay"
+        <button type="button" data-action="advanceDay" id="cairn-warden-dashboard-advance-day"
                 data-tooltip="{{localize 'CAIRN.Time.Tip.AdvanceDay'}}">
             <i class="fa-solid fa-calendar-day"></i>
             <span>{{localize "CAIRN.Time.AdvanceDay"}}</span>
@@ -92,12 +98,12 @@
         {{!-- `fa-sunrise`, not `fa-sun`: this lands the clock at the START of
               the next morning, and the plain sun was the Dry season's mark one
               row above. A glyph means one thing per window. --}}
-        <button type="button" data-action="nextMorning"
+        <button type="button" data-action="nextMorning" id="cairn-warden-dashboard-next-morning"
                 data-tooltip="{{localize 'CAIRN.Time.Tip.NextMorning'}}">
             <i class="fa-solid fa-sunrise"></i>
             <span>{{localize "CAIRN.Time.NextMorning"}}</span>
         </button>
-        <button type="button" data-action="setDate">
+        <button type="button" data-action="setDate" id="cairn-warden-dashboard-set-date">
             <i class="fa-solid fa-pen-to-square"></i>
             <span>{{localize "CAIRN.Time.SetDate"}}</span>
         </button>

@@ -795,6 +795,99 @@ try {
       : fail("...without writing the translation back", "the stored content changed");
   }
 
+  /* ---- 7b. the single-table draw card, the same way (review #27) --------
+   * Core's own card — it must be, encounters.js hangs its button on it — so
+   * the sender and the flavor were STORED as the Warden's client composed
+   * them: "Quirk" over Spanish rows on a Spanish player's screen, on every one
+   * of the 45 buttons. Measured as in 7, with a shadow installed AFTER the
+   * card is posted and one re-render — a `localize` shadow this time, since
+   * the label is a UI key and not overlay content.
+   * -------------------------------------------------------------------- */
+  const drawViewer = await page.evaluate(async (id) => {
+    const msg = game.messages.get(id);
+    if (!msg) return { error: "the single draw's card is gone" };
+    if (!foundry.utils.getProperty(msg.flags ?? {}, "air-bladder.dashboardDraw")) {
+      return { error: "the draw card carries no table uuid flag — nothing to rebuild from" };
+    }
+    const real = game.i18n.localize.bind(game.i18n);
+    const MARK = "ZZ-VIEWER";
+    try {
+      game.i18n.localize = (k, ...rest) => `${real(k, ...rest)} ${MARK}`;
+      await ui.chat.updateMessage(msg);
+      await new Promise((r) => setTimeout(r, 900));
+      const el = document.querySelector(`[data-message-id="${msg.id}"]`);
+      return {
+        sender: el?.querySelector(".message-sender")?.textContent ?? "",
+        flavor: el?.querySelector(".flavor-text")?.textContent ?? "",
+        storedAlias: msg.speaker?.alias ?? "",
+        storedFlavor: msg.flavor ?? "",
+      };
+    } finally {
+      game.i18n.localize = real;
+      await ui.chat.updateMessage(msg);
+    }
+  }, drew.id);
+  if (drawViewer.error) {
+    fail("the single draw card can be rebuilt per viewer", drawViewer.error);
+  } else {
+    drawViewer.sender.includes("ZZ-VIEWER") && !drawViewer.storedAlias.includes("ZZ-VIEWER")
+      ? ok("the single draw's SENDER re-renders in this viewer's language, stored as composed")
+      : fail("the single draw's sender is the stored alias", JSON.stringify(drawViewer));
+    drawViewer.flavor.includes("ZZ-VIEWER") && !drawViewer.storedFlavor.includes("ZZ-VIEWER")
+      ? ok("...and so does its flavor line")
+      : fail("the single draw's flavor is the stored sentence", JSON.stringify(drawViewer));
+  }
+
+  /* ---- 7c. a SIDEBAR draw's flavor names the table through the overlay --
+   * Core stamps TABLE.DrawFlavor with the table's raw name and stores it, so
+   * a Spanish sidebar draw read a Spanish sentence around "Warden: NPC -
+   * Quirk" over Spanish rows (review #27) — the browse name this window's
+   * labels exist to keep off a player's screen. Rebuilt from the message's
+   * own table id, through the `table.name` overlay namespace.
+   * -------------------------------------------------------------------- */
+  const sidebarDraw = await page.evaluate(async () => {
+    const i18n = await import("/systems/air-bladder/module/i18n-content.js");
+    let entry = null;
+    let pack = null;
+    for (const p of game.packs.filter((x) => x.documentName === "RollTable")) {
+      entry = p.index.find((e) => e.name === "Warden: NPC - Quirk") ?? null;
+      if (entry) { pack = p; break; }
+    }
+    if (!entry) return { error: "no Quirk table in any RollTable pack" };
+    const table = await pack.getDocument(entry._id);
+    const had = new Set(game.messages.map((m) => m.id));
+    await table.draw();
+    let msg = null;
+    for (let i = 0; i < 40 && !msg; i++) {
+      msg = game.messages.find((m) => !had.has(m.id) && m.getFlag("core", "RollTable") === table.id) ?? null;
+      if (!msg) await new Promise((r) => setTimeout(r, 100));
+    }
+    if (!msg) return { error: "core's own draw posted no card" };
+    const ES = "ZZ-TABLA";
+    try {
+      i18n._setOverlay({ "table.name": { [table.name]: ES } });
+      await ui.chat.updateMessage(msg);
+      await new Promise((r) => setTimeout(r, 900));
+      const el = document.querySelector(`[data-message-id="${msg.id}"]`);
+      return {
+        flavor: el?.querySelector(".flavor-text")?.textContent ?? "",
+        storedFlavor: msg.flavor ?? "",
+        browse: table.name,
+      };
+    } finally {
+      i18n._setOverlay(null);
+      await ui.chat.updateMessage(msg);
+      await msg.delete();
+    }
+  });
+  if (sidebarDraw.error) {
+    fail("a sidebar draw's flavor goes through the overlay", sidebarDraw.error);
+  } else {
+    sidebarDraw.flavor.includes("ZZ-TABLA") && sidebarDraw.storedFlavor.includes(sidebarDraw.browse)
+      ? ok("a sidebar draw's flavor names the table through the overlay, stored in English", sidebarDraw.flavor)
+      : fail("a sidebar draw's flavor keeps the stored browse name", JSON.stringify(sidebarDraw));
+  }
+
   /* ---- 8. a generator ASKS FIRST, then mints exactly one document ------
    * This leg used to click and count. It passed for a fortnight while the
    * dashboard was calling the raw generators, which had stopped opening any

@@ -544,6 +544,21 @@ const scar = await page.evaluate(async () => {
   r.victimActor = victim.id;
   r.attackerActor = mine.id;
   r.coreDrawFlavor = game.i18n.format("TABLE.DrawFlavor", { number: 1, name: "Scars" });
+  // PER VIEWER (review #27): the scar line was stored in the acting client's
+  // language while the row beneath it is swept per viewer — one card, two
+  // languages. A shadow installed AFTER the card exists, then one re-render.
+  if (card) {
+    const real = game.i18n.localize.bind(game.i18n);
+    try {
+      game.i18n.localize = (k, ...a) => (k === "CAIRN.ScarFlavor" ? "ZZ-SCAR-LINE" : real(k, ...a));
+      await ui.chat.updateMessage(card);
+      await new Promise((res) => setTimeout(res, 600));
+      r.scarPerViewer = document.querySelector(`[data-message-id="${card.id}"] .flavor-text`)?.textContent ?? "";
+    } finally {
+      game.i18n.localize = real;
+      await ui.chat.updateMessage(card);
+    }
+  }
 
   // The scar BANNER on the damage card itself.
   const dmgCard = game.messages.contents.slice().reverse()
@@ -1510,6 +1525,27 @@ try {
     // originator, so naming the authors is what tells a real missing-guard
     // regression apart from a stray extra session of the same user.
     r.markAuthors = bars().map((m) => m.author?.name ?? m.user?.name ?? "?");
+    // PER VIEWER (review #27): the bar's line was stored in the ACTING
+    // client's language, so a Spanish player read an English bar in chat under
+    // a Spanish one on the sheet. Measured the dashboard probe's way — a
+    // language shadow installed AFTER the card exists, then one re-render.
+    {
+      const m = bars()[0];
+      const real = game.i18n.localize.bind(game.i18n);
+      try {
+        game.i18n.localize = (k, ...a) => (k === "CAIRN.CriticalDamageBanner" ? "ZZ-CRIT-LINE" : real(k, ...a));
+        if (m) await ui.chat.updateMessage(m);
+        await sleep(600);
+        const el = document.querySelector(`[data-message-id="${m?.id}"] .status-banner span`);
+        r.perViewer = {
+          rendered: el?.textContent ?? "",
+          storedStillEnglish: !String(m?.content ?? "").includes("ZZ-CRIT-LINE"),
+        };
+      } finally {
+        game.i18n.localize = real;
+        if (m) await ui.chat.updateMessage(m);
+      }
+    }
 
     // 2. A NO-OP must post nothing. This is the transition rule, and the leg a
     //    naive "post whenever the value is truthy" implementation fails.
@@ -1812,6 +1848,8 @@ check("it names the victim's actor", scar.speakerActor === scar.victimActor,
   `speaker.actor=${scar.speakerActor} (expected the victim ${scar.victimActor}; the viewer's own character is ${scar.attackerActor})`);
 check("flavor is ours, not core's", !!scar.flavor && scar.flavor !== scar.coreDrawFlavor,
   `flavor "${scar.flavor}" (core would say "${scar.coreDrawFlavor}", which claims somebody drew it)`);
+check("...and it re-renders in THIS viewer's language (review #27)", scar.scarPerViewer === "ZZ-SCAR-LINE",
+  `rendered "${scar.scarPerViewer}" under a localize shadow — the stored line would read as the acting client composed it`);
 check("control: bare draw() still misattributes", scar.controlSpeakerToken !== scar.victimToken,
   `bare draw() speaker.token=${scar.controlSpeakerToken} - if this equalled the victim the leg above would prove nothing`);
 
@@ -2057,6 +2095,9 @@ check("the two-client leg ran", status.ran && !status.aliceIsGM,
 check("marking critical posts ONE bar",
   JSON.stringify(status.afterMark) === JSON.stringify(["critical"]),
   `${JSON.stringify(status.afterMark)} by ${JSON.stringify(status.markAuthors)}, active users ${JSON.stringify(status.activeUsers)} — one card per connected client is what a missing userId guard looks like, and the authors say WHICH clients thought they were the originator`);
+check("the bar's line re-renders in THIS viewer's language, stored as composed (review #27)",
+  !!status.perViewer?.rendered.includes("ZZ-CRIT-LINE") && status.perViewer?.storedStillEnglish === true,
+  JSON.stringify(status.perViewer));
 // Real behaviour, but it is FOUNDRY's diff that produces it, not our guard:
 // setting a field to the value it already holds drops it from `changed`, so
 // _preUpdate never stashes and the outer `!== undefined` skips. Witnessed —

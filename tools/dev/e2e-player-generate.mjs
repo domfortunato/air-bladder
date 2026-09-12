@@ -334,6 +334,9 @@ try {
   // default, and a fully rolled character came back looking like a wire bug.
   const priorIds = await alice.evaluate(() =>
     [...document.querySelectorAll(".application.dialog")].map((d) => d.id));
+  // The emit is read by COUNT DIFFERENCE below, so capture the count first.
+  const wiresBefore = await alice.evaluate(() =>
+    game._probePayloads.filter((p) => p.action === "generatePC").length);
   await clickGenerate();
   const answered = await alice.evaluate(async (prior) => {
     const seen = new Set(prior);
@@ -359,11 +362,29 @@ try {
   // is right and the actor is rolled, the receiver is at fault; if the payload
   // is wrong, the sender is. One leg that only checks the actor cannot say
   // which, and this is a two-client path where that is the whole diagnosis.
-  const wire = await alice.evaluate(() =>
-    game._probePayloads.filter((p) => p.action === "generatePC").at(-1) ?? null);
-  wire?.blank === true
-    ? ok("   …and the emit carries blank: true")
-    : fail(`the generatePC emit did not carry blank: ${JSON.stringify(wire)}`);
+  // POLLED, not read once: the dialog's Create resolves the prompt and the
+  // emit follows it after an await, so a read taken right after the click
+  // raced the wire — green on one run, "null" on the next with the character
+  // arriving empty two lines later (2026-09-12). Wait for a NEW payload.
+  let wire = null;
+  for (let i = 0; i < 50 && !wire; i++) {
+    wire = await alice.evaluate((n) => {
+      const all = game._probePayloads.filter((p) => p.action === "generatePC");
+      return all.length > n ? (all.at(-1) ?? null) : null;
+    }, wiresBefore);
+    if (!wire) await new Promise((r) => setTimeout(r, 100));
+  }
+  // On the DIRECT path there is no wire to read: an ACTOR_CREATE player
+  // creates locally. Say so rather than reporting a payload that never existed
+  // — that misdirection cost an hour on 2026-09-12, when a leaked TRUSTED role
+  // put Alice on the direct path and this line blamed the relay.
+  if (t.canCreate) {
+    console.log("  note  direct path: Alice creates locally, so no generatePC emit is expected here");
+  } else {
+    wire?.blank === true
+      ? ok("   …and the emit carries blank: true")
+      : fail(`the generatePC emit did not carry blank: ${JSON.stringify(wire)}`);
+  }
   const arrivedEmpty = await gmPollNewCharacter(before);
   arrivedEmpty
     ? ok("unticked: a character still arrives")
@@ -628,6 +649,37 @@ try {
       : fail(`switch on: checkbox offered=${onBox.box} opened=${onBox.opened}`);
     await gm.evaluate((k) => game.settings.set("air-bladder", k, false), RND);
     await new Promise((r) => setTimeout(r, 500));
+
+    // THE BROKER ASKS TOO (review #27). Withholding the box on Alice's client
+    // is the affordance; the answering GM client is the enforcement, and it
+    // coerced `blank` for TYPE only. So a crafted (or stale) client emitting
+    // `blank: true` past the withheld box got exactly the stranded sheet the
+    // withholding exists to prevent. Emit the raw request from Alice with the
+    // switch off and read what arrives: a ROLLED character, never a blank one.
+    {
+      const rawBefore = await snapshot();
+      await alice.evaluate(() => {
+        game.socket.emit(`system.${game.system.id}`, { action: "generatePC", source: "2e", blank: true });
+      });
+      const rawArrived = await gmPollNewCharacter(rawBefore);
+      if (!rawArrived) {
+        fail("switch off: a raw generatePC emit with blank:true minted nothing within 45s");
+      } else {
+        const raw = await gm.evaluate(async (before) => {
+          const a = game.actors.find((x) => x.type === "character" && !before.actors.includes(x.id));
+          const out = {
+            handBuilt: a?.getFlag("air-bladder", "handBuilt") === true,
+            background: a?._source.system.background ?? "",
+            items: a?.items.size ?? 0,
+          };
+          await a?.delete();
+          return out;
+        }, rawBefore);
+        !raw.handBuilt && raw.background && raw.items > 0
+          ? ok("switch off: a raw emit with blank:true still mints a ROLLED character — the broker refuses the blank")
+          : fail(`switch off: the broker honoured a blank it should have refused: ${JSON.stringify(raw)}`);
+      }
+    }
     // Re-establish the actor's own flag before the Warden leg. Idempotent
     // when the guard holds (the flag was never written); under the
     // guard-removed witness the enforcement call above DID write it off, and

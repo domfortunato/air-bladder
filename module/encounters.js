@@ -101,7 +101,7 @@ const resultSpec = (result) => {
 /** The drawn table, world-first: a Warden's own table wins its id, and a draw
  *  made straight from a pack still resolves (`getDocument` caches — never
  *  `getDocuments()`, the round-trip rule). */
-const resolveTable = async (tableId) => {
+export const resolveTable = async (tableId) => {
   const world = game.tables.get(tableId);
   if (world) return world;
   for (const pack of game.packs.filter((p) => p.documentName === "RollTable")) {
@@ -177,6 +177,30 @@ const CLUSTER_OFFSETS = [
 /** The world "Encounters" folder, found by FLAG first (survives a rename and a
  *  language switch — the name is only the label it was born with), created on
  *  first use. */
+/** The "what" of a quantity roll's flavor, in THIS client's language. */
+const qtyWhat = ({ npc, label }) => npc
+  ? game.i18n.localize("CAIRN.Encounter.RandomNpc")
+  : t("monster.name", String(label ?? ""));
+
+/**
+ * Rebuild a quantity roll's flavor line in THIS viewer's language
+ * (renderChatMessageHTML). The stored line was composed on the Warden's
+ * client, creature name included, on a PUBLIC card (review #27). The flag
+ * carries the ENGLISH label and an npc bit, never text; the label is coerced
+ * to a string, run through the overlay, and set as textContent.
+ * @param {ChatMessage} message
+ * @param {HTMLElement} html
+ */
+export const localizeEncounterQty = (message, html) => {
+  const f = message.getFlag("air-bladder", "encounterQty");
+  if (!f || typeof f !== "object") return;
+  const flavor = html.querySelector(".flavor-text");
+  if (!flavor) return;
+  flavor.textContent = game.i18n.format("CAIRN.Encounter.QtyFlavor", {
+    what: qtyWhat({ npc: f.npc === true, label: f.label }),
+  });
+};
+
 const encounterFolder = async () => {
   const existing = game.folders.find(
     (f) => f.type === "Actor" && f.getFlag(game.system.id, "encounters"));
@@ -278,12 +302,15 @@ export const spawnEncounterFromMessage = async (message) => {
     let placed = 0;
     for (const spec of specs) {
       const roll = await new Roll(spec.qty).evaluate();
-      const name = spec.npc
-        ? game.i18n.localize("CAIRN.Encounter.RandomNpc")
-        : t("monster.name", spec.label || "");
+      const name = qtyWhat({ npc: !!spec.npc, label: spec.label || "" });
       await roll.toMessage({
         flavor: game.i18n.format("CAIRN.Encounter.QtyFlavor", { what: name }),
         speaker: { alias: game.user.name },
+        // The flavor above is composed on the Warden's client and STORED; the
+        // flag carries the ENGLISH label so `localizeEncounterQty` can rebuild
+        // the line in each viewer's language (review #27). English, never the
+        // translated name: the overlay is keyed on the source string.
+        flags: { "air-bladder": { encounterQty: { npc: !!spec.npc, label: spec.npc ? "" : String(spec.label || "") } } },
       });
       const count = Math.max(0, Math.floor(roll.total));
       if (!count) continue;

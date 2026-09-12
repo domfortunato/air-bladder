@@ -573,7 +573,14 @@ export class Damage {
         if (!drawn?.results?.length) return;
         // Speaker only when there is a token to name; with none, leaving it unset
         // keeps core's default rather than inventing an empty header.
-        const messageData = { flavor: game.i18n.localize("CAIRN.ScarFlavor") };
+        // The flavor is STORED in this client's language and REBUILT per viewer
+        // from the flag (cairn.js, localizeTableResults) — the scar row beneath
+        // it was already swept per viewer, so one card read in two languages
+        // (review #27). The flag carries no text, only that this is a scar card.
+        const messageData = {
+            flavor: game.i18n.localize("CAIRN.ScarFlavor"),
+            flags: { "air-bladder": { scarCard: true } },
+        };
         if (token) messageData.speaker = ChatMessage.getSpeaker({ token });
         // Concealed creatures do not announce their scars to the table either. This
         // one only works because the roll below is NOT forwarded: a whispered

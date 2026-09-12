@@ -37,11 +37,12 @@ import {
 } from "./game-time.js";
 import { openValdCalendar, valdCalendarAvailable, promptSetWeather } from "./vald-calendar.js";
 
-/** Flag namespace and the two card flags, both rebuilt per viewer — see
+/** Flag namespace and the three card flags, all rebuilt per viewer — see
  *  `localizeDashboardCard`. */
 const SCOPE = "air-bladder";
 const SET_CARD_FLAG = "dashboardSet";
 const SHOWN_CARD_FLAG = "dashboardShown";
+const DRAW_CARD_FLAG = "dashboardDraw";
 
 /* -------------------------------------------- */
 /*  What each tab holds                         */
@@ -399,6 +400,15 @@ const postTableDraw = async (name, messageMode) => {
         number: drawn.results.length,
         name: foundry.utils.escapeHTML(label),
       }),
+      // BOTH of those are composed on the Warden's client and STORED, so a
+      // Spanish player read "Path Difficulty" over Spanish rows — the class
+      // review #26 fixed on this window's other two cards and missed on its
+      // most-used one (review #27). The flag is the table's BARE uuid, the
+      // reveal card's own shape; `localizeDashboardCard` rebuilds the sender
+      // and the flavor from it in each viewer's language. `toMessage` merges
+      // this over its own `flags: {"core.RollTable": id}` (roll-table.mjs:54-61),
+      // so core's flag — which encounters.js reads — survives beside it.
+      flags: { [SCOPE]: { [DRAW_CARD_FLAG]: table.uuid } },
     },
     messageOptions: { messageMode },
   });
@@ -721,6 +731,29 @@ export const localizeDashboardCard = (message, html) => {
         card.innerHTML = `<div class="cairn-set-title">${esc(game.i18n.localize(set.labelKey))}</div>\n${parts.join("\n")}`;
       }
     })().catch((err) => console.error("Air Bladder | combined-draw card rebuild failed", err));
+    return;
+  }
+
+  // A single-table draw: core's own card, with the sender and the flavor line
+  // relabelled per viewer through `labelForTable` — the button's UI key on
+  // THIS client, or the overlay's name for a Warden's own table. The rows
+  // beneath were already swept by localizeTableResults; this is the header
+  // and the one line under it. The count is read off the rendered rows, never
+  // stored: the card's own `.table-results` is what was drawn.
+  const drawUuid = message.getFlag(SCOPE, DRAW_CARD_FLAG);
+  if (drawUuid) {
+    (async () => {
+      const table = await fromUuid(drawUuid);
+      if (!(table instanceof getDocumentClass("RollTable"))) return;
+      const label = labelForTable(table.name);
+      const sender = html.querySelector(".message-sender");
+      if (sender) sender.textContent = label;
+      const flavor = html.querySelector(".flavor-text");
+      const n = html.querySelectorAll(".table-results li").length || 1;
+      if (flavor) {
+        flavor.textContent = game.i18n.format(`TABLE.DrawFlavor${n > 1 ? "Plural" : ""}`, { number: n, name: label });
+      }
+    })().catch((err) => console.error("Air Bladder | draw card relabel failed", err));
     return;
   }
 
@@ -1084,11 +1117,20 @@ class WardenDashboard extends foundry.applications.api.HandlebarsApplicationMixi
    * work ends. Without this a Warden's double-click draws twice.
    */
   async _whileDisabled(button, action) {
+    // DISABLING THE FOCUSED BUTTON DROPS KEYBOARD FOCUS TO <body>, and it
+    // does so BEFORE the time band re-renders — so core's `_preSyncPartState`
+    // finds nothing focused to remember, and the stable id on the button buys
+    // nothing (review #27; the calendar's buttons, which are never disabled,
+    // keep their focus through the same mechanism). Remember it here and put
+    // it back on the button's REPLACEMENT by id: the element in hand is stale
+    // once the part has been replaced.
+    const hadFocus = document.activeElement === button;
     button.disabled = true;
     try {
       await action();
     } finally {
       button.disabled = false;
+      if (hadFocus && button.id) this.element?.querySelector(`#${CSS.escape(button.id)}`)?.focus();
     }
   }
 

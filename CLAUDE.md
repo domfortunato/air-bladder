@@ -289,6 +289,16 @@ companion record of who authored what.
   the aiming gesture and that is a token-layer operation. One more trap worth
   the line: an AppV2 part must render exactly ONE root element, so the whole
   window lives inside one wrapper div. Gate: `npm run dev:warden-dashboard`.
+  **The single-table draw card is REBUILT PER VIEWER too (2026-09-12, review
+  #27).** Core's card, still — but its sender and flavor were composed on the
+  Warden's client and STORED, so a Spanish player read "Path Difficulty" over
+  Spanish rows on all 45 buttons; review #26 had fixed this window's other two
+  cards and missed its most-used one. `postTableDraw` stamps
+  `flags.air-bladder.dashboardDraw` with the table's BARE uuid (the reveal
+  card's shape), and `localizeDashboardCard` relabels `.message-sender` and
+  `.flavor-text` through `labelForTable` on each client. `toMessage` merges
+  that over its own `flags.core.RollTable`, so the encounter button's flag
+  survives beside it.
   **SHOWING a table to the players (2026-09-10, user ask the same day).** Every
   table button is a PAIR — the name rolls, an eye SHOWS — and Foundry cannot do
   this itself: `Journal.show` and `_showEntry` both return early for anything
@@ -449,6 +459,33 @@ companion record of who authored what.
     milliseconds, and the calendar renders inside that window. Both are found
     by their own FLAG. Two internal settings were designed, built, and deleted
     again over exactly this.
+    **AND A FLAG ALONE IS NOT IDENTITY (2026-09-12, review #27).** A flag sits
+    on a document any TRUSTED player may create (`JOURNAL_CREATE` defaults to
+    that role, and the creator lands OWNER), so a player's journal flagged like
+    ours and sorting first captured every line the Warden wrote — the weather
+    log's pages, the next "Add an event…" — into a document the player edits,
+    and its pages flagged `wardenEvent` drew on the Warden's own calendar. Both
+    finders now also require `lastWrittenByWarden` (`calendar-events.js`):
+    `_stats.lastModifiedBy` is stamped by the SERVER from the requesting user
+    and a client cannot forge it, the same field `syncPendingOwnership` leans
+    on. A journal nobody can vouch for is not ours, and the module makes its
+    own. **LAST writer, because 14.365 HAS NO `_stats.createdBy`** — the
+    review named that field, the first cut of the fix trusted it unmeasured,
+    and a guard on an absent field was false for every journal including ours:
+    a fresh log on every write, twelve `dev:vald-time` legs red in the green
+    phase of the red-first batch, which is the batch earning its keep. Measure
+    a field before trusting a reviewer's name for it.
+    Two smaller things from the same review: a page's visibility is its
+    ENTRY's ownership, so the calendar's refresh list carries
+    `updateJournalEntry` — raising the hidden journal through core's ownership
+    dialog fires on the entry and on no page, and a player's open calendar
+    gained nothing until the next tick — and every button on the calendar and
+    the time band carries a STABLE id, because core restores keyboard focus
+    across a part replacement only to an element it can name by `#id` or
+    `[name]` (handlebars-application.mjs `_preSyncPartState`); without one,
+    Enter three times on Advance Watch advanced one watch and stranded the
+    focus on `<body>`, which made the template's "reachable from the keyboard"
+    line a lie.
   - **A PROBE THAT SHADOWS `game.settings.get` MUST FORWARD EVERY ARGUMENT.**
     `#setWorld` asks `this.get(ns, key, {document: true})` for the Setting
     DOCUMENT (client-settings.mjs:294); a two-argument shadow hands it a plain
@@ -746,7 +783,17 @@ Six things that will bite:
   MATTERS:** `replaceFailedCareerKeepsake` is called from inside
   `changeBackground` itself, so the same call that had just suppressed every
   grant ended by creating a keepsake. Only the sheet's `_grantFailedCareerItem`
-  had the term.
+  had the term. **And that helper now takes `handBuilt` FROM its caller
+  (review #27)** rather than re-reading the flag: `changeBackground` computes
+  it as `isHandBuilt && !ignoreHandBuilt`, and the way-out gesture clears the
+  mark only after the call returns, so a helper reading the flag itself saw a
+  sheet still hand-built and, on the one branch where it runs — a fresh
+  Barebones background colliding with the stored failed career — deleted the
+  keepsake and granted none. Same shape as the finding it was fixing.
+  **The hireling's `critical: false` rides INSIDE the hand-built gate too
+  (review #27):** it is the statblock-reset half of a new career, and a
+  hand-built hireling in Critical Damage had the one status the sheet wears as
+  a banner wiped by picking a Career, under `abNoStatusCard` so no card said so.
   **THERE ARE THREE BOND-GRANTING PATHS AND THE OBVIOUS ONE IS NOT ENOUGH:**
   `_applyBond`, the sheet's Add-a-bond handler (which creates items DIRECTLY,
   not through the applier) and `rerollAllBonds`. Suppressing only the first
@@ -767,6 +814,11 @@ Six things that will bite:
   client, the relay included. **The callback must ask it too**: with the
   control absent `!undefined?.checked` is TRUE, so a missing checkbox read as a
   cleared one and delivered the very sheet the gate exists to prevent.
+  **And the BROKER asks it too (review #27)** — withholding the box is the
+  affordance, the answering GM client is the enforcement, and it coerced
+  `blank` for type only, so a crafted or stale client emitting `blank: true`
+  past the withheld box got exactly the stranded sheet. The broker's own
+  comment already said a player's request must be refused THERE; now it is.
 - **THE WARDEN IS ASKED NOW**, reversing 2026-08-08's "the Warden's own button
   keeps rolling instantly". That ruling was about an accidental click, which
   only ever threatened a player; this dialog is where the choice is MADE. One
@@ -911,6 +963,21 @@ against the reason, not against the fact.
   its Actor list holds player characters (**never localized**, the 2026-08-04
   gate) and its Item list mixes backgrounds with gear. Gate:
   `npm run dev:directory-i18n`.
+  **A STORED CHAT LINE composed on one client is rebuilt per viewer from a
+  flag that carries a KIND or an ENGLISH source string, never text (rule
+  restated 2026-09-12, review #27, after four more surfaces turned up).** The
+  status bar (`postStatusCard` stores a kind; `localizeStatusCard` rebuilds
+  the line, `hasOwn`-guarded so a crafted kind finds no spec), the encounter
+  quantity roll (the English monster label; `localizeEncounterQty`), the scar
+  card (its own flag; the flavor rebuilt from the key inside
+  `localizeTableResults`), and core's OWN draw flavor, which stamps the
+  table's raw browse name and which `localizeTableResults` now rebuilds
+  through the `table.name` namespace from the message's table — resolved by
+  core's id flag, never parsed out of the stored sentence. Every one had a
+  translated row under a composer-language line. Review #26 had fixed the
+  Dashboard's cards under this rule and the older cards sat beside them
+  unnoticed; the sweep after a fix in this class should grep every
+  `flavor:` and every `content:` a card stores.
 - **Pack YAML in `src/packs/` is the source of truth**; `packs/` is generated
   LevelDB, gitignored. Never edit `packs/`. `npm run build:packs` fails while
   Foundry has the world open (LevelDB EPERM) — stop the server first.
@@ -1108,10 +1175,21 @@ if you find one, deleting it is in scope, not a separate decision.
     excluded as TARGETS would make the feature miss its main use. The reason
     for that exclusion still stands — a synthetic actor's uuid resolves only
     while its token exists and the card is permanent — so a card whose GIVER no
-    longer resolves reads `CAIRN.Offer.HiddenTarget` ("someone"), the string
-    already used to mask a target the viewer cannot see. Deliberately NOT
+    longer resolves reads `CAIRN.Offer.HiddenGiver` ("Someone"): its OWN key
+    since review #27, not the hidden target's `HiddenTarget` ("someone") it
+    reused for a day, because this word opens the sentence and that one sits
+    in the middle of it, and one string id cannot be capitalised in one slot
+    and not the other in any language. Deliberately NOT
     `message.speaker.alias`, which would be friendlier and is a stored name
     written by the giver's own client: review #24's class exactly.
+    **THE PICKER'S CHECK FOLLOWS ITS FILTER (review #27).** Row one is
+    pre-checked so the radio group is never indeterminate, and the search box
+    hid rows by class and never moved the check — so typing "Car" showed only
+    Carol's row while Offer, which reads the checked radio and nothing else,
+    sent the item to Alice. The checked radio is now a VISIBLE one or none,
+    Offer is disabled when none is, and Enter in the field is guarded the way
+    the marketplace's and the art picker's already were: every DialogV2 button
+    is `type="submit"` and implicit submission fires the FIRST one.
 
   **Ordinary acquisition still refuses**, and that is deliberate, not a gap: a
   drop onto a full character (`_onDropItem`), the manual Create Item dialog, and
@@ -1187,6 +1265,18 @@ regime named, name the file that holds it.
 
 What belongs here is what those two files do not say:
 
+- **`module/npc-careers-2e.json` is GAME TEXT under the MIT path list, and
+  both clauses say so (2026-09-12, review #27, user ruling).** The Code clause
+  names `module/` "and only these"; that file is the SRD's twelve example
+  hirelings, extracted by `tools/import/npc-careers-2e.mjs` and read by the
+  hireling generator at runtime, and it had sat there since the first commit,
+  before the Vald-festival rule about where Cairn text may live existed. So the
+  only licence document in the zip told a fork the statblocks were MIT. Named
+  now as a carve-out in both clauses, the mirror of the macros carve-out, and
+  in both READMEs' game-text bullet. The importer's path is deliberately NOT in
+  LICENSE.txt: `check:licence`'s check 3 treats every path there as a pointer
+  that must ship, and `tools/` does not. Ask the licence question of any file
+  under `module/` that holds Cairn's words, not only of packs.
 - **The Air Bladder logo is NOT Creative Commons.** All rights reserved, Lydia Comer,
   by bespoke grant. Do not treat it as CC, and do not reach for it as the manifest's
   cover image — that is the reason `media` is deliberately absent from `system.json`.
@@ -1309,3 +1399,11 @@ save it — a number in prose is a copy whether or not it apologises for itself.
   state — several assertions here once passed by reading an actor a previous
   aborted run had left behind. And a probe that fails once then passes on re-run is
   a **race, not a flake**; do not re-run and call it green.
+  **A fourth, and it is the second rule wearing a different face: SELECT A
+  PLANTED DOCUMENT BY ID DIFFERENCE, NEVER BY NAME.** `dev:directory-buttons`
+  read its mount clone with `getName("Heavy Destrier")`, and the 2026-09-12
+  sweep found a leftover of that name in the world: the leg read ITS statblock
+  (identical — same pack document), reported its missing `compendiumSource` as
+  the product's, deleted it, and left the clone it had just minted for the
+  next run to trip on. One red in 112, and the probe was wrong, not the code.
+  Snapshot the ids before the click; find the one that is new.

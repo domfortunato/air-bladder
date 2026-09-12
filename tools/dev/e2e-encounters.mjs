@@ -225,6 +225,36 @@ try {
     ? ok("ONE goblin imported, into the flagged Encounters folder", newGoblins[0])
     : fail("ONE goblin imported, into the flagged Encounters folder", `new=${newGoblins.length} folder=${spawn1.folderId}`);
 
+  // THE QUANTITY ROLL'S FLAVOR, PER VIEWER (review #27). "3 × Goblin" was
+  // composed on the Warden's client — creature name through the overlay ON
+  // THAT CLIENT — and stored on a public roll card, so a Spanish player read
+  // the Warden's language. The flag carries the ENGLISH label; the line is
+  // rebuilt per viewer. Measured with an overlay installed AFTER the card
+  // exists and one re-render, the dashboard probe's method.
+  const qtyViewer = await gm.evaluate(async () => {
+    const i18n = await import("/systems/air-bladder/module/i18n-content.js");
+    const msg = game.messages.contents.slice().reverse().find((m) => m.getFlag("air-bladder", "encounterQty"));
+    if (!msg) return { error: "no quantity roll carries the encounterQty flag" };
+    const f = msg.getFlag("air-bladder", "encounterQty");
+    const ES = "ZZ-BESTIA";
+    try {
+      i18n._setOverlay({ "monster.name": { [f.label]: ES } });
+      await ui.chat.updateMessage(msg);
+      await new Promise((r) => setTimeout(r, 700));
+      return {
+        label: f.label,
+        flavor: document.querySelector(`[data-message-id="${msg.id}"] .flavor-text`)?.textContent ?? "",
+        stored: msg.flavor ?? "",
+      };
+    } finally {
+      i18n._setOverlay(null);
+      await ui.chat.updateMessage(msg);
+    }
+  });
+  !qtyViewer.error && qtyViewer.flavor.includes("ZZ-BESTIA") && !qtyViewer.stored.includes("ZZ-BESTIA")
+    ? ok("the quantity roll's flavor re-renders per viewer off its English label", qtyViewer.flavor)
+    : fail("the quantity roll's flavor is the stored sentence", JSON.stringify(qtyViewer));
+
   /* ---------------------- 2b. world-actor row: the NEUTRAL force witnessed -- */
   const banditMsg = await draw(5);
   await buttonState(gm, banditMsg);

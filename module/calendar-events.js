@@ -123,9 +123,38 @@ export const _resetFestivals = () => { FESTIVALS = null; };
  * milliseconds, and the calendar renders inside that window. The flag is on the
  * document itself and is true the moment it exists.
  */
+/**
+ * Was this document last written by a Gamemaster? `_stats.lastModifiedBy` is
+ * stamped by the SERVER from the requesting user and a client cannot forge it
+ * — the same field `syncPendingOwnership` (connections.js) already leans on.
+ *
+ * WHY EVERY FLAG-FOUND JOURNAL HERE ASKS THIS (review #27): a flag is on a
+ * document any TRUSTED player may create (`JOURNAL_CREATE` defaults to that
+ * role, and the creator lands OWNER), so a player's journal flagged like ours
+ * and sorting first would have captured every line the Warden writes — the
+ * weather log's pages, the next "Add an event…" — into a document the player
+ * edits, and its pages flagged `wardenEvent` would have drawn on the Warden's
+ * own calendar. Not an escalation, since the Warden sees the decoy on the
+ * sidebar; still the wrong document. A journal nobody can vouch for is not
+ * ours, and the module makes its own.
+ *
+ * LAST writer, not creator, and that is not a choice: the review named
+ * `_stats.createdBy`, and 14.365 has no such field — measured on a freshly
+ * created journal, whose `_stats` carries `lastModifiedBy` and nothing about
+ * who created it. A guard on the absent field was false for every journal,
+ * ours included, and made a fresh log on every write (dev:vald-time caught
+ * it, twelve legs deep). The last writer works because our journals never
+ * admit a player's write — OBSERVER or NONE by default — so a player's decoy
+ * stays theirs and ours stay the Warden's; a Warden who edits a decoy by hand
+ * has adopted it, which is fair.
+ * @param {foundry.abstract.Document} doc
+ * @returns {boolean}
+ */
+export const lastWrittenByWarden = (doc) => !!game.users.get(doc?._stats?.lastModifiedBy)?.isGM;
+
 const eventsJournal = (hidden = false) => {
   const kind = hidden ? "hidden" : "shared";
-  return game.journal.find((j) => j.flags?.["air-bladder"]?.calendarEvents === kind) ?? null;
+  return game.journal.find((j) => j.flags?.["air-bladder"]?.calendarEvents === kind && lastWrittenByWarden(j)) ?? null;
 };
 
 /** Make the journal for one kind. GM only — it is a world write. */

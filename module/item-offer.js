@@ -193,6 +193,14 @@ const wireOfferFilter = (root) => {
   const field = root?.querySelector(".cairn-offer-filter");
   const list = root?.querySelector(".bg-pick-list");
   if (!field || !list) return;
+  // Enter in a search box means "search". Every DialogV2 button is
+  // type="submit" (dialog.mjs:227) and `default: true` is autofocus only, so
+  // implicit submission fires the FIRST button in the form — Offer — reading
+  // whichever radio is checked. marketplace.js and art-picker.js guard the
+  // identical field the same way; this one shipped without it (review #27).
+  field.addEventListener("keydown", (ev) => {
+    if (ev.key === "Enter") ev.preventDefault();
+  });
   field.addEventListener("input", () => {
     const q = field.value.trim().toLowerCase();
     let shownInGroup = 0;
@@ -210,6 +218,22 @@ const wireOfferFilter = (root) => {
       if (hit) shownInGroup++;
     }
     flush();
+    // THE CHECK FOLLOWS THE FILTER (review #27). Row one is pre-checked so the
+    // group is never indeterminate, and hiding a row by class left its radio
+    // checked: typing "Car" showed only Carol's row while Offer, which reads
+    // the checked radio and nothing else, sent the item to Alice. A checked
+    // radio is a VISIBLE one or none — and with none visible, Offer is
+    // disabled rather than left to read a hidden row.
+    const radios = [...list.querySelectorAll('input[name="offerTarget"]')];
+    const visible = (r) => !r.closest(".bg-pick-row")?.classList.contains("cairn-hidden");
+    const checked = radios.find((r) => r.checked);
+    if (!checked || !visible(checked)) {
+      const first = radios.find(visible);
+      if (first) first.checked = true;
+      else if (checked) checked.checked = false;
+    }
+    const offer = root.querySelector('button[data-action="offer"]');
+    if (offer) offer.disabled = !radios.some((r) => r.checked && visible(r));
   });
 };
 
@@ -441,8 +465,11 @@ const offerNames = (message, offer) => {
       // it still names who it was — and it is a STORED name written by the
       // giver's own client, which is review #24's class exactly. The uuid that
       // no longer resolves is the only honest thing here, so it reads
-      // "someone", the same string a hidden target uses.
-      return game.i18n.localize("CAIRN.Offer.HiddenTarget");
+      // "Someone" — its OWN key, not the hidden target's (review #27): this
+      // word opens the sentence and that one sits in the middle of it, and one
+      // string id cannot be capitalised in one slot and not the other, in any
+      // language a translator writes.
+      return game.i18n.localize("CAIRN.Offer.HiddenGiver");
     })(),
     target: targetName,
     item: t("item.name", offer.item?.name ?? "?"),

@@ -12,7 +12,14 @@
 <div class="cairn-calendar-inner">
 
     <header class="cairn-calendar-head">
+        {{!-- Every control carries a STABLE id (review #27). Each action
+              re-renders the whole part, and core restores keyboard focus
+              across a part replacement only to an element it can name by
+              `#id` or `[name]` (handlebars-application.mjs, _preSyncPartState);
+              without one, Enter on "next month" paged once and stranded the
+              focus on <body>, which makes the line above a lie. --}}
         <button type="button" class="cairn-calendar-step" data-action="prevMonth"
+                id="cairn-vald-calendar-prev"
                 data-tooltip="{{localize 'CAIRN.Calendar.PrevMonth'}}"
                 aria-label="{{localize 'CAIRN.Calendar.PrevMonth'}}">
             <i class="fa-solid fa-chevron-left"></i>
@@ -25,6 +32,7 @@
         </div>
 
         <button type="button" class="cairn-calendar-step" data-action="nextMonth"
+                id="cairn-vald-calendar-next"
                 data-tooltip="{{localize 'CAIRN.Calendar.NextMonth'}}"
                 aria-label="{{localize 'CAIRN.Calendar.NextMonth'}}">
             <i class="fa-solid fa-chevron-right"></i>
@@ -45,6 +53,7 @@
 
         {{#each month.days}}
             <button type="button" data-action="pickDay" data-day="{{this.dayOfMonth}}"
+                    id="cairn-vald-calendar-day-{{this.dayOfMonth}}"
                     class="cairn-calendar-day {{this.seasonClass}}{{#if this.isToday}} is-today{{/if}}{{#if this.selected}} is-selected{{/if}}{{#if this.festivals}} has-festival{{/if}}"
                     data-tooltip="{{this.weekdayName}}{{#if this.festivalNames}} — {{this.festivalNames}}{{/if}}">
                 <span class="cairn-calendar-number">{{#if this.reclamationName}}{{this.reclamationName}}{{else}}{{this.dayOfMonth}}{{/if}}</span>
@@ -133,18 +142,18 @@
         {{/if}}
 
         <footer class="cairn-calendar-foot">
-            <button type="button" data-action="today"
+            <button type="button" data-action="today" id="cairn-vald-calendar-today"
                     data-tooltip="{{localize 'CAIRN.Calendar.TodayTip'}}">
                 <i class="fa-solid fa-location-crosshairs"></i>
                 <span>{{localize 'CAIRN.Calendar.Today'}}</span>
             </button>
             {{#if isGM}}
-                <button type="button" data-action="setToDay"
+                <button type="button" data-action="setToDay" id="cairn-vald-calendar-set-to-day"
                         data-tooltip="{{localize 'CAIRN.Calendar.SetToDayTip'}}">
                     <i class="fa-solid fa-calendar-check"></i>
                     <span>{{localize 'CAIRN.Calendar.SetToDay'}}</span>
                 </button>
-                <button type="button" data-action="addEvent"
+                <button type="button" data-action="addEvent" id="cairn-vald-calendar-add-event"
                         data-tooltip="{{localize 'CAIRN.Calendar.AddEventHint'}}">
                     <i class="fa-solid fa-calendar-plus"></i>
                     <span>{{localize 'CAIRN.Calendar.AddEvent'}}</span>

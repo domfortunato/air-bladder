@@ -356,10 +356,31 @@ try {
     field.dispatchEvent(new Event("input", { bubbles: true }));
     await new Promise((r) => setTimeout(r, 200));
     const narrowed = visible();
+    // THE CHECK FOLLOWS THE FILTER (review #27). Row one is pre-checked and
+    // "ZZ Offer Target" sorts LAST, so after typing "Target" the only visible
+    // row is the last one — and the checked radio, which Offer reads and
+    // nothing else, was still row one, hidden. The card then named whoever
+    // sorted first. Read which radio is checked and whether its row shows.
+    const checked = dlg.querySelector('input[name="offerTarget"]:checked');
+    const checkedRow = checked?.closest(".bg-pick-row");
+    const checkedVisible = !!checkedRow && !checkedRow.classList.contains("cairn-hidden");
+    const checkedIsTarget = checked?.value === game.actors.getName("ZZ Offer Target")?.uuid;
+    const offerEnabled = !dlg.closest(".application")?.querySelector('button[data-action="offer"]')?.disabled;
+    // ENTER IN THE SEARCH BOX must not submit. A synthetic key never triggers
+    // the browser's implicit submission, so what this measures is the guard
+    // itself: a handler that preventDefault()s makes dispatchEvent return false.
+    const enterGuarded = !field.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }));
+    // ...and with NOTHING matching, no radio is checked and Offer is disabled.
+    field.value = "ZZ-no-such-row";
+    field.dispatchEvent(new Event("input", { bubbles: true }));
+    await new Promise((r) => setTimeout(r, 200));
+    const noneChecked = !dlg.querySelector('input[name="offerTarget"]:checked');
+    const offerDisabledOnNone = !!dlg.closest(".application")?.querySelector('button[data-action="offer"]')?.disabled;
     field.value = "";
     field.dispatchEvent(new Event("input", { bubbles: true }));
     await new Promise((r) => setTimeout(r, 200));
     const cleared = visible();
+    const rechecked = !!dlg.querySelector('input[name="offerTarget"]:checked');
     dlg.closest(".application")?.querySelector('button[data-action="cancel"]')?.click();
     // WAIT FOR IT TO LEAVE THE DOM rather than sleeping at a guess. A DialogV2
     // lingers while it closes, and `offerViaPicker` finds its dialog with a
@@ -377,14 +398,23 @@ try {
       before,
       narrowed,
       cleared,
+      checkedVisible, checkedIsTarget, offerEnabled, enterGuarded,
+      noneChecked, offerDisabledOnNone, rechecked,
       closed: !document.querySelector(".cairn-offer-picker"),
     };
   });
   check("the picker's search box hides the rows that do not match",
     filtered.before > 1 && filtered.narrowed > 0 && filtered.narrowed < filtered.before,
     JSON.stringify(filtered));
-  check("...and clearing it brings them all back",
-    filtered.cleared === filtered.before, JSON.stringify(filtered));
+  check("...and the checked radio follows the filter onto the one visible row (review #27)",
+    filtered.checkedVisible && filtered.checkedIsTarget && filtered.offerEnabled,
+    JSON.stringify(filtered));
+  check("...and Enter in the search box is guarded, not an implicit Offer",
+    filtered.enterGuarded === true, JSON.stringify(filtered));
+  check("...and with nothing matching, nothing is checked and Offer is disabled",
+    filtered.noneChecked && filtered.offerDisabledOnNone, JSON.stringify(filtered));
+  check("...and clearing it brings them all back, with a row checked again",
+    filtered.cleared === filtered.before && filtered.rechecked, JSON.stringify(filtered));
   check("...and it leaves no picker behind for a later leg to find",
     filtered.closed === true, JSON.stringify(filtered));
 
@@ -1392,8 +1422,10 @@ try {
   // Monsters are unlinked by ruling, so an unlinked token giving is the
   // commonest case there is — and a synthetic actor's uuid resolves only while
   // its token exists, while the card is permanent and rebuilt per viewer FROM
-  // that uuid. The mask is the same string a hidden target uses, so no name is
-  // stored and no new player-authored field appears.
+  // that uuid. The mask is a fixed string of its own — "Someone", capitalised,
+  // because it opens the sentence, where the hidden TARGET's "someone" sits in
+  // the middle (review #27) — so no name is stored and no new player-authored
+  // field appears.
   const hiddenGiver = await gm.evaluate(async () => {
     const msg = game.messages.contents.filter((m) => m.getFlag("air-bladder", "itemOffer")).at(-1);
     if (!msg) return { skipped: "no offer card" };
@@ -1408,12 +1440,21 @@ try {
     const text = el?.innerText ?? "";
     await msg.setFlag("air-bladder", "itemOffer", original);
     await new Promise((r) => setTimeout(r, 500));
-    return { text, mask: game.i18n.localize("CAIRN.Offer.HiddenTarget") };
+    return {
+      text,
+      mask: game.i18n.localize("CAIRN.Offer.HiddenGiver"),
+      targetMask: game.i18n.localize("CAIRN.Offer.HiddenTarget"),
+    };
   });
 
   check("a card whose giver no longer resolves reads the mask, not a broken name",
     !hiddenGiver.skipped && hiddenGiver.text.includes(hiddenGiver.mask) && !hiddenGiver.text.includes("undefined"),
     JSON.stringify({ mask: hiddenGiver.mask, text: hiddenGiver.text?.slice(0, 120) }));
+  check("...and the giver's mask is its own capitalised key, not the target's lowercase one (review #27)",
+    !hiddenGiver.skipped && hiddenGiver.mask !== hiddenGiver.targetMask
+      && hiddenGiver.mask[0] === hiddenGiver.mask[0].toUpperCase()
+      && new RegExp(`(^|\\n)${hiddenGiver.mask} `).test(hiddenGiver.text),
+    JSON.stringify({ mask: hiddenGiver.mask, targetMask: hiddenGiver.targetMask, text: hiddenGiver.text?.slice(0, 120) }));
 
   /* ---- teardown ----------------------------------------------------------- */
   const swept = await gm.evaluate(async (before) => {

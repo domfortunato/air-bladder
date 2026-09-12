@@ -669,6 +669,7 @@
   "CAIRN.Offer.GroupMonsters": "Monsters",
   "CAIRN.Offer.GroupPeople": "People",
   "CAIRN.Offer.GroupThings": "Containers & Transports",
+  "CAIRN.Offer.HiddenGiver": "Someone",
   "CAIRN.Offer.HiddenTarget": "someone",
   "CAIRN.Offer.OverburdenBody": "Taking {item} leaves {target} with no free slot, and Hit Protection is 0 while over capacity — until something is dropped or handed away. Accept anyway?",
   "CAIRN.Offer.OverburdenConfirm": "Accept",

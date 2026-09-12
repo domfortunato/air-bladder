@@ -2974,7 +2974,7 @@ export const buildFailedCareerItem = async (careerName) =>
  * @param {CairnActor} actor
  * @param {String} careerName
  */
-const replaceFailedCareerKeepsake = async (actor, careerName) => {
+const replaceFailedCareerKeepsake = async (actor, careerName, { handBuilt = isHandBuilt(actor) } = {}) => {
   const oldIds = actor.items
     .filter((i) => String(i.getFlag(FLAG_SCOPE, "grantSource") ?? "") === "failed-career")
     .map((i) => i.id);
@@ -2985,7 +2985,16 @@ const replaceFailedCareerKeepsake = async (actor, careerName) => {
   // every gear, container and coin ended by creating an item. Exactly the shape
   // the bond fix already records: three writers, one patched, and it read as
   // done.
-  const item = careerName && !isHandBuilt(actor) ? await buildFailedCareerItem(careerName) : null;
+  //
+  // `handBuilt` is PASSED IN by changeBackground (review #27), never re-read
+  // here: that caller computes it as `isHandBuilt && !ignoreHandBuilt`, and the
+  // way-out gesture — Roll Character with Background ticked — clears the mark
+  // only AFTER changeBackground returns. Re-reading the flag inside the call
+  // saw a sheet still marked hand-built, so a hand-built Barebones character
+  // whose fresh background collided with its stored failed career had the
+  // keepsake deleted above and nothing granted below, on the one gesture
+  // whose entire point is to deal the character its gear.
+  const item = careerName && !handBuilt ? await buildFailedCareerItem(careerName) : null;
   if (item) await actor.createEmbeddedDocuments("Item", [item], { render: false, abNoStatusCard: true });
 };
 
@@ -3169,7 +3178,7 @@ export const changeBackground = async (actor, newBg = null, { ignoreHandBuilt = 
   if (source === "barebones" && actor.system.failedCareer && actor.system.failedCareer === bg.name) {
     const fresh = await rollFailedCareerName(bg.name);
     await actor.update({ "system.failedCareer": fresh }, { abNoStatusCard: true });
-    await replaceFailedCareerKeepsake(actor, fresh);
+    await replaceFailedCareerKeepsake(actor, fresh, { handBuilt });
   }
   return true;
 };
@@ -4014,11 +4023,16 @@ const applyHirelingCareer = async (actor, h) => {
       profession: h?.name ?? "",
       dayRate: h?.rate ?? 0,
       // The career's own numbers, unless this sheet is hand-built — see above.
+      // `critical` rides INSIDE the same gate (review #27): clearing it is the
+      // statblock-reset half of a new career, and a hand-built hireling in
+      // Critical Damage was having the one status the sheet wears as a banner
+      // silently wiped by picking a Career, under abNoStatusCard so no card
+      // said so either. Its twin applyNpcBackground writes only the Background.
       ...(handBuilt ? {} : {
         abilities: personAbilityData(h?.abilities ?? { STR: 10, DEX: 10, WIL: 10 }),
         hp: { value: h?.hp ?? 6, max: h?.hp ?? 6 },
+        critical: false,
       }),
-      critical: false,
     },
   }, {
     // Same as regenerateHireling: a re-rolled career is a new statblock, not a

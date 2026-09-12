@@ -2,7 +2,7 @@ import { SETTINGS_NS } from "./settings.js";
 import {
   describeTime, formatValdDate, currentSeason, todayWeather, dayCount,
 } from "./game-time.js";
-import { marksOn } from "./calendar-events.js";
+import { marksOn, lastWrittenByWarden } from "./calendar-events.js";
 
 /**
  * A journal line every time the weather is rolled or set.
@@ -64,7 +64,9 @@ const logEnabled = () => {
  * behaviour to expect rather than a surprise.
  */
 const logJournal = async () => {
-  const found = game.journal.find((j) => j.flags?.["air-bladder"]?.weatherLog);
+  // ...AND LAST WRITTEN BY A WARDEN — see `lastWrittenByWarden` for why a flag
+  // alone is not identity, and why it is the last writer (review #27).
+  const found = game.journal.find((j) => j.flags?.["air-bladder"]?.weatherLog && lastWrittenByWarden(j));
   if (found) return found;
 
   return getDocumentClass("JournalEntry").create({
