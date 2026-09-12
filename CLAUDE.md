@@ -1355,18 +1355,33 @@ regime named, name the file that holds it.
 
 What belongs here is what those two files do not say:
 
-- **`module/npc-careers-2e.json` is GAME TEXT under the MIT path list, and
-  both clauses say so (2026-09-12, review #27, user ruling).** The Code clause
-  names `module/` "and only these"; that file is the SRD's twelve example
-  hirelings, extracted by `tools/import/npc-careers-2e.mjs` and read by the
-  hireling generator at runtime, and it had sat there since the first commit,
-  before the Vald-festival rule about where Cairn text may live existed. So the
-  only licence document in the zip told a fork the statblocks were MIT. Named
-  now as a carve-out in both clauses, the mirror of the macros carve-out, and
-  in both READMEs' game-text bullet. The importer's path is deliberately NOT in
-  LICENSE.txt: `check:licence`'s check 3 treats every path there as a pointer
-  that must ship, and `tools/` does not. Ask the licence question of any file
-  under `module/` that holds Cairn's words, not only of packs.
+- **CAIRN'S GAME TEXT IS ALWAYS CC BY-SA 4.0, WHEREVER IT SITS — user ruling,
+  2026-09-12, and it CLOSES this question.** The Code clause's path list
+  (`module/ templates/ css/ tools/ lang/ …` "and only these") says where this
+  project's own code and writing live; it is not a container that changes what
+  is inside it. Cairn's words in a file under one of those paths are CC BY-SA,
+  the MIT grant cannot reach them, and no carve-out has to be written for them
+  first. **Do not re-derive this, do not propose a per-file exception list, and
+  do not raise "file X under a code path holds game text" as a finding** — the
+  documents already answer it in general.
+  It took two rounds to learn that. Review #27 found
+  `module/npc-careers-2e.json` (the SRD's twelve example hirelings, read by the
+  hireling generator at runtime) and answered it by carving out that one file;
+  review #28 found the same question one directory over — five rules tooltips
+  in `lang/en.json` whose wording is 2e's own, byte-identical to the Player's
+  Guide journal this repo ships and itself declares CC BY-SA. **A list of
+  carve-outs loses to the next file; a rule about the text does not.** Both are
+  still NAMED in both clauses and both READMEs, but as homes worth finding
+  rather than as the exceptions that make the licensing true.
+  `check:licence` pins the rule's sentence at four sites (LICENSE.txt twice,
+  both READMEs) — what regresses is not text being added, which the rule covers
+  by construction, but somebody tidying the sentence away while the path list
+  stays, which is the shape LICENSE.txt was already found in once. Its control
+  is narrowing the wording back to "under `module/`". `site/index.html` is
+  deliberately NOT pinned: its Code entry claims no paths, so it cannot
+  contradict this. The importer's own path stays OUT of LICENSE.txt —
+  `check:licence`'s check 3 treats every path there as a pointer that must
+  ship, and `tools/` does not.
 - **The Air Bladder logo is NOT Creative Commons.** All rights reserved, Lydia Comer,
   by bespoke grant. Do not treat it as CC, and do not reach for it as the manifest's
   cover image — that is the reason `media` is deliberately absent from `system.json`.

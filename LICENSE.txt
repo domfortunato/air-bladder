@@ -36,11 +36,17 @@ Code — MIT
     The System Docs journals travel here for the same reason: they are this
     project's own Warden guides, generated from docs/ by
     tools/import/system-docs.mjs, and they reproduce no Cairn text.
-    One file under module/ goes the other way. module/npc-careers-2e.json is the
-    SRD's twelve example hirelings, extracted from its hirelings table by this
-    project's importer and read by the hireling generator at runtime. It is
-    Cairn text, not code, and travels under the game-text clause below, not
-    under this notice.
+    CAIRN'S GAME TEXT IS ALWAYS CC BY-SA 4.0, WHEREVER IT SITS. The paths above
+    are where this project's own code and writing live; they are not a container
+    that changes what is inside them. Any of Cairn's text held in a file under
+    them travels under the game-text clause below and never under this notice,
+    and the MIT grant can neither reach it nor relicense it. Being a rule about
+    the text rather than a list of files, it cannot go stale as files are added
+    — but two homes are worth naming so a fork can find them:
+    module/npc-careers-2e.json, the SRD's twelve example hirelings extracted
+    from its hirelings table by this project's importer and read by the hireling
+    generator at runtime; and the rules tooltips in lang/en.json, which quote
+    2e's own wording for the attributes, for Deprived and for resting.
     docs/provenance.md is this project's own writing too, and is the record of
     WHO AUTHORED WHAT across every category above — code, art, game text,
     translations, audio and marketing copy — and of how each claim can be
@@ -64,8 +70,10 @@ Game text — CC BY-SA 4.0, © Yochai Gal
     the Warden's Guide setting chapter of the same name plus the 24 named
     festivals of its calendar, both fetched from the Cairn SRD by
     tools/import/vald.mjs.
-    The hireling catalogue module/npc-careers-2e.json is this too: the one file
-    under module/ that the Code clause above does not cover.
+    The hireling catalogue module/npc-careers-2e.json is this too, and so are
+    the rules tooltips in lang/en.json. Neither is an exception carved out of
+    the Code clause: this clause follows Cairn's text wherever it is written,
+    including inside a file whose directory that clause names.
     Two packs are not this: the macros pack holds no game text, and the System
     Docs journals are this project's own writing, generated from docs/ by
     tools/import/system-docs.mjs. Both are covered by the Code clause above.

@@ -16,7 +16,7 @@
  * file should look like every other licence file. Both produce exactly the shape
  * this rejects.
  *
- * Four checks, all offline:
+ * The first four checks, all offline:
  *
  *   1. LICENSE.txt does not OPEN as a bare licence template.
  *   2. Every licence named in README's "Credits & licenses" is named in
@@ -34,6 +34,14 @@
  *      the moment someone follows it, an unnamed directory never does. What
  *      ships is read from the workflow, not from a list kept here, because a
  *      second list drifts exactly as LICENSE.txt drifted from README.
+ *
+ * Added since, each in its own section below and each because a published claim
+ * had nothing holding it: the gallery counts and their category counts, the
+ * CC BY §3(a)(1)(B) modification indications, and — 2026-09-12, a user ruling —
+ * the rule that CAIRN'S GAME TEXT IS CC BY-SA WHEREVER IT SITS. That last one
+ * is the general answer to a question two reviews had each answered for one
+ * more file; see its own comment for why a list of carve-outs was the wrong
+ * shape.
  *
  * Scope, stated plainly: it checks the two files agree on WHICH licences apply.
  * It cannot check the licences are correct, and a regime added to README under a
@@ -566,6 +574,45 @@ for (const [file, pattern] of MOD_SITES) {
   modMissing++;
 }
 if (!modMissing) ok(`the §3(a)(1)(B) modification indications (tlomdev, Aspeheim) are present at all ${MOD_SITES.length} sites`);
+
+/* ---------------------------------------------------------------------- */
+/*  Cairn's game text is CC BY-SA wherever it sits                          */
+/* ---------------------------------------------------------------------- */
+
+// USER RULING, 2026-09-12: "The Cairn game text is always CC BY-SA 4.0."
+//
+// This ends a class rather than fixing an instance, and the class had already
+// cost two reviews a round each. #27 found module/npc-careers-2e.json — the
+// SRD's hirelings, sitting under module/, which the Code clause claims with the
+// words "these and only these" — and answered it by carving out that one file.
+// #28 then found the same question one directory over: five rules tooltips in
+// lang/en.json whose wording is Cairn's, byte-identical to the Player's Guide
+// journal this repo ships and itself declares CC BY-SA. A carve-out list loses
+// to the next file that gets added; the general rule cannot, so the general
+// rule is what the documents now state and what this gate holds.
+//
+// WHAT CAN REGRESS is nobody adding text — the rule covers text added later by
+// construction, which is the point of it — but somebody tidying the sentence
+// away while the Code clause's path list stays put. That is exactly the shape
+// LICENSE.txt was already found in once, and it reads as deliberate to a fork:
+// a path named under MIT with no statement that Cairn's words inside it are
+// not. So the three canonical surfaces are pinned. Not site/index.html, whose
+// Code entry makes no claim about paths and so cannot contradict this.
+const TEXT_RULE_SITES = [
+  ["LICENSE.txt", /CAIRN'S GAME TEXT IS ALWAYS CC BY-SA 4\.0, WHEREVER IT SITS/],
+  ["LICENSE.txt", /this clause follows Cairn's text wherever it is written/],
+  ["README.md", /Cairn's text is CC BY-SA 4\.0 wherever it sits/],
+  ["README.es.md", /El texto de Cairn es CC BY-SA 4\.0 esté donde esté/],
+];
+let ruleMissing = 0;
+for (const [file, pattern] of TEXT_RULE_SITES) {
+  if (pattern.test(read(file))) continue;
+  fail(`${file}: the rule that Cairn's game text is CC BY-SA wherever it sits is missing `
+    + `or reworded (${pattern}). It is a user ruling, not a form of words — if it must be `
+    + `rephrased, update this gate in the same commit.`);
+  ruleMissing++;
+}
+if (!ruleMissing) ok(`Cairn's text is stated CC BY-SA wherever it sits at all ${TEXT_RULE_SITES.length} sites`);
 
 console.log(`\n${failed ? "LICENCE CHECK FAILED" : "Licence check passed."}`);
 process.exit(failed ? 1 : 0);
