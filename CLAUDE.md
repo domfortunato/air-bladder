@@ -713,14 +713,40 @@ Six things that will bite:
   containers and no coins. The empty sheet exists to transcribe a character
   already rolled on paper: its owner knows what it carries, and granting means
   deleting a pack's worth of gear nobody asked for.
+  **IT COVERS ALL FOUR KINDS SINCE REVIEW #26, and for a fortnight it did
+  not.** The flag was stamped by `createBlankActor` on character, npc, hireling
+  and monster from the first commit and READ only on the character paths, so a
+  blank NPC's Background picker — the feature's whole point — handed over the
+  background gear AND the entire `npc-kit`, enough to land it encumbered at
+  derived HP 0. `applyNpcBackground` and `applyHirelingCareer` ask now. **A
+  CAREER ALSO SUPPRESSES ITS STATBLOCK**, which the character-side ruling never
+  had to say because a background carries none: adopting one used to overwrite
+  the STR/DEX/WIL and HP the Warden had just typed off the paper sheet, and
+  those numbers are the transcription, not defaults to re-derive. **The way out
+  exists on every kind too** — `regenerateNpc`, `regenerateHireling` and
+  `regenerateMonster` clear the mark, where before nothing on the npc side ever
+  did and a fully re-rolled blank NPC claimed to be hand-built for the life of
+  the document.
   **DURABLE, not "while the sheet is still empty"** — the ruling chose between
   exactly those two, because an emptiness test changes behaviour the moment the
   first item is typed and nothing on screen says why.
   **The way out is Roll Character with Background checked** (the checklist's own
-  default): `_applyRerollParts` clears the mark BEFORE `changeBackground`, or
-  the re-deal would be suppressed by a mark about to stop being true. A bare
-  background die does NOT clear it — pressing that die is still choosing a
-  background.
+  default). It clears the mark AFTER `changeBackground` returns true, passing
+  `ignoreHandBuilt` so the re-deal is not suppressed by a mark about to stop
+  being true — clearing FIRST was the obvious order and shipped for a
+  fortnight, and it broke on that function's own two refusals, both of which
+  fire before any write: an aborted gesture left a character that had silently
+  stopped being hand-built (review #26). **Ticking Starting gear is a second
+  way out** and must be, since it asks for the loadout in as many words; it
+  used to grant while LEAVING the mark set, which is worse than either
+  alternative, because the next background pick then deleted the lot and
+  granted nothing back. A bare background die does NOT clear it — pressing that
+  die is still choosing a background.
+  **THERE ARE FOUR FAILED-CAREER WRITERS AND THE SHEET'S IS NOT THE ONE THAT
+  MATTERS:** `replaceFailedCareerKeepsake` is called from inside
+  `changeBackground` itself, so the same call that had just suppressed every
+  grant ended by creating a keepsake. Only the sheet's `_grantFailedCareerItem`
+  had the term.
   **THERE ARE THREE BOND-GRANTING PATHS AND THE OBVIOUS ONE IS NOT ENOUGH:**
   `_applyBond`, the sheet's Add-a-bond handler (which creates items DIRECTLY,
   not through the applier) and `rerollAllBonds`. Suppressing only the first

@@ -336,6 +336,114 @@ const grants = await page.evaluate(async (prefix) => {
     goldAfter: bonded._source.system.gold ?? 0,
   };
   await settle(bonded);
+
+  // (f) THE NPC HALF (review #26). The mark was stamped on all four kinds from
+  // the first commit and read on none of the npc paths, so the Background
+  // picker — the entire point of the feature — handed a blank NPC the
+  // background gear AND the whole kit. Driven through `pickNpcBackground`, the
+  // shared apply behind both the die and the pick-list, with a background that
+  // definitely grants: an ungeared one (Lord, Politician) would pass for free.
+  const bgNpc = await cg.createBlankActor("npc");
+  await bgNpc.update({ name: `${prefix} npc bg` });
+  // `Cairn` is a module export, not a window global — read it the way the
+  // system does rather than assuming a global that only looks like one.
+  const { Cairn } = await import("/systems/air-bladder/module/config.js");
+  const gearMap = Cairn.npcGenerator?.backgroundGear ?? {};
+  const geared = Object.keys(gearMap).find((k) => gearMap[k]);
+  await cg.pickNpcBackground(bgNpc, geared ?? "Peddler");
+  out.npcBg = {
+    usedBackground: geared ?? "Peddler",
+    recorded: bgNpc._source.system.background,
+    items: bgNpc.items.size,
+    stillMarked: bgNpc.getFlag("air-bladder", "handBuilt") === true,
+  };
+  await settle(bgNpc);
+
+  // (g) THE HIRELING HALF, which also protects the TYPED STATBLOCK. A career
+  // carries abilities and HP where a background carries none, so adopting one
+  // overwrote the numbers the Warden had just transcribed off paper. Typed
+  // values first, so the leg measures preservation rather than the blank
+  // defaults surviving by luck.
+  const career = await cg.createBlankActor("hireling");
+  await career.update({
+    name: `${prefix} hireling career`,
+    "system.abilities.STR.value": 14,
+    "system.hp.value": 9, "system.hp.max": 9,
+  });
+  const careers = await cg.getNpcCareers2e();
+  // `gear` is the career's reference list — `items` is what buildHirelingItems
+  // returns from it, and asking for the wrong one picked a career that grants
+  // nothing, which this leg's own guard caught.
+  const withGear = careers.find((c) => c.gear?.length) ?? careers[0];
+  await cg.pickHirelingCareer(career, withGear.name);
+  out.hirelingCareer = {
+    usedCareer: withGear.name,
+    careerHasItems: (withGear.gear?.length ?? 0) > 0,
+    recorded: career._source.system.profession,
+    items: career.items.size,
+    str: career._source.system.abilities?.STR?.value,
+    hp: career._source.system.hp?.value,
+  };
+  await settle(career);
+
+  // (h) THE WAY OUT on an npc kind. Nothing cleared the mark on any npc path,
+  // so a blank NPC that had since been fully re-rolled kept claiming to be
+  // hand-built for the life of the document — inert until (f) landed, and a
+  // permanent invisible suppression the moment it did.
+  const regen = await cg.createBlankActor("npc");
+  await regen.update({ name: `${prefix} npc regen` });
+  await cg.regenerateNpc(regen);
+  out.npcRegen = {
+    stillMarked: regen.getFlag("air-bladder", "handBuilt") === true,
+    items: regen.items.size,
+    // The generator rolls a RANDOM Background, and Lord and Politician grant
+    // nothing at all by ruling — kit included. So "it has items" is a
+    // one-in-ten flake as a bare assertion; the honest guard is that it has
+    // items UNLESS it rolled one of those two. Caught by a control run, which
+    // is the only reason this is not a race waiting to be blamed on the fix.
+    background: regen._source.system.background,
+    ungeared: !gearMap[String(regen._source.system.background ?? "").trim()],
+  };
+  await settle(regen);
+
+  // (i) THE CONTRACT BEHIND THE ORDERING FIX (review #26). Clearing the mark
+  // used to happen BEFORE changeBackground was even asked, so its two
+  // refusals — both of which fire before the first write — left a character
+  // that had silently stopped being hand-built. The clear moved out to the
+  // caller and `ignoreHandBuilt` took its place, so the invariant to pin is:
+  // this call deals the gear and does NOT touch the flag. A refusal cannot be
+  // staged from a GM session (canRegenerateContainers short-circuits on isGM
+  // and an empty pool needs a world setting), so the contract is what gets
+  // tested; the caller's half is the "way out" leg above.
+  const contract = await cg.createBlankActor("character");
+  await contract.update({ name: `${prefix} contract` });
+  const dealt = await cg.changeBackground(contract, null, { ignoreHandBuilt: true });
+  out.ignoreContract = {
+    returned: dealt,
+    items: contract.items.size,
+    stillMarked: contract.getFlag("air-bladder", "handBuilt") === true,
+  };
+  await settle(contract);
+
+  // (j) Ticking STARTING GEAR is the second way out. It used to grant while
+  // LEAVING the mark set, which is the worst of the three states: tagged items
+  // on a sheet still claiming to be hand-built, so the next background pick
+  // deleted the lot and granted nothing back.
+  const gearOut = await cg.createBlankActor("character");
+  await gearOut.update({ name: `${prefix} gearout` });
+  await cg.changeBackground(gearOut, null, { ignoreHandBuilt: true });
+  const gearOutItems = gearOut.items.size;
+  // Put the mark back with the gear already on, which is exactly the state the
+  // old code could leave behind and the one this leg is about.
+  await gearOut.setFlag("air-bladder", "handBuilt", true);
+  const redealt = await cg.redealBackgroundGear(gearOut);
+  out.redeal = {
+    returned: redealt,
+    beforeItems: gearOutItems,
+    stillMarked: gearOut.getFlag("air-bladder", "handBuilt") === true,
+  };
+  await settle(gearOut);
+
   return out;
 }, PREFIX);
 
@@ -399,6 +507,66 @@ if (grants.question) {
   q.itemsAfter === q.itemsBeforeQ && q.goldAfter === q.goldBeforeQ && q.banked === 0
     ? ok("   …and hands over none of its 3 Rations and none of its 25 gold")
     : fail(`the answer granted: items ${q.itemsBeforeQ}->${q.itemsAfter}, gold ${q.goldBeforeQ}->${q.goldAfter}, banked ${q.banked}`);
+}
+
+/* the npc half of the same ruling (review #26) */
+if (grants.npcBg) {
+  const n = grants.npcBg;
+  n.recorded === n.usedBackground
+    ? ok(`a hand-built NPC records the picked Background ("${n.recorded}")`)
+    : fail(`the NPC Background did not land: ${JSON.stringify(n)}`);
+  n.items === 0
+    ? ok("   …and is handed no gear and no kit")
+    : fail(`the hand-built NPC was handed ${n.items} item(s) by its Background`);
+  n.stillMarked
+    ? ok("   …and is still hand-built afterwards")
+    : fail("picking a Background cleared the NPC's hand-built mark");
+}
+
+if (grants.hirelingCareer) {
+  const c = grants.hirelingCareer;
+  c.careerHasItems
+    ? ok(`the career under test ("${c.usedCareer}") does grant items when rolled`)
+    : fail("picked a career that grants nothing — the leg below would pass for free");
+  c.recorded === c.usedCareer
+    ? ok("a hand-built hireling records the picked Career")
+    : fail(`the Career did not land: ${JSON.stringify(c)}`);
+  c.items === 0
+    ? ok("   …and is handed none of its gear")
+    : fail(`the hand-built hireling was handed ${c.items} item(s) by its Career`);
+  c.str === 14 && c.hp === 9
+    ? ok("   …and the TYPED statblock survives (STR 14, HP 9)")
+    : fail(`the career overwrote the typed statblock: STR ${c.str} (want 14), HP ${c.hp} (want 9)`);
+}
+
+if (grants.npcRegen) {
+  const rg = grants.npcRegen;
+  rg.stillMarked === false
+    ? ok("a full NPC re-roll clears the hand-built mark — the way out exists on npc kinds too")
+    : fail("regenerateNpc left the hand-built mark set");
+  rg.items > 0 || rg.ungeared
+    ? ok(`   …and the re-rolled NPC carries what generation gives ("${rg.background}", ${rg.items} item(s))`)
+    : fail(`the re-rolled NPC has no items and "${rg.background}" is a geared Background — the leg above would pass on a broken generator`);
+}
+
+if (grants.ignoreContract) {
+  const ic = grants.ignoreContract;
+  ic.returned === true && ic.items > 0
+    ? ok(`changeBackground(ignoreHandBuilt) deals the gear on a hand-built sheet  ${ic.items} items`)
+    : fail(`ignoreHandBuilt dealt nothing: ${JSON.stringify(ic)}`);
+  ic.stillMarked
+    ? ok("   …and leaves the mark alone — clearing it is the CALLER's, after this returns true")
+    : fail("changeBackground cleared the hand-built mark itself; a refusal would strand it");
+}
+
+if (grants.redeal) {
+  const rd = grants.redeal;
+  rd.returned === true
+    ? ok("ticking Starting gear on a hand-built sheet re-deals")
+    : fail(`redealBackgroundGear refused: ${JSON.stringify(rd)}`);
+  rd.stillMarked === false
+    ? ok("   …and clears the mark, so gear and the flag never disagree")
+    : fail("Starting gear granted while leaving the sheet marked hand-built");
 }
 
 /* -- 6, 7: the dialog itself ------------------------------------------------ */

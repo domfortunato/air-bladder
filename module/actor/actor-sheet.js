@@ -3201,13 +3201,19 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // freed children re-roll in place against the CURRENT background.
     if (parts.background) {
       // THE WAY OUT OF HAND-BUILT, and the only one. Asking the dice to deal a
-      // background is asking for a rolled character, so the mark goes BEFORE
-      // the re-deal — clearing it after would let changeBackground suppress the
-      // very gear this gesture exists to hand over. A bare background die does
+      // background is asking for a rolled character. A bare background die does
       // not come through here and deliberately does not clear it: pressing that
       // die is still choosing a background. See HAND_BUILT_FLAG.
+      //
+      // `ignoreHandBuilt` rather than clearing first (review #26). Clearing
+      // first was the obvious order and it broke the rule stated four lines
+      // above: changeBackground refuses before its first write on two paths —
+      // the container permission and an empty background pool — and the mark
+      // was already gone by then, so an aborted gesture left a character that
+      // had silently stopped being hand-built. The flag now moves only once
+      // the swap has actually landed.
+      if (!(await changeBackground(actor, null, { ignoreHandBuilt: true }))) return;
       await clearHandBuilt(actor);
-      if (!(await changeBackground(actor, null))) return;
     } else {
       // Pre-flight the container permission for every checked part before the
       // FIRST delete: these run in sequence, and a refusal after the gear has

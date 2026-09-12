@@ -1,7 +1,7 @@
 import { CairnActor } from "./actor/actor.js";
 import { Cairn } from "./config.js";
 import { compendiumInfoFromString, findCompendiumItem, resultText } from "./compendium.js";
-import { getGameIconManifest, customPoolFor, promptCreation } from "./character-generator.js";
+import { getGameIconManifest, customPoolFor, promptCreation, clearHandBuilt } from "./character-generator.js";
 // Aliased: the tier config is locally `t` throughout generateMonster.
 import { t as tr } from "./i18n-content.js";
 
@@ -358,6 +358,7 @@ export const createMonster = async ({ folder = null, tier = "random" } = {}) => 
  */
 export const regenerateMonster = async (actor, tierChoice) => {
   const m = await generateMonster(tierChoice);
+  await clearHandBuilt(actor); // the way out, as in regenerateNpc (review #26)
   await actor.deleteEmbeddedDocuments("Item", [], { deleteAll: true, render: false, abNoStatusCard: true });
   // createEmbeddedDocuments, never `items` inside the update: the update route
   // creates embedded documents without firing createItem hooks. Same order as

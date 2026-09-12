@@ -2340,7 +2340,15 @@ export const createActorInteractive = async (kind, { folder = null } = {}) => {
  *    thing that renders the pickers — which are the entire point of the
  *    feature, and the ONLY way in for a bond or a question answer, both of
  *    which the sheet renders as read-only prose.
- *  - **No portrait.** Every generator assigns a random pair on creation; here
+ *  - **No portrait — FOR A CHARACTER AND A MONSTER ONLY**, and this note said
+ *    otherwise for a day (review #26). `_preCreate` assigns a random portrait
+ *    and paired token to any person-role npc that arrives without one
+ *    (actor.js, `isNpcPerson`), which a blank npc and a blank hireling both
+ *    are, so those two DO land wearing a face. Left as it is rather than
+ *    suppressed: the picker is on the sheet either way and a default-silhouette
+ *    npc is not obviously better. Recorded because a stated-deliberate choice
+ *    that the code contradicts for half its cases reads as verification.
+ *    Every generator assigns a random pair on creation; here
  *    the Warden is choosing everything else by hand, and the portrait picker is
  *    already on the sheet because the mode is on.
  *
@@ -2936,7 +2944,13 @@ const replaceFailedCareerKeepsake = async (actor, careerName) => {
     .filter((i) => String(i.getFlag(FLAG_SCOPE, "grantSource") ?? "") === "failed-career")
     .map((i) => i.id);
   if (oldIds.length) await actor.deleteEmbeddedDocuments("Item", oldIds, { render: false, abNoStatusCard: true });
-  const item = careerName ? await buildFailedCareerItem(careerName) : null;
+  // THE FOURTH grant path (review #26). The sheet's own `_grantFailedCareerItem`
+  // got the hand-built term and this one did not — and this is the one called
+  // from INSIDE `changeBackground`, so the same call that had just suppressed
+  // every gear, container and coin ended by creating an item. Exactly the shape
+  // the bond fix already records: three writers, one patched, and it read as
+  // done.
+  const item = careerName && !isHandBuilt(actor) ? await buildFailedCareerItem(careerName) : null;
   if (item) await actor.createEmbeddedDocuments("Item", [item], { render: false, abNoStatusCard: true });
 };
 
@@ -2963,9 +2977,18 @@ const replaceFailedCareerKeepsake = async (actor, careerName) => {
  * — leaves the character exactly as it was. The sheet dice ignore it.
  * @param {CairnActor} actor
  * @param {CairnItem|null} [newBg]
+ * @param {{ignoreHandBuilt?: Boolean}} [options]  `ignoreHandBuilt` deals the
+ *   gear even on a hand-built sheet. ONE caller passes it: the Roll Character
+ *   checklist's Background box, which is the documented way out of hand-built.
+ *   It exists so that caller can clear the mark AFTER this returns true rather
+ *   than before it is asked (review #26) — clearing first meant a refusal here
+ *   left the character silently no longer hand-built, with nothing on screen
+ *   saying so, and the next background picked by hand handing over the full
+ *   loadout. Both refusals below fire before the first write, so an aborted
+ *   gesture must leave the flag alone too.
  * @returns {Promise<Boolean>}
  */
-export const changeBackground = async (actor, newBg = null) => {
+export const changeBackground = async (actor, newBg = null, { ignoreHandBuilt = false } = {}) => {
   if (!canRegenerateContainers(actor)) return false; // bail before deleting anything
   const source = actor.system.contentSource || "2e";
   let bg = newBg;
@@ -3026,7 +3049,7 @@ export const changeBackground = async (actor, newBg = null) => {
   // its questions land and NOTHING is handed over. See HAND_BUILT_FLAG: the
   // empty sheet exists to transcribe a character already rolled on paper, and
   // its owner is typing the gear they already know about.
-  const handBuilt = isHandBuilt(actor);
+  const handBuilt = isHandBuilt(actor) && !ignoreHandBuilt;
   const gear = handBuilt ? [] : tagBackgroundGear(await resolveStartingGear(bg));
   for (const it of gear) {
     if (it.type === "weapon" || it.type === "armor") it.system.equipped = true;
@@ -3160,6 +3183,16 @@ export const redealBackgroundGear = async (actor) => {
     ui.notifications?.warn(game.i18n.localize("CAIRN.Reroll.NoBackground"));
     return false;
   }
+  // A SECOND WAY OUT OF HAND-BUILT (review #26), and it has to be one. Ticking
+  // Starting gear is asking to be handed the background's loadout in as many
+  // words, so suppressing it here would make the box a no-op with nothing on
+  // screen explaining why. Granting while LEAVING the mark set was the state
+  // before this line, and it was the worst of the three: the sheet ended up
+  // holding background-tagged items and a granted container while still
+  // claiming to be hand-built, so the very next background pick deleted the
+  // lot and granted nothing back. After both refusals above, exactly as the
+  // Background box does.
+  await clearHandBuilt(actor);
 
   const toDelete = [];
   const claimed = new Set();
@@ -3842,6 +3875,10 @@ export const createHireling = async ({ folder = null } = {}) => {
  */
 export const regenerateHireling = async (actor) => {
   const h = await generateHireling();
+  // A full re-roll is the way out of hand-built on every kind (review #26).
+  // After the generate and before the first write: nothing here refuses, but
+  // a throw above this line must not strand the flag either way.
+  await clearHandBuilt(actor);
   await actor.deleteEmbeddedDocuments("Item", [], { deleteAll: true, render: false, abNoStatusCard: true });
   // createEmbeddedDocuments, never `items` inside the update: the update route
   // creates embedded documents without firing createItem hooks. Same order as
@@ -3913,7 +3950,16 @@ export const pickHirelingCareer = async (actor, name) => {
 /** Shared by the Career die and the Career picker — one apply, so the two can
  *  never disagree about what adopting a career means. @private */
 const applyHirelingCareer = async (actor, h) => {
-  const items = await buildHirelingItems(h);
+  // See applyNpcBackground: a hand-built sheet records the choice and is handed
+  // nothing (review #26). The STATBLOCK is suppressed here too, which the
+  // character-side ruling never had to say because a background carries none.
+  // A career does, and overwriting it is the sharper harm: the Warden
+  // transcribing from paper has already typed the real STR/DEX/WIL and HP, and
+  // adopting a career would replace them with the catalogue's. The blank
+  // sheet's 10/10/10 and HP 3 are placeholders for the Warden to type over,
+  // never numbers to be re-derived from a later choice.
+  const handBuilt = isHandBuilt(actor);
+  const items = handBuilt ? [] : await buildHirelingItems(h);
   const stale = actor.items
     .filter((i) => i.getFlag(FLAG_SCOPE, "grantSource") === "profession")
     .map((i) => i.id);
@@ -3932,8 +3978,11 @@ const applyHirelingCareer = async (actor, h) => {
       forHire: true,
       profession: h?.name ?? "",
       dayRate: h?.rate ?? 0,
-      abilities: personAbilityData(h?.abilities ?? { STR: 10, DEX: 10, WIL: 10 }),
-      hp: { value: h?.hp ?? 6, max: h?.hp ?? 6 },
+      // The career's own numbers, unless this sheet is hand-built — see above.
+      ...(handBuilt ? {} : {
+        abilities: personAbilityData(h?.abilities ?? { STR: 10, DEX: 10, WIL: 10 }),
+        hp: { value: h?.hp ?? 6, max: h?.hp ?? 6 },
+      }),
       critical: false,
     },
   }, {
@@ -4284,6 +4333,7 @@ export const createNpc = async ({ folder = null } = {}) => {
  */
 export const regenerateNpc = async (actor) => {
   const n = await generateNpc();
+  await clearHandBuilt(actor); // the way out, as in regenerateHireling
   const stale = npcGrantedItemIds(actor, ["background", "npc-kit"]);
   if (stale.length) await actor.deleteEmbeddedDocuments("Item", stale, { render: false, abNoStatusCard: true });
   if (n.items?.length) await actor.createEmbeddedDocuments("Item", n.items, { render: false, abNoStatusCard: true });
@@ -4382,14 +4432,24 @@ const applyNpcBackground = async (actor, rolled) => {
   const avoid = new Set(actor.items
     .filter((i) => !stale.includes(i.id))
     .map((i) => i.name.toLowerCase()));
-  const items = geared ? await buildNpcItems(rolled, avoid) : [];
+  // A HAND-BUILT NPC IS HANDED NOTHING EITHER (review #26). The ruling was
+  // written about a character and the flag was stamped on all four kinds from
+  // the first commit, but only the character paths ever read it — so the
+  // Background picker, which this feature's own docblock calls the entire
+  // point of it, handed a blank NPC the background gear AND the whole kit, and
+  // could land it encumbered at derived HP 0. On an npc sheet the Background
+  // IS the background. Empty set rather than an early return, so the stale
+  // sweep and the arrangement below still run: a sheet that stops granting
+  // must not also stop tidying up.
+  const handBuilt = isHandBuilt(actor);
+  const items = (geared && !handBuilt) ? await buildNpcItems(rolled, avoid) : [];
   // A kit only when NONE survives — this NPC was, or was generated as, a Lord
   // or Politician, whose bag is empty by the ruling above. PRESENCE is the
   // test, never the old Background's name: however the kit went missing, a
   // geared Background packs one, exactly as generation would (the reported
   // miss, 2026-08-21: a Politician swapped to Peddler held the Peddler's Sack
   // and nothing else).
-  if (geared && npcGrantedItemIds(actor, ["npc-kit"]).length === 0) {
+  if (geared && !handBuilt && npcGrantedItemIds(actor, ["npc-kit"]).length === 0) {
     items.push(...await buildNpcKit(avoid));
   }
   if (items.length) await actor.createEmbeddedDocuments("Item", items, { render: false, abNoStatusCard: true });

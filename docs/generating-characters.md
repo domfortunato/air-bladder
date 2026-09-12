@@ -36,11 +36,19 @@ nothing more — no gear, no coins. You already know what your character is
 carrying, so the sheet does not guess and then leave you deleting a pack's worth
 of things you never asked for. Type your inventory in.
 
+**The same is true of an empty NPC, hireling or monster.** Giving an empty
+hireling a career, or an empty NPC a background, records the choice and hands
+over none of the gear that normally comes with it. A career also leaves the
+statblock alone, so the numbers you typed off your paper sheet stay where you
+put them.
+
 That holds for as long as the sheet lives, not just while it is empty. If you
 change your mind and want the dice to furnish the character after all, use
 **Roll Character** with **Background** ticked: that deals a whole character, and
 from then on the sheet behaves like any other — pick a background later and it
-brings its gear.
+brings its gear. Ticking **Starting gear** on its own does the same. On an NPC,
+hireling or monster, the **Roll** button in the sheet's title bar is the way
+back.
 
 If you want a character and you do not have one already, roll it. That is the
 game.
