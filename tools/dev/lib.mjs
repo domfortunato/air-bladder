@@ -116,9 +116,25 @@ export async function dismissChrome(page) {
  * Call once, right after launching the browser. `unref()` so a probe that finishes
  * early is not held open by the timer.
  */
-export function watchdog(ms = 120000, label = "probe") {
-  const t = setTimeout(() => {
+export function watchdog(ms = 120000, label = "probe", cleanup = null) {
+  const t = setTimeout(async () => {
     console.error(`\n  FAIL  ${label} exceeded ${ms}ms — treating as a hang, not a slow run`);
+    // CLOSE THE BROWSER BEFORE EXITING. `process.exit` skips every async
+    // teardown a probe would otherwise run, so a watchdog firing used to leave
+    // a Chromium alive with a live WARDEN session attached to the dev world —
+    // and this repo already records what a parked Warden client does to the
+    // probes that come after it (a relay probe counts double; dev:changelog
+    // refuses outright). A timeout in one probe must not become a red in the
+    // next four. Bounded, because the whole point is that something is stuck:
+    // if the close does not come back in two seconds we exit anyway.
+    if (typeof cleanup === "function") {
+      try {
+        await Promise.race([
+          Promise.resolve(cleanup()),
+          new Promise((r) => setTimeout(r, 2000)),
+        ]);
+      } catch { /* exiting anyway */ }
+    }
     process.exit(1);
   }, ms);
   t.unref();

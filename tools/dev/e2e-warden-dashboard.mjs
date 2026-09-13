@@ -1162,10 +1162,36 @@ try {
   // permits PROGRAMMATIC scrolling. It only stops the user. That is this
   // repo's "an assertion that the surface also supplies" trap, caught here by
   // running the control rather than by reading the leg.
+  // AIM IT, AND SAY SO WHEN IT MISSES. A wheel is delivered at a POINT, so it
+  // scrolls whatever is topmost there — and this leg reported a miss and a
+  // broken stylesheet with the same words ("the wheel moved nothing"), which
+  // is how it went red once in the full sweep and green alone twice
+  // (2026-09-12). The window is raised, the rect re-read immediately before
+  // the gesture rather than reused from the open, and the point hit-tested; a
+  // point that is not over the body we mean to scroll now fails saying WHAT
+  // was in the way instead of blaming the CSS two legs above it just proved.
+  let aim = null;
   if (tall.opened && tall.overflows) {
-    await page.mouse.move(tall.centre.x, tall.centre.y);
-    await page.mouse.wheel(0, 800);
-    await page.waitForTimeout(400);
+    aim = await page.evaluate((id) => {
+      const app = foundry.applications.instances.get(id);
+      if (!app) return null;
+      app.bringToFront?.();
+      const wc = app.element.querySelector(".window-content");
+      const r = wc.getBoundingClientRect();
+      const x = Math.round(r.x + r.width / 2);
+      const y = Math.round(r.y + r.height / 2);
+      const hit = document.elementFromPoint(x, y);
+      return {
+        x, y,
+        onTarget: !!hit && (wc === hit || wc.contains(hit)),
+        hit: hit ? `${hit.tagName.toLowerCase()}.${String(hit.className || "").split(" ")[0]}` : "nothing",
+      };
+    }, tall.id ?? "");
+    if (aim?.onTarget) {
+      await page.mouse.move(aim.x, aim.y);
+      await page.mouse.wheel(0, 800);
+      await page.waitForTimeout(400);
+    }
   }
   const wheeled = await page.evaluate((id) => {
     const app = foundry.applications.instances.get(id);
@@ -1186,8 +1212,12 @@ try {
   wheeled.scrolled > 0
     ? ok("...to the WHEEL, so a reader can reach the bottom rows", `${wheeled.scrolled}px`)
     : fail("...to the WHEEL, so a reader can reach the bottom rows",
-      "the wheel moved nothing — overflow:hidden still allows scrollTop from script, "
-      + "which is why this is measured as a gesture");
+      aim && !aim.onTarget
+        ? `the gesture never reached the body — (${aim.x},${aim.y}) was over ${aim.hit}. `
+          + "That is a PROBE miss, not a scrolling defect: something was on top of the reveal. "
+          + "The two legs above already proved the body overflows and computes overflow-y auto"
+        : "the wheel moved nothing — overflow:hidden still allows scrollTop from script, "
+          + "which is why this is measured as a gesture");
   tall.resizable
     ? ok("...and the reveal can be resized")
     : fail("...and the reveal can be resized", "no resize handle");

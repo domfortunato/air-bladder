@@ -353,8 +353,34 @@ and its promise settles only on a button press, so a probe path that returns wit
 pressing anything waits forever: it burns the whole harness timeout and reports nothing.
 Cancelling is not the escape either — a cancelled `DialogV2.prompt` *rejects*, so an
 uncaught `await` throws past the assertions. Press a button on **every** path, `.catch()`
-the promise, and call `lib.mjs` `watchdog(ms, label)` after launching the browser so any
-future hang dies with a message instead of a timeout.
+the promise, and call `lib.mjs` `watchdog(ms, label, cleanup)` after launching the browser
+so any future hang dies with a message instead of a timeout.
+
+**Three things about that watchdog, all paid for on 2026-09-12.** *Pass it the browser
+close* — it exits via `process.exit`, which runs no teardown, so a fired watchdog used to
+leave a Chromium alive with a live **Warden session** attached to the dev world, and this
+file already records what a parked Warden client does to the probes after it. A timeout in
+one probe must not become a red in the next four. *Set the ceiling above a slow run, not
+above a typical one* — `dev:grimoire` came in at 421s against a 420s limit inside the full
+sweep and announced itself as a hang one second over the line, which is a load meter
+wearing a hang detector's message; it is 900s now, and it is a genuine outlier at roughly
+70% longer than the next slowest probe (`dev:item-offer`, 249s against 600s), so nothing
+else needed raising. *And the watchdog is the LAST line of defence, never the first.*
+**Every `await` inside a `page.evaluate` needs its own ceiling**, because a probe that
+hangs there can only ever report silence: `seedCast` bounded its "the dialog never
+appeared" path at 40 × 150ms and left `await castFromGrimoire(...)` unbounded, so a cast
+that failed to settle produced no leg, no message and nothing to read but a watchdog line
+fifteen minutes later blaming a hang it could not locate. `Promise.race` against a
+`setTimeout` turns that into a named red on the leg that caused it. Note what this does
+NOT do: bounding the wait makes an intermittent failure legible, it does not explain it.
+
+**A red inside the full sweep that goes green alone is a RACE, and the sweep is where you
+find them.** The 2026-09-12 run ended 109/112 with three reds — a wheel gesture that
+missed, that grimoire ceiling, and a destroyed execution context — and all three passed in
+isolation minutes later. None was a claim about the system, and the temptation to re-run
+and call it green is exactly what this file exists to refuse. Diagnose each from its own
+log: the useful question is "could this failure have been reported more precisely?", and
+for all three the answer was yes.
 
 **When the defect is how much WORK happens, count it — an assertion on the output cannot
 fail.** `findCompendiumItem` loaded a whole pack per lookup, so opening the shop did 78

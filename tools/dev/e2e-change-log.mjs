@@ -45,14 +45,35 @@ import {
 const dog = watchdog(300000, "dev:changelog");
 
 const results = [];
+/**
+ * Every main-frame navigation the Warden's page made, in order.
+ *
+ * A leg that dies with "Execution context was destroyed, most likely because
+ * of a navigation" says nothing about WHAT navigated, and Playwright's guess
+ * is the least useful half of the sentence. A Foundry client navigates for
+ * exactly one interesting reason — it stopped being logged in — and the
+ * destination says which: a bounce to `/join` is an eviction (another session
+ * claimed this user) or a server restart, and neither is a defect in the
+ * feature the leg was testing. Recorded on 2026-09-12 after this probe went
+ * red once at the end of an 83-minute sweep and green alone straight after,
+ * with nothing but Playwright's guess to go on.
+ */
+const navigations = [];
+
 const leg = async (name, fn) => {
   try {
     await fn();
     results.push({ name, ok: true });
     console.log(`  ok    ${name}`);
   } catch (e) {
-    results.push({ name, ok: false, err: e.message });
-    console.log(`  FAIL  ${name}: ${e.message}`);
+    const destroyed = /Execution context was destroyed|Target (page|closed)|Navigation to/i.test(e.message);
+    const where = destroyed && navigations.length
+      ? ` — the Warden's page NAVIGATED during this leg (${navigations.join(" -> ")}). `
+        + "That is a lost session, not a change-log defect: another client claiming this same user, "
+        + "or the server restarting under the run. Re-run this probe alone before believing the leg."
+      : "";
+    results.push({ name, ok: false, err: e.message + where });
+    console.log(`  FAIL  ${name}: ${e.message}${where}`);
   }
 };
 const assert = (cond, msg) => { if (!cond) throw new Error(msg); };
@@ -90,6 +111,11 @@ const run = async () => {
   const alice = await aliceCtx.newPage();
   const gmErrors = watchErrors(gm);
   const aliceErrors = watchErrors(alice);
+  // Main frame only: Foundry's own iframes (the editor, a popped-out sheet)
+  // navigate all the time and none of that costs us an execution context.
+  gm.on("framenavigated", (f) => {
+    if (f === gm.mainFrame()) navigations.push(f.url().replace(FOUNDRY_URL, ""));
+  });
 
   let created = { witness: null, hidden: null, npc: null };
   const preRunMessages = [];

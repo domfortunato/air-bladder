@@ -95,8 +95,19 @@ const ok = (l, d = "") => console.log(`  ok    ${l.padEnd(56)} ${d}`);
 const fail = (l, d = "") => { console.log(`  FAIL  ${l.padEnd(56)} ${d}`); failures++; };
 const check = (cond, l, d = "") => (cond ? ok(l, d) : fail(l, d));
 
-watchdog(420000, "grimoire probe");
+// 900s, not 420s, and the browser is closed on the way out.
+//
+// This is the longest probe here — 112 legs, two raw-socket plants and a great
+// many chat cards — and 420s was comfortable for it ALONE and not comfortable
+// inside the full before-tagging sweep, where it came in at 421 seconds and
+// reported itself as a hang one second over the line (2026-09-12). A ceiling
+// that a healthy run can cross is not a hang detector, it is a load meter, and
+// the message it prints ("treating as a hang, not a slow run") is then exactly
+// wrong. The cleanup matters as much as the number: `process.exit` runs no
+// teardown, so a fired watchdog used to leave a Warden client connected to the
+// dev world for every probe that followed.
 const browser = await chromium.launch();
+watchdog(900000, "grimoire probe", () => browser.close());
 const gm = await browser.newPage({ viewport: VIEWPORT });
 const gmErrors = watchErrors(gm);
 await gm.goto(FOUNDRY_URL);
@@ -566,7 +577,21 @@ try {
           const options = diceSel.options.length;
           diceSel.value = diceVal;
           dlg.element.querySelector('[data-action="cast"]').click();
-          const publicCard = await p;
+          // BOUNDED. The dialog-never-appeared path below has always had a
+          // ceiling (40 × 150ms) but this await had none, so a cast that never
+          // settles stopped the whole probe dead — no leg, no message, nothing
+          // to read but a watchdog line 15 minutes later blaming "a hang" it
+          // could not locate (2026-09-12: 54 of 112 legs, alone, on a run that
+          // had passed 112 an hour earlier). An unbounded await inside a
+          // page.evaluate is a probe that can only ever report silence. This
+          // turns the same event into a named red on the leg that caused it.
+          const publicCard = await Promise.race([
+            p,
+            new Promise((r) => setTimeout(() => r("__cast-timeout__"), 20000)),
+          ]);
+          if (publicCard === "__cast-timeout__") {
+            return { error: "castFromGrimoire never resolved after the cast click (20s)" };
+          }
           // The whisper is the newest message.
           await new Promise((r) => setTimeout(r, 300));
           const msgs = [...game.messages].slice(-(game.messages.size - msgsBefore));
