@@ -45,6 +45,8 @@ A Grimoire costs 300gp in labor and special inks and is *always found, made or t
 
 A warden can edit a Grimoire's **spellpage capacity** in — `Pages` on the Grimoire's item sheet, 10 by default. Edit the capacity there if your table uses larger or meaner tomes. Each spellpage holds one spell that was formerly a spellscroll.
 
+The **Grimoire** box and its **Pages** field appear only on a Grimoire's sheet, and only while GLOG Magic is switched on — no other item offers to become one. A spellbook's **GLOG** box (marking a spell written in the hack's wording) likewise appears only while the hack is on; its **Scroll** box is Cairn 2e's and is always there.
+
 ## Moving a Grimoire between sheets
 
 **A book's pages travel with it, and only its own.** Drag a Grimoire from one sheet to another and its spellpages go along in the same move — to another character, into a crate, out of one again. They cannot be dragged separately: a page belongs to a book, not to whoever is holding it that day.

@@ -34,7 +34,10 @@
 
     <!-- GLOG. A flag, exactly like Scroll above and composing with it: a GLOG
          scroll is this spell's GLOG wording, written once on paper. Marks the
-         WORDING only -- ticking it changes no values and swaps no art. -->
+         WORDING only -- ticking it changes no values and swaps no art. A HACK
+         control, so it renders only while `enable-glog-magic` is on (user
+         ruling 2026-09-13); the Scroll box above is 2e's and always shows. -->
+    {{#if glogEnabled}}
     <div class="resource-counter long-counter">
         <label class="large-resource-label" for="{{@root.idp}}-system.glog" data-tooltip="{{ localize 'CAIRN.GlogTip' }}">{{ localize 'CAIRN.Glog' }}</label>
         <div class="resource-input-wrapper">
@@ -42,6 +45,7 @@
                 value="{{system.glog}}" data-dtype="Boolean" />
         </div>
     </div>
+    {{/if}}
 
     <!-- Cost -->
     <div class="resource-counter long-counter">

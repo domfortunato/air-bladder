@@ -766,6 +766,28 @@ companion record of who authored what.
   redded the scar leg against a fixture that only a roll of 1 could hit; the
   scar roll IS the damage, which is the kind of thing a probe's author has to
   know about the code under test.
+- **GLOG'S TWO SHEET FLAGS ARE HACK CONTROLS AND RENDER ONLY WHILE THE HACK IS
+  ON** (2026-09-13, user ruling after an Air Bladder in a GLOG-off world
+  offered a **Grimoire** checkbox — "why does an item like an Air Bladder have
+  an option to make a grimoire?"). A Grimoire is a FLAG on an ordinary bulky
+  `item`, not a type (the 2026-08-10 E1 ruling: a type can never be
+  un-become), so the checkbox lived on every plain item's sheet with no gate,
+  while every other piece of the hack — Cast, scroll conversion, transmute —
+  sat behind `enable-glog-magic`. The one branch of a hack outside its switch,
+  and not harmless: a mis-tick made a rope the character's one permitted book.
+  Now `showGrimoire` = hack on AND the item already IS a Grimoire — **even with
+  GLOG on, no ordinary item offers to become one** (user ruling: a Grimoire is
+  found, made or taken; `docs/glog-magic.md` sends a Warden to the Reliquary,
+  never to a checkbox) — and the `.plain-item` grid variant that reserves the
+  boxes' sixth counter row is applied on the same condition, or a sheet without
+  them carries an empty row above the tabs. The spellbook sheet's **GLOG** box
+  (the wording flag, `system.glog`) renders on every spellbook while the hack
+  is on and never while it is off; **Scroll** is 2e's and always shows. Scrolls
+  and spellbooks do NOT carry the Grimoire flag: `grimoire` and
+  `grimoirePages` are `ItemData` only, and a spellbook's GLOG-side fields are
+  `glog`, `bound`, `boundTo` and `grimoireKey`, of which only `glog` is a
+  sheet control. Gate: `npm run dev:glog-flags`, both switch states shadowed
+  in-page.
 - Data models in `module/data-models.js` (TypeDataModel; `template.json` is gone,
   sub-types are declared in `system.json` `documentTypes`); 30 compendium packs
   (30 on `master` too since 0.1.18 shipped `journals-vald`, the Warden's Guide

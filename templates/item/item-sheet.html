@@ -1,6 +1,6 @@
 {{!-- No <form> here: ApplicationV2 supplies it (DocumentSheetV2 sets tag: "form").
       A nested one is dropped by the parser, taking this element's class with it. --}}
-    <div class="item-sheet-grid plain-item">
+    <div class="item-sheet-grid{{#if showGrimoire}} plain-item{{/if}}">
         <!-- Portrait -->
         <div class="item-sheet-section-portrait">
             <img class="portrait" src="{{item.img}}" data-action="editImage" data-edit="img" title="{{nameDisplay}}" />
@@ -103,11 +103,16 @@
         </div>
 
         <!-- Grimoire (GLOG Magic). A flag like Relic above, not a type: the book
-             is an ordinary bulky item that happens to hold spells. Ticking it
-             reveals the page-capacity field the transmute flow enforces. The
-             .plain-item grid variant carries the sixth counter row these two
-             boxes need — without it they auto-place into an invisible implicit
-             row under the tabs (the dev:sheet-layout trap). -->
+             is an ordinary bulky item that happens to hold spells. BOTH rows
+             render only while the GLOG hack is on AND this item already IS a
+             Grimoire (`showGrimoire`, user ruling 2026-09-13): a rope must not
+             offer to become the character's one book, and a hack that is off
+             shows no controls at all. The .plain-item grid variant carries the
+             sixth counter row these two boxes need — without it they auto-place
+             into an invisible implicit row under the tabs (the dev:sheet-layout
+             trap) — and is applied on the same condition, so a sheet without
+             them keeps the standard grid and no empty row above the tabs. -->
+        {{#if showGrimoire}}
         <div class="resource-counter long-counter">
             <label class="large-resource-label" for="{{@root.idp}}-system.grimoire" data-tooltip="{{ localize 'CAIRN.GrimoireTip' }}">{{ localize 'CAIRN.Grimoire' }}</label>
             <div class="resource-input-wrapper">
@@ -115,7 +120,6 @@
                         value="{{system.grimoire}}" data-dtype="Boolean" />
             </div>
         </div>
-        {{#if system.grimoire}}
         <div class="resource-counter long-counter">
             <label class="large-resource-label" for="{{@root.idp}}-system.grimoirePages">{{ localize 'CAIRN.GrimoirePages' }}</label>
             <div class="resource-input-wrapper">

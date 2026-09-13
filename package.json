@@ -91,6 +91,7 @@
     "dev:directory-ui": "node tools/dev/probe-ui-batch.mjs",
     "dev:encounters": "node tools/dev/e2e-encounters.mjs",
     "dev:grimoire": "node tools/dev/e2e-grimoire.mjs",
+    "dev:glog-flags": "node tools/dev/e2e-glog-flags.mjs",
     "dev:hotbar": "node tools/dev/e2e-hotbar.mjs",
     "dev:roll-npc": "node tools/dev/e2e-roll-npc.mjs",
     "dev:npc-split": "node tools/dev/e2e-npc-split.mjs",
