@@ -72,6 +72,7 @@
     "dev:gear": "node tools/dev/gear-probe.mjs",
     "dev:phase2": "node tools/dev/phase2-probe.mjs",
     "dev:marketplace": "node tools/dev/marketplace-probe.mjs",
+    "dev:world-tables": "node tools/dev/world-tables-probe.mjs",
     "dev:transports": "node tools/dev/transport-probe.mjs",
     "dev:barebones": "node tools/dev/barebones-probe.mjs",
     "dev:npc": "node tools/dev/npc-probe.mjs",

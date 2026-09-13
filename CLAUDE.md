@@ -698,6 +698,74 @@ companion record of who authored what.
   panel has three: this is the surface where the clock is moved. The band and
   the panel now show the SAME STRING for a day (`describeTime().dateLong`),
   and the probe compares the two surfaces rather than measuring each.
+- **THE MARKETPLACE IS WORLD FIRST** (`module/marketplace.js` `marketTables`,
+  2026-09-13, from the user asking how any *Warden* changes a price or adds an
+  item) — a world RollTable named `Market: Gear` REPLACES that aisle, and one
+  carrying the prefix under a name nothing ships ADDS an aisle after the four.
+  **Why it had to exist at all:** Foundry's installer deletes a package's WHOLE
+  directory before extracting an update (`dist/packages/installer.mjs`,
+  `await fs.promises.rm(target, {force: true, recursive: true})`; the `storage/`
+  exemption needs `persistentStorage`, which this system does not declare), so a
+  price or a dragged-in row a Warden puts in OUR compendium cannot survive —
+  core says as much in the dialog that unlocking one raises. Its advice there,
+  duplicate the pack into your world, bought nothing: the shop resolved
+  `air-bladder.marketplace` by id and read NOTHING world-side, so there was no
+  durable route at all.
+  **REPLACE, not merge (user ruling):** a Warden must be able to take a shipped
+  item OFF the shelves, and Import-then-edit already hands them all 49 Gear rows
+  to start from. This is deliberately the `Bonds` / `Omens` rule — ONE rule a
+  Warden learns once, and the reason `docs/customizing-the-marketplace.md` ends
+  by pointing at `customizing-bonds.md`.
+  Two things that will bite. A price still rides the ITEM and a row still
+  resolves by uuid, so keeping a PRICE means pointing a row at a world item —
+  overriding the table alone does not rescue an edit made to a shipped item. And
+  the shop never DRAWS: it reads `table.results` directly, so the drawn-marking
+  trap that keeps the NPC Faction die on the `roll()` path (`module/config.js`)
+  does not reach it — a world table here is safe to read forever.
+  Gate: `npm run dev:marketplace`, whose control is the pack-only lookup it
+  replaced, run in-page over the same planted tables. It measures a **PLAYER's**
+  client too, which was the one thing no amount of reading settled: a world table
+  the Warden resolves and a player does not would have the two of them shopping
+  different catalogues, and nothing else in the suite would notice. It does
+  resolve for a player (measured 2026-09-13).
+- **AND SO IS EVERY TABLE A GENERATOR DECLARES** (same day, user ruling "do it
+  all in one batch" after the survey the marketplace change prompted). The
+  survey found that the same table answered TWO WAYS depending on the button:
+  the Warden's Dashboard resolved all 45 of its tables world-first through
+  `findTableByName`, while the generators read the pack copy behind the
+  `"pack;Name"` prefix in `module/config.js` — so a Warden's own `Warden: NPC -
+  Quirk` came up on the Dashboard button and never in a generated NPC.
+  Twenty-two tables, plus Scars hardcoded in `damage.js` and the Barebones
+  creation tables found by a pack scan. `compendium.js` `findDeclaredTable` is
+  the ONE resolver now: world by name, then the declared pack, and a bare name
+  hunts every RollTable pack. The prefix is the FALLBACK — where the shipped
+  copy lives, precisely — never a lock, which is why declarations keep it
+  rather than going bare the way `Warden: NPC - Faction` did.
+  **The conversion was not one line because of a WRITE.** `RollTable#draw`
+  marks the rows it lands on `drawn: true` on any table that is neither
+  `replacement` nor in a pack (`client/documents/roll-table.mjs:109`). Thirteen
+  readers — the eight 2e biography tables, NPC Background and its four traits —
+  went through `draw()`, and that was safe only because every table they could
+  reach lived in a pack; the moment a declaration can resolve to a world table
+  it is a write into the table the Warden browses by hand. Every reader is on
+  `roll()` now (`compendium.js` `rollTable` / `rollTableText`, which REPLACED
+  `drawTable` / `drawTableText` / `drawTableItem` — renamed because a function
+  called draw that rolls is the correct-sounding lie this file keeps finding),
+  and the monster generator's private copy of the same reader is gone. The
+  two PICK-LISTS that read the pack directly — NPC Background, and the name
+  list — resolve through the same function, or a Warden's table would roll and
+  not be pickable.
+  **Two Kettlewright readers are LEFT on the pack, deliberately:** its Bonds
+  matcher and `resolveVirtueVice` classify text that CAME FROM the official 2e
+  tables, so the shipped copy is the right thing to match against whatever a
+  Warden has overridden. Not an oversight; do not "fix" them.
+  Gate: `npm run dev:world-tables` — the declarations read IN-PAGE off
+  `CONFIG.Cairn`, the pack-only lookup as the control, the real generators and
+  the scar roll end to end, the pick-list read off the live dialog, and the
+  drawn-state invariant with one bare `draw()` as ITS control. Its first run
+  redded the scar leg against a fixture that only a roll of 1 could hit; the
+  scar roll IS the damage, which is the kind of thing a probe's author has to
+  know about the code under test.
 - Data models in `module/data-models.js` (TypeDataModel; `template.json` is gone,
   sub-types are declared in `system.json` `documentTypes`); 30 compendium packs
   (30 on `master` too since 0.1.18 shipped `journals-vald`, the Warden's Guide

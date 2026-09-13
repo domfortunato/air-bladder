@@ -3,7 +3,8 @@
  * Phase 3 acceptance probe: the marketplace is a REFERENCE catalog over the
  * editable gear pool, so editing a pool item's cost/description updates the shop.
  *
- *   node tools/dev/marketplace-probe.mjs   (needs Foundry running, world launched)
+ *   node tools/dev/marketplace-probe.mjs   (needs Foundry running, world launched,
+ *                                          and `npm run dev:players` for step 5)
  *
  * Steps, driven headless as GM:
  *   1. Read the shop via module/marketplace.js getMarketplaceCatalog(); assert the
@@ -24,6 +25,13 @@
  *      is the enforcement, and a dialog left open while the pack filled must not
  *      be a way through. Transports and petty items stay available (neither
  *      costs the buyer a slot). Control: free one slot and the buy lands again.
+ *   5. WORLD FIRST (2026-09-13). A world RollTable named "Market: Gear" replaces
+ *      that aisle; "Market: Trinkets" adds one after the four; deleting them puts
+ *      the shipped shop back. This is the only durable way for a Warden to price
+ *      or stock the shop, because an update deletes the system directory whole.
+ *      Control, in-page: the pack-only lookup this replaced sees neither. And a
+ *      PLAYER's client is measured too — the Warden and the table shopping from
+ *      different catalogs is the failure nobody would notice until a purchase.
  *
  * Two traps this probe pays for, both of which made step 4 pass or fail for the
  * wrong reason before they were found:
@@ -38,7 +46,7 @@
  */
 
 import { chromium } from "playwright";
-import { VIEWPORT, joinAsGM, watchErrors } from "./lib.mjs";
+import { VIEWPORT, joinAs, joinAsGM, watchErrors } from "./lib.mjs";
 
 const browser = await chromium.launch();
 const page = await browser.newContext({ viewport: VIEWPORT }).then((c) => c.newPage());
@@ -302,6 +310,121 @@ try {
   F.buyEnabledAgain && F.buyLandsAgain
     ? ok(`CONTROL: freeing one slot (${F.freedSlots}) re-enables Buy and the purchase lands — the refusals above can fail`)
     : fail(`CONTROL FAILED at ${F.freedSlots}: re-enabled=${F.buyEnabledAgain}, purchase landed=${F.buyLandsAgain}`);
+
+  /* ---- 5. WORLD FIRST ------------------------------------------------------
+   * A Warden cannot keep anything they change inside our compendium: Foundry's
+   * installer deletes the whole system directory before extracting an update.
+   * So a world RollTable named "Market: Gear" REPLACES that aisle, and one under
+   * a name nothing ships ADDS one — the rule Bonds and Omens already follow.
+   *
+   * The control is IN-PAGE and is the OLD algorithm: pack-only `getDocuments()`
+   * over the same planted tables. It must see neither the override nor the new
+   * aisle, or every green line below could be reporting the shipped catalog. */
+  console.log("\nworld-first market tables");
+  const w = await page.evaluate(async () => {
+    const mkt = await import("/systems/air-bladder/module/marketplace.js");
+    const catItems = (cat, name) => cat?.categories.find((c) => c.name === name)?.items ?? [];
+    const names = (cat) => cat.categories.map((c) => c.name);
+    const out = {};
+
+    // A leftover from a killed run reds every leg below and looks like a defect
+    // in the code. Clear it, and SAY so — silently deleting a Warden's table
+    // would be worse than failing.
+    out.swept = game.tables.filter((t) => /^Market:/i.test(t.name)).map((t) => t.name);
+    for (const t of [...game.tables].filter((x) => /^Market:/i.test(x.name))) await t.delete();
+
+    const pack = game.packs.get("air-bladder.marketplace");
+    const shipped = await pack.getDocuments();
+    const gearTable = shipped.find((t) => t.name === "Market: Gear");
+    const row = [...gearTable.results][0];
+    const seed = { type: "document", documentUuid: row.documentUuid, name: row.name, img: row.img, range: [1, 1], weight: 1 };
+
+    const base = await mkt.getMarketplaceCatalog();
+    out.baseGear = catItems(base, "Gear").length;
+    out.baseCats = names(base);
+
+    // One at a time: a batch of 2+ comes back in server-finish order.
+    const RollTableClass = CONFIG.RollTable.documentClass;
+    const override = await RollTableClass.create({ name: "Market: Gear", results: [seed] });
+    const afterOverride = await mkt.getMarketplaceCatalog();
+    out.overrideCats = names(afterOverride);
+    out.overrideGear = catItems(afterOverride, "Gear").length;
+    out.overrideRow = catItems(afterOverride, "Gear")[0]?.name;
+
+    const aisle = await RollTableClass.create({ name: "Market: Trinkets", results: [seed] });
+    const afterAisle = await mkt.getMarketplaceCatalog();
+    out.aisleCats = names(afterAisle);
+    out.aisleItems = catItems(afterAisle, "Trinkets").length;
+
+    // CONTROL: the pack-only lookup this replaced, run against the same world.
+    const packOnly = await pack.getDocuments();
+    out.oldGearRows = [...(packOnly.find((t) => t.name === "Market: Gear")?.results ?? [])].length;
+    out.oldSeesAisle = packOnly.some((t) => t.name === "Market: Trinkets");
+
+    out.overrideUuid = override.uuid;
+    out.aisleUuid = aisle.uuid;
+    return out;
+  });
+
+  w.swept.length
+    ? console.log(`  --    swept ${w.swept.length} leftover world table(s) first: ${w.swept.join(", ")}`)
+    : ok("no leftover Market: tables in the world — the legs below start clean");
+  w.overrideGear === 1 && w.overrideRow
+    ? ok(`a world "Market: Gear" REPLACES the aisle: ${w.baseGear} shipped rows → 1 ("${w.overrideRow}")`)
+    : fail(`the world table did not replace the aisle: ${w.overrideGear} rows (shipped baseline ${w.baseGear})`);
+  JSON.stringify(w.overrideCats) === JSON.stringify(w.baseCats)
+    ? ok("an override changes the aisle's CONTENTS and not the category list or its order")
+    : fail(`categories moved under an override: ${JSON.stringify(w.overrideCats)} vs ${JSON.stringify(w.baseCats)}`);
+  JSON.stringify(w.aisleCats) === JSON.stringify([...w.baseCats, "Trinkets"]) && w.aisleItems === 1
+    ? ok(`a world "Market: Trinkets" ADDS a fifth aisle, after the four known ones: ${w.aisleCats.join(", ")}`)
+    : fail(`new aisle wrong: ${JSON.stringify(w.aisleCats)} (want the four then Trinkets), items=${w.aisleItems}`);
+  w.oldGearRows === w.baseGear && w.oldSeesAisle === false
+    ? ok(`CONTROL: the pack-only lookup sees neither — still ${w.oldGearRows} shipped Gear rows and no Trinkets aisle`)
+    : fail(`CONTROL FAILED: pack-only saw ${w.oldGearRows} Gear rows (want ${w.baseGear}) / Trinkets=${w.oldSeesAisle} — `
+      + "the legs above may be reading the shipped catalog");
+
+  /* A PLAYER's client must resolve the override too, or the Warden and the table
+   * shop from two different catalogs. Nothing about world-document visibility
+   * makes this obvious, so it is measured rather than reasoned about.
+   * Needs `npm run dev:players`. */
+  const aliceContext = await browser.newContext({ viewport: VIEWPORT });
+  const alicePage = await aliceContext.newPage();
+  const aliceErrors = watchErrors(alicePage);
+  await joinAs(alicePage, "Alice");
+  const p = await alicePage.evaluate(async () => {
+    const mkt = await import("/systems/air-bladder/module/marketplace.js");
+    const cat = await mkt.getMarketplaceCatalog();
+    const gear = cat.categories.find((c) => c.name === "Gear")?.items ?? [];
+    return { isGM: game.user.isGM, gear: gear.length, row: gear[0]?.name, cats: cat.categories.map((c) => c.name) };
+  });
+  p.isGM === false && p.gear === 1 && p.cats.includes("Trinkets")
+    ? ok(`a PLAYER shops the same catalog: Gear is the Warden's 1 row ("${p.row}"), and the added aisle is there`)
+    : fail(`a player's shop disagrees with the Warden's: GM=${p.isGM}, Gear rows=${p.gear} (want 1), cats=${JSON.stringify(p.cats)}`);
+  if (aliceErrors.length) {
+    console.error("\nconsole errors on the player's client:");
+    aliceErrors.slice(0, 5).forEach((e) => console.error("  " + e));
+    failed = true;
+  }
+  await aliceContext.close();
+
+  // cleanup, and the restore is its own assertion: deleting the world table must
+  // put the shipped aisle back, which is half of what "world FIRST" promises.
+  const restored = await page.evaluate(async ({ overrideUuid, aisleUuid }) => {
+    const mkt = await import("/systems/air-bladder/module/marketplace.js");
+    for (const uuid of [overrideUuid, aisleUuid]) await (await fromUuid(uuid))?.delete();
+    const cat = await mkt.getMarketplaceCatalog();
+    return {
+      gear: cat.categories.find((c) => c.name === "Gear")?.items.length ?? 0,
+      cats: cat.categories.map((c) => c.name),
+      leftovers: game.tables.filter((t) => /^Market:/i.test(t.name)).map((t) => t.name),
+    };
+  }, { overrideUuid: w.overrideUuid, aisleUuid: w.aisleUuid });
+  restored.gear === w.baseGear && JSON.stringify(restored.cats) === JSON.stringify(w.baseCats)
+    ? ok(`deleting the world tables restores the shipped shop (${restored.gear} Gear rows, ${restored.cats.length} aisles)`)
+    : fail(`the shipped shop did not come back: ${restored.gear} Gear rows (want ${w.baseGear}), ${JSON.stringify(restored.cats)}`);
+  restored.leftovers.length === 0
+    ? ok("no planted table left behind")
+    : fail(`ORPHANS LEFT: ${restored.leftovers.join(", ")} — the next run will read them as a Warden's own`);
 } catch (e) {
   fail(`${e.name}: ${e.message}`);
 } finally {

@@ -69,20 +69,62 @@ export const findTableByName = async (name) => {
 };
 
 /**
- * @param {String} compendiumName
- * @param {String} tableName
- * @param {Object} options
- * @returns {Promise.<RollTableDraw|undefined>}
+ * A DECLARED table — `"pack;Name"` as `module/config.js` writes them, or a bare
+ * `"Name"` — resolved WORLD FIRST (2026-09-13).
+ *
+ * A world RollTable of the same name wins; otherwise the declared pack is
+ * read, and a bare name hunts every RollTable pack (`findTableByName`). So the
+ * pack half of a declaration is the FALLBACK, never a lock: it says where the
+ * shipped copy lives, precisely, which is why declarations keep it rather than
+ * going bare like `Warden: NPC - Faction` did.
+ *
+ * Until this existed, twenty-two of this system's tables answered TWO WAYS
+ * depending on the button. The Warden's Dashboard resolves every table
+ * world-first (`findTableByName`), while the generators read the pack copy
+ * behind the prefix — so a Warden's own `Warden: NPC - Quirk` came up on the
+ * Dashboard button and never in a generated NPC. And the pack copy is the one
+ * a Warden cannot keep: Foundry's installer deletes a package's whole
+ * directory before extracting an update (`dist/packages/installer.mjs`), so
+ * an edit made inside a shipped compendium is gone at the next version. One
+ * resolver, and the two routes agree.
+ * @param {String} decl
+ * @returns {Promise<RollTable|undefined>}
  */
-export const drawTable = async (compendiumName, tableName, options = {}) => {
-  // findCompendiumItem resolves to undefined on a miss (it only warns), so this
-  // used to throw "Cannot read properties of undefined" from wherever the draw
-  // was requested — mid-generation, with no mention of the missing table. The
-  // guard in damage.js `_rollScarsTable` says the same thing; this is the other
-  // call site it did not cover.
-  const table = await findCompendiumItem(compendiumName, tableName);
+export const findDeclaredTable = async (decl) => {
+  const [packName, tableName] = compendiumInfoFromString(String(decl ?? ""));
+  const bare = tableName === undefined;
+  const name = (bare ? packName : tableName)?.trim() ?? "";
+  if (!name) return undefined;
+  const world = game.tables?.find((t) => t.name === name);
+  if (world) return world;
+  if (bare) return (await findTableByName(name)) ?? undefined;
+  return findCompendiumItem(packName, name);
+};
+
+/**
+ * Roll a declared table. `roll()`, NEVER `draw()`, and the difference is one
+ * write: `draw` marks the rows it lands on `drawn: true` on any table that is
+ * neither `replacement` nor in a pack (client/documents/roll-table.mjs:109),
+ * and now that a declaration can resolve to a WORLD table, that is a write into
+ * a table the Warden browses and rolls by hand. These are the Warden's tables
+ * and their drawn state stays clean — the invariant `module/config.js` states
+ * and the monster generator and `rollNameFromTable` already kept; this was the
+ * one reader still on `draw`, for eight biography tables and five NPC ones.
+ * `roll` reads the drawn state (it skips drawn rows) and writes nothing.
+ *
+ * Resolves to undefined on a missing table — `findDeclaredTable` only warns —
+ * so a generator degrades instead of throwing "Cannot read properties of
+ * undefined" mid-generation with no mention of which table was missing. The
+ * guard in damage.js `_rollScarsTable` says the same thing.
+ * @param {String} decl  "pack;Name" or "Name"
+ * @param {Object} [options]
+ * @param {Roll} [options.roll]  an existing Roll to select the row with
+ * @returns {Promise.<{roll: Roll, results: TableResult[]}|undefined>}
+ */
+export const rollTable = async (decl, { roll } = {}) => {
+  const table = await findDeclaredTable(decl);
   if (!table) return undefined;
-  return table.draw({ displayChat: false, ...options });
+  return table.roll(roll ? { roll } : {});
 };
 
 /**
@@ -130,24 +172,14 @@ export const resultChatText = (result) =>
     : result?.description) ?? "";
 
 /**
- * @param {String} compendium
- * @param {String} table
- * @returns {Promise.<String>}  the drawn result's chat text, or "" if the table
- *                              is missing or empty (generation must degrade, not throw)
+ * One rolled result's chat text off a declared table.
+ * @param {String} decl  "pack;Name" or "Name"
+ * @returns {Promise.<String>}  the result's chat text, or "" if the table is
+ *                              missing or empty (generation must degrade, not throw)
  */
-export const drawTableText = async (compendium, table) => {
-  const draw = await drawTable(compendium, table);
-  return resultChatText(draw?.results?.[0]);
-};
-
-/**
- * @param {String} compendium
- * @param {String} table
- * @returns {Promise.<Item[]>}
- */
-export const drawTableItem = async (compendium, table) => {
-  const draw = await drawTable(compendium, table);
-  return findTableItems(draw?.results ?? []);
+export const rollTableText = async (decl) => {
+  const rolled = await rollTable(decl);
+  return resultChatText(rolled?.results?.[0]);
 };
 
 /**

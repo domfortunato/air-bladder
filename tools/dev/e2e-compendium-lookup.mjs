@@ -106,11 +106,11 @@ try {
     };
     await attempt("missingPack", () => c.findCompendiumItem("air-bladder.no-such-pack", "Anything"));
     await attempt("missingItem", () => c.findCompendiumItem("air-bladder.utils", "ZZ No Such Table"));
-    await attempt("drawMissing", () => c.drawTable("air-bladder.utils", "ZZ No Such Table"));
-    await attempt("textMissing", () => c.drawTableText("air-bladder.utils", "ZZ No Such Table"));
+    await attempt("drawMissing", () => c.rollTable("air-bladder.utils;ZZ No Such Table"));
+    await attempt("textMissing", () => c.rollTableText("air-bladder.utils;ZZ No Such Table"));
     // ...and the happy path still works, so "never throws" cannot pass by never working.
     await attempt("drawReal", async () => {
-      const d = await c.drawTable("air-bladder.utils", "Scars");
+      const d = await c.rollTable("air-bladder.utils;Scars");
       return d?.results?.length ?? 0;
     });
     return out;
@@ -124,14 +124,14 @@ try {
     ? ok("missing item → undefined")
     : fail("missing item → undefined", JSON.stringify(guards.missingItem));
   undef("drawMissing")
-    ? ok("drawTable on a missing table → undefined")
-    : fail("drawTable on a missing table → undefined", JSON.stringify(guards.drawMissing));
+    ? ok("rollTable on a missing table → undefined")
+    : fail("rollTable on a missing table → undefined", JSON.stringify(guards.drawMissing));
   guards.textMissing && !guards.textMissing.threw && guards.textMissing.value === ""
-    ? ok("drawTableText on a missing table → \"\"")
-    : fail("drawTableText on a missing table → \"\"", JSON.stringify(guards.textMissing));
+    ? ok("rollTableText on a missing table → \"\"")
+    : fail("rollTableText on a missing table → \"\"", JSON.stringify(guards.textMissing));
   guards.drawReal && !guards.drawReal.threw && guards.drawReal.value > 0
-    ? ok("a real table still draws", `${guards.drawReal.value} result(s)`)
-    : fail("a real table still draws", JSON.stringify(guards.drawReal));
+    ? ok("a real table still rolls", `${guards.drawReal.value} result(s)`)
+    : fail("a real table still rolls", JSON.stringify(guards.drawReal));
 
   /* ------------------------------------------- 3. the sheet's pack cache ---- */
   // The character sheet memoizes tables-2e (traits, scars, omens) because

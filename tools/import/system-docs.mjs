@@ -98,6 +98,7 @@ const ROSTER = [
   ["creating-custom-backgrounds.md", "Creating Custom Backgrounds"],
   ["sharing-custom-backgrounds.md", "Sharing Custom Backgrounds"],
   ["customizing-bonds.md", "Customizing Bonds"],
+  ["customizing-the-marketplace.md", "Customizing the Marketplace"],
   // `custom-portrait-gallery.md` used to sit here and is deliberately gone
   // (2026-08-20). It is a design record — decisions, code paths, non-goals —
   // and a Warden reading the in-game journal was being shown sentences naming

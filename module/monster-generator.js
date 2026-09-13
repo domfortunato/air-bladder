@@ -1,6 +1,6 @@
 import { CairnActor } from "./actor/actor.js";
 import { Cairn } from "./config.js";
-import { compendiumInfoFromString, findCompendiumItem, resultText } from "./compendium.js";
+import { rollTableText } from "./compendium.js";
 import { getGameIconManifest, customPoolFor, promptCreation, clearHandBuilt } from "./character-generator.js";
 // Aliased: the tier config is locally `t` throughout generateMonster.
 import { t as tr } from "./i18n-content.js";
@@ -73,22 +73,11 @@ const pickWeighted = (pairs) => {
   return pairs[pairs.length - 1][0];
 };
 
-/**
- * One text result off a Warden table, by "packId;Table Name" config string.
- * roll(), never draw() — these are the WARDEN'S tables and a draw would dirty
- * their drawn state (the rollNameFromTable invariant). "" on a missing or
- * empty table: generation degrades, it never throws (the drawTableText
- * contract, and findCompendiumItem already warned).
- * @param {String} config
- * @returns {Promise<String>}
- */
-const rollTableText = async (config) => {
-  const [packName, tableName] = compendiumInfoFromString(config);
-  const table = await findCompendiumItem(packName, tableName);
-  if (!table) return "";
-  const { results } = await table.roll();
-  return resultText(results[0]).trim();
-};
+// The eight tables are rolled through compendium.js `rollTableText` — the
+// SHARED reader, since 2026-09-13, which resolves each declaration WORLD FIRST
+// and rolls without marking. A private copy lived here for a month, identical
+// but for the lookup, and was the reason a Warden's own monster table came up
+// on the Dashboard button and never in a generated monster.
 
 /**
  * The tier picker — and, on a re-roll, the CONFIRMATION. It is dismissible

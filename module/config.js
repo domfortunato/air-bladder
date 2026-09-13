@@ -1,6 +1,17 @@
 /** @name CONFIG.Cairn */
 export const Cairn = {};
 
+// EVERY "pack;Table Name" declaration below resolves WORLD FIRST (2026-09-13,
+// compendium.js `findDeclaredTable`): a RollTable in the Warden's world with
+// the same name is what rolls, and the pack half only says where the SHIPPED
+// copy lives — the fallback, never a lock. So a Warden re-writes the Physique
+// table, the NPC Quirks or a monster's Weaknesses the same way they replace
+// Bonds (docs/customizing-bonds.md): import the shipped table, keep its name,
+// edit. Before this the Dashboard buttons resolved world-first and the
+// generators did not, and one table answered two ways depending on the button.
+// Twenty-three declarations here, plus Scars in damage.js and the Barebones
+// creation tables in character-generator.js, all read the same way now.
+
 // Cairn 2e generation config. Backgrounds, gear, and bonds come from their own
 // packs (see character-generator.js); this covers the shared biography, which
 // draws the 8 physical/personality traits from tables-2e and rolls age.
@@ -54,21 +65,22 @@ Cairn.characterGenerator2e = {
 // Warden's Guide "NPC Tables" — already shipped in warden-npcs, twenty entries
 // each, and until this split only `Name` and `Faction` had a reader.
 //
-// These are the WARDEN'S tables and their drawn state must stay clean. The NAME
-// and FACTION dice take `table.roll()`, which cannot mark anything. BACKGROUND
-// and the four TRAITS go through `drawTableText` -> `table.draw()`, and that is
-// safe for TWO independent reasons, both of which have to hold: every one of
-// these tables is `replacement: true`, AND core skips the drawn-marking write
-// entirely for a table that lives in a pack (`if (!this.replacement && !this.pack)`,
-// client/documents/roll-table.mjs:109). Faction is the one that could ever be a
-// WORLD table — findTableByName resolves world-first — which is exactly why it
-// is on the roll() path and must stay there.
+// These are the WARDEN'S tables and their drawn state must stay clean. EVERY
+// reader is on `table.roll()` now, which reads the drawn state and writes
+// nothing. It matters more than it did: `draw()` marks rows drawn on any table
+// that is neither `replacement` nor in a pack (`if (!this.replacement &&
+// !this.pack)`, client/documents/roll-table.mjs:109), and until 2026-09-13
+// BACKGROUND and the four TRAITS went through `draw()` — safe only because
+// every table they could reach lived in a pack. Now every declaration can
+// resolve to a WORLD table, so that safety net is gone and the reader had to
+// move (compendium.js `rollTable`). Faction was on `roll()` from the start for
+// exactly this reason; the rest have joined it.
 Cairn.npcGenerator = {
   name: "air-bladder.warden-npcs;Warden: NPC - Name",
-  // The Faction die's table, by NAME ONLY — no pack prefix, deliberately: it
-  // resolves world-first (findTableByName), so a Warden's own RollTable named
-  // "Warden: NPC - Faction" always beats the shipped warden-npcs copy and
-  // their faction list survives a system update.
+  // The Faction die's table, by NAME ONLY. It was the first world-first table
+  // here, before the rule became general, and the bare form still works (a
+  // bare name hunts every RollTable pack after the world). Kept bare as the
+  // record of where the rule started.
   faction: "Warden: NPC - Faction",
   // Role `npc` only. `background` answers the same question `profession` does
   // for a hireling, off a different table — which is the whole of what
@@ -99,7 +111,7 @@ Cairn.npcGenerator = {
   // items each. So an NPC gets the gear of its nearest Barebones counterpart,
   // through the same resolveRefs path a Barebones PC and a 2e hireling use.
   //
-  // Keyed on the ENGLISH table text, and that is load-bearing: `drawTableText`
+  // Keyed on the ENGLISH table text, and that is load-bearing: `rollTableText`
   // returns the raw result, NOT the content overlay's translation, so
   // `system.background` stores English in every language while the SHEET shows
   // `backgroundDisplay`. A map keyed on what the Warden reads would miss on
@@ -142,9 +154,10 @@ Cairn.npcGenerator = {
 
 // Monster generation (SRD "Creating Monsters", CC BY-SA 4.0 — the design of
 // record is docs/monster-generation.md). The eight tables ship in the
-// warden-monsters pack and they are the WARDEN'S tables: the generator rolls
-// them with table.roll(), never draw(), so their drawn state stays clean —
-// the same invariant rollNameFromTable documents for the NPC name table.
+// warden-monsters pack, resolve world-first like everything above, and they
+// are the WARDEN'S tables: the generator rolls them with table.roll(), never
+// draw(), so their drawn state stays clean — the same invariant
+// rollNameFromTable documents for the NPC name table.
 Cairn.monsterGenerator = {
   physique: "air-bladder.warden-monsters;Warden: Monster - Appearance (Physique)",
   feature: "air-bladder.warden-monsters;Warden: Monster - Appearance (Feature)",

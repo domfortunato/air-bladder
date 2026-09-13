@@ -1,5 +1,5 @@
 import { CairnActor } from "./actor/actor.js";
-import { compendiumInfoFromString, drawTableText, resultText, findTableByName } from "./compendium.js";
+import { rollTableText, resultText, findTableByName, findDeclaredTable } from "./compendium.js";
 import { Cairn } from "./config.js";
 import { evaluateFormula, formatCount } from "./utils.js";
 import {
@@ -729,16 +729,15 @@ export const effectiveAgeFormula = (fallback) => {
 };
 
 /**
- * Draw one text result from each named table (used for the eight 2e traits).
+ * Roll one text result from each declared table (the eight 2e traits, the NPC
+ * traits). WORLD FIRST since 2026-09-13, through `rollTableText`: a Warden's
+ * own table of the same name is what comes up, and the roll marks nothing.
  * @param {Object<string,string>} items  key -> "pack;TableName"
  * @returns {Promise<Object<string,string>>}
  */
 export const rollTextItems = async (items) => {
   const data = {};
-  for (const [key, value] of Object.entries(items)) {
-    const [compendium, table] = compendiumInfoFromString(value);
-    data[key] = await drawTableText(compendium, table);
-  }
+  for (const [key, value] of Object.entries(items)) data[key] = await rollTableText(value);
   return data;
 };
 
@@ -752,9 +751,8 @@ export const rollTextItems = async (items) => {
  * @returns {Promise<String>}
  */
 export const rollNameFromTable = async (config, fallback) => {
-  const [packName, tableName] = compendiumInfoFromString(config);
-  const pack = game.packs.get(packName);
-  const table = pack ? (await pack.getDocuments()).find((t) => t.name === tableName) : null;
+  // World first (2026-09-13): a Warden's own name table of the same name wins.
+  const table = config ? await findDeclaredTable(config) : null;
   if (!table) return fallback;
   const { results } = await table.roll();
   return resultText(results[0]).trim() || fallback;
@@ -1720,12 +1718,10 @@ export const getBarebonesBackgrounds = async () => {
 export const getBarebonesBackgroundByName = async (name) =>
   (await getBarebonesBackgrounds()).find((b) => b.name === name) ?? null;
 
-/** One table out of the Barebones pack, by name. @returns {Promise<RollTable|null>} */
-const barebonesTable = async (name) => {
-  const pack = game.packs.get(BAREBONES_TABLE_PACK);
-  if (!pack) return null;
-  return (await pack.getDocuments()).find((t) => t.name === name) ?? null;
-};
+/** One Barebones creation table by name — the Warden's own world table of that
+ *  name first (2026-09-13), then the shipped pack. @returns {Promise<RollTable|null>} */
+const barebonesTable = async (name) =>
+  (await findDeclaredTable(`${BAREBONES_TABLE_PACK};${name}`)) ?? null;
 
 /**
  * The pack a RANDOM spell is drawn from — canon only, by ruling (2026-08-05):
@@ -4365,11 +4361,11 @@ export const reorderInventory = async (actor) => {
   }
 };
 
-/** One Background off the Warden's Guide table, or "" when it is missing. */
+/** One Background off the Warden's Guide table — or the Warden's own of the
+ *  same name, world first — or "" when it is missing. */
 const rollNpcBackground = async () => {
-  const [packName, tableName] = compendiumInfoFromString(CONFIG.Cairn?.npcGenerator?.background ?? "");
-  if (!packName) return "";
-  return drawTableText(packName, tableName);
+  const decl = CONFIG.Cairn?.npcGenerator?.background ?? "";
+  return decl ? rollTableText(decl) : "";
 };
 
 /** Generate a full NPC person. @returns {Promise<Object>} */
@@ -4678,9 +4674,10 @@ export const promptHirelingCareer = async (actor) => {
  * @param {CairnActor} actor @returns {Promise<CairnActor>}
  */
 export const promptNpcBackground = async (actor) => {
-  const [packName, tableName] = compendiumInfoFromString(CONFIG.Cairn?.npcGenerator?.background ?? "");
-  const pack = packName ? game.packs.get(packName) : null;
-  const table = pack ? (await pack.getDocuments()).find((d) => d.name === tableName) : null;
+  // The SAME resolution the die uses — world first — or the list would show the
+  // shipped rows while the die rolled the Warden's own table.
+  const decl = CONFIG.Cairn?.npcGenerator?.background ?? "";
+  const table = decl ? await findDeclaredTable(decl) : null;
   if (!table) return actor;
   const current = String(actor.system.background ?? "").trim();
   const rows = table.results.map((r) => String(resultText(r)).trim()).filter(Boolean)
@@ -4762,9 +4759,11 @@ export const promptPickName = async (actor) => {
     rows = (bg?.system?.names ?? []).map((n) => ({ value: n, label: n }));
   }
   if (!rows.length) {
-    const [packName, tableName] = compendiumInfoFromString(CONFIG.Cairn?.barebonesGenerator?.name ?? "");
-    const pack = packName ? game.packs.get(packName) : null;
-    const table = pack ? (await pack.getDocuments()).find((doc) => doc.name === tableName) : null;
+    // World first, like the die (rollNameFromTable) — one resolution for the
+    // list and the roll, or a Warden's own name table would feed one and not
+    // the other.
+    const decl = CONFIG.Cairn?.barebonesGenerator?.name ?? "";
+    const table = decl ? await findDeclaredTable(decl) : null;
     rows = (table?.results ?? []).map((r) => String(resultText(r)).trim()).filter(Boolean)
       .map((text) => ({ value: text, label: t("table.result", text) }));
   }

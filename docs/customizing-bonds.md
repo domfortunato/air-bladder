@@ -100,3 +100,36 @@ shipped **Omens** table exactly as step 1 above imports Bonds, keep the name,
 and edit freely — any number of rows works, and the die rolls whatever formula
 your table declares. Omen rows are plain prose: unlike bonds, nothing
 mechanical rides them, so there is nothing else to preserve.
+
+---
+
+## And for every table the generators roll
+
+The same rule — **a table in your world with the same name wins** — covers
+every table a generator or a die reaches for. Import the shipped one, keep its
+name, edit it, and both the button on the Warden's Dashboard and the generator
+behind it roll yours. Delete it and the shipped table is back.
+
+| Where it rolls | Tables (their shipped compendium) |
+|---|---|
+| A 2e character's biography — generation and the sheet's re-roll dice | `Physique`, `Skin`, `Hair`, `Face`, `Speech`, `Clothing`, `Vice`, `Virtue` (**Tables (2e)**) |
+| NPCs and hirelings — the generators, the sheet dice, and the pick-lists | `Warden: NPC - Name`, `Warden: NPC - Background`, `Warden: NPC - Faction`, `Warden: NPC - Quirk`, `Warden: NPC - Goal`, `Warden: NPC - Virtue`, `Warden: NPC - Vice` (**Warden: NPCs**) |
+| Monsters | the eight `Warden: Monster - …` tables (**Warden: Monsters**) |
+| Barebones character creation | `Barebones: Creation - Weapon`, `- Armor`, `- Additional Gear`, and the three `Barebones: Weapon Tier` tables (**Tables (Barebones)**) |
+| Scars, when damage lands | `Scars` (**Utils**) |
+| Factions | every table the faction generator rolls (**Warden: Factions**) |
+| The marketplace | the four `Market: …` tables — see [Customizing the marketplace](customizing-the-marketplace.md) |
+
+Two things worth knowing:
+
+- **Your table's rows are never marked as drawn.** The generators roll without
+  touching the table, so a table you set to draw *without* replacement keeps
+  every row available for your own rolls from the Dashboard. If you do want
+  rows crossed off as they come up, roll from the table itself.
+- **A row's text is what gets written**, so on a table whose rows feed a
+  mechanic — a Background that decides an NPC's starting gear, say — keep the
+  shipped wording for the rows you want to keep working, and add your own rows
+  beside them.
+
+None of this needs a system compendium unlocked, and none of it is lost when
+Air Bladder updates.

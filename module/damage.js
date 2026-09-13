@@ -1,4 +1,4 @@
-import { findCompendiumItem, resultText } from './compendium.js'
+import { findDeclaredTable, resultText } from './compendium.js'
 import { SETTINGS_NS } from './settings.js'
 import { evaluateFormula, askDamageTargets, concealmentWhisper, d20CardBody, d20CardFlavor } from './utils.js'
 import { postStatusCard } from './actor/actor.js'
@@ -653,17 +653,25 @@ export class Damage {
      * @param {TokenDocument|null} [token]  who was scarred
      */
     static async _rollScarsTable(damage, token = null) {
-        // findCompendiumItem resolves to undefined on a miss (it only warns to the
-        // console), so this dereference used to throw mid-damage-resolution if the
-        // pack were absent, renamed, or the table deleted from the world copy.
-        // Failing loudly but harmlessly is right here: the Warden asked for a scar
-        // and needs to know it did not happen.
-        const table = await findCompendiumItem("air-bladder.utils", "Scars");
+        // WORLD FIRST (2026-09-13): a Warden's own RollTable named "Scars" beats
+        // the shipped copy in Utils, and deleting it puts the shipped one back —
+        // the same rule every generator table follows now. findDeclaredTable
+        // resolves to undefined on a miss (it only warns to the console), so this
+        // dereference used to throw mid-damage-resolution if the pack were
+        // absent, renamed, or the table deleted from the world copy. Failing
+        // loudly but harmlessly is right here: the Warden asked for a scar and
+        // needs to know it did not happen.
+        const table = await findDeclaredTable("air-bladder.utils;Scars");
         if (!table) {
             ui.notifications?.warn(game.i18n.localize("CAIRN.Notify.NoScarsTable"));
             return;
         }
-        const drawn = await table.draw({ roll: new Roll(damage.toString()), displayChat: false });
+        // roll(), not draw(): the damage value IS the roll and selects the row
+        // either way, but draw() would also mark that row `drawn` on a world
+        // table the Warden turned replacement off on — and a scar recurs by
+        // design. The card below is built by hand, so nothing else draw() did
+        // is missed.
+        const drawn = await table.roll({ roll: new Roll(damage.toString()) });
         if (!drawn?.results?.length) return;
         // Speaker only when there is a token to name; with none, leaving it unset
         // keeps core's default rather than inventing an empty header.

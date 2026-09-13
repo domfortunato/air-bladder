@@ -95,7 +95,7 @@ const out = await page.evaluate(async () => {
       res.shippedResolved = n;
     });
 
-    await step("the eight 2e trait draws (drawTableText)", async () => {
+    await step("the eight 2e trait rolls (rollTableText)", async () => {
       const mapping = CONFIG.Cairn?.characterGenerator2e?.biography?.items ?? {};
       res.traits = await cg.rollTextItems(mapping);
     });

@@ -30,8 +30,13 @@ const playerMarketClosed = () =>
  * updates the shop, and dragging an item into a table stocks it. Bundles ("Common
  * Tools (…)") are ordinary items bought generic and renamed on the sheet.
  *
- * NOT cached: every open re-reads the pack (`getDocuments`), so a cost edit is
- * reflected on the next open — the whole point of the reference model.
+ * NOT cached: every open re-reads the tables, so a cost edit is reflected on the
+ * next open — the whole point of the reference model.
+ *
+ * And the tables themselves are WORLD FIRST since 2026-09-13 — see `marketTables`
+ * below, and `docs/customizing-the-marketplace.md`. Everything a Warden changes
+ * inside our own compendium is destroyed by the next update, so the durable route
+ * is a world table of the same name.
  *
  * Each item can be BOUGHT (pay its cost in coins) or TAKEN (granted free, e.g. by
  * the Warden). Cairn's slot rules stay this system's job: both refuse when the
@@ -53,6 +58,10 @@ export const TRANSPORTS_CATEGORY = "Transports & Containers";
 // to the end in pack order.
 const CATEGORY_ORDER = ["Weapons", "Armor", "Gear", TRANSPORTS_CATEGORY];
 const MARKETPLACE_PACK = "air-bladder.marketplace";
+/** What makes a WORLD table a market aisle. English, because a table's stored
+ *  name is always English here — the content overlay translates for display and
+ *  never for storage, which is the same reason `CATEGORY_ORDER` is English. */
+const MARKET_PREFIX = /^Market:\s*/i;
 
 /** A resolved pool document → a fresh owned-item payload; carries the item's
  *  cost/description/tags.
@@ -82,19 +91,52 @@ const ownedPayload = (doc) => ({
 });
 
 /**
- * Read the marketplace pack into shopper-facing categories. Each category's items
- * are owned-item payloads resolved from that table's pack results, in table order.
+ * The market tables, WORLD FIRST.
+ *
+ * A world RollTable named exactly as a shipped one ("Market: Gear") REPLACES
+ * that aisle; one carrying the prefix under a name nothing ships ("Market:
+ * Trinkets") ADDS an aisle, after the four known ones. Deleting it restores the
+ * shipped table, and there is nothing else to configure.
+ *
+ * This is the rule `Bonds` and `Omens` already follow (`docs/customizing-bonds.md`),
+ * deliberately, so a Warden learns it once — and it is the only way for a Warden
+ * to keep their own prices and stock, because Foundry's installer deletes a
+ * system's whole directory before extracting an update
+ * (`dist/packages/installer.mjs`: `fs.promises.rm(target, {recursive: true})`),
+ * compendiums included. Core says as much in the dialog that unlocking one
+ * raises. So a stocking edit made inside our pack cannot survive, and the shop
+ * has to look somewhere that can.
+ *
+ * REPLACE, not merge (user ruling 2026-09-13): a Warden must be able to REMOVE a
+ * shipped item, and Import-then-edit already hands them all 49 Gear rows to start
+ * from. NOT `findTableByName` — that hunts every RollTable pack by index for one
+ * name, where this needs four specific tables plus whatever the world adds.
+ */
+const marketTables = async () => {
+  const pack = game.packs.get(MARKETPLACE_PACK);
+  const shipped = pack ? await pack.getDocuments() : [];
+  // Keyed on name, shipped first, so a world table of the same name overwrites
+  // its entry in place and a new name lands after them.
+  const byName = new Map(shipped.map((t) => [t.name, t]));
+  for (const table of game.tables ?? []) {
+    if (MARKET_PREFIX.test(table.name)) byName.set(table.name, table);
+  }
+  return [...byName.values()];
+};
+
+/**
+ * Read the market tables into shopper-facing categories. Each category's items
+ * are owned-item payloads resolved from that table's results, in table order.
  *
  * `name` is the ENGLISH identity (callers filter on it via opts.only/opts.exclude,
  * and CATEGORY_ORDER sorts by it); `label` is what a heading should render.
  * @returns {Promise<{categories: {name:string, label:string, items:object[]}[]}>}
  */
 export const getMarketplaceCatalog = async () => {
-  const pack = game.packs.get(MARKETPLACE_PACK);
-  if (!pack) return { categories: [] };
-  const tables = await pack.getDocuments();
+  const tables = await marketTables();
+  if (!tables.length) return { categories: [] };
 
-  const stripPrefix = (name) => String(name).replace(/^Market:\s*/i, "").trim();
+  const stripPrefix = (name) => String(name).replace(MARKET_PREFIX, "").trim();
   const orderOf = (name) => {
     const i = CATEGORY_ORDER.indexOf(stripPrefix(name));
     return i === -1 ? CATEGORY_ORDER.length : i;
