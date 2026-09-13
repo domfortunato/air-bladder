@@ -48,6 +48,11 @@
  *
  * Two throwaway scenes and two throwaway actors, swept first and deleted in a
  * Node finally, so an aborted run leaves nothing for the next one to pass on.
+ * The two scenes are found BY NAME in the create result, never by position: a
+ * batch `createDocuments` returns in the order the server finished each
+ * document's id check, and under sweep load that swapped them (0.1.21, run 3
+ * of the sweep — red there, green alone). The comment at the create site has
+ * the mechanism and the control.
  * Needs the seeded player "Alice" (npm run dev:players).
  *
  * Usage: npm run dev:token-names
@@ -123,10 +128,23 @@ try {
     const monster = await Actor.create({
       name: N.monster, type: "npc", system: { role: "monster" }, prototypeToken: { actorLink: false },
     });
-    const [sceneA, sceneB] = await getDocumentClass("Scene").createDocuments([
+    // FOUND BY NAME, NEVER BY POSITION. A batch create hands its documents back
+    // in the order the server FINISHED them, not the order they were asked for:
+    // the server pushes each one into its result from inside a Promise.all,
+    // after an awaited `createNewId()` that reads the database to check the id
+    // is free (dist/database/backend/server-backend.mjs `_createDocuments`,
+    // sublevel-database.mjs `createNewId`). Under sweep load those two reads
+    // finished out of order, the four-token batch went onto the scene NAMED B,
+    // and every later leg read through the wrong scene — run 3 of the 0.1.21
+    // sweep, red there and green alone. Only a batch of ONE is safe to
+    // destructure. The control is `.reverse()` on this array: the old
+    // destructure reds the same three legs the sweep did; this does not care.
+    const created = (await getDocumentClass("Scene").createDocuments([
       { name: N.sceneA, width: 1000, height: 1000, grid: { size: 100 } },
       { name: N.sceneB, width: 1000, height: 1000, grid: { size: 100 } },
-    ]);
+    ]));
+    const sceneA = created.find((s) => s.name === N.sceneA);
+    const sceneB = created.find((s) => s.name === N.sceneB);
     const td = async (actor, x, overrides = {}) =>
       ({ ...(await actor.getTokenDocument({ x, y: 100 })).toObject(), ...overrides });
     await sceneA.createEmbeddedDocuments("Token", [
