@@ -55,13 +55,22 @@ import { VIEWPORT, joinAsGM, joinAs, watchErrors, dismissChrome, watchdog } from
 const browser = await chromium.launch();
 const page = await browser.newContext({ viewport: VIEWPORT }).then((c) => c.newPage());
 const errors = watchErrors(page);
-watchdog(300000, "dev:directory-buttons");
+watchdog(300000, "dev:directory-buttons", () => browser.close());
 // The Warden's page gets the same navigation log Alice's has below: a
 // "context destroyed" thrown from a GM-side evaluate means THIS page moved,
 // and the note says when (2026-09-12, after two throws at different legs).
 page.on("framenavigated", (frame) => {
   if (frame === page.mainFrame()) console.log(`  note  the Warden's page navigated: ${frame.url()}`);
 });
+// AND A CRASH LISTENER, BECAUSE THE NAVIGATION LOG ACQUITTED THE NAVIGATION.
+// The 2026-09-12 sweep threw "Execution context was destroyed, most likely
+// because of a navigation" from a GM-side evaluate and the log above printed
+// NOTHING — only the three join hops at the top. So the page did not move; it
+// died, and Playwright's message named the likelier of its two causes. Alice's
+// page has carried this listener since the day it was written and the Warden's
+// did not, which is the whole reason one death was legible and the other was a
+// guess. A renderer that runs out of memory under a 112-gate sweep now says so.
+page.on("crash", () => console.log("  note  the Warden's page CRASHED (renderer died)"));
 await joinAsGM(page);
 await dismissChrome(page);
 

@@ -382,6 +382,29 @@ and call it green is exactly what this file exists to refuse. Diagnose each from
 log: the useful question is "could this failure have been reported more precisely?", and
 for all three the answer was yes.
 
+**The re-sweep is what tells a race from the LOAD, and the answer changes what you do.**
+Hardening those three and running the whole list again ended 110/112 in 77 minutes —
+grimoire green at **59s** against its 421s hang, changelog green, the wheel still red, and
+`dev:directory-buttons` red for the first time. Three things came out of the pair of runs:
+
+- **A distinguishing message earns its keep even when it acquits your suspect.** The wheel
+  leg was taught to say whether the gesture MISSED the body or the body refused to scroll.
+  It reported the second, which killed the obstruction theory and left the fixed 400ms
+  wait underneath it — `page.mouse.wheel` dispatches the delta and does **not** await the
+  scrolling it causes, so a fixed wait asserts on how busy the machine is. It polls now.
+- **A probe that dies with no note is an instrumentation gap, not a mystery.**
+  `dev:directory-buttons` threw "Execution context was destroyed, most likely because of a
+  navigation" from the Warden's page while that page's own navigation log printed nothing
+  — so it did not move, it died, and Playwright named the likelier of two causes. Alice's
+  page had carried a `crash` listener since the day it was written and the Warden's had
+  not. Put both listeners on every page you drive.
+- **Chasing a sweep to zero reds is unbounded.** Across the two runs the destroyed-context
+  death landed on `dev:changelog`, then on `dev:directory-buttons`, and on `dev:vald-time`
+  before either sweep — a different probe each time, none of them a claim about the
+  system. That is the "reds a DIFFERENT set each run = load, not order" rule arriving as
+  measurement. Fix what each red teaches, then read the sweep for what it is: a search for
+  false claims about the system, not a green light that has to be lit.
+
 **When the defect is how much WORK happens, count it — an assertion on the output cannot
 fail.** `findCompendiumItem` loaded a whole pack per lookup, so opening the shop did 78
 full pack loads to resolve 77 items. The catalog was correct before and after; there was

@@ -1170,6 +1170,12 @@ try {
   // the gesture rather than reused from the open, and the point hit-tested; a
   // point that is not over the body we mean to scroll now fails saying WHAT
   // was in the way instead of blaming the CSS two legs above it just proved.
+  // AND THAT HARDENING PAID BY BEING WRONG. The next full sweep reported the
+  // CSS branch, not the miss branch — so the point WAS on target, nothing was
+  // in the way, and the obstruction theory was dead. What was left underneath
+  // was the fixed 400ms wait, which is the actual race; the poll below
+  // replaces it. A distinguishing message is worth writing even when it
+  // acquits the thing you suspected, because that is what it did here.
   let aim = null;
   if (tall.opened && tall.overflows) {
     aim = await page.evaluate((id) => {
@@ -1190,7 +1196,20 @@ try {
     if (aim?.onTarget) {
       await page.mouse.move(aim.x, aim.y);
       await page.mouse.wheel(0, 800);
-      await page.waitForTimeout(400);
+      // POLL FOR THE SCROLL, NEVER SLEEP FOR IT. Playwright DISPATCHES the
+      // wheel and does not await the scrolling it causes, so a fixed wait
+      // asserts on how busy the machine is. A 400ms one was green alone twice
+      // and red in BOTH full sweeps (2026-09-12) — and by then the hit-test
+      // above had already proved the gesture landed on the body we mean to
+      // scroll, so the delta was delivered and the READ was early. The control
+      // is unweakened: with `overflow: hidden` restored in-page the poll runs
+      // out and the leg still reds. Swallowed, because a throw here would kill
+      // every leg below it.
+      await page.waitForFunction((id) => {
+        const wc = foundry.applications.instances.get(id)?.element
+          ?.querySelector(".window-content");
+        return !!wc && wc.scrollTop > 0;
+      }, tall.id ?? "", { timeout: 5000 }).catch(() => {});
     }
   }
   const wheeled = await page.evaluate((id) => {
@@ -1216,8 +1235,8 @@ try {
         ? `the gesture never reached the body — (${aim.x},${aim.y}) was over ${aim.hit}. `
           + "That is a PROBE miss, not a scrolling defect: something was on top of the reveal. "
           + "The two legs above already proved the body overflows and computes overflow-y auto"
-        : "the wheel moved nothing — overflow:hidden still allows scrollTop from script, "
-          + "which is why this is measured as a gesture");
+        : "the wheel moved nothing in 5s, aimed at the body — overflow:hidden still allows "
+          + "scrollTop from script, which is why this is measured as a gesture");
   tall.resizable
     ? ok("...and the reveal can be resized")
     : fail("...and the reveal can be resized", "no resize handle");
