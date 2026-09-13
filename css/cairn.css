@@ -4081,10 +4081,34 @@ ol.combat-tracker li.combatant.cairn-drop-below {
    translucent DARK slab with light text in BOTH schemes. Painting --ab-ink
    here would be invisible in light mode.
 
-   So it reads CORE's chrome variables, which is exactly what makes it agree
-   with the player list it sits under, in every theme, for free. Still no
-   literal colours. Every variable below is body-scoped in foundry2.css and is
-   the same one #players itself reads. See docs/theming.md.
+   So it reads CORE's chrome variables. BUT NOT ALL OF THEM SWITCH, and that
+   distinction is the whole of the defect this block shipped with in 0.1.21.
+   `--color-cool-5-75` and `--color-cool-4` are palette CONSTANTS — one literal
+   each, declared on `body` in @layer variables.base and never redefined.
+   `--color-text-secondary` and `--color-text-primary` are semantic TOKENS,
+   which `body.theme-light` and `.themed.theme-light` repoint in @layer
+   variables.themes. Pinning the GROUND to a constant while the INK follows the
+   theme is the bug: under a light interface the clock painted `#333` text on a
+   near-black slab at 1.26:1 — unreadable, hover included, and out in a release.
+   This file's own comment claimed it agreed with the player list "in every
+   theme, for free", which was never measured and was false.
+
+   #players does not have this problem because it declares its OWN
+   `--background-color` per theme and reads that. So this block does the same,
+   with core's own two values lifted from `#players` — foundry2.css:592 (dark)
+   and :2423 / :2728 (light). Those light values are literal rgba in core too;
+   there is no token for them, which is why two literals appear below.
+
+   TWO SELECTORS PER SCHEME, and the order is core's rather than a guess.
+   Configure UI has TWO dropdowns and `configureUI` (client/game.mjs:1852-1875)
+   sends them to different elements: Applications lands on <body>, INTERFACE
+   lands on #interface. Core lets the interface theme win — `.themed.theme-light
+   #players` (1,2,0) outranks `body.theme-light #players` (1,1,1) — and the
+   pairs below keep that ordering at (0,3,0) over (0,2,1). Get it backwards and
+   a Warden running Interface dark with Applications light gets a white clock
+   over a dark player list. `dev:theme` measures the clock as a STRICT surface
+   now: a finding in EITHER scheme fails, because nothing inside this panel is
+   core's to blame. See docs/theming.md.
 
    The 200px width and the margin are not arbitrary either: #players-active is
    200px and deliberately OVERFLOWS this narrow column (the column is only as
@@ -4093,20 +4117,39 @@ ol.combat-tracker li.combatant.cairn-drop-below {
    `justify-content: space-between` has none left to redistribute — without it
    a third child pushes the player list into the middle of the screen. */
 .cairn-watch-clock {
+    /* Dark, matching core's unthemed #players block, so a client that has
+       resolved no theme at all still gets the pairing right. */
+    --ab-clock-bg: var(--color-cool-5-75);
+    --ab-clock-border: var(--color-cool-4);
     position: relative; /* the calendar door is absolutely placed in the corner */
     pointer-events: all;
     flex: none;
     width: 200px;
     margin-top: auto;
     padding: 6px 8px;
-    border: 1px solid var(--color-cool-4);
+    border: 1px solid var(--ab-clock-border);
     border-radius: 8px;
-    background: var(--color-cool-5-75);
+    background: var(--ab-clock-bg);
     color: var(--color-text-secondary);
     /* LARGER AGAIN on 2026-09-11 (user ask). It is read from across the room
        at 12px and was not being read at all. Taller, never wider: the 200px
        below is pinned to #players-active. */
     font-size: var(--font-size-14);
+}
+
+/* The two schemes, stated the way core states them for #players. The dark pair
+   restates the base so an INTERFACE dark under an APPLICATIONS light still wins
+   on specificity; see the note above. */
+body.theme-dark .cairn-watch-clock,
+.themed.theme-dark .cairn-watch-clock {
+    --ab-clock-bg: var(--color-cool-5-75);
+    --ab-clock-border: var(--color-cool-4);
+}
+
+body.theme-light .cairn-watch-clock,
+.themed.theme-light .cairn-watch-clock {
+    --ab-clock-bg: rgba(255, 255, 255, 0.6);
+    --ab-clock-border: rgba(255, 255, 255, 0.8);
 }
 
 /* BOLDER, AND IT CARRIES THE WEATHER (user ruling, on seeing it in place).

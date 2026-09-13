@@ -429,7 +429,27 @@ companion record of who authored what.
   choice for the band's own button; the tabs now agree with it. The clock is also the
   first surface here that is Foundry CHROME rather than a sheet, so it is the
   one place that reads core's colour variables instead of the `--ab-*` palette
-  (`docs/theming.md`; `dev:theme` measures it). Gate: `npm run dev:vald-time`.
+  (`docs/theming.md`; `dev:theme` measures it).
+  **AND IT SHIPPED UNREADABLE IN 0.1.21 UNDER A LIGHT INTERFACE, because
+  "reads core's variables" is not one thing.** A palette CONSTANT
+  (`--color-cool-5-75`, `--color-cool-4`) is declared once on `body` and never
+  switches; a semantic TOKEN (`--color-text-secondary`) is repointed by
+  `body.theme-light` and `.themed.theme-light`. The clock pinned its GROUND to
+  the constants and let its INK follow the token, so a light interface painted
+  `#333` on a near-black slab at **1.26:1** — reported from CT 119 off a
+  screenshot. `#players` does not have this bug because it declares its own
+  `--background-color` per theme; the clock now copies core's values for both.
+  **TWO DROPDOWNS, TWO ELEMENTS:** `configureUI` (`client/game.mjs:1852-1875`)
+  sends Applications to `<body>` and INTERFACE to `#interface`, so the selector
+  pairs must let the interface theme win, as core's own `#players` rules do.
+  **`dev:theme` PASSED THROUGHOUT, twice over**, and that is the more expensive
+  half: it flipped the theme on `<body>` only, which never reaches interface
+  chrome, so its light pass measured the DARK clock; and its verdict rule
+  exempts every light-mode finding as "baseline", a rule written for the AppV1
+  sheet port where the chrome is core's. The clock is a `strict` surface now —
+  a finding in EITHER scheme fails — and the switch goes through
+  `game.configureUI`. **Check any chrome change in BOTH interface schemes.**
+  Gate: `npm run dev:vald-time`.
   **THE CALENDAR ON THE WALL** (`module/vald-calendar.js`, 2026-09-10, user
   ask: "a calendar where they can see the current day as well as the rest of
   the days in the month, like a calendar you would put on your refrigerator").

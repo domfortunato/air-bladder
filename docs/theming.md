@@ -179,21 +179,51 @@ the print page's. The print page leaves the palette because it is always paper. 
 one leaves it because it is **not a sheet at all**.
 
 It lives inside `#ui-left-column-1`, beside Foundry's own player list, wearing core's
-`faded-ui` class. The panel it has to match is a translucent DARK slab with light text
-in **both** schemes — so `--ab-ink`, which is dark ink for parchment, is invisible on
-it in light mode. Painting it with our tokens would make it wrong in exactly the
-scheme most people use.
+`faded-ui` class. The panel it has to match is Foundry's chrome, not parchment — so
+`--ab-ink`, which is dark ink for a light sheet, is the wrong ink for it. Painting it
+with our tokens would make it wrong in whichever scheme it was not written for.
 
-So it reads **core's** chrome variables (`--color-cool-5-75`, `--color-cool-4`,
-`--color-text-primary`, `--color-text-secondary`), which are body-scoped in
-`foundry2.css` and are the same ones `#players` itself reads. That is what keeps the
-two agreeing in every theme, for free, and it is still no literal colours.
+So it reads **core's** chrome variables. This section used to end there, saying they
+were "body-scoped in `foundry2.css`" and therefore kept the clock and the player list
+"agreeing in every theme, for free". **That was never measured and it was false**, and
+0.1.21 shipped the consequence: under a light interface the clock painted `#333` text
+on a near-black slab at 1.26:1 — unreadable, hover included.
+
+**Core's chrome variables are two different kinds of thing, and only one of them
+switches.**
+
+| | Examples | Theme-aware? |
+|---|---|---|
+| Palette **constant** | `--color-cool-5-75`, `--color-cool-4`, `--color-light-3` | **No.** Declared once on `body` in `@layer variables.base`, never redefined. |
+| Semantic **token** | `--color-text-primary`, `--color-text-secondary`, `--color-border` | **Yes.** `body.theme-light` and `.themed.theme-light` repoint them in `@layer variables.themes`. |
+
+Pinning the **ground** to a constant while the **ink** follows a token is the defect.
+`#players` avoids it by declaring its own `--background-color` and `--border-color`
+*per theme* and reading those (`foundry2.css:592` dark, `:2423` and `:2728` light), so
+the clock now does the same, with core's own values.
+
+**Two selectors per scheme, because Configure UI has two dropdowns.** `configureUI`
+(`client/game.mjs:1852-1875`) sends **Applications** to `<body>` and **Interface** to
+`#interface` and each open app. Interface chrome resolves variables from `#interface`,
+the nearer ancestor. Core lets the interface theme win — `.themed.theme-light #players`
+outranks `body.theme-light #players` — and our pair keeps that ordering, so a Warden
+running Interface dark with Applications light does not get a white clock over a dark
+player list.
+
+**Testing it needs the same care, and this is the part that let the defect through.**
+Flipping `document.body.classList` to `theme-light` does *not* put interface chrome in
+light mode: `#interface` keeps the scheme it had, the clock keeps its old ink, and a
+probe measures the dark clock twice while labelling one of them light. `dev:theme` now
+switches through core's own `game.configureUI({...uiConfig, colorScheme: {applications,
+interface}})`, which is exactly what `core.uiConfig`'s `onChange` calls, and writes
+nothing.
 
 The rule this qualifies is "every colour a SHEET picks goes in an `--ab-*` token".
-Anything we add to Foundry's own chrome follows the chrome. `dev:theme` reads the
-clock's contrast in both schemes, including the season and weather lines added
-2026-09-10 and the calendar glyph in its corner — all of which follow the same
-chrome variables the lines above them do.
+Anything we add to Foundry's own chrome follows the chrome — but *following* it means
+following its theme switches too, not copying one scheme's literals. `dev:theme` reads
+the clock's contrast in both schemes, including the season and weather lines and the
+calendar glyph in its corner, and treats the clock as a **strict** surface: a finding
+in *either* scheme fails, because nothing inside that panel is core's to blame.
 
 **The Vald calendar window is NOT exempt**, and the boundary is worth stating
 because the two shipped together. `.cairn-vald-calendar` is an ordinary framed

@@ -38,6 +38,41 @@ const WANT_SHOTS = process.argv.includes("--shots");
 if (WANT_SHOTS) fs.mkdirSync(outDir, { recursive: true });
 
 /**
+ * Put the client in one colour scheme the way a Warden does — through core's
+ * own `configureUI`, which is what `core.uiConfig`'s onChange calls.
+ *
+ * NOT `document.body.classList.add("theme-light")`, which is what every pass
+ * here used to do and what let a real defect through. ONE setting sets TWO
+ * themes and they land on DIFFERENT ELEMENTS (game.mjs:1852-1875): the
+ * Applications theme on <body>, the INTERFACE theme on #interface and on each
+ * open app. Interface chrome — the watch clock, the player list — resolves its
+ * variables from #interface, the nearer ancestor, so flipping <body> alone
+ * leaves that chrome in the scheme it already had.
+ *
+ * What that cost, measured 2026-09-13 on the live dev world: with <body> at
+ * theme-light and #interface still theme-dark, the clock kept `#e7d1b1` text
+ * and the light pass reported it CLEAN. Under a real light interface its text
+ * is `#333` on a `rgba(11,10,19,0.75)` slab — about 1.2:1, unreadable, and
+ * visible in a screenshot. The gate measured the dark clock twice and called
+ * one of them light. The CSS fix is in the same commit.
+ *
+ * Nothing is WRITTEN: `configureUI` takes the config as an argument, so the
+ * world's own stored setting is never touched and `restoreScheme` puts the
+ * live client back to it.
+ */
+async function setScheme(page, scheme) {
+  await page.evaluate((s) => {
+    const cfg = foundry.utils.deepClone(game.settings.get("core", "uiConfig"));
+    cfg.colorScheme = { applications: s, interface: s };
+    game.configureUI(cfg);
+  }, scheme);
+}
+
+async function restoreScheme(page) {
+  await page.evaluate(() => game.configureUI(game.settings.get("core", "uiConfig")));
+}
+
+/**
  * WCAG's 3:1 is the floor for large text and 4.5 for body text. We gate at 3.0
  * deliberately: the goal is "nobody is reading grey on grey", not AA compliance
  * for a fantasy character sheet. Under 3 is a defect; 3-4.5 is a judgement call
@@ -400,18 +435,14 @@ try {
     process.exitCode = 1;
   } else {
     for (const scheme of ["light", "dark"]) {
-      await page.evaluate((s) => {
-        const other = s === "dark" ? "light" : "dark";
-        document.body.classList.remove(`theme-${other}`);
-        document.body.classList.add("themed", `theme-${s}`);
-      }, scheme);
+      await setScheme(page, scheme);
       await page.waitForTimeout(250);
       await page.evaluate(() => window.__abWarm(document.getElementById("cairn-watch-clock")));
       const r = await page.evaluate(() => window.__abAudit("#cairn-watch-clock"));
       if (r.error) throw new Error(r.error);
       results.push({
         what: "the watch clock (Foundry chrome)", label: "WatchClock", scheme, simulated: false,
-        text: r.text, borders: r.borders,
+        strict: true, text: r.text, borders: r.borders,
       });
     }
   }
@@ -445,13 +476,11 @@ try {
   });
 
   for (const scheme of ["light", "dark"]) {
-    await page.evaluate(async (s) => {
-      const other = s === "dark" ? "light" : "dark";
-      document.body.classList.remove(`theme-${other}`);
-      document.body.classList.add("themed", `theme-${s}`);
+    await setScheme(page, scheme);
+    await page.evaluate(async () => {
       const wc = await import("/systems/air-bladder/module/watch-clock.js");
       await wc.refreshWatchClock();
-    }, scheme);
+    });
     await page.waitForTimeout(250);
     const lines = await page.evaluate(() => ({
       isButton: !!document.querySelector("#cairn-watch-clock button.cairn-watch-inner"),
@@ -466,7 +495,7 @@ try {
     if (r.error) throw new Error(r.error);
     results.push({
       what: "the watch clock, Vald shape (button, glyph, weather)", label: "WatchClockVald",
-      scheme, simulated: false, text: r.text, borders: r.borders,
+      scheme, simulated: false, strict: true, text: r.text, borders: r.borders,
     });
   }
 
@@ -513,11 +542,7 @@ try {
     process.exitCode = 1;
   } else {
     for (const scheme of ["light", "dark"]) {
-      await page.evaluate((s) => {
-        const other = s === "dark" ? "light" : "dark";
-        document.body.classList.remove(`theme-${other}`);
-        document.body.classList.add("themed", `theme-${s}`);
-      }, scheme);
+      await setScheme(page, scheme);
       // RE-RENDER AFTER THE SWITCH, and this is not belt-and-braces. An element
       // that existed before the body's theme class changed keeps its RESOLVED
       // colours: `getComputedStyle(el).getPropertyValue("--ab-ink")` reports the
@@ -558,12 +583,26 @@ try {
     await game.actors.get(n)?.delete();
   }, [targets.actorId, targets.npcId, targets.weaponId, targets.weaponOwned, targets.bgId]);
 
+  // Put the client back on the world's own stored scheme. Nothing was written,
+  // so this only tidies the live page before it closes.
+  await restoreScheme(page);
+
   /**
    * Light is the shipping, accepted appearance, so it is the BASELINE: only a
    * finding that appears in dark and NOT in light fails the run. Without that,
    * the gate can never go green — Foundry's own chrome (a 1.24:1 button border
    * on parchment, the window header) flags in both schemes and is not ours to
    * fix. Light findings are still printed, as information.
+   *
+   * EXCEPT ON A `strict` SURFACE, and that exemption is what let a real defect
+   * ship. The rule above was written for the AppV1→AppV2 sheet port, where a
+   * ported window is full of core chrome nobody here can repaint. The watch
+   * clock is not that: it is a panel we paint from the first pixel, with no
+   * core element anywhere inside it, so a light-mode finding there is OURS.
+   * Left on the baseline rule it printed the defect and passed the run —
+   * `#333` text on a `rgba(11,10,19,0.75)` slab, about 1.2:1, reported as
+   * "pre-existing (baseline, not a failure)". On a strict surface a finding in
+   * EITHER scheme fails. Measured 2026-09-13.
    */
   const key = (x) => `${x.el}|${x.side ?? "text"}`;
   for (const r of results) {
@@ -574,13 +613,17 @@ try {
 
     const tag = `${r.what} — ${r.scheme}${r.simulated ? " (SIMULATED: post-port state)" : ""}`;
     const n = r.text.length + r.borders.length;
-    const verdict = r.scheme === "light"
-      ? (n ? `${n} pre-existing (baseline, not a failure)` : "clean")
-      : (regressions ? `${regressions} regression(s) vs light` : `clean${n ? ` (${n} shared with light)` : ""}`);
+    const hard = r.strict ? n : regressions;
+    const mark = (x) => (r.strict ? "FAIL" : isNew(x) ? "NEW " : "    ");
+    const verdict = r.strict
+      ? (n ? `${n} finding(s) — STRICT surface, both schemes must be clean` : "clean")
+      : r.scheme === "light"
+        ? (n ? `${n} pre-existing (baseline, not a failure)` : "clean")
+        : (regressions ? `${regressions} regression(s) vs light` : `clean${n ? ` (${n} shared with light)` : ""}`);
     console.log(`── ${tag}\n   ${verdict}`);
-    for (const t of r.text) console.log(`   ${isNew(t) ? "NEW " : "    "}text   ${t.ratio.toFixed(2)}:1  ${t.el}  ${t.color} on ${t.bg}  "${t.sample}"`);
-    for (const b of r.borders) console.log(`   ${isNew(b) ? "NEW " : "    "}border ${b.ratio.toFixed(2)}:1  ${b.el} ${b.side}  ${b.color} on ${b.bg}`);
-    if (regressions) failed = true;
+    for (const t of r.text) console.log(`   ${mark(t)}text   ${t.ratio.toFixed(2)}:1  ${t.el}  ${t.color} on ${t.bg}  "${t.sample}"`);
+    for (const b of r.borders) console.log(`   ${mark(b)}border ${b.ratio.toFixed(2)}:1  ${b.el} ${b.side}  ${b.color} on ${b.bg}`);
+    if (hard) failed = true;
     console.log("");
   }
   if (WANT_SHOTS) console.log(`screenshots: ${outDir}\n`);
