@@ -30,7 +30,7 @@ manifest. Descends architecturally from a private fork of
   `CONTRIBUTING.md`, `site/index.html` and `docs/testing-dev-branch.md` —
   change one, change all six (the sixth was written after this list said
   "five" and nobody added it; review #19).
-- Latest release **0.1.21** (2026-09-13). `system.json`'s `version` is bumped by
+- Latest release **0.1.22** (2026-09-13). `system.json`'s `version` is bumped by
   `npm run release` in the release commit on `master` (CI substitutes the same
   tag into the manifest URLs), so on `dev` it lags until the post-release sync
   — read the tag, not the file. This line said 0.1.12 through five releases
@@ -53,6 +53,16 @@ deleted. Full model in `docs/git-flow.md`; contributor-facing summary in
 - **No hotfixes, by policy.** A released version is never patched; fixes ride the
   next release. That deletes this model's classic failure — a fix on `master` that
   never gets merged back.
+  **AND WHEN AN URGENT FIX IS ASKED FOR, CHECK `git log master..dev` BEFORE
+  DESIGNING ANYTHING** — 0.1.22 (2026-09-13, the watch clock unreadable under a
+  light interface) was asked for as a hotfix and needed no hotfix machinery at
+  all: `dev` held the fix and one documentation line, so the ORDINARY release
+  shipped exactly it. The policy above is about a fix that lands on `master`
+  alone; a `dev` that happens to contain only the fix has none of that risk, and
+  the Gitea→GitHub mirror is no obstacle either, since `npm run release` tags on
+  `origin` the way it always does. An urgent release is only a real problem when
+  `dev` is carrying work that must NOT ship — measure that first rather than
+  assuming it.
 - **Topic branches off `dev`** are for work that outlasts the release cadence *and*
   is broken in the middle — otherwise it holds every release hostage. Lowercase-kebab,
   merge `dev` in regularly, merge back at each releasable milestone, delete when done.
