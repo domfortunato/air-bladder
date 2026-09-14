@@ -129,11 +129,15 @@ export const migrateSettingsNamespace = async () => {
  * client, so each client sweeps its own windows. One helper, not five copies
  * of the loop — the fifth copy is where the drift starts.
  */
-const rerenderActorSheets = () => {
+const rerenderSheetsOf = (cls) => {
   for (const app of foundry.applications.instances.values()) {
-    if (app.document instanceof Actor && app.rendered) app.render();
+    if (app.document instanceof cls && app.rendered) app.render();
   }
 };
+const rerenderActorSheets = () => rerenderSheetsOf(Actor);
+/** The same fan for ITEM sheets — needed the day an item sheet first read a
+ *  no-reload setting live (the GLOG flags, review #30). */
+const rerenderItemSheets = () => rerenderSheetsOf(Item);
 
 /**
  * Internal CONFIGURATION keys: Warden-invisible by design — caches and flags no
@@ -647,7 +651,12 @@ export const registerSettings = () => {
       // and without this fan an open sheet keeps its now-dead Cast controls
       // until an unrelated redraw (the review #13 rule that rerenderActorSheets
       // exists for). Both directions, and on every client the onChange reaches.
+      // ITEM sheets too (review #30): the Grimoire box, its Pages field and the
+      // spellbook's GLOG box read this setting live since 2026-09-13, and the
+      // actor-only fan left an open Grimoire sheet offering a live, submittable
+      // hack control on a hack that had just been switched off.
       rerenderActorSheets();
+      rerenderItemSheets();
     },
   });
 

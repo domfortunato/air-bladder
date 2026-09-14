@@ -1137,6 +1137,24 @@
     grid-row-end: 5;
 }
 
+/* "Nothing left to vary" stopped being true the day the GLOG counter went
+   behind the hack switch (2026-09-13): a plain spellbook in a GLOG-off world —
+   the shipped default — has four counters, two rows, and the third row sat
+   empty above the tabs (review #30). The template adds `compact` for exactly
+   that case (item-sheet.js `spellbookCompact`); a scroll or a GLOG-on book
+   keeps the three rows above. */
+.spellbook.compact.item-sheet-grid {
+    /* Two 36px counter rows: the pair of text inputs that land in the second
+       fit 36px the way every plain item's do; the three-row layout's 46px
+       middle row measured as 18px of slack under them (dev:glog-flags). */
+    grid-template-rows: 46px 36px 36px 1fr;
+}
+
+.spellbook.compact.item-sheet-grid .item-sheet-section-tabs {
+    grid-row-start: 4;
+    grid-row-end: 4;
+}
+
 /* The plain-item sheet grew its own variant when the Grimoire checkbox became
    its 11th counter (page capacity makes 12): rows 2-6 hold ten counters beside
    the portrait, so the sixth counter row here is what keeps numbers 11 and 12

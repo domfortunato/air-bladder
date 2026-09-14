@@ -898,6 +898,18 @@ companion record of who authored what.
   `glog`, `bound`, `boundTo` and `grimoireKey`, of which only `glog` is a
   sheet control. Gate: `npm run dev:glog-flags`, both switch states shadowed
   in-page.
+  **Two things the gating cost, found by review #30 the same evening.** An
+  ITEM sheet read a no-reload setting live for the first time, and the
+  setting's onChange fanned re-renders over ACTOR sheets only
+  (`rerenderActorSheets`, the review #13 rule) — so an open Grimoire sheet
+  kept a live, submittable Grimoire box on a hack that had just been switched
+  off. `rerenderItemSheets` rides the same onChange now. And the spellbook
+  grid declared three counter rows for the five or six counters it was laid
+  out for; with the GLOG counter gone a plain book has FOUR, and the third
+  row sat empty above the tabs on every shipped spellbook in a default world
+  — `spellbookCompact` (no scroll, no GLOG) selects a two-row variant, the
+  `.plain-item` shape. The probe MEASURES the room above the tabs now: a
+  counter row nothing fills is invisible to a count of counters.
 - Data models in `module/data-models.js` (TypeDataModel; `template.json` is gone,
   sub-types are declared in `system.json` `documentTypes`); 30 compendium packs
   (30 on `master` too since 0.1.18 shipped `journals-vald`, the Warden's Guide

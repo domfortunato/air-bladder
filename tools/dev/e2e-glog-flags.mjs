@@ -86,6 +86,13 @@ try {
           if (!grid) await new Promise((res) => setTimeout(res, 50));
         }
         const el = sheet.element;
+        // The room above the tabs, MEASURED: a counter row the grid declares
+        // and nothing fills is invisible to a count of counters (review #30 —
+        // the spellbook kept three counter rows for its four GLOG-off
+        // counters and rendered a 36px gap on every shipped spellbook).
+        const tabs = el?.querySelector(".item-sheet-section-tabs");
+        const counters = [...(el?.querySelectorAll(".resource-counter") ?? [])];
+        const last = counters[counters.length - 1];
         out[k] = {
           rendered: !!grid,
           grimoire: !!el?.querySelector('input[name="system.grimoire"]'),
@@ -93,6 +100,8 @@ try {
           glog: !!el?.querySelector('input[name="system.glog"]'),
           scroll: !!el?.querySelector('input[name="system.scroll"]'),
           plain: !!grid?.classList.contains("plain-item"),
+          compact: !!grid?.classList.contains("compact"),
+          gap: tabs && last ? Math.round(tabs.getBoundingClientRect().top - last.getBoundingClientRect().bottom) : null,
         };
         await sheet.close();
       }
@@ -126,6 +135,52 @@ try {
   on.spell.rendered && on.spell.glog && on.spell.scroll
     ? ok("a spellbook shows the GLOG box beside Scroll with the hack on")
     : fail(`spellbook, hack on: ${JSON.stringify(on.spell)}`);
+
+  console.log("\nno empty counter row above the tabs");
+  off.spell.compact && off.spell.gap !== null && off.spell.gap <= 12
+    ? ok(`a plain spellbook with the hack off takes the compact grid — ${off.spell.gap}px between its last counter and the tabs`)
+    : fail(`spellbook, hack off: compact=${off.spell.compact} gap=${off.spell.gap}px — the third counter row is sitting empty above the tabs`);
+  !on.spell.compact && on.spell.gap !== null && on.spell.gap <= 12
+    ? ok(`with the hack on it keeps the three-row grid, no gap either (${on.spell.gap}px)`)
+    : fail(`spellbook, hack on: compact=${on.spell.compact} gap=${on.spell.gap}px`);
+
+  /* The toggle must reach an OPEN item sheet (review #30): the setting has no
+   * reload, its onChange fanned re-renders over ACTOR sheets only, and an open
+   * Grimoire sheet kept a live Grimoire box on a hack that had just been
+   * switched off. The setting's own onChange is invoked with `false` — the
+   * value a Configure Settings save would hand it, and the one that converts
+   * nothing — under the same read shadow, flipped between the two renders. */
+  console.log("\nthe toggle reaches an open item sheet");
+  const live = await page.evaluate(async ({ ids }) => {
+    const ns = game.system.id;
+    const origGet = game.settings.get;
+    let on = true;
+    game.settings.get = function (scope, key, ...rest) {
+      if (rest[0]?.document) return foundry.helpers.ClientSettings.prototype.get.call(this, scope, key, ...rest);
+      if (scope === ns && key === "enable-glog-magic") return on;
+      return origGet.call(this, scope, key, ...rest);
+    };
+    const wait = (ms) => new Promise((res) => setTimeout(res, ms));
+    const out = {};
+    const sheet = game.items.get(ids.grimoire).sheet;
+    try {
+      await sheet.render(true);
+      for (let i = 0; i < 40 && !sheet.element?.querySelector(".item-sheet-grid"); i++) await wait(50);
+      out.beforeBox = !!sheet.element?.querySelector('input[name="system.grimoire"]');
+      on = false;
+      await game.settings.settings.get(`${ns}.enable-glog-magic`).onChange(false);
+      for (let i = 0; i < 40 && sheet.element?.querySelector('input[name="system.grimoire"]'); i++) await wait(75);
+      out.afterBox = !!sheet.element?.querySelector('input[name="system.grimoire"]');
+      out.stillOpen = sheet.rendered;
+    } finally {
+      game.settings.get = origGet;
+      await sheet.close();
+    }
+    return out;
+  }, { ids });
+  live.beforeBox && !live.afterBox && live.stillOpen
+    ? ok("switching the hack off re-renders the open Grimoire sheet — its box is gone without a reopen")
+    : fail(`open item sheet across the toggle: ${JSON.stringify(live)}`);
 } catch (e) {
   fail(`${e.name}: ${e.message}`);
 } finally {
