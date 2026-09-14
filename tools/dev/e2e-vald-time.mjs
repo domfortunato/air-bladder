@@ -1116,6 +1116,31 @@ try {
     await game.time.set(guardWas);
     await wait(300);
 
+    // 1b. PAGED, NOT PICKED (review #30). Browse to another month and click
+    //     NO day: the panel names that month's 1st, the grid highlights it,
+    //     and Set to this day must name the same day in its question —
+    //     `#selected` is stale after paging (still today, in another month),
+    //     and the buttons read it raw while the panel derived its own. And
+    //     the question opens with CANCEL focused: core's confirm default,
+    //     which a `default: true` on Yes had overridden for a day, so a held
+    //     Enter on the calendar button confirmed the move it was meant to ask
+    //     about.
+    await stepTo(3);                                                       // Veil again, nothing clicked
+    const pagedTime = gt.timeForDate({ year, month: 2, dayOfMonth: 1, watch: gt.currentWatch() });
+    out.paged = {
+      expectDate: gt.describeDateAt(pagedTime),
+      highlighted: days().filter((d) => d.classList.contains("is-selected")).map((d) => Number(d.dataset.day)),
+    };
+    seen = new Set(foundry.applications.instances.keys());
+    el().querySelector('[data-action="setToDay"]').click();
+    const ask3 = await newApp(seen, "button[data-action='no']");
+    await wait(150);                                                       // autofocus lands after first render
+    out.paged.strong = ask3?.element.querySelector("strong")?.innerText.trim() ?? "";
+    out.paged.focused = ask3?.element.ownerDocument.activeElement?.dataset?.action ?? null;
+    ask3?.element.querySelector("button[data-action='no']")?.click();
+    await wait(250);
+    out.paged.timeAfterCancel = game.time.worldTime;
+
     // 2. Set the Date… PREVIEWS — it is already a dialog, so it got no second
     //    prompt; it got a live line reading the destination and its distance
     //    in DAYS, so a year off by one shows as "288 days earlier" before Set.
@@ -1209,6 +1234,18 @@ try {
   G.timeAfterYes === G.expectTime
     ? ok("Set on that question moves the world exactly to the day on screen, keeping the watch")
     : fail("Set did not land on the day", JSON.stringify({ want: G.expectTime, got: G.timeAfterYes }));
+
+  const Q = cal.paged ?? {};
+  JSON.stringify(Q.highlighted) === JSON.stringify([1]) && Q.strong === Q.expectDate
+    ? ok("paged to another month with no day clicked: the 1st is highlighted and Set to this day asks about the 1st", `"${Q.strong}"`)
+    : fail("after paging, the panel and the button disagree about the day",
+      JSON.stringify({ highlighted: Q.highlighted, strong: Q.strong, want: Q.expectDate }));
+  Q.focused === "no"
+    ? ok("...and the question opens with Cancel focused, core's confirm default")
+    : fail("the question opened with the wrong button focused", JSON.stringify({ focused: Q.focused }));
+  Q.timeAfterCancel === G.wasTime
+    ? ok("...and Cancel there moves nothing either")
+    : fail("Cancel after paging moved the world", JSON.stringify({ was: G.wasTime, after: Q.timeAfterCancel }));
 
   const P = cal.preview ?? {};
   const back = /(\d+) days? earlier than today$/.exec(P.yearBack ?? "");
@@ -1560,6 +1597,26 @@ try {
       out.nextYearHasMoot = [...nextYear.values()].flat().some((m) => m.name === "ZZ Probe Moot");
       out.thisYearHasMoot = [...(await ce.marksByDay(7728)).values()].flat()
         .some((m) => m.name === "ZZ Probe Moot");
+
+      // PAGED, NOT PICKED (review #30): Next month, no day clicked, Add an
+      // event… — the page must land on that month's 1st, the day the panel
+      // headline names, and not on today. `#selected` is stale after paging
+      // and this button read it raw; the Warden saw no new mark because the
+      // browsed month gained none.
+      const todayKey = `${game.time.components.month}/${game.time.components.dayOfMonth + 1}`;
+      el().querySelector('[data-action="nextMonth"]').click();
+      await new Promise((r) => setTimeout(r, 200));
+      await add((root) => {
+        root.querySelector("[name=name]").value = "ZZ Probe Paged";
+      });
+      const pagedKeys = [...(await ce.marksByDay(7728)).entries()]
+        .filter(([, list]) => list.some((m) => m.name === "ZZ Probe Paged"))
+        .map(([k]) => k);
+      out.paged = { keys: pagedKeys, todayKey };
+      // Gone again before the legs below read the grid: on a build where this
+      // lands on the STALE day it shares a cell with the hidden event above,
+      // and the ownership-toggle leg would then read that cell's dot as its own.
+      await game.journal.contents.flatMap((j) => j.pages.contents).find((p) => p.name === "ZZ Probe Paged")?.delete();
       app.close();
       return out;
     });
@@ -1583,6 +1640,12 @@ try {
     evented.hiddenOwnership === 0
       ? ok("...and the hidden journal is ownership NONE")
       : fail("the hidden events journal is not concealed", JSON.stringify(evented));
+
+    evented.paged?.keys?.length === 1
+      && evented.paged.keys[0].endsWith("/1")
+      && evented.paged.keys[0].split("/")[0] !== evented.paged.todayKey.split("/")[0]
+      ? ok("paged to next month with no day clicked, Add an event… lands on THAT month's 1st", evented.paged.keys[0])
+      : fail("a paged-to event landed on the wrong day", JSON.stringify(evented.paged));
 
     // WHAT THE PLAYER ACTUALLY HAS, and the assertion says the true thing
     // rather than the flattering one. MEASURED: an ownership-NONE JournalEntry

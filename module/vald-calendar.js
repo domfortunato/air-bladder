@@ -222,6 +222,28 @@ class ValdCalendarApp extends foundry.applications.api.HandlebarsApplicationMixi
     this.#selected = { ...now };
   }
 
+  /**
+   * The day the window is ABOUT: the selected one while it is in the month on
+   * screen, otherwise the first day of that month.
+   *
+   * ONE derivation for three readers (review #30). `#selected` is set by
+   * `reset()` and by a click, and paging changes `#view` alone, so after
+   * Next month `#selected` is STALE — still today, in another month.
+   * `_prepareContext` had always filtered it for display, and the panel fell
+   * back to the month's first day; but Set to this day and Add an event…
+   * read `#selected` raw, so a Warden who paged forward and pressed Add an
+   * event… put the page on TODAY while the panel headline named the 1st of
+   * the month they were looking at, and the calendar showed no new mark
+   * because the browsed month gained none. The grid highlights this day too,
+   * so the day the buttons act on is the day that reads as selected.
+   * @returns {{year: number, month: number, day: number}}
+   */
+  #selectionInView() {
+    const s = this.#selected;
+    if (s && s.year === this.#view.year && s.month === this.#view.month) return { ...s };
+    return { ...this.#view, day: 1 };
+  }
+
   /** @override */
   async _prepareContext() {
     if (!this.#view) this.reset();
@@ -239,9 +261,7 @@ class ValdCalendarApp extends foundry.applications.api.HandlebarsApplicationMixi
     // The YEAR is passed because the Warden's own events may be stamped with
     // one. A festival recurs forever; "the coronation" happened in 7731.
     const festivals = await marksByDay(this.#view.year);
-    const selected = this.#selected?.year === this.#view.year && this.#selected?.month === this.#view.month
-      ? this.#selected
-      : null;
+    const selected = this.#selectionInView();
 
     for (const day of month.days) {
       const on = festivals.get(`${this.#view.month}/${day.dayOfMonth}`) ?? [];
@@ -250,7 +270,7 @@ class ValdCalendarApp extends foundry.applications.api.HandlebarsApplicationMixi
       // A second marker rather than a second dot of the same colour: a day
       // carrying a festival AND something the Warden wrote reads as two things.
       day.wardenEvent = on.some((f) => f.warden);
-      day.selected = selected?.day === day.dayOfMonth;
+      day.selected = selected.day === day.dayOfMonth;
       day.seasonClass = day.seasonKey ? `cairn-season-${day.seasonKey.split(".").pop().toLowerCase()}` : "";
     }
 
@@ -258,7 +278,7 @@ class ValdCalendarApp extends foundry.applications.api.HandlebarsApplicationMixi
       month,
       isGM: game.user.isGM,
       headSeasonIcon: month.days[0]?.seasonIcon ?? "",
-      panel: this.#panel(month, selected ?? { ...this.#view, day: null }, now, festivals),
+      panel: this.#panel(month, selected, now, festivals),
     };
   }
 
@@ -365,7 +385,7 @@ class ValdCalendarApp extends foundry.applications.api.HandlebarsApplicationMixi
       ui.notifications.warn(game.i18n.localize("CAIRN.Notify.TimeWardenOnly"));
       return;
     }
-    const at = this.#selected ?? { ...this.#view, day: 1 };
+    const at = this.#selectionInView();
     const date = { year: at.year, month: at.month, dayOfMonth: at.day, watch: currentWatch() };
     // ASK FIRST (2026-09-13, user ruling). Of the three ways to move the
     // clock this is the only one that reaches an ARBITRARY date in a single
@@ -374,6 +394,15 @@ class ValdCalendarApp extends foundry.applications.api.HandlebarsApplicationMixi
     // they move a watch — and Set the Date… is already a dialog and got a
     // preview instead. The question names the destination and its distance in
     // days, which is what makes a wrong year visible.
+    //
+    // CANCEL IS THE DEFAULT BUTTON, as core's confirm makes it (review #30).
+    // `confirm` merges `no` over `{type: "button", default: true}`
+    // (dialog.mjs:349-352), so a `default: true` on `yes` — which this dialog
+    // carried for a day — left BOTH buttons autofocus candidates and the first
+    // in document order, Yes, took the focus (application.mjs:1801). A guard
+    // against an accidental date change that a held Enter confirmed was a
+    // guard in name; `actor-sheet.js` records the same rule for its own
+    // confirms. Yes stays the only submit button, so a click is still a click.
     const time = timeForDate(date);
     const esc = foundry.utils.escapeHTML;
     const yes = await foundry.applications.api.DialogV2.confirm({
@@ -381,7 +410,7 @@ class ValdCalendarApp extends foundry.applications.api.HandlebarsApplicationMixi
       content: `<p>${game.i18n.format("CAIRN.Time.ConfirmSetDate", {
         date: esc(describeDateAt(time)), shift: esc(describeShift(time)),
       })}</p>`,
-      yes: { label: "CAIRN.Time.ConfirmSetDateYes", default: true },
+      yes: { label: "CAIRN.Time.ConfirmSetDateYes" },
       no: { label: "CAIRN.Cancel" },
       rejectClose: false,
     });
@@ -397,14 +426,15 @@ class ValdCalendarApp extends foundry.applications.api.HandlebarsApplicationMixi
    * Put something on the day that is open.
    *
    * THE DAY COMES FROM THE PANEL, not from today: a Warden adding an event is
-   * looking at the day they mean. `#selected` is null only while the panel is
-   * showing the month's first day, which is exactly what the fallback names.
+   * looking at the day they mean — `#selectionInView`, the panel's own
+   * derivation, never `#selected` raw (review #30: this read it raw and put a
+   * paged-to event on today).
    *
    * No render afterwards — creating the page fires `createJournalEntryPage`,
    * which refreshes every open calendar including this one, on every client.
    */
   static async #onAddEvent() {
-    const at = this.#selected ?? { ...this.#view, day: 1 };
+    const at = this.#selectionInView();
     await promptAddEvent({ year: at.year, month: at.month, day: at.day });
   }
 

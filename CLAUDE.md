@@ -516,6 +516,21 @@ companion record of who authored what.
   Gate: six legs in `dev:vald-time`; red-first with both guards disabled
   fails four (no question, the first click moves the world, an empty
   preview, focus kept under the wheel) and passes the two that should.
+  **TWO DEFECTS IN THAT DAY'S BATCH, found by review #30 the same evening.**
+  The confirm passed `yes: {default: true}` — and core's `confirm` keeps
+  `default: true` on `no` through the merge (dialog.mjs:349-352), so BOTH
+  buttons were autofocus candidates and the first in document order, Yes,
+  took the focus: a guard against an accidental date change that a stray
+  Enter confirmed. Cancel is the default now, core's own convention and the
+  rule `actor-sheet.js` already recorded for its confirms. And the calendar's
+  `#selected` is STALE after paging (set by `reset()` and a click; Prev/Next
+  move `#view` alone), which `_prepareContext` had always filtered for
+  display while **Set to this day and Add an event… read it raw**: page
+  forward, click no day, press Add an event…, and the page landed on TODAY
+  under a panel headline naming the 1st of the month on screen, with no new
+  mark because the browsed month gained none. `#selectionInView` is the ONE
+  derivation for the panel, the grid highlight and both buttons. Three more
+  `dev:vald-time` legs, each red first.
   **THE CALENDAR ON THE WALL** (`module/vald-calendar.js`, 2026-09-10, user
   ask: "a calendar where they can see the current day as well as the rest of
   the days in the month, like a calendar you would put on your refrigerator").
