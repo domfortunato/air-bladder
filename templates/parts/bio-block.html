@@ -129,8 +129,11 @@
                                         {{#each scarOptions}}
                                         <label class="scar-option">
                                             {{! `value` is the STORED English (the change handler
-                                                persists it verbatim); `display` is what you read. }}
+                                                persists it verbatim); `display` is what you read.
+                                                `data-legacy` is the utils prose this row also stands
+                                                for, so the handler can replace it (review #30). }}
                                             <input type="checkbox" class="scar-check" value="{{this.name}}"
+                                                data-legacy="{{this.legacy}}"
                                                 {{#if this.selected}}checked{{/if}} />
                                             <span class="scar-text">
                                                 <span class="scar-name">{{this.display}}</span>

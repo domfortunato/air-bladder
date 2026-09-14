@@ -246,7 +246,24 @@ companion record of who authored what.
 - `CairnItem` (`module/item/item.js`) — types `item`, `weapon`, `armor`,
   `spellbook`, `object`, `background`, `transport`
 - `module/actor/actor-sheet.js` is the largest file
-- `module/damage.js` holds Cairn's damage flow
+- `module/damage.js` holds Cairn's damage flow. **TWO SHIPPED TABLES ARE NAMED
+  SCARS, AND THEY ARE NOT THE SAME LIST (review #30, 2026-09-13).** The flow
+  rolls `air-bladder.utils` Scars — the SRD's prose per HP of damage, resolved
+  world-first — while the character sheet's checklist is built from
+  `air-bladder.tables-2e` Scars: twelve short labels ("3 HP - Walloped") with
+  the prose in a flag. Not one row text in common. `auto-record-scars` wrote
+  the utils prose into `system.scars` from the day it shipped (`ccc880ad`,
+  "can check itself on the PC's sheet"), so no box ever matched and the next
+  `.scar-check` tick replaced the array and dropped it — and the probe
+  asserted the prose and never read a box. The flow records the CHECKLIST's
+  row for the same damage value now, the sheet reads the utils prose for a
+  row as that row SELECTED (a pre-fix world heals one tick at a time, the box
+  writing its label in the prose's place), and the tick handler KEEPS any
+  stored string no box owns instead of rewriting the array from the boxes.
+  The flow also selects its row by range itself, asking neither `draw()` nor
+  `roll()`: the roll is a constant, `roll()` skips rows a hand draw marked
+  `drawn`, and a constant cannot escape one — core rerolled the damage number
+  10,000 times and gave no scar.
 - **A token's name follows its actor's on rename — only where it still matched
   the OLD name** (2026-08-23, user ruling after a player's rename left their
   token stale on every map: "preserve custom token names"). Core copies the

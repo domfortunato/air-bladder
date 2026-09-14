@@ -238,6 +238,30 @@ try {
     ? ok(`CONTROL: one bare draw() on the same table marks ${d.drawnAfterDraw} row(s) — the write is real and the reader avoids it`)
     : fail("CONTROL FAILED: draw() marked nothing, so the leg above could not have failed");
 
+  /* ---- 4b. a DRAWN row is still a scar (review #30) ------------------------ */
+  console.log("\na drawn row is still a scar");
+  const sd = await page.evaluate(async ({ MARK, FLAG }) => {
+    const dmg = await import("/systems/air-bladder/module/damage.js");
+    const table = game.tables.find((x) => x.name === "Scars" && x.getFlag("air-bladder", FLAG));
+    // The Warden's own hand draw, on a table with replacement off, leaves the
+    // row marked. roll() skips drawn rows and a CONSTANT roll cannot escape
+    // one — core rerolled the damage number 10,000 times and gave no scar.
+    // The flow selects by range now and never asks.
+    await table.updateEmbeddedDocuments("TableResult", table.results.map((r) => ({ _id: r.id, drawn: true })));
+    const before = new Set(game.messages.map((x) => x.id));
+    await dmg.Damage._rollScarsTable(3);
+    let card = null;
+    for (let i = 0; i < 40 && !card; i++) {
+      card = game.messages.find((x) => !before.has(x.id)) ?? null;
+      if (!card) await new Promise((res) => setTimeout(res, 100));
+    }
+    await table.updateEmbeddedDocuments("TableResult", table.results.map((r) => ({ _id: r.id, drawn: false })));
+    return { card: card ? String(card.content) : null };
+  }, { MARK, FLAG });
+  sd.card?.includes(MARK)
+    ? ok("a scar row a hand draw marked `drawn` still scars — the damage flow selects by range, never through roll()'s drawn filter")
+    : fail(`no scar from a drawn row: ${sd.card === null ? "no card posted" : sd.card.slice(0, 120)}`);
+
   /* ---- 5. restore ---------------------------------------------------------- */
   console.log("\nrestore");
   const post = await sweep();

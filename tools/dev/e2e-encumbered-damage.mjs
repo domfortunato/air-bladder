@@ -715,16 +715,54 @@ const autoScar = await page.evaluate(async () => {
     r.pcEnabled = pc.victim.system.scarEnabled === true;
     // The draw is DETERMINISTIC — the roll is the constant damage (3) — so the
     // recorded value can be asserted against the exact table row, in the same
-    // English source text the checklist stores.
+    // English source text the checklist stores. THE CHECKLIST'S table, not the
+    // damage flow's (review #30): two shipped tables are named Scars, the
+    // sheet's boxes carry `tables-2e`'s labels, and for a month this leg
+    // asserted the `utils` prose the flow wrote and never looked at a box —
+    // so "lands CHECKED on the sheet" was green over a scar no box matched.
     const { resultText, findCompendiumItem } = await import("/systems/air-bladder/module/compendium.js");
-    const scarsTable = await findCompendiumItem("air-bladder.utils", "Scars");
-    const expectedRow = scarsTable?.results.find((x) => x.range[0] <= 3 && 3 <= x.range[1]);
+    const checklist = await findCompendiumItem("air-bladder.tables-2e", "Scars");
+    const expectedRow = checklist?.results.find((x) => x.range[0] <= 3 && 3 <= x.range[1]);
     r.expectedName = expectedRow ? resultText(expectedRow) : null;
     // Ledger silence: a fixed window, because nothing announces "no card is
-    // coming" (the expect-none shape dev:changelog uses).
+    // coming" (the expect-none shape dev:changelog uses). Measured BEFORE the
+    // sheet legs below, whose legacy tick is a hand edit that rightly posts.
     await sleep(1500);
     r.pcLedgerCards = game.messages.contents
       .filter((m) => !preRun.has(m.id) && isLedger(m)).length;
+    // THE BOX ITSELF, on the rendered sheet.
+    const boxFor = (sheet, name) => [...(sheet.element?.querySelectorAll(".scar-check") ?? [])].find((o) => o.value === name) ?? null;
+    await pc.victim.sheet.render(true);
+    let box = null;
+    for (let i = 0; i < 40 && !box; i++) { box = boxFor(pc.victim.sheet, r.expectedName); if (!box) await sleep(100); }
+    r.pcBoxFound = !!box;
+    r.pcBoxChecked = !!box?.checked;
+    await pc.victim.sheet.close();
+    // LEGACY: a world that recorded the utils prose before the fix. The sheet
+    // recognises the prose for the same damage row as that box SELECTED, and
+    // the next tick anywhere replaces the prose with the box's own label —
+    // instead of dropping every recorded scar, which is what a tick did.
+    const utilsTable = await findCompendiumItem("air-bladder.utils", "Scars");
+    const proseRow = utilsTable?.results.find((x) => x.range[0] <= 3 && 3 <= x.range[1]);
+    r.legacyProse = proseRow ? resultText(proseRow) : null;
+    const legacy = await ActorImpl.create({
+      name: "ZZ AutoScar Legacy", type: "character", system: { scarEnabled: true, scars: [r.legacyProse] },
+    });
+    made.push(legacy);
+    await legacy.sheet.render(true);
+    let legacyBox = null;
+    for (let i = 0; i < 40 && !legacyBox; i++) { legacyBox = boxFor(legacy.sheet, r.expectedName); if (!legacyBox) await sleep(100); }
+    r.legacyBoxChecked = !!legacyBox?.checked;
+    const otherRow = checklist?.results.find((x) => x.range[0] === 1);
+    r.otherName = otherRow ? resultText(otherRow) : null;
+    const otherBox = boxFor(legacy.sheet, r.otherName);
+    if (otherBox) {
+      otherBox.checked = true;
+      otherBox.dispatchEvent(new Event("change", { bubbles: true }));
+      for (let i = 0; i < 40 && (legacy.system.scars ?? []).includes(r.legacyProse); i++) await sleep(100);
+    }
+    r.legacyAfterTick = [...(legacy.system.scars ?? [])];
+    await legacy.sheet.close();
 
     // ON + monster: card yes, sheet untouched — the type gate, not the schema.
     const mon = await strike("ZZ AutoScar Monster", "npc", { role: "monster" });
@@ -2053,8 +2091,18 @@ check("flavor above core's 14px too", scar.flavorPx > 14,
 console.log("\nauto-record-scars (Warden switch, default off)");
 check("switch on: the PC's card posted", autoScar.pcCard, "no draw means the legs below prove nothing");
 check("the drawn scar is CHECKED on the sheet",
-  autoScar.pcScars.length === 1 && autoScar.pcScars[0] === autoScar.expectedName,
-  `system.scars=${JSON.stringify(autoScar.pcScars)} (damage 3 draws "${autoScar.expectedName}" — the roll is the constant damage, so the row is exact)`);
+  autoScar.pcScars.length === 1 && autoScar.pcScars[0] === autoScar.expectedName
+  && autoScar.pcBoxFound && autoScar.pcBoxChecked,
+  `system.scars=${JSON.stringify(autoScar.pcScars)} box found=${autoScar.pcBoxFound} checked=${autoScar.pcBoxChecked} `
+  + `(damage 3 is the checklist's "${autoScar.expectedName}" — the roll is the constant damage, so the row is exact; `
+  + "for a month the flow wrote the OTHER Scars table's prose and no box ever matched)");
+check("a legacy prose scar reads as its box, and a tick converts it",
+  autoScar.legacyBoxChecked
+  && autoScar.legacyAfterTick.includes(autoScar.expectedName)
+  && autoScar.legacyAfterTick.includes(autoScar.otherName)
+  && !autoScar.legacyAfterTick.includes(autoScar.legacyProse),
+  `box checked=${autoScar.legacyBoxChecked} after tick=${JSON.stringify(autoScar.legacyAfterTick)} — a world that recorded `
+  + "the utils prose keeps its scar and the next tick writes the label; before, one tick anywhere dropped it");
 check("scarEnabled came on with it", autoScar.pcEnabled,
   "without it the recorded scar sits invisible behind the sheet's opt-in checkbox");
 check("the ledger stayed silent", autoScar.pcLedgerCards === 0,

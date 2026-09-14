@@ -1493,6 +1493,18 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     const tables2e = byPack["air-bladder.tables-2e"] ?? (await cachedPackDocuments("air-bladder.tables-2e"));
     const scarTable = tables2e.find((tbl) => tbl.name === "Scars");
     const selectedScars = this.actor.system.scars ?? [];
+    // LEGACY RECOGNITION (review #30). For a month the damage flow's
+    // auto-record wrote the OTHER shipped Scars table's row — the SRD prose in
+    // `air-bladder.utils` — into system.scars, a string this checklist (built
+    // from tables-2e's short labels) could never match, so no box ticked and
+    // the next tick dropped it. The flow writes the checklist's row now
+    // (damage.js `_rollScarsTable`); a world that already holds the prose is
+    // healed by the sheet itself: the utils row for the same damage value
+    // counts as this row SELECTED, and the change handler below writes the
+    // label in its place. Same pack document the damage flow reads.
+    const utils = byPack["air-bladder.utils"] ?? (await cachedPackDocuments("air-bladder.utils"));
+    const legacyScars = new Map(
+      (utils.find((tbl) => tbl.name === "Scars")?.results ?? []).map((r) => [r.range?.[0], resultText(r)]));
     // Same display/value split as the trait options above, and for the same reason:
     // `.scar-check` persists its `value` verbatim into system.scars, and `selected`
     // matches English↔English, so `name` must stay the English source. Only `display`
@@ -1501,13 +1513,15 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     context.scarOptions = scarTable
       ? scarTable.results.map((r) => {
           const name = resultText(r);
+          const legacy = legacyScars.get(r.range?.[0]) ?? "";
           return {
             name,
             display: t("table.result", name),
             // Our own per-row annotation, not the row's text — hence its own
             // namespace (see tools/i18n/extract-content.mjs).
             description: t("table.resultDesc", r.flags?.["air-bladder"]?.description ?? ""),
-            selected: selectedScars.includes(name),
+            legacy,
+            selected: selectedScars.includes(name) || (!!legacy && selectedScars.includes(legacy)),
           };
         })
       : [];
@@ -1983,8 +1997,20 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // Scars are a checkbox list: persist the set of checked names (including
     // empty). Managed here rather than via form serialization so unchecking the
     // last one reliably stores an empty array. render:false keeps scroll/state.
+    //
+    // A STORED SCAR THE LIST CANNOT SHOW IS KEPT, NOT DROPPED (review #30):
+    // the boxes decide only the strings they represent — their own values and
+    // the legacy utils prose each one stands in for (`data-legacy`, which a
+    // ticked box REPLACES with its label, healing a pre-fix world one tick at
+    // a time). Anything else in the array — a Warden's world-first Scars
+    // table's text for a damage no checklist row covers — survives the tick.
+    // Before this, one tick anywhere rewrote the whole array from the boxes
+    // and silently ate every auto-recorded scar.
     on(".scar-check", "change", async () => {
-      const scars = [...el.querySelectorAll(".scar-check:checked")].map((o) => o.value);
+      const boxes = [...el.querySelectorAll(".scar-check")];
+      const owned = new Set(boxes.flatMap((o) => [o.value, o.dataset.legacy].filter(Boolean)));
+      const kept = (this.actor.system.scars ?? []).filter((s) => !owned.has(s));
+      const scars = [...kept, ...boxes.filter((o) => o.checked).map((o) => o.value)];
       await this.actor.update({ "system.scars": scars }, { render: false });
     });
   }

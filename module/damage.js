@@ -1,4 +1,4 @@
-import { findDeclaredTable, resultText } from './compendium.js'
+import { findDeclaredTable, findCompendiumItem, resultText } from './compendium.js'
 import { SETTINGS_NS } from './settings.js'
 import { evaluateFormula, askDamageTargets, concealmentWhisper, d20CardBody, d20CardFlavor } from './utils.js'
 import { postStatusCard } from './actor/actor.js'
@@ -666,13 +666,23 @@ export class Damage {
             ui.notifications?.warn(game.i18n.localize("CAIRN.Notify.NoScarsTable"));
             return;
         }
-        // roll(), not draw(): the damage value IS the roll and selects the row
-        // either way, but draw() would also mark that row `drawn` on a world
-        // table the Warden turned replacement off on — and a scar recurs by
-        // design. The card below is built by hand, so nothing else draw() did
-        // is missed.
-        const drawn = await table.roll({ roll: new Roll(damage.toString()) });
-        if (!drawn?.results?.length) return;
+        // THE ROW IS SELECTED HERE, by range, and neither draw() nor roll() is
+        // asked (review #30). The damage value IS the roll: a constant, and the
+        // row whose range covers it is the scar — a scar recurs by design.
+        // draw() would mark that row `drawn` on a world table the Warden turned
+        // replacement off on; roll() writes nothing of the kind but READS the
+        // marks (roll-table.mjs:280,342), and a constant roll cannot escape a
+        // drawn row — core's loop rerolled the same number 10,000 times, then
+        // errored with no scar at all. roll() also normalizes AND SAVES a world
+        // table whose stored formula is blank (roll-table.mjs:270-274), so
+        // "writes nothing" was never true of it either. `Number.between` is
+        // core's own range test (`getResultsForRoll`), minus the drawn filter.
+        const roll = await new Roll(damage.toString()).evaluate();
+        const drawn = {
+            roll,
+            results: table.results.filter((r) => Number.between(roll.total, r.range[0], r.range[1])),
+        };
+        if (!drawn.results.length) return;
         // Speaker only when there is a token to name; with none, leaving it unset
         // keeps core's default rather than inventing an empty header.
         // The flavor is STORED in this client's language and REBUILT per viewer
@@ -689,8 +699,8 @@ export class Damage {
         // message carrying a Roll is visible to everyone (chat-message.mjs:101-104).
         const whisper = concealmentWhisper(token);
         if (whisper) messageData.whisper = whisper;
-        // The roll goes to `draw` -- it is what SELECTS the result row -- and is
-        // deliberately NOT forwarded to `toMessage`, which renders
+        // The roll selected the result row above and is deliberately NOT
+        // forwarded to `toMessage`, which renders
         // `rollHTML: this.displayRoll && roll` (roll-table.mjs:76). The roll here is
         // a CONSTANT (`new Roll("5")`), so rendering it printed formula "5" and
         // total "5": the damage number twice, on a card whose only job is to name
@@ -718,11 +728,28 @@ export class Damage {
         // damage flow writing, not a hand edit — the scar card above is
         // already the announcement, and the flow's HP/STR writes carry the
         // same flag for the same reason.
+        //
+        // THE CHECKLIST'S ROW, NOT THE CARD'S (review #30). Two shipped tables
+        // are named Scars: the damage flow rolls `air-bladder.utils` (the
+        // SRD's prose per HP of damage, world-first) while the sheet's checklist
+        // is built from `air-bladder.tables-2e` (twelve short labels, "1 HP -
+        // Lasting Scar", each with the prose in a flag). Twelve rows each and
+        // not one string in common — so for a month this wrote the prose,
+        // `selected` matched nothing, no box ticked, and the next `.scar-check`
+        // change replaced the array and dropped it. The checklist row is found
+        // by the SAME damage value, off the same pack document the sheet reads
+        // (`cachedPackDocuments` there, `findCompendiumItem` here — one
+        // document, two readers); a Warden's world-first Scars override still
+        // decides the CARD, the checklist stays the 2e list the sheet renders.
+        // The card's own text is the fallback for a damage no checklist row
+        // covers, and the sheet keeps such a string rather than dropping it.
         const scarred = token?.actor;
         if (scarred?.type === "character" && scarred.isOwner
             && game.settings.get(SETTINGS_NS, "auto-record-scars")) {
             const scars = [...(scarred.system.scars ?? [])];
-            const fresh = drawn.results.map((r) => resultText(r))
+            const checklist = await findCompendiumItem("air-bladder.tables-2e", "Scars");
+            const box = checklist?.results.find((r) => Number.between(roll.total, r.range[0], r.range[1]));
+            const fresh = (box ? [box] : drawn.results).map((r) => resultText(r))
                 .filter((n) => n && !scars.includes(n));
             if (fresh.length) {
                 await scarred.update(
