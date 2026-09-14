@@ -564,11 +564,25 @@ try {
     CONFIG.Dice.randomUniform = () => seq[Math.min(i++, seq.length - 1)];
     try {
       const msgsBefore = game.messages.size;
+      // Snapshot the open windows BEFORE the call opens one, and accept only a
+      // dialog that is NOT in the snapshot. `DialogV2.wait` resolves in its
+      // submit handler BEFORE the close begins (dialog.mjs:409-418), and
+      // `ApplicationV2#close` awaits the fade transition — up to 1000ms — BEFORE
+      // it deletes the window from `instances` (application.mjs:1016,1021). So
+      // the previous cast's dialog is still in the map, select and all, when
+      // this poll starts, and under sweep load it was what the first iteration
+      // found: its selects were set, ITS button clicked (a second submit on an
+      // already-resolved dialog, a no-op), and the NEW dialog sat unanswered —
+      // "never resolved after the cast click (20s)", on the fourth cast in a
+      // row, green alone (0.1.23 pre-tag sweep, 2026-09-13). The DOM form of
+      // the same trap is recorded on dev:changelog's Restore leg.
+      const before = new Set(foundry.applications.instances.keys());
       const p = castFromGrimoire(a);
       // Answer the dialog: pick Alpha, invest 2 dice.
       for (let t = 0; t < 40; t++) {
         const dlg = [...foundry.applications.instances.values()]
-          .find((x) => x.constructor.name === "DialogV2" && x.element?.querySelector('select[name="page"]'));
+          .find((x) => !before.has(x.id) && x.constructor.name === "DialogV2"
+            && x.element?.querySelector('select[name="page"]'));
         if (dlg) {
           const pageSel = dlg.element.querySelector('select[name="page"]');
           const alphaId = a.items.find((x) => x.name === "ZZ Spell Alpha").id;
@@ -717,11 +731,14 @@ try {
   // [4,4] again: sum 8, so [sum*10] must land on 80 in whatever language.
   const castL = await seedCast(gm, [0.4, 0.4]);
   check(!castL.error && castL.rollTotal === 8, "seeded [4,4] under the caster's overlay", castL.error ?? "");
-  check(castL.publicContent.includes("ZZ Spell Alpha")
-    && !castL.publicContent.includes("ZZ-CASTER-NAME")
-    && !castL.publicContent.includes("ZZ-CASTER-DESC"),
+  // A cast that reported an error carries no card; the legs under it must red
+  // in their own words rather than throw past every leg that follows.
+  const castLContent = castL.publicContent ?? "";
+  check(castLContent.includes("ZZ Spell Alpha")
+    && !castLContent.includes("ZZ-CASTER-NAME")
+    && !castLContent.includes("ZZ-CASTER-DESC"),
     "the STORED card is English, though the caster's own client is not",
-    castL.publicContent);
+    castLContent);
   check(castL.flag?.name === "ZZ Spell Alpha" && castL.flag?.desc === castLangSetup.desc
     && castL.flag?.dice === 2 && castL.flag?.sum === 8,
     "and it carries the English source plus the dice, which is what a viewer rebuilds from",
