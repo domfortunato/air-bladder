@@ -364,6 +364,20 @@ if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   const [langName, translator] = NAMES[LANG] ?? [LANG, "the translator"];
   const git = (...a) => execFileSync("git", a, { cwd: ROOT, encoding: "utf8" }).trim();
 
+  // The tag current when a locale's baseline was FIRST committed — that is the
+  // floor Part 1 can see back to, because baseline.mjs refuses to re-seed. Every
+  // locale here was seeded in d583a511 under 0.1.11. Until 2026-09-13 this
+  // defaulted to the LATEST tag, so each cycle's handoff named a floor that had
+  // moved up one release since the last, eleven releases too high by 0.1.22 —
+  // a claim about the tool's own blind spot that was wrong in the direction of
+  // understating what it sees. A baseline git has never seen (seeded, not yet
+  // committed) falls back to the latest tag, which is then the truth.
+  const seedTagOf = (lang) => {
+    const added = git("log", "--diff-filter=A", "--format=%h", "--", `tools/i18n/baseline/${lang}.json`)
+      .split("\n").filter(Boolean).pop();
+    return added ? git("describe", "--tags", "--abbrev=0", added) : git("describe", "--tags", "--abbrev=0");
+  };
+
   const load = (f) => flattenLang(JSON.parse(fs.readFileSync(path.join(ROOT, f), "utf8")));
   const en = load("lang/en.json");
   const tr = load(`lang/${LANG}.json`);
@@ -393,10 +407,12 @@ if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   const trCount = Object.entries(en).filter(([k, v]) => tr[k] != null && tr[k] !== v).length;
   const data = {
     lang: LANG, langName, translator, en, notes,
-    date: new Date().toISOString().slice(0, 10),
+    // The LOCAL date. This is regenerated late in the evening before a tag, and
+    // toISOString() is UTC: the 0.1.22 cycle's copy was dated the next day.
+    date: new Date().toLocaleDateString("en-CA"),
     branch: git("rev-parse", "--abbrev-ref", "HEAD"),
     from: git("describe", "--tags", "--abbrev=0"),
-    seed: argVal("--seed", git("describe", "--tags", "--abbrev=0")),
+    seed: argVal("--seed", seedTagOf(LANG)),
     enCount, trCount, pct: Math.round((trCount / enCount) * 100),
     ui: uiDrift(en, tr, baseline),
     content: contentDrift(orphans, live, content?.overlay ?? {}),
