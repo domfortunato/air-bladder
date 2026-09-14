@@ -1402,6 +1402,25 @@ against the reason, not against the fact.
   `if (es === undefined) return` meant a Warden's own world table fell through
   even on `es`. It rebuilds through `t()` now, whose miss is the English
   source verbatim, which is the guarantee the whole overlay rests on.
+  **REVIEW #29'S `isContentVisible` GATE REACHED ONE REBUILD OF FOUR, and
+  review #30 measured the other three LIVE on a player's client (2026-09-13).**
+  `markInitiativeOutcome` wrote a HIDDEN combatant's name, d20 total, DEX and
+  outcome over core's "rolled privately" — the one card `rollInitiative`
+  whispers by design; `localizeDashboardCard` named the table on the
+  Dashboard's default-PRIVATE draw, all 45 buttons; `localizeEncounterQty`
+  named the creature under the Warden's Private dropdown, which its docblock
+  had called "a PUBLIC card". All three ask `isContentVisible` FIRST now, and
+  `dev:chat-privacy` reads Alice's rendered log for each with a public
+  control beside it. **The sweep the class demands is over every rebuild in
+  `renderChatMessageHTML`, not over every stored `flavor:`** — #29 grepped
+  the producers and gated the one rebuild it was fixing. And the sweep's
+  closing claim in `utils.js` ("the last stored card … read by more than one
+  person") was false the day it was written: the change-log ledger is
+  whispered to the owners AND every Warden and stored the composer's
+  language. It carries a `changeLog` flag now — a KIND per line and the
+  values, paths whitelisted against the audit tables, numbers finite-gated,
+  names through the overlay — and `localizeChangeLogCard` renders it per
+  viewer. A claim that a sweep is finished is a copy that drifts.
 - **Pack YAML in `src/packs/` is the source of truth**; `packs/` is generated
   LevelDB, gitignored. Never edit `packs/`. `npm run build:packs` fails while
   Foundry has the world open (LevelDB EPERM) — stop the server first.

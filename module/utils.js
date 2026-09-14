@@ -327,12 +327,15 @@ export const localizeD20Card = (message, html) => {
  * it to a key, and `Object.hasOwn` guards the lookup so a crafted kind reaches
  * no member of `Object`'s own prototype.
  *
- * Die of Fate was the last stored card in `module/` that was neither rebuilt
- * per viewer nor read by exactly one person (review #29's sweep — the one the
- * class's own rule asks for after every fix in it, run over all 23
- * `create`/`toMessage` sites). It ships on BOTH sheets, so a player can be the
- * composer, and it posts under the chat-mode dropdown like any roll: a Spanish
- * player pressing it put "Dado del destino" in every English log.
+ * Die of Fate was found by review #29's sweep — the one the class's own rule
+ * asks for after every fix in it, run over all 23 `create`/`toMessage` sites.
+ * It ships on BOTH sheets, so a player can be the composer, and it posts under
+ * the chat-mode dropdown like any roll: a Spanish player pressing it put
+ * "Dado del destino" in every English log. This docblock then called it "the
+ * last stored card neither rebuilt per viewer nor read by exactly one person"
+ * — and the change-log ledger (actor.js), whispered to the owners AND every
+ * Warden, was exactly that for another day (review #30; rebuilt now via
+ * `localizeChangeLogCard`). A sweep's closing claim is a copy that drifts.
  */
 export const ROLL_FLAVOR_KEYS = { dieOfFate: "CAIRN.DieOfFate" };
 

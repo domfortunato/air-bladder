@@ -407,10 +407,22 @@ export class CairnCombatTracker extends foundry.applications.sidebar.tabs.Combat
  * flavor under "Mula" above it, for exactly the FRIENDLY non-character
  * combatants the a3150a99 ruling made public. Rebuilt from the numbers in
  * the flag; a pre-rebuild card (no saveTotal) keeps its baked line.
+ *
+ * HIDDEN STAYS HIDDEN (review #30). `rollInitiative` whispers a hidden
+ * combatant's save to the Warden (`messageMode: "gm"` above), and a whispered
+ * message that carries a Roll is still `visible` to everyone
+ * (chat-message.mjs:101-104), so this hook FIRES on every player's client —
+ * after core has already written "rolled privately" into `.flavor-text` and
+ * `?` into `.dice-total`. Without the gate below, this function wrote the
+ * concealed creature's name, its d20 total, its DEX and its outcome straight
+ * over that substitution, on the one card whose whole point was the whisper.
+ * The `isContentVisible` test is the same one `localizeD20Card` asks first
+ * (utils.js, review #29); this was its sibling in the same hook, missed.
  * @param {ChatMessage} message
  * @param {HTMLElement} html
  */
 export const markInitiativeOutcome = (message, html) => {
+  if (!message?.isContentVisible) return;
   const outcome = message.getFlag("air-bladder", "save");
   if (outcome !== "pass" && outcome !== "fail") return;
   html.querySelector(".dice-total")?.classList.add(outcome === "pass" ? "cairn-save-pass" : "cairn-save-fail");

@@ -547,6 +547,40 @@ const run = async () => {
         assert(logs.length === 0, `regeneration posted ${logs.length} ledger card(s)`);
       });
 
+      // ---- per-viewer rebuild (review #30) ---------------------------------
+      // The ledger is whispered to the OWNERS and every Warden, so it has
+      // readers in every language at the table; it stored the acting client's
+      // rendering. The flag carries kinds and values; each client renders.
+      // The sentinel goes on the WARDEN'S client AFTER Alice composed the
+      // card, so the stored content cannot carry it: the rendered card must,
+      // the stored content must not.
+      since = await messageIds(gm);
+      await leg("the ledger is rebuilt in the READER's language, off a flag", async () => {
+        await alice.evaluate((id) => game.actors.get(id).update({ "system.gold": 61 }), created.witness);
+        const logs = await logsSince(gm, since);
+        assert(logs.length === 1, `expected exactly 1 card, got ${logs.length}`);
+        const r = await gm.evaluate(async (mid) => {
+          const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
+          const real = game.i18n.localize.bind(game.i18n);
+          try {
+            game.i18n.localize = (k, ...a) => (k === "CAIRN.Gold" ? "ZZ-GOLD" : real(k, ...a));
+            await ui.chat.updateMessage(game.messages.get(mid));
+            await sleep(500);
+            const el = document.querySelector(`[data-message-id="${mid}"] .change-log`);
+            const m = game.messages.get(mid);
+            return {
+              rendered: el?.textContent ?? "",
+              stored: String(m?.content ?? ""),
+              flagged: Array.isArray(m?.getFlag("air-bladder", "changeLog")?.entries),
+            };
+          } finally { game.i18n.localize = real; }
+        }, logs[0].id);
+        assert(r.flagged, "the card carries no changeLog flag");
+        assert(r.rendered.includes("ZZ-GOLD"), `the Warden reads "${r.rendered.trim()}" — the stored language, not his own`);
+        assert(!r.stored.includes("ZZ-GOLD"), "the rebuild wrote its sentinel back into the stored message");
+        assert(r.rendered.includes("61"), `the rebuilt line lost its value: "${r.rendered.trim()}"`);
+      });
+
       // ---- audience (negative) --------------------------------------------
       since = await messageIds(gm);
       await leg("hidden actor's card is invisible to Alice", async () => {

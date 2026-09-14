@@ -1,5 +1,5 @@
 // Import Modules
-import { CairnActor, localizeStatusCard } from "./actor/actor.js";
+import { CairnActor, localizeStatusCard, localizeChangeLogCard } from "./actor/actor.js";
 import { CairnActorSheet } from "./actor/actor-sheet.js";
 import { CairnItem, FATIGUE_NAME, SPELLSCROLL_NAME } from "./item/item.js";
 import { CairnItemSheet } from "./item/item-sheet.js";
@@ -3336,6 +3336,9 @@ Hooks.on("renderChatMessageHTML", (message, html, data) => {
   // (review #27; the class review #26 fixed on the Dashboard's cards).
   localizeStatusCard(message, html);
   localizeEncounterQty(message, html);
+  // The change-log ledger (module/actor/actor.js): whispered to owners AND
+  // Wardens, so it has readers in every language at the table (review #30).
+  localizeChangeLogCard(message, html);
 
   // The initiative save's total, coloured by outcome (module/combat.js).
   markInitiativeOutcome(message, html);

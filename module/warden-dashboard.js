@@ -703,10 +703,26 @@ class ShownTableView extends foundry.applications.api.ApplicationV2 {
  * button, and a rejection is caught rather than left to escape the hook's
  * synchronous try/catch naming nothing.
  *
+ * HIDDEN STAYS HIDDEN (review #30). The window opens on PRIVATE
+ * (`DEFAULT_MESSAGE_MODE`), and a single-table draw posts core's card WITH its
+ * roll — so the message is whispered to the Warden and yet `visible` to every
+ * player, because a whispered message carrying a Roll always is
+ * (chat-message.mjs:101-104). The hook therefore fires on a player's client
+ * over core's own substitution ("Gamemaster rolled privately" in
+ * `.flavor-text`, the author's name in `.message-sender`) — and the draw
+ * branch below rewrote exactly those two elements with the TABLE'S LABEL, so
+ * on the default setting every one of the 45 buttons told the table which
+ * table the Warden had just rolled. The rows stayed hidden, which is what kept
+ * it silent on the Warden's own screen. Same gate as `localizeD20Card`
+ * (utils.js, review #29), asked FIRST and for every branch: the set and reveal
+ * cards carry no roll and never reach a non-recipient, but a guard that
+ * depends on that is a guard the next card silently loses.
+ *
  * @param {ChatMessage} message
  * @param {HTMLElement} html
  */
 export const localizeDashboardCard = (message, html) => {
+  if (!message?.isContentVisible) return;
   const relabelSender = () => {
     const sender = html.querySelector(".message-sender");
     if (sender) sender.textContent = game.i18n.localize("CAIRN.Dashboard.Title");

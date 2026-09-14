@@ -185,13 +185,24 @@ const qtyWhat = ({ npc, label }) => npc
 /**
  * Rebuild a quantity roll's flavor line in THIS viewer's language
  * (renderChatMessageHTML). The stored line was composed on the Warden's
- * client, creature name included, on a PUBLIC card (review #27). The flag
- * carries the ENGLISH label and an npc bit, never text; the label is coerced
- * to a string, run through the overlay, and set as textContent.
+ * client, creature name included (review #27). The flag carries the ENGLISH
+ * label and an npc bit, never text; the label is coerced to a string, run
+ * through the overlay, and set as textContent.
+ *
+ * NOT NECESSARILY A PUBLIC CARD, which this docblock claimed for a day (review
+ * #30). The producer (`spawnEncounterFromMessage`) posts through
+ * `Roll#toMessage` with no messageMode, so it takes the Warden's chat-controls
+ * dropdown (roll.mjs:932) — and under Private or Blind GM Roll the card is a
+ * whispered ROLL, which stays `visible` to every player
+ * (chat-message.mjs:101-104) with core's "rolled privately" in the flavor
+ * slot this function overwrites. So a Warden prepping an encounter with the
+ * dropdown on Private told the table "Encounter: Bandit" one card per spec.
+ * Hidden stays hidden: same gate as `localizeD20Card`, asked first.
  * @param {ChatMessage} message
  * @param {HTMLElement} html
  */
 export const localizeEncounterQty = (message, html) => {
+  if (!message?.isContentVisible) return;
   const f = message.getFlag("air-bladder", "encounterQty");
   if (!f || typeof f !== "object") return;
   const flavor = html.querySelector(".flavor-text");

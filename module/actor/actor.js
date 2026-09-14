@@ -221,6 +221,106 @@ const AUDIT_ARRAYS = ["system.scars"];
 const AUDIT_ACTIONS = new Set(["CAIRN.Rest", "CAIRN.RestoreAbilities"]);
 
 /**
+ * THE LEDGER CARD IS REBUILT PER VIEWER (review #30). It is whispered to the
+ * actor's owners AND every Warden, so it has as many readers as the table has
+ * languages — and it stored the acting client's rendering, so a Spanish
+ * player's slot edit reached the English Warden's log as "Fuerza: 10 → 8".
+ * The class rule (CLAUDE.md, "A STORED CHAT LINE"): the flag carries a KIND
+ * per line and the values that made it, never text, and each client renders.
+ * The stored content is still the composer's rendering, for a client without
+ * the hook.
+ *
+ * Every field is coerced or whitelisted on the way back out — a message's
+ * flags are player-authorable and never server-sanitized (review #24's
+ * class): a `p` must be a key of AUDIT_LABELS / AUDIT_BOOLEANS, a `k` one of
+ * the seven kinds, numbers pass a finite gate, names are strings run through
+ * the overlay, and the whole line is escaped at assembly exactly as before.
+ */
+const CHANGE_LOG_FLAG = "changeLog";
+/** Bounds a crafted flag; a real card carries a handful of lines. */
+const CHANGE_LOG_MAX_LINES = 200;
+
+const changeLogValue = (v, trait = false) => {
+  if (v === "" || v === undefined || v === null) return "—";
+  if (typeof v === "number") return Number.isFinite(v) ? String(v) : "—";
+  if (typeof v !== "string") return "—";
+  // Trait values are stored English and displayed through the overlay, so
+  // the ledger shows what the pick-list shows; numbers pass through.
+  return trait ? t("table.result", v) : v;
+};
+
+const changeLogLine = (e) => {
+  if (!e || typeof e !== "object") return null;
+  const name = typeof e.name === "string" ? e.name : "";
+  const ns = e.monster === true ? "monster.itemName" : "item.name";
+  switch (e.k) {
+    case "field": {
+      if (typeof e.p !== "string" || !Object.hasOwn(AUDIT_LABELS, e.p)) return null;
+      const trait = AUDIT_TRAIT_PATHS.has(e.p);
+      return game.i18n.format("CAIRN.ChangeLog.Field",
+        { label: AUDIT_LABELS[e.p](), from: changeLogValue(e.from, trait), to: changeLogValue(e.to, trait) });
+    }
+    case "bool":
+      if (typeof e.p !== "string" || !Object.hasOwn(AUDIT_BOOLEANS, e.p)) return null;
+      return game.i18n.format(e.on === true ? "CAIRN.ChangeLog.Marked" : "CAIRN.ChangeLog.Cleared",
+        { label: game.i18n.localize(AUDIT_BOOLEANS[e.p]) });
+    case "scar":
+      if (!name) return null;
+      return game.i18n.format(e.added === true ? "CAIRN.ChangeLog.ScarAdded" : "CAIRN.ChangeLog.ScarRemoved",
+        { name: t("table.result", name) });
+    case "fatigue":
+      return game.i18n.localize(e.added === true ? "CAIRN.ChangeLog.FatigueAdded" : "CAIRN.ChangeLog.FatigueRemoved");
+    case "item":
+      if (!name) return null;
+      return game.i18n.format(e.added === true ? "CAIRN.ChangeLog.ItemAdded" : "CAIRN.ChangeLog.ItemRemoved",
+        { name: t(ns, name) });
+    case "qty":
+      if (!name) return null;
+      return game.i18n.format("CAIRN.ChangeLog.Field",
+        { label: t(ns, name), from: changeLogValue(Number(e.from)), to: changeLogValue(Number(e.to)) });
+    case "uses":
+      if (!name) return null;
+      return game.i18n.format("CAIRN.ChangeLog.Uses",
+        { name: t(ns, name), from: changeLogValue(Number(e.from)), to: changeLogValue(Number(e.to)) });
+    default:
+      return null;
+  }
+};
+
+/** The card's whole body, in THIS client's language, from the flag's data. */
+const changeLogBody = ({ user, action, entries }) => {
+  const id = String(user ?? "");
+  const who = game.users.get(id)?.name ?? id;
+  // Whitelisted or dropped — never a wire-supplied key through raw.
+  const actionKey = AUDIT_ACTIONS.has(action) ? action : null;
+  const lines = (Array.isArray(entries) ? entries.slice(0, CHANGE_LOG_MAX_LINES) : [])
+    .map(changeLogLine).filter((l) => typeof l === "string" && l);
+  return `<div class="change-log">`
+    + `<p class="change-log-user">${esc(game.i18n.format("CAIRN.ChangeLog.By", { user: who }))}</p>`
+    + (actionKey ? `<p class="change-log-action">${esc(game.i18n.localize(actionKey))}</p>` : "")
+    + `<ul>${lines.map((l) => `<li>${esc(l)}</li>`).join("")}</ul></div>`;
+};
+
+/**
+ * Rebuild a ledger card's body in THIS viewer's language (renderChatMessageHTML).
+ * A card from before the flag existed keeps its stored body.
+ * @param {ChatMessage} message
+ * @param {HTMLElement} html
+ * @returns {boolean} whether the body was rebuilt
+ */
+export const localizeChangeLogCard = (message, html) => {
+  // Hidden stays hidden. The ledger never carries a Roll, so a non-recipient
+  // never renders it at all — but the guard is the rule, not the exception.
+  if (!message?.isContentVisible) return false;
+  const data = message?.getFlag?.("air-bladder", CHANGE_LOG_FLAG);
+  if (!data || typeof data !== "object" || !Array.isArray(data.entries)) return false;
+  const body = html.querySelector(".message-content");
+  if (!body?.querySelector(".change-log")) return false;
+  body.innerHTML = changeLogBody(data);
+  return true;
+};
+
+/**
  * Extend the base Actor entity by defining a custom roll data structure which is ideal for the Simple system.
  * @extends {Actor}
  */
@@ -1842,23 +1942,21 @@ export class CairnActor extends Actor {
     if (!game.settings.get(SETTINGS_NS, "change-log")) return;
 
     const src = this.toObject();
-    const lines = [];
-    for (const [p, label] of Object.entries(AUDIT_LABELS)) {
+    // ENTRIES, not lines: a kind and the values, rendered per viewer by
+    // `changeLogLine` (review #30). Trait display and the "—" for an empty
+    // value live there now, once, for every reader.
+    const entries = [];
+    for (const p of Object.keys(AUDIT_LABELS)) {
       if (!(p in before)) continue;
       const now = foundry.utils.getProperty(src, p);
       if (now === before[p]) continue;
-      // Trait values are stored English and displayed through the overlay, so
-      // the ledger shows what the pick-list shows; numbers pass through.
-      const disp = AUDIT_TRAIT_PATHS.has(p)
-        ? (v) => (v ? t("table.result", String(v)) : "—")
-        : (v) => (v === "" || v === undefined || v === null ? "—" : String(v));
-      lines.push(game.i18n.format("CAIRN.ChangeLog.Field", { label: label(), from: disp(before[p]), to: disp(now) }));
+      entries.push({ k: "field", p, from: before[p] ?? null, to: now ?? null });
     }
-    for (const [p, key] of Object.entries(AUDIT_BOOLEANS)) {
+    for (const p of Object.keys(AUDIT_BOOLEANS)) {
       if (!(p in before)) continue;
       const now = foundry.utils.getProperty(src, p) === true;
       if (now === before[p]) continue;
-      lines.push(game.i18n.format(now ? "CAIRN.ChangeLog.Marked" : "CAIRN.ChangeLog.Cleared", { label: game.i18n.localize(key) }));
+      entries.push({ k: "bool", p, on: now });
     }
     // Scars are free-typed strings and may repeat, so the diff is a MULTISET
     // one: matching occurrences cancel, whatever their positions.
@@ -1867,14 +1965,14 @@ export class CairnActor extends Actor {
       for (const s of src.system.scars ?? []) {
         const i = old.indexOf(s);
         if (i >= 0) old.splice(i, 1);
-        else lines.push(game.i18n.format("CAIRN.ChangeLog.ScarAdded", { name: s }));
+        else entries.push({ k: "scar", added: true, name: s });
       }
-      for (const s of old) lines.push(game.i18n.format("CAIRN.ChangeLog.ScarRemoved", { name: s }));
+      for (const s of old) entries.push({ k: "scar", added: false, name: s });
     }
-    if (lines.length) {
+    if (entries.length) {
       // Whitelisted or dropped — never pass a wire-supplied key through raw.
       const actionKey = AUDIT_ACTIONS.has(options.abChangeLogAction) ? options.abChangeLogAction : null;
-      this.#postChangeLogCard(lines, userId, actionKey);
+      this.#postChangeLogCard(entries, userId, actionKey);
     }
   }
 
@@ -1892,14 +1990,13 @@ export class CairnActor extends Actor {
     if (userId !== game.user.id) return;
     if (options.abNoStatusCard) return;
     if (!game.settings.get(SETTINGS_NS, "change-log")) return;
-    const ns = this.npcRole === "monster" ? "monster.itemName" : "item.name";
-    const lines = documents.map((d) => {
-      if (d.name === FATIGUE_NAME) {
-        return game.i18n.localize(added ? "CAIRN.ChangeLog.FatigueAdded" : "CAIRN.ChangeLog.FatigueRemoved");
-      }
-      return game.i18n.format(added ? "CAIRN.ChangeLog.ItemAdded" : "CAIRN.ChangeLog.ItemRemoved", { name: t(ns, d.name) });
-    });
-    if (lines.length) this.#postChangeLogCard(lines, userId);
+    // The overlay namespace is decided by the READER from the `monster` bit;
+    // the ENGLISH name travels (the overlay is keyed on the source string).
+    const monster = this.npcRole === "monster";
+    const entries = documents.map((d) => (d.name === FATIGUE_NAME
+      ? { k: "fatigue", added }
+      : { k: "item", added, name: d.name, monster }));
+    if (entries.length) this.#postChangeLogCard(entries, userId);
   }
 
   /**
@@ -1917,27 +2014,22 @@ export class CairnActor extends Actor {
     if (userId !== game.user.id) return;
     if (options.abNoStatusCard) return;
     if (!game.settings.get(SETTINGS_NS, "change-log")) return;
-    const ns = this.npcRole === "monster" ? "monster.itemName" : "item.name";
-    const lines = [];
+    const monster = this.npcRole === "monster";
+    const entries = [];
     for (const d of documents) {
       const before = options.airBladder?.[d.id]?.itemAudit;
       if (!before) continue;
       const src = d.toObject();
-      const name = t(ns, d.name);
       if (before.quantity !== undefined) {
         const now = src.system.quantity ?? 1;
-        if (now !== before.quantity) {
-          lines.push(game.i18n.format("CAIRN.ChangeLog.Field", { label: name, from: before.quantity, to: now }));
-        }
+        if (now !== before.quantity) entries.push({ k: "qty", name: d.name, monster, from: before.quantity, to: now });
       }
       if (before.uses !== undefined) {
         const now = src.system.uses?.value ?? 0;
-        if (now !== before.uses) {
-          lines.push(game.i18n.format("CAIRN.ChangeLog.Uses", { name, from: before.uses, to: now }));
-        }
+        if (now !== before.uses) entries.push({ k: "uses", name: d.name, monster, from: before.uses, to: now });
       }
     }
-    if (lines.length) this.#postChangeLogCard(lines, userId);
+    if (entries.length) this.#postChangeLogCard(entries, userId);
   }
 
   /** @override */
@@ -1999,26 +2091,29 @@ export class CairnActor extends Actor {
    * attach a Roll here: `ChatMessage#visible` returns true for any whispered
    * message that isRoll (chat-message.mjs:101-104), which would silently
    * publish the ledger to the whole table — the same caveat concealmentWhisper
-   * documents. Lines are localized TEXT; esc() at assembly is what makes a
-   * user-authored item name or scar safe in the markup.
+   * documents. `esc()` at assembly is what makes a user-authored item name or
+   * scar safe in the markup.
    *
    * `actionKey` (already vetted against AUDIT_ACTIONS by the caller) names
    * the operation — "Rest", "Restore Abilities" — between the user line and
    * the diff, so a button's card stops being indistinguishable from a hand
-   * edit. Localized at post time on the acting client, stored localized in
-   * content — the same contract as every other ledger line.
+   * edit.
+   *
+   * The ENTRIES ride a flag and every reader renders them (review #30 —
+   * `localizeChangeLogCard`); the stored content is this client's rendering,
+   * kept for a client without the hook. For a month this stored the composer's
+   * language for the owners AND the Wardens who read it.
    */
-  #postChangeLogCard(lines, userId, actionKey = null) {
-    const user = game.users.get(userId);
+  #postChangeLogCard(entries, userId, actionKey = null) {
     const speaker = this.token
       ? ChatMessage.getSpeaker({ token: this.token })
       : ChatMessage.getSpeaker({ actor: this });
     const whisper = game.users.filter((u) => this.testUserPermission(u, "OBSERVER")).map((u) => u.id);
-    const content = `<div class="change-log">`
-      + `<p class="change-log-user">${esc(game.i18n.format("CAIRN.ChangeLog.By", { user: user?.name ?? userId }))}</p>`
-      + (actionKey ? `<p class="change-log-action">${esc(game.i18n.localize(actionKey))}</p>` : "")
-      + `<ul>${lines.map((l) => `<li>${esc(l)}</li>`).join("")}</ul></div>`;
-    return ChatMessage.create({ speaker, content, whisper });
+    const data = { user: userId, action: actionKey, entries };
+    return ChatMessage.create({
+      speaker, content: changeLogBody(data), whisper,
+      flags: { "air-bladder": { [CHANGE_LOG_FLAG]: data } },
+    });
   }
 
   /**
