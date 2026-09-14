@@ -460,6 +460,23 @@ companion record of who authored what.
   a finding in EITHER scheme fails — and the switch goes through
   `game.configureUI`. **Check any chrome change in BOTH interface schemes.**
   Gate: `npm run dev:vald-time`.
+  **A SEVENTH, FROM THE LIVE SERVER (2026-09-13): TIME BEFORE YEAR ZERO HAS
+  NEGATIVE WEEKDAYS.** The Dashboard on CT 119 headed itself ", the 22nd of
+  Sunset, 7727" — no weekday — because a Warden had set the date a year
+  before Vald's frozen 7728, which nothing forbids, and core computes
+  `dayOfWeek = totalWeekdays % days.length` (`calendar.mjs:265`) with
+  JavaScript's sign-keeping `%`: for a negative time the index is negative,
+  `days.values[-1]` is undefined, and every reader that names the day prints
+  nothing. The month grid was worse off — `new Array(negative)` throws, so
+  the calendar window could not build any month back there.
+  `ValdCalendar#timeToComponents` normalises the weekday at the source
+  (`((d % n) + n) % n`, the cycle continuing backwards so the eve of year zero
+  is the week's last day), which is what keeps `game.time.components`, the
+  headline, the day panel and the grid agreeing. The 2000-sample round trip
+  never saw it because it sampled `[0, 40y)` and `componentsToTime` ignores
+  the weekday anyway; `dev:vald-time` now samples 500 negative times and
+  builds Sunset 7727. **A probe's random range is a claim about the input
+  space** — the Warden's input space included the years before the anchor.
   **THE CALENDAR ON THE WALL** (`module/vald-calendar.js`, 2026-09-10, user
   ask: "a calendar where they can see the current day as well as the rest of
   the days in the month, like a calendar you would put on your refrigerator").

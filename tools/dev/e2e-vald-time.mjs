@@ -354,6 +354,47 @@ try {
     ? ok("2000 random times round-trip exactly through the calendar")
     : fail("round trip", `${trip.bad}/2000 failed, first ${JSON.stringify(trip.first)}`);
 
+  // BEFORE YEAR ZERO (2026-09-13, from the live server: ", the 22nd of Sunset,
+  // 7727" — no weekday). Core's `dayOfWeek = total % n` goes NEGATIVE for a
+  // negative time, `days.values[-1]` is undefined, and `new Array(-1)` throws
+  // in the month grid. A Warden may set the date before Vald's frozen 7728 —
+  // nothing in the SRD forbids it — so ValdCalendar normalises the weekday at
+  // the source. Red-first: with that override removed, the three legs below
+  // fail and the round trip above still passes, which is why they exist.
+  const before = await withVald(page, (gt) => {
+    const cal = game.time.calendar;
+    const n = cal.days.values.length;
+    const perYear = 288 * 86400;
+    let bad = 0, first = null, badWeek = 0, firstWeek = null;
+    for (let i = 0; i < 500; i++) {
+      const t = -1 - Math.floor(Math.random() * 40 * perYear);
+      const c = cal.timeToComponents(t);
+      if (cal.componentsToTime(c) !== t) { bad++; first ??= t; }
+      if (!(c.dayOfWeek >= 0 && c.dayOfWeek < n) || !cal.days.values[c.dayOfWeek]?.name) { badWeek++; firstWeek ??= { t, dayOfWeek: c.dayOfWeek }; }
+    }
+    // The day before year zero is the week's LAST day — the cycle continues backwards.
+    const eve = cal.timeToComponents(-86400);
+    const long = gt.formatValdDate(cal.timeToComponents(-86400 * 40));
+    let grid = null, gridError = null;
+    try {
+      const m = gt.buildMonth({ year: 7727, month: 11 });
+      grid = { blanks: m.leadingBlanks.length, days: m.days.length, unnamed: m.days.filter((d) => !d.weekdayName).length, year: m.year };
+    } catch (e) { gridError = `${e.name}: ${e.message}`; }
+    return { bad, first, badWeek, firstWeek, eve: eve.dayOfWeek, n, long, grid, gridError };
+  });
+  before.bad === 0
+    ? ok("500 random times BEFORE year zero round-trip exactly too")
+    : fail("round trip before year zero", `${before.bad}/500 failed, first t=${before.first}`);
+  before.badWeek === 0 && before.eve === before.n - 1
+    ? ok(`every weekday before year zero is in range and named; the eve of year zero is the week's last day (${before.eve})`)
+    : fail("weekday before year zero", `${before.badWeek}/500 out of range or unnamed, first ${JSON.stringify(before.firstWeek)}; eve=${before.eve} (want ${before.n - 1})`);
+  before.long && !before.long.startsWith(",") && /^[A-Za-z]/.test(before.long)
+    ? ok(`the long date before year zero names its weekday: "${before.long}"`)
+    : fail("long date before year zero", JSON.stringify(before.long));
+  before.grid && !before.gridError && before.grid.unnamed === 0 && before.grid.blanks >= 0 && before.grid.blanks < before.n && before.grid.year === 7727
+    ? ok(`the month grid builds for Sunset 7727: ${before.grid.days} days, ${before.grid.blanks} leading blank(s), every weekday named`)
+    : fail("month grid before year zero", before.gridError ?? JSON.stringify(before.grid));
+
   const epoch = await withVald(page, async (gt) => ({
     date: gt.formatValdDate(game.time.calendar.timeToComponents(0)),
   }));

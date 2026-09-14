@@ -242,6 +242,33 @@ export const valdEnabled = () => {
  * ours to do.
  */
 export class ValdCalendar extends foundry.data.CalendarData {
+  /**
+   * @override
+   * Core computes `dayOfWeek = totalWeekdays % days.length` (calendar.mjs:265),
+   * and JavaScript's `%` keeps the sign of its left operand — so for any time
+   * BEFORE year zero the weekday comes back NEGATIVE, `days.values[-1]` is
+   * undefined, and every reader that names the day prints nothing. Seen on the
+   * live server 2026-09-13: ", the 22nd of Sunset, 7727" at the head of the
+   * Warden's Dashboard, a Warden having set the date a year before Vald's
+   * frozen year zero of 7728, which the SRD gives no reason to forbid. The
+   * month grid was worse off: `new Array(negative)` throws, so the calendar
+   * window could not build any month back there.
+   *
+   * Normalised here, at the source, so `game.time.components`, the headline,
+   * the day panel and the grid all agree. `((d % n) + n) % n` continues the
+   * cycle backwards — the day before Market Day is the week's last — which is
+   * the only reading under which a campaign that starts before 7728 has
+   * weekdays at all.
+   */
+  timeToComponents(time = 0) {
+    const components = super.timeToComponents(time);
+    const n = this.days?.values?.length ?? 0;
+    if (n > 0 && Number.isInteger(components.dayOfWeek)) {
+      components.dayOfWeek = ((components.dayOfWeek % n) + n) % n;
+    }
+    return components;
+  }
+
   /** @override */
   _decomposeTimeYears(time) {
     const { secondsPerMinute, minutesPerHour, hoursPerDay, daysPerYear, daysPerLeapYear } = this.days;
