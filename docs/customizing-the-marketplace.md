@@ -51,6 +51,10 @@ describes.
    name is the whole mechanism — keep it.
 3. Edit it freely. Delete rows you do not stock, and drag in items you do.
 
+Your table keeps itself in alphabetical order: drop an item in and every row
+is re-numbered by name, so the newcomer lands where it belongs rather than at
+the bottom, and the shop shows the aisle in the same order.
+
 The four names, spelled exactly:
 
 - `Market: Weapons`

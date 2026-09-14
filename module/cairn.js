@@ -27,6 +27,7 @@ import { loadContentOverlay, t, translationOf, contentLocalized, tokenDisplayNam
 import { injectEncounterButton, localizeEncounterQty, resolveTable } from "./encounters.js";
 import { bindGrimoireFatigueButton, localizeGlogCastCard } from "./grimoire.js";
 import { nameableTokens, DAMAGE_QUALITY_KEYS, localizeD20Card, localizeRollFlavor } from "./utils.js";
+import { onCreateMarketResult } from "./marketplace.js";
 
 Hooks.once("init", async function () {
   game.cairn = {
@@ -122,6 +123,12 @@ Hooks.once("init", async function () {
     refreshDashboardTime();
   };
   Hooks.on("updateWorldTime", refreshTimeSurfaces);
+
+  // A row dropped into a WORLD `Market:` table re-sorts that table by name
+  // (2026-09-13, user ask): core appends at maxRoll + 1 and orders by range,
+  // so a Warden's first drop landed at the bottom of an alphabetical aisle.
+  // Creating client only, world tables only — see marketplace.js.
+  Hooks.on("createTableResult", onCreateMarketResult);
 
   // The Warden rolled the weather. A WORLD SETTING REACHES OTHER CLIENTS ONLY
   // THROUGH ITS OWN `onChange` — which is why `vald-weather-today` has one and

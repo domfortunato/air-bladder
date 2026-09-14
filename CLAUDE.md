@@ -728,6 +728,21 @@ companion record of who authored what.
   the Warden resolves and a player does not would have the two of them shopping
   different catalogues, and nothing else in the suite would notice. It does
   resolve for a player (measured 2026-09-13).
+  **A DROP RE-SORTS A WORLD MARKET TABLE (same day, user ask: "it is added
+  to the bottom of the list").** Core's table sheet appends a dropped row at
+  `maxRoll + 1` (`roll-table-sheet.mjs` `_createResult`) and both the sheet
+  and the shop order rows by `range[0]`, so the shipped aisles are alphabetical
+  only because the importer wrote them so, and a Warden's first drop broke it.
+  `onCreateMarketResult` on the `createTableResult` hook re-ranges every row
+  `[i, i]` by stored name and keeps the formula at `1dN` — on the CREATING
+  client only (every other client receives the row and would race the same
+  write) and for WORLD tables only, because helping a Warden edit the shipped
+  pack copy would say that is a route. Sibling updates fire no create hook, so
+  it cannot recurse. Renaming a row does NOT re-sort; only a drop does. Its leg
+  plants rows OUT of order in the table's create data, which is inert (rows
+  created with their parent fire no `createTableResult`), then drops through
+  the same `createEmbeddedDocuments` call core's sheet makes; the control is an
+  identical table without the prefix, whose dropped row stays at the bottom.
 - **AND SO IS EVERY TABLE A GENERATOR DECLARES** (same day, user ruling "do it
   all in one batch" after the survey the marketplace change prompted). The
   survey found that the same table answered TWO WAYS depending on the button:

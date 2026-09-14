@@ -425,6 +425,74 @@ try {
   restored.leftovers.length === 0
     ? ok("no planted table left behind")
     : fail(`ORPHANS LEFT: ${restored.leftovers.join(", ")} — the next run will read them as a Warden's own`);
+
+  /* ---- 6. A DROP RE-SORTS A WORLD MARKET TABLE (2026-09-13) -----------------
+   * Core appends a dropped row at maxRoll + 1 and orders the sheet and the shop
+   * by range, so a Warden's first drop lands at the bottom of an otherwise
+   * alphabetical aisle. The createTableResult hook re-ranges the rows by name.
+   * Fixture rows are planted OUT of order in the table's create data — embedded
+   * rows created with their parent fire no createTableResult, so the plant is
+   * inert — and the drop is the same createEmbeddedDocuments call core's sheet
+   * makes. CONTROL: an identical world table without the Market: prefix keeps
+   * its dropped row at the bottom. */
+  console.log("\na drop re-sorts a world market table");
+  const s = await page.evaluate(async () => {
+    const mkt = await import("/systems/air-bladder/module/marketplace.js");
+    const wait = (ms) => new Promise((res) => setTimeout(res, ms));
+    const pack = game.packs.get("air-bladder.marketplace");
+    const gear = (await pack.getDocuments()).find((t) => t.name === "Market: Gear");
+    // Three DISTINCT shipped items, so the shop's order is distinguishable —
+    // with every row pointing at one item, the shop leg below passed in the red
+    // phase, because three copies of one name look the same in any order. The
+    // shipped aisle is alphabetical, so its first three rows are A < B < C.
+    const [A, B, C] = [...gear.results].sort((a, b) => a.range[0] - b.range[0]).slice(0, 3)
+      .map((r) => ({ type: "document", documentUuid: r.documentUuid, name: r.name, img: r.img, weight: 1 }));
+    const at = (r, i) => ({ ...r, range: [i, i] });
+    const RT = CONFIG.RollTable.documentClass;
+    const seed = [at(B, 1), at(A, 2)];                                     // deliberately B before A
+    const market = await RT.create({ name: "Market: Gear", formula: "1d2", results: seed });
+    const plain = await RT.create({ name: "PROBE not a market", formula: "1d2", results: seed });
+    const order = (t) => [...t.results].sort((a, b) => a.range[0] - b.range[0]).map((r) => r.name);
+    const out = { names: [A.name, B.name, C.name], marketBefore: order(market), plainBefore: order(plain) };
+
+    // The drop, as core's sheet makes it (roll-table-sheet.mjs _createResult).
+    await market.createEmbeddedDocuments("TableResult", [at(C, 3)], { renderSheet: false });
+    await plain.createEmbeddedDocuments("TableResult", [at(C, 3)], { renderSheet: false });
+    // The sort is a second write, from the hook — poll for it rather than trust
+    // the await, and for BOTH halves: the first run polled for order alone and
+    // read the formula before it had landed, a race in the probe that also
+    // showed the code was making two writes where one would do.
+    const want = [A.name, B.name, C.name].join();
+    for (let i = 0; i < 40; i++) {
+      if (order(market).join() === want && market.formula === "1d3") break;
+      await wait(100);
+    }
+    out.marketAfter = order(market);
+    out.marketFormula = market.formula;
+    out.marketRanges = [...market.results].sort((a, b) => a.range[0] - b.range[0]).map((r) => r.range.join("-"));
+    await wait(300);                                                       // give a wrong sort time to show on the control
+    out.plainAfter = order(plain);
+    out.plainFormula = plain.formula;
+    const cat = await mkt.getMarketplaceCatalog();
+    out.shopGear = cat.categories.find((c) => c.name === "Gear")?.items.map((i) => i.name) ?? [];
+    await market.delete();
+    await plain.delete();
+    return out;
+  });
+  const [A, B, C] = s.names;
+  JSON.stringify(s.marketBefore) === JSON.stringify([B, A])
+    ? ok(`fixture planted out of order (${B} before ${A}), inert — no hook fires for rows created with their table`)
+    : fail(`fixture not as planted: ${JSON.stringify(s.marketBefore)}`);
+  JSON.stringify(s.marketAfter) === JSON.stringify([A, B, C])
+    && s.marketFormula === "1d3" && JSON.stringify(s.marketRanges) === JSON.stringify(["1-1", "2-2", "3-3"])
+    ? ok(`a drop re-sorts the whole table alphabetically: ${s.marketAfter.join(", ")} — ranges 1-1, 2-2, 3-3, formula 1d3`)
+    : fail(`market table after the drop: ${JSON.stringify(s.marketAfter)}, ranges ${JSON.stringify(s.marketRanges)}, formula ${s.marketFormula}`);
+  JSON.stringify(s.plainAfter) === JSON.stringify([B, A, C]) && s.plainFormula === "1d2"
+    ? ok("CONTROL: a world table without the Market: prefix keeps its dropped row at the bottom, formula untouched")
+    : fail(`CONTROL FAILED — the non-market table was re-sorted too: ${JSON.stringify(s.plainAfter)}, formula ${s.plainFormula}`);
+  JSON.stringify(s.shopGear) === JSON.stringify([A, B, C])
+    ? ok("and the shop reads the aisle in the new order")
+    : fail(`shop Gear aisle after the sort: ${JSON.stringify(s.shopGear)} (want ${JSON.stringify([A, B, C])})`);
 } catch (e) {
   fail(`${e.name}: ${e.message}`);
 } finally {

@@ -1,4 +1,4 @@
-import { findTableItems } from "./compendium.js";
+import { findTableItems, resultText } from "./compendium.js";
 import { iconForTransport, TRANSPORT_KINDS } from "./icons.js";
 import { atConnectionLimit, maxConnections, connectedOwnershipShape, OWNERSHIP_SYNC_FLAG } from "./connections.js";
 import { actorDisplayName, localizeNameDesc, t } from "./i18n-content.js";
@@ -122,6 +122,61 @@ const marketTables = async () => {
     if (MARKET_PREFIX.test(table.name)) byName.set(table.name, table);
   }
   return [...byName.values()];
+};
+
+/**
+ * Keep a WORLD market table alphabetical (2026-09-13, user ask: a dragged-in
+ * item "is added to the bottom of the list").
+ *
+ * Core's table sheet appends a dropped row at `maxRoll + 1`
+ * (roll-table-sheet.mjs `_createResult`) and both it and the shop order rows
+ * by `range[0]`, so the shipped tables are alphabetical only because the
+ * importer wrote them that way, and a Warden's first drop breaks it. This
+ * re-ranges every row `[i, i]` in name order and keeps the formula at `1dN`,
+ * which is what the imported table already declared. Rows keep their weight.
+ *
+ * Sorted on the STORED row name — a document row's `name` is the item's name
+ * at drop time, a text row's is its description — with a base-sensitivity
+ * compare so "air bladder" and "Air Bladder" sort as neighbours. Only rows
+ * whose range actually moves are written.
+ * @param {RollTable} table
+ * @returns {Promise<boolean>}  whether anything was written
+ */
+export const resortMarketTable = async (table) => {
+  const rows = [...table.results];
+  const key = (r) => String(resultText(r) ?? "").trim();
+  const sorted = [...rows].sort((a, b) => key(a).localeCompare(key(b), undefined, { sensitivity: "base" }));
+  const updates = sorted
+    .map((r, i) => ({ _id: r.id, range: [i + 1, i + 1] }))
+    .filter((u) => { const r = table.results.get(u._id); return r.range[0] !== u.range[0] || r.range[1] !== u.range[1]; });
+  const formula = `1d${rows.length}`;
+  // ONE write — rows and formula together through the parent's update, which
+  // merges embedded entries by _id. Two writes (updateEmbeddedDocuments, then
+  // update({formula})) re-rendered the sheet twice and let a reader see the
+  // rows sorted under a stale formula between them; the probe caught exactly
+  // that gap on its first run.
+  const data = {};
+  if (updates.length) data.results = updates;
+  if (rows.length && table.formula !== formula) data.formula = formula;
+  if (!Object.keys(data).length) return false;
+  await table.update(data);
+  return true;
+};
+
+/**
+ * `createTableResult` hook: a row landing in a world `Market:` table re-sorts
+ * the table. On the CREATING client only — every other client receives the
+ * result and would otherwise race it with the same write. World tables only:
+ * the shipped compendium is not where a Warden's stock should live
+ * (`docs/customizing-the-marketplace.md`), and helping them edit it there
+ * would say otherwise. Sibling updates fire no create hook, so this cannot
+ * recurse.
+ */
+export const onCreateMarketResult = (result, options, userId) => {
+  if (userId !== game.user.id) return;
+  const table = result.parent;
+  if (!table || table.pack || !MARKET_PREFIX.test(table.name ?? "")) return;
+  resortMarketTable(table).catch((err) => console.error("Air Bladder | market table sort failed:", err));
 };
 
 /**
