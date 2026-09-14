@@ -814,6 +814,16 @@ companion record of who authored what.
   created with their parent fire no `createTableResult`), then drops through
   the same `createEmbeddedDocuments` call core's sheet makes; the control is an
   identical table without the prefix, whose dropped row stays at the bottom.
+  **IT COMPARES THE STORED FORMULA, NOT THE DERIVED ONE (review #30, same
+  day).** `RollTable#prepareDerivedData` fills `formula` with `1d<total
+  weight>` whenever the stored value is blank (roll-table.mjs:349-353), and a
+  table built the way the guide says — Create Roll Table, then drag — never
+  submits the sheet form and so stores NONE. Compared against the derived
+  value the write was always skipped, `_source.formula` stayed empty, and
+  the first `roll()` on that table (its sheet's Roll button, its Your Tables
+  button) normalized AND SAVED (roll-table.mjs:270-274), re-ranging every row
+  in drag order and undoing the sort until the next drop. The probe's fixture
+  carried a formula, which is why it was green; a drag-built one reds it.
 - **AND SO IS EVERY TABLE A GENERATOR DECLARES** (same day, user ruling "do it
   all in one batch" after the survey the marketplace change prompted). The
   survey found that the same table answered TWO WAYS depending on the button:
@@ -852,6 +862,20 @@ companion record of who authored what.
   redded the scar leg against a fixture that only a roll of 1 could hit; the
   scar roll IS the damage, which is the kind of thing a probe's author has to
   know about the code under test.
+  **TWO THINGS `roll()` STILL DOES, recorded after this file said "writes
+  nothing" for a day (review #30).** It READS the drawn state: rows a
+  Warden's own hand draw marked on a no-replacement world table are skipped,
+  so such a table narrows generation until `TABLE.NoAvailableResults` — core's
+  own semantics for the choice the Warden made, left alone. And a world table
+  whose STORED formula is blank is normalized and SAVED on the first roll
+  (roll-table.mjs:270-274) — harmless on a generator's table, and the reason
+  the marketplace re-sort writes `1dN` itself. The scar roll takes neither
+  path (see `damage.js` above). **And the monster generator reads PLAIN
+  text** (`rollTablePlainText`): the shared `rollTableText` returns chat text,
+  which renders a DOCUMENT row as `@UUID[...]{name}` — right in a 2e trait
+  string, wrong in a monster's name, where a Warden's dragged-in row printed
+  the literal and matched nothing in `ARMORED_FEATURES`. The comment that
+  called the two readers "identical but for the lookup" was wrong for a day.
 - **GLOG'S TWO SHEET FLAGS ARE HACK CONTROLS AND RENDER ONLY WHILE THE HACK IS
   ON** (2026-09-13, user ruling after an Air Bladder in a GLOG-off world
   offered a **Grimoire** checkbox — "why does an item like an Air Bladder have

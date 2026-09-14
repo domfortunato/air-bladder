@@ -55,6 +55,7 @@ const sweep = () => page.evaluate(async ({ FLAG, MARK }) => {
   const out = { tables: [], actors: 0, messages: 0 };
   for (const t of [...game.tables].filter((x) => x.getFlag("air-bladder", FLAG))) { out.tables.push(t.name); await t.delete(); }
   for (const a of [...game.actors].filter((x) => x.getFlag("air-bladder", FLAG))) { out.actors++; await a.delete(); }
+  for (const i of [...game.items].filter((x) => x.getFlag("air-bladder", FLAG))) { out.actors++; await i.delete(); }
   for (const m of [...game.messages].filter((x) => String(x.content ?? "").includes(MARK))) { out.messages++; await m.delete(); }
   return out;
 }, { FLAG, MARK });
@@ -183,6 +184,33 @@ try {
        : fail(`2e generation read the pack for: ${g.pcMissing.join(", ")} — ${JSON.stringify(g.pcTraits)}`);
   g.scar ? ok("a scar roll posts the world Scars table's row")
          : fail(`the scar card did not come from the world table: ${g.scarCard === null ? "no card posted" : g.scarCard.slice(0, 120)}`);
+
+  /* ---- 2b. a DOCUMENT row on a Warden's monster table (review #30) --------- */
+  console.log("\na document row on a world monster table");
+  const dr = await page.evaluate(async ({ MARK, FLAG }) => {
+    const mg = await import("/systems/air-bladder/module/monster-generator.js");
+    const decl = CONFIG.Cairn.monsterGenerator.feature;
+    const name = decl.split(";")[1];
+    const item = await CONFIG.Item.documentClass.create({
+      name: `${MARK}Feature Doc`, type: "item", flags: { "air-bladder": { [FLAG]: true } },
+    });
+    const table = game.tables.find((x) => x.name === name && x.getFlag("air-bladder", FLAG));
+    const swap = async (rows) => {
+      await table.deleteEmbeddedDocuments("TableResult", table.results.map((r) => r.id));
+      await table.createEmbeddedDocuments("TableResult", rows);
+    };
+    // A row dragged in from the Items sidebar, the shape the shipped tables
+    // never hold: the generator's reader rendered it as `@UUID[...]{name}` for
+    // a day, and ARMORED_FEATURES could never match it.
+    await swap([{ type: "document", documentUuid: item.uuid, name: item.name, range: [1, 20], weight: 1 }]);
+    const m = await mg.generateMonster("standard");
+    await swap([{ type: "text", description: `${MARK}${name}`, range: [1, 20], weight: 1 }]);   // the later legs read the marker
+    await item.delete();
+    return { name: m.name, hasUuid: String(m.name).includes("@UUID"), hasItem: String(m.name).includes(`${MARK}Feature Doc`) };
+  }, { MARK, FLAG });
+  !dr.hasUuid && dr.hasItem
+    ? ok(`a document row reads as its NAME in a generated monster: "${dr.name}"`)
+    : fail(`a document row on the feature table produced "${dr.name}" — @UUID: ${dr.hasUuid}, item name: ${dr.hasItem}`);
 
   /* ---- 3. the picker ------------------------------------------------------- */
   console.log("\nthe NPC Background pick-list");

@@ -110,7 +110,19 @@ export const findDeclaredTable = async (decl) => {
  * and their drawn state stays clean — the invariant `module/config.js` states
  * and the monster generator and `rollNameFromTable` already kept; this was the
  * one reader still on `draw`, for eight biography tables and five NPC ones.
- * `roll` reads the drawn state (it skips drawn rows) and writes nothing.
+ *
+ * TWO THINGS `roll()` STILL DOES, recorded because this line said "writes
+ * nothing" for a day (review #30). It READS the drawn state — rows a Warden's
+ * own hand draws marked on a no-replacement world table are skipped
+ * (roll-table.mjs:280,342), so such a table narrows generation until
+ * `TABLE.NoAvailableResults` and an empty string, which is core's own
+ * semantics for the choice the Warden made and is left alone here. And a
+ * world table whose STORED formula is blank is normalized and SAVED on the
+ * first roll (roll-table.mjs:270-274): ranges re-sequenced by weight, in row
+ * order, `1dN` written — harmless for a generator's table, and the reason the
+ * marketplace's re-sort writes `1dN` itself (marketplace.js). The scar roll
+ * takes neither path: its roll is a constant, and `damage.js` selects the row
+ * by range directly.
  *
  * Resolves to undefined on a missing table — `findDeclaredTable` only warns —
  * so a generator degrades instead of throwing "Cannot read properties of
@@ -180,6 +192,27 @@ export const resultChatText = (result) =>
 export const rollTableText = async (decl) => {
   const rolled = await rollTable(decl);
   return resultChatText(rolled?.results?.[0]);
+};
+
+/**
+ * One rolled result as PLAIN TEXT off a declared table — a document row's name,
+ * a text row's prose, trimmed — for a reader that composes the value into a
+ * NAME rather than storing it as chat text.
+ *
+ * The monster generator's reader (review #30). Its private copy returned
+ * `resultText(...).trim()`; the shared `rollTableText` above it was folded
+ * into returns `resultChatText`, which renders a DOCUMENT row as
+ * `@UUID[...]{name}` — right for a 2e trait string that chat enriches, wrong
+ * in a monster's name, where it read as the literal `@UUID[Item.xxxx]{Rusty
+ * Blade}` and matched nothing in `ARMORED_FEATURES`. Reachable only since
+ * the declarations went world-first: a Warden's own table can hold a dragged
+ * document row where the shipped ones hold text.
+ * @param {String} decl  "pack;Name" or "Name"
+ * @returns {Promise.<String>}  the row's plain text, or "" on a missing table
+ */
+export const rollTablePlainText = async (decl) => {
+  const rolled = await rollTable(decl);
+  return resultText(rolled?.results?.[0]).trim();
 };
 
 /**

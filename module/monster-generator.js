@@ -1,6 +1,6 @@
 import { CairnActor } from "./actor/actor.js";
 import { Cairn } from "./config.js";
-import { rollTableText } from "./compendium.js";
+import { rollTablePlainText } from "./compendium.js";
 import { getGameIconManifest, customPoolFor, promptCreation, clearHandBuilt } from "./character-generator.js";
 // Aliased: the tier config is locally `t` throughout generateMonster.
 import { t as tr } from "./i18n-content.js";
@@ -73,11 +73,14 @@ const pickWeighted = (pairs) => {
   return pairs[pairs.length - 1][0];
 };
 
-// The eight tables are rolled through compendium.js `rollTableText` — the
+// The eight tables are rolled through compendium.js `rollTablePlainText` — the
 // SHARED reader, since 2026-09-13, which resolves each declaration WORLD FIRST
-// and rolls without marking. A private copy lived here for a month, identical
-// but for the lookup, and was the reason a Warden's own monster table came up
-// on the Dashboard button and never in a generated monster.
+// and rolls without marking. A private copy lived here for a month and was
+// the reason a Warden's own monster table came up on the Dashboard button and
+// never in a generated monster. PLAIN text, trimmed, not `rollTableText`: that
+// one returns chat text, which renders a document row as `@UUID[...]{name}`
+// — right in a trait string, wrong in a monster's name (review #30; the
+// comment here called the two "identical but for the lookup" for a day).
 
 /**
  * The tier picker — and, on a re-roll, the CONFIRMATION. It is dismissible
@@ -136,14 +139,14 @@ export const generateMonster = async (tierChoice) => {
   const t = TIERS[tier];
   const cfg = Cairn.monsterGenerator;
 
-  const physique = await rollTableText(cfg.physique);
-  const feature = await rollTableText(cfg.feature);
-  const quirk = await rollTableText(cfg.quirk);
-  const weakness = await rollTableText(cfg.weakness);
-  const attackType = await rollTableText(cfg.attackType);
-  const criticalDamage = await rollTableText(cfg.criticalDamage);
-  const abilityPower = await rollTableText(cfg.abilityPower);
-  const abilityTarget = await rollTableText(cfg.abilityTarget);
+  const physique = await rollTablePlainText(cfg.physique);
+  const feature = await rollTablePlainText(cfg.feature);
+  const quirk = await rollTablePlainText(cfg.quirk);
+  const weakness = await rollTablePlainText(cfg.weakness);
+  const attackType = await rollTablePlainText(cfg.attackType);
+  const criticalDamage = await rollTablePlainText(cfg.criticalDamage);
+  const abilityPower = await rollTablePlainText(cfg.abilityPower);
+  const abilityTarget = await rollTablePlainText(cfg.abilityTarget);
 
   // The rolled strings are table.result rows and go through the overlay for
   // everything DISPLAYED-and-stored: this path already bakes the localized

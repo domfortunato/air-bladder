@@ -452,12 +452,25 @@ try {
     const seed = [at(B, 1), at(A, 2)];                                     // deliberately B before A
     const market = await RT.create({ name: "Market: Gear", formula: "1d2", results: seed });
     const plain = await RT.create({ name: "PROBE not a market", formula: "1d2", results: seed });
+    // A DRAG-BUILT aisle stores NO formula (review #30): Create Roll Table
+    // then drag never submits the sheet form, so `_source.formula` is "" and
+    // prepareDerivedData fills the derived one. The re-sort compared against
+    // the derived value, saw 1dN already there, and never wrote — so the first
+    // roll() normalized the table back to drag order. This fixture is that
+    // shape; the assertion reads `_source`, because the derived value is "1d3"
+    // either way.
+    const bare = await RT.create({ name: "Market: Trinkets", results: seed });
     const order = (t) => [...t.results].sort((a, b) => a.range[0] - b.range[0]).map((r) => r.name);
-    const out = { names: [A.name, B.name, C.name], marketBefore: order(market), plainBefore: order(plain) };
+    const out = { names: [A.name, B.name, C.name], marketBefore: order(market), plainBefore: order(plain), bareStoredBefore: bare._source.formula };
 
     // The drop, as core's sheet makes it (roll-table-sheet.mjs _createResult).
     await market.createEmbeddedDocuments("TableResult", [at(C, 3)], { renderSheet: false });
     await plain.createEmbeddedDocuments("TableResult", [at(C, 3)], { renderSheet: false });
+    await bare.createEmbeddedDocuments("TableResult", [at(C, 3)], { renderSheet: false });
+    for (let i = 0; i < 40 && bare._source.formula !== "1d3"; i++) await wait(100);
+    out.bareStoredAfter = bare._source.formula;
+    out.bareAfter = order(bare);
+    await bare.delete();                                                   // before the catalog read below
     // The sort is a second write, from the hook — poll for it rather than trust
     // the await, and for BOTH halves: the first run polled for order alone and
     // read the formula before it had landed, a race in the probe that also
@@ -490,6 +503,11 @@ try {
   JSON.stringify(s.plainAfter) === JSON.stringify([B, A, C]) && s.plainFormula === "1d2"
     ? ok("CONTROL: a world table without the Market: prefix keeps its dropped row at the bottom, formula untouched")
     : fail(`CONTROL FAILED — the non-market table was re-sorted too: ${JSON.stringify(s.plainAfter)}, formula ${s.plainFormula}`);
+  // `undefined`, not "": BaseRollTable's formula StringField has no initial, so
+  // a create with no formula stores nothing at all — the same blank roll() tests.
+  !s.bareStoredBefore && s.bareStoredAfter === "1d3" && JSON.stringify(s.bareAfter) === JSON.stringify([A, B, C])
+    ? ok("a drag-built aisle with NO stored formula gets 1d3 WRITTEN — read off _source, so the first roll() cannot normalize the sort away")
+    : fail(`drag-built aisle: stored formula before "${s.bareStoredBefore}", after "${s.bareStoredAfter}", order ${JSON.stringify(s.bareAfter)}`);
   JSON.stringify(s.shopGear) === JSON.stringify([A, B, C])
     ? ok("and the shop reads the aisle in the new order")
     : fail(`shop Gear aisle after the sort: ${JSON.stringify(s.shopGear)} (want ${JSON.stringify([A, B, C])})`);

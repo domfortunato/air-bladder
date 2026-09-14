@@ -155,9 +155,18 @@ export const resortMarketTable = async (table) => {
   // update({formula})) re-rendered the sheet twice and let a reader see the
   // rows sorted under a stale formula between them; the probe caught exactly
   // that gap on its first run.
+  // THE STORED FORMULA, NOT THE DERIVED ONE (review #30). `table.formula` is
+  // filled by prepareDerivedData with `1d<total weight>` whenever the stored
+  // value is blank (roll-table.mjs:349-353) — and a table built the way the
+  // guide says, Create Roll Table then drag, never submits the sheet form and
+  // so stores NONE. Compared against the derived value the write was always
+  // skipped, `_source.formula` stayed "", and the first `roll()` on that
+  // table (its sheet's Roll button, a Dashboard Your Tables button) found a
+  // blank stored formula, normalized it AND SAVED (roll-table.mjs:270-274),
+  // re-ranging every row in drag order and undoing the sort until the next drop.
   const data = {};
   if (updates.length) data.results = updates;
-  if (rows.length && table.formula !== formula) data.formula = formula;
+  if (rows.length && table._source.formula !== formula) data.formula = formula;
   if (!Object.keys(data).length) return false;
   await table.update(data);
   return true;
