@@ -1,5 +1,6 @@
 import { SETTINGS_NS } from "./settings.js";
 import { t } from "./i18n-content.js";
+import { formatCount } from "./utils.js";
 
 /**
  * Keeping time: Cairn's watches, and Vald's calendar.
@@ -779,19 +780,60 @@ export const dayOfYear = (monthIndex, dayOfMonth, leap) => {
  * which that watch begins, because Cairn has no finer unit than a watch and
  * offering a Warden minutes would be inventing precision the rules do not have.
  */
-export const setDate = async ({ year, month = 0, dayOfMonth = 1, watch = 0 } = {}) => {
+export const setDate = async (date = {}) => {
   if (!requireWarden()) return null;
+  return game.time.set(componentsForDate(date));
+};
+
+/**
+ * The components a displayed date resolves to — `setDate`'s arithmetic with
+ * the write left out, so a dialog can PREVIEW what Set is about to do and a
+ * button can ASK before doing it (2026-09-13, user ruling, after a Warden's
+ * year slipped to 7727 with nothing on screen to say so). One copy of the
+ * year-offset, leap and watch-hour maths; `setDate` writes exactly this.
+ */
+export const componentsForDate = ({ year, month = 0, dayOfMonth = 1, watch = 0 } = {}) => {
   const cal = calendar();
   const internalYear = Math.round(year) - (cal.years?.yearZero ?? 0);
   const leap = cal.isLeapYear?.(internalYear) ?? false;
   const hoursPerWatch = cal.days.hoursPerDay / 3;
-  return game.time.set({
+  return {
     year: internalYear,
     day: dayOfYear(month, dayOfMonth, leap),
     hour: Math.round(Math.min(2, Math.max(0, watch)) * hoursPerWatch),
     minute: 0,
     second: 0,
-  });
+  };
+};
+
+/** The world time a displayed date would set. */
+export const timeForDate = (date) => calendar().componentsToTime(componentsForDate(date));
+
+/**
+ * A long date for ANY world time, under whichever calendar is in play — the
+ * Vald form with its weekday, or the honest "Day N" under Foundry's own.
+ * `describeTime` answers for now; this answers for a time a Warden is about
+ * to set, which is what a preview and a confirmation both need.
+ */
+export const describeDateAt = (time) => {
+  const cal = calendar();
+  if (!(valdEnabled() && cal.name === VALD_CALENDAR_CONFIG.name)) {
+    return game.i18n.format("CAIRN.Time.DayCount", { day: Math.floor(time / secondsPerDay()) + 1 });
+  }
+  return formatValdDate(cal.timeToComponents(time));
+};
+
+/**
+ * How far a target time sits from today, in whole days and words: "412 days
+ * earlier than today", "1 day later than today", "today". ALWAYS days — "1
+ * year" hides a three-day slip and "291 days" does not — which is the reading
+ * that lets a Warden see a year mistyped by one before they press Set.
+ */
+export const describeShift = (time) => {
+  const perDay = secondsPerDay();
+  const days = Math.floor(time / perDay) - Math.floor(game.time.worldTime / perDay);
+  if (days === 0) return game.i18n.localize("CAIRN.Time.Shift.Today");
+  return formatCount(days > 0 ? "CAIRN.Time.Shift.Later" : "CAIRN.Time.Shift.Earlier", Math.abs(days));
 };
 
 /**

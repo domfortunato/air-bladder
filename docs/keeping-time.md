@@ -47,7 +47,7 @@ Token controls, down the left of the map.
 | **Advance a Watch** | Moves everyone on by one watch |
 | **Advance a Day** | Three watches at once |
 | **To Next Morning** | Skips whatever is left of today and lands at the start of the next morning |
-| **Set the Date…** | Type a year, month, day and watch |
+| **Set the Date…** | Type a year, month, day and watch. A line under the fields shows the date you are about to set and how many days away it is, so a year off by one is visible before you press Set |
 
 **There is no "Make Camp" button, on purpose.** Making camp is a Wilderness
 Action your players choose, with consequences they carry. This system does not
@@ -174,7 +174,9 @@ looked at highlighted. Everyone can open it.
   is yours.
 - **Set the world to this day** is at the foot of the panel and only you see it.
   Clicking a day never moves the clock — it only opens it — so you can read
-  ahead without touching anything. The watch stays where it was: fixing the date
+  ahead without touching anything. The button asks before it moves anything,
+  naming the day and how many days away it is, so a stray click on a month
+  you were only reading never moves the table. The watch stays where it was: fixing the date
   at dusk means the same dusk on another day, not dawn.
 
 The 24 festivals ship in the **Vald** compendium as their own journal entry,

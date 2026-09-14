@@ -477,6 +477,28 @@ companion record of who authored what.
   the weekday anyway; `dev:vald-time` now samples 500 negative times and
   builds Sunset 7727. **A probe's random range is a claim about the input
   space** — the Warden's input space included the years before the anchor.
+  **AND A DATE CHANGE IS GUARDED (same day, user ruling: "accidentally
+  changing it seems like a major pitfall").** Three routes move the clock and
+  they are not equally dangerous, so they got three different answers. The
+  watch and day buttons are the routine gesture and stay one click — a
+  mis-click costs a watch. **Set the Date… is already a dialog and got a
+  PREVIEW, not a second prompt**: a line under the fields reading the
+  destination and its distance from today, live (`describeDateAt`,
+  `describeShift` in `game-time.js`, off `componentsForDate` — `setDate`'s
+  arithmetic with the write left out, ONE copy). ALWAYS in days: "1 year"
+  hides a three-day slip, "291 days" does not, and the whole point is that a
+  year off by one reads as "288 days earlier than today" before Set. Its
+  number fields drop focus on a wheel, because a wheel over a focused number
+  input nudges it in Chromium — the likeliest way 7727 got typed by nobody.
+  **The calendar's Set-to-this-day ASKS FIRST**, naming the day and the
+  distance: it is the one route to an ARBITRARY date that is a single click
+  with no dialog, and a Warden browsing another month is one mis-click from
+  moving the whole table there. The dialog's `render` callback is where the
+  preview binds — DialogV2 serialises its content element, so a listener
+  attached before render is dead (`foundry-dialogv2-cleanhtml-attrs`).
+  Gate: six legs in `dev:vald-time`; red-first with both guards disabled
+  fails four (no question, the first click moves the world, an empty
+  preview, focus kept under the wheel) and passes the two that should.
   **THE CALENDAR ON THE WALL** (`module/vald-calendar.js`, 2026-09-10, user
   ask: "a calendar where they can see the current day as well as the rest of
   the days in the month, like a calendar you would put on your refrigerator").

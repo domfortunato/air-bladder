@@ -32,7 +32,7 @@ import { t } from "./i18n-content.js";
 import { openWardenDamage } from "./warden-damage.js";
 import {
   valdEnabled, describeTime, weatherTableForToday, monthChoices, WATCH_KEYS,
-  advanceWatch, backWatch, advanceDay, toNextMorning, setDate,
+  advanceWatch, backWatch, advanceDay, toNextMorning, setDate, timeForDate, describeDateAt, describeShift,
   SEASON_ICONS, seasonIconFor, currentSeason, setTodayWeather,
 } from "./game-time.js";
 import { openValdCalendar, valdCalendarAvailable, promptSetWeather } from "./vald-calendar.js";
@@ -886,7 +886,25 @@ const promptSetDate = async () => {
         ${WATCH_KEYS.map((k, i) => `<option value="${i}"
           ${i === watchNow ? "selected" : ""}>${L(k)}</option>`).join("")}
       </select>
-    </div>`;
+    </div>
+    <p class="hint cairn-date-preview" id="ab-date-preview" aria-live="polite"></p>`;
+
+  // ONE reading of the four fields, shared by the preview and the Set button,
+  // so what the preview shows is byte-for-byte what Set will do.
+  const readDate = (root) => {
+    const read = (name) => root.querySelector(`[name=${name}]`);
+    const monthEl = read("month");
+    const days = Number(monthEl?.selectedOptions[0]?.dataset.days) || 1;
+    return {
+      year: Number(read("year")?.value),
+      month: Number(monthEl?.value) || 0,
+      // CLAMPED here rather than by a `max` attribute, because the month
+      // select changes what the maximum is and a stale attribute would let a
+      // Warden set the 31st of a 24-day month.
+      dayOfMonth: Math.min(days, Math.max(1, Number(read("day")?.value) || 1)),
+      watch: Number(read("watch")?.value) || 0,
+    };
+  };
 
   const picked = await foundry.applications.api.DialogV2.wait({
     window: { title: "CAIRN.Time.SetDateTitle" },
@@ -898,26 +916,40 @@ const promptSetDate = async () => {
     // two named buttons, and state the width in the same breath.
     position: { width: 400 },
     content: form,
+    // THE PREVIEW (2026-09-13, user ruling). This dialog IS the confirmation
+    // step, and what it lacked was any way to SEE the mistake before pressing
+    // Set: a year field with no readout of the date it resolves to, and Set on
+    // the Enter key. A world on the live server landed in 7727 — a year before
+    // Vald's anchor — with nobody typing it, which is what a scroll-wheel over
+    // a focused number field does in Chromium. So: a line under the fields
+    // that reads the destination and its distance in DAYS, live, and number
+    // fields that let go of focus on a wheel so the wheel scrolls the dialog.
+    // Bound here rather than on `inner` above: DialogV2 serialises its content
+    // element, so a listener attached before render is dead.
+    render: (event, dialog) => {
+      const root = dialog.element;
+      const preview = root.querySelector("#ab-date-preview");
+      const update = () => {
+        const date = readDate(root);
+        if (!Number.isFinite(date.year)) { preview.textContent = ""; return; }
+        const time = timeForDate(date);
+        preview.textContent = game.i18n.format("CAIRN.Time.Preview", {
+          date: describeDateAt(time), shift: describeShift(time),
+        });
+      };
+      root.addEventListener("input", update);
+      root.addEventListener("change", update);
+      for (const el of root.querySelectorAll('input[type="number"]')) {
+        el.addEventListener("wheel", () => el.blur(), { passive: true });
+      }
+      update();
+    },
     buttons: [
       {
         action: "set",
         label: "CAIRN.Time.SetDate",
         default: true,
-        callback: (event, button, dialog) => {
-          const root = dialog.element ?? button.form;
-          const read = (name) => root.querySelector(`[name=${name}]`);
-          const monthEl = read("month");
-          const days = Number(monthEl.selectedOptions[0]?.dataset.days) || 1;
-          return {
-            year: Number(read("year").value),
-            month: Number(monthEl.value),
-            // CLAMPED here rather than by a `max` attribute, because the
-            // month select changes what the maximum is and a stale attribute
-            // would let a Warden set the 31st of a 24-day month.
-            dayOfMonth: Math.min(days, Math.max(1, Number(read("day").value) || 1)),
-            watch: Number(read("watch").value),
-          };
-        },
+        callback: (event, button, dialog) => readDate(dialog.element ?? button.form),
       },
       { action: "cancel", label: game.i18n.localize("CAIRN.Cancel") },
     ],

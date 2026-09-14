@@ -1,6 +1,6 @@
 import {
   valdEnabled, VALD_CALENDAR_CONFIG, buildMonth, monthChoices, formatValdDate,
-  currentWatch, setDate, todayWeather, setTodayWeather, weatherTableForToday, WEATHER_MAX,
+  currentWatch, setDate, timeForDate, describeDateAt, describeShift, todayWeather, setTodayWeather, weatherTableForToday, WEATHER_MAX,
 } from "./game-time.js";
 import { t, localizeJournalBlocks } from "./i18n-content.js";
 import {
@@ -366,7 +366,27 @@ class ValdCalendarApp extends foundry.applications.api.HandlebarsApplicationMixi
       return;
     }
     const at = this.#selected ?? { ...this.#view, day: 1 };
-    await setDate({ year: at.year, month: at.month, dayOfMonth: at.day, watch: currentWatch() });
+    const date = { year: at.year, month: at.month, dayOfMonth: at.day, watch: currentWatch() };
+    // ASK FIRST (2026-09-13, user ruling). Of the three ways to move the
+    // clock this is the only one that reaches an ARBITRARY date in a single
+    // click with no dialog: a Warden browsing another month is one mis-click
+    // from moving the whole table there. The watch buttons stay one click —
+    // they move a watch — and Set the Date… is already a dialog and got a
+    // preview instead. The question names the destination and its distance in
+    // days, which is what makes a wrong year visible.
+    const time = timeForDate(date);
+    const esc = foundry.utils.escapeHTML;
+    const yes = await foundry.applications.api.DialogV2.confirm({
+      window: { title: "CAIRN.Time.ConfirmSetDateTitle" },
+      content: `<p>${game.i18n.format("CAIRN.Time.ConfirmSetDate", {
+        date: esc(describeDateAt(time)), shift: esc(describeShift(time)),
+      })}</p>`,
+      yes: { label: "CAIRN.Time.ConfirmSetDateYes", default: true },
+      no: { label: "CAIRN.Cancel" },
+      rejectClose: false,
+    });
+    if (!yes) return;
+    await setDate(date);
   }
 
   static async #onSetWeather() {

@@ -1072,6 +1072,86 @@ try {
       seasons: leap.days.map((d) => d.seasonName).filter(Boolean).length,
     };
 
+    // A DATE CHANGE IS GUARDED (2026-09-13, user ruling, after a live world
+    // landed in 7727 with nobody typing it). Two guards, two shapes:
+    //
+    // 1. The calendar's Set-to-this-day ASKS FIRST — it is the one route to an
+    //    arbitrary date that is a single click with no dialog. The question
+    //    names the destination and its distance in days; Cancel moves nothing;
+    //    Set moves the world exactly there.
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    const newApp = async (before, has) => {
+      for (let i = 0; i < 40; i++) {
+        const hit = [...foundry.applications.instances.entries()]
+          .find(([id, a]) => !before.has(id) && a.element?.querySelector(has));
+        if (hit) return hit[1];
+        await wait(50);
+      }
+      return null;
+    };
+    const guardWas = game.time.worldTime;
+    await stepTo(3);                                                       // Veil
+    days().find((d) => Number(d.dataset.day) === 7)?.click();
+    await wait(120);
+    const target = { year, month: 2, dayOfMonth: 7, watch: gt.currentWatch() };
+    const targetTime = gt.timeForDate(target);
+    out.guard = { wasTime: guardWas, expectTime: targetTime, expectDate: gt.describeDateAt(targetTime), expectShift: gt.describeShift(targetTime) };
+
+    let seen = new Set(foundry.applications.instances.keys());
+    el().querySelector('[data-action="setToDay"]').click();
+    const ask = await newApp(seen, "button[data-action='no']");
+    out.guard.asked = !!ask;
+    out.guard.text = ask?.element.innerText.replace(/\s+/g, " ").trim() ?? "";
+    out.guard.strong = ask?.element.querySelector("strong")?.innerText.trim() ?? "";
+    ask?.element.querySelector("button[data-action='no']")?.click();
+    await wait(250);
+    out.guard.timeAfterCancel = game.time.worldTime;
+
+    seen = new Set(foundry.applications.instances.keys());
+    el().querySelector('[data-action="setToDay"]').click();
+    const ask2 = await newApp(seen, "button[data-action='yes']");
+    ask2?.element.querySelector("button[data-action='yes']")?.click();
+    for (let i = 0; i < 40 && game.time.worldTime === guardWas; i++) await wait(100);
+    out.guard.timeAfterYes = game.time.worldTime;
+    await game.time.set(guardWas);
+    await wait(300);
+
+    // 2. Set the Date… PREVIEWS — it is already a dialog, so it got no second
+    //    prompt; it got a live line reading the destination and its distance
+    //    in DAYS, so a year off by one shows as "288 days earlier" before Set.
+    //    And its number fields drop focus on a wheel, which is how a year
+    //    slips by one in Chromium without anybody typing.
+    const wd = await import("/systems/air-bladder/module/warden-dashboard.js");
+    await wd.openWardenDashboard();
+    await wait(300);
+    const dashEl = foundry.applications.instances.get("cairn-warden-dashboard")?.element;
+    seen = new Set(foundry.applications.instances.keys());
+    dashEl?.querySelector('[data-action="setDate"]')?.click();
+    const dlg = await newApp(seen, "#ab-date-preview");
+    out.preview = { opened: !!dlg };
+    if (dlg) {
+      const root = dlg.element;
+      const previewText = () => root.querySelector("#ab-date-preview")?.innerText.trim() ?? "";
+      const yearEl = root.querySelector("#ab-date-year");
+      out.preview.initial = previewText();
+      yearEl.value = String(Number(yearEl.value) - 1);
+      yearEl.dispatchEvent(new Event("input", { bubbles: true }));
+      await wait(80);
+      out.preview.yearBack = previewText();
+      yearEl.value = String(Number(yearEl.value) + 1);
+      yearEl.dispatchEvent(new Event("input", { bubbles: true }));
+      await wait(80);
+      out.preview.restored = previewText();
+      yearEl.focus();
+      out.preview.focusedFirst = document.activeElement === yearEl;
+      yearEl.dispatchEvent(new WheelEvent("wheel", { deltaY: 100, bubbles: true }));
+      await wait(30);
+      out.preview.blurredOnWheel = document.activeElement !== yearEl;
+      root.querySelector("button[data-action='cancel']")?.click();
+      await wait(250);
+    }
+    out.preview.timeAfterCancel = game.time.worldTime;
+
     app.close();
     return out;
   }, FESTIVALS);
@@ -1117,6 +1197,30 @@ try {
   cal.gmSetButton
     ? ok("...and the Warden sees Set the world to this day")
     : fail("the Warden's set button is missing");
+
+  const G = cal.guard ?? {};
+  G.asked && G.text.includes(G.expectDate) && G.text.includes(G.expectShift) && G.strong === G.expectDate
+    ? ok("Set-to-this-day ASKS first, naming the destination and its distance", `"${G.expectDate}" — ${G.expectShift}`)
+    : fail("the calendar's set button did not ask, or asked the wrong question",
+      JSON.stringify({ asked: G.asked, strong: G.strong, want: G.expectDate, shift: G.expectShift, text: G.text?.slice(0, 160) }));
+  G.timeAfterCancel === G.wasTime
+    ? ok("Cancel on that question moves nothing")
+    : fail("Cancel moved the world", JSON.stringify({ was: G.wasTime, after: G.timeAfterCancel }));
+  G.timeAfterYes === G.expectTime
+    ? ok("Set on that question moves the world exactly to the day on screen, keeping the watch")
+    : fail("Set did not land on the day", JSON.stringify({ want: G.expectTime, got: G.timeAfterYes }));
+
+  const P = cal.preview ?? {};
+  const back = /(\d+) days? earlier than today$/.exec(P.yearBack ?? "");
+  P.opened && /today$/.test(P.initial ?? "") && back && Number(back[1]) >= 288 && /today$/.test(P.restored ?? "")
+    ? ok("Set the Date… previews the destination live: today, then a year back reads as days", `"${P.yearBack}"`)
+    : fail("the Set the Date… preview", JSON.stringify({ opened: P.opened, initial: P.initial, yearBack: P.yearBack, restored: P.restored }));
+  P.focusedFirst && P.blurredOnWheel
+    ? ok("a wheel over the focused Year field drops its focus — the wheel scrolls, the year stays")
+    : fail("the Year field kept focus under the wheel", JSON.stringify({ focused: P.focusedFirst, blurred: P.blurredOnWheel }));
+  P.timeAfterCancel === G.wasTime
+    ? ok("Cancel on Set the Date… moves nothing")
+    : fail("Cancel on the dialog moved the world", JSON.stringify({ was: G.wasTime, after: P.timeAfterCancel }));
 
   cal.browsedAway
     && cal.browsedAfter?.month === cal.browsedBefore?.month
