@@ -9,7 +9,7 @@ export const Cairn = {};
 // Bonds (docs/customizing-bonds.md): import the shipped table, keep its name,
 // edit. Before this the Dashboard buttons resolved world-first and the
 // generators did not, and one table answered two ways depending on the button.
-// Twenty-three declarations here, plus Scars in damage.js and the Barebones
+// Twenty-five declarations here, plus Scars in damage.js and the Barebones
 // creation tables in character-generator.js, all read the same way now.
 
 // Cairn 2e generation config. Backgrounds, gear, and bonds come from their own
@@ -51,6 +51,18 @@ Cairn.characterGenerator2e = {
       vice: "air-bladder.tables-2e;Vice",
       virtue: "air-bladder.tables-2e;Virtue"
     }
+  },
+  // The random-spell pool: a RollTable, declared like every other generator
+  // table and resolved the same way (world by name, then the declared pack —
+  // user ruling 2026-09-14, "exactly the same way as marketplace, bonds,
+  // omens"). Two declarations because the GLOG hack swaps the pool wholesale:
+  // under it only the GLOG wordings plus the custom set are dealt, canon
+  // excluded (ruling 2026-08-05). Both tables are importer-owned snapshots of
+  // the spell packs (tools/import/spell-tables.mjs); a Warden makes them
+  // theirs with "Create a Custom Spell Table…" (module/take-over.js).
+  spells: {
+    canon: "air-bladder.tables-2e;Spells — Canon (1d100)",
+    glog: "air-bladder.tables-glog;Spells — GLOG"
   }
 };
 

@@ -22,10 +22,14 @@
  *     the pool already has (Chainmail, Bow, Sedative, "Pole, 10ft"…) is
  *     REFERENCED, never re-authored — the gear-pool duplicate gate exists
  *     because two copies of one name is how grants start resolving at random.
- *   - src/packs/more-spellbooks/      ONE spellbook, "Shield" (BECMI; the only
- *     granted spell Cairn lacks). more-spellbooks is already the extended
- *     non-SRD set, and "Spellbook (X)" grants resolve against the spell packs,
- *     so it cannot live in the background pack.
+ *   - src/packs/background-items/     ALSO the ONE spellbook, "Shield" (BECMI;
+ *     the only granted spell Cairn lacks). "Spellbook (X)" grants resolve
+ *     against SPELL_PACKS (module/gear.js), which names this pack for exactly
+ *     that document. It lived in more-spellbooks until that pack was removed
+ *     from the repo on 2026-09-14; same stable id, so nothing pointing at it
+ *     by id moved. It could not live here before because armor ships a
+ *     Shield too and the gear-name gate saw one namespace; the resolver and
+ *     check:refs now keep spell names and gear names apart by TYPE.
  *
  * TRANSCRIPTION RULES, so a diff against the PDF is explainable:
  *   - Taglines, questions, option prose and the ten names are verbatim.
@@ -404,8 +408,9 @@ for (const it of NEW_ITEMS) {
   authored++;
 }
 
-/* the Shield spellbook */
-const spellDir = path.join(ROOT, "src", "packs", "more-spellbooks");
+/* the Shield spellbook — in background-items beside the set's other one-off
+   grants (gear.js SPELL_PACKS names that pack for it) */
+const spellDir = path.join(ROOT, "src", "packs", "background-items");
 // Same own-vs-foreign rule as the items: a FOREIGN Shield is respected, ours
 // is overwritten so a rerun can correct itself.
 const shieldExists = fs.readdirSync(spellDir).some((f) => {
@@ -426,7 +431,7 @@ if (!shieldExists) {
     _key: `!items!${_id}`,
   });
 } else {
-  console.log("  more-spellbooks already has Shield — left alone");
+  console.log("  background-items already has Shield — left alone");
 }
 
 /* backgrounds */

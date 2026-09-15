@@ -824,6 +824,163 @@ companion record of who authored what.
   button) normalized AND SAVED (roll-table.mjs:270-274), re-ranging every row
   in drag order and undoing the sort until the next drop. The probe's fixture
   carried a formula, which is why it was green; a drag-built one reds it.
+- **COPY TO YOUR WORLD (`module/take-over.js`, 2026-09-14, user ask: "could a
+  script not be created that would import the marketplace tables, import the
+  items, and repoint the tables?").** FOUR Warden-only doors, **one button one
+  job, each on the tab where its output lands** — **Create a Custom Spell
+  Table…**, **Create a Custom Marketplace…** and **Create Custom Barebones
+  Creation Tables…** on the Rollable Tables sidebar, **Create Custom
+  Backgrounds and Tables…** on the Compendium sidebar. **THE LABELS SAY THE
+  OUTCOME, NOT THE MECHANISM (user ruling, the evening of 2026-09-14):** for a
+  day they read "Copy the Marketplace to this world…" and so on, and the user's
+  objection was exact — "why else would you copy tables from the compendium
+  to your world?" The confirms are in the user's voice from the same evening
+  (they rewrote the Marketplace one and the other three were matched to it:
+  "Foundry overwrites the compendium every time it updates the system",
+  "Clicking Copy below copies…", the shared header "Here is an easy fix"); the
+  pitch headline inside each dialog repeats the window title, which is
+  ordinary. By hand the shop was about 158
+  operations (four tables, 70 items and 7 mounts from SEVEN packs, `tools` and
+  `trinkets` two of them, then 77 rows re-pointed); Barebones creation is 121
+  document rows; the backgrounds were Duplicate → rename → eye → switch, 27
+  times. The custom-backgrounds SETTING is deliberately not a trigger: it means
+  "offer the seven extra", and a settings save must never mint documents.
+  **ROUND TWO REVERSED TWO THINGS ROUND ONE HAD SETTLED, both from the user
+  testing it.** (1) One dialog with two checkboxes became three single-purpose
+  buttons: they copied both halves from the Rollable Tables door and could not
+  find the backgrounds, which land in a world COMPENDIUM on another tab — "that
+  is confusing". A result window with **Open** buttons is the answer to
+  "where did it go", not which tab the button sits on; the buttons are one per
+  kind because a checklist makes the Warden the router. (2) "Bonds, Omens and
+  every other generator table need nothing — text rows, one Import" was TRUE
+  and was still the wrong place to stop: the user asked "why can't the character
+  background copy bring those over too?", and it is right, because a Warden
+  does not think in document-rows-versus-text-rows. The Cairn 2e button copies
+  the ELEVEN tables a 2e character rolls on (Bonds, Omens, Scars and the eight
+  trait tables) beside the backgrounds. The twelfth, `Spells — Canon (1d100)`,
+  has a door of its own (below): its rows bring a hundred spellbooks into the
+  Items sidebar with them, a different kind of copy from eleven tables of text.
+  **The framing is the user's and belongs in every confirm and guide: the
+  shipped compendiums are TEMPLATES** — the starting point you copy and make
+  your own, never the place you edit. Nine things that will bite:
+  - **PLAN, THEN RUN, and the plan is the only protection.** v14's
+    `DocumentCollection#importDocument` keeps compendium ids (`keepId ??=
+    true`) and on a collision with no dialog silently REPLACES
+    (document-collection.mjs:360-405); the server refuses a duplicate id only
+    in EMBEDDED collections, so a `createDocuments({keepId: true})` over an
+    existing world id is not refused either. `plan*` decides membership with
+    pure reads, `run*` creates exactly what the plan listed; nothing calls
+    `importDocument`/`importFromCompendium`. A re-run therefore keeps every
+    edit, and the probe's red-first witness blinds the PLAN, never the run —
+    a blinded run is a real overwrite.
+  - **Identity: items, mounts and background copies keep the SHIPPED ID;
+    tables go by NAME, and ONLY by name** (a world table is found by its name —
+    the shop's `marketTables`, `findDeclaredTable` — so a second `Market: Gear`
+    would be ambiguous, and adopting a RENAMED copy through
+    `compendiumSource` would skip creating the one thing that is actually read.
+    A hand-imported table is kept as it is and the result window says so when
+    its rows still point at the pack). An ITEM the Warden made earlier under a
+    NEW id is ADOPTED through `_stats.compendiumSource`, never twinned — and
+    the dev world proved the point on the first run: its own `Air Bladder` item
+    at cost 50 was adopted, so the shop reads 50 there. Design, not defect.
+  - **Tables LAST, rows inline.** An EMPTY world `Market:` table deletes its
+    aisle (`getMarketplaceCatalog` skips a category with no resolved rows),
+    and rows created with their parent fire no `createTableResult`, so
+    `onCreateMarketResult` cannot re-sort mid-write. `formula` is written
+    explicitly (`_source.formula` is what the re-sort compares).
+    `fromCompendium` keeps the PACK's folder id (`clearFolder` defaults
+    false), so the folder is overwritten on every copy.
+  - **A background copy STANDS IN by id.** `build2ePool` de-dups by document
+    id (documented in `docs/sharing-custom-backgrounds.md`), so a world-pack
+    copy under the shipped id replaces the original in the pool by itself and
+    deleting the copy brings the original back — the tables' undo story, and
+    why NOTHING is written into `disabled-backgrounds`. Both planning agents
+    proposed the eye-toggle route (27 uuids, a batch helper); rejected for
+    that reason. The pool's `customIds` now EXCLUDES any id present in the
+    canon pack's index, so a stand-in for one of the twenty keeps its
+    archetype group instead of turning the Player's Guide list into a
+    "Custom" heap — by id, which is provenance too, so the 2026-08-04 "never
+    by a field on the document" ruling stands.
+  - **Enter never copies.** Every button on both windows is `type: "button"`,
+    and Cancel / Close is the default (focused). A locked Custom Backgrounds
+    compendium is refused, not unlocked — but only when there is something to
+    write, and the refusal is a line in the result window, not a toast.
+  - **A BAREBONES ROW POINTING AT A WORLD ITEM WINS, and without that the
+    copy would have been theatre.** `resolveBarebonesResult` resolves an
+    ordinary Item row BY NAME against the shipped gear packs — deliberate, "one
+    canonical Dagger, whichever pack a table points at", and true of 116 of the
+    124 shipped rows — so re-pointing a row at the Warden's own copy changed
+    NOTHING a character received. The reader now asks `!doc.pack` first (the
+    same question the shop asks of a `Market:` row) and hands that document
+    over; a pack row keeps the by-name lookup and its documented reason. The
+    payload is built by `itemDataFromDocument` (gear.js), factored out of
+    `resolveGearItem` so a row's item and a named grant of the same thing
+    arrive in the same shape, scroll rule included.
+  - **The Dashboard's Your Tables tab lists the copied tables afterwards**, as
+    it already did for a hand import. Left alone — the user chose four more
+    buttons over a `Market:` filter, explicitly.
+  - **ITEMS LAND IN A SUBFOLDER PER SOURCE COMPENDIUM (2026-09-14, user, on
+    the shop's seventy items in one folder: "should those items not have gone
+    into folders like Armor, Gear, Market Goods, Tools, Weapons, Trinkets?").**
+    One flagged parent per kind was the quickest thing that gave the result
+    window an Open target and a re-run one flag to find; it was a dump, and
+    the user called it sloppy. Now `sourceFolders` files each copy under a
+    child named with its compendium's label — core localises `metadata.label`
+    at construction — flagged with the kind AND `takeOverPack`, so a re-run
+    reuses the child it made. **No subfolder when the kind draws from ONE
+    compendium for that document type** (the mounts, the spellbooks): one
+    child holding everything is the same dump one level down. That is decided
+    over every row's source, kept copies included, so it is a property of the
+    shipped tables; the folders themselves are made only for the packs a run
+    adds from. Kept copies are never moved. The lesson recorded with it: walk
+    the Warden's view of the result before calling a feature done — the
+    sidebar they open, not the probe that passed.
+  - **The `only` list is a NAME list and the folder key a string id.**
+    `planTableTakeOver(spec)` is one function for all three sets; a spec with
+    no document rows (the 2e eleven) creates no Items or Actors folder, and the
+    result window names only the directories a folder actually landed in.
+  - **THE SPELL TABLES DOOR REPLACED "RESEED A SPELL TABLE" (same day, user,
+    the second time in one afternoon: "WHY can't the reseed spell table be
+    renamed to Copy Spell Tables to this world and have that button work
+    exactly the same way that the other two buttons on this page work").**
+    The first pass had rebuilt Reseed in the Copy buttons' SHAPE — headed
+    paragraphs, a result window, Cancel focused, `default: true` off the
+    destructive button (a real defect: one Enter replaced every row of
+    whichever table the select showed), a spell-only picker with a translatable
+    match list, a dialog that always opened — and every one of those was polish
+    on the wrong mechanism. Reseed refilled a world table from a compendium's
+    index; the other two buttons COPY a shipped table and what its rows point
+    at. A Warden reading the sidebar saw three buttons and two rules. So Reseed
+    is GONE — `spell-tables.js`, twenty `CAIRN.Reseed*` keys, the handoff note,
+    `dev:spell-tables` — and **Create a Custom Spell Table…** (labelled "Copy
+    the Spell Tables to this world…" for its first hours) is a fourth `KINDS`
+    entry, copying `Spells — Canon (1d100)` and its 100
+    spellbooks into two **Spells** folders through `planTableTakeOver`
+    unchanged. What a Warden loses is "refill a table from any Item compendium
+    in one click"; what they get is the one rule they already know, and
+    dragging a spellbook onto the copy is the shop's own story. Its `spec` and
+    `extra` are FUNCTIONS read at click time, because the GLOG hack swaps the
+    pool wholesale (canon excluded, ruling 2026-08-05): with the hack on it
+    copies `Spells — GLOG` and the 100 GLOG spellscrolls instead. **The
+    confirm warns a canon world that switching the hack on later means coming
+    back for the GLOG table** (user ask) — and says NOTHING about switching it
+    off, because the hack is a one-way campaign decision (user: "once you
+    enable the glog hack you can't go back"; `docs/glog-magic.md` has said so
+    since it shipped). A first draft carried the reverse warning too.
+    **The lesson worth the line: when the user asks for consistency with X,
+    make it X.** Two rounds of making Reseed LOOK like the Copy buttons while
+    keeping its own mechanism, each defended with a reason the user never asked
+    for ("a snapshot goes stale"), cost a day and the user's patience. The
+    Enter-safety notes that dialog's probe earned survive in
+    `docs/release-testing.md`'s `dev:take-over` row, because they are about
+    Enter-safety legs and not about that dialog.
+  Gate: `npm run dev:take-over` — two clients, each run through its REAL
+  confirm, every product claim red-first in-page (`withHookOff` on the named
+  hooks, the plan blinded, the canon index shadowed, the Barebones reader
+  measured against the same one-row table pointed at the pack instead).
+  **Its entry sweep deletes copies a HUMAN made with these buttons in the dev
+  world**, because a copy the button made and a copy the button made are the
+  same document; the world is left with none.
 - **AND SO IS EVERY TABLE A GENERATOR DECLARES** (same day, user ruling "do it
   all in one batch" after the survey the marketplace change prompted). The
   survey found that the same table answered TWO WAYS depending on the button:
@@ -851,6 +1008,55 @@ companion record of who authored what.
   two PICK-LISTS that read the pack directly — NPC Background, and the name
   list — resolve through the same function, or a Warden's table would roll and
   not be pickable.
+  **THE RANDOM-SPELL POOL WAS THE ONE THIS MISSED, and it was a gap and not a
+  ruling (2026-09-14, user: "I don't understand why we can't make the spellbooks
+  table work exactly the same way as marketplace, bonds, omens. There should be
+  consistency here").** The survey's net was DECLARED tables plus two known pack
+  scans; a random spellbook was neither, because it was an index scan over
+  spellbook ITEMS (`randomSpellbookDoc`) with no table in it anywhere. So a
+  Warden's own `Spells — Canon (1d100)` came up when they rolled it by hand and
+  never in a generated character — the exact split this whole conversion
+  existed to end, hiding one level down.
+  **It is a DECLARED table now, the Bonds shape byte for byte:** two
+  declarations in `config.js` (`characterGenerator2e.spells.canon` and `.glog`,
+  the hack swapping the pool wholesale), resolved through `findDeclaredTable`,
+  rolled with `roll()`, the row's document type-filtered — an unlocked pack
+  accepts any item and a Dagger is not a spell, so a bad row is re-rolled and a
+  table yielding nothing in twenty rolls warns and deals nothing. `Spells —
+  GLOG` SHIPS for it, in `tables-glog`, written by the same importer as the
+  canon table and spared by stable id when `glog-content.mjs` wipes that pack.
+  **AND THE MORE SPELLBOOKS PACK IS GONE (same day, user: "including it was a
+  mistake").** Building that table exposed what the 2026-08-05 "GLOG wordings
+  plus the custom set" ruling had actually shipped: 217 spells from
+  cairnrpg.com's extended list, NONE with a `glog` flag, a `[dice]` or a
+  `[sum]`, making two thirds of a pool whose whole point is scaling with
+  Magic Dice — a scroll that costs dice and Mishap risk to cast and does
+  exactly what it says regardless. The user's first answer was to take it out
+  of the pool and the second, minutes later, to remove the pack from the repo:
+  `src/packs/more-spellbooks`, its manifest entry, its label, its translation
+  sheet, and every reader. The one document of OURS it held, the class
+  backgrounds' Shield (BECMI), moved to `background-items` under the same id,
+  and `SPELL_PACKS` / `GLOG_SPELL_PACKS` name that pack in its place — with the
+  spell branch of `resolveGearItem` now filtering the index by TYPE, so a
+  background-items item sharing a spell's name can never answer a spellbook
+  grant. 0.1.22 was the last release to ship the pack; a world that imported
+  from it keeps its copies and only the compendium disappears — the release
+  notes must say so. `tools/packs.mjs` prunes the orphaned build directory
+  itself.
+  **THE FIRST FIX KEPT THE INDEX SCAN AS THE FALLBACK, AND THE USER THREW IT
+  OUT THE SAME DAY.** The argument: everywhere else the shipped pack copy IS
+  the content, while a spell table is a derived SNAPSHOT of a compendium that
+  is the content, so falling back to the shipped table would freeze generation
+  at whatever the table last recorded, and the compendium fallback kept the
+  default live. True, and it bought a second rule for one table, which is the
+  exact thing the user had just objected to — and the "goes stale" it guarded
+  against is what the Copy button plus a drag onto the copy already answers
+  for the shop. The fallback is the shipped table. Gate: `npm run
+  dev:spell-pool` — both shipped tables resolve and every row of each is a
+  spellbook (the count held to the packs), both pool modes world-first with
+  the same rows under a different NAME as the control, and the tables pack
+  blinded in-page deals NOTHING, which is what tells a table fallback from a
+  scan.
   **Two Kettlewright readers are LEFT on the pack, deliberately:** its Bonds
   matcher and `resolveVirtueVice` classify text that CAME FROM the official 2e
   tables, so the shipped copy is the right thing to match against whatever a
@@ -911,8 +1117,8 @@ companion record of who authored what.
   `.plain-item` shape. The probe MEASURES the room above the tabs now: a
   counter row nothing fills is invisible to a count of counters.
 - Data models in `module/data-models.js` (TypeDataModel; `template.json` is gone,
-  sub-types are declared in `system.json` `documentTypes`); 30 compendium packs
-  (30 on `master` too since 0.1.18 shipped `journals-vald`, the Warden's Guide
+  sub-types are declared in `system.json` `documentTypes`); 29 compendium packs
+  (`more-spellbooks` REMOVED 2026-09-14, so `master` holds 30 until 0.1.23 ships and this line must move with it; 30 on `master` since 0.1.18 shipped `journals-vald`, the Warden's Guide
   setting chapter as one nine-page book, on 2026-08-23 — and since 2026-09-10 a
   SECOND entry in the same pack, "Festivals of Vald", 24 pages the calendar
   window reads by their `flags.air-bladder` and never by name; this count went stale
@@ -1535,6 +1741,17 @@ against the reason, not against the fact.
     the world make it refuse, naming both packs. Re-run that control if you touch
     the normalization — decoding entities is exactly the sort of change that
     could blind it to a real text edit.
+    **WHEN IT CRIES WOLF, THE FIX IS THE DATA (2026-09-14).** `canonicalDoc`
+    drops `_stats`, `_key` and empty values but NOT a schema default, so any
+    probe that updates a pack document IN PLACE — even update-and-revert —
+    leaves Foundry's filled defaults behind and the next build refuses. It
+    happened on `mounts-transports`, twice, from `dev:transports` and
+    `dev:bg-containers` touching Mule and Rivertooth. That pack was the only
+    one of the thirty whose YAML lacked the `prototypeToken` defaults
+    (`monsters`, 205 documents, has carried them since the v14 fold-in), so the
+    defaults were folded into its seventeen actors once. Widening
+    `FOUNDRY_FILLED` is the wrong lever — it is the list of fields the SERVER
+    invents, and every name added to it is a field the guard stops watching.
     So drift that survives normalization is a REAL write. Classify it rather than
     assuming churn — and do NOT reach for `extract` when `src/packs` is newer
     than `packs/`, because extract runs packs → src and reverts your own work

@@ -5,6 +5,12 @@
  */
 export const compendiumInfoFromString = (compendiumString) => compendiumString.split(";");
 
+/** The shipped RollTable pack holding the four `Market:` aisles. Lives here,
+ *  tier 0, so that both readers - the shop (marketplace.js) and the take-over
+ *  that copies it into the world (take-over.js) - import ONE constant without
+ *  either importing the other; marketplace.js is a leaf and stays one. */
+export const MARKETPLACE_PACK = "air-bladder.marketplace";
+
 /**
  * Find one document in a pack by exact name.
  *

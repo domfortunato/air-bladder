@@ -291,9 +291,19 @@ const tableFile = `${TABLE_NAME.replace(/[^A-Za-z0-9]/g, "_")}_${tid}.yml`;
 const journalFile = `${JOURNAL_NAME.replace(/[^A-Za-z0-9]/g, "_")}_${jid}.yml`;
 const spellsJournalFile = `${SPELLS_JOURNAL_NAME.replace(/[^A-Za-z0-9]/g, "_")}_${sjid}.yml`;
 if (!dry) {
+  // tables-glog also holds "Spells — GLOG", written by spell-tables.mjs and
+  // spared here by its stable id: that importer runs AFTER this one, and a
+  // wipe that took its table would leave the GLOG spell pool with no shipped
+  // fallback until somebody remembered to run it. The seed is that script's
+  // `spellTableId("glog")`, derived here rather than imported — importing a
+  // script that writes files on load would run it.
+  const spared = new Set([idFor("air-bladder-spell-table:glog")]);
   for (const dir of [tableDir, journalDir]) {
     fs.mkdirSync(dir, { recursive: true });
-    for (const f of fs.readdirSync(dir).filter((f) => f.endsWith(".yml"))) fs.rmSync(path.join(dir, f));
+    for (const f of fs.readdirSync(dir).filter((f) => f.endsWith(".yml"))) {
+      if (dir === tableDir && spared.has(YAML.load(fs.readFileSync(path.join(dir, f), "utf8"))?._id)) continue;
+      fs.rmSync(path.join(dir, f));
+    }
   }
   fs.writeFileSync(path.join(tableDir, tableFile), tableYaml, "utf8");
   fs.writeFileSync(path.join(journalDir, journalFile), journalYaml, "utf8");

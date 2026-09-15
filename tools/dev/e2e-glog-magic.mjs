@@ -32,7 +32,7 @@
  *      planted canon documents — proving the detector fires on unconverted
  *      state, so the zero-violations assertion afterwards can fail.
  *   3. Generation under GLOG, while the sweep runs: every random draw resolves
- *      inside GLOG ∪ More Spellbooks with ZERO canon-pack reads (getIndex /
+ *      inside the GLOG pack with ZERO canon-pack reads (getIndex /
  *      getDocument / getDocuments wrapped and counted), every drawn spell is a
  *      scroll, and the named grant comes back as a scroll wearing the GLOG
  *      wording with `glog: true`.
@@ -77,7 +77,6 @@ import { VIEWPORT, joinAsGM, watchErrors, watchdog, withSettings } from "./lib.m
 const NS = "air-bladder";
 const CANON = "air-bladder.spellbooks";
 const GLOG = "air-bladder.spellbooks-glog";
-const MORE = "air-bladder.more-spellbooks";
 
 const browser = await chromium.launch();
 watchdog(300000, "glog-magic probe");
@@ -136,7 +135,7 @@ try {
   await withSettings(page, async () => {
     /* --- 0. preconditions, and the counterpart spell this run keys on ------- */
 
-    const pre = await page.evaluate(async ({ CANON, GLOG, MORE }) => {
+    const pre = await page.evaluate(async ({ CANON, GLOG }) => {
       const canonPack = game.packs.get(CANON), glogPack = game.packs.get(GLOG);
       if (!canonPack || !glogPack) return { missing: true };
       const canonByName = {}, glogByName = {}, cased = {};
@@ -149,12 +148,10 @@ try {
         if (d.type !== "spellbook") continue;
         glogByName[d.name.toLowerCase()] = d.system.description ?? "";
       }
-      // Warm More Spellbooks too (canon and GLOG were just warmed by the map
-      // builds above): the GLOG-on draw legs mostly land here, and a cache-miss
-      // draw pays a ~1s single-document server query — the same latency race
-      // that timed dev:spell-pool out on 2026-08-05. One bulk load makes the
-      // legs measure the draw path's work, not the server's mood.
-      await game.packs.get(MORE)?.getDocuments();
+      // (Canon and GLOG were just warmed by the map builds above, so the
+      // GLOG-on draw legs measure the draw path's work, not a cache-miss's
+      // ~1s single-document server query — the latency race that timed
+      // dev:spell-pool out on 2026-08-05.)
       // The GLOG page's 100 is not name-for-name the canon 100: two spells are
       // RENAMED (aliased in module/glog.js) and two have no counterpart at all.
       // Everything below derives from the live packs + the live alias map, so a
@@ -176,7 +173,6 @@ try {
       return {
         canonSize: canonKeys.length,
         glogSize: Object.keys(glogByName).length,
-        moreSize: game.packs.get(MORE)?.index.size ?? 0,
         swappable, identicalCount: withCounterpart.length - swappable.length, noCounterpart,
         pick, pickName: pick ? cased[pick] : null,
         canonText: pick ? canonByName[pick] : null,
@@ -185,7 +181,7 @@ try {
         canonByName,
         settingOn: game.settings.get("air-bladder", "enable-glog-magic") === true,
       };
-    }, { CANON, GLOG, MORE });
+    }, { CANON, GLOG });
 
     if (pre.missing) { fail("canon or GLOG pack missing — is the pack built?"); return; }
     if (pre.settingOn) {
@@ -198,7 +194,7 @@ try {
       note("world arrived converted (setting ON) — flipped OFF for the canon legs; the mid-run flip re-converts and teardown leaves it ON as found");
     }
     pre.canonSize > 0 && pre.glogSize > 0
-      ? ok(`packs: canon ${pre.canonSize}, GLOG ${pre.glogSize}, More ${pre.moreSize} (canon non-empty, so GLOG's exclusion of it is a real claim)`)
+      ? ok(`packs: canon ${pre.canonSize}, GLOG ${pre.glogSize} (canon non-empty, so GLOG's exclusion of it is a real claim)`)
       : fail(`a spell pack is empty (canon ${pre.canonSize}, GLOG ${pre.glogSize})`);
     pre.pickName
       ? ok(`counterpart spell for this run: "${pre.pickName}" (${pre.swappable.length} swappable, ${pre.identicalCount} byte-identical — text-skipped, ${pre.noCounterpart.length} with no GLOG counterpart: ${pre.noCounterpart.join(", ")})`)
@@ -349,7 +345,7 @@ try {
     await page.evaluate(() => game.settings.set("air-bladder", "enable-glog-magic", true));
     ok("flipped enable-glog-magic ON (the sweep starts on this client — the active GM)");
 
-    const on = await page.evaluate(async ({ NAME, ALIAS, glogText, CANON, GLOG, MORE }) => {
+    const on = await page.evaluate(async ({ NAME, ALIAS, glogText, CANON, GLOG }) => {
       const out = { canonReads: 0 };
       const proto = foundry.documents.collections.CompendiumCollection.prototype;
       const origs = {};
@@ -364,13 +360,12 @@ try {
         const gear = await import("/systems/air-bladder/module/gear.js");
         const CG = game.cairn.characterGenerator;
         const glogIds = new Set(game.packs.get(GLOG).index.map((e) => e._id));
-        const moreIds = new Set((game.packs.get(MORE)?.index ?? []).map((e) => e._id));
         let inPool = 0;
         const escaped = [];
         for (let i = 0; i < 40; i++) {
           const doc = await CG.randomSpellbookDoc();
           if (!doc) continue;
-          if (glogIds.has(doc.id) || moreIds.has(doc.id)) inPool++;
+          if (glogIds.has(doc.id)) inPool++;
           else escaped.push(doc.name);
         }
         out.inPool = inPool;
@@ -399,10 +394,10 @@ try {
         for (const [m, f] of Object.entries(origs)) proto[m] = f;
       }
       return out;
-    }, { NAME, ALIAS, glogText: pre.glogText, CANON, GLOG, MORE });
+    }, { NAME, ALIAS, glogText: pre.glogText, CANON, GLOG });
 
     on.inPool === 40 && on.escaped.length === 0
-      ? ok("GLOG on: 40/40 random draws resolved inside GLOG ∪ More Spellbooks — canon excluded")
+      ? ok("GLOG on: 40/40 random draws resolved inside the GLOG pack — canon excluded")
       : fail(`GLOG on: ${on.inPool}/40 draws in pool; escaped: ${JSON.stringify(on.escaped)}`);
     on.canonReads === 0
       ? ok("GLOG on: zero canon-pack reads during the draws and the grant (getIndex/getDocument/getDocuments all counted)")

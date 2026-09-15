@@ -80,6 +80,9 @@ For a one-off, use Foundry's per-document JSON:
   **Duplicate into Custom Backgrounds**.
 - **De-dup is by document id.** If a module re-ships a background that is byte-for-byte
   a copy of a shipped one but with a new id, both can appear in the picker. Share
-  genuinely custom backgrounds, not re-packaged shipped ones.
+  genuinely custom backgrounds, not re-packaged shipped ones. (A copy made by
+  **Create Custom Backgrounds and Tables…** keeps the shipped
+  id on purpose, so wherever it is shared it stands in for the shipped one and
+  the two never both appear.)
 - Sharing only makes sense **between Air Bladder installs** — a background is an
   Air Bladder Item type and needs the system to resolve its gear.

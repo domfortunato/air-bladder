@@ -107,17 +107,27 @@ cairnrpg.com rather than from Cairn 2e core. A gate that silently skipped those
 would be worth nothing here.
 
 **3. Inherited from the predecessor system.** `src/packs/monsters/` (205
-documents) and `src/packs/more-spellbooks/` (216; the pack has grown by one since) came from
-`yochaigal/Cairn-FoundryVTT` at this project's first commit. Filenames **and
-document ids** are identical to it, 205 for 205. The bestiary text is Cairn's
-own, by its own author.
+documents) came from `yochaigal/Cairn-FoundryVTT` at this project's first
+commit. Filenames **and document ids** are identical to it, 205 for 205. The
+bestiary text is Cairn's own, by its own author.
+
+A second inherited pack, `more-spellbooks`, travelled the same way and was
+**removed from the repository on 2026-09-14** (0.1.22 was the last release to
+ship it). Its text was the list at cairnrpg.com/resources/more-spellbooks/, 216
+spells name for name and in order, CC BY-SA 4.0 as stated on that page, which
+Yochai Gal had added to his own Foundry system in December 2021. It was never
+this project's authoring; it was dropped because none of its spells carry the
+GLOG wording the hack needs and the maintainer ruled that including it had been
+a mistake. The one spell of ours it held, the class backgrounds' Shield, moved
+to `background-items` under the same id. A world that imported spells from it
+keeps them; only the compendium is gone.
 
 **4. Written for this project, by the maintainer.** The item flavour text in
 `tools/import/marketplace-descriptions.csv` and the archetypes in
 `background-archetypes.csv` — declared as "ours, not upstream's" in the
 importer ledger, because the SRD price list is names and numbers with no
 flavour. Also the hand-tended gear pool, the interface strings in
-`lang/en.json` (1,061 interface strings, a count `npm run i18n:check` holds to the file), the Warden guides in `docs/`, both READMEs, and the
+`lang/en.json` (1,118 interface strings, a count `npm run i18n:check` holds to the file), the Warden guides in `docs/`, both READMEs, and the
 listing description.
 
 **Translations.** `lang/es.json` and `lang/content/es.json` are by

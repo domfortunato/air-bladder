@@ -42,7 +42,7 @@ const FORCE = process.argv.includes("--force");
 // being a FLAG rather than a type: iconForItem sees `weapon`/`armor`/`item` and
 // hands a relic sword the sword and a relic helm the shield, with no relic-specific
 // art to invent. (Obliteration Scroll gets the scroll icon off its name, too.)
-const ITEM_PACKS = ["armor", "weapons", "spellbooks", "more-spellbooks", "tools",
+const ITEM_PACKS = ["armor", "weapons", "spellbooks", "tools",
   "expeditionary-gear", "market-goods", "trinkets", "reliquary",
   "background-items", "backgrounds-2e", "backgrounds-barebones"];
 // mounts-transports is NOT here: its importer (mounts.mjs) stamps art at

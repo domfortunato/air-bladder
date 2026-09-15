@@ -3,7 +3,7 @@ import { rollTableText, resultText, findTableByName, findDeclaredTable } from ".
 import { Cairn } from "./config.js";
 import { evaluateFormula, formatCount } from "./utils.js";
 import {
-  resolveGearItem, GEAR_ALIASES, spellScrollItem,
+  resolveGearItem, itemDataFromDocument, GEAR_ALIASES, spellScrollItem,
   orderGrantedItems, isLightGear, RATIONS_RE,
   CANONICAL_GEAR_PACKS, SPELL_PACKS,
 } from "./gear.js";
@@ -1159,8 +1159,9 @@ export const previewBackground = async (bg, n = 10) => {
 /*  Duplicate a background into an editable world pack                         */
 /* -------------------------------------------------------------------------- */
 
-/** The world Item compendium custom backgrounds are duplicated into. */
-const CUSTOM_BG_PACK = "world.custom-backgrounds";
+/** The world Item compendium custom backgrounds are duplicated into. Exported
+ *  for the take-over (module/take-over.js), which fills it in one go. */
+export const CUSTOM_BG_PACK = "world.custom-backgrounds";
 
 /**
  * The GM's editable "Custom Backgrounds" world compendium, created on first use.
@@ -1169,7 +1170,7 @@ const CUSTOM_BG_PACK = "world.custom-backgrounds";
  * regardless of pack name, so this is purely a predictable, auto-created home.
  * @returns {Promise<CompendiumCollection|null>}
  */
-const ensureCustomBackgroundPack = async () => {
+export const ensureCustomBackgroundPack = async () => {
   const existing = game.packs.get(CUSTOM_BG_PACK);
   if (existing) return existing;
   // The label is stored on the pack, so it is fixed in whatever language the
@@ -1724,51 +1725,64 @@ const barebonesTable = async (name) =>
   (await findDeclaredTable(`${BAREBONES_TABLE_PACK};${name}`)) ?? null;
 
 /**
- * The pack a RANDOM spell is drawn from — canon only, by ruling (2026-08-05):
- * "random assignment of spells and spell scrolls during character generation
- * with Cairn 2e Canon Backgrounds [uses] only the spells listed in the
- * Spellbooks compendium." Deliberately NOT `SPELL_PACKS`: that list answers a
- * different question — which packs a by-NAME grant like "Spellbook (Shield)"
- * resolves against — and a shared constant would let widening one silently
- * widen the other.
+ * The random-spell pool is a ROLLTABLE, declared beside the biography tables
+ * (config.js `Cairn.characterGenerator2e.spells`) and resolved the way every
+ * declared table is: a table in the WORLD with the declared name, then the
+ * shipped copy in the declared pack (compendium.js `findDeclaredTable`). User
+ * ruling 2026-09-14 — "exactly the same way as marketplace, bonds, omens" —
+ * and it REVERSED the shape this held for one day, in which a world table won
+ * but the FALLBACK was an index scan over the spellbook packs, argued from "a
+ * shipped table is a snapshot of the compendium and goes stale the moment a
+ * spell is added". True, and the wrong thing to protect: the Warden's route to
+ * a fresh list is the same as the shop's — "Create a Custom Spell Table…"
+ * (take-over.js), then drag a spellbook onto the copy — and a second
+ * rule for one table is what the user objected to. One rule, learned once.
+ *
+ * Canon only, by the 2026-08-05 ruling ("random assignment of spells and spell
+ * scrolls during character generation with Cairn 2e Canon Backgrounds [uses]
+ * only the spells listed in the Spellbooks compendium"), which is why the
+ * declaration is NOT `SPELL_PACKS`: that list answers a different question —
+ * which packs a by-NAME grant like "Spellbook (Shield)" resolves against — and
+ * one constant for both would let widening one silently widen the other.
+ *
+ * GLOG swaps the whole pool (the GLOG wordings plus the custom set, canon
+ * excluded), so it has its own declaration and its own shipped table,
+ * `Spells — GLOG` in tables-glog. Both tables are written by
+ * tools/import/spell-tables.mjs, one row per spellbook in the packs they
+ * snapshot; dev:spell-pool asserts every shipped row resolves. The setting is
+ * read per DRAW, so flipping the hack needs no reload.
  */
-const SPELL_POOL_PACK = "air-bladder.spellbooks";
+const spellPoolDecl = () => (glogEnabled() ? Cairn.characterGenerator2e.spells.glog : Cairn.characterGenerator2e.spells.canon);
 
 /**
- * One random spellbook DOCUMENT out of `packIds`, index-first.
+ * One random spellbook DOCUMENT off the pool table. `roll()`, never `draw()`:
+ * drawing marks rows on a world table, and this is generation reading the
+ * Warden's list, not a Warden crossing rows off it (compendium.js rollTable).
  *
- * No cache, on purpose. The old shape memoized `getDocuments()` across both
- * spell packs and never invalidated, so a spell a Warden added to an unlocked
- * pack was undrawable until the browser reloaded — silently. There is nothing
- * to invalidate here: core maintains `pack.index` live on every client
- * (client-document.mjs _onCreate/_onUpdate/_onDelete all reindex), so reading
- * the index each draw is both current and effectively free, and only the one
- * winning document pays a server fetch.
- *
- * The type filter is load-bearing: an unlocked pack accepts ANY item, and a
- * Dagger dropped into Spellbooks must not come out of "a random spellbook".
+ * The type filter is load-bearing: a Warden's table may hold a text row or
+ * point at a Dagger, and an unlocked pack accepts any item, so a row that is
+ * not a spellbook is re-rolled rather than granted. A table that yields nothing
+ * usable is a broken table: it warns and returns null, and the caller hands
+ * over nothing rather than a background's promised spellbook in some other
+ * shape.
  * @returns {Promise<CairnItem|null>}
  */
-export const randomSpellbookDoc = async (packIds = null) => {
-  // Under GLOG the pool is the GLOG wordings plus the custom set, canon
-  // excluded (ruling 2026-08-05). The setting is read per DRAW, so flipping it
-  // needs no reload. Statically imported: a per-call `await import()` here
-  // cost ~600ms EVERY call in the live page (it is why dev:spell-pool timed
-  // out on 2026-08-05), and glog.js → settings.js is a leaf chain, no cycle.
-  if (!packIds) {
-    packIds = glogEnabled() ? GLOG_SPELL_PACKS : [SPELL_POOL_PACK];
+export const randomSpellbookDoc = async () => {
+  const decl = spellPoolDecl();
+  const table = await findDeclaredTable(decl);
+  if (!table) {
+    console.warn(`Air Bladder | no spell table resolves for "${decl}"; nothing to deal`);
+    return null;
   }
-  const candidates = [];
-  for (const key of packIds) {
-    const pack = game.packs.get(key);
-    if (!pack) continue;
-    for (const e of await pack.getIndex()) {
-      if (e.type === "spellbook") candidates.push({ pack, id: e._id });
-    }
+  for (let tries = 0; tries < 20; tries++) {
+    const { results } = await table.roll();
+    const row = results[0];
+    if (!row) break;
+    const doc = row.type === CONST.TABLE_RESULT_TYPES.DOCUMENT ? await fromUuid(row.documentUuid) : null;
+    if (doc?.documentName === "Item" && doc.type === "spellbook") return doc;
   }
-  if (!candidates.length) return null;
-  const pick = candidates[Math.floor(Math.random() * candidates.length)];
-  return pick.pack.getDocument(pick.id);
+  console.warn(`Air Bladder | the spell table "${table.name}" yielded no spellbook in 20 rolls; nothing to deal`);
+  return null;
 };
 
 /** A random spellbook as an owned item, named for the spell it holds. The
@@ -1804,6 +1818,7 @@ export const randomScrollItem = async () => {
  *                             `transport` Item — old worlds' tables still point
  *                             at the Item pack
  *   - a nested ROLLTABLE    → roll that table and resolve its result instead
+ *   - a WORLD item          → that very document
  *   - anything else         → the pool item of that name, or, for the SRD's two
  *                             instruction rows, a random spellbook or scroll
  *
@@ -1815,10 +1830,18 @@ export const randomScrollItem = async () => {
  * own Barebones table pointing at a world RollTable, or at a transport they made,
  * used to fall through to the gear-pool lookup and resolve to nothing.
  *
- * The third branch deliberately still resolves BY NAME against the gear pool, and
- * not by uuid. That is the pool's whole job — one canonical Dagger, whichever pack
- * a table points at — and it is why 116 of the 124 shipped Barebones rows do not
- * need their uuid at all.
+ * A row pointing at a COMPENDIUM item deliberately still resolves BY NAME against
+ * the gear pool, and not by uuid. That is the pool's whole job — one canonical
+ * Dagger, whichever pack a table points at — and it is why 116 of the 124 shipped
+ * Barebones rows do not need their uuid at all.
+ *
+ * A row pointing at a WORLD item is the exception, and it is the whole point of
+ * copying the creation tables into the world (take-over.js, 2026-09-14): the
+ * Warden re-pointed that row at their own copy precisely so a character would be
+ * dealt it, and a by-name lookup would hand back the shipped Dagger and make the
+ * copy pointless. `!doc.pack` is the test — it is the same question the shop asks
+ * of a `Market:` row — and the payload is built by the SHARED helper, so a row's
+ * item and a named grant of the same thing arrive in the same shape.
  *
  * @param {TableResult} result
  * @returns {Promise<{item?:Object, container?:Object, name:String}|null>}
@@ -1843,6 +1866,11 @@ const resolveBarebonesResult = async (result) => {
   if (doc?.documentName === "RollTable") {
     const { results } = await doc.roll();
     return resolveBarebonesResult(results[0]);
+  }
+  // A world item is the Warden's own copy, pointed at on purpose: hand it over
+  // rather than looking its name up in the shipped packs. See the docblock.
+  if (doc?.documentName === "Item" && !doc.pack) {
+    return { item: itemDataFromDocument(doc, { grantName: name }), name: doc.name };
   }
   const lower = name.toLowerCase();
   if (lower === "scroll of random spellbook") {
@@ -2541,6 +2569,11 @@ const BG_PACK_FOR = { "2e": "air-bladder.backgrounds-2e", barebones: BAREBONES_B
  */
 const SHIPPED_CUSTOM_BG_PACK = "air-bladder.backgrounds-custom";
 
+/** Every SHIPPED 2e background pack — the canon twenty and the custom seven —
+ *  in the order the take-over copies them (module/take-over.js). Both are
+ *  system packs, replaced wholesale on every update. */
+export const SHIPPED_2E_BACKGROUND_PACKS = [BG_PACK_FOR["2e"], SHIPPED_CUSTOM_BG_PACK];
+
 /**
  * Everything the CUSTOM toggle admits: the shipped custom pack plus the
  * world/module scan. One function so the pool and the picker's Custom section
@@ -2664,9 +2697,22 @@ const build2ePool = async ({ includeDisabled = false } = {}) => {
   const shippedOn = game.settings.get(SETTINGS_NS, "content-source-2e");
   if (shippedOn) await addShipped();
   if (game.settings.get(SETTINGS_NS, "content-source-custom")) {
+    // A world-pack copy that KEEPS a shipped canon id — the take-over's copies
+    // (module/take-over.js) — replaces the shipped entry in this Map and stands
+    // in for it: the de-dup-by-id rule docs/sharing-custom-backgrounds.md
+    // already states, and the whole of the take-over's undo story (delete the
+    // copy and the shipped one is back). It is grouped as CANON, not custom.
+    // Membership is still by provenance and never by a field on the document;
+    // a document's ID is its provenance here, and the picker's Player's Guide
+    // twenty must keep their archetype groups when every one of them is a
+    // stand-in. The canon pack's INDEX answers regardless of the 2e toggle (a
+    // homebrew-only game with stand-ins still reads them as canon), and a
+    // "(Copy)" made by Duplicate carries a fresh id, so it stays custom.
+    const canonPack = game.packs.get(BG_PACK_FOR["2e"]);
+    const canonIds = new Set(canonPack ? (await canonPack.getIndex()).map((e) => e._id) : []);
     for (const b of await getAllCustomBackgrounds()) {
       byId.set(b.id, b);
-      customIds.add(b.id);
+      if (!canonIds.has(b.id)) customIds.add(b.id);
     }
   }
   // Fall back ONLY when no toggle expressed a preference. A homebrew-only game
@@ -2716,6 +2762,9 @@ export const getBackgroundsByArchetype = async (source) => {
   // a glance. Membership is by PROVENANCE — the shipped custom pack plus the
   // world/module scan — never by a field on the document, so a duplicate a
   // Warden edited stays custom and a canon background can never drift in.
+  // One refinement since 2026-09-14: a world-pack copy that KEEPS a shipped
+  // canon id (the take-over's stand-in) is canon — by id, which is provenance
+  // too — so the twenty keep their groups. See build2ePool.
   let backgrounds, customIds;
   if (source === "2e") {
     ({ docs: backgrounds, customIds } = await build2ePool({ includeDisabled: game.user.isGM }));

@@ -117,3 +117,46 @@ For players, the sheet tools ride their own switch — **"Let players use
 Character Creation tools on their sheets"**, flipped by the **Toggle Player
 Creation Tools** macro — so you can allow character creation but keep
 mid-campaign re-rolls to yourself, or hand players the dice entirely.
+
+## Make the tables yours
+
+Everything a generated character is dealt from is a rollable table, and a table
+in **your world** with a shipped table's name is what gets rolled instead. So
+the durable way to change what characters arrive with is to keep your own copies
+in your world, where no update can touch them. Think of the shipped compendiums
+as **templates**: the starting point you copy and make your own, never the place
+you edit.
+
+Three buttons do the copying, all Wardens only:
+
+- **Create a Custom Spell Table…**, on the **Rollable Tables** sidebar
+  tab. It copies the spell table a character is dealt a random spellbook or
+  scroll from — `Spells — Canon (1d100)`, or `Spells — GLOG` while the GLOG
+  Magic hack is on — into a **Spells** folder, along with every spellbook it
+  can hand out, and points every row at your copies. The hack swaps the pool
+  wholesale and is a one-way campaign decision, so if you copy the canon list
+  and switch the hack on later, come back and press the button again for the
+  GLOG list.
+- **Create Custom Barebones Creation Tables…**, on the **Rollable
+  Tables** sidebar tab. It copies the six tables a Barebones character is dealt
+  from — Weapon, Armor, Additional Gear and the three Weapon Tier tables — into
+  a **Barebones Creation** folder, along with every item, mount and transport
+  they can hand out — the items sorted into a subfolder per source compendium,
+  Armor, Background Items, Gear, Tools, Trinkets, Weapons — and points every
+  row at your copies.
+- **Create Custom Backgrounds and Tables…**, on the
+  **Compendium** sidebar tab. That one is the 27 backgrounds plus the eleven
+  tables a 2e character rolls on; see
+  [Creating Custom Backgrounds](creating-custom-backgrounds.md) and
+  [Customizing Bonds](customizing-bonds.md).
+
+Why the items come too: a table row names a document, and generation hands over
+whatever that row points at. Import a table by itself and its rows still point
+into the compendium, so the Dagger a new character receives is the shipped
+Dagger however carefully you edited yours. With the rows pointed at your copies,
+changing a weapon's damage or a piece of gear's description changes what the
+next character is dealt.
+
+A window afterwards says what landed and offers to open the folders. Running
+either button again never overwrites: what you have edited is kept, and only
+what is missing is added.

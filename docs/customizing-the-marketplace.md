@@ -41,9 +41,50 @@ Your world is never touched by an update. So the durable way to change the shop
 is to keep your version of it in your world, which is what the rest of this page
 describes.
 
+Think of the shipped compendiums as **templates**: the starting point you copy
+and make your own, never the place you edit.
+
 ---
 
-## Replacing an aisle
+## Copy it into your world
+
+The one-button way. Open the **Rollable Tables** sidebar tab and press
+**Create a Custom Marketplace…** (Wardens only). It explains what it is
+for and how many documents it is about to copy; press **Copy** and you get:
+
+- the four **Market:** tables in your Rollable Tables, in a **Marketplace** folder;
+- every item they sell in your Items sidebar, in a **Marketplace** folder with a
+  subfolder per source compendium — Armor, Gear, Market Goods, Tools, Trinkets,
+  Weapons — and every mount and cart in a **Marketplace** folder of its own in
+  your Actors sidebar;
+- every row already pointing at your copy.
+
+A window then says what landed, with **Open Rollable Tables** and **Open Items**
+buttons that take you straight to the new folders.
+
+From then on the shop reads your tables and your items. Change a price, delete a
+row, drag something in — it all sticks, through every update.
+
+Three things worth knowing:
+
+- **Running it again never overwrites.** Anything already in your world is kept
+  as it is; only what is missing is added, and the window afterwards says how
+  many of each.
+- **A table you imported by hand earlier is kept too.** It is found by name, so
+  a `Market: Gear` you already had stays yours — but its rows still point at the
+  shipped items, and the window says so. Delete it and run again to have it
+  rebuilt pointing at your copies.
+- **Items you imported earlier are used, not duplicated.** A copy made with
+  Foundry's own Import, with or without *Keep Document IDs*, is recognised and
+  the rows point at it — at whatever price you gave it.
+
+One side effect, the same as after a hand import: a mount copied this way is
+also what an encounter table places for a row that points at the shipped one,
+because Foundry treats a world copy as the import of its source.
+
+---
+
+## Replacing an aisle by hand
 
 1. Open the **Compendium** sidebar tab → **Marketplace** → right-click
    **Market: Gear** → **Import**.
@@ -83,11 +124,18 @@ It appears after the four shipped ones, for everybody.
 ## Your own prices, kept
 
 A price lives on the item, and the shipped items are in shipped compendiums, so
-re-pricing one in place has the same fate as everything else in there. To keep a
-price:
+re-pricing one in place has the same fate as everything else in there. After
+**Create a Custom Marketplace…** every row already points at your copy, so a price is
+one edit: open the item in the **Marketplace** folder of your Items sidebar,
+under the name of the compendium it came from (a Dagger under Weapons; a mount
+or a cart is in the folder of the same name under Actors), set its **Cost**,
+done.
+
+By hand, one item at a time:
 
 1. Find the item in its compendium — **Market Goods**, **Expeditionary Gear**,
-   **Weapons**, **Armor**, or **Mounts & Transports** for a mount or a cart.
+   **Tools**, **Trinkets**, **Weapons**, **Armor**, or **Mounts & Transports**
+   for a mount or a cart.
 2. Right-click it → **Import**. It lands in your **Items** sidebar (a mount or a
    cart lands in **Actors**).
 3. Set its **Cost** there.

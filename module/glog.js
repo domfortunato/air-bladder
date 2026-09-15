@@ -26,11 +26,20 @@ import { formatCount } from "./utils.js";
 export const GLOG_PACK = "air-bladder.spellbooks-glog";
 
 /**
- * The spell packs in force under GLOG: the GLOG wordings plus the custom set,
- * canon deliberately absent. "Custom" is the pack as it exists today — its
- * disposition is the user's open decision and nothing here presumes it.
+ * The spell packs a by-NAME grant resolves against under GLOG: the GLOG
+ * wordings, then background-items for the class backgrounds' Shield (which
+ * has no GLOG counterpart and converts in form only). Canon deliberately
+ * absent. The RANDOM pool is not this list any more — it is the declared
+ * `Spells — GLOG` table (config.js characterGenerator2e.spells.glog).
+ *
+ * Until 2026-09-14 this also named the More Spellbooks pack, "the custom set",
+ * whose disposition was left open — and that made 217 spells with no GLOG
+ * wording at all (no `glog` flag, no [dice], no [sum]) two thirds of the GLOG
+ * random pool: a scroll that costs Magic Dice and Mishap risk to cast and does
+ * exactly what it says regardless. The user removed the pack from the repo
+ * ("including it was a mistake").
  */
-export const GLOG_SPELL_PACKS = [GLOG_PACK, "air-bladder.more-spellbooks"];
+export const GLOG_SPELL_PACKS = [GLOG_PACK, "air-bladder.background-items"];
 
 export const glogEnabled = () => {
   try {

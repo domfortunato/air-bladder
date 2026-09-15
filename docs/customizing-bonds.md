@@ -31,6 +31,30 @@ else to configure.
 
 ---
 
+## Copy the 2e tables into your world
+
+The one-button way, and it brings the rest of 2e's tables with it. Open the
+**Compendium** sidebar tab and press **Create Custom Backgrounds and Tables…**
+(Wardens only). Alongside the 27 backgrounds it copies the
+**eleven tables a 2e character rolls on** — Bonds, Omens, Scars, and the eight
+trait tables (Physique, Skin, Hair, Face, Speech, Clothing, Vice, Virtue) — into
+a **Cairn 2e Tables** folder in your Rollable Tables, rows and hidden payload
+intact.
+
+Think of the shipped compendiums as **templates**: the starting point you copy
+and make your own, never the place you edit. Every one of those eleven follows
+the rule below — a world table with the shipped table's name is what gets rolled
+— so once they are copied, rewording a bond, adding an omen or retuning a scar
+is just editing the table in your sidebar.
+
+Running it again never overwrites: a table you have already edited is kept
+exactly as it is, and only what is missing is added.
+
+The hand import below is still there, and is the right tool when you want one
+table and not eleven.
+
+---
+
 ## Replacing the bonds for the whole world
 
 1. Open the **Compendium** sidebar tab → **Tables (2e)** → right-click
@@ -115,9 +139,10 @@ behind it roll yours. Delete it and the shipped table is back.
 | A 2e character's biography — generation and the sheet's re-roll dice | `Physique`, `Skin`, `Hair`, `Face`, `Speech`, `Clothing`, `Vice`, `Virtue` (**Tables (2e)**) |
 | NPCs and hirelings — the generators, the sheet dice, and the pick-lists | `Warden: NPC - Name`, `Warden: NPC - Background`, `Warden: NPC - Faction`, `Warden: NPC - Quirk`, `Warden: NPC - Goal`, `Warden: NPC - Virtue`, `Warden: NPC - Vice` (**Warden: NPCs**) |
 | Monsters | the eight `Warden: Monster - …` tables (**Warden: Monsters**) |
-| Barebones character creation | `Barebones: Creation - Weapon`, `- Armor`, `- Additional Gear`, and the three `Barebones: Weapon Tier` tables (**Tables (Barebones)**) |
+| Barebones character creation | `Barebones: Creation - Weapon`, `- Armor`, `- Additional Gear`, and the three `Barebones: Weapon Tier` tables (**Tables (Barebones)**) — these have a one-button copy of their own, see [Generating Characters](generating-characters.md) |
 | Scars, when damage lands | `Scars` (**Utils**) |
-| Factions | every table the faction generator rolls (**Warden: Factions**) |
+| A random spellbook or spellscroll a background hands out | `Spells — Canon (1d100)` (**Tables (2e)**), or `Spells — GLOG` (**Tables (GLOG)**) with the GLOG hack on — these have a one-button copy of their own, spellbooks included, see [Generating Characters](generating-characters.md) |
+| Factions | every table the faction generator rolls (**Warden: NPCs**) |
 | The marketplace | the four `Market: …` tables — see [Customizing the marketplace](customizing-the-marketplace.md) |
 
 Two things worth knowing:
@@ -129,7 +154,8 @@ Two things worth knowing:
 - **A row's text is what gets written**, so on a table whose rows feed a
   mechanic — a Background that decides an NPC's starting gear, say — keep the
   shipped wording for the rows you want to keep working, and add your own rows
-  beside them.
+  beside them. On a spell table, rows pointing at anything that is not a
+  spellbook are skipped, so a stray text row does no harm.
 
 None of this needs a system compendium unlocked, and none of it is lost when
 Air Bladder updates.

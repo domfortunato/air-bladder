@@ -4538,3 +4538,50 @@ body.theme-light .cairn-watch-clock,
 .cairn-offer-picker .cairn-hidden {
     display: none;
 }
+
+/* "Copy to Your World" (module/take-over.js): a headed paragraph per point, a
+   counts line, and a hint. Layout only - the dialog is core chrome and keeps
+   core's colours, so there is nothing here for either theme to get wrong. */
+.cairn-take-over p {
+    margin: 0 0 0.6em;
+}
+
+.cairn-take-over p:last-child {
+    margin-bottom: 0;
+}
+
+.cairn-take-over .take-over-counts {
+    font-size: var(--font-size-13);
+}
+
+/* One button, one job, one row: these buttons carry a whole sentence, and
+   sharing a row left them cramped and unreadable (user, round two). The row
+   wraps so each takes the sidebar's full width under it - core's .flexrow does
+   not wrap on its own.
+
+   The label is LEFT-ALIGNED after a fixed glyph column, which is the Warden's
+   Dashboard ruling applied here: centred text under a glyph makes every line
+   start somewhere different, and a sentence that wraps looks broken rather
+   than merely long. `text-wrap: balance` is what stops "...to this" / "world"
+   - it splits a two-line label evenly instead of orphaning the last word. */
+header.character-generator.directory-header .header-actions {
+    flex-wrap: wrap;
+}
+
+header.character-generator.directory-header .header-actions > button {
+    flex: 1 0 100%;
+    justify-content: flex-start;
+    gap: 8px;
+    text-align: left;
+    white-space: normal;
+    text-wrap: balance;
+    height: auto;
+    min-height: var(--input-height);
+    line-height: 1.25;
+    padding-block: 5px;
+}
+
+header.character-generator.directory-header .header-actions > button > i {
+    flex: 0 0 1.1em;
+    text-align: center;
+}

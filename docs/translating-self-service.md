@@ -170,7 +170,7 @@ per PR:
    `content-warden-encounters`, `content-warden-npcs`, `content-warden-travel`,
    `content-warden-monsters`.
 3. **Big prose (last):** `content-backgrounds-2e`, `content-background-items`,
-   `content-spellbooks`, `content-more-spellbooks`, `content-monsters`.
+   `content-spellbooks`, `content-monsters`.
 
 There's **no deadline** and no wrong order — import merges whatever you've filled,
 so you can ship a pack at a time.

@@ -1,7 +1,7 @@
 _id: sAHcMoXAZeJpfCiC
 name: Spells — Canon (1d100)
 img: icons/svg/d20-grey.svg
-description: 'The canon spell list as a rollable table — one row per spellbook in the Spellbooks compendium, alphabetical. To roll on an edited pack, import this table into the world and use the Reseed Spell Table button in the Tables directory.'
+description: 'The canon spell list as a rollable table — one row per spellbook in the Spellbooks compendium, alphabetical. The pool a character is dealt a random spellbook or scroll from. To make it yours, press Create a Custom Spell Table… on the Rollable Tables sidebar.'
 results:
   - _id: zsS0WSIaRm9kEL6r
     type: document

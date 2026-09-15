@@ -1,4 +1,4 @@
-import { findTableItems, resultText } from "./compendium.js";
+import { findTableItems, resultText, MARKETPLACE_PACK } from "./compendium.js";
 import { iconForTransport, TRANSPORT_KINDS } from "./icons.js";
 import { atConnectionLimit, maxConnections, connectedOwnershipShape, OWNERSHIP_SYNC_FLAG } from "./connections.js";
 import { actorDisplayName, localizeNameDesc, t } from "./i18n-content.js";
@@ -57,7 +57,6 @@ export const TRANSPORTS_CATEGORY = "Transports & Containers";
 // Shopper-facing category order; a table whose stripped name isn't listed falls
 // to the end in pack order.
 const CATEGORY_ORDER = ["Weapons", "Armor", "Gear", TRANSPORTS_CATEGORY];
-const MARKETPLACE_PACK = "air-bladder.marketplace";
 /** What makes a WORLD table a market aisle. English, because a table's stored
  *  name is always English here — the content overlay translates for display and
  *  never for storage, which is the same reason `CATEGORY_ORDER` is English. */

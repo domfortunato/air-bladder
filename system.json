@@ -200,12 +200,6 @@
       "system": "air-bladder"
     },
     {
-      "name": "more-spellbooks",
-      "label": "CAIRN.Pack.more-spellbooks",
-      "type": "Item",
-      "system": "air-bladder"
-    },
-    {
       "name": "spellbooks-glog",
       "label": "CAIRN.Pack.spellbooks-glog",
       "type": "Item",
@@ -314,7 +308,6 @@
         "reliquary",
         "market-goods",
         "spellbooks",
-        "more-spellbooks",
         "spellbooks-glog"
       ]
     },

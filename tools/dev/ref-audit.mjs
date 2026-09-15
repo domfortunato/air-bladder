@@ -62,7 +62,7 @@ for (const pack of packDirs) {
  * Checked here rather than filtered at runtime: a filter over a catalog that
  * cannot contain them would be dead code that reads as protection.
  */
-const NO_SALE_PACKS = ["reliquary", "spellbooks", "more-spellbooks"];
+const NO_SALE_PACKS = ["reliquary", "spellbooks"];
 const forSale = [];
 
 const dangling = [];
@@ -223,7 +223,12 @@ for (const pack of CANONICAL_GEAR_PACKS) {
   for (const f of fs.readdirSync(dir).filter((n) => n.endsWith(".yml"))) {
     const doc = load(fs.readFileSync(path.join(dir, f), "utf8"));
     if (!doc?.name) continue;
-    const key = String(doc.name).toLowerCase();
+    // Two namespaces, exactly as gear.js resolves them (2026-09-14): a
+    // "Spellbook (X)" grant matches spellbooks only and a gear grant matches
+    // everything but, so a spellbook and an armor sharing a name — the class
+    // backgrounds' Shield in background-items beside armor's Shield — are not
+    // in each other's way. A second SPELLBOOK named Shield still is.
+    const key = `${doc.type === "spellbook" ? "spell" : "gear"}:${String(doc.name).toLowerCase()}`;
     if (!gearByName.has(key)) gearByName.set(key, []);
     gearByName.get(key).push(pack);
   }

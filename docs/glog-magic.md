@@ -28,7 +28,7 @@ The exclamation mark is earned. Turning this ON converts the whole world, once, 
   carrying the GLOG wording of its spell. A scroll that was already spent
   stays spent.
 - **New arrivals convert too.** Drag a canon spellbook from any compendium onto a character and it lands as an unspent Spellscroll. There are no spellbooks in a GLOG world — there are only Grimoires and spellscrolls.
-- **Character generation** hands out only GLOG and custom spells, always as scrolls.
+- **Character generation** hands out only GLOG spells, always as scrolls. They are rolled on the shipped **Spells — GLOG** table in **Tables (GLOG)**, and a table of that name in your world is rolled instead — **Create a Custom Spell Table…** on the Rollable Tables sidebar makes that copy, spells included, while the hack is on (see [Generating Characters](generating-characters.md)).
 
 **IMPORTANT: Turning GLOG magic off in settings will not convert spellscrolls back into normal (non-GLOG) spellbooks and spellscrolls** Treat the switch to GLOG as a campaign decision, not a toggle to flip between sessions.
 

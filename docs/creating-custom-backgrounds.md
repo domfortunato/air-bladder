@@ -35,6 +35,39 @@ the first time you use it, and it puts an editable copy inside, named
 Open that copy and you have the authoring sheet. Rename it, then work through the
 fields below, replacing the borrowed content as you go.
 
+## Taking over every shipped background at once
+
+If what you want is to edit the shipped backgrounds themselves — a different
+gear list for the Fieldwarden, a question rewritten — open the **Compendium**
+sidebar tab and press **Create Custom Backgrounds and Tables…** (Wardens only). It copies all 27 shipped 2e backgrounds, the Player's
+Guide twenty and the seven in **Backgrounds (Custom)**, into your **Custom
+Backgrounds** compendium under their own names, no "(Copy)" suffix, and switches
+custom backgrounds on.
+
+Think of the shipped compendiums as **templates**: the starting point you copy
+and make your own, never the place you edit.
+
+Each copy **stands in** for the shipped one: the picker and the generators use
+your copy and never the original, in the same archetype group it always had.
+Delete a copy and the shipped one is back. The eye toggle still hides any row you
+do not want offered.
+
+The same button also copies the **eleven tables a 2e character rolls on** —
+Bonds, Omens, Scars, and the eight trait tables (Physique, Skin, Hair, Face,
+Speech, Clothing, Vice, Virtue) — into a **Cairn 2e Tables** folder in your
+Rollable Tables, where the same rule applies: a world table with a shipped
+table's name is rolled instead of it. See
+[Customizing Bonds](customizing-bonds.md).
+
+A window afterwards says what landed, with **Open Custom Backgrounds** and
+**Open Rollable Tables** buttons that take you there — the backgrounds are in a
+world compendium on the Compendium tab, outside the Air Bladder folders, which
+is not where most people look first.
+
+Running it again never overwrites: a copy you have edited is kept, only what is
+missing is added, and a locked Custom Backgrounds compendium is refused rather
+than unlocked behind your back.
+
 ## Starting from nothing instead
 
 There is no separate "new background" button. Duplicating is the intended path, but
@@ -188,7 +221,9 @@ A finished background is still invisible until you switch the source on:
 
 **Game Settings → Configure Settings → Air Bladder → Character Generation → Configure Character Generation → "Offer custom Cairn 2e backgrounds"**
 
-With it on, your custom backgrounds join the picker's **Custom** section.
+With it on, your custom backgrounds join the picker's **Custom** section. A copy
+made by **Copy the Backgrounds…** is the one exception: it keeps the shipped
+background's place in its archetype group, because it stands in for it.
 
 That section is not only yours. The same setting also admits the seven class
 backgrounds Air Bladder ships in **Backgrounds (Custom)** — Fighter, Cleric,
@@ -232,7 +267,8 @@ This trips people up, so it is worth being exact:
 overwritten wholesale when Air Bladder updates — work put there is gone at the next
 release, with no warning and no recovery. If you want to change one of the seven, open
 it and use **Duplicate into Custom Backgrounds**, which copies it somewhere that
-survives.
+survives — or press **Copy the Backgrounds…** on the Compendium sidebar, which
+copies all seven, and the twenty, in one go.
 
 **Your own pack sits outside the *Air Bladder - Backgrounds* folder**, and that is not
 a mistake to fix. That folder groups the four packs the *system* ships — Backgrounds

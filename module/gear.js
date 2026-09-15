@@ -44,7 +44,18 @@ export const CANONICAL_GEAR_PACKS = [
   "air-bladder.background-items",
 ];
 
-export const SPELL_PACKS = ["air-bladder.spellbooks", "air-bladder.more-spellbooks"];
+/**
+ * Where a by-NAME spell grant ("Spellbook (Shield)") resolves: the canon
+ * spellbooks, then the background-items pack, which holds the ONE granted
+ * spell Cairn lacks — the class backgrounds' Shield (BECMI). It lived in the
+ * More Spellbooks pack until 2026-09-14, when that pack was REMOVED from the
+ * repo (user ruling: "including it was a mistake" — 217 non-SRD spells from
+ * cairnrpg.com's extended list, none of them GLOG-worded, and two thirds of
+ * the GLOG random pool by accident). The spell branch of resolveGearItem
+ * filters the index by TYPE, so a background-items ITEM sharing a spell's
+ * name can never answer a spellbook grant.
+ */
+export const SPELL_PACKS = ["air-bladder.spellbooks", "air-bladder.background-items"];
 
 // Genuine spelling variants — NOT mere casing (the resolver is already
 // case-insensitive). Key: lowercased grant spelling → canonical pack item name.
@@ -333,7 +344,14 @@ export const resolveGearItem = async (name, { quantity = 1, uses } = {}) => {
   for (const key of packs) {
     const pack = game.packs.get(key);
     if (!pack) continue;
-    const entry = (await pack.getIndex()).find((e) => e.name.toLowerCase() === lower);
+    // Spell names and gear names are TWO namespaces: a spell grant answers to a
+    // spellbook only, a gear grant to anything but. background-items holds
+    // both kinds since 2026-09-14 (the class backgrounds' Shield spellbook
+    // beside their one-off items) and armor ships a Shield of its own, so
+    // without this a plain "Shield" grant would depend on pack ORDER to find
+    // the armor. check:refs keys its duplicate-name gate the same way.
+    const entry = (await pack.getIndex()).find((e) => e.name.toLowerCase() === lower
+      && (spell ? e.type === "spellbook" : e.type !== "spellbook"));
     if (!entry) continue;
     const doc = await pack.getDocument(entry._id);
     if (doc) { found = doc; break; }
@@ -343,21 +361,38 @@ export const resolveGearItem = async (name, { quantity = 1, uses } = {}) => {
     return null;
   }
 
+  return itemDataFromDocument(found, { quantity, uses, grantName: name });
+};
+
+/**
+ * A fresh owned-item payload built from an item DOCUMENT — the tail of
+ * `resolveGearItem`, factored out 2026-09-14 for the Barebones table reader,
+ * which hands over a row's own WORLD item rather than looking its name up in
+ * the shipped packs (character-generator.js resolveBarebonesResult). One
+ * definition, so a row's item and a named grant of the same thing arrive in
+ * the same shape — the scroll rule included.
+ *
+ * @param {Item} doc
+ * @param {{quantity?: number, uses?: number, grantName?: string}} [options]
+ *   `grantName` is the wording the grant used, which is what decides the scroll
+ *   question; it defaults to the document's own name.
+ */
+export const itemDataFromDocument = (doc, { quantity = 1, uses, grantName } = {}) => {
   // A "Scroll (X)" grant is the spell as a single-use petty scroll, not the
   // slot-taking book. Without this a background handing out a scroll silently
   // grants a full spellbook (and the sheet even labels it "Spellbook — X").
   // Under GLOG, EVERY spell grant is a scroll — "Spellbook (X)" included: found
   // magic is a scroll you copy into your grimoire, and permanent books are
   // treasure, never handed out (rulings 2 and 7, 2026-08-05).
-  if (found.type === "spellbook" && (isScrollGrant(name) || glogEnabled())) {
-    return spellScrollItem(found, { quantity, uses });
+  if (doc.type === "spellbook" && (isScrollGrant(grantName ?? doc.name) || glogEnabled())) {
+    return spellScrollItem(doc, { quantity, uses });
   }
 
   const item = {
-    name: found.name,
-    type: found.type,
-    img: found.img,
-    // toObject(), NOT deepClone. `found.system` is a TypeDataModel, and
+    name: doc.name,
+    type: doc.type,
+    img: doc.img,
+    // toObject(), NOT deepClone. `doc.system` is a TypeDataModel, and
     // foundry.utils.deepClone returns any non-plain object UNCHANGED — by
     // reference (common/utils/helpers.mjs:280-282, "Unsupported advanced
     // objects"). So this used to hand back the compendium document's own
@@ -365,7 +400,7 @@ export const resolveGearItem = async (name, { quantity = 1, uses } = {}) => {
     // resolved in a session aliased one object per pack entry, last write wins.
     // It was invisible until a grant asked for `uses`, because everything else
     // was writing the same value back.
-    system: found.system.toObject(),
+    system: doc.system.toObject(),
   };
   item.system.quantity = quantity;
   if (uses != null) item.system.uses = { value: uses, max: uses };

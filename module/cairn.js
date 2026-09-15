@@ -7,7 +7,7 @@ import { createCharacter, createActorInteractive, requestPcGeneration, enabledCo
 import * as characterGenerator from "./character-generator.js";
 import * as monsterGenerator from "./monster-generator.js";
 import { createFactionInteractive } from "./faction-generator.js";
-import { reseedSpellTable } from "./spell-tables.js";
+import { injectTakeOverButton } from "./take-over.js";
 import { importKettlewrightCharacter, performKettlewrightImport, sanitizeKettlewrightExport, showImportSummary } from "./kettlewright-import.js";
 import * as kettlewrightImport from "./kettlewright-import.js";
 import { Cairn } from "./config.js";
@@ -3302,26 +3302,20 @@ const showDamageApplied = (message, html, scene) => {
   row.append(line);
 };
 
-Hooks.on("renderRollTableDirectory", (app, html) => {
-  // Warden-only: reseed a world spell table from a compendium's index,
-  // update-in-place (module/spell-tables.js). Same injection rules as the
-  // Actor directory's row above: scope the injected-already test to THIS
-  // directory root — the popped-out window is a second, independent render.
-  if (!game.user.isGM) return;
-  if (html.querySelector(".cairn-reseed-spell-table")) return;
-  const dirHeader = html.querySelector(".directory-header");
-  if (!dirHeader) return;
-  const section = document.createElement("header");
-  section.classList.add("character-generator", "directory-header");
-  dirHeader.parentNode.insertBefore(section, dirHeader);
-  section.insertAdjacentHTML(
-    "afterbegin",
-    `<div class="header-actions action-buttons flexrow">
-      <button class="cairn-reseed-spell-table"><i class="fas fa-arrows-rotate"></i>${game.i18n.localize("CAIRN.ReseedSpellTable")}</button>
-    </div>`
-  );
-  section.querySelector(".cairn-reseed-spell-table")
-    .addEventListener("click", () => reseedSpellTable());
+// The four "Copy the …" doors (module/take-over.js), one button per kind of
+// content on the tab where that content lands: NAMED handlers, so a probe can
+// switch each off in-page (lib.mjs withHookOff finds a hook by its fn.name).
+// The compendium one is its own registration — the search-wrap hook above
+// returns early on `!contentLocalized()`, and these buttons must not. The
+// spells door sits first, where "Reseed a Spell Table…" sat until 2026-09-14
+// (user ruling: one mechanism for every table, the Copy button's).
+Hooks.on("renderRollTableDirectory", function abTakeOverTablesButton(app, html) {
+  injectTakeOverButton(html, { kind: "spells" });
+  injectTakeOverButton(html, { kind: "marketplace" });
+  injectTakeOverButton(html, { kind: "barebones" });
+});
+Hooks.on("renderCompendiumDirectory", function abTakeOverCompendiumButton(app, html) {
+  injectTakeOverButton(html, { kind: "cairn2e" });
 });
 
 Hooks.on("renderChatMessageHTML", (message, html, data) => {

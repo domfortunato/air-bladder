@@ -31,7 +31,7 @@ node tools/import/backgrounds-2e.mjs # rewrite the 20 2e backgrounds' TEXT
 node tools/import/class-backgrounds.mjs # the shipped CUSTOM pack (7 class backgrounds)
 node tools/import/glog-spells.mjs       # the GLOG spell pack (100 re-worded canon spells)
 node tools/import/glog-content.mjs      # the GLOG Mishaps table + player handout
-node tools/import/spell-tables.mjs      # "Spells — Canon (1d100)" over the spellbooks pack
+node tools/import/spell-tables.mjs      # the two spell tables — AFTER glog-content, which wipes tables-glog
 node tools/import/npc-careers-2e.mjs # module/npc-careers-2e.json
 node tools/import/portraits.mjs      # module/portrait-manifest.json
 node tools/import/game-icons.mjs --src <dir>   # game-icons/ + its manifest
@@ -48,13 +48,13 @@ curation changes. Point `--src` at the unpacked download.
 | script | writes | source |
 | --- | --- | --- |
 | `barebones.mjs` | `backgrounds-barebones`, `tables-barebones`, + missing gear | `barebones/rules/barebones-character-creation.md` |
-| `class-backgrounds.mjs` | `backgrounds-custom`, its one-off items in `background-items`, the Shield spellbook | INLINE — "Backgrounds for Cairn" (Gordon McCormick, CC BY-SA 4.0 text), a PDF with no machine-readable upstream; the script is the artifact of record |
+| `class-backgrounds.mjs` | `backgrounds-custom`, its one-off items in `background-items`, the Shield spellbook (also in `background-items` since the `more-spellbooks` pack was removed on 2026-09-14) | INLINE — "Backgrounds for Cairn" (Gordon McCormick, CC BY-SA 4.0 text), a PDF with no machine-readable upstream; the script is the artifact of record |
 | `glog-spells.mjs` | `spellbooks-glog` (100 docs, `system.glog: true`) | INLINE — cairnrpg.com/hacks/glog-spells/ (CC BY-SA 4.0, stated on the page), no machine-readable form; transcription is VERBATIM including the page's own typos, and the script is the artifact of record |
-| `glog-content.mjs` | `tables-glog` (the Mishaps 2–24 lookup) + `journals-glog` (the player handout — the system's first JournalEntry pack); both dirs wiped whole | INLINE — cairnrpg.com/hacks/glog-magic/ (CC BY-SA 4.0, stated on the page); transcription VERBATIM including the page's own typos, the script is the artifact of record. **Run it after any extract**, same reason as spell-tables |
+| `glog-content.mjs` | `tables-glog` (the Mishaps 2–24 lookup) + `journals-glog` (the player handout — the system's first JournalEntry pack); both dirs wiped whole, except the `Spells — GLOG` table `spell-tables.mjs` owns in `tables-glog`, spared by its stable id | INLINE — cairnrpg.com/hacks/glog-magic/ (CC BY-SA 4.0, stated on the page); transcription VERBATIM including the page's own typos, the script is the artifact of record. **Run it after any extract**, same reason as spell-tables |
 | `cairn-rules.mjs` | `journals-2e` (both entries; dir wiped whole) | INLINE — cairnrpg.com/second-edition/players-guide/ Overview & Principles + Core Rules (CC BY-SA 4.0, stated on every page); transcription VERBATIM, the script is the artifact of record |
 | `system-docs.mjs` | `journals-docs` (the in-game Warden guides; dir wiped whole) | `docs/*.md` per its ROSTER — **rerun after editing any mirrored guide**, or the journal copy a Warden reads is the stale one |
 | `vald.mjs` | `journals-vald` (one book entry, nine pages; dir wiped whole) | `second-edition/wardens-guide/vald.md` — throws on a link or a section-count change so an SRD edit forces a decision here |
-| `spell-tables.mjs` | the "Spells — Canon (1d100)" table in `tables-2e` (one file, stable id — the rest of the pack is hand-tended and untouched) | `src/packs/spellbooks` — one document-uuid row per spellbook, alphabetical. **Run it after any extract**: the table document is importer-owned, so an extract that predates its first build sweeps the file |
+| `spell-tables.mjs` | the "Spells — Canon (1d100)" table in `tables-2e` and the "Spells — GLOG" table in `tables-glog` (one file each, stable ids — the rest of both packs is untouched) | `src/packs/spellbooks` for canon; `spellbooks-glog` for GLOG — one document-uuid row per spellbook, alphabetical. These are the random-spell pool's shipped fallbacks (`module/config.js` `characterGenerator2e.spells`). **Run it after any extract, and after `glog-content.mjs`**: the table documents are importer-owned, so an extract that predates their first build sweeps the files |
 | `backgrounds-2e.mjs` | text fields of `backgrounds-2e` | `second-edition/backgrounds/*.md` (20 files) |
 | `marketplace.mjs` | `marketplace`, `market-goods`, `cost` on pool items | `second-edition/players-guide/marketplace.md` + `marketplace-descriptions.csv` |
 | `transports.mjs` | `transports`, the transport shop table | self-contained (2e transport numbers) |
