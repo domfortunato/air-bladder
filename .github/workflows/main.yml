@@ -129,16 +129,40 @@ jobs:
       # file that had not existed for releases without anyone noticing.
       - run: zip -r ./system.zip README.md README.es.md LICENSE.txt system.json art/ css/ fonts/ icons/ lang/ logo/ module/ packs/ templates/
 
+      # The release notes ride in the TAG. `npm run release` writes CHANGELOG.md's
+      # section for the version as the body of the annotated tag (RELEASE.md), the
+      # mirror carries the tag OBJECT to GitHub — every tag on the mirror lists a
+      # peeled `^{}` entry, which only an annotated tag has — and this reads the
+      # body back, so the release is created with its notes in the same call that
+      # attaches the assets. Nothing to paste afterwards. The tags are present
+      # because the checkout above fetches the whole history (check:translations
+      # already depends on that). A tag cut before the changelog existed (0.1.22
+      # and earlier) has a one-line message and an empty body, which is the same
+      # empty body those releases were created with; a rebuild of any release
+      # through workflow_dispatch leaves the body alone regardless
+      # (omitBodyDuringUpdate below), so notes edited by hand on the release page
+      # are never blanked.
+      - name: Read the release notes from the tag
+        run: |
+          git tag -l --format='%(contents:body)' "$RELEASE_TAG" > release-notes.md
+          if [ -s release-notes.md ]; then
+            echo "release notes: $(wc -l < release-notes.md) lines from the body of tag $RELEASE_TAG"
+          else
+            echo "release notes: tag $RELEASE_TAG carries none (the release body stays as it is)"
+          fi
+
       # Create/update the release with the built files
       - name: Update Release with Files
         id: create_version_release
         uses: ncipollo/release-action@v1
         with:
           allowUpdates: true # Set this to false if you want to prevent updating existing releases
-          # No `name`/`body` inputs: neither trigger carries them, and the action falls back
-          # to the tag for the name. The omit flags then stop an update from blanking notes
-          # written by hand on the release page.
+          # No `name` input: the action falls back to the tag for the name. The body is
+          # the tag's own (read above). The omit flags then stop an update — a rebuild
+          # through workflow_dispatch — from blanking notes edited by hand on the
+          # release page, or from re-imposing the tag's over them.
           omitNameDuringUpdate: true
+          bodyFile: release-notes.md
           omitBodyDuringUpdate: true
           draft: false
           # `prerelease: false` applies to NEWLY created releases only. Without the omit

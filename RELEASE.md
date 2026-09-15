@@ -11,13 +11,36 @@ That script (`tools/release.mjs`):
 
 1. validates the version (`X.Y.Z`, no leading `v`),
 2. refuses if the working tree has uncommitted tracked changes or the tag exists,
-3. bumps `version` in `system.json`,
-4. commits `Release X.Y.Z`, creates an annotated tag, and pushes the branch + tag
-   to `origin`.
+3. reads the release notes from `CHANGELOG.md` — the `## X.Y.Z` section — and
+   refuses without them,
+4. bumps `version` in `system.json`,
+5. commits `Release X.Y.Z`, creates an annotated tag whose body is the notes, and
+   pushes the branch + tag to `origin`.
 
 Then the **"Release Creation"** workflow (`.github/workflows/main.yml`) triggers on
-the tag push, builds the packs, zips the system, and creates the published release
-with `system.json` + `system.zip` — including rewriting the manifest/download URLs.
+the tag push, builds the packs, zips the system, reads the notes back out of the
+tag, and creates the published release with `system.json` + `system.zip` and those
+notes as its body — including rewriting the manifest/download URLs. The notes land
+in the same call that attaches the assets; nothing is pasted afterwards.
+
+## Release notes
+
+Write them in `CHANGELOG.md` before the merge, under a `## X.Y.Z` heading, newest
+section first. What is under the heading is the release body, verbatim, after a
+`# Air Bladder X.Y.Z` headline the script adds. `npm run release X.Y.Z --dry-run`
+prints the exact body and every check's verdict without writing anything, and it
+runs on `dev`, so the notes can be previewed before the merge.
+
+The tag is the carrier: `origin` push-mirrors the tag *object* to GitHub, not just
+the ref, so the body travels with it. A release on the Gitea side would not do —
+Gitea keeps release notes in its own database, and the mirror moves git refs only.
+
+Two things worth knowing if a tag is ever made by hand. Git's default tag-message
+cleanup strips every line beginning with `#` as a comment, headings included, so the
+script tags with `--cleanup=whitespace`; do the same. And the workflow's
+`omitBodyDuringUpdate` means the tag's body is applied when the release is
+*created* and never on a rebuild, so notes edited by hand on the release page
+survive `workflow_dispatch`.
 
 ## The one rule that keeps releases from breaking
 
@@ -71,21 +94,23 @@ translator's, are licensed CC BY-SA as derivatives of the game text, and must no
 rewritten. Two files with "es" in the name, two different regimes — see
 [docs/i18n-maintainer.md](docs/i18n-maintainer.md).
 
-1. Merge the work into `master` and make sure it is current:
+1. Write the release notes in `CHANGELOG.md` under `## X.Y.Z` and commit them on
+   `dev` (see "Release notes" above). `npm run release X.Y.Z --dry-run` shows the
+   body the release will carry.
+2. Merge the work into `master` and make sure it is current:
    ```bash
    git checkout master && git pull && git merge dev
    ```
-2. `npm run release X.Y.Z` — it refuses to run anywhere but `master`, and prints
-   the commits it is about to ship. An empty list means step 1 did not happen.
-3. **If `origin` mirrors to GitHub**, make sure the mirror syncs the new tag
+3. `npm run release X.Y.Z` — it refuses to run anywhere but `master`, refuses
+   without the notes, and prints the commits it is about to ship. An empty list
+   means step 2 did not happen.
+4. **If `origin` mirrors to GitHub**, make sure the mirror syncs the new tag
    (enable "sync on push" once, or trigger a sync). If `origin` *is* GitHub, skip
    this — the tag is already there.
-4. Watch the **Actions** tab: the *Release Creation* run should go green in ~1–2
-   minutes and produce a release with two assets.
-5. Verify the install manifest returns **200**:
+5. Watch the **Actions** tab: the *Release Creation* run should go green in ~1–2
+   minutes and produce a release with two assets and the notes as its body.
+6. Verify the install manifest returns **200**:
    `https://github.com/<owner>/<repo>/releases/latest/download/system.json`
-6. (Optional) add release notes on the GitHub release. Rebuilds preserve them
-   (`omitBodyDuringUpdate`).
 7. **Sync `dev`, or the next merge conflicts.** The release commit bumps
    `system.json` on `master` only, so `dev` is behind by that line every time:
    ```bash
@@ -93,7 +118,7 @@ rewritten. Two files with "es" in the name, two different regimes — see
    ```
 
 Don't merge and then sit on it. The website redeploys from `master` on the merge
-while users still install the previous tag, so a delay between step 1 and step 2
+while users still install the previous tag, so a delay between step 2 and step 3
 publishes documentation for a version nobody can install yet.
 
 ## Rebuilding / recovering a release

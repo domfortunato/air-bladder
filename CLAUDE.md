@@ -80,6 +80,21 @@ deleted. Full model in `docs/git-flow.md`; contributor-facing summary in
   force-syncs, so a GitHub-only ref is pruned and its release silently becomes a
   draft. Tag on `origin`. Same reason PRs are merged locally, never with GitHub's
   button — see `docs/i18n-maintainer.md`.
+- **The release notes ride in the TAG (2026-09-15, user ask: notes written on
+  the Gitea side before the tag, landing on GitHub the moment the release
+  does).** `CHANGELOG.md` holds a `## X.Y.Z` section per release; `npm run
+  release` REFUSES without one (0.1.22 was published with an empty body because
+  the notes were a step nobody's checklist held), writes it as the annotated
+  tag's body, and `main.yml` reads the body back and creates the release with
+  it. The mirror carries the tag OBJECT — every tag on GitHub lists a peeled
+  `^{}` entry — which is what makes the tag a carrier; a Gitea RELEASE would
+  not work, since its notes live in Gitea's database and the mirror moves git
+  refs only. `--cleanup=whitespace` on the tag is load-bearing: git's default
+  strips every `#` line as a comment, headline included, in silence (proven in
+  a throwaway clone, both modes). **The user signs off on every edit to
+  `CHANGELOG.md` personally** — draft the section in chat, land it on their
+  word, never as part of some other commit. `--dry-run` prints the exact body
+  and runs on `dev`.
 - Why bother: docs and the website track `master` while users install the tag, so
   work on `master` would publish documentation for features nobody can install. And
   `dev` mirrors to GitHub in seconds, so people can clone it and test unreleased

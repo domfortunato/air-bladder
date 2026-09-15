@@ -93,7 +93,7 @@ GitHub — so pushing to `dev` backs the work up *and* publishes it for testers 
 ```sh
 git checkout master
 git merge dev
-npm run release 0.1.8        # bumps system.json, commits, tags, pushes to origin
+npm run release 0.1.8        # reads CHANGELOG.md, bumps system.json, commits, tags, pushes to origin
 git checkout dev
 git merge master             # REQUIRED — see below
 git push origin dev
