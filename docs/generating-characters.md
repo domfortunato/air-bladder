@@ -132,16 +132,16 @@ Three buttons do the copying, all Wardens only:
 - **Create a Custom Spell Table…**, on the **Rollable Tables** sidebar
   tab. It copies the spell table a character is dealt a random spellbook or
   scroll from — `Spells — Canon (1d100)`, or `Spells — GLOG` while the GLOG
-  Magic hack is on — into a **Spells** folder, along with every spellbook it
-  can hand out, and points every row at your copies. The hack swaps the pool
+  Magic hack is on — into a **Custom Spells** folder, along with every spellbook
+  it can hand out, and points every row at your copies. The hack swaps the pool
   wholesale and is a one-way campaign decision, so if you copy the canon list
   and switch the hack on later, come back and press the button again for the
   GLOG list.
 - **Create Custom Barebones Creation Tables…**, on the **Rollable
   Tables** sidebar tab. It copies the six tables a Barebones character is dealt
   from — Weapon, Armor, Additional Gear and the three Weapon Tier tables — into
-  a **Barebones Creation** folder, along with every item, mount and transport
-  they can hand out — the items sorted into a subfolder per source compendium,
+  a **Custom Barebones Character Creation** folder, along with every item, mount
+  and transport they can hand out — the items sorted into a subfolder per source compendium,
   Armor, Background Items, Gear, Tools, Trinkets, Weapons — and points every
   row at your copies.
 - **Create Custom Backgrounds and Tables…**, on the
@@ -160,3 +160,25 @@ next character is dealt.
 A window afterwards says what landed and offers to open the folders. Running
 either button again never overwrites: what you have edited is kept, and only
 what is missing is added.
+
+Every copy explains itself. Open one and a note at the top says what it is
+dealt for and how to add a row. Drag a spellbook onto the spell table and it
+re-sorts itself by name, formula included, so the new spell can be rolled.
+Drag an item onto a Barebones creation table and the table's die follows its
+rows, so the new item can be rolled too.
+
+## Taking a background out of play
+
+You do not need a copy to hide a shipped background. Open any Cairn 2e
+character with **Character Creation Mode** on, press the **pick-list button**
+beside Background, and every background in play is listed with an **eye** at
+the end of its row — the eyes show for the Warden only. Click the eye and that
+background is out: the row greys out for you, and for players it disappears
+from the list and the dice never land on it. Click the eye again to bring it
+back.
+
+It is per background, and the world remembers it, so it holds for every
+character and every session until you change it. It works the same on the
+Player's Guide twenty, the seven in **Backgrounds (Custom)**, and your own
+copies. The last background left in play cannot be switched off, because
+generation must always have something to deal.

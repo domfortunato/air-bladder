@@ -72,9 +72,9 @@
  * ORDER. Folders, then items and actors, then tables LAST with their rows
  * inline: an EMPTY world `Market:` table deletes its aisle (getMarketplaceCatalog
  * skips a category with no resolved rows), and rows created with their parent
- * fire no `createTableResult`, so `onCreateMarketResult` cannot re-sort a table
- * mid-write. A failure before the tables leaves the shop on the shipped aisles
- * and a re-run resumes.
+ * fire no `createTableResult`, so table-banner.js `onReadTableRowsChanged`
+ * cannot re-sort a table mid-write. A failure before the tables leaves the
+ * shop on the shipped aisles and a re-run resumes.
  *
  * Gate: `npm run dev:take-over`.
  */
@@ -109,13 +109,16 @@ const CAIRN_2E_TABLES = [
   "Physique", "Skin", "Hair", "Face", "Speech", "Clothing", "Vice", "Virtue",
 ];
 
-/** The spell pool in force RIGHT NOW as a take-over spec — the same declaration
- *  the generator rolls, split into its pack and table halves. */
-const spellSpec = () => {
-  const decl = glogEnabled() ? Cairn.characterGenerator2e.spells.glog : Cairn.characterGenerator2e.spells.canon;
+/** One pool as a take-over spec — the generator's own declaration, split into
+ *  its pack and table halves. */
+const spellSpecFor = (glog) => {
+  const decl = glog ? Cairn.characterGenerator2e.spells.glog : Cairn.characterGenerator2e.spells.canon;
   const [pack, table] = compendiumInfoFromString(decl);
   return { key: "spells", pack, only: [table], folder: "CAIRN.TakeOver.Spells.Folder" };
 };
+
+/** The spell pool in force RIGHT NOW as a take-over spec. */
+const spellSpec = () => spellSpecFor(glogEnabled());
 
 /**
  * One declaration per button: which pack it copies, what its confirm says, and
@@ -125,10 +128,18 @@ const spellSpec = () => {
  * `extra` may be FUNCTIONS, read when the button is pressed: the spells kind
  * depends on a setting that needs no reload, and the directory does not
  * re-render on a settings save.
+ *
+ * `tab` is the sidebar the button sits on, and `specs` — where a kind has more
+ * than one state — names EVERY table set it can copy. Both exist for
+ * `kindOfTable` below: the table banner (table-banner.js) asks which button
+ * covers a table, and must recognise a `Spells — GLOG` copy in a canon world,
+ * or the shipped GLOG table under the hack off, as the Spell Table button's.
  */
 const KINDS = {
   spells: {
     spec: spellSpec,
+    specs: () => [spellSpecFor(false), spellSpecFor(true)],
+    tab: "tables",
     button: "CAIRN.TakeOver.Spells.Button",
     title: "CAIRN.TakeOver.Spells.Title",
     pitch: "CAIRN.TakeOver.Spells.Pitch",
@@ -140,6 +151,7 @@ const KINDS = {
   },
   marketplace: {
     spec: { key: "marketplace", pack: MARKETPLACE_PACK, folder: "CAIRN.TakeOver.Marketplace.Folder" },
+    tab: "tables",
     button: "CAIRN.TakeOver.Marketplace.Button",
     title: "CAIRN.TakeOver.Marketplace.Title",
     pitch: "CAIRN.TakeOver.Marketplace.Pitch",
@@ -150,6 +162,7 @@ const KINDS = {
   },
   barebones: {
     spec: { key: "barebones", pack: "air-bladder.tables-barebones", folder: "CAIRN.TakeOver.Barebones.Folder" },
+    tab: "tables",
     button: "CAIRN.TakeOver.Barebones.Button",
     title: "CAIRN.TakeOver.Barebones.Title",
     pitch: "CAIRN.TakeOver.Barebones.Pitch",
@@ -161,6 +174,7 @@ const KINDS = {
   cairn2e: {
     spec: { key: "cairn2e", pack: "air-bladder.tables-2e", only: CAIRN_2E_TABLES, folder: "CAIRN.TakeOver.Cairn2e.Folder" },
     backgrounds: true,
+    tab: "compendium",
     button: "CAIRN.TakeOver.Cairn2e.Button",
     title: "CAIRN.TakeOver.Cairn2e.Title",
     pitch: "CAIRN.TakeOver.Cairn2e.Pitch",
@@ -397,7 +411,7 @@ export const runTableTakeOver = async (plan) => {
         return row;
       });
       // Stored, not derived: the re-sort on drop compares `_source.formula`
-      // (marketplace.js resortMarketTable, review #30).
+      // (marketplace.js resortTableByName, review #30).
       data.formula = `1d${rows.length}`;
       return data;
     });
@@ -625,6 +639,37 @@ const resolveKind = (kind) => ({
   spec: typeof kind.spec === "function" ? kind.spec() : kind.spec,
   extra: typeof kind.extra === "function" ? kind.extra() : kind.extra,
 });
+
+/** Every spec a kind can copy, across its states. */
+const specsOf = (kind) => (kind.specs ? kind.specs() : [resolveKind(kind).spec]);
+
+/**
+ * Which button copies a table of this NAME — and, for a pack table, from this
+ * pack. The declaration that decides what a button copies is the one that
+ * decides which banner its copies wear (table-banner.js), so the two cannot
+ * drift: add a table to a kind and its copy explains itself. Synchronous, off
+ * the pack INDEX, which core populates at boot for every pack.
+ *
+ * A name shipped in two packs (Scars: `tables-2e` and `utils`) takes the
+ * button's kind for a WORLD table, because `kinds` are asked first and a
+ * world table has no pack to disambiguate by; for a pack table the pack
+ * decides, so utils' Scars is nobody's button.
+ * @param {string} name
+ * @param {{pack?: string|null}} [options]  restrict to tables shipped in this pack
+ * @returns {{key: string, spec: object, kind: object}|null}
+ */
+export const kindOfTable = (name, { pack = null } = {}) => {
+  for (const [key, kind] of Object.entries(KINDS)) {
+    for (const spec of specsOf(kind)) {
+      if (pack && spec.pack !== pack) continue;
+      const index = game.packs.get(spec.pack)?.index;
+      if (!index) continue;
+      const shipped = spec.only ? spec.only.includes(name) : index.some((e) => e.name === name);
+      if (shipped) return { key, spec, kind };
+    }
+  }
+  return null;
+};
 
 /**
  * One button's whole job: plan, confirm, run, report.

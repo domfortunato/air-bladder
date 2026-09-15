@@ -110,7 +110,7 @@ Two traps recorded in the code and worth carrying into any new work:
 
 ## The import graph, in tiers
 
-Sorting the 36 files by the longest chain of internal imports beneath each one
+Sorting the 37 files by the longest chain of internal imports beneath each one
 gives this. Tier says **how much has to exist before a file can load** — not how
 complicated it is. `art-picker.js` sits at tier 7 and is 159 lines of code.
 
@@ -124,7 +124,7 @@ complicated it is. `art-picker.js` sits at tier 7 and is 159 lines of code.
 | **5** | `actor/actor.js`, `grimoire.js`, `item-offer.js`, `watch-clock.js`, `warden-dashboard.js` |
 | **6** | `character-generator.js` |
 | **7** | `monster-generator.js`, `kettlewright-import.js`, `encounters.js`, `art-picker.js`, `take-over.js` |
-| **8** | `actor/actor-sheet.js`, `item/item-sheet.js` |
+| **8** | `actor/actor-sheet.js`, `item/item-sheet.js`, `table-banner.js` |
 | **9** | `cairn.js` |
 
 The other measure worth having is the reverse one — how many files import each
@@ -188,19 +188,24 @@ Six things carry roughly half the logic, and nothing routes around them.
 
 ## The leaf features
 
-Fourteen files are imported only by the boot file or by a sheet, which means
+Thirteen files are imported only by the boot file or by a sheet, which means
 **no other feature depends on them**. Each can be read, understood and changed
 on its own once the spine is familiar:
 
 `art-picker.js` · `combat.js` · `encounters.js` · `faction-generator.js` ·
 `grimoire.js` · `item-offer.js` · `kettlewright-import.js` · `macros.js` ·
-`marketplace.js` · `monster-generator.js` ·
-`take-over.js` · `warden-dashboard.js` · `watch-clock.js` · `weather-log.js`
+`monster-generator.js` · `table-banner.js` ·
+`warden-dashboard.js` · `watch-clock.js` · `weather-log.js`
 
 Three more form a small cluster of their own around timekeeping —
 `vald-calendar.js`, `calendar-events.js` and `warden-damage.js` are imported by
 the dashboard and the clock as well as by the boot file — and
 `settings-menus.js` is a leaf of `settings.js` rather than of the system.
+`marketplace.js` and `take-over.js` left this list on 2026-09-15, when
+`table-banner.js` began importing both: the aisle helper, the alphabetical
+predicate and the re-sort from the first, the button-to-table lookup from the
+second. The row hook that keeps every read world table rollable lives in
+`table-banner.js` too, beside the banner it makes true.
 
 This is the practical consequence: **a change to a leaf feature cannot break
 another feature except through the spine**. That is worth checking before

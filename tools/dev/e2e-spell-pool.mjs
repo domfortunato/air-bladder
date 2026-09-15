@@ -96,6 +96,7 @@ try {
       out[mode] = {
         resolved: true, decl: decls[mode], inPack: !!table.pack, name: table.name,
         rows: rows.length, spellbooks, named, ranged, inPools, expected, formula: table._source.formula,
+        description: table.description ?? "",
       };
     }
     // Control: fromUuid CAN fail, so "every row resolves" is a claim.
@@ -110,6 +111,11 @@ try {
     check(s.resolved && s.spellbooks === s.rows && s.named === s.rows && s.inPools === s.rows,
       `…${mode}: every row resolves into those packs to a spellbook named as the row`, `${s.spellbooks}/${s.named}/${s.inPools} of ${s.rows}`);
     check(s.resolved && s.ranged === s.rows && s.formula === `1d${s.rows}`, `…${mode}: ranged 1..N with the stored formula 1dN`, s.formula);
+    // A world COPY inherits the description verbatim (take-over.js), so a
+    // sentence naming the button would tell the Warden to press what they just
+    // pressed; the pack table's sheet says it instead (table-banner.js).
+    check(s.resolved && !/make it yours|Create a Custom/i.test(s.description),
+      `…${mode}: its description names no button`, s.description.slice(-60));
   }
   check(shipped.brokenResolves === false, "control: a broken uuid reads unresolved — fromUuid can fail, so the rows above are a claim");
 

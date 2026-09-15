@@ -42,6 +42,8 @@
  *      unchanged in names and order; control: the pack's own rows still point at
  *      the pack. Editing the world Dagger re-prices the shop while the pack Dagger
  *      reads 5. The RESULT window names what landed and its Open buttons go there.
+ *      The copied `Market: Gear`, OPENED, wears the Marketplace banner naming
+ *      its aisle (2026-09-15; `dev:table-banner` owns the banner itself).
  *   6. A second run keeps every edit: 0 copied, all kept, Dagger still 99, and the
  *      result window says nothing needed copying. Red-first on the PLAN ONLY —
  *      blinding `game.items.get`/`find` to the Dagger makes the plan say "add" —
@@ -77,13 +79,14 @@
  *      sweeps the world): before the copy the declaration resolves to the pack
  *      and twelve draws come from the compendium; the plan is one table and every
  *      row a spellbook; the run through the confirm lands the table under the
- *      shipped id in the flagged Spells folder with every row pointing at a WORLD
+ *      shipped id in the flagged Custom Spells folder with every row pointing at a WORLD
  *      spellbook that resolves, the result window names Rollable Tables and Items
  *      and not Actors, the declaration resolves to the world copy and twelve draws
  *      all hand over world documents off its rows. Then the reader, both ways off
  *      ONE row: pointed at a world spellbook with a probe-edited description the
  *      draw hands over THAT document; pointed at the pack's it hands over the
- *      pack's.
+ *      pack's. The copy, opened, wears the spells banner, and its description
+ *      no longer names the button (2026-09-15).
  *
  * Everything planted is selected by ID DIFFERENCE from a snapshot taken before the
  * first write and deleted in the finally; leftovers of a killed run are recognised
@@ -547,7 +550,7 @@ try {
     const itemFolder = await page.evaluate(({ ids, NS }) => ids.map((id) => game.folders.get(id))
       .find((x) => x?.type === "Item" && !x.getFlag(NS, "takeOverPack"))?.uuid, { ids: f.folders, NS });
     check(landedItems.tab === "items" && landedItems.expanded.includes(itemFolder),
-      "Open Items raises the Items tab with the Marketplace folder expanded", `${landedItems.tab}, folder ${itemFolder}`);
+      "Open Items raises the Items tab with the Custom Marketplace folder expanded", `${landedItems.tab}, folder ${itemFolder}`);
 
     const claim = await page.evaluate(async ({ newTables, newFolders, NS }) => {
       const pack = game.packs.get("air-bladder.marketplace");
@@ -605,6 +608,24 @@ try {
     const catPriced = await catalog(page);
     const daggerRow = catPriced.find((c) => c.name === "Weapons")?.items.find(([n]) => n === "Dagger");
     check(daggerRow?.[1] === 99 && dagger.packCost === 5, "edit the world Dagger to 99 → the shop sells it at 99 while the pack Dagger reads 5", JSON.stringify(daggerRow));
+
+    // The copy, OPENED as a Warden opens it, wears the banner its kind decides
+    // (module/table-banner.js; dev:table-banner owns the banner itself). The
+    // sheet mode is sticky session-wide, so it is put back to view here.
+    const gearBanner = await page.evaluate(async (ids) => {
+      const t = ids.map((id) => game.tables.get(id)).find((x) => x?.name === "Market: Gear");
+      if (!t) return { error: "no Market: Gear copy" };
+      t.sheet.mode = "edit";
+      await t.sheet.render(true);
+      for (let i = 0; i < 40 && !t.sheet.element?.querySelector("table[data-results]"); i++) await new Promise((r) => setTimeout(r, 150));
+      const p = t.sheet.element?.querySelector(".ab-table-role");
+      const out = { role: p?.dataset.role ?? null, head: p?.querySelector("strong")?.textContent ?? null };
+      t.sheet.mode = "view";
+      await t.sheet.close();
+      return out;
+    }, f.tables);
+    check(gearBanner.role === "market" && /Gear/.test(gearBanner.head ?? ""),
+      "the copied Market: Gear, opened, wears the Marketplace banner naming its aisle", JSON.stringify(gearBanner));
 
     /* ------------------------------------------------ 6. a second run keeps */
     console.log("\n6. idempotency");
@@ -863,7 +884,7 @@ try {
       }
       return out;
     }, { ids: newBBTables, NS });
-    check(bb.sameId === 6 && bb.folder?.flag === "barebones" && bb.folder.all, "…under the shipped ids, all in the Barebones Creation folder", JSON.stringify(bb.folder));
+    check(bb.sameId === 6 && bb.folder?.flag === "barebones" && bb.folder.all, "…under the shipped ids, all in the Custom Barebones Character Creation folder", JSON.stringify(bb.folder));
     check(bb.intoPack.length === 0 && bb.unresolvable.length === 0, "…no row still points into a compendium, and every row resolves",
       `${bb.intoPack.length} into pack, ${bb.unresolvable.length} dangling`);
     check(bb.tierRows.length === 3 && bb.tierRows.every((r) => r.isNewWorldTable), "…and the Weapon table's three rows point at the WORLD tier tables", JSON.stringify(bb.tierRows.map((r) => r.name)));
@@ -880,7 +901,7 @@ try {
       return { filed, children, sourcePacks: [...new Set(docs.map(packOf))].length };
     }, { items: newBBItems, NS });
     check(newBBItems.length > 0 && bbTree.filed === newBBItems.length && bbTree.children.length === bbTree.sourcePacks,
-      "the new Barebones items sit in a subfolder per source compendium under Barebones Creation, kept items left where they were",
+      "the new Barebones items sit in a subfolder per source compendium under Custom Barebones Character Creation, kept items left where they were",
       `${bbTree.filed}/${newBBItems.length} filed; ${bbTree.children.join(", ")}`);
 
     // The reader: a row pointing at a WORLD item hands over THAT item. Both sides
@@ -975,10 +996,28 @@ try {
       };
     }, { id: newSpTables[0], NS, GEN, CPD, decl: pre13.decl, newItems: newSpItems });
     check(sp.sameId && sp.folderFlag === "spells" && sp.rows === pre13.rows && sp.world === sp.rows && sp.resolves === sp.rows && sp.spellbooks === sp.rows && sp.formula === `1d${sp.rows}`,
-      `the table: shipped id, in the flagged Spells folder, ${sp.rows} rows all pointing at WORLD spellbooks that resolve, stored formula 1d${sp.rows}`, JSON.stringify(sp));
+      `the table: shipped id, in the flagged Custom Spells folder, ${sp.rows} rows all pointing at WORLD spellbooks that resolve, stored formula 1d${sp.rows}`, JSON.stringify(sp));
     check(sp.declWorld, "the declaration now resolves to the WORLD copy");
     check(sp.itemDirect && sp.subfolders === 0, "the spellbooks sit directly under the Spells parent — one source compendium, so no subfolder", `${sp.subfolders} subfolders`);
     check(sp.drawsWorld === 12 && sp.drawsInRows === 12, "twelve draws all hand over WORLD spellbooks off the copied table (twelve from the pack before)", `${sp.drawsWorld}/${sp.drawsInRows}`);
+    // Opened, the copy wears the spells banner — and its description no longer
+    // tells the Warden to press the button they just pressed (the importer's
+    // "To make it yours…" sentence went on 2026-09-15; the copy inherits the
+    // description verbatim).
+    const spBanner = await page.evaluate(async (id) => {
+      const t = game.tables.get(id);
+      t.sheet.mode = "edit";
+      await t.sheet.render(true);
+      for (let i = 0; i < 40 && !t.sheet.element?.querySelector("table[data-results]"); i++) await new Promise((r) => setTimeout(r, 150));
+      const p = t.sheet.element?.querySelector(".ab-table-role");
+      const out = { role: p?.dataset.role ?? null, description: t.description ?? "" };
+      t.sheet.mode = "view";
+      await t.sheet.close();
+      return out;
+    }, newSpTables[0]);
+    check(spBanner.role === "spells", "the copied spell table, opened, wears the spells banner", spBanner.role);
+    check(!/make it yours|Create a Custom/i.test(spBanner.description),
+      "…and its description names no button — the copy inherits it verbatim", spBanner.description.slice(-70));
 
     // The reader, both ways off ONE row — a row at the world copy hands over
     // THAT document, the same row at the pack's hands over the pack's. Only a

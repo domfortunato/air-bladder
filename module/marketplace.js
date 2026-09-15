@@ -1,4 +1,5 @@
-import { findTableItems, resultText, MARKETPLACE_PACK } from "./compendium.js";
+import { findTableItems, resultText, MARKETPLACE_PACK, compendiumInfoFromString } from "./compendium.js";
+import { Cairn } from "./config.js";
 import { iconForTransport, TRANSPORT_KINDS } from "./icons.js";
 import { atConnectionLimit, maxConnections, connectedOwnershipShape, OWNERSHIP_SYNC_FLAG } from "./connections.js";
 import { actorDisplayName, localizeNameDesc, t } from "./i18n-content.js";
@@ -62,6 +63,49 @@ const CATEGORY_ORDER = ["Weapons", "Armor", "Gear", TRANSPORTS_CATEGORY];
  *  never for storage, which is the same reason `CATEGORY_ORDER` is English. */
 const MARKET_PREFIX = /^Market:\s*/i;
 
+/**
+ * An aisle's two names: `name` is the ENGLISH identity the catalog filters and
+ * orders on, `label` what a heading renders. Translate, THEN strip: the
+ * overlay key is the table's FULL stored name ("Market: Weapons"), which is
+ * what the content extractor emits under table.name, so stripping first would
+ * leave a translator holding a key ("Weapons") the overlay never produces. The
+ * strip is generic because a translated prefix is not "Market:" ("Mercado:",
+ * …); a translation carrying no prefix at all is left whole, and a miss
+ * degrades to the English behaviour. Exported for the table banner
+ * (table-banner.js), which must name an aisle exactly as the shop heads it.
+ * @param {string} name  a table's stored name
+ * @returns {{name: string, label: string}|null}  null when the name is not an aisle
+ */
+const stripPrefix = (name) => String(name).replace(MARKET_PREFIX, "").trim();
+const displayName = (fullName) => t("table.name", fullName).replace(/^[^:]+:\s*/, "").trim();
+export const marketAisle = (name) =>
+  (MARKET_PREFIX.test(name ?? "") ? { name: stripPrefix(name), label: displayName(name) } : null);
+
+/** Both pool tables, both hack states — the declarations' table halves, never
+ *  retyped (config.js characterGenerator2e.spells). */
+const SPELL_POOL_TABLES = new Set(
+  Object.values(Cairn.characterGenerator2e.spells).map((decl) => compendiumInfoFromString(decl)[1]));
+
+/**
+ * Does Air Bladder keep THIS table alphabetical on a drop? The `Market:` aisles
+ * and the two spell-pool tables, world copies only — the four tables whose
+ * shipped rows the importers wrote in name order, and whose banner
+ * (table-banner.js) tells the Warden "rows stay in alphabetical order". ONE
+ * predicate for the hook and the sentence, so the two cannot disagree.
+ *
+ * The spell tables joined 2026-09-15: core's drop appends at `maxRoll + 1` and
+ * never touches the formula (roll-table-sheet.mjs `_createResult`), so on the
+ * copied `Spells — Canon (1d100)` a dragged 101st spellbook sat at 101 under
+ * `1d100`, unreachable and silent — while docs and CLAUDE.md sold "drag a
+ * spellbook onto the copy" as the story. The 2e, Barebones and Warden tables
+ * keep the book's order, so they are NOT here; table-banner.js `fitFormula`
+ * keeps their flat die in step with their rows instead.
+ * @param {RollTable|null|undefined} table
+ * @returns {boolean}
+ */
+export const keptAlphabetical = (table) =>
+  !!table && !table.pack && (MARKET_PREFIX.test(table.name ?? "") || SPELL_POOL_TABLES.has(table.name));
+
 /** A resolved pool document → a fresh owned-item payload; carries the item's
  *  cost/description/tags.
  *
@@ -124,8 +168,8 @@ const marketTables = async () => {
 };
 
 /**
- * Keep a WORLD market table alphabetical (2026-09-13, user ask: a dragged-in
- * item "is added to the bottom of the list").
+ * Keep a WORLD table alphabetical (2026-09-13, user ask: a dragged-in item "is
+ * added to the bottom of the list"; the spell tables since 2026-09-15).
  *
  * Core's table sheet appends a dropped row at `maxRoll + 1`
  * (roll-table-sheet.mjs `_createResult`) and both it and the shop order rows
@@ -137,11 +181,14 @@ const marketTables = async () => {
  * Sorted on the STORED row name — a document row's `name` is the item's name
  * at drop time, a text row's is its description — with a base-sensitivity
  * compare so "air bladder" and "Air Bladder" sort as neighbours. Only rows
- * whose range actually moves are written.
+ * whose range actually moves are written. Which tables this applies to is
+ * `keptAlphabetical`'s decision, not this function's, and WHEN it runs is
+ * table-banner.js `onReadTableRowsChanged`'s — the one row hook for every
+ * world table Air Bladder reads, on the creating client only.
  * @param {RollTable} table
  * @returns {Promise<boolean>}  whether anything was written
  */
-export const resortMarketTable = async (table) => {
+export const resortTableByName = async (table) => {
   const rows = [...table.results];
   const key = (r) => String(resultText(r) ?? "").trim();
   const sorted = [...rows].sort((a, b) => key(a).localeCompare(key(b), undefined, { sensitivity: "base" }));
@@ -172,22 +219,6 @@ export const resortMarketTable = async (table) => {
 };
 
 /**
- * `createTableResult` hook: a row landing in a world `Market:` table re-sorts
- * the table. On the CREATING client only — every other client receives the
- * result and would otherwise race it with the same write. World tables only:
- * the shipped compendium is not where a Warden's stock should live
- * (`docs/customizing-the-marketplace.md`), and helping them edit it there
- * would say otherwise. Sibling updates fire no create hook, so this cannot
- * recurse.
- */
-export const onCreateMarketResult = (result, options, userId) => {
-  if (userId !== game.user.id) return;
-  const table = result.parent;
-  if (!table || table.pack || !MARKET_PREFIX.test(table.name ?? "")) return;
-  resortMarketTable(table).catch((err) => console.error("Air Bladder | market table sort failed:", err));
-};
-
-/**
  * Read the market tables into shopper-facing categories. Each category's items
  * are owned-item payloads resolved from that table's results, in table order.
  *
@@ -199,18 +230,11 @@ export const getMarketplaceCatalog = async () => {
   const tables = await marketTables();
   if (!tables.length) return { categories: [] };
 
-  const stripPrefix = (name) => String(name).replace(MARKET_PREFIX, "").trim();
   const orderOf = (name) => {
     const i = CATEGORY_ORDER.indexOf(stripPrefix(name));
     return i === -1 ? CATEGORY_ORDER.length : i;
   };
-  // The heading's translation key is the table's FULL document name ("Market:
-  // Weapons") — that is what the content extractor emits under table.name, so
-  // stripping first would leave a translator holding a key ("Weapons") the overlay
-  // never produces. Translate, then strip. The strip is generic because a
-  // translated prefix is not "Market:" ("Mercado:", …); a translation carrying no
-  // prefix at all is left whole, and a miss degrades to the English behaviour.
-  const displayName = (fullName) => t("table.name", fullName).replace(/^[^:]+:\s*/, "").trim();
+  // The heading is `marketAisle`'s label — translate, then strip; see there.
   tables.sort((a, b) => orderOf(a.name) - orderOf(b.name) || a.name.localeCompare(b.name));
 
   const categories = [];

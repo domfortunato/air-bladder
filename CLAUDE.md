@@ -106,7 +106,7 @@ string-aware one behind the figure now; `wc -l` is not the number, and the
 difference matters to anyone estimating how much there is to learn. Everything
 else is content. **`docs/architecture.md` is the map** (written 2026-09-11):
 the import graph in NINE tiers, the six spine files nothing else works without,
-the FOURTEEN leaf features that only the boot file or a sheet imports, and the
+the THIRTEEN leaf features that only the boot file or a sheet imports, and the
 five places where "explain it" is a real test. **It names functions, never line
 numbers** — a line in prose is a copy that drifts, and this file records
 several stale-number cases of exactly that. `docs/provenance.md` is the
@@ -804,12 +804,16 @@ companion record of who authored what.
   `maxRoll + 1` (`roll-table-sheet.mjs` `_createResult`) and both the sheet
   and the shop order rows by `range[0]`, so the shipped aisles are alphabetical
   only because the importer wrote them so, and a Warden's first drop broke it.
-  `onCreateMarketResult` on the `createTableResult` hook re-ranges every row
-  `[i, i]` by stored name and keeps the formula at `1dN` — on the CREATING
-  client only (every other client receives the row and would race the same
-  write) and for WORLD tables only, because helping a Warden edit the shipped
-  pack copy would say that is a route. Sibling updates fire no create hook, so
-  it cannot recurse. Renaming a row does NOT re-sort; only a drop does. Its leg
+  `resortTableByName` (`resortMarketTable` until 2026-09-15, when the spell
+  tables joined), run from table-banner.js `onReadTableRowsChanged` on the
+  `createTableResult` hook (the one row hook for every world table Air
+  Bladder reads, since the same evening — see the banner bullet below),
+  re-ranges every row `[i, i]` by stored name and keeps the formula at `1dN`
+  — on the CREATING client only (every other client receives the row and
+  would race the same write) and for WORLD tables only, because helping a
+  Warden edit the shipped pack copy would say that is a route. Sibling
+  updates fire no create hook, so it cannot recurse. Renaming a row does NOT
+  re-sort; only a drop does. Its leg
   plants rows OUT of order in the table's create data, which is inert (rows
   created with their parent fire no `createTableResult`), then drops through
   the same `createEmbeddedDocuments` call core's sheet makes; the control is an
@@ -886,8 +890,9 @@ companion record of who authored what.
   - **Tables LAST, rows inline.** An EMPTY world `Market:` table deletes its
     aisle (`getMarketplaceCatalog` skips a category with no resolved rows),
     and rows created with their parent fire no `createTableResult`, so
-    `onCreateMarketResult` cannot re-sort mid-write. `formula` is written
-    explicitly (`_source.formula` is what the re-sort compares).
+    table-banner.js `onReadTableRowsChanged` cannot re-sort mid-write.
+    `formula` is written explicitly (`_source.formula` is what the re-sort
+    compares).
     `fromCompendium` keeps the PACK's folder id (`clearFolder` defaults
     false), so the folder is overwritten on every copy.
   - **A background copy STANDS IN by id.** `build2ePool` de-dups by document
@@ -935,6 +940,18 @@ companion record of who authored what.
     adds from. Kept copies are never moved. The lesson recorded with it: walk
     the Warden's view of the result before calling a feature done — the
     sidebar they open, not the probe that passed.
+    **AND THE FOLDERS ARE PREFIXED "CUSTOM" (2026-09-15, user, off a
+    screenshot of the sidebar: "don't you think that this folder should be
+    called Custom…?").** `Custom Marketplace`, `Custom Spells`, `Custom
+    Barebones Character Creation`, `Custom 2e Character Creation` (the last
+    two the user's own names; it was `Cairn 2e Tables`). This is NOT the
+    table-name ruling reversed: a table's name is its identity and a prefix
+    there would be a second rule for every reader, while nothing reads a
+    folder's name — the copy finds its folders by FLAG, so the rename cost
+    four strings, and a Warden renaming one by hand breaks nothing. The
+    folder is the one place the sidebar can say these are yours, and the
+    buttons already promise the outcome in that word. No released world
+    holds the old names.
   - **The `only` list is a NAME list and the folder key a string id.**
     `planTableTakeOver(spec)` is one function for all three sets; a spec with
     no document rows (the 2e eleven) creates no Items or Actors folder, and the
@@ -955,7 +972,7 @@ companion record of who authored what.
     `dev:spell-tables` — and **Create a Custom Spell Table…** (labelled "Copy
     the Spell Tables to this world…" for its first hours) is a fourth `KINDS`
     entry, copying `Spells — Canon (1d100)` and its 100
-    spellbooks into two **Spells** folders through `planTableTakeOver`
+    spellbooks into two **Custom Spells** folders through `planTableTakeOver`
     unchanged. What a Warden loses is "refill a table from any Item compendium
     in one click"; what they get is the one rule they already know, and
     dragging a spellbook onto the copy is the shop's own story. Its `spec` and
@@ -974,6 +991,78 @@ companion record of who authored what.
     Enter-safety notes that dialog's probe earned survive in
     `docs/release-testing.md`'s `dev:take-over` row, because they are about
     Enter-safety legs and not about that dialog.
+  - **A TABLE EXPLAINS ITSELF (2026-09-15, user, on a copied `Market: Armor`:
+    "nothing readily identifies it as being used for customizing the
+    marketplace other than its location; nothing tells me how to add an item
+    or even drag and drop items onto it").** `module/table-banner.js` puts a
+    banner at the top of the RollTable sheet: a world copy says what reads it
+    and how a row is added — drag from the Items sidebar onto the WINDOW, the
+    whole `.window-content` being core's drop target, or press + above the
+    list — and a shipped pack table says it is a template and names the
+    button. Decided by NAME, the identity every reader uses:
+    `kindOfTable` in take-over.js asks the same `KINDS` that decide what each
+    button copies (`specs` names both pool tables, `tab` the sidebar), then
+    the `Market:` prefix, then any shipped name → generic. So a hand-made
+    `Market: Potions` wears it and a renamed copy loses it, which is exactly
+    when Air Bladder stops reading it — the banner going missing IS the
+    diagnostic. Warden only. Re-injected on every render, for free: any
+    TableResult write replaces the parts and a mode change wipes the content.
+    WHY NOT THE DESCRIPTION: every shipped Market table has said "Drag an
+    item in to stock it" there since it was written and no Warden ever saw it
+    — view.hbs emits it unwrapped and a root part keeps element children
+    only. A NOTE, NO "Add an item…" BUTTON (user ruling, on the
+    recommendation: drag and drop is the gesture every Foundry sheet composes
+    by, and no system puts a picker on the stock table sheet); a button is a
+    small follow-up if the note proves not enough. WITH IT, A DEFECT: core's
+    drop appends at `maxRoll + 1` and never touches the formula, so on the
+    copied `Spells — Canon (1d100)` a dragged 101st spellbook sat at 101
+    under `1d100`, unreachable, while this file sold "drag a spellbook onto
+    the copy" as the story. `keptAlphabetical` (marketplace.js) covers the
+    two spell-pool tables beside the aisles now — `resortTableByName`,
+    renamed from `resortMarketTable` because a function called market that
+    sorts spell tables is the correct-sounding lie — and it is the ONE
+    predicate the hook and the banner's "rows stay in alphabetical order"
+    sentence rest on. **AND THE FORMULA FOLLOWS THE ROWS ON EVERY OTHER READ
+    TABLE (same evening, user: "What if I add bonds to the world copy of the
+    bond table. Is its draw formula automatically updated?" — it was not,
+    and the banner's answer was "press the scales button").** The row hook
+    MOVED into table-banner.js as `onReadTableRowsChanged`, registered on
+    `createTableResult` AND `deleteTableResult`, gated by `tableRole` — the
+    same predicate as the banner, so the sentence and the behaviour cannot
+    drift — and it does one of two things: the alphabetical tables re-sort,
+    everything else gets `fitFormula`, which writes `1d<highest range end>`
+    on a table whose STORED formula is a flat die or blank (a drag-built
+    table stores none, review #30's shape) and touches the order never.
+    FLAT DICE ONLY, and the count was measured: 66 shipped tables roll `1dN`;
+    eight do not (`Warden: NPC - Reactions` 2d6, the SRD's own; `Warden:
+    Encounters - Lake` 2d4 and the five regional encounter tables `1d6 +
+    1d10`, user-authored with rows from 2; `GLOG Magic: Mishaps` 2d12, a
+    LOOKUP by the cast's sum that is never rolled — the user asked how one
+    rolls a 1 on it, and the answer is that nobody does). A curve is the
+    Warden's, so those keep it and their banner tail names the formula and
+    the Summary tab (`CAIRN.TableRole.CustomDice`); a flat table's tail says
+    "a new row lands at the bottom and is rolled with the rest"
+    (`CAIRN.TableRole.NewRow`). Delete is covered so the last row's removal
+    shrinks the die back; `updateTableResult` deliberately is NOT — a Warden
+    editing ranges by hand is editing the dice on purpose. Once a row lands
+    on a curve the Warden sets the formula themselves, which is what the
+    tail says. The importer's "To make it yours, press Create a Custom Spell Table…"
+    sentence is GONE from the spell tables' description, because the copy
+    inherited it verbatim. Accepted edge: a hand-imported `Barebones: Weapon
+    Tier` table nobody's Weapon row points at wears the Barebones banner
+    though it is reached by uuid. Trap: the sheet MODE is sticky
+    session-wide (`#DEFAULT_MODE`), so any probe that opens a table puts it
+    back to view. **TWO WORLD TABLES OF ONE NAME WARN (same day, user ask,
+    after wondering whether copies should be prefixed "Custom" — no: the
+    name IS the identity, a prefix would be a second rule for every reader,
+    and the backgrounds are no precedent, "Custom Backgrounds" being the
+    compendium's name while its copies keep theirs).** It is the one ambiguity
+    the identity rule leaves, and the readers do not even agree which wins
+    (`getName` the first, `marketTables` the last), so the sheet says so; the
+    line follows the OTHER table's create/rename/delete on an open sheet
+    through `refreshTableBanners`, which re-injects DOM and never re-renders,
+    because a re-render drops an edit-mode sheet's unsaved edits.
+    Gate: `npm run dev:table-banner`.
   Gate: `npm run dev:take-over` — two clients, each run through its REAL
   confirm, every product claim red-first in-page (`withHookOff` on the named
   hooks, the plan blinded, the canon index shadowed, the Barebones reader

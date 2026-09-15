@@ -118,10 +118,13 @@ for (const pack of manifest.packs ?? []) {
 // the macros pack 24 (2026-08-08, a2b15d1c) — the floor sat at 22 through
 // both (review #13) — then spellbooks-glog 25, tables-glog + journals-glog
 // 27 (2026-08-09), journals-2e + journals-docs 29 (2026-08-10), and
-// journals-vald 30 (2026-08-21). A floor is a "this check is matching
-// nothing" tripwire, so it must RISE with the count or it slowly stops
-// being one.
-const EXPECTED_PACKS = 30;
+// journals-vald 30 (2026-08-21), and DOWN to 29 when more-spellbooks left the
+// repo (2026-09-14, 1c566f02) — that commit did not carry this line, so the
+// gate was red at HEAD for a day and nobody ran it. A floor is a "this check
+// is matching nothing" tripwire, so it must MOVE with the count or it slowly
+// stops being one; a floor above the count is worse, a gate that always fails
+// and is always skipped.
+const EXPECTED_PACKS = 29;
 if (packsChecked < EXPECTED_PACKS) {
   fail(`only ${packsChecked} pack source dirs found, expected at least ${EXPECTED_PACKS} — `
     + "this check is matching nothing rather than passing");

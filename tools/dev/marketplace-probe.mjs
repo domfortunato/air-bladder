@@ -6,7 +6,9 @@
  *   node tools/dev/marketplace-probe.mjs   (needs Foundry running, world launched,
  *                                          and `npm run dev:players` for step 5)
  *
- * Steps, driven headless as GM:
+ * Steps, driven headless as GM (after an ENTRY sweep of every world `Market:`
+ * table — the shop is world first, and a Warden's own copies point it at
+ * WORLD items, so step 2's pack edit would never reach it):
  *   1. Read the shop via module/marketplace.js getMarketplaceCatalog(); assert the
  *      three categories resolve every reference (Weapons 15, Armor 6, Gear 49) and
  *      that prices are read off the items (Dagger 5, Plate Mail 60), plus a bundle
@@ -57,6 +59,22 @@ const ok = (m) => console.log(`  ok    ${m}`);
 
 try {
   await joinAsGM(page);
+
+  // ENTRY SWEEP (2026-09-15). Every leg below reads the shop, and the shop is
+  // WORLD FIRST: a Warden's own `Market:` copies — the Create a Custom
+  // Marketplace… button's output, pointing at WORLD items — make step 2 edit
+  // a pack Dagger the shop no longer reads, and the leg reports the edit as
+  // lost. The world-first section swept them, but only when it began, three
+  // steps too late; it redded exactly that way with the dev world's copies
+  // in place. Swept here and named, so a Warden knows to press the button
+  // again afterwards.
+  const sweptAtEntry = await page.evaluate(async () => {
+    const names = game.tables.filter((t) => /^Market:/i.test(t.name)).map((t) => t.name);
+    for (const t of [...game.tables].filter((x) => /^Market:/i.test(x.name))) await t.delete();
+    return names;
+  });
+  if (sweptAtEntry.length) console.log(`  --    swept ${sweptAtEntry.length} world Market: table(s) at entry (a Warden's own copies read as overrides): ${sweptAtEntry.join(", ")}`);
+  else ok("no world Market: tables at entry — the shop reads the shipped aisles");
 
   const r = await page.evaluate(async () => {
     const mkt = await import("/systems/air-bladder/module/marketplace.js");

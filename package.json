@@ -93,6 +93,7 @@
     "dev:glog-flags": "node tools/dev/e2e-glog-flags.mjs",
     "dev:chat-privacy": "node tools/dev/e2e-chat-privacy.mjs",
     "dev:take-over": "node tools/dev/e2e-take-over.mjs",
+    "dev:table-banner": "node tools/dev/e2e-table-banner.mjs",
     "dev:hotbar": "node tools/dev/e2e-hotbar.mjs",
     "dev:roll-npc": "node tools/dev/e2e-roll-npc.mjs",
     "dev:npc-split": "node tools/dev/e2e-npc-split.mjs",

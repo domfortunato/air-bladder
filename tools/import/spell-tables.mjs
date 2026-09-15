@@ -64,24 +64,27 @@ const idFor = (seed) => [...crypto.createHash("sha256").update(seed).digest().su
  *  both places or not at all. */
 const spellTableId = (seed) => idFor(`air-bladder-spell-table:${seed}`);
 
-const MAKE_IT_YOURS = "To make it yours, press Create a Custom Spell Table… on the Rollable Tables sidebar.";
-
 /** One entry per pool: the declaration in module/config.js names the same
- *  pack and table, and dev:spell-pool holds the two in step. */
+ *  pack and table, and dev:spell-pool holds the two in step. The description
+ *  names no button: it used to end "To make it yours, press Create a Custom
+ *  Spell Table…", which the world COPY inherited verbatim (take-over.js copies
+ *  the description) and so told the Warden to press the button they had just
+ *  pressed. The shipped table's sheet says it now (module/table-banner.js),
+ *  live and only on the pack copy. */
 const TABLES = [
   {
     seed: "canon",
     name: "Spells — Canon (1d100)",
     outDir: "tables-2e",
     sources: ["spellbooks"],
-    description: `The canon spell list as a rollable table — one row per spellbook in the Spellbooks compendium, alphabetical. The pool a character is dealt a random spellbook or scroll from. ${MAKE_IT_YOURS}`,
+    description: "The canon spell list as a rollable table — one row per spellbook in the Spellbooks compendium, alphabetical. The pool a character is dealt a random spellbook or scroll from.",
   },
   {
     seed: "glog",
     name: "Spells — GLOG",
     outDir: "tables-glog",
     sources: ["spellbooks-glog"],
-    description: `The GLOG spell list as a rollable table — one row per spellscroll in the GLOG Spellscrolls compendium, alphabetical. The pool a character is dealt from while the GLOG Magic hack is on. ${MAKE_IT_YOURS}`,
+    description: "The GLOG spell list as a rollable table — one row per spellscroll in the GLOG Spellscrolls compendium, alphabetical. The pool a character is dealt from while the GLOG Magic hack is on.",
   },
 ];
 

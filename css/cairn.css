@@ -3392,8 +3392,16 @@ ol.combat-tracker li.combatant.cairn-drop-below {
    background, so a panel is a distinction the description cannot accidentally
    acquire, and it needs no reading to work. Size, position and wording are
    unchanged: all three are recorded decisions (see the note on font-size, and
-   the ABOVE-the-prose-mirror note in the template). */
-.bg-tab-hint {
+   the ABOVE-the-prose-mirror note in the template).
+
+   SHARED with the table banner (module/table-banner.js), the same shape one
+   sheet over: an aside sitting above the content it explains. The selector is
+   three classes deep on purpose — core's `.standard-form .hint` (the sheet's
+   content carries standard-form) sets margin, colour and size at (0,2,0), and
+   a bare class would lose to it. */
+.bg-tab-hint,
+.application.roll-table-sheet .ab-table-role,
+.application.roll-table-sheet .ab-table-duplicate {
     margin: 0 0 10px;
     /* Full size, NOT the 0.85em .bg-edit-hint uses. That hint sits inside a form
        the reader is already looking at; this one has to be read by someone who
@@ -3418,10 +3426,35 @@ ol.combat-tracker li.combatant.cairn-drop-below {
     box-shadow: inset 3px 0 0 var(--ab-rule-strong);
 }
 
-.bg-tab-hint > i {
+.bg-tab-hint > i,
+.application.roll-table-sheet .ab-table-role > i,
+.application.roll-table-sheet .ab-table-duplicate > i {
     /* Optically centred on the first line rather than box-aligned to it. */
     margin-top: 0.15em;
     opacity: 0.8;
+}
+
+/* The table banner's own two departures. It is four sentences, not one, so it
+   is set upright: a paragraph of italic reads as fine print, and this is the
+   one thing on the sheet a Warden has to read. And it sits in a flex column
+   beside a list declared `flex: 1; height: 0` (core's roll-table rules), whose
+   default shrink would squeeze the banner to nothing on a short window. */
+.application.roll-table-sheet .ab-table-role,
+.application.roll-table-sheet .ab-table-duplicate {
+    flex: 0 0 auto;
+    margin: 0 0 8px;
+    font-style: normal;
+}
+
+/* The duplicate-name line under the banner: the same panel, with the rule and
+   the glyph in the warn colour so it reads as the one thing here to act on. */
+.application.roll-table-sheet .ab-table-duplicate {
+    box-shadow: inset 3px 0 0 var(--ab-warn);
+}
+
+.application.roll-table-sheet .ab-table-duplicate > i {
+    color: var(--ab-warn);
+    opacity: 1;
 }
 
 /* Example names — a wrapping list of small pills. */

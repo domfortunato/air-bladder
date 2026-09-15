@@ -1,7 +1,7 @@
 _id: hYHYpFOgVkDQ59Ah
 name: Spells — GLOG
 img: icons/svg/d20-grey.svg
-description: 'The GLOG spell list as a rollable table — one row per spellscroll in the GLOG Spellscrolls compendium, alphabetical. The pool a character is dealt from while the GLOG Magic hack is on. To make it yours, press Create a Custom Spell Table… on the Rollable Tables sidebar.'
+description: 'The GLOG spell list as a rollable table — one row per spellscroll in the GLOG Spellscrolls compendium, alphabetical. The pool a character is dealt from while the GLOG Magic hack is on.'
 results:
   - _id: hV9mjUK0a1eOFHfL
     type: document

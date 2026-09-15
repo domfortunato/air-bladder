@@ -49,13 +49,15 @@ and make your own, never the place you edit.
 
 Each copy **stands in** for the shipped one: the picker and the generators use
 your copy and never the original, in the same archetype group it always had.
-Delete a copy and the shipped one is back. The eye toggle still hides any row you
-do not want offered.
+Delete a copy and the shipped one is back. To take one out of play without
+deleting anything, use the eye toggle in the background pick-list — see
+[Taking a background out of play](generating-characters.md#taking-a-background-out-of-play)
+in Generating Characters.
 
 The same button also copies the **eleven tables a 2e character rolls on** —
 Bonds, Omens, Scars, and the eight trait tables (Physique, Skin, Hair, Face,
-Speech, Clothing, Vice, Virtue) — into a **Cairn 2e Tables** folder in your
-Rollable Tables, where the same rule applies: a world table with a shipped
+Speech, Clothing, Vice, Virtue) — into a **Custom 2e Character Creation**
+folder in your Rollable Tables, where the same rule applies: a world table with a shipped
 table's name is rolled instead of it. See
 [Customizing Bonds](customizing-bonds.md).
 
@@ -222,8 +224,9 @@ A finished background is still invisible until you switch the source on:
 **Game Settings → Configure Settings → Air Bladder → Character Generation → Configure Character Generation → "Offer custom Cairn 2e backgrounds"**
 
 With it on, your custom backgrounds join the picker's **Custom** section. A copy
-made by **Copy the Backgrounds…** is the one exception: it keeps the shipped
-background's place in its archetype group, because it stands in for it.
+made by **Create Custom Backgrounds and Tables…** is the one exception: it keeps
+the shipped background's place in its archetype group, because it stands in for
+it.
 
 That section is not only yours. The same setting also admits the seven class
 backgrounds Air Bladder ships in **Backgrounds (Custom)** — Fighter, Cleric,
@@ -234,7 +237,9 @@ wrote it, so third-party sets and your own arrive through the same switch.
 So turning off *Offer canon Cairn 2e backgrounds* does **not** leave players rolling
 only what you wrote — the shipped class backgrounds are still in the pool. For a pool
 that is genuinely yours alone, switch those seven off individually with the **eye
-toggle** on each picker row, which is per-background and remembered by the world.
+toggle** on each picker row, which is per-background and remembered by the world
+(see [Taking a background out of play](generating-characters.md#taking-a-background-out-of-play)
+in Generating Characters).
 
 Three things make a finished background invisible, and none of them produce an
 error, so check them in this order if yours does not show up:
@@ -267,8 +272,8 @@ This trips people up, so it is worth being exact:
 overwritten wholesale when Air Bladder updates — work put there is gone at the next
 release, with no warning and no recovery. If you want to change one of the seven, open
 it and use **Duplicate into Custom Backgrounds**, which copies it somewhere that
-survives — or press **Copy the Backgrounds…** on the Compendium sidebar, which
-copies all seven, and the twenty, in one go.
+survives — or press **Create Custom Backgrounds and Tables…** on the Compendium
+sidebar, which copies all seven, and the twenty, in one go.
 
 **Your own pack sits outside the *Air Bladder - Backgrounds* folder**, and that is not
 a mistake to fix. That folder groups the four packs the *system* ships — Backgrounds

@@ -38,8 +38,8 @@ The one-button way, and it brings the rest of 2e's tables with it. Open the
 (Wardens only). Alongside the 27 backgrounds it copies the
 **eleven tables a 2e character rolls on** — Bonds, Omens, Scars, and the eight
 trait tables (Physique, Skin, Hair, Face, Speech, Clothing, Vice, Virtue) — into
-a **Cairn 2e Tables** folder in your Rollable Tables, rows and hidden payload
-intact.
+a **Custom 2e Character Creation** folder in your Rollable Tables, rows and
+hidden payload intact.
 
 Think of the shipped compendiums as **templates**: the starting point you copy
 and make your own, never the place you edit. Every one of those eleven follows
@@ -49,6 +49,17 @@ is just editing the table in your sidebar.
 
 Running it again never overwrites: a table you have already edited is kept
 exactly as it is, and only what is missing is added.
+
+Every copy explains itself: open one and a note at the top says Air Bladder
+rolls it instead of the shipped table, and how to add a row. Add one and it is
+rolled straight away: the table's die follows its rows, so a twenty-first bond
+makes the formula `1d21` by itself, and deleting the last row shrinks it back.
+Tables rolled with more than one die — the NPC reactions, encounter and GLOG
+mishap tables — are the exception: their note names the dice and asks you to
+set the formula on the **Summary** tab yourself, because a bell curve is not
+something to flatten behind your back. And if two tables in your world share a
+name, both say so: Air Bladder cannot tell which one to read, so rename or
+delete one of them.
 
 The hand import below is still there, and is the right tool when you want one
 table and not eleven.
@@ -61,8 +72,9 @@ table and not eleven.
    **Bonds** → **Import**.
 2. The copy lands in your **Rollable Tables** sidebar, named `Bonds`. That name
    is the whole mechanism — keep it.
-3. Edit it there: reword rows, delete rows, add rows. Any number of rows works;
-   set the table's roll formula to match (a thirty-row table wants `1d30`).
+3. Edit it there: reword rows, delete rows, add rows. Any number of rows works,
+   and the table's die follows its rows — a thirty-row table rolls `1d30`
+   without you touching the formula.
 
 The imported rows keep their hidden payload — the starting gold and the item
 each shipped bond grants arrive intact — so rewording a row keeps its
@@ -94,7 +106,9 @@ that lacks its table still hands out ordinary bonds.
 Canon backgrounds have no such box. To give just one of them special bonds,
 open it in **Backgrounds (2e)**, click **Duplicate into Custom Backgrounds**,
 set the box on the copy — and switch the original off with the **eye toggle**
-on its picker row, so the copy is the one that comes up.
+on its picker row, so the copy is the one that comes up (see
+[Taking a background out of play](generating-characters.md#taking-a-background-out-of-play)
+in Generating Characters).
 
 ---
 
@@ -141,7 +155,7 @@ behind it roll yours. Delete it and the shipped table is back.
 | Monsters | the eight `Warden: Monster - …` tables (**Warden: Monsters**) |
 | Barebones character creation | `Barebones: Creation - Weapon`, `- Armor`, `- Additional Gear`, and the three `Barebones: Weapon Tier` tables (**Tables (Barebones)**) — these have a one-button copy of their own, see [Generating Characters](generating-characters.md) |
 | Scars, when damage lands | `Scars` (**Utils**) |
-| A random spellbook or spellscroll a background hands out | `Spells — Canon (1d100)` (**Tables (2e)**), or `Spells — GLOG` (**Tables (GLOG)**) with the GLOG hack on — these have a one-button copy of their own, spellbooks included, see [Generating Characters](generating-characters.md) |
+| A random spellbook or spellscroll a background hands out | `Spells — Canon (1d100)` (**Tables (2e)**), or `Spells — GLOG` (**Tables (GLOG)**) with the GLOG hack on — these have a one-button copy of their own, spellbooks included, see [Generating Characters](generating-characters.md); a world copy re-sorts itself by name when a spellbook is dropped in, so the new spell can be rolled |
 | Factions | every table the faction generator rolls (**Warden: NPCs**) |
 | The marketplace | the four `Market: …` tables — see [Customizing the marketplace](customizing-the-marketplace.md) |
 

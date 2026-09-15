@@ -52,11 +52,12 @@ The one-button way. Open the **Rollable Tables** sidebar tab and press
 **Create a Custom Marketplace…** (Wardens only). It explains what it is
 for and how many documents it is about to copy; press **Copy** and you get:
 
-- the four **Market:** tables in your Rollable Tables, in a **Marketplace** folder;
-- every item they sell in your Items sidebar, in a **Marketplace** folder with a
-  subfolder per source compendium — Armor, Gear, Market Goods, Tools, Trinkets,
-  Weapons — and every mount and cart in a **Marketplace** folder of its own in
-  your Actors sidebar;
+- the four **Market:** tables in your Rollable Tables, in a **Custom
+  Marketplace** folder;
+- every item they sell in your Items sidebar, in a **Custom Marketplace** folder
+  with a subfolder per source compendium — Armor, Gear, Market Goods, Tools,
+  Trinkets, Weapons — and every mount and cart in a **Custom Marketplace**
+  folder of its own in your Actors sidebar;
 - every row already pointing at your copy.
 
 A window then says what landed, with **Open Rollable Tables** and **Open Items**
@@ -90,11 +91,21 @@ because Foundry treats a world copy as the import of its source.
    **Market: Gear** → **Import**.
 2. The copy lands in your **Rollable Tables** sidebar under the same name. That
    name is the whole mechanism — keep it.
-3. Edit it freely. Delete rows you do not stock, and drag in items you do.
+3. Edit it freely. Delete rows you do not stock, and drag in items you do —
+   from the Items sidebar or a compendium, anywhere onto the table's window.
+
+Open any `Market:` table in your world and a note at the top says which aisle
+it stocks and how to add or remove a row; open the shipped one in the
+compendium and the note says it is a template and names the button. The note
+follows the name: rename a table away from `Market:` and it disappears,
+because the shop has stopped reading it. If two tables in your world share a
+name, both say so: Air Bladder cannot tell which one to read, so rename or
+delete one of them.
 
 Your table keeps itself in alphabetical order: drop an item in and every row
 is re-numbered by name, so the newcomer lands where it belongs rather than at
-the bottom, and the shop shows the aisle in the same order.
+the bottom, and the shop shows the aisle in the same order. The spell table
+does the same; every other table keeps the order you give it.
 
 The four names, spelled exactly:
 
@@ -126,10 +137,10 @@ It appears after the four shipped ones, for everybody.
 A price lives on the item, and the shipped items are in shipped compendiums, so
 re-pricing one in place has the same fate as everything else in there. After
 **Create a Custom Marketplace…** every row already points at your copy, so a price is
-one edit: open the item in the **Marketplace** folder of your Items sidebar,
-under the name of the compendium it came from (a Dagger under Weapons; a mount
-or a cart is in the folder of the same name under Actors), set its **Cost**,
-done.
+one edit: open the item in the **Custom Marketplace** folder of your Items
+sidebar, under the name of the compendium it came from (a Dagger under Weapons;
+a mount or a cart is in the folder of the same name under Actors), set its
+**Cost**, done.
 
 By hand, one item at a time:
 

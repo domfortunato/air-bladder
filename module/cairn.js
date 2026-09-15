@@ -8,6 +8,7 @@ import * as characterGenerator from "./character-generator.js";
 import * as monsterGenerator from "./monster-generator.js";
 import { createFactionInteractive } from "./faction-generator.js";
 import { injectTakeOverButton } from "./take-over.js";
+import { abTableRoleBanner, refreshTableBanners, onReadTableRowsChanged } from "./table-banner.js";
 import { importKettlewrightCharacter, performKettlewrightImport, sanitizeKettlewrightExport, showImportSummary } from "./kettlewright-import.js";
 import * as kettlewrightImport from "./kettlewright-import.js";
 import { Cairn } from "./config.js";
@@ -27,7 +28,6 @@ import { loadContentOverlay, t, translationOf, contentLocalized, tokenDisplayNam
 import { injectEncounterButton, localizeEncounterQty, resolveTable } from "./encounters.js";
 import { bindGrimoireFatigueButton, localizeGlogCastCard } from "./grimoire.js";
 import { nameableTokens, DAMAGE_QUALITY_KEYS, localizeD20Card, localizeRollFlavor } from "./utils.js";
-import { onCreateMarketResult } from "./marketplace.js";
 
 Hooks.once("init", async function () {
   game.cairn = {
@@ -124,11 +124,17 @@ Hooks.once("init", async function () {
   };
   Hooks.on("updateWorldTime", refreshTimeSurfaces);
 
-  // A row dropped into a WORLD `Market:` table re-sorts that table by name
-  // (2026-09-13, user ask): core appends at maxRoll + 1 and orders by range,
-  // so a Warden's first drop landed at the bottom of an alphabetical aisle.
-  // Creating client only, world tables only — see marketplace.js.
-  Hooks.on("createTableResult", onCreateMarketResult);
+  // A row added to, or removed from, a WORLD table Air Bladder reads keeps
+  // that table rollable (2026-09-13, user ask; the spell tables and then
+  // every bannered table 2026-09-15): core appends at maxRoll + 1 and never
+  // touches the formula, so a Warden's first drop landed at the bottom of an
+  // alphabetical aisle — and a 21st bond sat at 21 under 1d20, where no
+  // generator could reach it. The aisles and the spell tables re-sort by
+  // name; everything else gets its flat die refitted. Creating or deleting
+  // client only, world tables only — table-banner.js decides, off the same
+  // predicate that decides the banner.
+  Hooks.on("createTableResult", onReadTableRowsChanged);
+  Hooks.on("deleteTableResult", onReadTableRowsChanged);
 
   // The Warden rolled the weather. A WORLD SETTING REACHES OTHER CLIENTS ONLY
   // THROUGH ITS OWN `onChange` — which is why `vald-weather-today` has one and
@@ -673,6 +679,18 @@ Hooks.on("renderRollTableSheet", (app) => {
   // before it reaches the DOM. Its real surface is the DRAW CARD, translated
   // above. Code here that "translated" it would be coverage theatre.
 });
+
+// The banner a table wears when Air Bladder reads it (module/table-banner.js):
+// a world copy says what reads it and how a row is added, a shipped pack table
+// says it is a template and names the button. Its OWN registration — the hook
+// above returns on `!contentLocalized()`, and this is owed in every language.
+Hooks.on("renderRollTableSheet", abTableRoleBanner);
+// Two world tables of one name: the warning line on an OPEN sheet follows the
+// other table's creation, rename or deletion without a reopen. DOM only — a
+// re-render would drop unsaved edits on an edit-mode sheet.
+Hooks.on("createRollTable", () => refreshTableBanners());
+Hooks.on("deleteRollTable", () => refreshTableBanners());
+Hooks.on("updateRollTable", (doc, changes) => { if ("name" in (changes ?? {})) refreshTableBanners(); });
 
 /* -------------------------------------------- */
 /*  Journals — the player-facing rules handouts */
