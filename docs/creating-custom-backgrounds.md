@@ -38,7 +38,7 @@ fields below, replacing the borrowed content as you go.
 ## Taking over every shipped background at once
 
 If what you want is to edit the shipped backgrounds themselves — a different
-gear list for the Fieldwarden, a question rewritten — open the **Compendium**
+gear list for the Fieldwarden, a question rewritten — open the **Rollable Tables**
 sidebar tab and press **Create Custom Backgrounds and Tables…** (Wardens only). It copies all 27 shipped 2e backgrounds, the Player's
 Guide twenty and the seven in **Backgrounds (Custom)**, into your **Custom
 Backgrounds** compendium under their own names, no "(Copy)" suffix, and switches
@@ -274,7 +274,7 @@ This trips people up, so it is worth being exact:
 overwritten wholesale when Air Bladder updates — work put there is gone at the next
 release, with no warning and no recovery. If you want to change one of the seven, open
 it and use **Duplicate into Custom Backgrounds**, which copies it somewhere that
-survives — or press **Create Custom Backgrounds and Tables…** on the Compendium
+survives — or press **Create Custom Backgrounds and Tables…** on the Rollable Tables
 sidebar, which copies all seven, and the twenty, in one go.
 
 **Your own pack sits outside the *Air Bladder - Backgrounds* folder**, and that is not

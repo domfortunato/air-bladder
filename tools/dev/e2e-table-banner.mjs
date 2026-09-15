@@ -27,7 +27,8 @@
  *   3. The shipped PACK tables, locked and so forced into view mode: Market:
  *      Armor names the Marketplace button and the Rollable Tables sidebar (and
  *      no Edit sentence — a template is read, not edited), Bonds the
- *      Backgrounds button and the Compendium sidebar, both pool tables the
+ *      Backgrounds button and the Rollable Tables sidebar (the Compendium
+ *      sidebar until 2026-09-15 — the label follows the kind's `tab`), both pool tables the
  *      Spell Table button whatever the hack says, utils' Scars the Backgrounds
  *      button too (review #31: it is the list the damage card rolls, and the
  *      2e set copies it), tables-2e's Scars the CHECKLIST sentence — the
@@ -277,8 +278,9 @@ try {
     "the pack Market: Armor (locked, view) names the Marketplace button and the Rollable Tables sidebar", pArmor.text.slice(-90));
   check(!pArmor.viewSentence, "…and carries no Edit sentence: a template is read, not edited");
   const pBonds = await bannerOf(page, await packUuid("air-bladder.tables-2e", "Bonds"));
-  check(pBonds.present && pBonds.role === "template" && pBonds.text.includes(BTN.Cairn2e) && pBonds.text.includes(SIDEBAR.compendium),
-    "the pack Bonds names the Backgrounds button and the Compendium sidebar", pBonds.text.slice(-90));
+  check(pBonds.present && pBonds.role === "template" && pBonds.text.includes(BTN.Cairn2e) && pBonds.text.includes(SIDEBAR.tables)
+    && !pBonds.text.includes(SIDEBAR.compendium),
+    "the pack Bonds names the Backgrounds button and the Rollable Tables sidebar (never the Compendium one, since 2026-09-15)", pBonds.text.slice(-90));
   const pCanon = await bannerOf(page, await packUuid("air-bladder.tables-2e", "Spells — Canon (1d100)"));
   const pGlog = await bannerOf(page, await packUuid("air-bladder.tables-glog", "Spells — GLOG"));
   check(pCanon.role === "template" && pCanon.text.includes(BTN.Spells) && pGlog.role === "template" && pGlog.text.includes(BTN.Spells),
@@ -287,8 +289,8 @@ try {
   // card rolls and what the 2e button copies; tables-2e's is the sheet's own
   // checkbox list, read from the pack only, and says so.
   const pScars = await bannerOf(page, await packUuid("air-bladder.utils", "Scars"));
-  check(pScars.present && pScars.role === "template" && pScars.text.includes(BTN.Cairn2e) && pScars.text.includes(SIDEBAR.compendium),
-    "utils' Scars — the list the damage card rolls — names the Backgrounds button", pScars.text.slice(-80));
+  check(pScars.present && pScars.role === "template" && pScars.text.includes(BTN.Cairn2e) && pScars.text.includes(SIDEBAR.tables),
+    "utils' Scars — the list the damage card rolls — names the Backgrounds button and its sidebar", pScars.text.slice(-80));
   const pCheck = await bannerOf(page, await packUuid("air-bladder.tables-2e", "Scars"));
   check(pCheck.present && pCheck.role === "checklist" && /checkbox/i.test(pCheck.text) && pCheck.text.includes(UTILS) && pCheck.text.includes(BTN.Cairn2e),
     `tables-2e's Scars is the sheet CHECKLIST: read from the pack only, pointing at ${UTILS} and the Backgrounds button`, pCheck.text.slice(-110));

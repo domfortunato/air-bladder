@@ -144,8 +144,8 @@ Three buttons do the copying, all Wardens only:
   and transport they can hand out — the items sorted into a subfolder per source compendium,
   Armor, Background Items, Gear, Tools, Trinkets, Weapons — and points every
   row at your copies.
-- **Create Custom Backgrounds and Tables…**, on the
-  **Compendium** sidebar tab. That one is the 27 backgrounds plus the eleven
+- **Create Custom Backgrounds and Tables…**, the fourth button on the same
+  tab. That one is the 27 backgrounds plus the eleven
   tables a 2e character rolls on; see
   [Creating Custom Backgrounds](creating-custom-backgrounds.md) and
   [Customizing Bonds](customizing-bonds.md).

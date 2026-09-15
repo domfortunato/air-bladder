@@ -3321,19 +3321,19 @@ const showDamageApplied = (message, html, scene) => {
   row.append(line);
 };
 
-// The four "Copy the …" doors (module/take-over.js), one button per kind of
-// content on the tab where that content lands: NAMED handlers, so a probe can
-// switch each off in-page (lib.mjs withHookOff finds a hook by its fn.name).
-// The compendium one is its own registration — the search-wrap hook above
-// returns early on `!contentLocalized()`, and these buttons must not. The
-// spells door sits first, where "Reseed a Spell Table…" sat until 2026-09-14
-// (user ruling: one mechanism for every table, the Copy button's).
+// The four "Create a Custom …" doors (module/take-over.js), all at the top of
+// the Rollable Tables sidebar: a NAMED handler, so a probe can switch it off
+// in-page (lib.mjs withHookOff finds a hook by its fn.name). The spells door
+// sits first, where "Reseed a Spell Table…" sat until 2026-09-14 (user ruling:
+// one mechanism for every table, the Copy button's); the backgrounds door
+// sits LAST, and it sat on the Compendium sidebar — its own
+// `renderCompendiumDirectory` registration — until 2026-09-15, when the user
+// ruled it a fourth button with the others. Nothing of ours renders on the
+// Compendium directory now, and dev:take-over asserts that.
 Hooks.on("renderRollTableDirectory", function abTakeOverTablesButton(app, html) {
   injectTakeOverButton(html, { kind: "spells" });
   injectTakeOverButton(html, { kind: "marketplace" });
   injectTakeOverButton(html, { kind: "barebones" });
-});
-Hooks.on("renderCompendiumDirectory", function abTakeOverCompendiumButton(app, html) {
   injectTakeOverButton(html, { kind: "cairn2e" });
 });
 

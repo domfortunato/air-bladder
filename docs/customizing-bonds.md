@@ -34,7 +34,7 @@ else to configure.
 ## Copy the 2e tables into your world
 
 The one-button way, and it brings the rest of 2e's tables with it. Open the
-**Compendium** sidebar tab and press **Create Custom Backgrounds and Tables…**
+**Rollable Tables** sidebar tab and press **Create Custom Backgrounds and Tables…**
 (Wardens only). Alongside the 27 backgrounds it copies the
 **eleven tables a 2e character rolls on** — Bonds, Omens, Scars, and the eight
 trait tables (Physique, Skin, Hair, Face, Speech, Clothing, Vice, Virtue) — into

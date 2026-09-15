@@ -858,10 +858,17 @@ companion record of who authored what.
 - **COPY TO YOUR WORLD (`module/take-over.js`, 2026-09-14, user ask: "could a
   script not be created that would import the marketplace tables, import the
   items, and repoint the tables?").** FOUR Warden-only doors, **one button one
-  job, each on the tab where its output lands** — **Create a Custom Spell
-  Table…**, **Create a Custom Marketplace…** and **Create Custom Barebones
-  Creation Tables…** on the Rollable Tables sidebar, **Create Custom
-  Backgrounds and Tables…** on the Compendium sidebar. **THE LABELS SAY THE
+  job, ALL FOUR at the top of the Rollable Tables sidebar** — **Create a
+  Custom Spell Table…**, **Create a Custom Marketplace…**, **Create Custom
+  Barebones Creation Tables…** and, fourth, **Create Custom Backgrounds and
+  Tables…**. **The fourth sat on the Compendium sidebar for a day, "each on
+  the tab where its output lands", and the user moved it on 2026-09-15** ("I
+  feel like the button that copies the Character Backgrounds and other table
+  ... should be a fourth button at the top Rollable Tables with the others"):
+  the result window's Open buttons already answer "where did it go", and a
+  door alone on another tab is a door nobody finds. `KINDS.cairn2e.tab` is
+  the one line; the separate `renderCompendiumDirectory` hook is GONE and
+  `dev:take-over` asserts the Compendium directory carries none. **THE LABELS SAY THE
   OUTCOME, NOT THE MECHANISM (user ruling, the evening of 2026-09-14):** for a
   day they read "Copy the Marketplace to this world…" and so on, and the user's
   objection was exact — "why else would you copy tables from the compendium

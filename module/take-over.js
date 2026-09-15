@@ -222,7 +222,13 @@ const KINDS = {
   cairn2e: {
     spec: { key: "cairn2e", pack: "air-bladder.tables-2e", only: CAIRN_2E_TABLES, folder: "CAIRN.TakeOver.Cairn2e.Folder" },
     backgrounds: true,
-    tab: "compendium",
+    // On the Rollable Tables sidebar with the other three since 2026-09-15
+    // (user ruling: "a fourth button at the top of Rollable Tables with the
+    // others"). It sat on the Compendium sidebar for a day, where its
+    // backgrounds land — but the result window's Open buttons already answer
+    // "where did it go", and a door that is alone on another tab is a door
+    // nobody finds.
+    tab: "tables",
     button: "CAIRN.TakeOver.Cairn2e.Button",
     title: "CAIRN.TakeOver.Cairn2e.Title",
     pitch: "CAIRN.TakeOver.Cairn2e.Pitch",
@@ -885,9 +891,10 @@ export const directoryActions = (html) => {
 };
 
 /**
- * The Warden-only "Copy the …" button for one kind. Full width on a row of its
- * own (user ruling, after round one's cramped button beside the old Reseed
- * Spell Table): one button, one job, on the tab where its output lands.
+ * The Warden-only "Create a Custom …" button for one kind. Full width on a row
+ * of its own (user ruling, after round one's cramped button beside the old
+ * Reseed Spell Table): one button, one job — and all four together at the top
+ * of the Rollable Tables sidebar (user ruling 2026-09-15; see `KINDS.cairn2e`).
  * @param {HTMLElement} html
  * @param {{kind: "spells"|"marketplace"|"barebones"|"cairn2e"}} options
  */

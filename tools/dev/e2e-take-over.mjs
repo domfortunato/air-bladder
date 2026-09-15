@@ -12,12 +12,14 @@
  *                                      and `npm run dev:players` for Alice)
  *
  * What it holds, in order:
- *   1. The four doors: Spell Tables, Marketplace and Barebones on the Rollable
- *      Tables sidebar, Cairn 2e on the Compendium sidebar, docked AND popped out,
- *      each on a row of its OWN spanning the header (round one's cramped button
- *      beside the old Reseed Spell Table is what this measures), glyph rendered
- *      (read from `::before`, never the class list). Red-first: `withHookOff` on
- *      each named handler → absent. Alice's directories carry none.
+ *   1. The four doors, ALL on the Rollable Tables sidebar (Cairn 2e sat on the
+ *      Compendium sidebar until 2026-09-15 — user ruling, a fourth button with
+ *      the others; the Compendium directory is asserted to carry none), docked
+ *      AND popped out, each on a row of its OWN spanning the header (round
+ *      one's cramped button beside the old Reseed Spell Table is what this
+ *      measures), glyph rendered (read from `::before`, never the class list).
+ *      Red-first: `withHookOff` on the named handler → absent. Alice's
+ *      directories carry none.
  *   2. The confirms: one per kind, each with its three bold headers, its counts
  *      line, NO submit button (Enter never copies) and Cancel focused. Cancel and
  *      ✕ create nothing. The spells confirm carries the GLOG paragraph for the
@@ -138,7 +140,7 @@ const GEN = "/systems/air-bladder/module/character-generator.js";
 const CPD = "/systems/air-bladder/module/compendium.js";
 const WORLD_BG_PACK = "world.custom-backgrounds";
 const BG_PACKS = ["air-bladder.backgrounds-2e", "air-bladder.backgrounds-custom"];
-const KIND_TAB = { spells: "tables", marketplace: "tables", barebones: "tables", cairn2e: "compendium" };
+const KIND_TAB = { spells: "tables", marketplace: "tables", barebones: "tables", cairn2e: "tables" };
 // As the button declares them: `pack;Name`, Scars from UTILS (review #31 — the
 // list the damage card rolls; tables-2e's namesake is the sheet checklist's).
 const CAIRN_2E_TABLES = [
@@ -398,23 +400,31 @@ try {
         try { await pop.close(); } catch { /* gone */ }
         return out;
       };
+      // The Compendium directory carried the backgrounds door until 2026-09-15
+      // (user ruling: a fourth button with the others). Rendered fresh and
+      // counted, so a registration coming back there is a red, not a surprise.
+      await ui.compendium.render({ force: true });
+      await new Promise((r) => setTimeout(r, 400));
       return {
-        tables: await read("tables", ["spells", "marketplace", "barebones"]),
-        compendium: await read("compendium", ["cairn2e"]),
+        tables: await read("tables", ["spells", "marketplace", "barebones", "cairn2e"]),
+        compendiumDoors: ui.compendium.element?.querySelectorAll(".cairn-take-over").length ?? 0,
+        order: [...(ui.tables.element?.querySelectorAll(".cairn-take-over") ?? [])].map((b) => b.dataset.kind),
       };
     });
-    for (const [tab, kind] of [["tables", "spells"], ["tables", "marketplace"], ["tables", "barebones"], ["compendium", "cairn2e"]]) {
-      const k = doors[tab].kinds[kind];
-      check(k.present && k.type === "button", `${tab}: the ${kind} button is there, type=button`, k.label);
+    for (const kind of ["spells", "marketplace", "barebones", "cairn2e"]) {
+      const k = doors.tables.kinds[kind];
+      check(k.present && k.type === "button", `tables: the ${kind} button is there, type=button`, k.label);
       check(k.glyph, `…${kind}'s glyph RENDERS (read from ::before)`);
       check(k.width >= k.headerWidth * 0.9, `…and it spans the header`, `${k.width} of ${k.headerWidth}px`);
     }
-    check(new Set(doors.tables.rowTops).size === doors.tables.rowTops.length && doors.tables.rowTops.length === 3,
-      "Rollable Tables: the three Copy buttons each on a row of their own, and nothing else in the header", JSON.stringify(doors.tables.rowTops));
-    check(doors.tables.popped === 3 && doors.tables.separate, "…and all three once more on the popped-out directory (a second root)");
-    check(doors.compendium.popped === 1 && doors.compendium.separate, "Compendium: the button on its popout too");
+    check(new Set(doors.tables.rowTops).size === doors.tables.rowTops.length && doors.tables.rowTops.length === 4,
+      "Rollable Tables: the four Copy buttons each on a row of their own, and nothing else in the header", JSON.stringify(doors.tables.rowTops));
+    check(doors.order.join(",") === "spells,marketplace,barebones,cairn2e",
+      "…in the declared order, the backgrounds door fourth", doors.order.join(","));
+    check(doors.tables.popped === 4 && doors.tables.separate, "…and all four once more on the popped-out directory (a second root)");
+    check(doors.compendiumDoors === 0, "Compendium: no door there any more — the fourth sits with the others (user ruling 2026-09-15)", String(doors.compendiumDoors));
 
-    for (const [hook, fn, tab, n] of [["renderRollTableDirectory", "abTakeOverTablesButton", "tables", 3], ["renderCompendiumDirectory", "abTakeOverCompendiumButton", "compendium", 1]]) {
+    for (const [hook, fn, tab, n] of [["renderRollTableDirectory", "abTakeOverTablesButton", "tables", 4]]) {
       const off = await withHookOff(page, hook, fn, () => page.evaluate(async (tab) => {
         const a = ui[tab];
         // The per-root guard keeps an injected button across re-renders of
