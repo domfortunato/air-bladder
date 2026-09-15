@@ -1160,11 +1160,25 @@ export const previewBackground = async (bg, n = 10) => {
 /* -------------------------------------------------------------------------- */
 
 /** The world Item compendium custom backgrounds are duplicated into. Exported
- *  for the take-over (module/take-over.js), which fills it in one go. */
+ *  for the take-over (module/take-over.js), which fills it in one go. The ID
+ *  is the home and never changes; the LABEL is whatever the pack wears. */
 export const CUSTOM_BG_PACK = "world.custom-backgrounds";
 
 /**
- * The GM's editable "Custom Backgrounds" world compendium, created on first use.
+ * The name to call the custom-backgrounds compendium by in a sentence: the
+ * label the world's pack actually wears when it exists, else the key's text
+ * for the pack a run is about to create. The compendium was renamed "Custom 2e
+ * Backgrounds" on 2026-09-15, and core cannot rename a world compendium that
+ * already exists (its sidebar menu is ownership, lock, duplicate, delete), so
+ * a world that made its pack under the old name keeps it — and every dialog
+ * that names the pack has to agree with that world's sidebar, not with ours.
+ * @returns {string}
+ */
+export const customBackgroundsPackLabel = () =>
+  game.packs.get(CUSTOM_BG_PACK)?.metadata.label ?? game.i18n.localize("CAIRN.CustomBackgroundsPack");
+
+/**
+ * The GM's editable custom-backgrounds world compendium, created on first use.
  * A world pack (never a system pack — Foundry overwrites those on update) is the
  * only place user backgrounds survive; the discovery scan finds them there
  * regardless of pack name, so this is purely a predictable, auto-created home.
@@ -1173,13 +1187,18 @@ export const CUSTOM_BG_PACK = "world.custom-backgrounds";
 export const ensureCustomBackgroundPack = async () => {
   const existing = game.packs.get(CUSTOM_BG_PACK);
   if (existing) return existing;
-  // The label is stored on the pack, so it is fixed in whatever language the
-  // Warden was running when it was first created — Foundry has no i18n for
-  // world-compendium labels. Localizing here at least means a Spanish Warden's
-  // world does not acquire an English compendium out of nowhere.
+  // The label stored on the pack is the i18n KEY, not its English: core
+  // localizes every pack's label when it constructs the collection
+  // (compendium-collection.mjs:46, `metadata.label = _loc(metadata.label)`),
+  // world packs included — which is how a system pack's key label renders —
+  // so the sidebar shows the session's language and follows any rename of
+  // the text. This comment said the opposite ("Foundry has no i18n for
+  // world-compendium labels") until 2026-09-15, and stored the localized
+  // English; packs made under that rule keep it, and the sentences that name
+  // the pack read its real label (customBackgroundsPackLabel) for that reason.
   return foundry.documents.collections.CompendiumCollection.createCompendium({
     type: "Item",
-    label: game.i18n.localize("CAIRN.CustomBackgroundsPack"),
+    label: "CAIRN.CustomBackgroundsPack",
     name: "custom-backgrounds",
   });
 };

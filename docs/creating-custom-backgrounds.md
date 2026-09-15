@@ -21,14 +21,14 @@ example to edit down.
 
 1. Open the **Compendium** sidebar tab → **Air Bladder - Backgrounds** →
    **Backgrounds (2e)** → click any background (say *Fieldwarden*).
-2. Switch to the **Details** tab and click **Duplicate into Custom Backgrounds**.
+2. Switch to the **Details** tab and click **Duplicate into Custom 2e Backgrounds**.
 
 The button is on **Details**, not Description, and a shipped background opens on
 Description — so if you cannot see it, you are on the wrong tab. You do **not** need
 to import the background into your world first; the button works directly on a
 locked compendium entry.
 
-That does two things: it creates a world compendium called **Custom Backgrounds**
+That does two things: it creates a world compendium called **Custom 2e Backgrounds**
 the first time you use it, and it puts an editable copy inside, named
 *Fieldwarden (Copy)*.
 
@@ -38,8 +38,8 @@ fields below, replacing the borrowed content as you go.
 ## Taking over every shipped background at once
 
 If what you want is to edit the shipped backgrounds themselves — a different
-gear list for the Fieldwarden, a question rewritten — open the **Rollable Tables**
-sidebar tab and press **Create Custom Backgrounds and Tables…** (Wardens only). It copies all 27 shipped 2e backgrounds, the Player's
+gear list for the Fieldwarden, a question rewritten — open the **Rollable Tables** or **Compendium**
+sidebar tab and press **Create Custom 2e Backgrounds and Tables…** (Wardens only). It copies all 27 shipped 2e backgrounds, the Player's
 Guide twenty and the seven in **Backgrounds (Custom)**, into your **Custom
 Backgrounds** compendium under their own names, no "(Copy)" suffix, and switches
 custom backgrounds on.
@@ -63,13 +63,14 @@ Tables, where the same rule applies: a world table with a shipped table's name
 is rolled instead of it, and the trait pick-lists on the character sheet offer
 your rows too. See [Customizing Bonds](customizing-bonds.md).
 
-A window afterwards says what landed, with **Open Custom Backgrounds** and
-**Open Rollable Tables** buttons that take you there — the backgrounds are in a
-world compendium on the Compendium tab, outside the Air Bladder folders, which
-is not where most people look first.
+A window afterwards says what landed, with buttons that take you there and say
+where that is: **Open Custom 2e Backgrounds on the Compendium tab** and
+**Show the Custom 2e Character Creation folder in Rollable Tables** — the
+backgrounds are in a world compendium on the Compendium tab, outside the Air
+Bladder folders, which is not where most people look first.
 
 Running it again never overwrites: a copy you have edited is kept, only what is
-missing is added, and a locked Custom Backgrounds compendium is refused rather
+missing is added, and a locked Custom 2e Backgrounds compendium is refused rather
 than unlocked behind your back.
 
 ## Starting from nothing instead
@@ -80,7 +81,7 @@ the Background item type is public, so you can start from an empty one:
 1. Open the **Items** sidebar tab and click **Create Item**.
 2. Name it and set **Type** to **Background**.
 3. Fill in the fields described below.
-4. On the **Details** tab, click **Duplicate into Custom Backgrounds** to file it in
+4. On the **Details** tab, click **Duplicate into Custom 2e Backgrounds** to file it in
    the world compendium — created for you if it does not exist yet.
 
 Step 4 is not optional. A background sitting loose in the Items sidebar is not a
@@ -101,7 +102,7 @@ top-right corner of the box — so an empty Description can look like a static p
 rather than something you can type in.
 
 **Details** is the authoring form. It has a toolbar with **Test ×10** and
-**Duplicate into Custom Backgrounds**, then six sections.
+**Duplicate into Custom 2e Backgrounds**, then six sections.
 
 ### Source and Archetype
 
@@ -226,7 +227,7 @@ A finished background is still invisible until you switch the source on:
 **Game Settings → Configure Settings → Air Bladder → Character Generation → Configure Character Generation → "Offer custom Cairn 2e backgrounds"**
 
 With it on, your custom backgrounds join the picker's **Custom** section. A copy
-made by **Create Custom Backgrounds and Tables…** is the one exception: it keeps
+made by **Create Custom 2e Backgrounds and Tables…** is the one exception: it keeps
 the shipped background's place in its archetype group, because it stands in for
 it.
 
@@ -255,15 +256,17 @@ error, so check them in this order if yours does not show up:
 
 ## Where it lives
 
-Custom backgrounds you write live in a world compendium called **Custom Backgrounds**,
+Custom backgrounds you write live in a world compendium called **Custom 2e Backgrounds**,
 created the first time you duplicate into it. Being a world compendium, it is editable
-and belongs to that world only — which is why sharing needs its own steps.
+and belongs to that world only — which is why sharing needs its own steps. A world
+that created its compendium before the name changed keeps the name it had, and every
+message that names the compendium uses whichever name your world has.
 
 ### Two packs with nearly the same name, and only one is yours
 
 This trips people up, so it is worth being exact:
 
-| | **Backgrounds (Custom)** | **Custom Backgrounds** |
+| | **Backgrounds (Custom)** | **Custom 2e Backgrounds** |
 | --- | --- | --- |
 | Comes from | the system, shipped in every install | your world, created on first duplicate |
 | Where it appears | inside the *Air Bladder - Backgrounds* folder | outside that folder, on its own |
@@ -273,19 +276,19 @@ This trips people up, so it is worth being exact:
 **Never author into *Backgrounds (Custom)*.** It is a system pack, and a system pack is
 overwritten wholesale when Air Bladder updates — work put there is gone at the next
 release, with no warning and no recovery. If you want to change one of the seven, open
-it and use **Duplicate into Custom Backgrounds**, which copies it somewhere that
-survives — or press **Create Custom Backgrounds and Tables…** on the Rollable Tables
+it and use **Duplicate into Custom 2e Backgrounds**, which copies it somewhere that
+survives — or press **Create Custom 2e Backgrounds and Tables…** on the Rollable Tables or Compendium
 sidebar, which copies all seven, and the twenty, in one go.
 
 **Your own pack sits outside the *Air Bladder - Backgrounds* folder**, and that is not
 a mistake to fix. That folder groups the four packs the *system* ships — Backgrounds
 (2e), Backgrounds (Barebones), Backgrounds (Custom) and Background Items — and Foundry
-only lets a system file its own packs there. Your Custom Backgrounds compendium belongs
+only lets a system file its own packs there. Your Custom 2e Backgrounds compendium belongs
 to the world, so it appears on its own. You can drag it into any folder you make
 yourself; nothing in Air Bladder reads the folder, only the compendium.
 
 Backgrounds delivered inside a **module** are read-only. To change one, open it and
-use **Duplicate into Custom Backgrounds**, which copies it into your own editable
+use **Duplicate into Custom 2e Backgrounds**, which copies it into your own editable
 pack.
 
 See [Sharing & moving custom backgrounds](sharing-custom-backgrounds.md).

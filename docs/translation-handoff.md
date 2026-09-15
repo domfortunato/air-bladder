@@ -6,11 +6,11 @@ as of 2026-09-15, measured against the last release (`0.1.22`).
 
 | | |
 | --- | --- |
-| English interface keys | 1131 |
+| English interface keys | 1132 |
 | translated in `lang/es.json` | 686 (61%) |
-| **changed under your translation** | **24** ← Part 1 |
+| **changed under your translation** | **29** ← Part 1 |
 | **content you translated, now unreachable** | **270** ← Part 2 |
-| new interface keys, untranslated | 445 ← Part 3 |
+| new interface keys, untranslated | 446 ← Part 3 |
 | new content strings, untranslated | 2072 ← Part 4 |
 
 Only two files are yours, and only you should edit them: `lang/es.json`
@@ -19,7 +19,7 @@ list asks you to touch anything else.
 
 ---
 
-## Part 1 — interface strings you translated, whose English I have since changed (24)
+## Part 1 — interface strings you translated, whose English I have since changed (29)
 
 **Do these first.** Each key below already has a Spanish translation, so no tool
 reports it as missing — but the English changed underneath it. The translation is not
@@ -31,6 +31,26 @@ English was deliberately changed to stop saying.
 - **was (EN):** Name a RollTable of your own to draw this background's bonds from — make one under Tables, or in a compendium, and type its name here. Leave it empty for Cairn 2e's bonds. Your own rows give their text only: Foundry's table editor cannot record the starting gold and gear the 2e rows carry, so put anything mechanical into the row's text and let the player apply it.
 - **now (EN):** Name a RollTable of your own to draw this background's bonds from — make one under Tables, or in a compendium, and type its name here. Leave it empty for the default — a world table named Bonds if you have made one, otherwise Cairn 2e's. Your own rows give their text only: Foundry's table editor cannot record the starting gold and gear the 2e rows carry, so put anything mechanical into the row's text and let the player apply it.
 - **your current Spanish:** Especifica una tabla de tiradas propia de la que extraer los vínculos de este trasfondo: crea una en la sección «Tablas» o en un compendio, y escribe aquí su nombre. Déjalo en blanco si quieres utilizar los vínculos de Cairn 2.ª edición. Tus propias filas solo muestran su texto: el editor de tablas de Foundry no puede registrar el oro inicial ni el equipo que incluyen las filas de la 2.ª edición, así que incluye cualquier dato mecánico en el texto de la fila y deja que el jugador lo aplique.
+
+### `CAIRN.BgAuthor.Duplicate`
+
+- **was (EN):** Duplicate into Custom Backgrounds
+- **now (EN):** Duplicate into Custom 2e Backgrounds
+- **your current Spanish:** Duplicar en Trasfondos personalizados
+- **quoted verbatim by:** `CAIRN.BgAuthor.DuplicateOnDetails` — whatever you choose here has to be pasted
+  into those too, or they will name a control that is not on the menu.
+
+### `CAIRN.BgAuthor.DuplicateHint`
+
+- **was (EN):** Copy this into your editable "Custom Backgrounds" world compendium as a starting point.
+- **now (EN):** Copy this into your editable "Custom 2e Backgrounds" world compendium as a starting point.
+- **your current Spanish:** Copia esto en tu compendio de mundo «Trasfondos personalizados», que es editable, como punto de partida.
+
+### `CAIRN.BgAuthor.Duplicated`
+
+- **was (EN):** Copied into Custom Backgrounds as "{name}".
+- **now (EN):** Copied into Custom 2e Backgrounds as "{name}".
+- **your current Spanish:** Copiado en Trasfondos personalizados como "{name}".
 
 ### `CAIRN.BgAuthor.SourceHint`
 
@@ -58,6 +78,14 @@ English was deliberately changed to stop saying.
 - **now (EN):** Which edition is this character?
 - **your current Spanish:** ¿De qué edición es este personaje?
 
+### `CAIRN.CustomBackgroundsPack`
+
+- **was (EN):** Custom Backgrounds
+- **now (EN):** Custom 2e Backgrounds
+- **your current Spanish:** Trasfondos caseros
+- **quoted verbatim by:** `CAIRN.Archetype.Custom`, `CAIRN.BgAuthor.Duplicate`, `CAIRN.BgAuthor.DuplicateHint`, `CAIRN.BgAuthor.DuplicateOnDetails`, `CAIRN.BgAuthor.Duplicated`, `CAIRN.NoCustomBackgrounds`, `CAIRN.TakeOver.Cairn2e.Button`, `CAIRN.TakeOver.Cairn2e.Pitch`, `CAIRN.TakeOver.Cairn2e.Title` — whatever you choose here has to be pasted
+  into those too, or they will name a control that is not on the menu.
+
 ### `CAIRN.KWImport.OptionsIntro`
 
 - **was (EN):** Import a character exported from Kettlewright into a new actor.
@@ -69,6 +97,12 @@ English was deliberately changed to stop saying.
 - **was (EN):** Background questions: {count} matched to their answers and moved onto the Notes tab.
 - **now (EN):** Background questions: {count} matched to their answers.
 - **your current Spanish:** Preguntas del trasfondo: {count} se compararon con sus respuestas y se pasó a la pestaña «Trasfondo y notas».
+
+### `CAIRN.NoCustomBackgrounds`
+
+- **was (EN):** No custom backgrounds found. Author one in the Custom Backgrounds compendium, or re-enable the shipped Cairn 2e backgrounds in settings.
+- **now (EN):** No custom backgrounds found. Author one in the Custom 2e Backgrounds compendium, or re-enable the shipped Cairn 2e backgrounds in settings.
+- **your current Spanish:** No se han encontrado trasfondos caseros. Crea uno en el compendio de trasfondos personalizados o vuelve a activar los trasfondos de Cairn 2.ª edición incluidos en la configuración.
 
 ### `CAIRN.NotesPlaceholder`
 
@@ -523,7 +557,7 @@ to do — they are listed so the work is accounted for rather than vanishing.
 
 ---
 
-## Part 3 — new interface keys, untranslated (445)
+## Part 3 — new interface keys, untranslated (446)
 
 Ordinary outstanding work: these have no Spanish at all, so a Spanish client
 falls back to English for them. Nothing here is urgent — a missing key is visibly
@@ -536,7 +570,7 @@ untranslated, which is the honest failure.
 | `CAIRN.BgAuthor.Attribution` | Credit line |
 | `CAIRN.BgAuthor.AttributionHint` | Who wrote this background, and under what licence. Whatever you type here prints in the footer of every character sheet built on it, so keep it to one line — a title, a name, and the licence. Leave it empty for your own … |
 | `CAIRN.BgAuthor.AttributionPlaceholder` | Title — Author · CC BY-SA 4.0 |
-| `CAIRN.BgAuthor.DuplicateOnDetails` | This background is shipped and locked. Open the Details tab and use "Duplicate into Custom Backgrounds" to make a copy you can edit. |
+| `CAIRN.BgAuthor.DuplicateOnDetails` | This background is shipped and locked. Open the Details tab and use "Duplicate into Custom 2e Backgrounds" to make a copy you can edit. |
 | `CAIRN.BgAuthor.EditOnDetails` | Open the Details tab to edit this background — its starting gear, question tables, and credit line. |
 
 ### BgTagline (1)
@@ -933,7 +967,7 @@ untranslated, which is the honest failure.
 | `CAIRN.TableRole.Transports` | <strong>Your Marketplace: {aisle}.</strong> Air Bladder stocks the {aisle} aisle of the Marketplace from this table instead of the shipped one. To add a mount, wagon or container, drag its NPC from the Actors sidebar or … |
 | `CAIRN.TableRole.ViewMode` | To make any of these changes, first press {edit} at the top of this window. |
 
-### TakeOver (65)
+### TakeOver (66)
 
 | key | English |
 | --- | --- |
@@ -944,13 +978,13 @@ untranslated, which is the honest failure.
 | `CAIRN.TakeOver.Barebones.Pitch` | Create Custom Barebones Creation Tables! |
 | `CAIRN.TakeOver.Barebones.Title` | Create Custom Barebones Creation Tables |
 | `CAIRN.TakeOver.Barebones.Why` | Air Bladder's compendiums ship with the six tables a Barebones character is dealt from: Weapon, Armor, Additional Gear and the three Weapon Tier tables. Foundry overwrites the compendium every time it updates the system.… |
-| `CAIRN.TakeOver.Cairn2e.Button` | Create Custom Backgrounds and Tables… |
+| `CAIRN.TakeOver.Cairn2e.Button` | Create Custom 2e Backgrounds and Tables… |
 | `CAIRN.TakeOver.Cairn2e.Fix` | Clicking Copy below copies all 27 shipped backgrounds into your {pack} compendium under their own names, creating the compendium if you do not have one yet, and switches custom backgrounds on. From then on, a player roll… |
 | `CAIRN.TakeOver.Cairn2e.Folder` | Custom 2e Character Creation |
 | `CAIRN.TakeOver.Cairn2e.How` | Backgrounds are offered to players from compendiums, never from the Items sidebar. Your own live in a world compendium called <strong>{pack}</strong>, on the Compendium tab, outside the Air Bladder folders. A copy that c… |
-| `CAIRN.TakeOver.Cairn2e.Pitch` | Create Custom Backgrounds! |
+| `CAIRN.TakeOver.Cairn2e.Pitch` | Create Custom 2e Backgrounds! |
 | `CAIRN.TakeOver.Cairn2e.Tables` | It also copies the eleven tables a 2e character rolls on, Bonds, Omens, Scars and the eight trait tables, into a folder named <strong>{folder}</strong> in your Rollable Tables. Reword a bond, add an omen, retune a scar: … |
-| `CAIRN.TakeOver.Cairn2e.Title` | Create Custom Backgrounds and Tables |
+| `CAIRN.TakeOver.Cairn2e.Title` | Create Custom 2e Backgrounds and Tables |
 | `CAIRN.TakeOver.Cairn2e.Why` | Air Bladder's compendiums ship with 27 Cairn 2e backgrounds, the twenty from the Player's Guide and <strong>seven custom BECMI D&D-themed backgrounds</strong> created by Gordon McCormick. Foundry overwrites the compendiu… |
 | `CAIRN.TakeOver.Copy` | Copy |
 | `CAIRN.TakeOver.Failed` | Copying stopped partway. Nothing already copied was touched; run it again to add what is missing. |
@@ -986,9 +1020,10 @@ untranslated, which is the honest failure.
 | `CAIRN.TakeOver.Result.Kept` | Already in your world and left exactly as it was: {kept}. |
 | `CAIRN.TakeOver.Result.Marketplace` | <strong>{counts}</strong> copied into your {where}, under {folder}. The shop reads your copies from now on. |
 | `CAIRN.TakeOver.Result.NothingNew` | Nothing needed copying: it is all in your world already. |
-| `CAIRN.TakeOver.Result.OpenBackgrounds` | Open {pack} |
-| `CAIRN.TakeOver.Result.OpenItems` | Open Items |
-| `CAIRN.TakeOver.Result.OpenTables` | Open Rollable Tables |
+| `CAIRN.TakeOver.Result.OpenActors` | Show the {folder} folder in Actors |
+| `CAIRN.TakeOver.Result.OpenBackgrounds` | Open {pack} on the Compendium tab |
+| `CAIRN.TakeOver.Result.OpenItems` | Show the {folder} folder in Items |
+| `CAIRN.TakeOver.Result.OpenTables` | Show the {folder} folder in Rollable Tables |
 | `CAIRN.TakeOver.Result.Spells` | <strong>{counts}</strong> copied into your {where}, under {folder}. A random spellbook or scroll is dealt from your copies from now on. |
 | `CAIRN.TakeOver.Result.Title` | Copied |
 | `CAIRN.TakeOver.Spells.Button` | Create a Custom Spell Table… |

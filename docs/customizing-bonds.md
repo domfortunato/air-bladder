@@ -34,7 +34,7 @@ else to configure.
 ## Copy the 2e tables into your world
 
 The one-button way, and it brings the rest of 2e's tables with it. Open the
-**Rollable Tables** sidebar tab and press **Create Custom Backgrounds and Tables…**
+**Rollable Tables** or **Compendium** sidebar tab and press **Create Custom 2e Backgrounds and Tables…**
 (Wardens only). Alongside the 27 backgrounds it copies the
 **eleven tables a 2e character rolls on** — Bonds, Omens, Scars, and the eight
 trait tables (Physique, Skin, Hair, Face, Speech, Clothing, Vice, Virtue) — into
@@ -111,7 +111,7 @@ the default with a warning in the console, so a background shared to a world
 that lacks its table still hands out ordinary bonds.
 
 Canon backgrounds have no such box. To give just one of them special bonds,
-open it in **Backgrounds (2e)**, click **Duplicate into Custom Backgrounds**,
+open it in **Backgrounds (2e)**, click **Duplicate into Custom 2e Backgrounds**,
 set the box on the copy — and switch the original off with the **eye toggle**
 on its picker row, so the copy is the one that comes up (see
 [Taking a background out of play](generating-characters.md#taking-a-background-out-of-play)

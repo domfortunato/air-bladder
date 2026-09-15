@@ -60,8 +60,10 @@ for and how many documents it is about to copy; press **Copy** and you get:
   folder of its own in your Actors sidebar;
 - every row already pointing at your copy.
 
-A window then says what landed, with **Open Rollable Tables** and **Open Items**
-buttons that take you straight to the new folders.
+A window then says what landed, with a button for each new folder that takes you
+straight to it: **Show the Custom Marketplace folder in Rollable Tables**, **Show
+the Custom Marketplace folder in Items** and **Show the Custom Marketplace folder
+in Actors**.
 
 From then on the shop reads your tables and your items. Change a price, delete a
 row, drag something in — it all sticks, through every update.

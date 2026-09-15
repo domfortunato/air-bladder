@@ -3321,19 +3321,25 @@ const showDamageApplied = (message, html, scene) => {
   row.append(line);
 };
 
-// The four "Create a Custom …" doors (module/take-over.js), all at the top of
-// the Rollable Tables sidebar: a NAMED handler, so a probe can switch it off
-// in-page (lib.mjs withHookOff finds a hook by its fn.name). The spells door
-// sits first, where "Reseed a Spell Table…" sat until 2026-09-14 (user ruling:
-// one mechanism for every table, the Copy button's); the backgrounds door
-// sits LAST, and it sat on the Compendium sidebar — its own
-// `renderCompendiumDirectory` registration — until 2026-09-15, when the user
-// ruled it a fourth button with the others. Nothing of ours renders on the
-// Compendium directory now, and dev:take-over asserts that.
+// The four "Create a Custom …" doors (module/take-over.js): NAMED handlers,
+// so a probe can switch each off in-page (lib.mjs withHookOff finds a hook by
+// its fn.name). All four sit at the top of the Rollable Tables sidebar — the
+// spells door first, where "Reseed a Spell Table…" sat until 2026-09-14 (user
+// ruling: one mechanism for every table, the Copy button's), the backgrounds
+// door fourth (user ruling 2026-09-15) — and the backgrounds door ALSO sits at
+// the top of the Compendium tab, where its 27 copies land (user ruling an hour
+// later, looking at that tab: "what are the implications of having it in
+// both?" — none but this second registration; the per-root guard keeps each
+// directory to one button and `running` keeps two clicks to one run). The
+// compendium one is its own registration because the search-wrap hook above
+// returns early on `!contentLocalized()`, and this button must not.
 Hooks.on("renderRollTableDirectory", function abTakeOverTablesButton(app, html) {
   injectTakeOverButton(html, { kind: "spells" });
   injectTakeOverButton(html, { kind: "marketplace" });
   injectTakeOverButton(html, { kind: "barebones" });
+  injectTakeOverButton(html, { kind: "cairn2e" });
+});
+Hooks.on("renderCompendiumDirectory", function abTakeOverCompendiumButton(app, html) {
   injectTakeOverButton(html, { kind: "cairn2e" });
 });
 

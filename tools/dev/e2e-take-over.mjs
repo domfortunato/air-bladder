@@ -12,14 +12,14 @@
  *                                      and `npm run dev:players` for Alice)
  *
  * What it holds, in order:
- *   1. The four doors, ALL on the Rollable Tables sidebar (Cairn 2e sat on the
- *      Compendium sidebar until 2026-09-15 — user ruling, a fourth button with
- *      the others; the Compendium directory is asserted to carry none), docked
- *      AND popped out, each on a row of its OWN spanning the header (round
- *      one's cramped button beside the old Reseed Spell Table is what this
- *      measures), glyph rendered (read from `::before`, never the class list).
- *      Red-first: `withHookOff` on the named handler → absent. Alice's
- *      directories carry none.
+ *   1. The four doors, ALL on the Rollable Tables sidebar in declared order,
+ *      and the Cairn 2e door ALSO at the top of the Compendium tab (both user
+ *      rulings of 2026-09-15: a fourth button with the others, then "both
+ *      sidebars"), docked AND popped out, each on a row of its OWN spanning
+ *      the header (round one's cramped button beside the old Reseed Spell
+ *      Table is what this measures), nothing clipped, glyph rendered (read
+ *      from `::before`, never the class list). Red-first: `withHookOff` on
+ *      each named handler → absent. Alice's directories carry none.
  *   2. The confirms: one per kind, each with its three bold headers, its counts
  *      line, NO submit button (Enter never copies) and Cancel focused. Cancel and
  *      ✕ create nothing. The spells confirm carries the GLOG paragraph for the
@@ -256,7 +256,20 @@ const answerConfirm = (action) => page.evaluate(async (action) => {
             // The dialog's OWN footer, never the window frame — its ✕ is a
             // `data-action="close"` button too, and fooled the first draft.
             buttons: [...res.element.querySelectorAll(".dialog-buttons button, .form-footer button")]
-              .map((b) => ({ action: b.dataset.action, type: b.getAttribute("type"), label: b.textContent.trim(), focused: res.element.ownerDocument.activeElement === b })),
+              .map((b) => ({
+                action: b.dataset.action, type: b.getAttribute("type"), label: b.textContent.trim(), focused: res.element.ownerDocument.activeElement === b,
+                // Layout: one button per row (distinct tops), a sentence that
+                // fits its box, and a glyph that RENDERS — a misspelled FA
+                // class is an empty box with no error, so read `::before`.
+                top: Math.round(b.getBoundingClientRect().top),
+                clipped: b.scrollWidth > b.clientWidth + 1 || b.scrollHeight > b.clientHeight + 1,
+                // The door leg's rule: a rendered glyph is a private-use character.
+                glyph: (() => {
+                  const i = b.querySelector("i");
+                  const c = i ? getComputedStyle(i, "::before").content : null;
+                  return i ? !!c && c !== "none" && c.charCodeAt(1) > 0xe000 : null;
+                })(),
+              })),
           },
         };
       }
@@ -389,6 +402,12 @@ try {
             present: !!b, label: b?.textContent.trim(), type: b?.getAttribute("type"),
             width: r ? Math.round(r.width) : 0, headerWidth: Math.round(inner),
             glyph: !!content && content !== "none" && content !== '""' && content.charCodeAt(1) > 0xe000,
+            // A label longer than the row WRAPS (the door rule's white-space:
+            // normal + height: auto); the 2e door's label grew past one line
+            // on 2026-09-15 (user: fine "as long as it's all readable"), so a
+            // clipped label — overflow beyond the box — is the red here.
+            clipped: b ? (b.scrollHeight > b.clientHeight + 1 || b.scrollWidth > b.clientWidth + 1) : null,
+            lines: b && r ? Math.max(1, Math.round((r.height - 10) / parseFloat(getComputedStyle(b).lineHeight))) : 0,
           };
         }
         out.rowTops = [...(actions?.children ?? [])].map((c) => Math.round(c.getBoundingClientRect().top));
@@ -400,31 +419,33 @@ try {
         try { await pop.close(); } catch { /* gone */ }
         return out;
       };
-      // The Compendium directory carried the backgrounds door until 2026-09-15
-      // (user ruling: a fourth button with the others). Rendered fresh and
-      // counted, so a registration coming back there is a red, not a surprise.
-      await ui.compendium.render({ force: true });
-      await new Promise((r) => setTimeout(r, 400));
+      const order = [...(ui.tables.element?.querySelectorAll(".cairn-take-over") ?? [])].map((b) => b.dataset.kind);
+      // The 2e door has TWO homes (user ruling 2026-09-15, an hour after the
+      // move to Rollable Tables): read the Compendium directory the same way,
+      // and it must carry exactly that one door.
+      const compendium = await read("compendium", ["cairn2e"]);
       return {
         tables: await read("tables", ["spells", "marketplace", "barebones", "cairn2e"]),
+        compendium, order,
         compendiumDoors: ui.compendium.element?.querySelectorAll(".cairn-take-over").length ?? 0,
-        order: [...(ui.tables.element?.querySelectorAll(".cairn-take-over") ?? [])].map((b) => b.dataset.kind),
       };
     });
-    for (const kind of ["spells", "marketplace", "barebones", "cairn2e"]) {
-      const k = doors.tables.kinds[kind];
-      check(k.present && k.type === "button", `tables: the ${kind} button is there, type=button`, k.label);
+    for (const [tab, kind] of [["tables", "spells"], ["tables", "marketplace"], ["tables", "barebones"], ["tables", "cairn2e"], ["compendium", "cairn2e"]]) {
+      const k = doors[tab].kinds[kind];
+      check(k.present && k.type === "button", `${tab}: the ${kind} button is there, type=button`, k.label);
       check(k.glyph, `…${kind}'s glyph RENDERS (read from ::before)`);
       check(k.width >= k.headerWidth * 0.9, `…and it spans the header`, `${k.width} of ${k.headerWidth}px`);
+      check(k.clipped === false, `…and nothing of its label is clipped (${k.lines} line${k.lines === 1 ? "" : "s"})`, k.label);
     }
     check(new Set(doors.tables.rowTops).size === doors.tables.rowTops.length && doors.tables.rowTops.length === 4,
       "Rollable Tables: the four Copy buttons each on a row of their own, and nothing else in the header", JSON.stringify(doors.tables.rowTops));
     check(doors.order.join(",") === "spells,marketplace,barebones,cairn2e",
       "…in the declared order, the backgrounds door fourth", doors.order.join(","));
     check(doors.tables.popped === 4 && doors.tables.separate, "…and all four once more on the popped-out directory (a second root)");
-    check(doors.compendiumDoors === 0, "Compendium: no door there any more — the fourth sits with the others (user ruling 2026-09-15)", String(doors.compendiumDoors));
+    check(doors.compendiumDoors === 1, "Compendium: the 2e door, and only that one, at the top of the pack list (its second home)", String(doors.compendiumDoors));
+    check(doors.compendium.popped === 1 && doors.compendium.separate, "…and once more on the popped-out Compendium directory");
 
-    for (const [hook, fn, tab, n] of [["renderRollTableDirectory", "abTakeOverTablesButton", "tables", 4]]) {
+    for (const [hook, fn, tab, n] of [["renderRollTableDirectory", "abTakeOverTablesButton", "tables", 4], ["renderCompendiumDirectory", "abTakeOverCompendiumButton", "compendium", 1]]) {
       const off = await withHookOff(page, hook, fn, () => page.evaluate(async (tab) => {
         const a = ui[tab];
         // The per-root guard keeps an injected button across re-renders of
@@ -487,7 +508,10 @@ try {
 
     /* ----------------------------------------------------- 2. the confirms */
     console.log("\n2. the confirms");
-    const PACK_LABEL = await page.evaluate(() => game.i18n.localize("CAIRN.CustomBackgroundsPack"));
+    // The label a sentence names the pack by: the pack's OWN when it exists
+    // (an older world keeps the name it was made under — core cannot rename a
+    // world compendium), else the key's text for the one a run will create.
+    const PACK_LABEL = await page.evaluate(() => game.packs.get("world.custom-backgrounds")?.metadata.label ?? game.i18n.localize("CAIRN.CustomBackgroundsPack"));
 
     // A double-click opens ONE confirm (review #31): `running` goes up before
     // the plan's first await, so the second call returns null at once.
@@ -538,7 +562,7 @@ try {
       spells: ["Create a Custom Spell Table!", "How Air Bladder works", "Here is an easy fix"],
       marketplace: ["Create a Custom Marketplace!", "How Air Bladder works", "Here is an easy fix"],
       barebones: ["Create Custom Barebones Creation Tables!", "How Air Bladder works", "Here is an easy fix"],
-      cairn2e: ["Create Custom Backgrounds!", "How Air Bladder works", "Here is an easy fix"],
+      cairn2e: ["Create Custom 2e Backgrounds!", "How Air Bladder works", "Here is an easy fix"],
     };
     const glogOn = await page.evaluate(() => !!game.settings.get("air-bladder", "enable-glog-magic"));
     console.log(`  note  the GLOG hack is ${glogOn ? "ON" : "OFF"} in this world; the spells door copies the ${glogOn ? "GLOG" : "canon"} pool`);
@@ -660,10 +684,25 @@ try {
     check(run1.result?.title === "Copied"
       && run1.result.lines.some((l) => ["Rollable Tables", "Items", "Actors", "Marketplace"].every((w) => l.includes(w))),
       "the result window names all three directories it wrote into, and the folder", JSON.stringify(run1.result?.lines));
-    check(["tables", "items", "close"].every((a) => run1.result?.buttons.some((b) => b.action === a))
+    check(["tables", "items", "actors", "close"].every((a) => run1.result?.buttons.some((b) => b.action === a))
       && run1.result.buttons.every((b) => b.type === "button")
       && run1.result.buttons.find((b) => b.action === "close")?.focused,
-      "…with Open Rollable Tables, Open Items and Close, all type=button, Close focused", JSON.stringify(run1.result?.buttons));
+      "…with a button per directory — Rollable Tables, Items and Actors — and Close, all type=button, Close focused", JSON.stringify(run1.result?.buttons?.map((b) => b.action)));
+    // Each button says what it opens: the folder by its DOCUMENT's name and
+    // the directory, formatted in-page off the key so the English is not
+    // pinned here — and one regex so a format that returned the key reds.
+    const expectOpen = await page.evaluate(({ ids, NS }) => {
+      const parent = (type) => ids.map((id) => game.folders.get(id)).find((x) => x?.type === type && !x.getFlag(NS, "takeOverPack"));
+      return Object.fromEntries([["tables", "RollTable", "OpenTables"], ["items", "Item", "OpenItems"], ["actors", "Actor", "OpenActors"]]
+        .map(([a, type, key]) => [a, game.i18n.format(`CAIRN.TakeOver.Result.${key}`, { folder: parent(type)?.name ?? "?" })]));
+    }, { ids: f.folders, NS });
+    check(Object.entries(expectOpen).every(([a, label]) => run1.result?.buttons.find((b) => b.action === a)?.label === label)
+      && /Custom Marketplace folder in Items/.test(expectOpen.items),
+      "…each naming what it opens: the folder by its document's name, and the directory", JSON.stringify(run1.result?.buttons?.map((b) => b.label)));
+    const rows = run1.result?.buttons ?? [];
+    check(rows.length === 4 && new Set(rows.map((b) => b.top)).size === rows.length && rows.every((b) => !b.clipped)
+      && rows.filter((b) => b.action !== "close").every((b) => b.glyph === true),
+      "…one button per row, nothing clipped, every directory button's glyph rendered", JSON.stringify(rows.map((b) => [b.action, b.top, b.clipped, b.glyph])));
     const landedItems = await pressResult("items");
     const itemFolder = await page.evaluate(({ ids, NS }) => ids.map((id) => game.folders.get(id))
       .find((x) => x?.type === "Item" && !x.getFlag(NS, "takeOverPack"))?.uuid, { ids: f.folders, NS });
@@ -753,7 +792,16 @@ try {
     const snapBefore2 = await fresh(before);
     await openConfirm("marketplace");
     const run2 = await answerConfirm("copy");
-    await closeResult();
+    // A nothing-new run is a Warden looking for the copies: all three folder
+    // buttons, the Actors one included (runTableTakeOver fills each folder
+    // from the flagged one when a run wrote nothing there).
+    check(["tables", "items", "actors"].every((a) => run2.result?.buttons.some((b) => b.action === a)),
+      "…and the window still offers the three folder buttons — the Warden came back to find the copies", JSON.stringify(run2.result?.buttons?.map((b) => b.action)));
+    const landedActors = await pressResult("actors");
+    const actorFolder = await page.evaluate(({ ids, NS }) => ids.map((id) => game.folders.get(id))
+      .find((x) => x?.type === "Actor" && !x.getFlag(NS, "takeOverPack"))?.uuid, { ids: f.folders, NS });
+    check(landedActors.tab === "actors" && landedActors.expanded.includes(actorFolder),
+      "Show … in Actors raises the Actors tab with the Custom Marketplace folder expanded", `${landedActors.tab}, folder ${actorFolder}`);
     const snapAfter2 = await fresh(before);
     const daggerNow = await page.evaluate((id) => game.items.get(id)?.system.cost, dagger.id);
     check(JSON.stringify(snapAfter2) === JSON.stringify(snapBefore2) && daggerNow === 99 && run2.warns.length === 0,
@@ -834,6 +882,38 @@ try {
     check(p4.addNames.includes("Dagger") === false && !adoptedRow.twin && adoptedRow.rowUuid === adoptedRow.adoptedUuid,
       "the new Weapons table's Dagger row points at the adopted copy and no twin was created under the shipped id", JSON.stringify({ run4, adoptedRow }));
 
+    /* --------------------- 10-pre. an existing pack is named by its own label */
+    // The compendium was renamed "Custom 2e Backgrounds" on 2026-09-15, and
+    // core cannot rename a world compendium that already exists (the sidebar
+    // menu is ownership, lock, duplicate, delete), so a world that made its
+    // pack under the old name keeps it — and the confirm must name THAT
+    // label, never the key's current text. Planted only when no pack exists
+    // (the dev world's empty one is deleted before a sweep; a Warden's real
+    // pack is never replaced), removed again before the real run below.
+    console.log("\n10-pre. an existing pack is named by its own label");
+    const literal = await page.evaluate(async ({ WORLD_BG_PACK }) => {
+      if (game.packs.get(WORLD_BG_PACK)) return { skipped: true };
+      const label = "Custom Backgrounds (Probe Literal)";
+      await foundry.documents.collections.CompendiumCollection.createCompendium({ type: "Item", label, name: WORLD_BG_PACK.split(".")[1] });
+      // The sentence that names the pack, up to the name: the confirm's
+      // headline ("Create Custom 2e Backgrounds!") carries the key's words
+      // too, so the test anchors on the words that introduce the name.
+      const strip = (s) => s.replace(/<[^>]+>/g, "");
+      const [pre] = strip(game.i18n.format("CAIRN.TakeOver.Cairn2e.How", { pack: " " })).split(" ");
+      return { skipped: false, label, keyText: game.i18n.localize("CAIRN.CustomBackgroundsPack"), live: game.packs.get(WORLD_BG_PACK)?.metadata.label, lead: pre.slice(-24) };
+    }, { WORLD_BG_PACK });
+    if (literal.skipped) {
+      console.log("  note  a world pack already exists here — the literal-label leg is skipped (delete it for the full run)");
+    } else {
+      const cLit = await openConfirm("cairn2e");
+      check(!cLit.error && cLit.text.includes(literal.lead + literal.label) && !cLit.text.includes(literal.lead + literal.keyText),
+        `the confirm names the pack by its OWN label ("${literal.label}"), not the key's text ("${literal.keyText}")`, JSON.stringify({ lead: literal.lead, text: cLit.text.slice(0, 160) }));
+      await answerConfirm("cancel");
+      await page.evaluate(async ({ WORLD_BG_PACK }) => { await game.packs.get(WORLD_BG_PACK)?.deleteCompendium(); }, { WORLD_BG_PACK });
+      check(literal.live === literal.label && literal.keyText !== literal.label,
+        "control: the planted label is what the pack wears, and it differs from the key's text", JSON.stringify(literal));
+    }
+
     /* ------------------------------------------------------ 10. Cairn 2e */
     console.log("\n10. Cairn 2e: the backgrounds and the eleven tables, custom source OFF at entry");
     await page.evaluate((NS) => game.settings.set(NS, "content-source-custom", false), NS);
@@ -849,17 +929,37 @@ try {
     }, { GEN, NS });
     check(eyeBefore.off.includes(eyeBefore.uuid), "precondition: the shipped Fieldwarden is switched off by its eye before the copy", eyeBefore.uuid);
     const beforeC2e = await fresh(before);
+    // The pack the run creates carries the KEY as its label, not the English:
+    // core localizes every pack's label at construction
+    // (compendium-collection.mjs:46), so the sidebar follows the language and
+    // any rename. Nothing client-side keeps the raw label once constructed —
+    // the create handler stores the very object the constructor localizes —
+    // so the witness is the create REQUEST, seen on its way out.
+    const spyOn = await page.evaluate(() => {
+      const CC = foundry.documents.collections.CompendiumCollection;
+      window.__abCreateSpy = { seen: [], orig: CC.createCompendium };
+      CC.createCompendium = async function (metadata, options) { window.__abCreateSpy.seen.push(metadata?.label); return window.__abCreateSpy.orig.call(this, metadata, options); };
+      return !!game.packs.get("world.custom-backgrounds");
+    });
     await openConfirm("cairn2e");
     const runC2e = await answerConfirm("copy");
+    const spied = await page.evaluate(() => {
+      const CC = foundry.documents.collections.CompendiumCollection;
+      const s = window.__abCreateSpy; CC.createCompendium = s.orig; delete window.__abCreateSpy;
+      return { seen: s.seen, live: game.packs.get("world.custom-backgrounds")?.metadata.label, keyText: game.i18n.localize("CAIRN.CustomBackgroundsPack") };
+    });
+    if (spyOn) console.log("  note  the pack already existed — the key-label witness had nothing to see");
+    else check(spied.seen.length === 1 && spied.seen[0] === "CAIRN.CustomBackgroundsPack" && spied.live === spied.keyText,
+      "the run creates the pack with the KEY as its label, and core shows it localized", JSON.stringify(spied));
     const afterC2e = await fresh(before);
     const newC2eTables = afterC2e.tables.filter((id) => !beforeC2e.tables.includes(id));
     check(runC2e.result?.buttons.some((b) => b.action === "backgrounds") && runC2e.result.buttons.some((b) => b.action === "tables"),
-      "the result window offers Open Custom Backgrounds and Open Rollable Tables", JSON.stringify(runC2e.result?.lines));
-    const openBgLabel = await page.evaluate(() => game.i18n.format("CAIRN.TakeOver.Result.OpenBackgrounds", { pack: game.i18n.localize("CAIRN.CustomBackgroundsPack") }));
+      "the result window offers the compendium button and the Rollable Tables button", JSON.stringify(runC2e.result?.buttons?.map((b) => b.action)));
+    const openBgLabel = await page.evaluate(() => game.i18n.format("CAIRN.TakeOver.Result.OpenBackgrounds", { pack: game.packs.get("world.custom-backgrounds")?.metadata.label ?? game.i18n.localize("CAIRN.CustomBackgroundsPack") }));
     check(runC2e.result?.buttons.find((b) => b.action === "backgrounds")?.label === openBgLabel && runC2e.result.lines.some((l) => l.includes(PACK_LABEL)),
       `…the Open button and the line name the compendium by its label ("${PACK_LABEL}")`, JSON.stringify(runC2e.result?.buttons.map((b) => b.label)));
     const landedBg = await pressResult("backgrounds");
-    check(landedBg.packWindows?.includes(WORLD_BG_PACK), "Open Custom Backgrounds opens that compendium", JSON.stringify(landedBg.packWindows));
+    check(landedBg.packWindows?.includes(WORLD_BG_PACK), "the compendium button opens that compendium", JSON.stringify(landedBg.packWindows));
 
     const eye1 = await page.evaluate(async ({ GEN, WORLD_BG_PACK, id }) => {
       const gen = await import(GEN);
@@ -1069,6 +1169,8 @@ try {
       "…and a fresh Omens landed under a DIFFERENT id in the flagged folder, the shipped rows intact", JSON.stringify(afterP));
     check(runP.result?.lines.some((l) => l.includes("PROBE 2e Folder")) && !runP.result?.lines.some((l) => l.includes("Custom 2e Character Creation")),
       "the result window names the folder by its document's name, not the key's default", JSON.stringify(runP.result?.lines));
+    check(runP.result?.buttons.find((b) => b.action === "tables")?.label.includes("PROBE 2e Folder"),
+      "…and so does its Rollable Tables button", JSON.stringify(runP.result?.buttons?.map((b) => b.label)));
     await page.evaluate(({ folderId }) => game.folders.get(folderId)?.update({ name: "Custom 2e Character Creation" }), { folderId: parked.folderId });
 
     /* ------------------------------------------- 11. backgrounds idempotency */
@@ -1111,7 +1213,7 @@ try {
       await pack.configure({ locked: true });
       return { deleted: !!prowler, locked: pack.locked };
     }, { WORLD_BG_PACK });
-    const lockedLine = await page.evaluate(() => game.i18n.format("CAIRN.TakeOver.PackLockedConfirm", { pack: game.i18n.localize("CAIRN.CustomBackgroundsPack") }));
+    const lockedLine = await page.evaluate(() => game.i18n.format("CAIRN.TakeOver.PackLockedConfirm", { pack: game.packs.get("world.custom-backgrounds")?.metadata.label ?? game.i18n.localize("CAIRN.CustomBackgroundsPack") }));
     const cl = await openConfirm("cairn2e");
     check(lockedSetup.deleted && lockedSetup.locked && !cl.error && cl.text.includes(lockedLine) && !/This will copy/.test(cl.counts ?? "") && !/Everything this copies/.test(cl.counts ?? ""),
       "locked pack, one background missing: the confirm carries the locked line, promises no copy and does not claim everything is here", JSON.stringify({ counts: cl.counts }));
@@ -1236,8 +1338,9 @@ try {
       "one table and every missing spellbook created, no actor", `${newSpItems.length} items; result: ${JSON.stringify(runSp.result?.lines)}`);
     check(runSp.result?.lines.some((l) => /Spells/.test(l) && /Rollable Tables/.test(l) && /Items/.test(l) && !/Actors/.test(l)),
       "the result window names Rollable Tables and Items under Spells, and not Actors", JSON.stringify(runSp.result?.lines));
-    check(["tables", "items", "close"].every((a) => runSp.result?.buttons.some((b) => b.action === a)) && !runSp.result.buttons.some((b) => b.action === "backgrounds"),
-      "…with Open Rollable Tables, Open Items and Close", JSON.stringify(runSp.result?.buttons));
+    check(["tables", "items", "close"].every((a) => runSp.result?.buttons.some((b) => b.action === a))
+      && !runSp.result.buttons.some((b) => b.action === "backgrounds" || b.action === "actors"),
+      "…with the Rollable Tables and Items buttons and Close — no Actors button, no compendium button", JSON.stringify(runSp.result?.buttons?.map((b) => b.action)));
     await closeResult();
     const sp = await page.evaluate(async ({ id, NS, GEN, CPD, decl, newItems }) => {
       const gen = await import(GEN);

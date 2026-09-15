@@ -4595,6 +4595,35 @@ body.theme-light .cairn-watch-clock,
     overflow: hidden auto;
 }
 
+/* The RESULT window's buttons each carry a sentence - "Show the Custom
+   Marketplace folder in Items" - because "Open Items" told the Warden nothing
+   about what it opened (user, round nine). One button per row, in the door
+   rule's shape below: the label left-aligned after a glyph column, wrapping,
+   balanced. Close keeps core's centring, having no glyph to align to. Core's
+   `.standard-form .form-footer > button { flex: 1 }` sits in a layer this
+   file's outranks, so no !important. */
+.cairn-take-over-result .form-footer > button {
+    flex: 1 0 100%;
+    justify-content: flex-start;
+    gap: 8px;
+    text-align: left;
+    white-space: normal;
+    text-wrap: balance;
+    height: auto;
+    min-height: var(--button-size);
+    line-height: 1.25;
+    padding-block: 5px;
+}
+
+.cairn-take-over-result .form-footer > button > i {
+    flex: 0 0 1.1em;
+    text-align: center;
+}
+
+.cairn-take-over-result .form-footer > button[data-action="close"] {
+    justify-content: center;
+}
+
 /* One button, one job, one row: these buttons carry a whole sentence, and
    sharing a row left them cramped and unreadable (user, round two). The row
    wraps so each takes the sidebar's full width under it - core's .flexrow does

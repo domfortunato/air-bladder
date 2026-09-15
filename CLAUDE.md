@@ -860,15 +860,40 @@ companion record of who authored what.
   items, and repoint the tables?").** FOUR Warden-only doors, **one button one
   job, ALL FOUR at the top of the Rollable Tables sidebar** — **Create a
   Custom Spell Table…**, **Create a Custom Marketplace…**, **Create Custom
-  Barebones Creation Tables…** and, fourth, **Create Custom Backgrounds and
-  Tables…**. **The fourth sat on the Compendium sidebar for a day, "each on
-  the tab where its output lands", and the user moved it on 2026-09-15** ("I
-  feel like the button that copies the Character Backgrounds and other table
-  ... should be a fourth button at the top Rollable Tables with the others"):
-  the result window's Open buttons already answer "where did it go", and a
-  door alone on another tab is a door nobody finds. `KINDS.cairn2e.tab` is
-  the one line; the separate `renderCompendiumDirectory` hook is GONE and
-  `dev:take-over` asserts the Compendium directory carries none. **THE LABELS SAY THE
+  Barebones Creation Tables…** and, fourth, **Create Custom 2e Backgrounds
+  and Tables…** — **and that fourth one ALSO at the top of the Compendium
+  tab**, where its 27 copies land. Three user rulings in one afternoon
+  (2026-09-15), each while final-testing the dev build: the door had sat on
+  the Compendium sidebar "each on the tab where its output lands" and moved
+  to Rollable Tables ("should be a fourth button at the top … with the
+  others"); its label gained the edition ("2e Custom" for an hour, then
+  "Custom 2e" to match the folder names); then, looking at the Compendium
+  tab, "what are the implications of having it in both?" — none but a
+  second `renderCompendiumDirectory` registration, so it is in both.
+  `KINDS.cairn2e.tab` stays "tables" (the banner names ONE sidebar); the
+  per-root guard keeps each directory to one button; `dev:take-over` reads
+  four doors in order on Rollable Tables, one on Compendium, both popouts,
+  both named hooks off, nothing clipped (a long label WRAPS by the door
+  rule's `white-space: normal; text-wrap: balance` — "ok if that button
+  spans two lines as long as it's all readable").
+  **THE WORLD COMPENDIUM IS "Custom 2e Backgrounds" (same afternoon), and
+  two facts about a pack label shaped that rename.** Core LOCALIZES every
+  pack's label at construction (compendium-collection.mjs:46) — world packs
+  included, which is how a system pack's key label renders — so
+  `ensureCustomBackgroundPack` stores the KEY now and the sidebar follows
+  the language and any future rename; this file's own docblock claimed
+  "Foundry has no i18n for world-compendium labels" and stored the English
+  for a year. And core offers NO rename for a world compendium (the sidebar
+  menu is ownership, lock, duplicate, delete), so a world that made its pack
+  under the old name keeps it — every sentence that names the pack reads
+  the label the pack actually wears (`customBackgroundsPackLabel`, the
+  folder rule of review #31 applied to the pack), and `dev:take-over`
+  plants a pack under a literal old label and reads it back in the confirm.
+  The four `CAIRN.BgAuthor.Duplicate*` strings and `NoCustomBackgrounds`
+  say the new name as LITERAL English: Malecho's es.json translates four of
+  them without a placeholder, and `i18n:check` errors on placeholder parity
+  for a translated key, so `{pack}` there would red the gate or mean
+  editing his file. **THE LABELS SAY THE
   OUTCOME, NOT THE MECHANISM (user ruling, the evening of 2026-09-14):** for a
   day they read "Copy the Marketplace to this world…" and so on, and the user's
   objection was exact — "why else would you copy tables from the compendium
@@ -889,7 +914,17 @@ companion record of who authored what.
   find the backgrounds, which land in a world COMPENDIUM on another tab — "that
   is confusing". A result window with **Open** buttons is the answer to
   "where did it go", not which tab the button sits on; the buttons are one per
-  kind because a checklist makes the Warden the router. (2) "Bonds, Omens and
+  kind because a checklist makes the Warden the router. **And since the
+  evening of 2026-09-15 each button says WHAT it opens** (user: "more
+  exposition *on the button* about what it is that the button opens"): "Show
+  the Custom Marketplace folder in Items", the folder by its document's name,
+  one button per row so the sentence fits; "Show" for a folder and "Open" for
+  the compendium because that is what each does; and an Actors button the
+  seven mounts never had. A nothing-new re-run offers them all, as it always
+  did — `runTableTakeOver` fills each folder from the flagged one at its
+  end, which the first cut of this change "fixed" a second time after reading
+  half the function; the red run's own output (old build: tables, items,
+  close) is what caught the claim. (2) "Bonds, Omens and
   every other generator table need nothing — text rows, one Import" was TRUE
   and was still the wrong place to stop: the user asked "why can't the character
   background copy bring those over too?", and it is right, because a Warden

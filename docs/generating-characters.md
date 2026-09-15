@@ -144,8 +144,8 @@ Three buttons do the copying, all Wardens only:
   and transport they can hand out — the items sorted into a subfolder per source compendium,
   Armor, Background Items, Gear, Tools, Trinkets, Weapons — and points every
   row at your copies.
-- **Create Custom Backgrounds and Tables…**, the fourth button on the same
-  tab. That one is the 27 backgrounds plus the eleven
+- **Create Custom 2e Backgrounds and Tables…**, the fourth button on the same
+  tab, and also at the top of the **Compendium** tab. That one is the 27 backgrounds plus the eleven
   tables a 2e character rolls on; see
   [Creating Custom Backgrounds](creating-custom-backgrounds.md) and
   [Customizing Bonds](customizing-bonds.md).
@@ -181,7 +181,7 @@ back.
 It is per background, and the world remembers it, so it holds for every
 character and every session until you change it. It works the same on the
 Player's Guide twenty, the seven in **Backgrounds (Custom)**, and your own
-copies — and a copy made by **Create Custom Backgrounds and Tables…** is the
+copies — and a copy made by **Create Custom 2e Backgrounds and Tables…** is the
 same background as far as the eye is concerned, so one you switched off stays
 off when its copy lands, and switching either back on switches on both. The
 last background left in play cannot be switched off, because generation must

@@ -14,15 +14,19 @@
  * shipped compendiums are TEMPLATES, the starting point you copy and make your
  * own, never the place you edit.
  *
- * FOUR BUTTONS, ONE JOB EACH, each on the tab where its output lands (user
- * ruling, after round one's single two-checkbox dialog copied the backgrounds
- * somewhere the Warden could not find them). Rollable Tables sidebar: the Spell
- * Tables, the Marketplace, and the Barebones creation tables. Compendium
- * sidebar: Cairn 2e, which is the 27 backgrounds AND the eleven text tables a
- * 2e character rolls on — Bonds and Omens folded in at the user's ask ("why
- * can't the character background copy bring those over too?"), so those two
- * are no longer the ones a Warden has to know are different. Each button spans
- * the sidebar's width on a row of its own. All four are explicit gestures: the
+ * FOUR BUTTONS, ONE JOB EACH, ALL FOUR at the top of the Rollable Tables
+ * sidebar — the Spell Table, the Marketplace, the Barebones creation tables
+ * and Cairn 2e — and the Cairn 2e one ALSO at the top of the Compendium tab,
+ * where its 27 background copies land (two user rulings of 2026-09-15 while
+ * final-testing: "a fourth button at the top … with the others", then both
+ * sidebars; for a day it sat on the Compendium sidebar alone, "each on the
+ * tab where its output lands"). Cairn 2e is the 27 backgrounds AND the eleven
+ * text tables a 2e character rolls on — Bonds and Omens folded in at the
+ * user's ask ("why can't the character background copy bring those over
+ * too?"), so those two are no longer the ones a Warden has to know are
+ * different. Each button spans the sidebar's width on a row of its own, and
+ * the result window afterwards says what landed with a button per place it
+ * landed, each naming what it opens. All four are explicit gestures: the
  * custom-backgrounds SETTING is deliberately not a trigger, because that switch
  * means "offer the seven extra backgrounds" and a settings save must never
  * mint documents in somebody's world.
@@ -92,7 +96,7 @@ import { MARKETPLACE_PACK, compendiumInfoFromString } from "./compendium.js";
 import { t } from "./i18n-content.js";
 import { formatCount } from "./utils.js";
 import { SETTINGS_NS } from "./settings.js";
-import { CUSTOM_BG_PACK, ensureCustomBackgroundPack, SHIPPED_2E_BACKGROUND_PACKS } from "./character-generator.js";
+import { CUSTOM_BG_PACK, customBackgroundsPackLabel, ensureCustomBackgroundPack, SHIPPED_2E_BACKGROUND_PACKS } from "./character-generator.js";
 import { glogEnabled } from "./glog.js";
 import { Cairn } from "./config.js";
 
@@ -222,12 +226,13 @@ const KINDS = {
   cairn2e: {
     spec: { key: "cairn2e", pack: "air-bladder.tables-2e", only: CAIRN_2E_TABLES, folder: "CAIRN.TakeOver.Cairn2e.Folder" },
     backgrounds: true,
-    // On the Rollable Tables sidebar with the other three since 2026-09-15
-    // (user ruling: "a fourth button at the top of Rollable Tables with the
-    // others"). It sat on the Compendium sidebar for a day, where its
-    // backgrounds land — but the result window's Open buttons already answer
-    // "where did it go", and a door that is alone on another tab is a door
-    // nobody finds.
+    // TWO homes since 2026-09-15 (user rulings, one hour apart): the fourth
+    // button at the top of the Rollable Tables sidebar with the other three,
+    // AND at the top of the Compendium tab, where its 27 background copies
+    // land. `tab` names the sidebar the table banner sends a Warden to (one
+    // sentence, one place); the Compendium home is the second registration
+    // in cairn.js, and the per-root guard in injectTakeOverButton keeps each
+    // directory to one button.
     tab: "tables",
     button: "CAIRN.TakeOver.Cairn2e.Button",
     title: "CAIRN.TakeOver.Cairn2e.Title",
@@ -615,8 +620,12 @@ const countsFor = (kind, tables, backgrounds) => {
 /**
  * The names every sentence in both windows may quote, escaped once. `{pack}` is
  * the world background compendium's label — the key `ensureCustomBackgroundPack`
- * names it with, so the dialogs and the sidebar agree in every language
- * (review #31: five keys carried the English literal). `{folder}` is the
+ * names it with — or, once the pack EXISTS, the label it actually wears
+ * (`customBackgroundsPackLabel`; the compendium was renamed on 2026-09-15 and
+ * core cannot rename an existing one, so an older world's sidebar keeps the
+ * old name and the dialogs must keep agreeing with it) — so the dialogs and
+ * the sidebar agree in every language (review #31: five keys carried the
+ * English literal). `{folder}` is the
  * folder a copy lands in: the flagged one this kind already made, by its
  * stored name (a Warden may have renamed it), else the name the run will give
  * a new one.
@@ -627,7 +636,7 @@ const namesFor = (kind, folders = null) => {
   const folder = folders?.RollTable ?? folders?.Item ?? folders?.Actor
     ?? findTakeOverFolder("RollTable", kind.spec.key) ?? findTakeOverFolder("Item", kind.spec.key);
   return {
-    pack: esc(L("CAIRN.CustomBackgroundsPack")),
+    pack: esc(customBackgroundsPackLabel()),
     folder: esc(folder?.name ?? L(kind.spec.folder)),
   };
 };
@@ -697,9 +706,31 @@ const openDirectory = (tab, folder) => {
 };
 
 /**
+ * The three directories a run can file a folder in, in the order the result
+ * window's buttons appear: the sidebar tab, the directory's name for the
+ * "copied into your …" sentence, the button's key and its glyph.
+ */
+const DIRECTORIES = [
+  { type: "RollTable", tab: "tables", dir: "CAIRN.TakeOver.Result.DirTables", open: "CAIRN.TakeOver.Result.OpenTables", icon: "fa-solid fa-th-list" },
+  { type: "Item", tab: "items", dir: "CAIRN.TakeOver.Result.DirItems", open: "CAIRN.TakeOver.Result.OpenItems", icon: "fa-solid fa-suitcase" },
+  { type: "Actor", tab: "actors", dir: "CAIRN.TakeOver.Result.DirActors", open: "CAIRN.TakeOver.Result.OpenActors", icon: "fa-solid fa-horse" },
+];
+
+/**
  * What happened, and a way to go and look at it — round one ended in toasts,
  * and a Warden who could not find the backgrounds is why this window exists.
  * Every button CLOSES the window: it is a signpost, not a control panel.
+ *
+ * Each button says WHAT it opens (user, round nine: "more exposition on the
+ * button about what it is that the button opens"): "Show the Custom
+ * Marketplace folder in Items", the folder by its document's name, one
+ * button per row so the sentence fits. "Show" for a folder and "Open" for
+ * the compendium, because that is what each does — a folder button raises a
+ * sidebar tab and expands the folder, the compendium button opens a window.
+ * There is a button for every folder of this kind — `runTableTakeOver` fills
+ * each from the flagged folder when a run wrote nothing there, so a re-run
+ * that added nothing, which is a Warden looking for the copies, still has
+ * somewhere to go.
  */
 const showResult = async (kind, { tables, backgrounds }) => {
   const lines = [];
@@ -718,10 +749,8 @@ const showResult = async (kind, { tables, backgrounds }) => {
   }
   // Name only the directories a folder actually landed in — a run that added no
   // mount must not send the Warden to the Actors tab to look for one.
-  const where = game.i18n.getListFormatter().format([
-    ["RollTable", "CAIRN.TakeOver.Result.DirTables"], ["Item", "CAIRN.TakeOver.Result.DirItems"],
-    ["Actor", "CAIRN.TakeOver.Result.DirActors"],
-  ].filter(([type]) => tables?.folders[type]).map(([, key]) => L(key)));
+  const where = game.i18n.getListFormatter().format(
+    DIRECTORIES.filter((d) => tables?.folders[d.type]).map((d) => L(d.dir)));
   if (made) {
     // `folder` is the Folder DOCUMENT's name — the one the copies sit in,
     // whatever the Warden has renamed it to — never the key's default.
@@ -744,26 +773,29 @@ const showResult = async (kind, { tables, backgrounds }) => {
 
   const buttons = [];
   if (kind.backgrounds) {
-    buttons.push({ action: "backgrounds", label: game.i18n.format("CAIRN.TakeOver.Result.OpenBackgrounds", { pack: L("CAIRN.CustomBackgroundsPack") }), icon: "fa-solid fa-book-atlas", type: "button" });
+    buttons.push({ action: "backgrounds", label: game.i18n.format("CAIRN.TakeOver.Result.OpenBackgrounds", { pack: customBackgroundsPackLabel() }), icon: "fa-solid fa-book-atlas", type: "button" });
   }
-  if (tables?.folders.RollTable) {
-    buttons.push({ action: "tables", label: L("CAIRN.TakeOver.Result.OpenTables"), icon: "fa-solid fa-th-list", type: "button" });
-  }
-  if (tables?.folders.Item) {
-    buttons.push({ action: "items", label: L("CAIRN.TakeOver.Result.OpenItems"), icon: "fa-solid fa-suitcase", type: "button" });
+  // The label is a button's TEXT (DialogV2 writes it with innerText), so the
+  // folder's name goes in unescaped — `esc` here would print "&amp;".
+  const landing = {};
+  for (const d of DIRECTORIES) {
+    const folder = tables?.folders[d.type];
+    if (!folder) continue;
+    landing[d.tab] = folder;
+    buttons.push({ action: d.tab, label: game.i18n.format(d.open, { folder: folder.name }), icon: d.icon, type: "button" });
   }
   buttons.push({ action: "close", label: L("CAIRN.Close"), type: "button", default: true, callback: () => "close" });
 
   const picked = await foundry.applications.api.DialogV2.wait({
-    classes: DIALOG_CLASSES,
+    // The second class is what stacks the buttons one per row (css/cairn.css).
+    classes: [...DIALOG_CLASSES, "cairn-take-over-result"],
     window: { title: L("CAIRN.TakeOver.Result.Title"), icon: "fa-solid fa-circle-check" },
     position: { width: 480 },
     content: `<div class="cairn-take-over">${lines.join("")}</div>`,
     buttons,
     rejectClose: false,
   });
-  if (picked === "tables") openDirectory("tables", tables.folders.RollTable);
-  else if (picked === "items") openDirectory("items", tables.folders.Item);
+  if (landing[picked]) openDirectory(picked, landing[picked]);
   else if (picked === "backgrounds") game.packs.get(backgrounds?.pack ?? CUSTOM_BG_PACK)?.render(true);
   return picked;
 };
@@ -893,8 +925,10 @@ export const directoryActions = (html) => {
 /**
  * The Warden-only "Create a Custom …" button for one kind. Full width on a row
  * of its own (user ruling, after round one's cramped button beside the old
- * Reseed Spell Table): one button, one job — and all four together at the top
- * of the Rollable Tables sidebar (user ruling 2026-09-15; see `KINDS.cairn2e`).
+ * Reseed Spell Table): one button, one job — all four together at the top of
+ * the Rollable Tables sidebar, and the 2e door once more on the Compendium tab
+ * (user rulings 2026-09-15; see `KINDS.cairn2e`). The per-root guard below is
+ * what lets one kind be injected into two directories without doubling up.
  * @param {HTMLElement} html
  * @param {{kind: "spells"|"marketplace"|"barebones"|"cairn2e"}} options
  */
