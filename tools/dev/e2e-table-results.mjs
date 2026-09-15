@@ -258,9 +258,15 @@ out.shopItems > 50
   : fail("the shop came back near-empty", `${out.shopItems} items — phase 1 proved nothing`);
 // 198 → 298 on 2026-08-05: "Spells — Canon (1d100)" added 100 document rows
 // (the same deliberate bump as EXPECTED_REFS in ref-audit.mjs).
-out.shippedResolved === 298
-  ? ok("every shipped document row resolved", `${out.shippedResolved}/298`)
-  : fail("shipped rows resolved to a different count", `${out.shippedResolved}, expected 298`);
+// 298 → 398 on 2026-09-15: "Spells — GLOG" (tables-glog, shipped in 1c566f02
+// the day before for the hack's random-spell pool) added 100 more. That
+// commit's gate list did not include this probe, so the constant sat stale
+// for a day and the 0.1.23 pre-tag sweep is what found it — counted straight
+// off src/packs: twelve tables carry document rows, 398 in all.
+const SHIPPED_DOCUMENT_ROWS = 398;
+out.shippedResolved === SHIPPED_DOCUMENT_ROWS
+  ? ok("every shipped document row resolved", `${out.shippedResolved}/${SHIPPED_DOCUMENT_ROWS}`)
+  : fail("shipped rows resolved to a different count", `${out.shippedResolved}, expected ${SHIPPED_DOCUMENT_ROWS}`);
 Object.keys(out.traits ?? {}).length >= 8 && Object.values(out.traits ?? {}).every(Boolean)
   ? ok("all eight 2e traits drew text", Object.values(out.traits)[0])
   : fail("a 2e trait draw came back empty", JSON.stringify(out.traits));

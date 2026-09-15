@@ -150,13 +150,22 @@ try {
   // a probe-side copy is a list that goes stale), and the poll asserts every
   // shipped pack on it holds LOADED documents with no generation having run.
   // Red witness: without the warm nothing loads these and the poll drains.
+  // "Cold" is FEWER DOCUMENTS LOADED THAN THE INDEX LISTS, not `size === 0`:
+  // the list carries `world.custom-backgrounds`, a world pack the dev world
+  // has and that dev:take-over's cleanup leaves EMPTY (its 27 copies swept),
+  // and an empty pack can never load a document — `size === 0` read that as
+  // "the pre-warm did not run" in the 0.1.23 sweep, the first with take-over
+  // running ahead of this probe. The index is trustworthy at ready: the
+  // client constructs every pack's index from the metadata the server ships
+  // at login (compendium-collection.mjs:63-67), so an empty pack indexes 0
+  // and a shipped pack N, and only the latter can be cold.
   console.log("\n  the Warden's client pre-warms the generation packs");
   const warm = await gm.evaluate(async () => {
     const gen = await import("/systems/air-bladder/module/character-generator.js");
     const ids = gen.GENERATION_PACKS?.documents ?? [];
     const shipped = ids.filter((k) => game.packs.get(k));
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-    const cold = () => shipped.filter((k) => game.packs.get(k).size === 0);
+    const cold = () => shipped.filter((k) => { const p = game.packs.get(k); return p.size < p.index.size; });
     const t0 = Date.now();
     while (Date.now() - t0 < 25000 && cold().length) await sleep(500);
     return { exported: ids.length, shipped: shipped.length, cold: cold() };
