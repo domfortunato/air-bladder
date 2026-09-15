@@ -27,7 +27,7 @@ in the same call that attaches the assets; nothing is pasted afterwards.
 
 Write them in `CHANGELOG.md` before the merge, under a `## X.Y.Z` heading, newest
 section first. What is under the heading is the release body, verbatim, after a
-`# Air Bladder X.Y.Z` headline the script adds. `npm run release X.Y.Z --dry-run`
+`# Air Bladder X.Y.Z` headline the script adds. `npm run release X.Y.Z -- --dry-run`
 prints the exact body and every check's verdict without writing anything, and it
 runs on `dev`, so the notes can be previewed before the merge.
 
@@ -36,8 +36,9 @@ the ref, so the body travels with it. A release on the Gitea side would not do â
 Gitea keeps release notes in its own database, and the mirror moves git refs only.
 
 Two things worth knowing if a tag is ever made by hand. Git's default tag-message
-cleanup strips every line beginning with `#` as a comment, headings included, so the
-script tags with `--cleanup=whitespace`; do the same. And the workflow's
+cleanup strips every line beginning with `#` as a comment, headings included, and the
+`whitespace` mode still strips a Markdown hard break's trailing spaces and collapses
+blank lines, so the script tags with `--cleanup=verbatim`; do the same. And the workflow's
 `omitBodyDuringUpdate` means the tag's body is applied when the release is
 *created* and never on a rebuild, so notes edited by hand on the release page
 survive `workflow_dispatch`.
@@ -95,7 +96,7 @@ rewritten. Two files with "es" in the name, two different regimes â€” see
 [docs/i18n-maintainer.md](docs/i18n-maintainer.md).
 
 1. Write the release notes in `CHANGELOG.md` under `## X.Y.Z` and commit them on
-   `dev` (see "Release notes" above). `npm run release X.Y.Z --dry-run` shows the
+   `dev` (see "Release notes" above). `npm run release X.Y.Z -- --dry-run` shows the
    body the release will carry.
 2. Merge the work into `master` and make sure it is current:
    ```bash

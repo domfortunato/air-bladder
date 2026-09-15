@@ -40,7 +40,7 @@ fields below, replacing the borrowed content as you go.
 If what you want is to edit the shipped backgrounds themselves — a different
 gear list for the Fieldwarden, a question rewritten — open the **Rollable Tables** or **Compendium**
 sidebar tab and press **Create Custom 2e Backgrounds and Tables…** (Wardens only). It copies all 27 shipped 2e backgrounds, the Player's
-Guide twenty and the seven in **Backgrounds (Custom)**, into your **Custom
+Guide twenty and the seven in **Backgrounds (Custom)**, into your **Custom 2e
 Backgrounds** compendium under their own names, no "(Copy)" suffix, and switches
 custom backgrounds on.
 

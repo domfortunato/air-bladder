@@ -145,7 +145,7 @@ jobs:
       - name: Read the release notes from the tag
         run: |
           git tag -l --format='%(contents:body)' "$RELEASE_TAG" > release-notes.md
-          if [ -s release-notes.md ]; then
+          if grep -q '[^[:space:]]' release-notes.md; then
             echo "release notes: $(wc -l < release-notes.md) lines from the body of tag $RELEASE_TAG"
           else
             echo "release notes: tag $RELEASE_TAG carries none (the release body stays as it is)"

@@ -216,7 +216,14 @@ try {
   const UTILS = await page.evaluate(() => game.packs.get("air-bladder.utils")?.metadata.label ?? "");
   const BTN = {};
   for (const k of ["Marketplace", "Spells", "Cairn2e", "Barebones"]) BTN[k] = await L(`CAIRN.TakeOver.${k}.Button`);
-  const SIDEBAR = { tables: await L("SIDEBAR.TabTables"), compendium: await L("SIDEBAR.TabCompendium") };
+  // The tables tab's label as the sidebar itself RENDERS it (its aria-label,
+  // core's fallback to the RollTable document's labelPlural), never the key
+  // the banner happens to use: the two must agree, and review #32 found the
+  // banner on `SIDEBAR.TabTables`, which nothing in 14.365 reads.
+  const SIDEBAR = {
+    tables: await page.evaluate(() => document.querySelector('#sidebar nav.tabs button[data-tab="tables"]')?.getAttribute("aria-label") ?? ""),
+    compendium: await L("SIDEBAR.TabCompendium"),
+  };
 
   const gearRows = byName(await harvest("air-bladder.marketplace", "Market: Gear", 3));
   const [A, B] = gearRows;
@@ -281,6 +288,19 @@ try {
   check(pBonds.present && pBonds.role === "template" && pBonds.text.includes(BTN.Cairn2e) && pBonds.text.includes(SIDEBAR.tables)
     && !pBonds.text.includes(SIDEBAR.compendium),
     "the pack Bonds names the Backgrounds button and the Rollable Tables sidebar (never the Compendium one, since 2026-09-15)", pBonds.text.slice(-90));
+  // Red-first for the KEY (review #32): `SIDEBAR.TabTables` shadowed to a
+  // sentinel in-page, a banner reading that dead key prints the sentinel; one
+  // reading the RollTable document's labelPlural, the tab's own source, does
+  // not, and still names the tab by the word the tab wears.
+  const shadowed = await page.evaluate(() => {
+    const was = game.i18n.translations.SIDEBAR?.TabTables;
+    if (game.i18n.translations.SIDEBAR) game.i18n.translations.SIDEBAR.TabTables = "PROBE-DEAD-KEY";
+    return was;
+  });
+  const pBondsKey = await bannerOf(page, await packUuid("air-bladder.tables-2e", "Bonds"));
+  await page.evaluate((was) => { if (game.i18n.translations.SIDEBAR) game.i18n.translations.SIDEBAR.TabTables = was; }, shadowed);
+  check(SIDEBAR.tables && pBondsKey.present && pBondsKey.text.includes(SIDEBAR.tables) && !pBondsKey.text.includes("PROBE-DEAD-KEY"),
+    `…by the label the tab itself wears ("${SIDEBAR.tables}"), not by SIDEBAR.TabTables: shadowed to a sentinel, the banner does not follow`, pBondsKey.text.slice(-90));
   const pCanon = await bannerOf(page, await packUuid("air-bladder.tables-2e", "Spells — Canon (1d100)"));
   const pGlog = await bannerOf(page, await packUuid("air-bladder.tables-glog", "Spells — GLOG"));
   check(pCanon.role === "template" && pCanon.text.includes(BTN.Spells) && pGlog.role === "template" && pGlog.text.includes(BTN.Spells),

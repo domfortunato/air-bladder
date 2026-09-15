@@ -4662,11 +4662,22 @@ header.character-generator.directory-header .header-actions > button.cairn-take-
    User ruling: every label fully legible, no truncation, and a button that
    needs the whole width may take it. So each button is at least as wide as
    its own label, the row wraps into as many rows as that takes, and the
-   leftover space on a row is shared - core's ellipsis never gets a chance. */
+   leftover space on a row is shared - core's ellipsis never gets a chance.
+   `fit-content`, not `max-content` (review #32): a label wider than the whole
+   sidebar - Import from Kettlewright at core's larger Font Size steps, longer
+   still in Spanish - was pinned wider than the 300px the sidebar has and cut
+   off mid-word, the ellipsis being exactly what this rule refuses. At
+   fit-content it is still never narrower than a label that fits, and a label
+   that does not fit takes the width there is and WRAPS, the door rule's own
+   shape - the one reading of "fully legible" that survives every font size. */
 header.character-generator.directory-header .header-actions > button:not(.cairn-take-over) {
     flex: 1 1 auto;
-    min-width: max-content;
-    white-space: nowrap;
+    min-width: fit-content;
+    white-space: normal;
+    text-wrap: balance;
+    height: auto;
+    min-height: var(--button-size);
+    line-height: 1.25;
     overflow: visible;
     text-overflow: clip;
 }

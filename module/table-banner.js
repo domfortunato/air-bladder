@@ -124,10 +124,16 @@ const hasFlatDie = (table) => {
   return !stored || FLAT_DIE.test(stored);
 };
 
-/** Core's own names for the two sidebar tabs the buttons sit on — translated
- *  in every language module, so the sentence names the tab as the Warden's
- *  client labels it. */
-const SIDEBAR_LABEL = { tables: "SIDEBAR.TabTables", compendium: "SIDEBAR.TabCompendium" };
+/** The sidebar tab a button sits on, named as the Warden's client labels it —
+ *  read the way core's own sidebar reads it (sidebar.mjs `_prepareTabContext`):
+ *  the Compendium tab declares a tooltip key, the tables tab declares NONE and
+ *  falls back to the RollTable document's `labelPlural` (`DOCUMENT.RollTables`).
+ *  `SIDEBAR.TabTables` sits in core's en.json and is read by nothing in 14.365
+ *  (review #32; grep the client) — a language module has no reason to keep a
+ *  dead key in step with the live one, so a banner on it could name the tab by
+ *  a word the tab never wears. */
+const sidebarLabel = (tab) =>
+  L(tab === "compendium" ? "SIDEBAR.TabCompendium" : CONFIG.RollTable.documentClass.metadata.labelPlural);
 
 /** One key per role. Literal, so `i18n:source` can see every one of them. */
 const KEYS = {
@@ -193,7 +199,7 @@ export const tableRole = (table) => {
   if (table?.pack) {
     if (!SYSTEM_PACK.test(table.pack)) return null;
     const found = kindOfTable(name, { pack: table.pack });
-    if (found) return { role: "template", button: L(found.kind.button), sidebar: L(SIDEBAR_LABEL[found.kind.tab]) };
+    if (found) return { role: "template", button: L(found.kind.button), sidebar: sidebarLabel(found.kind.tab) };
     if (CHECKLIST_TABLES[table.pack]?.includes(name)) {
       // The button that copies the namesake a WORLD table of this name would
       // override — asked without a pack, the way a world table is.
@@ -202,7 +208,7 @@ export const tableRole = (table) => {
         role: "checklist",
         utils: game.packs.get(SCAR_CARD_PACK)?.metadata.label ?? SCAR_CARD_PACK,
         button: card ? L(card.kind.button) : "",
-        sidebar: card ? L(SIDEBAR_LABEL[card.kind.tab]) : "",
+        sidebar: card ? sidebarLabel(card.kind.tab) : "",
       };
     }
     return { role: "templateImport", import: L("COMPENDIUM.ImportEntry") };

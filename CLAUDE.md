@@ -89,12 +89,19 @@ deleted. Full model in `docs/git-flow.md`; contributor-facing summary in
   it. The mirror carries the tag OBJECT — every tag on GitHub lists a peeled
   `^{}` entry — which is what makes the tag a carrier; a Gitea RELEASE would
   not work, since its notes live in Gitea's database and the mirror moves git
-  refs only. `--cleanup=whitespace` on the tag is load-bearing: git's default
-  strips every `#` line as a comment, headline included, in silence (proven in
-  a throwaway clone, both modes). **The user signs off on every edit to
-  `CHANGELOG.md` personally** — draft the section in chat, land it on their
-  word, never as part of some other commit. `--dry-run` prints the exact body
-  and runs on `dev`.
+  refs only. `--cleanup=verbatim` on the tag is load-bearing: git's default
+  strips every `#` line as a comment, headline included, in silence, and
+  `whitespace` — the mode for a day — still stripped a Markdown hard break's
+  two trailing spaces and collapsed blank lines, which made RELEASE.md's
+  "verbatim" false (review #32; proven in a throwaway clone, all three modes).
+  **The user signs off on every edit to `CHANGELOG.md` personally** — draft
+  the section in chat, land it on their word, never as part of some other
+  commit. `npm run release X.Y.Z -- --dry-run` prints the exact body and runs
+  on `dev` — **the `--` is NPM's**: without it npm keeps `--dry-run` as its
+  own `dry-run` config and forwards nothing, so the form every doc gave for a
+  day was a REAL release on `master` and a refusal on `dev` (review #32,
+  measured on npm 11); the script honours `npm_config_dry_run` too now, so
+  either spelling is dry, and the docs show the one npm itself documents.
 - Why bother: docs and the website track `master` while users install the tag, so
   work on `master` would publish documentation for features nobody can install. And
   `dev` mirrors to GitHub in seconds, so people can clone it and test unreleased
@@ -1004,7 +1011,13 @@ companion record of who authored what.
     no backgrounds rather than promising 27 the run will refuse. Four more
     from that review: `running` goes up BEFORE the plan's first await, because
     a double-click landed in the plan-and-confirm gap and opened two confirms
-    (both answered: two runs, a second flagged folder); the custom source is
+    (both answered: two runs, a second flagged folder) — **and since review
+    #32 the four doors are DISABLED while a job runs** (`setDoorsBusy`; a
+    directory rendered mid-job reads the flag at injection), because `running`
+    alone SWALLOWED a second door's click in silence: the Marketplace plan
+    spends seconds in `getDocuments` with nothing on screen, the Warden presses
+    the 2e door one row below, and the MARKETPLACE confirm opens under someone
+    who believes they pressed the backgrounds door; the custom source is
     switched on INSIDE the write, so a run that added nothing changes nothing,
     which is what both dialogs promise; both windows carry
     `cairn-take-over-dialog` so their content can SCROLL — a `wait` dialog at
@@ -1065,9 +1078,17 @@ companion record of who authored what.
     stacked nine rows deep for a day. User ruling: fix it, but "I want all of
     the buttons to be fully legible, and that means that some of them span the
     whole width — that is fine." So the door rule is scoped to
-    `.cairn-take-over`, and the nine get `min-width: max-content` on a wrapping
+    `.cairn-take-over`, and the nine get `min-width: fit-content` on a wrapping
     row: never clipped, never an ellipsis, a long label takes the width it
     needs and the rest share what is left. Measured in both interface schemes.
+    **`fit-content`, not `max-content` (review #32):** at max-content a label
+    wider than the whole sidebar — Import from Kettlewright at core's larger
+    Font Size steps, 336px against a 284px header at the 32px step — was
+    pinned past the sidebar's fixed 300px and cut off mid-word, the ellipsis
+    being exactly what the rule refuses; at fit-content it WRAPS, the door
+    rule's own shape, and `dev:take-over` measures the nine at a 32px root
+    font as well as at the default. A probe's one font size is a claim about
+    the input space, and core offers ten.
   - **The `only` list is a list of DECLARATIONS and the folder key a string
     id.** `planTableTakeOver(spec)` is one function for all three sets; an
     `only` entry is a name in the spec's pack or a `"pack;Name"` declaration
@@ -1192,6 +1213,17 @@ companion record of who authored what.
     line follows the OTHER table's create/rename/delete on an open sheet
     through `refreshTableBanners`, which re-injects DOM and never re-renders,
     because a re-render drops an edit-mode sheet's unsaved edits.
+    **THE TABLES TAB IS NAMED BY `DOCUMENT.RollTables`, NEVER `SIDEBAR.TabTables`
+    (review #32).** Core's sidebar declares the tables tab with NO tooltip and
+    falls back to the RollTable document's `labelPlural` (sidebar.mjs
+    `_prepareTabContext`); `SIDEBAR.TabTables` sits in core's en.json and is
+    read by nothing in 14.365, and a language module has no reason to keep a
+    dead key in step with the live one, so a banner on it could name the tab by
+    a word the tab never wears. `sidebarLabel` reads
+    `CONFIG.RollTable.documentClass.metadata.labelPlural`, the tab's own
+    source, and the probe reads the tab's rendered `aria-label`, never a key.
+    **Verify a core key by grepping the CLIENT for a reader, not en.json for
+    the string** — en.json carries keys core has stopped using.
     Gate: `npm run dev:table-banner`.
   Gate: `npm run dev:take-over` — two clients, each run through its REAL
   confirm, every product claim red-first in-page (`withHookOff` on the named

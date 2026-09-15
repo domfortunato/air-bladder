@@ -3,7 +3,7 @@
  * Cut a new Air Bladder release — one command, no GitHub UI.
  *
  *     npm run release 0.1.1
- *     npm run release 0.1.1 --dry-run     # every check and the notes, nothing written
+ *     npm run release 0.1.1 -- --dry-run     # every check and the notes, nothing written
  *
  * What it does:
  *   1. validates the version (X.Y.Z, no leading "v")
@@ -41,9 +41,14 @@ const run = (cmd) => { console.log(`  $ ${cmd}`); execSync(cmd, { cwd: ROOT, std
 const die = (msg) => { console.error(`\n✖ ${msg}\n`); process.exit(1); };
 
 const args = process.argv.slice(2);
-const dryRun = args.includes("--dry-run");
+// Both spellings are dry. `npm run release X -- --dry-run` hands the flag to
+// argv; `npm run release X --dry-run` — the form every doc here gave for a day —
+// hands it to NPM, which owns a `dry-run` config of its own and forwards nothing
+// but `npm_config_dry_run=true` (review #32, measured on npm 11). Reading argv
+// alone made the documented preview a REAL release on master and a refusal on dev.
+const dryRun = args.includes("--dry-run") || process.env.npm_config_dry_run === "true";
 const version = args.find((a) => !a.startsWith("--"));
-if (!version) die("Usage: npm run release <version> [--dry-run]   e.g. npm run release 0.1.1");
+if (!version) die("Usage: npm run release <version> [-- --dry-run]   e.g. npm run release 0.1.1");
 if (!/^\d+\.\d+\.\d+$/.test(version)) die(`Version must be X.Y.Z (digits only, no leading "v"). Got: ${version}`);
 
 // 1. Releases are cut from master, never from a branch. Work lives on `dev` and
@@ -121,14 +126,17 @@ console.log(`\n✓ system.json version → ${version}`);
 run(`git add system.json`);
 run(`git commit -m "Release ${version}"`);
 // The tag message comes from a file, not `-m`: it is many lines, and a quoted
-// multi-line argument is exactly what PowerShell mangles. `--cleanup=whitespace`
+// multi-line argument is exactly what PowerShell mangles. `--cleanup=verbatim`
 // is load-bearing — git's default cleanup strips every line beginning with `#` as
-// a comment, so the notes' own headline would vanish from the tag in silence.
+// a comment, so the notes' own headline would vanish from the tag in silence; and
+// `whitespace`, the mode for a day, still dropped a Markdown hard break's two
+// trailing spaces and collapsed blank lines, which made RELEASE.md's "verbatim"
+// false by two characters (review #32, proven in a throwaway repo, all three modes).
 const msgDir = fs.mkdtempSync(path.join(os.tmpdir(), "air-bladder-release-"));
 const msgPath = path.join(msgDir, "tag-message.txt");
 fs.writeFileSync(msgPath, tagMessage(version, body));
 try {
-  run(`git tag -a ${version} --cleanup=whitespace -F "${msgPath.replace(/\\/g, "/")}"`);
+  run(`git tag -a ${version} --cleanup=verbatim -F "${msgPath.replace(/\\/g, "/")}"`);
 } finally {
   fs.rmSync(msgDir, { recursive: true, force: true });
 }

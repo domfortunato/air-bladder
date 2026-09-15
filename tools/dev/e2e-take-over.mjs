@@ -479,25 +479,38 @@ try {
     // creation buttons caught the take-over buttons' full-width rule for a day.
     // User ruling: every label fully legible, never clipped, on as many rows
     // as that takes — some may span the whole width — but not nine rows.
-    const nine = await page.evaluate(async () => {
+    const measureNine = (fontSize) => page.evaluate(async (fontSize) => {
       ui.sidebar.expand();
       ui.sidebar.changeTab("actors", "primary");
       await ui.actors.render({ force: true });
+      // Core's Font Size setting writes the ROOT font size (game.mjs
+      // configureUI: `rootStyle.fontSize = "${size}px"`, 8 to 32) while the
+      // sidebar stays 300px, so a label can outgrow the sidebar. Emulated the
+      // same way, no setting written, and put back before returning.
+      const root = document.documentElement.style;
+      const was = root.fontSize;
+      if (fontSize) root.fontSize = fontSize;
       await new Promise((r) => setTimeout(r, 500));
-      const row = ui.actors.element.querySelector("#cairn-character-gen-button");
-      const inner = row ? row.clientWidth - parseFloat(getComputedStyle(row).paddingLeft) - parseFloat(getComputedStyle(row).paddingRight) : 0;
-      const buttons = [...(row?.querySelectorAll(":scope > button") ?? [])].map((b) => {
-        const r = b.getBoundingClientRect();
-        // What the label NEEDS: the same button laid out at max-content.
-        const probe = b.cloneNode(true);
-        probe.style.cssText = "position:absolute;visibility:hidden;width:max-content;flex:none;min-width:0;white-space:nowrap";
-        row.append(probe);
-        const need = probe.getBoundingClientRect().width;
-        probe.remove();
-        return { label: b.textContent.trim(), width: Math.round(r.width), need: Math.round(need), top: Math.round(r.top), clipped: b.scrollWidth > b.clientWidth + 1 };
-      });
-      return { headerWidth: Math.round(inner), buttons };
-    });
+      try {
+        const row = ui.actors.element.querySelector("#cairn-character-gen-button");
+        const inner = row ? row.clientWidth - parseFloat(getComputedStyle(row).paddingLeft) - parseFloat(getComputedStyle(row).paddingRight) : 0;
+        const buttons = [...(row?.querySelectorAll(":scope > button") ?? [])].map((b) => {
+          const r = b.getBoundingClientRect();
+          // What the label NEEDS: the same button laid out at max-content.
+          const probe = b.cloneNode(true);
+          probe.style.cssText = "position:absolute;visibility:hidden;width:max-content;flex:none;min-width:0;white-space:nowrap";
+          row.append(probe);
+          const need = probe.getBoundingClientRect().width;
+          probe.remove();
+          return { label: b.textContent.trim(), width: Math.round(r.width), need: Math.round(need), top: Math.round(r.top),
+            clipped: b.scrollWidth > b.clientWidth + 1 || b.scrollHeight > b.clientHeight + 1 };
+        });
+        return { headerWidth: Math.round(inner), buttons };
+      } finally {
+        root.fontSize = was;
+      }
+    }, fontSize);
+    const nine = await measureNine(null);
     const nineRows = new Set(nine.buttons.map((b) => b.top)).size;
     check(nine.buttons.length === 9, "Actors: the Warden's directory row carries its nine creation buttons", nine.buttons.map((b) => b.label).join(" | "));
     check(nine.buttons.every((b) => !b.clipped && b.width >= b.need - 1),
@@ -505,6 +518,17 @@ try {
     check(nineRows >= 2 && nineRows < nine.buttons.length,
       `…wrapped onto ${nineRows} rows, sharing a row where two fit — not one button per row`, JSON.stringify(nine.buttons.map((b) => b.top)));
     check(nine.buttons.every((b) => b.width <= nine.headerWidth + 1), "…and none wider than the header", `${nine.headerWidth}px`);
+    // Review #32: at core's largest Font Size the widest label outgrows the
+    // 300px sidebar. Pinned at max-content it was cut off mid-word with no
+    // ellipsis (the rule refuses one); at fit-content it WRAPS, so it is never
+    // narrower than the header lets it be and never clipped.
+    const big = await measureNine("32px");
+    const widest = big.buttons.reduce((a, b) => (b.need > a.need ? b : a), big.buttons[0]);
+    check(widest && widest.need > big.headerWidth,
+      `precondition: at a 32px root font the widest label ("${widest?.label}") needs more than the header's ${big.headerWidth}px`, `${widest?.need}px`);
+    check(big.buttons.length === 9 && big.buttons.every((b) => !b.clipped && b.width <= big.headerWidth + 1 && b.width >= Math.min(b.need, big.headerWidth) - 1),
+      "…and at that size every label is still fully legible: the one that cannot fit WRAPS instead of clipping",
+      JSON.stringify(big.buttons.map((b) => [b.label, b.width, b.need, b.clipped])));
 
     /* ----------------------------------------------------- 2. the confirms */
     console.log("\n2. the confirms");
@@ -533,6 +557,35 @@ try {
     }, MOD);
     check(dbl.n === 1 && dbl.secondOut === null && dbl.firstOut === null && !dbl.running,
       "two calls in one tick open ONE confirm: the second returns null at once, and the flag is down after ✕", JSON.stringify(dbl));
+
+    // The doors are GREYED while a job is in flight (review #32). `running`
+    // alone swallowed a second door's click in silence, and the FIRST door's
+    // confirm then opened under a Warden who believed they had pressed the
+    // second. Measured on the doors' own DOM: the marketplace job started, the
+    // 2e door reads disabled at once and while the confirm is open, a real
+    // click on it opens nothing, and every door is back once the job ends.
+    const MARKET_TITLE = await page.evaluate(() => game.i18n.localize("CAIRN.TakeOver.Marketplace.Title"));
+    const busy = await page.evaluate(async (MOD) => {
+      const mod = await import(MOD);
+      const door = (k) => document.querySelector(`.cairn-take-over[data-kind="${k}"]`);
+      const before = new Set(foundry.applications.instances.keys());
+      const first = mod.openTakeOver("marketplace");
+      const atOnce = { m: door("marketplace")?.disabled, c: door("cairn2e")?.disabled };
+      door("cairn2e")?.click();
+      const confirms = () => [...foundry.applications.instances.values()].filter((x) => !before.has(x.id) && x.element?.querySelector(".cairn-take-over"));
+      for (let t = 0; t < 120 && !confirms().length; t++) await new Promise((r) => setTimeout(r, 250));
+      await new Promise((r) => setTimeout(r, 800));
+      const open = confirms();
+      const titles = open.map((d) => d.title);
+      const duringConfirm = door("cairn2e")?.disabled;
+      for (const d of open) await d.close();
+      await first;
+      return { atOnce, duringConfirm, n: open.length, titles, after: { m: door("marketplace")?.disabled, c: door("cairn2e")?.disabled } };
+    }, MOD);
+    check(busy.atOnce.m === true && busy.atOnce.c === true && busy.duringConfirm === true,
+      "every door is DISABLED the moment one is pressed, and stays so while its confirm is open", JSON.stringify(busy));
+    check(busy.n === 1 && busy.titles[0] === MARKET_TITLE && busy.after.m === false && busy.after.c === false,
+      "…a real click on a greyed second door opens nothing, only the first door's confirm is up, and every door is back once the job ends", JSON.stringify(busy));
 
     // On a short screen the confirm SCROLLS (review #31: measured at 650px, the
     // Copy button sat below the bottom edge with the overflow hidden).

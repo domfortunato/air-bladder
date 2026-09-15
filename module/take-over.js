@@ -807,6 +807,16 @@ let running = false;
  *  answered, was two runs and a second flagged folder). */
 export const isTakeOverRunning = () => running;
 
+/** The four doors, in every directory that renders them (docked and popped
+ *  out share one document), greyed while a job is in flight and back when it
+ *  ends. `running` alone was a silent swallow (review #32): a second door
+ *  pressed during the first's multi-second plan did nothing, and the FIRST
+ *  door's confirm then opened under a Warden who believed they had pressed
+ *  the second. A directory rendered mid-job reads `running` at injection. */
+const setDoorsBusy = (busy) => {
+  for (const b of document.querySelectorAll("button.cairn-take-over")) b.disabled = busy;
+};
+
 /** A kind with its click-time members resolved to plain values. */
 const resolveKind = (kind) => ({
   ...kind,
@@ -854,6 +864,7 @@ export const openTakeOver = async (name) => {
   // Up before the first await: the plan and the confirm are where a second
   // click used to land, and they opened a second confirm.
   running = true;
+  setDoorsBusy(true);
   const out = {};
   try {
     const [tablePlan, bgPlan] = await Promise.all([
@@ -892,6 +903,7 @@ export const openTakeOver = async (name) => {
     return out;
   } finally {
     running = false;
+    setDoorsBusy(false);
   }
   await showResult(kind, out);
   return out;
@@ -939,6 +951,7 @@ export const injectTakeOverButton = (html, { kind }) => {
   if (!actions) return;
   const button = document.createElement("button");
   button.type = "button";
+  button.disabled = running;
   button.classList.add("cairn-take-over");
   button.dataset.kind = kind;
   button.innerHTML = `<i class="fa-solid fa-file-import"></i>${esc(L(KINDS[kind].button))}`;
