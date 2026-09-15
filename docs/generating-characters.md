@@ -162,7 +162,8 @@ either button again never overwrites: what you have edited is kept, and only
 what is missing is added.
 
 Every copy explains itself. Open one and a note at the top says what it is
-dealt for and how to add a row. Drag a spellbook onto the spell table and it
+dealt for and how to add a row — and, since a table opens in view mode, that
+you press **Edit** at the top of the window first. Drag a spellbook onto the spell table and it
 re-sorts itself by name, formula included, so the new spell can be rolled.
 Drag an item onto a Barebones creation table and the table's die follows its
 rows, so the new item can be rolled too.
@@ -180,5 +181,8 @@ back.
 It is per background, and the world remembers it, so it holds for every
 character and every session until you change it. It works the same on the
 Player's Guide twenty, the seven in **Backgrounds (Custom)**, and your own
-copies. The last background left in play cannot be switched off, because
-generation must always have something to deal.
+copies — and a copy made by **Create Custom Backgrounds and Tables…** is the
+same background as far as the eye is concerned, so one you switched off stays
+off when its copy lands, and switching either back on switches on both. The
+last background left in play cannot be switched off, because generation must
+always have something to deal.

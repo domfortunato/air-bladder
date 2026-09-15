@@ -88,6 +88,22 @@
  *      pack's. The copy, opened, wears the spells banner, and its description
  *      no longer names the button (2026-09-15).
  *
+ * REVIEW #31 (2026-09-15) added legs where each finding lives: the Actor
+ * Directory's nine creation buttons fully legible on as many rows as that
+ * takes, never nine (leg 1); a double-click opens ONE confirm, and at a 650px
+ * viewport the confirm scrolls so Copy is reachable, with core's own overflow
+ * rule as the control (leg 2); the 2e set's Scars is UTILS' — the list the
+ * damage card rolls — and a scar card rolled with the copy in the world prints
+ * the SRD prose, never the sheet checklist's label (legs 3, 10); a background
+ * switched off before the copy stays off after it, by ID, with the old uuid
+ * test as the control, and its stand-in's eye re-enables it clearing both
+ * stored uuids (leg 10); a RENAMED copy that still holds the shipped id
+ * survives a re-run, which lands a fresh copy under another id, and both
+ * windows name the folder by its document's name (leg 10b); a no-op
+ * backgrounds run leaves `content-source-custom` alone, and a LOCKED pack with
+ * a background missing is said so in the confirm, which then counts no
+ * backgrounds (leg 11).
+ *
  * Everything planted is selected by ID DIFFERENCE from a snapshot taken before the
  * first write and deleted in the finally; leftovers of a killed run are recognised
  * by the flagged folders (ours, one flag value per kind) and by
@@ -123,7 +139,15 @@ const CPD = "/systems/air-bladder/module/compendium.js";
 const WORLD_BG_PACK = "world.custom-backgrounds";
 const BG_PACKS = ["air-bladder.backgrounds-2e", "air-bladder.backgrounds-custom"];
 const KIND_TAB = { spells: "tables", marketplace: "tables", barebones: "tables", cairn2e: "compendium" };
-const CAIRN_2E_TABLES = ["Bonds", "Omens", "Scars", "Physique", "Skin", "Hair", "Face", "Speech", "Clothing", "Vice", "Virtue"];
+// As the button declares them: `pack;Name`, Scars from UTILS (review #31 — the
+// list the damage card rolls; tables-2e's namesake is the sheet checklist's).
+const CAIRN_2E_TABLES = [
+  "air-bladder.tables-2e;Bonds", "air-bladder.tables-2e;Omens", "air-bladder.utils;Scars",
+  "air-bladder.tables-2e;Physique", "air-bladder.tables-2e;Skin", "air-bladder.tables-2e;Hair", "air-bladder.tables-2e;Face",
+  "air-bladder.tables-2e;Speech", "air-bladder.tables-2e;Clothing", "air-bladder.tables-2e;Vice", "air-bladder.tables-2e;Virtue",
+];
+const CAIRN_2E_NAMES = CAIRN_2E_TABLES.map((d) => d.split(";")[1]);
+const DMG = "/systems/air-bladder/module/damage.js";
 
 /* ------------------------------------------------------------------ helpers */
 
@@ -230,7 +254,7 @@ const answerConfirm = (action) => page.evaluate(async (action) => {
             // The dialog's OWN footer, never the window frame — its ✕ is a
             // `data-action="close"` button too, and fooled the first draft.
             buttons: [...res.element.querySelectorAll(".dialog-buttons button, .form-footer button")]
-              .map((b) => ({ action: b.dataset.action, type: b.getAttribute("type"), focused: res.element.ownerDocument.activeElement === b })),
+              .map((b) => ({ action: b.dataset.action, type: b.getAttribute("type"), label: b.textContent.trim(), focused: res.element.ownerDocument.activeElement === b })),
           },
         };
       }
@@ -290,7 +314,7 @@ const planOf = (kind) => page.evaluate(async ({ kind, MOD, CAIRN_2E_TABLES }) =>
   const p = await mod.planTableTakeOver(specs[kind]);
   return {
     ok: p.ok, rows: p.rows, unresolved: p.unresolved, targets: p.targets.size, tableTargets: [...p.tableTargets.values()],
-    tablesAdd: p.tables.add.map((t) => t.name), tablesKept: p.tables.kept,
+    tablesAdd: p.tables.add.map((t) => t.name), tablesAddFrom: p.tables.add.map((t) => `${t.pack};${t.name}`), tablesKept: p.tables.kept,
     itemsAdd: p.items.add.length, itemsKept: p.items.kept.length,
     actorsAdd: p.actors.add.length, actorsKept: p.actors.kept.length,
     addNames: [...p.items.add, ...p.actors.add].map((d) => d.name),
@@ -420,8 +444,86 @@ try {
     });
     check(!aliceDoors.isGM && aliceDoors.tables === 0 && aliceDoors.compendium === 0, "Alice sees no door at all", JSON.stringify(aliceDoors));
 
+    // The Actor Directory's own row shares this header (review #31): its nine
+    // creation buttons caught the take-over buttons' full-width rule for a day.
+    // User ruling: every label fully legible, never clipped, on as many rows
+    // as that takes — some may span the whole width — but not nine rows.
+    const nine = await page.evaluate(async () => {
+      ui.sidebar.expand();
+      ui.sidebar.changeTab("actors", "primary");
+      await ui.actors.render({ force: true });
+      await new Promise((r) => setTimeout(r, 500));
+      const row = ui.actors.element.querySelector("#cairn-character-gen-button");
+      const inner = row ? row.clientWidth - parseFloat(getComputedStyle(row).paddingLeft) - parseFloat(getComputedStyle(row).paddingRight) : 0;
+      const buttons = [...(row?.querySelectorAll(":scope > button") ?? [])].map((b) => {
+        const r = b.getBoundingClientRect();
+        // What the label NEEDS: the same button laid out at max-content.
+        const probe = b.cloneNode(true);
+        probe.style.cssText = "position:absolute;visibility:hidden;width:max-content;flex:none;min-width:0;white-space:nowrap";
+        row.append(probe);
+        const need = probe.getBoundingClientRect().width;
+        probe.remove();
+        return { label: b.textContent.trim(), width: Math.round(r.width), need: Math.round(need), top: Math.round(r.top), clipped: b.scrollWidth > b.clientWidth + 1 };
+      });
+      return { headerWidth: Math.round(inner), buttons };
+    });
+    const nineRows = new Set(nine.buttons.map((b) => b.top)).size;
+    check(nine.buttons.length === 9, "Actors: the Warden's directory row carries its nine creation buttons", nine.buttons.map((b) => b.label).join(" | "));
+    check(nine.buttons.every((b) => !b.clipped && b.width >= b.need - 1),
+      "…every label fully legible: no button narrower than its own label, nothing clipped", JSON.stringify(nine.buttons.map((b) => [b.label, b.width, b.need])));
+    check(nineRows >= 2 && nineRows < nine.buttons.length,
+      `…wrapped onto ${nineRows} rows, sharing a row where two fit — not one button per row`, JSON.stringify(nine.buttons.map((b) => b.top)));
+    check(nine.buttons.every((b) => b.width <= nine.headerWidth + 1), "…and none wider than the header", `${nine.headerWidth}px`);
+
     /* ----------------------------------------------------- 2. the confirms */
     console.log("\n2. the confirms");
+    const PACK_LABEL = await page.evaluate(() => game.i18n.localize("CAIRN.CustomBackgroundsPack"));
+
+    // A double-click opens ONE confirm (review #31): `running` goes up before
+    // the plan's first await, so the second call returns null at once.
+    const dbl = await page.evaluate(async (MOD) => {
+      const mod = await import(MOD);
+      const before = new Set(foundry.applications.instances.keys());
+      // Neither call awaited before the dialogs are counted: a build that opens
+      // two confirms would otherwise hang this leg on the second one's `wait`.
+      const first = mod.openTakeOver("marketplace");
+      const second = mod.openTakeOver("marketplace");
+      const confirms = () => [...foundry.applications.instances.values()].filter((x) => !before.has(x.id) && x.element?.querySelector(".cairn-take-over"));
+      for (let t = 0; t < 120 && !confirms().length; t++) await new Promise((r) => setTimeout(r, 250));
+      await new Promise((r) => setTimeout(r, 800));
+      const open = confirms();
+      const n = open.length;
+      for (const d of open) await d.close();
+      const [firstOut, secondOut] = await Promise.all([first, second]);
+      return { n, secondOut, firstOut, running: mod.isTakeOverRunning() };
+    }, MOD);
+    check(dbl.n === 1 && dbl.secondOut === null && dbl.firstOut === null && !dbl.running,
+      "two calls in one tick open ONE confirm: the second returns null at once, and the flag is down after ✕", JSON.stringify(dbl));
+
+    // On a short screen the confirm SCROLLS (review #31: measured at 650px, the
+    // Copy button sat below the bottom edge with the overflow hidden).
+    await page.setViewportSize({ width: VIEWPORT.width, height: 650 });
+    const short = await openConfirm("cairn2e");
+    const scroll = await page.evaluate(() => {
+      const dlg = globalThis.__abConfirm;
+      const wc = dlg.element.querySelector(".window-content");
+      const copy = dlg.element.querySelector('button[data-action="copy"]');
+      const before = copy.getBoundingClientRect().bottom;
+      const overflowY = getComputedStyle(wc).overflowY;
+      const scrollable = wc.scrollHeight > wc.clientHeight + 1;
+      wc.scrollTop = wc.scrollHeight;
+      const after = copy.getBoundingClientRect().bottom;
+      // CONTROL: without the dialog's class, core's own overflow rule applies.
+      dlg.element.classList.remove("cairn-take-over-dialog");
+      const coreOverflow = getComputedStyle(wc).overflowY;
+      dlg.element.classList.add("cairn-take-over-dialog");
+      return { viewport: window.innerHeight, overflowY, scrollable, before: Math.round(before), after: Math.round(after), coreOverflow };
+    });
+    await answerConfirm("cancel");
+    await page.setViewportSize(VIEWPORT);
+    check(!short.error && scroll.scrollable && scroll.before > scroll.viewport, "precondition: at a 650px viewport the confirm's content overflows and Copy starts below the fold", JSON.stringify(scroll));
+    check(scroll.overflowY === "auto" && scroll.after <= scroll.viewport + 1, "…the content scrolls, and scrolled down Copy is on screen", `${scroll.before} → ${scroll.after} of ${scroll.viewport}`);
+    check(scroll.coreOverflow !== "auto" && scroll.coreOverflow !== "scroll", "CONTROL: without the dialog's class core hides the overflow — the class is load-bearing", scroll.coreOverflow);
     const WANT_HEADS = {
       spells: ["Create a Custom Spell Table!", "How Air Bladder works", "Here is an easy fix"],
       marketplace: ["Create a Custom Marketplace!", "How Air Bladder works", "Here is an easy fix"],
@@ -443,6 +545,10 @@ try {
       check(c.buttons?.find((b) => b.action === "cancel")?.focused, `…${kind}: Cancel is the focused button`);
       check(c.width > 0 && c.width <= 520, `…${kind}: the window states its width`, `${Math.round(c.width ?? 0)}px`);
       check(/templates/.test(c.text), `…${kind}: it says the shipped compendiums are templates`);
+      if (kind === "cairn2e") {
+        check(c.text.includes(PACK_LABEL) && !c.text.includes("{pack}"),
+          `…cairn2e: it names the world compendium by its label ("${PACK_LABEL}"), the key the pack is created with`);
+      }
       await answerConfirm(kind === "cairn2e" ? "close" : "cancel");
     }
     let f = await fresh(before);
@@ -463,7 +569,9 @@ try {
     check(pc0.ok && pc0.tablesAdd.length === 11 && pc0.targets === 0 && pc0.unresolved.length === 0
       && !pc0.tablesAdd.some((n) => /Spells/.test(n)) && pc0.itemsAdd === 0 && pc0.actorsAdd === 0,
       "Cairn 2e: eleven TEXT tables, nothing to re-point, the Spells table left out", `${pc0.rows} rows`);
-    check(CAIRN_2E_TABLES.every((n) => pc0.tablesAdd.includes(n)), "…and all eleven are named", pc0.tablesAdd.sort().join(", "));
+    check(CAIRN_2E_NAMES.every((n) => pc0.tablesAdd.includes(n)), "…and all eleven are named", pc0.tablesAdd.sort().join(", "));
+    check(pc0.tablesAddFrom.includes("air-bladder.utils;Scars") && !pc0.tablesAddFrom.includes("air-bladder.tables-2e;Scars"),
+      "…its Scars is the one in UTILS — the list the damage card rolls — not the sheet checklist's in Tables (2e)", pc0.tablesAddFrom.filter((d) => /Scars/.test(d)).join(", "));
     const b0 = await planOf("backgrounds");
     check(b0.ok && b0.add + b0.kept === 27, "backgrounds: 27 shipped backgrounds accounted for", JSON.stringify(b0));
     const ps0 = await planOf("spells");
@@ -640,7 +748,7 @@ try {
     const daggerNow = await page.evaluate((id) => game.items.get(id)?.system.cost, dagger.id);
     check(JSON.stringify(snapAfter2) === JSON.stringify(snapBefore2) && daggerNow === 99 && run2.warns.length === 0,
       "second run: no new document, the Dagger still 99, no warning");
-    check(run2.result?.lines.some((l) => /Nothing needed copying/.test(l)) && run2.result.lines.some((l) => /were already here/.test(l)),
+    check(run2.result?.lines.some((l) => /Nothing needed copying/.test(l)) && run2.result.lines.some((l) => /Already in your world/.test(l)),
       "…and the result window says nothing needed copying, and how much was left alone", JSON.stringify(run2.result?.lines));
     const blind = await page.evaluate(async ({ MOD, id }) => {
       const mod = await import(MOD);
@@ -719,6 +827,17 @@ try {
     /* ------------------------------------------------------ 10. Cairn 2e */
     console.log("\n10. Cairn 2e: the backgrounds and the eleven tables, custom source OFF at entry");
     await page.evaluate((NS) => game.settings.set(NS, "content-source-custom", false), NS);
+    // A background switched OFF before the copy (review #31): the stand-in
+    // carries the shipped ID under another uuid, and the eye must follow the id.
+    const eyeBefore = await page.evaluate(async ({ GEN, NS }) => {
+      const gen = await import(GEN);
+      const fw = (await game.packs.get("air-bladder.backgrounds-2e").getDocuments()).find((d) => d.name === "Fieldwarden");
+      const was = game.settings.get(NS, "disabled-backgrounds") ?? [];
+      await game.settings.set(NS, "disabled-backgrounds", []);
+      await gen.toggleBackgroundDisabled(fw.uuid);
+      return { was, uuid: fw.uuid, id: fw.id, off: game.settings.get(NS, "disabled-backgrounds") };
+    }, { GEN, NS });
+    check(eyeBefore.off.includes(eyeBefore.uuid), "precondition: the shipped Fieldwarden is switched off by its eye before the copy", eyeBefore.uuid);
     const beforeC2e = await fresh(before);
     await openConfirm("cairn2e");
     const runC2e = await answerConfirm("copy");
@@ -726,8 +845,57 @@ try {
     const newC2eTables = afterC2e.tables.filter((id) => !beforeC2e.tables.includes(id));
     check(runC2e.result?.buttons.some((b) => b.action === "backgrounds") && runC2e.result.buttons.some((b) => b.action === "tables"),
       "the result window offers Open Custom Backgrounds and Open Rollable Tables", JSON.stringify(runC2e.result?.lines));
+    const openBgLabel = await page.evaluate(() => game.i18n.format("CAIRN.TakeOver.Result.OpenBackgrounds", { pack: game.i18n.localize("CAIRN.CustomBackgroundsPack") }));
+    check(runC2e.result?.buttons.find((b) => b.action === "backgrounds")?.label === openBgLabel && runC2e.result.lines.some((l) => l.includes(PACK_LABEL)),
+      `…the Open button and the line name the compendium by its label ("${PACK_LABEL}")`, JSON.stringify(runC2e.result?.buttons.map((b) => b.label)));
     const landedBg = await pressResult("backgrounds");
     check(landedBg.packWindows?.includes(WORLD_BG_PACK), "Open Custom Backgrounds opens that compendium", JSON.stringify(landedBg.packWindows));
+
+    const eye1 = await page.evaluate(async ({ GEN, WORLD_BG_PACK, id }) => {
+      const gen = await import(GEN);
+      const standIn = (await game.packs.get(WORLD_BG_PACK).getDocuments()).find((d) => d.id === id);
+      const pool = await gen.getBackgroundsFor("2e");
+      return {
+        standInUuid: standIn?.uuid ?? null, poolHasId: pool.some((b) => b.id === id),
+        // `typeof`, so a pre-fix build (no such export) reds this leg instead
+        // of throwing past every leg after it.
+        byId: standIn && typeof gen.isBackgroundDisabled === "function" ? gen.isBackgroundDisabled(standIn) : null,
+        // CONTROL: the uuid set the eye used to read cannot see the stand-in.
+        oldMiss: standIn ? !gen.disabledBackgrounds().has(standIn.uuid) : null,
+      };
+    }, { GEN, WORLD_BG_PACK, id: eyeBefore.id });
+    check(!!eye1.standInUuid && !eye1.poolHasId && eye1.byId, "after the copy the switched-off Fieldwarden is STILL out of the pool — by id, its stand-in included", JSON.stringify(eye1));
+    check(eye1.oldMiss, "CONTROL: the uuid set the eye used to read cannot see the stand-in — the id test is what keeps it off");
+    const aliceEye = await alicePage.evaluate(async ({ GEN, id }) => {
+      const gen = await import(GEN);
+      return (await gen.getBackgroundsFor("2e")).some((b) => b.id === id);
+    }, { GEN, id: eyeBefore.id });
+    check(aliceEye === false, "…and Alice's pool has no Fieldwarden either");
+    const eye2 = await page.evaluate(async ({ GEN, NS, id, standInUuid }) => {
+      const gen = await import(GEN);
+      const before = new Set(foundry.applications.instances.keys());
+      const pending = gen.promptBackground("2e", null);          // NOT awaited — a modal
+      let dialog = null;
+      for (let i = 0; i < 100 && !dialog; i++) {
+        dialog = [...foundry.applications.instances.values()].find((app) => !before.has(app.id) && app.element?.querySelector(".bg-pick-list")) ?? null;
+        if (!dialog) await new Promise((r) => setTimeout(r, 100));
+      }
+      const row = dialog?.element.querySelector(`input[name="bg"][value="${standInUuid}"]`)?.closest(".bg-pick-row") ?? null;
+      const greyed = !!row?.classList.contains("bg-pick-off");
+      const dead = !!row?.querySelector("input")?.disabled;
+      row?.querySelector(".bg-pick-eye")?.click();
+      for (let i = 0; i < 100 && row?.classList.contains("bg-pick-off"); i++) await new Promise((r) => setTimeout(r, 100));
+      const live = !!row && !row.classList.contains("bg-pick-off") && !row.querySelector("input").disabled;
+      const offAfter = game.settings.get(NS, "disabled-backgrounds") ?? [];
+      dialog?.element.querySelector('button[data-action="cancel"]')?.click();
+      await pending;
+      const poolAfter = await gen.getBackgroundsFor("2e");
+      return { rowFound: !!row, greyed, dead, live, offAfter, poolAfterHasId: poolAfter.some((b) => b.id === id) };
+    }, { GEN, NS, id: eyeBefore.id, standInUuid: eye1.standInUuid });
+    check(eye2.rowFound && eye2.greyed && eye2.dead, "the picker greys the stand-in's row with a dead radio", JSON.stringify({ rowFound: eye2.rowFound, greyed: eye2.greyed, dead: eye2.dead }));
+    check(eye2.live && eye2.offAfter.every((u) => !u.endsWith(`.${eyeBefore.id}`)) && eye2.poolAfterHasId,
+      "…and its eye switches it back on live, clearing every stored uuid with that id — the shipped one's too", JSON.stringify(eye2.offAfter));
+    await page.evaluate(({ NS, was }) => game.settings.set(NS, "disabled-backgrounds", was), { NS, was: eyeBefore.was });
 
     const bg = await page.evaluate(async ({ GEN, NS, WORLD_BG_PACK }) => {
       const gen = await import(GEN);
@@ -780,14 +948,18 @@ try {
 
     const c2e = await page.evaluate(async ({ ids, NS, CPD, CAIRN_2E_TABLES }) => {
       const cpd = await import(CPD);
-      const pack = game.packs.get("air-bladder.tables-2e");
-      const shipped = await pack.getDocuments();
+      // The shipped table behind each declaration — Scars from UTILS.
+      const shippedOf = new Map();
+      for (const decl of CAIRN_2E_TABLES) {
+        const [pack, name] = decl.split(";");
+        shippedOf.set(name, (await game.packs.get(pack).getDocuments()).find((d) => d.name === name));
+      }
       const tables = ids.map((id) => game.tables.get(id)).filter(Boolean);
-      const out = { made: tables.map((t) => t.name).sort(), folder: null, verbatim: 0, rows: 0, bondFlags: 0, bondRows: 0, resolved: {}, spells: null };
+      const out = { made: tables.map((t) => t.name).sort(), folder: null, verbatim: 0, rows: 0, bondFlags: 0, bondRows: 0, resolved: {}, spells: null, scarsSource: null, scarsIsChecklist: null };
       const folder = tables[0]?.folder;
       out.folder = folder ? { name: folder.name, flag: folder.getFlag(NS, "takeOver"), all: tables.every((t) => t.folder?.id === folder.id) } : null;
       for (const t of tables) {
-        const s = shipped.find((x) => x.id === t.id);
+        const s = shippedOf.get(t.name);
         if (!s) continue;
         const a = [...t.results].sort((x, y) => x.range[0] - y.range[0]).map((r) => r.description ?? r.name);
         const b = [...s.results].sort((x, y) => x.range[0] - y.range[0]).map((r) => r.description ?? r.name);
@@ -800,21 +972,48 @@ try {
         const fl = r.flags?.["air-bladder"];
         if (fl && "gold" in fl && Array.isArray(fl.items)) out.bondFlags++;
       }
-      for (const name of CAIRN_2E_TABLES) {
-        const t = await cpd.findDeclaredTable(`air-bladder.tables-2e;${name}`);
-        out.resolved[name] = t ? (t.pack ? "pack" : "world") : "none";
+      for (const decl of CAIRN_2E_TABLES) {
+        const t = await cpd.findDeclaredTable(decl);
+        out.resolved[decl.split(";")[1]] = t ? (t.pack ? "pack" : "world") : "none";
       }
       const spells = await cpd.findDeclaredTable("air-bladder.tables-2e;Spells — Canon (1d100)");
       out.spells = spells ? (spells.pack ? "pack" : "world") : "none";
+      // The world Scars: sourced from utils, sharing no row with the checklist.
+      const scars = tables.find((t) => t.name === "Scars");
+      out.scarsSource = scars?._stats?.compendiumSource ?? null;
+      const checklist = (await game.packs.get("air-bladder.tables-2e").getDocuments()).find((d) => d.name === "Scars");
+      const labels = new Set([...checklist.results].map((r) => r.description));
+      out.scarsIsChecklist = scars ? [...scars.results].some((r) => labels.has(r.description)) : null;
       return out;
     }, { ids: newC2eTables, NS, CPD, CAIRN_2E_TABLES });
-    check(c2e.made.length === 11 && JSON.stringify(c2e.made) === JSON.stringify([...CAIRN_2E_TABLES].sort()),
+    check(c2e.made.length === 11 && JSON.stringify(c2e.made) === JSON.stringify([...CAIRN_2E_NAMES].sort()),
       "the eleven 2e tables are in the world under their own names", c2e.made.join(", "));
     check(c2e.folder?.flag === "cairn2e" && c2e.folder.all, "…all in one flagged folder", JSON.stringify(c2e.folder));
     check(c2e.verbatim === 11, "…every row of every one copied verbatim", `${c2e.rows} rows`);
     check(c2e.bondRows === 20 && c2e.bondFlags === 20, "…and Bonds' gold/items payload rode along on all 20 rows");
+    check(/^Compendium\.air-bladder\.utils\./.test(c2e.scarsSource ?? "") && c2e.scarsIsChecklist === false,
+      "…the world Scars is UTILS' list — the SRD prose the damage card rolls — and shares no row with the sheet checklist", c2e.scarsSource);
     check(Object.values(c2e.resolved).every((v) => v === "world"), "every 2e declaration now resolves to the WORLD copy", JSON.stringify(c2e.resolved));
     check(c2e.spells === "pack", "control: the Spells table was NOT copied and still resolves to the compendium", c2e.spells);
+    // The damage flow, with the copy in the world: the card prints the prose.
+    const scarCard = await page.evaluate(async ({ DMG, ids }) => {
+      const dmg = await import(DMG);
+      const scars = ids.map((id) => game.tables.get(id)).find((t) => t?.name === "Scars");
+      const strip = (html) => String(html ?? "").replace(/<[^>]+>/g, "").replace(/&#39;/g, "'").replace(/&amp;/g, "&").trim();
+      const prose = strip([...scars.results].find((r) => Number.between(3, r.range[0], r.range[1]))?.description);
+      const checklist = (await game.packs.get("air-bladder.tables-2e").getDocuments()).find((d) => d.name === "Scars");
+      const label = strip([...checklist.results].find((r) => Number.between(3, r.range[0], r.range[1]))?.description);
+      const before = new Set(game.messages.map((m) => m.id));
+      await dmg.Damage._rollScarsTable(3);
+      let card = null;
+      for (let i = 0; i < 40 && !card; i++) { card = game.messages.find((m) => !before.has(m.id)) ?? null; if (!card) await new Promise((r) => setTimeout(r, 100)); }
+      const content = strip(card?.content);
+      const out = { prose, label, posted: !!card, cardHasProse: !!prose && content.includes(prose.slice(0, 30)), cardHasLabel: !!label && content.includes(label) };
+      await card?.delete();
+      return out;
+    }, { DMG, ids: newC2eTables });
+    check(scarCard.posted && scarCard.cardHasProse && !scarCard.cardHasLabel,
+      `a scar card rolled for 3 damage prints the copy's prose and never the checklist label "${scarCard.label}"`, JSON.stringify(scarCard));
     const reworded = await page.evaluate(async ({ CPD, ids }) => {
       const cpd = await import(CPD);
       const bonds = ids.map((id) => game.tables.get(id)).find((t) => t?.name === "Bonds");
@@ -826,18 +1025,59 @@ try {
     }, { CPD, ids: newC2eTables });
     check(/probe owes you a favour/.test(reworded ?? ""), "a reworded row is what a Bonds roll returns", JSON.stringify(reworded));
 
+    /* ------------------ 10b. a renamed copy survives a re-run (review #31) */
+    console.log("\n10b. a renamed copy holding the shipped id survives a re-run, and both windows name the folder");
+    // Park the Omens copy under another name with an edit; it STILL holds the
+    // shipped id, which is exactly the id `keepId` fought it for. And rename
+    // the folder, so the windows can only be naming the document.
+    const parked = await page.evaluate(async ({ ids }) => {
+      const omens = ids.map((id) => game.tables.get(id)).find((t) => t?.name === "Omens");
+      const shipped = (await game.packs.get("air-bladder.tables-2e").getIndex()).find((e) => e.name === "Omens");
+      const folder = omens.folder;
+      await folder.update({ name: "PROBE 2e Folder" });
+      await omens.update({ name: "Omens (parked)" });
+      const row = omens.results.contents[0];
+      await omens.updateEmbeddedDocuments("TableResult", [{ _id: row.id, description: "<p>A probe parked this omen.</p>" }]);
+      return { id: omens.id, holdsShippedId: omens.id === shipped._id, folderId: folder.id, rows: omens.results.size };
+    }, { ids: newC2eTables });
+    check(parked.holdsShippedId, "precondition: the parked Omens still holds the SHIPPED id — the id a keepId create would have replaced it under", parked.id);
+    const cP = await openConfirm("cairn2e");
+    check(!cP.error && cP.text.includes("PROBE 2e Folder") && /1 table/.test(cP.counts ?? ""),
+      "the confirm names the folder by its document's name and counts one table to add", cP.counts);
+    const runP = await answerConfirm("copy");
+    await closeResult();
+    const afterP = await page.evaluate(({ id }) => {
+      const parkedDoc = game.tables.get(id);
+      const fresh = game.tables.filter((t) => t.name === "Omens");
+      return {
+        parkedName: parkedDoc?.name ?? null, parkedEdit: parkedDoc?.results.contents[0]?.description ?? "",
+        fresh: fresh.length, freshId: fresh[0]?.id ?? null, freshRows: fresh[0]?.results.size ?? 0, freshFolder: fresh[0]?.folder?.name ?? null,
+      };
+    }, { id: parked.id });
+    check(afterP.parkedName === "Omens (parked)" && /probe parked/.test(afterP.parkedEdit), "the parked copy SURVIVES with its edit — the re-run overwrote nothing", JSON.stringify(afterP));
+    check(afterP.fresh === 1 && afterP.freshId !== parked.id && afterP.freshRows === parked.rows && afterP.freshFolder === "PROBE 2e Folder",
+      "…and a fresh Omens landed under a DIFFERENT id in the flagged folder, the shipped rows intact", JSON.stringify(afterP));
+    check(runP.result?.lines.some((l) => l.includes("PROBE 2e Folder")) && !runP.result?.lines.some((l) => l.includes("Custom 2e Character Creation")),
+      "the result window names the folder by its document's name, not the key's default", JSON.stringify(runP.result?.lines));
+    await page.evaluate(({ folderId }) => game.folders.get(folderId)?.update({ name: "Custom 2e Character Creation" }), { folderId: parked.folderId });
+
     /* ------------------------------------------- 11. backgrounds idempotency */
     console.log("\n11. a second backgrounds run keeps a rename, pack locked");
-    const bg2 = await page.evaluate(async ({ MOD, WORLD_BG_PACK }) => {
+    const bg2 = await page.evaluate(async ({ MOD, WORLD_BG_PACK, NS }) => {
       const mod = await import(MOD);
       const pack = game.packs.get(WORLD_BG_PACK);
       const docs = await pack.getDocuments();
       const fw = docs.find((d) => d.name === "Fieldwarden");
       await fw.update({ name: "Fieldwarden of the Probe" });
       await pack.configure({ locked: true });
+      // A run with nothing to add changes NOTHING — the custom source included
+      // (review #31: it was switched on by every run, whatever it wrote).
+      await game.settings.set(NS, "content-source-custom", false);
       let r;
       try { r = await mod.runBackgroundsTakeOver(await mod.planBackgroundsTakeOver()); }
       finally { await pack.configure({ locked: false }); }
+      const settingAfterNoop = game.settings.get(NS, "content-source-custom");
+      await game.settings.set(NS, "content-source-custom", true);
       const after = await pack.getDocuments();
       const p = await mod.planBackgroundsTakeOver();
       const origIdx = pack.getIndex;
@@ -845,11 +1085,35 @@ try {
       let blind;
       try { blind = (await mod.planBackgroundsTakeOver()).add.length; }
       finally { delete pack.getIndex; if (pack.getIndex !== origIdx) pack.getIndex = origIdx; }
-      return { r, renamed: after.some((d) => d.name === "Fieldwarden of the Probe"), count: after.length, kept: p.kept.length, add: p.add.length, blind };
-    }, { MOD, WORLD_BG_PACK });
+      return { r, renamed: after.some((d) => d.name === "Fieldwarden of the Probe"), count: after.length, kept: p.kept.length, add: p.add.length, blind, settingAfterNoop };
+    }, { MOD, WORLD_BG_PACK, NS });
     check(bg2.r?.added === 0 && bg2.r?.kept === 27 && bg2.count === 27 && bg2.renamed && bg2.r?.locked === false,
       "locked pack, second run: 0 added, 27 kept, the rename survives, no refusal (nothing to add needs no unlock)", JSON.stringify(bg2));
+    check(bg2.settingAfterNoop === false, "…and a run that added nothing left the custom source OFF — it switches on only inside a write");
     check(bg2.blind === 27 && bg2.add === 0, "red-first (plan only): the world index shadowed empty → 27 to add", `${bg2.blind}`);
+
+    // A LOCKED pack with a background MISSING: the confirm says so and counts
+    // no backgrounds, rather than promising one the run will refuse.
+    const lockedSetup = await page.evaluate(async ({ WORLD_BG_PACK }) => {
+      const pack = game.packs.get(WORLD_BG_PACK);
+      const prowler = (await pack.getDocuments()).find((d) => d.name === "Prowler");
+      await prowler.delete();
+      await pack.configure({ locked: true });
+      return { deleted: !!prowler, locked: pack.locked };
+    }, { WORLD_BG_PACK });
+    const lockedLine = await page.evaluate(() => game.i18n.format("CAIRN.TakeOver.PackLockedConfirm", { pack: game.i18n.localize("CAIRN.CustomBackgroundsPack") }));
+    const cl = await openConfirm("cairn2e");
+    check(lockedSetup.deleted && lockedSetup.locked && !cl.error && cl.text.includes(lockedLine) && !/This will copy/.test(cl.counts ?? "") && !/Everything this copies/.test(cl.counts ?? ""),
+      "locked pack, one background missing: the confirm carries the locked line, promises no copy and does not claim everything is here", JSON.stringify({ counts: cl.counts }));
+    await answerConfirm("cancel");
+    const unlocked = await page.evaluate(async ({ MOD, WORLD_BG_PACK }) => {
+      const mod = await import(MOD);
+      const pack = game.packs.get(WORLD_BG_PACK);
+      await pack.configure({ locked: false });
+      const r = await mod.runBackgroundsTakeOver(await mod.planBackgroundsTakeOver());
+      return { added: r.added, count: (await pack.getIndex()).size };
+    }, { MOD, WORLD_BG_PACK });
+    check(unlocked.added === 1 && unlocked.count === 27, "unlocked, a run puts the missing Prowler back: 27 again", JSON.stringify(unlocked));
 
     /* --------------------------------------------------------- 12. Barebones */
     console.log("\n12. the Barebones creation tables, and the reader");

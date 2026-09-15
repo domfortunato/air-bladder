@@ -264,6 +264,18 @@ companion record of who authored what.
   `roll()`: the roll is a constant, `roll()` skips rows a hand draw marked
   `drawn`, and a constant cannot escape one — core rerolled the damage number
   10,000 times and gave no scar.
+  **AND THE COPY BUTTON HAD COPIED THE WRONG ONE (review #31, 2026-09-15).**
+  The Cairn 2e door's "eleven tables" named `Scars` off `tables-2e`, so its
+  copy was a world `Scars` holding the twelve checklist labels — which the
+  damage flow, world-first by name, found first: every scar card in a world
+  that pressed the button printed "1 HP - Lasting Scar" instead of the prose,
+  and the checklist, pack-only, gained nothing. The door copies UTILS' Scars
+  now (`CAIRN_2E_TABLES` in take-over.js is a list of `pack;Name`
+  declarations), the table `docs/customizing-bonds.md` already said a world
+  `Scars` overrides; the tables-2e one wears its own banner saying it is the
+  sheet's checkbox list, read from the pack only, because the generic "import
+  it and keep its name" sentence on it was an invitation to the same hijack by
+  hand.
 - **A token's name follows its actor's on rename — only where it still matched
   the OLD name** (2026-08-23, user ruling after a player's rename left their
   token stale on every map: "preserve custom token names"). Core copies the
@@ -887,6 +899,18 @@ companion record of who authored what.
     NEW id is ADOPTED through `_stats.compendiumSource`, never twinned — and
     the dev world proved the point on the first run: its own `Air Bladder` item
     at cost 50 was adopted, so the shop reads 50 there. Design, not defect.
+    **AND A TABLE COPY TAKES THE SHIPPED ID ONLY WHILE IT IS FREE (review #31,
+    2026-09-15).** "The plan is the only protection" was true of items and
+    actors, whose membership is by id, and false of tables one level down: a
+    copy the Warden RENAMED still holds the shipped id, the plan (by name)
+    lists that table as missing, and `createDocuments({keepId: true})` over it
+    was the silent replace the paragraph above warns about — observed, a
+    parked `Omens` with an edited row gone and a fresh one at its id.
+    `tableIdFor` hands a copy the shipped id when no world table holds it and
+    a fresh one otherwise, asked at plan time and again at run time (the
+    confirm sits between); the Barebones Weapon rows follow whichever id each
+    tier copy takes. Nothing reads a table's id, so the shipped one is a
+    convenience, never a claim.
   - **Tables LAST, rows inline.** An EMPTY world `Market:` table deletes its
     aisle (`getMarketplaceCatalog` skips a category with no resolved rows),
     and rows created with their parent fire no `createTableResult`, so
@@ -906,10 +930,34 @@ companion record of who authored what.
     archetype group instead of turning the Player's Guide list into a
     "Custom" heap — by id, which is provenance too, so the 2026-08-04 "never
     by a field on the document" ruling stands.
+    **AND THE EYE FOLLOWS THE ID TOO (review #31).** `disabled-backgrounds`
+    stores UUIDS, and a uuid names a location: the stand-in under the shipped
+    id sits at another one, so `off.has(copy.uuid)` missed and a Fieldwarden
+    the Warden had switched off was offered to players again the moment the
+    copy landed. `disabledBackgroundIds` / `isBackgroundDisabled` ask by id
+    in the pool, the picker and the toggle; switching ON clears every stored
+    uuid sharing the id (the shipped one's and the stand-in's), so deleting a
+    copy later cannot resurrect a stale disable. The setting's shape is
+    unchanged.
   - **Enter never copies.** Every button on both windows is `type: "button"`,
     and Cancel / Close is the default (focused). A locked Custom Backgrounds
     compendium is refused, not unlocked — but only when there is something to
-    write, and the refusal is a line in the result window, not a toast.
+    write, and the refusal is a line in the result window, not a toast —
+    **and, since review #31, a line in the CONFIRM too**, which then counts
+    no backgrounds rather than promising 27 the run will refuse. Four more
+    from that review: `running` goes up BEFORE the plan's first await, because
+    a double-click landed in the plan-and-confirm gap and opened two confirms
+    (both answered: two runs, a second flagged folder); the custom source is
+    switched on INSIDE the write, so a run that added nothing changes nothing,
+    which is what both dialogs promise; both windows carry
+    `cairn-take-over-dialog` so their content can SCROLL — a `wait` dialog at
+    height auto is clamped to the viewport with the overflow hidden, and at
+    650px the Copy button sat below the bottom edge; and every name the
+    sentences quote comes from the document or the key it was made with
+    (`namesFor`: the world pack's label from `CAIRN.CustomBackgroundsPack`,
+    the folder by the Folder document's own name), where five keys carried the
+    English literal and the result window named the key's default after a
+    Warden had renamed the folder.
   - **A BAREBONES ROW POINTING AT A WORLD ITEM WINS, and without that the
     copy would have been theatre.** `resolveBarebonesResult` resolves an
     ordinary Item row BY NAME against the shipped gear packs — deliberate, "one
@@ -952,10 +1000,24 @@ companion record of who authored what.
     folder is the one place the sidebar can say these are yours, and the
     buttons already promise the outcome in that word. No released world
     holds the old names.
-  - **The `only` list is a NAME list and the folder key a string id.**
-    `planTableTakeOver(spec)` is one function for all three sets; a spec with
-    no document rows (the 2e eleven) creates no Items or Actors folder, and the
-    result window names only the directories a folder actually landed in.
+    **THE FULL-WIDTH BUTTON RULE CAUGHT THE ACTOR DIRECTORY'S NINE (review
+    #31).** The four doors share `header.character-generator.directory-header`
+    with the Actor Directory's own creation row, and the selector that put
+    each door on a row of its own was `> button` — so Create PC, NPC,
+    Hireling, Monster, Companion, Transport, Container, Faction and Import
+    stacked nine rows deep for a day. User ruling: fix it, but "I want all of
+    the buttons to be fully legible, and that means that some of them span the
+    whole width — that is fine." So the door rule is scoped to
+    `.cairn-take-over`, and the nine get `min-width: max-content` on a wrapping
+    row: never clipped, never an ellipsis, a long label takes the width it
+    needs and the rest share what is left. Measured in both interface schemes.
+  - **The `only` list is a list of DECLARATIONS and the folder key a string
+    id.** `planTableTakeOver(spec)` is one function for all three sets; an
+    `only` entry is a name in the spec's pack or a `"pack;Name"` declaration
+    (review #31, for utils' Scars), and `kindOfTable` answers per pack off the
+    same pairs; a spec with no document rows (the 2e eleven) creates no Items
+    or Actors folder, and the result window names only the directories a
+    folder actually landed in.
   - **THE SPELL TABLES DOOR REPLACED "RESEED A SPELL TABLE" (same day, user,
     the second time in one afternoon: "WHY can't the reseed spell table be
     renamed to Copy Spell Tables to this world and have that button work
@@ -1052,7 +1114,18 @@ companion record of who authored what.
     Tier` table nobody's Weapon row points at wears the Barebones banner
     though it is reached by uuid. Trap: the sheet MODE is sticky
     session-wide (`#DEFAULT_MODE`), so any probe that opens a table puts it
-    back to view. **TWO WORLD TABLES OF ONE NAME WARN (same day, user ask,
+    back to view. **AND THAT DEFAULT IS VIEW, WHERE THE SENTENCE WAS FALSE
+    (review #31).** A table with rows opens in view mode, where core binds no
+    drop (`drop: () => this.isEditMode`, so `ondrop` is null on the window)
+    and shows no + — the banner promised both to a Warden who had just said
+    nothing told them how to drag, in the mode they read it in. A world
+    table's banner ends with one more sentence in view mode naming core's own
+    Edit button (`TABLE.ACTIONS.ChangeMode.Edit`; `CAIRN.TableRole.ViewMode`),
+    gone in edit mode; templates never get it. The tails name core's labels
+    too now — `TABLE.TABS.summary`, `COMPENDIUM.ImportEntry` — instead of
+    English literals, and the three `refreshTableBanners` hooks are NAMED
+    (`abTableBannerOnCreate` and siblings) so the duplicate-line legs can
+    switch each off. **TWO WORLD TABLES OF ONE NAME WARN (same day, user ask,
     after wondering whether copies should be prefixed "Custom" — no: the
     name IS the identity, a prefix would be a second rule for every reader,
     and the backgrounds are no precedent, "Custom Backgrounds" being the
@@ -1096,7 +1169,20 @@ companion record of who authored what.
   and the monster generator's private copy of the same reader is gone. The
   two PICK-LISTS that read the pack directly — NPC Background, and the name
   list — resolve through the same function, or a Warden's table would roll and
-  not be pickable.
+  not be pickable. **THAT RULE MISSED THE TWELVE TRAIT DROPDOWNS (review #31,
+  2026-09-15):** `_prepareBiographyContext` filled the eight 2e trait selects
+  and the NPC four from `cachedPackDocuments` while the die beside each rolled
+  world-first, so a Warden's own `Physique` fed the die and never the list —
+  and the confirm and the banner had just started promising the copies were
+  read. They resolve in `findDeclaredTable`'s ORDER now — a world table of
+  the name, then the declared pack — through `declaredTableCached`, which
+  reads the pack half off the sheet's existing document cache
+  (`dev:world-tables` leg 3b). NOT `findDeclaredTable` itself: the first cut
+  called it, and `dev:smoke` stopped seeing a character sheet inside its
+  three seconds, because that resolver pays an index round trip and a
+  document fetch per table, twelve lists deep on a fresh client. The Scars
+  checklist beside them stays on the pack on purpose, as the damage bullet
+  above records.
   **THE RANDOM-SPELL POOL WAS THE ONE THIS MISSED, and it was a gap and not a
   ruling (2026-09-14, user: "I don't understand why we can't make the spellbooks
   table work exactly the same way as marketplace, bonds, omens. There should be

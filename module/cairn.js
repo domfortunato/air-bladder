@@ -688,9 +688,10 @@ Hooks.on("renderRollTableSheet", abTableRoleBanner);
 // Two world tables of one name: the warning line on an OPEN sheet follows the
 // other table's creation, rename or deletion without a reopen. DOM only — a
 // re-render would drop unsaved edits on an edit-mode sheet.
-Hooks.on("createRollTable", () => refreshTableBanners());
-Hooks.on("deleteRollTable", () => refreshTableBanners());
-Hooks.on("updateRollTable", (doc, changes) => { if ("name" in (changes ?? {})) refreshTableBanners(); });
+// NAMED, so `withHookOff` can switch each off by name for its red-first leg.
+Hooks.on("createRollTable", function abTableBannerOnCreate() { refreshTableBanners(); });
+Hooks.on("deleteRollTable", function abTableBannerOnDelete() { refreshTableBanners(); });
+Hooks.on("updateRollTable", function abTableBannerOnRename(doc, changes) { if ("name" in (changes ?? {})) refreshTableBanners(); });
 
 /* -------------------------------------------- */
 /*  Journals — the player-facing rules handouts */

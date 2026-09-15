@@ -2598,6 +2598,30 @@ const getAllCustomBackgrounds = async () => {
 export const disabledBackgrounds = () =>
   new Set(game.settings.get(SETTINGS_NS, "disabled-backgrounds") ?? []);
 
+/** The document ID a uuid ends in — `Compendium.<pack>.Item.<id>` → `<id>`. */
+const idOfUuid = (uuid) => String(uuid ?? "").split(".").pop();
+
+/**
+ * The switched-off backgrounds BY DOCUMENT ID (review #31). The setting stores
+ * uuids, and a uuid names a location — so a world-pack copy standing in for a
+ * shipped background under the shipped id (module/take-over.js) was offered
+ * again the moment it landed: `off.has(copy.uuid)` missed, and a player rolled
+ * the Fieldwarden the Warden had switched off. The pool's identity is the id
+ * (`build2ePool` de-dups by it), so the eye follows the id too: switch a
+ * background off and every document carrying that id is off, shipped or
+ * stand-in. Nothing stored changes shape.
+ * @returns {Set<String>}
+ */
+export const disabledBackgroundIds = () => new Set([...disabledBackgrounds()].map(idOfUuid));
+
+/**
+ * Is this background switched off — by ID, whichever copy this is?
+ * @param {{id: string}} bg
+ * @param {Set<String>} [offIds]  `disabledBackgroundIds()`, when the caller already has it
+ * @returns {Boolean}
+ */
+export const isBackgroundDisabled = (bg, offIds = disabledBackgroundIds()) => offIds.has(bg.id);
+
 /**
  * Flip one background's disabled state, refusing the disable that would leave
  * generation with NOTHING to roll — the same "can never do nothing" invariant
@@ -2605,15 +2629,23 @@ export const disabledBackgrounds = () =>
  * still go empty by flipping a content-source toggle afterwards — disabling
  * every custom while canon is on, then switching canon off — and that case
  * keeps its existing answer: generation notifies and does nothing.)
+ *
+ * BY ID both ways (review #31): switching ON removes every stored uuid that
+ * shares this one's id — the shipped background's and a stand-in's alike, so
+ * a Warden re-enabling the copy does not leave the original's uuid behind to
+ * switch it off again if the copy is ever deleted — and switching OFF stores
+ * the uuid the eye was pressed on.
  * @param {String} uuid
  * @returns {Promise<Set<String>|null>}  the new set, or null if refused
  */
 export const toggleBackgroundDisabled = async (uuid) => {
   const off = disabledBackgrounds();
-  if (off.has(uuid)) {
-    off.delete(uuid);
+  const id = idOfUuid(uuid);
+  const stored = [...off].filter((u) => idOfUuid(u) === id);
+  if (stored.length) {
+    for (const u of stored) off.delete(u);
   } else {
-    const left = (await get2eBackgrounds()).filter((b) => b.uuid !== uuid);
+    const left = (await get2eBackgrounds()).filter((b) => b.id !== id);
     if (!left.length) {
       ui.notifications.warn(game.i18n.localize("CAIRN.Notify.LastBackground"));
       return null;
@@ -2727,9 +2759,10 @@ const build2ePool = async ({ includeDisabled = false } = {}) => {
   // disabled through every branch above, the fallback included. includeDisabled
   // is the Warden's picker view — the rows render greyed so they can be turned
   // back on; every other caller (random rolls, swaps, imports) gets the
-  // filtered pool.
-  const off = includeDisabled ? null : disabledBackgrounds();
-  return { docs: [...byId.values()].filter((b) => !off || !off.has(b.uuid)), customIds };
+  // filtered pool. By ID, not uuid: a stand-in carries the shipped id under
+  // another uuid, and it is the id the eye switched off (review #31).
+  const off = includeDisabled ? null : disabledBackgroundIds();
+  return { docs: [...byId.values()].filter((b) => !off || !off.has(b.id)), customIds };
 };
 
 const get2eBackgrounds = async (opts) => (await build2ePool(opts)).docs;
@@ -2879,7 +2912,9 @@ export const promptBackground = async (source, currentUuid = null) => {
   // (both ruled 2026-08-04). Players never reach this branch with a disabled
   // row — their pool is already filtered.
   const showEyes = source === "2e" && game.user.isGM;
-  const off = source === "2e" ? disabledBackgrounds() : new Set();
+  // By ID (review #31): a stand-in copy under another uuid is off when the
+  // background it stands in for is.
+  const off = source === "2e" ? disabledBackgroundIds() : new Set();
 
   // The group must OPEN with a member checked. A radio group holding no
   // checked radio is CSS :indeterminate, and core styles that state for the
@@ -2888,7 +2923,7 @@ export const promptBackground = async (source, currentUuid = null) => {
   // first click. So a current value that cannot take the check (on no row,
   // or on a disabled one) hands it to Random, which is what Choose already
   // resolves when nothing is checked.
-  const hasCurrent = !!currentUuid && all.some((bg) => bg.uuid === currentUuid && !off.has(bg.uuid));
+  const hasCurrent = !!currentUuid && all.some((bg) => bg.uuid === currentUuid && !off.has(bg.id));
   let list = `<label class="bg-pick-row"><input type="radio" name="bg" value="${BG_RANDOM}"${hasCurrent ? "" : " checked"}>
     <span class="bg-pick-name"><i class="fas fa-dice"></i> ${game.i18n.localize("CAIRN.RandomBackground")}</span></label>`;
   const descs = {};
@@ -2900,7 +2935,7 @@ export const promptBackground = async (source, currentUuid = null) => {
       descs[bg.uuid] = t("bg.desc", bg.system.description ?? "");
       // A disabled row cannot be checked — including the pre-check on the
       // character's current background, which Random takes instead (above).
-      const isOff = off.has(bg.uuid);
+      const isOff = off.has(bg.id);
       const eye = showEyes
         ? `<button type="button" class="bg-pick-eye" data-uuid="${bg.uuid}"
              title="${game.i18n.localize(isOff ? "CAIRN.BgPickEnable" : "CAIRN.BgPickDisable")}">
@@ -2959,7 +2994,7 @@ export const promptBackground = async (source, currentUuid = null) => {
           const uuid = btn.dataset.uuid;
           const now = await toggleBackgroundDisabled(uuid);
           if (now === null) return; // refused: it was the last enabled background
-          const isOff = now.has(uuid);
+          const isOff = [...now].some((u) => idOfUuid(u) === idOfUuid(uuid));
           const row = btn.closest(".bg-pick-row");
           row.classList.toggle("bg-pick-off", isOff);
           const radio = row.querySelector('input[name="bg"]');

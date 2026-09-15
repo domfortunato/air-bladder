@@ -39,7 +39,10 @@ The one-button way, and it brings the rest of 2e's tables with it. Open the
 **eleven tables a 2e character rolls on** — Bonds, Omens, Scars, and the eight
 trait tables (Physique, Skin, Hair, Face, Speech, Clothing, Vice, Virtue) — into
 a **Custom 2e Character Creation** folder in your Rollable Tables, rows and
-hidden payload intact.
+hidden payload intact. The Scars it copies is the one in **Utils**, the table a
+damage roll deals a scar from; the `Scars` in **Tables (2e)** is the list of
+checkboxes on the character sheet, which is read from the compendium only, and
+its own note says so when you open it.
 
 Think of the shipped compendiums as **templates**: the starting point you copy
 and make your own, never the place you edit. Every one of those eleven follows
@@ -48,10 +51,14 @@ the rule below — a world table with the shipped table's name is what gets roll
 is just editing the table in your sidebar.
 
 Running it again never overwrites: a table you have already edited is kept
-exactly as it is, and only what is missing is added.
+exactly as it is, and only what is missing is added. That holds for a copy you
+have renamed, too: it is left alone, and a fresh copy lands under the shipped
+name beside it.
 
 Every copy explains itself: open one and a note at the top says Air Bladder
-rolls it instead of the shipped table, and how to add a row. Add one and it is
+rolls it instead of the shipped table, and how to add a row. A table opens in
+view mode, where nothing can be dropped or added, so the note also tells you to
+press **Edit** at the top of the window first. Add a row and it is
 rolled straight away: the table's die follows its rows, so a twenty-first bond
 makes the formula `1d21` by itself, and deleting the last row shrinks it back.
 Tables rolled with more than one die — the NPC reactions, encounter and GLOG

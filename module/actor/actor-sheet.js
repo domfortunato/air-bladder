@@ -2,7 +2,7 @@ import { canRegenerateContainers, drawBond, bondRecordFrom, withGrantSource, bon
 import { promptMonsterTier, regenerateMonster } from "../monster-generator.js";
 import { openMarketplace, TRANSPORTS_CATEGORY } from "../marketplace.js";
 import { evaluateFormula, cleanDescription, bindEditorClickAwaySave, formatCount, sourceLabel, askDamageQuality, damageFormulaFor, damageQualityLabel, damageQualityKind, d20CardBody, d20CardFlavor, D20_CARD_ABILITIES } from "../utils.js";
-import { resultText } from "../compendium.js";
+import { resultText, compendiumInfoFromString } from "../compendium.js";
 import { SETTINGS_NS } from "../settings.js";
 import { CONTAINER_ART_CHOICES, CONTAINER_CLASSES } from "../icons.js";
 import { NPC_ROLES, PERSON_ROLES } from "../data-models.js";
@@ -152,6 +152,27 @@ for (const hook of [
 ]) {
   Hooks.on(hook, () => PACK_DOC_CACHE.clear());
 }
+
+/**
+ * A declared table for a pick-list, in `findDeclaredTable`'s ORDER — a world
+ * table of the name first, then the declared pack — with the pack half read
+ * off the cache above rather than the server (review #31). The first cut
+ * called `findDeclaredTable` itself, and `dev:smoke` stopped seeing a
+ * character sheet inside its three seconds: that resolver pays an index
+ * round trip and a document fetch per table, twelve pick-lists deep on a
+ * fresh client, where one cached `getDocuments()` per pack had served the
+ * lists for a month. Same answer as the die beside each list; only the pack
+ * read is shared. The world half is a synchronous collection read, so a
+ * Warden's own `Physique` is what both offer.
+ * @param {String} ref  "pack;Name"
+ * @returns {Promise<RollTable|undefined>}
+ */
+const declaredTableCached = async (ref) => {
+  const [packName, tableName] = compendiumInfoFromString(ref);
+  const world = game.tables?.find((t) => t.name === tableName);
+  if (world) return world;
+  return (await cachedPackDocuments(packName)).find((t) => t.name === tableName);
+};
 
 /* -------------------------------------------- */
 /*  Row animations (replacing jQuery slideUp/slideDown)                         */
@@ -1439,17 +1460,21 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // so a player can pick a value (or keep an off-table one). The role's
     // key -> table mapping comes from _traitTableMapping, which the per-trait
     // dice read too — one map, so a row's die and its dropdown cannot disagree
-    // about where the trait comes from.
+    // about where the trait comes from. And ONE RESOLVER (review #31): the
+    // dice roll through `findDeclaredTable`, world-first, while these lists
+    // read the pack documents cached above — so a Warden's own `Physique`
+    // fed the die and never the dropdown beside it, on the eight 2e traits
+    // and the NPC four alike. Same ORDER now (`declaredTableCached`, above): a
+    // world table of the declared name is what both offer. The Scars
+    // checklist below stays on the pack on purpose (its namesake in Utils is
+    // the damage card's).
     const mapping = this._traitTableMapping();
-    const byPack = {};
-    for (const ref of Object.values(mapping)) {
-      const [packName] = ref.split(";");
-      if (!(packName in byPack)) byPack[packName] = await cachedPackDocuments(packName);
-    }
+    const tables = {};
+    for (const [key, ref] of Object.entries(mapping)) tables[key] = await declaredTableCached(ref);
     const npcTraits = CONFIG.Cairn?.npcGenerator?.traits ?? {};
     context.traitRows = Object.entries(mapping).map(([key, ref]) => {
-      const [packName, tableName] = ref.split(";");
-      const table = (byPack[packName] ?? []).find((tbl) => tbl.name === tableName);
+      const [, tableName] = ref.split(";");
+      const table = tables[key];
       const value = this.actor.system.traits?.[key] ?? "";
       const texts = table ? table.results.map(resultText).sort() : [];
       // A tables-2e trait's label IS its table name (Physique, Skin…), so it
@@ -1490,7 +1515,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // Scars pick-list from the same tables-2e pack. Neither Omen nor Scar is
     // generated: a player ticks the field's checkbox to enable it, then rolls
     // (Omen) or checks scars. Both are descriptive only.
-    const tables2e = byPack["air-bladder.tables-2e"] ?? (await cachedPackDocuments("air-bladder.tables-2e"));
+    const tables2e = await cachedPackDocuments("air-bladder.tables-2e");
     const scarTable = tables2e.find((tbl) => tbl.name === "Scars");
     const selectedScars = this.actor.system.scars ?? [];
     // LEGACY RECOGNITION (review #30). For a month the damage flow's
@@ -1502,7 +1527,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // healed by the sheet itself: the utils row for the same damage value
     // counts as this row SELECTED, and the change handler below writes the
     // label in its place. Same pack document the damage flow reads.
-    const utils = byPack["air-bladder.utils"] ?? (await cachedPackDocuments("air-bladder.utils"));
+    const utils = await cachedPackDocuments("air-bladder.utils");
     const legacyScars = new Map(
       (utils.find((tbl) => tbl.name === "Scars")?.results ?? []).map((r) => [r.range?.[0], resultText(r)]));
     // Same display/value split as the trait options above, and for the same reason:

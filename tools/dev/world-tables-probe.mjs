@@ -22,6 +22,11 @@
  *      The die and the list must resolve the same table, or a Warden's own
  *      Backgrounds roll and cannot be picked. Opened un-awaited and read off the
  *      live dialog, then closed: a probe that awaits a modal hangs.
+ *  3b. THE TRAIT PICK-LISTS on the sheet (review #31): the eight 2e trait
+ *      dropdowns and the NPC four offer the world tables' rows. They read the
+ *      pack documents while the die beside each read world-first — a Warden's
+ *      own Physique fed the die and never the list — and resolve through the
+ *      die's own `findDeclaredTable` now.
  *   4. THE DRAWN-STATE INVARIANT. A world table with replacement OFF is rolled
  *      six times through the generators' reader and no row is marked drawn,
  *      because `roll()` writes nothing. CONTROL: one bare `draw()` on the same
@@ -236,6 +241,45 @@ try {
   p.opened && p.marked.length === 1 && p.rows.length === 2
     ? ok(`the pick-list offers the world table's row and nothing from the pack: [${p.rows.join(" | ")}]`)
     : fail(`pick-list wrong: opened=${p.opened}, ${p.rows.length} rows, ${p.marked.length} from the world table — ${JSON.stringify(p.rows.slice(0, 5))}`);
+
+  /* ---- 3b. the trait pick-lists on the sheet (review #31) ------------------ */
+  console.log("\nthe trait pick-lists on the sheet");
+  const tp = await page.evaluate(async ({ MARK, FLAG }) => {
+    // Each planted table holds ONE row carrying the marker, so a select that
+    // reads the world table offers exactly one non-blank option, marked; one
+    // that still reads the pack offers the pack's rows, none marked.
+    const read = async (actor, keys) => {
+      const sheet = actor.sheet;
+      sheet._traitsCollapsed = false;        // the pick-lists render only expanded
+      await sheet.render(true);
+      for (let i = 0; i < 60 && !sheet.element?.querySelector("select.trait-input"); i++) await new Promise((r) => setTimeout(r, 100));
+      const out = {};
+      for (const k of keys) {
+        const opts = [...(sheet.element?.querySelectorAll(`select[name="system.traits.${k}"] option`) ?? [])].map((o) => o.value).filter(Boolean);
+        out[k] = { rows: opts.length, marked: opts.filter((v) => v.includes(MARK)).length };
+      }
+      await sheet.close();
+      return out;
+    };
+    const pc = await CONFIG.Actor.documentClass.create({
+      name: "PROBE world-tables pc", type: "character", system: { contentSource: "2e" }, flags: { "air-bladder": { [FLAG]: true } },
+    });
+    const pcRows = await read(pc, Object.keys(CONFIG.Cairn.characterGenerator2e.biography.items));
+    const npc = await CONFIG.Actor.documentClass.create({
+      name: "PROBE world-tables npc traits", type: "npc", system: { role: "npc" }, flags: { "air-bladder": { [FLAG]: true } },
+    });
+    const npcRows = await read(npc, Object.keys(CONFIG.Cairn.npcGenerator.traits));
+    await pc.delete();
+    await npc.delete();
+    return { pcRows, npcRows };
+  }, { MARK, FLAG });
+  const allWorld = (rows) => Object.keys(rows).length > 0 && Object.values(rows).every((r) => r.rows === 1 && r.marked === 1);
+  allWorld(tp.pcRows)
+    ? ok(`a 2e sheet's ${Object.keys(tp.pcRows).length} trait pick-lists offer the world tables' rows and nothing from the pack`)
+    : fail(`a 2e sheet's trait pick-lists still read the pack: ${JSON.stringify(tp.pcRows)}`);
+  allWorld(tp.npcRows)
+    ? ok(`an NPC sheet's ${Object.keys(tp.npcRows).length} trait pick-lists too`)
+    : fail(`an NPC sheet's trait pick-lists still read the pack: ${JSON.stringify(tp.npcRows)}`);
 
   /* ---- 4. the drawn-state invariant ---------------------------------------- */
   console.log("\nthe drawn-state invariant, on a world table with replacement off");

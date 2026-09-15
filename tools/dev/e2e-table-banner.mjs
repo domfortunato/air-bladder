@@ -10,6 +10,10 @@
  *                                      world launched, `npm run dev:players`)
  *
  * What it holds, in order:
+ *   0. THE SHEET OPENS IN VIEW MODE (review #31): with no mode forced, a world
+ *      `Market: Gear` opens in view, where the window's drop handler is null
+ *      and there is no + — so its banner ends by naming core's Edit button;
+ *      in edit mode that sentence is gone and the drop handler is bound.
  *   1. A world `Market: Gear` wears the Marketplace banner in EDIT mode (inside
  *      the results section, above the list, unshrinkable, the glyph RENDERED —
  *      read from `::before`, never the class list — and exactly one) and in
@@ -21,10 +25,15 @@
  *      `Not a Market: X` get nothing: the prefix is anchored, and the name is
  *      the whole mechanism.
  *   3. The shipped PACK tables, locked and so forced into view mode: Market:
- *      Armor names the Marketplace button and the Rollable Tables sidebar,
- *      Bonds the Backgrounds button and the Compendium sidebar, both pool
- *      tables the Spell Table button whatever the hack says, utils' Scars the
- *      import sentence and no button at all.
+ *      Armor names the Marketplace button and the Rollable Tables sidebar (and
+ *      no Edit sentence — a template is read, not edited), Bonds the
+ *      Backgrounds button and the Compendium sidebar, both pool tables the
+ *      Spell Table button whatever the hack says, utils' Scars the Backgrounds
+ *      button too (review #31: it is the list the damage card rolls, and the
+ *      2e set copies it), tables-2e's Scars the CHECKLIST sentence — the
+ *      sheet's own checkbox list, read from the pack only, pointing at Utils —
+ *      and a table no button copies (Warden: NPC - Quirk) the import sentence
+ *      naming core's own Import Entry label.
  *   4. THE SPELL TABLES STAY ALPHABETICAL ON A DROP, like the aisles: three rows
  *      planted out of order, a fourth dropped through the same
  *      createEmbeddedDocuments call core's sheet makes, with the sheet OPEN →
@@ -59,8 +68,10 @@
  *      reopen — the create/rename/delete hooks re-inject the DOM rather than
  *      re-render — renaming it away removes the line, renaming it back
  *      restores it, deleting it removes it; the role banner stays single
- *      throughout. Control: two world tables of a name nothing reads warn
- *      nothing.
+ *      throughout. Red-first on the NAMED hooks (review #31): with
+ *      `abTableBannerOnCreate` off a second table adds no line, with
+ *      `abTableBannerOnDelete` off a deletion leaves the line standing.
+ *      Control: two world tables of a name nothing reads warn nothing.
  *   6. Alice, Observer on the Market fixture, opens it in view mode and sees no
  *      banner — every sentence is a Warden instruction.
  *   7. Both interface schemes through `game.configureUI` (never a body class):
@@ -140,6 +151,11 @@ const bannerOf = (pg, uuid, mode = null, { keepOpen = false } = {}) => pg.evalua
     color: p ? getComputedStyle(p).color : null,
     background: p ? getComputedStyle(p).backgroundColor : null,
     sheetId: sheet.id,
+    // Is a drop bound on the window? Core's DragDrop sets `ondrop` only when
+    // its permission (`isEditMode`) says yes, and null otherwise.
+    ondrop: root ? root.querySelector(".window-content")?.ondrop != null : null,
+    viewSentence: !!p?.querySelector(".ab-table-role-view"),
+    modeAttr: p?.dataset.mode ?? null,
   };
   if (!keepOpen) await sheet.close();
   return out;
@@ -193,6 +209,10 @@ try {
   before = await page.evaluate(() => game.tables.map((t) => t.id));
   const glogOn = await page.evaluate(() => !!game.settings.get("air-bladder", "enable-glog-magic"));
   const NORMALIZE = await L("TABLE.ACTIONS.NormalizeResults");
+  const EDIT = await L("TABLE.ACTIONS.ChangeMode.Edit");
+  const SUMMARY = await L("TABLE.TABS.summary");
+  const IMPORT = await L("COMPENDIUM.ImportEntry");
+  const UTILS = await page.evaluate(() => game.packs.get("air-bladder.utils")?.metadata.label ?? "");
   const BTN = {};
   for (const k of ["Marketplace", "Spells", "Cairn2e", "Barebones"]) BTN[k] = await L(`CAIRN.TakeOver.${k}.Button`);
   const SIDEBAR = { tables: await L("SIDEBAR.TabTables"), compendium: await L("SIDEBAR.TabCompendium") };
@@ -200,21 +220,33 @@ try {
   const gearRows = byName(await harvest("air-bladder.marketplace", "Market: Gear", 3));
   const [A, B] = gearRows;
 
+  /* -------------------------------------------- 0. the sheet opens in view */
+  console.log("\n0. the sheet opens in view mode, and the banner says so");
+  const gear = await plant("Market: Gear", [at(B, 1), at(A, 2)], { formula: "1d2", ownership: { default: OBSERVER } });
+  // No mode forced: core's #DEFAULT_MODE, which is where a Warden reads it.
+  const v0 = await bannerOf(page, gear);
+  check(v0.mode === "view" && v0.hasTable, "precondition: opened with no mode forced, the sheet is in VIEW mode", v0.mode);
+  check(v0.present && v0.ondrop === false, "…where the window carries NO drop handler — dragging onto it does nothing", `ondrop bound: ${v0.ondrop}`);
+  check(v0.viewSentence && v0.text.includes(EDIT) && v0.modeAttr === "view",
+    `…so the banner ends by naming core's own "${EDIT}" button`, v0.text.slice(-90));
+
   /* ------------------------------------------ 1. a world aisle, both modes */
   console.log("\n1. a world Market: Gear, both modes, red-first");
-  const gear = await plant("Market: Gear", [at(B, 1), at(A, 2)], { formula: "1d2", ownership: { default: OBSERVER } });
   const e1 = await bannerOf(page, gear, "edit");
   check(e1.mode === "edit" && e1.present && e1.count === 1 && e1.role === "market" && e1.parent === "results" && e1.aboveTable,
     "edit mode: ONE Marketplace banner inside the results section, above the list",
     JSON.stringify({ mode: e1.mode, count: e1.count, role: e1.role, parent: e1.parent, aboveTable: e1.aboveTable }));
   check(/Gear/.test(e1.head ?? "") && /alphabetical/.test(e1.text) && /Items sidebar/.test(e1.text) && /drag/i.test(e1.text),
     "…it names the aisle, says drag from the Items sidebar, and that rows stay alphabetical", e1.head);
+  check(e1.ondrop === true && !e1.viewSentence && e1.modeAttr === "edit",
+    "…the drop handler IS bound in edit mode, and the Edit sentence is gone", `ondrop bound: ${e1.ondrop}`);
   check(e1.flexShrink === "0", "…and the list cannot squeeze it (flex-shrink 0)", e1.flexShrink);
   check(e1.glyphCode >= 0xe000, "…its glyph RENDERS: a private-use code point read off ::before", `U+${e1.glyphCode.toString(16)}`);
   const v1 = await bannerOf(page, gear, "view");
   check(v1.mode === "view" && v1.present && v1.count === 1 && v1.role === "market" && v1.parent === "content" && v1.afterHeader && v1.aboveTable,
     "view mode: the banner is a direct child of the window content, after the header, above the list",
     JSON.stringify({ mode: v1.mode, parent: v1.parent, afterHeader: v1.afterHeader }));
+  check(v1.viewSentence && v1.ondrop === false, "…forced back to view, the Edit sentence returns and the drop handler is gone again");
   const off = await withHookOff(page, "renderRollTableSheet", "abTableRoleBanner", () => bannerOf(page, gear, "edit"));
   check(off.hasTable && !off.present, "red-first: with abTableRoleBanner off the sheet renders and carries NO banner");
   const on = await bannerOf(page, gear, "edit");
@@ -243,6 +275,7 @@ try {
   check(pArmor.editable === false && pArmor.mode === "view" && pArmor.present && pArmor.role === "template"
     && pArmor.text.includes(BTN.Marketplace) && pArmor.text.includes(SIDEBAR.tables),
     "the pack Market: Armor (locked, view) names the Marketplace button and the Rollable Tables sidebar", pArmor.text.slice(-90));
+  check(!pArmor.viewSentence, "…and carries no Edit sentence: a template is read, not edited");
   const pBonds = await bannerOf(page, await packUuid("air-bladder.tables-2e", "Bonds"));
   check(pBonds.present && pBonds.role === "template" && pBonds.text.includes(BTN.Cairn2e) && pBonds.text.includes(SIDEBAR.compendium),
     "the pack Bonds names the Backgrounds button and the Compendium sidebar", pBonds.text.slice(-90));
@@ -250,10 +283,19 @@ try {
   const pGlog = await bannerOf(page, await packUuid("air-bladder.tables-glog", "Spells — GLOG"));
   check(pCanon.role === "template" && pCanon.text.includes(BTN.Spells) && pGlog.role === "template" && pGlog.text.includes(BTN.Spells),
     `both pool tables name the Spell Table button — the pool NOT in force too (hack ${glogOn ? "ON" : "OFF"})`);
+  // Two shipped tables are named Scars (review #31). Utils' is what the damage
+  // card rolls and what the 2e button copies; tables-2e's is the sheet's own
+  // checkbox list, read from the pack only, and says so.
   const pScars = await bannerOf(page, await packUuid("air-bladder.utils", "Scars"));
-  const namesAButton = Object.values(BTN).some((b) => pScars.text.includes(b));
-  check(pScars.present && pScars.role === "templateImport" && !namesAButton && /Import/.test(pScars.text),
-    "utils' Scars has no button: the banner says import it and keep the name", pScars.text.slice(-80));
+  check(pScars.present && pScars.role === "template" && pScars.text.includes(BTN.Cairn2e) && pScars.text.includes(SIDEBAR.compendium),
+    "utils' Scars — the list the damage card rolls — names the Backgrounds button", pScars.text.slice(-80));
+  const pCheck = await bannerOf(page, await packUuid("air-bladder.tables-2e", "Scars"));
+  check(pCheck.present && pCheck.role === "checklist" && /checkbox/i.test(pCheck.text) && pCheck.text.includes(UTILS) && pCheck.text.includes(BTN.Cairn2e),
+    `tables-2e's Scars is the sheet CHECKLIST: read from the pack only, pointing at ${UTILS} and the Backgrounds button`, pCheck.text.slice(-110));
+  const pQuirk = await bannerOf(page, await packUuid("air-bladder.warden-npcs", "Warden: NPC - Quirk"));
+  const namesAButton = Object.values(BTN).some((b) => pQuirk.text.includes(b));
+  check(pQuirk.present && pQuirk.role === "templateImport" && !namesAButton && pQuirk.text.includes(IMPORT),
+    `a shipped table no button copies (Warden: NPC - Quirk) says import it, naming core's own "${IMPORT}"`, pQuirk.text.slice(-80));
 
   /* ------------------------------------------ 4. the spell tables re-sort */
   console.log("\n4. a drop keeps the spell tables alphabetical");
@@ -331,8 +373,8 @@ try {
   const curveRows = Array.from({ length: 11 }, (_, i) => at(text(`r${i + 2}`), i + 2));
   const reactions = await plant("Warden: NPC - Reactions", curveRows, { formula: "2d6" });
   const rReact = await bannerOf(page, reactions, "edit");
-  check(rReact.role === "generic" && /2d6/.test(rReact.text) && /Summary tab/.test(rReact.text) && !rReact.text.includes(NEW_ROW),
-    "a world Warden: NPC - Reactions under 2d6 wears the generic banner whose tail names 2d6 and the Summary tab", rReact.text.slice(-110));
+  check(rReact.role === "generic" && /2d6/.test(rReact.text) && rReact.text.includes(`${SUMMARY} tab`) && !rReact.text.includes(NEW_ROW),
+    `a world Warden: NPC - Reactions under 2d6 wears the generic banner whose tail names 2d6 and the ${SUMMARY} tab (core's own label)`, rReact.text.slice(-110));
   await drop(reactions, at(text("r13"), 13));
   await wait(600);
   const orc = await rowsOf(reactions);
@@ -365,7 +407,7 @@ try {
   const rScars = await roleOf("Scars");
   check(rScars.role === "cairn2e", "Scars, shipped in two packs, takes the button's kind and never the generic", rScars.role);
   const rMishaps = await roleOf("GLOG Magic: Mishaps", { formula: "2d12" });
-  check(rMishaps.role === "generic" && /2d12/.test(rMishaps.text) && /Summary tab/.test(rMishaps.text),
+  check(rMishaps.role === "generic" && /2d12/.test(rMishaps.text) && rMishaps.text.includes(`${SUMMARY} tab`),
     "GLOG Magic: Mishaps → generic, its 2d12 lookup named in the tail", rMishaps.role);
   const rNothing = await roleOf("PROBE nothing");
   check(rNothing.hasTable && !rNothing.present, "PROBE nothing → no banner");
@@ -392,6 +434,31 @@ try {
   const alone = await bannerOf(page, aisle, "edit", { keepOpen: true });
   const d0 = await dupCheck(aisle);
   check(alone.present && alone.role === "market" && !d0.warned, "alone under its name, the aisle carries its banner and no duplicate line");
+  // Red-first on the NAMED create hook: with it off, a second table of the
+  // name lands and the open sheet learns nothing.
+  const offCreate = await withHookOff(page, "createRollTable", "abTableBannerOnCreate", async () => {
+    const u = await plant(AISLE, [at(A, 1)], { formula: "1d1" });
+    await wait(800);
+    return { uuid: u, ...(await dupCheck(aisle)) };
+  });
+  check(!offCreate.warned, "red-first: with abTableBannerOnCreate off, a second table of the name adds NO line to the open sheet");
+  // …and on the named delete hook: with it off, the stale line would stand.
+  // Rename the twin away and back first, which is the update hook's own leg
+  // below, to get the line onto the sheet without the create hook.
+  await rename(offCreate.uuid, "PROBE renamed");
+  await rename(offCreate.uuid, AISLE);
+  const dOn = await until(aisle, (d) => d.warned);
+  check(dOn.warned, "…renamed away and back with the hooks on, the line appears (the update hook)");
+  const offDelete = await withHookOff(page, "deleteRollTable", "abTableBannerOnDelete", async () => {
+    await page.evaluate(async (uuid) => { const t = await fromUuid(uuid); await t.delete(); }, offCreate.uuid);
+    await wait(800);
+    return dupCheck(aisle);
+  });
+  check(offDelete.warned, "red-first: with abTableBannerOnDelete off, deleting the twin leaves the stale line standing");
+  await rename(aisle, "PROBE nudge");
+  await rename(aisle, AISLE);
+  const dCleared = await until(aisle, (d) => !d.warned);
+  check(!dCleared.warned, "…a rename with the hooks on recomputes it: gone");
   const aisle2 = await plant(AISLE, [at(A, 1)], { formula: "1d1" });
   const d1 = await until(aisle, (d) => d.warned);
   check(d1.warned && d1.roles === 1 && /another table/i.test(d1.text) && /rename or delete/i.test(d1.text),

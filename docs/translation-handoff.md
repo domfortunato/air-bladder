@@ -6,11 +6,11 @@ as of 2026-09-15, measured against the last release (`0.1.22`).
 
 | | |
 | --- | --- |
-| English interface keys | 1128 |
+| English interface keys | 1131 |
 | translated in `lang/es.json` | 686 (61%) |
 | **changed under your translation** | **24** ← Part 1 |
 | **content you translated, now unreachable** | **270** ← Part 2 |
-| new interface keys, untranslated | 442 ← Part 3 |
+| new interface keys, untranslated | 445 ← Part 3 |
 | new content strings, untranslated | 2072 ← Part 4 |
 
 Only two files are yours, and only you should edit them: `lang/es.json`
@@ -523,7 +523,7 @@ to do — they are listed so the work is accounted for rather than vanishing.
 
 ---
 
-## Part 3 — new interface keys, untranslated (442)
+## Part 3 — new interface keys, untranslated (445)
 
 Ordinary outstanding work: these have no Spanish at all, so a Spanish client
 falls back to English for them. Nothing here is urgent — a missing key is visibly
@@ -915,13 +915,14 @@ untranslated, which is the honest failure.
 | `CAIRN.Settings.WeatherLog.hint` | Every time the weather is rolled or set, write a line to a journal: the date, the watch, the season, whatever the calendar marks on that day, and the weather itself. One page per month, and everyone at the table can read… |
 | `CAIRN.Settings.WeatherLog.label` | Keep a weather log |
 
-### TableRole (11)
+### TableRole (13)
 
 | key | English |
 | --- | --- |
 | `CAIRN.TableRole.Barebones` | <strong>Your Barebones creation table.</strong> A new Barebones character is dealt from this table instead of the shipped one. To add a row, drag an item from the Items sidebar or a compendium onto this window, or press … |
 | `CAIRN.TableRole.Cairn2e` | <strong>Your Cairn 2e table.</strong> Air Bladder reads this table instead of the shipped one of the same name, so Cairn 2e characters are dealt from your rows. Reword a row, delete one, or press + above the list to add … |
-| `CAIRN.TableRole.CustomDice` | This table uses {formula}, so after adding a row, set the formula on the Summary tab to reach it. |
+| `CAIRN.TableRole.Checklist` | <strong>Shipped with Air Bladder.</strong> This is the list of scars a character sheet offers as checkboxes, and the sheet reads it from this compendium only. The scar a damage roll deals comes from the Scars table in {u… |
+| `CAIRN.TableRole.CustomDice` | This table uses {formula}, so after adding a row, set the formula on the {tab} tab to reach it. |
 | `CAIRN.TableRole.Duplicate` | <strong>Another table in your world has this name.</strong> Air Bladder cannot tell which of them to read. Rename or delete the other one. |
 | `CAIRN.TableRole.Generic` | <strong>Your copy of a shipped table.</strong> Air Bladder rolls this table instead of the shipped one of the same name. Reword a row, delete one, or press + above the list to add one. {dice} |
 | `CAIRN.TableRole.Market` | <strong>Your Marketplace: {aisle}.</strong> Air Bladder stocks the {aisle} aisle of the Marketplace from this table instead of the shipped one. To add something, drag an item from the Items sidebar or a compendium onto t… |
@@ -930,8 +931,9 @@ untranslated, which is the honest failure.
 | `CAIRN.TableRole.Template` | <strong>Shipped with Air Bladder.</strong> Foundry overwrites this compendium every time it updates the system, so a change made here does not last. Think of it as a template: to make it yours, press {button} on the {sid… |
 | `CAIRN.TableRole.TemplateImport` | <strong>Shipped with Air Bladder.</strong> Foundry overwrites this compendium every time it updates the system, so a change made here does not last. Think of it as a template: to make it yours, right-click it in the comp… |
 | `CAIRN.TableRole.Transports` | <strong>Your Marketplace: {aisle}.</strong> Air Bladder stocks the {aisle} aisle of the Marketplace from this table instead of the shipped one. To add a mount, wagon or container, drag its NPC from the Actors sidebar or … |
+| `CAIRN.TableRole.ViewMode` | To make any of these changes, first press {edit} at the top of this window. |
 
-### TakeOver (64)
+### TakeOver (65)
 
 | key | English |
 | --- | --- |
@@ -943,18 +945,18 @@ untranslated, which is the honest failure.
 | `CAIRN.TakeOver.Barebones.Title` | Create Custom Barebones Creation Tables |
 | `CAIRN.TakeOver.Barebones.Why` | Air Bladder's compendiums ship with the six tables a Barebones character is dealt from: Weapon, Armor, Additional Gear and the three Weapon Tier tables. Foundry overwrites the compendium every time it updates the system.… |
 | `CAIRN.TakeOver.Cairn2e.Button` | Create Custom Backgrounds and Tables… |
-| `CAIRN.TakeOver.Cairn2e.Fix` | Clicking Copy below copies all 27 shipped backgrounds into your Custom Backgrounds compendium under their own names, creating the compendium if you do not have one yet, and switches custom backgrounds on. From then on, a… |
+| `CAIRN.TakeOver.Cairn2e.Fix` | Clicking Copy below copies all 27 shipped backgrounds into your {pack} compendium under their own names, creating the compendium if you do not have one yet, and switches custom backgrounds on. From then on, a player roll… |
 | `CAIRN.TakeOver.Cairn2e.Folder` | Custom 2e Character Creation |
-| `CAIRN.TakeOver.Cairn2e.How` | Backgrounds are offered to players from compendiums, never from the Items sidebar. Your own live in a world compendium called <strong>Custom Backgrounds</strong>, on the Compendium tab, outside the Air Bladder folders. A… |
+| `CAIRN.TakeOver.Cairn2e.How` | Backgrounds are offered to players from compendiums, never from the Items sidebar. Your own live in a world compendium called <strong>{pack}</strong>, on the Compendium tab, outside the Air Bladder folders. A copy that c… |
 | `CAIRN.TakeOver.Cairn2e.Pitch` | Create Custom Backgrounds! |
-| `CAIRN.TakeOver.Cairn2e.Tables` | It also copies the eleven tables a 2e character rolls on, Bonds, Omens, Scars and the eight trait tables, into a folder named <strong>Custom 2e Character Creation</strong> in your Rollable Tables. Reword a bond, add an o… |
+| `CAIRN.TakeOver.Cairn2e.Tables` | It also copies the eleven tables a 2e character rolls on, Bonds, Omens, Scars and the eight trait tables, into a folder named <strong>{folder}</strong> in your Rollable Tables. Reword a bond, add an omen, retune a scar: … |
 | `CAIRN.TakeOver.Cairn2e.Title` | Create Custom Backgrounds and Tables |
 | `CAIRN.TakeOver.Cairn2e.Why` | Air Bladder's compendiums ship with 27 Cairn 2e backgrounds, the twenty from the Player's Guide and <strong>seven custom BECMI D&D-themed backgrounds</strong> created by Gordon McCormick. Foundry overwrites the compendiu… |
 | `CAIRN.TakeOver.Copy` | Copy |
 | `CAIRN.TakeOver.Failed` | Copying stopped partway. Nothing already copied was touched; run it again to add what is missing. |
 | `CAIRN.TakeOver.FixHeader` | Here is an easy fix |
 | `CAIRN.TakeOver.HowHeader` | How Air Bladder works |
-| `CAIRN.TakeOver.Kept` | {kept} already in this world and will be left exactly as they are. |
+| `CAIRN.TakeOver.Kept` | Already in your world and left exactly as is: {kept}. |
 | `CAIRN.TakeOver.Marketplace.Button` | Create a Custom Marketplace… |
 | `CAIRN.TakeOver.Marketplace.Fix` | Clicking Copy below copies the shipped Marketplace tables into your world, along with every item, mount and transport they sell, and points every row of your copied tables at those copies in your world. From then on, a p… |
 | `CAIRN.TakeOver.Marketplace.Folder` | Custom Marketplace |
@@ -971,19 +973,20 @@ untranslated, which is the honest failure.
 | `CAIRN.TakeOver.NTables` | {n} tables |
 | `CAIRN.TakeOver.NTables_one` | {n} table |
 | `CAIRN.TakeOver.NothingMissing` | Everything this copies is already in your world, so this will change nothing. |
-| `CAIRN.TakeOver.PackLocked` | Your Custom Backgrounds compendium is locked. Unlock it and run this again. |
+| `CAIRN.TakeOver.PackLocked` | Your {pack} compendium is locked. Unlock it and run this again. |
+| `CAIRN.TakeOver.PackLockedConfirm` | Your {pack} compendium is locked, so the backgrounds will not be copied. Unlock it first if you want them. |
 | `CAIRN.TakeOver.PackMissing` | The shipped {pack} compendium is not installed, so there is nothing to copy. |
 | `CAIRN.TakeOver.Rerun` | Running this again never overwrites anything. It only adds what is missing. |
-| `CAIRN.TakeOver.Result.Backgrounds` | <strong>{counts}</strong> copied into your Custom Backgrounds compendium, on the Compendium tab outside the Air Bladder folders. Custom backgrounds are switched on. |
+| `CAIRN.TakeOver.Result.Backgrounds` | <strong>{counts}</strong> copied into your {pack} compendium, on the Compendium tab outside the Air Bladder folders. Custom backgrounds are switched on. |
 | `CAIRN.TakeOver.Result.Barebones` | <strong>{counts}</strong> copied into your {where}, under {folder}. A new Barebones character is dealt from your copies from now on. |
 | `CAIRN.TakeOver.Result.Cairn2e` | <strong>{counts}</strong> copied into your {where}, under {folder}. |
 | `CAIRN.TakeOver.Result.DirActors` | Actors |
 | `CAIRN.TakeOver.Result.DirItems` | Items |
 | `CAIRN.TakeOver.Result.DirTables` | Rollable Tables |
-| `CAIRN.TakeOver.Result.Kept` | {kept} were already here and were left exactly as they were. |
+| `CAIRN.TakeOver.Result.Kept` | Already in your world and left exactly as it was: {kept}. |
 | `CAIRN.TakeOver.Result.Marketplace` | <strong>{counts}</strong> copied into your {where}, under {folder}. The shop reads your copies from now on. |
 | `CAIRN.TakeOver.Result.NothingNew` | Nothing needed copying: it is all in your world already. |
-| `CAIRN.TakeOver.Result.OpenBackgrounds` | Open Custom Backgrounds |
+| `CAIRN.TakeOver.Result.OpenBackgrounds` | Open {pack} |
 | `CAIRN.TakeOver.Result.OpenItems` | Open Items |
 | `CAIRN.TakeOver.Result.OpenTables` | Open Rollable Tables |
 | `CAIRN.TakeOver.Result.Spells` | <strong>{counts}</strong> copied into your {where}, under {folder}. A random spellbook or scroll is dealt from your copies from now on. |

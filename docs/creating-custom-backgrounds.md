@@ -50,16 +50,18 @@ and make your own, never the place you edit.
 Each copy **stands in** for the shipped one: the picker and the generators use
 your copy and never the original, in the same archetype group it always had.
 Delete a copy and the shipped one is back. To take one out of play without
-deleting anything, use the eye toggle in the background pick-list — see
+deleting anything, use the eye toggle in the background pick-list — a
+background you switched off before copying stays off afterwards, copy included — see
 [Taking a background out of play](generating-characters.md#taking-a-background-out-of-play)
 in Generating Characters.
 
 The same button also copies the **eleven tables a 2e character rolls on** —
-Bonds, Omens, Scars, and the eight trait tables (Physique, Skin, Hair, Face,
-Speech, Clothing, Vice, Virtue) — into a **Custom 2e Character Creation**
-folder in your Rollable Tables, where the same rule applies: a world table with a shipped
-table's name is rolled instead of it. See
-[Customizing Bonds](customizing-bonds.md).
+Bonds, Omens, Scars (the one in Utils, which a damage roll deals a scar from),
+and the eight trait tables (Physique, Skin, Hair, Face, Speech, Clothing, Vice,
+Virtue) — into a **Custom 2e Character Creation** folder in your Rollable
+Tables, where the same rule applies: a world table with a shipped table's name
+is rolled instead of it, and the trait pick-lists on the character sheet offer
+your rows too. See [Customizing Bonds](customizing-bonds.md).
 
 A window afterwards says what landed, with **Open Custom Backgrounds** and
 **Open Rollable Tables** buttons that take you there — the backgrounds are in a

@@ -4587,6 +4587,14 @@ body.theme-light .cairn-watch-clock,
     font-size: var(--font-size-13);
 }
 
+/* Both take-over windows SCROLL. A `DialogV2.wait` window at height auto is
+   clamped to the viewport by `_updatePosition` and core hides the overflow, so
+   on a 650px screen the confirm's Copy button sat below the bottom edge with
+   no way to reach it (review #31). Same shape as the shown-table reveal above. */
+.cairn-take-over-dialog .window-content {
+    overflow: hidden auto;
+}
+
 /* One button, one job, one row: these buttons carry a whole sentence, and
    sharing a row left them cramped and unreadable (user, round two). The row
    wraps so each takes the sidebar's full width under it - core's .flexrow does
@@ -4601,7 +4609,7 @@ header.character-generator.directory-header .header-actions {
     flex-wrap: wrap;
 }
 
-header.character-generator.directory-header .header-actions > button {
+header.character-generator.directory-header .header-actions > button.cairn-take-over {
     flex: 1 0 100%;
     justify-content: flex-start;
     gap: 8px;
@@ -4614,7 +4622,22 @@ header.character-generator.directory-header .header-actions > button {
     padding-block: 5px;
 }
 
-header.character-generator.directory-header .header-actions > button > i {
+header.character-generator.directory-header .header-actions > button.cairn-take-over > i {
     flex: 0 0 1.1em;
     text-align: center;
+}
+
+/* The Actor Directory's own row - Create PC, NPC, Hireling, Monster,
+   Companion, Transport, Container, Faction, Import from Kettlewright - shares
+   this header and CAUGHT the full-width rule above for a day (review #31).
+   User ruling: every label fully legible, no truncation, and a button that
+   needs the whole width may take it. So each button is at least as wide as
+   its own label, the row wraps into as many rows as that takes, and the
+   leftover space on a row is shared - core's ellipsis never gets a chance. */
+header.character-generator.directory-header .header-actions > button:not(.cairn-take-over) {
+    flex: 1 1 auto;
+    min-width: max-content;
+    white-space: nowrap;
+    overflow: visible;
+    text-overflow: clip;
 }

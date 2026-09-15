@@ -69,6 +69,16 @@
  * earlier under a NEW id (Import All Content without "Keep Document IDs") is
  * adopted through `_stats.compendiumSource`, never twinned.
  *
+ * AND A TABLE'S ID IS NEVER FOUGHT OVER (review #31). A copy the Warden has
+ * RENAMED still holds the shipped id while the plan, going by name, lists that
+ * table as missing — so `keepId` over it was the silent replace the paragraph
+ * above warns about, one level down: a parked `Omens` with an edited row was
+ * gone and a fresh `Omens` sat at its id. A table copy takes the shipped id
+ * only while no world table holds it, and a fresh one otherwise (`tableIdFor`);
+ * nothing reads a table's id, so the shipped one is a convenience and never a
+ * claim. The Barebones Weapon table's rows, which name the tier tables beside
+ * it, are pointed at whichever id each tier copy actually takes.
+ *
  * ORDER. Folders, then items and actors, then tables LAST with their rows
  * inline: an EMPTY world `Market:` table deletes its aisle (getMarketplaceCatalog
  * skips a category with no resolved rows), and rows created with their parent
@@ -99,15 +109,53 @@ const esc = (s) => foundry.utils.escapeHTML(String(s));
 const SOURCE_UUID = /^Compendium\.air-bladder\.([\w-]+)\.(Item|Actor|RollTable)\.([A-Za-z0-9]{16})$/;
 
 /**
- * The eleven tables a 2e character rolls on. Named, not "everything in the
- * pack": the twelfth, `Spells — Canon (1d100)`, has a button of its own below,
- * because its 100 rows bring 100 spellbooks into the Items sidebar with them,
- * which is a different kind of copy from eleven tables of text rows.
+ * The eleven tables a 2e character rolls on, as `"pack;Name"` DECLARATIONS —
+ * the shape config.js writes and `findDeclaredTable` reads. Named, not
+ * "everything in the pack": the twelfth, `Spells — Canon (1d100)`, has a
+ * button of its own below, because its 100 rows bring 100 spellbooks into the
+ * Items sidebar with them, which is a different kind of copy from eleven
+ * tables of text rows.
+ *
+ * SCARS COMES FROM UTILS, NOT TABLES (2e) — review #31, user ruling. Two
+ * shipped tables are named Scars and they are not the same list (see
+ * damage.js `_rollScarsTable`): `utils` holds the SRD's prose per HP of
+ * damage, which the damage flow rolls WORLD-FIRST under
+ * `"air-bladder.utils;Scars"`; `tables-2e` holds the twelve short labels the
+ * character sheet's checklist is built from, read from the pack ONLY. The
+ * first cut copied the checklist's list, and the copy did exactly one thing:
+ * it was the world `Scars` the damage flow found first, so every scar card
+ * printed "1 HP - Lasting Scar" instead of the prose. The table a Warden's
+ * world `Scars` is documented to override (docs/customizing-bonds.md) is the
+ * one this copies.
  */
 const CAIRN_2E_TABLES = [
-  "Bonds", "Omens", "Scars",
-  "Physique", "Skin", "Hair", "Face", "Speech", "Clothing", "Vice", "Virtue",
+  "air-bladder.tables-2e;Bonds", "air-bladder.tables-2e;Omens", "air-bladder.utils;Scars",
+  "air-bladder.tables-2e;Physique", "air-bladder.tables-2e;Skin", "air-bladder.tables-2e;Hair",
+  "air-bladder.tables-2e;Face", "air-bladder.tables-2e;Speech", "air-bladder.tables-2e;Clothing",
+  "air-bladder.tables-2e;Vice", "air-bladder.tables-2e;Virtue",
 ];
+
+/**
+ * A spec's `only` list as `[pack, name]` pairs. A bare name means the spec's
+ * own pack; a `"pack;Name"` entry names its pack itself, which is how the 2e
+ * set reaches utils' Scars from a spec whose home is `tables-2e`.
+ * @param {{pack: string, only?: string[]}} spec
+ * @returns {Array<[string, string]>|null}  null when the spec copies its whole pack
+ */
+const onlyPairs = (spec) => spec.only?.map((entry) => {
+  const [a, b] = compendiumInfoFromString(entry);
+  return b === undefined ? [spec.pack, a] : [a, b];
+}) ?? null;
+
+/** Does this spec copy a table of this NAME from this PACK? */
+const specCovers = (spec, pack, name) => {
+  const pairs = onlyPairs(spec);
+  if (pairs) return pairs.some(([p, n]) => p === pack && n === name);
+  return spec.pack === pack && !!game.packs.get(pack)?.index.some((e) => e.name === name);
+};
+
+/** Every pack a spec copies tables from — its own, plus any an `only` entry names. */
+const specPacks = (spec) => [...new Set([spec.pack, ...(onlyPairs(spec) ?? []).map(([p]) => p)])];
 
 /** One pool as a take-over spec — the generator's own declaration, split into
  *  its pack and table halves. */
@@ -197,25 +245,36 @@ const KINDS = {
  * which need nothing re-pointed and say so by leaving `targets` empty.
  *
  * @param {{key: string, pack: string, only?: string[], folder: string}} spec
+ *   `only` entries are names in `spec.pack`, or `"pack;Name"` declarations
  * @returns {Promise<object>} `{ ok, spec, pack, tables: {add, kept}, items: {add,
- *   kept}, actors: {add, kept}, rows, unresolved, targets, tableTargets }` —
- *   `targets` maps each shipped uuid to `{ type, doc, world }`, `world` being
- *   the existing copy the rows will point at (null when one must be created);
- *   `tableTargets` maps a row's shipped table uuid straight to the world uuid.
+ *   kept}, actors: {add, kept}, rows, unresolved, targets, tableTargets,
+ *   tableIds }` — `targets` maps each shipped uuid to `{ type, doc, world }`,
+ *   `world` being the existing copy the rows will point at (null when one must
+ *   be created); `tableTargets` maps a row's shipped table uuid straight to the
+ *   world uuid; `tableIds` maps each table to add (by its shipped id) to the id
+ *   its copy will take.
  */
 export const planTableTakeOver = async (spec) => {
   const empty = {
     tables: { add: [], kept: [] }, items: { add: [], kept: [] }, actors: { add: [], kept: [] },
-    rows: 0, unresolved: [], targets: new Map(), tableTargets: new Map(),
+    rows: 0, unresolved: [], targets: new Map(), tableTargets: new Map(), tableIds: new Map(),
   };
   const pack = game.packs.get(spec.pack);
   if (!pack) return { ok: false, spec, pack: spec.pack, ...empty };
-  const all = await pack.getDocuments();
-  const shipped = spec.only ? all.filter((d) => spec.only.includes(d.name)) : all;
+  const pairs = onlyPairs(spec);
+  const shipped = [];
+  for (const coll of specPacks(spec)) {
+    const source = game.packs.get(coll);
+    if (!source) return { ok: false, spec, pack: coll, ...empty };
+    const all = await source.getDocuments();
+    shipped.push(...(pairs ? all.filter((d) => pairs.some(([p, n]) => p === coll && n === d.name)) : all));
+  }
   const plan = { ok: true, spec, pack: spec.pack, ...empty };
+  const packs = new Set(specPacks(spec));
 
-  // Where a copied table will live, keyed by the SHIPPED id: the id survives
-  // `keepId` for one we create, and a kept one answers to its own.
+  // Where a copied table will live, keyed by the SHIPPED id: a kept one
+  // answers to its own, and one we create takes the id `tableIdFor` settled
+  // on — the shipped id while it is free, a fresh one otherwise.
   const worldTableFor = new Map();
   const tableRows = [];
   const wanted = new Map();   // pack collection → Map(id → { type, uuid })
@@ -231,8 +290,10 @@ export const planTableTakeOver = async (spec) => {
       plan.tables.kept.push({ id: existing.id, name: existing.name, pointingAtPack });
       worldTableFor.set(table.id, `RollTable.${existing.id}`);
     } else {
+      const id = tableIdFor(table);
       plan.tables.add.push(table);
-      worldTableFor.set(table.id, `RollTable.${table.id}`);
+      plan.tableIds.set(table.id, id);
+      worldTableFor.set(table.id, `RollTable.${id}`);
     }
     for (const r of table.results) {
       plan.rows++;
@@ -254,7 +315,7 @@ export const planTableTakeOver = async (spec) => {
   // shipped pack. Resolved after the loop, because the Weapon table's rows name
   // tier tables that may not have been visited yet.
   for (const { uuid, coll, id } of tableRows) {
-    if (coll === spec.pack && worldTableFor.has(id)) plan.tableTargets.set(uuid, worldTableFor.get(id));
+    if (packs.has(coll) && worldTableFor.has(id)) plan.tableTargets.set(uuid, worldTableFor.get(id));
   }
 
   // One round trip per source pack, not one per row.
@@ -363,6 +424,19 @@ const worldCopy = (collection, doc, folder) => {
 };
 
 /**
+ * The id a TABLE copy takes: the shipped one while no world table holds it,
+ * a fresh one otherwise. Tables are found by NAME, so a world table that
+ * holds the shipped id under another name is the Warden's renamed copy, and
+ * `createDocuments({keepId: true})` over it would replace it in silence — the
+ * server refuses a duplicate id only in embedded collections (review #31).
+ * Asked at PLAN time and again at RUN time, because the confirm sits between
+ * the two.
+ * @param {RollTable} table  the shipped table
+ * @returns {string}
+ */
+const tableIdFor = (table) => (game.tables.has(table.id) ? foundry.utils.randomID() : table.id);
+
+/**
  * Create what the plan listed as missing — targets first, tables last. Folders
  * are made only for what is actually written, so a text-table set (the 2e
  * eleven) leaves no empty Items and Actors folders behind.
@@ -399,8 +473,21 @@ export const runTableTakeOver = async (plan) => {
 
   if (plan.tables.add.length) {
     folders.RollTable = await takeOverFolder("RollTable", spec);
+    // The ids settled at plan time, re-checked now: a table that took the
+    // shipped id in the plan and finds it held since the confirm takes a
+    // fresh one, and the rows that name it follow (`tableTargets` was built
+    // on the plan's answer, so it is rewritten for any id that moved).
+    const moved = new Map();
+    for (const table of plan.tables.add) {
+      const planned = plan.tableIds.get(table.id) ?? table.id;
+      const now = planned === table.id ? tableIdFor(table) : planned;
+      if (now !== planned) moved.set(`RollTable.${planned}`, `RollTable.${now}`);
+      plan.tableIds.set(table.id, now);
+    }
+    for (const [uuid, to] of plan.tableTargets) if (moved.has(to)) worldFor.set(uuid, moved.get(to));
     const datas = plan.tables.add.map((table) => {
       const data = worldCopy(game.tables, table, folders.RollTable);
+      data._id = plan.tableIds.get(table.id);
       const rows = [...table.results].sort((a, b) => (a.range?.[0] ?? 0) - (b.range?.[0] ?? 0));
       data.results = rows.map((r, i) => {
         const row = r.toObject();
@@ -474,9 +561,13 @@ export const runBackgroundsTakeOver = async (plan) => {
     });
     const made = await Item.implementation.createDocuments(datas, { pack: pack.collection, keepId: true });
     added = made.length;
-  }
-  if (!game.settings.get(SETTINGS_NS, "content-source-custom")) {
-    await game.settings.set(SETTINGS_NS, "content-source-custom", true);
+    // The copies are invisible until the custom source is on — switched on
+    // HERE, inside the write, and never on a run that added nothing: both
+    // dialogs promise such a run changes nothing, and a settings flip is a
+    // change (review #31).
+    if (!game.settings.get(SETTINGS_NS, "content-source-custom")) {
+      await game.settings.set(SETTINGS_NS, "content-source-custom", true);
+    }
   }
   return { added, kept: plan.kept.length, locked: false, pack: pack.collection };
 };
@@ -491,11 +582,17 @@ const countsPhrase = (pairs) => {
   return parts.length ? game.i18n.getListFormatter().format(parts) : "";
 };
 
-/** What one button would add, and what it would leave alone. */
+/** What one button would add, and what it would leave alone. A LOCKED world
+ *  background compendium with something to add is refused by the run
+ *  (`runBackgroundsTakeOver`), so the confirm counts none and says why
+ *  (`locked`), rather than promising 27 backgrounds and copying tables alone
+ *  (review #31). */
 const countsFor = (kind, tables, backgrounds) => {
   const add = [], kept = [];
+  let locked = false;
   if (kind.backgrounds && backgrounds?.ok) {
-    add.push(["CAIRN.TakeOver.NBackgrounds", backgrounds.add.length]);
+    locked = backgrounds.locked && backgrounds.add.length > 0;
+    if (!locked) add.push(["CAIRN.TakeOver.NBackgrounds", backgrounds.add.length]);
     kept.push(["CAIRN.TakeOver.NBackgrounds", backgrounds.kept.length]);
   }
   if (tables?.ok) {
@@ -506,7 +603,27 @@ const countsFor = (kind, tables, backgrounds) => {
       ["CAIRN.TakeOver.NItems", tables.items.kept.length],
       ["CAIRN.TakeOver.NActors", tables.actors.kept.length]);
   }
-  return { add: countsPhrase(add), kept: countsPhrase(kept) };
+  return { add: countsPhrase(add), kept: countsPhrase(kept), locked };
+};
+
+/**
+ * The names every sentence in both windows may quote, escaped once. `{pack}` is
+ * the world background compendium's label — the key `ensureCustomBackgroundPack`
+ * names it with, so the dialogs and the sidebar agree in every language
+ * (review #31: five keys carried the English literal). `{folder}` is the
+ * folder a copy lands in: the flagged one this kind already made, by its
+ * stored name (a Warden may have renamed it), else the name the run will give
+ * a new one.
+ * @param {object} kind  resolved
+ * @param {object} [folders]  a run's `folders` (`{Item, Actor, RollTable}`), when it has run
+ */
+const namesFor = (kind, folders = null) => {
+  const folder = folders?.RollTable ?? folders?.Item ?? folders?.Actor
+    ?? findTakeOverFolder("RollTable", kind.spec.key) ?? findTakeOverFolder("Item", kind.spec.key);
+  return {
+    pack: esc(L("CAIRN.CustomBackgroundsPack")),
+    folder: esc(folder?.name ?? L(kind.spec.folder)),
+  };
 };
 
 /**
@@ -514,7 +631,14 @@ const countsFor = (kind, tables, backgrounds) => {
  * `CAIRN.DeprivedTip` and the creation hints already take — so they are
  * inserted as markup and only interpolated VALUES are escaped.
  */
-const headed = (headKey, bodyKey) => `<p><strong>${L(headKey)}</strong><br>${L(bodyKey)}</p>`;
+const headed = (headKey, bodyKey, values) => `<p><strong>${L(headKey)}</strong><br>${game.i18n.format(bodyKey, values)}</p>`;
+
+/** The window class both dialogs carry, so the stylesheet can let their
+ *  content SCROLL: a `wait` dialog at `height: "auto"` is clamped to the
+ *  viewport by `_updatePosition` and its overflow is hidden, which on a short
+ *  screen (measured at 650px) put the Copy button below the bottom edge with
+ *  no way to reach it (review #31). */
+const DIALOG_CLASSES = ["cairn-take-over-dialog"];
 
 /**
  * The confirm. It sells the reason rather than describing the mechanism (user:
@@ -525,19 +649,26 @@ const headed = (headKey, bodyKey) => `<p><strong>${L(headKey)}</strong><br>${L(b
  * @returns {Promise<boolean>}
  */
 const confirmTakeOver = async (kind, counts) => {
+  const values = namesFor(kind);
   const body = [
-    headed(kind.pitch, kind.why),
-    headed("CAIRN.TakeOver.HowHeader", kind.how),
-    headed("CAIRN.TakeOver.FixHeader", kind.fix),
-    kind.extra ? `<p>${L(kind.extra)}</p>` : "",
+    headed(kind.pitch, kind.why, values),
+    headed("CAIRN.TakeOver.HowHeader", kind.how, values),
+    headed("CAIRN.TakeOver.FixHeader", kind.fix, values),
+    kind.extra ? `<p>${game.i18n.format(kind.extra, values)}</p>` : "",
+    counts.locked ? `<p class="warning">${game.i18n.format("CAIRN.TakeOver.PackLockedConfirm", values)}</p>` : "",
+    // With the pack locked and nothing else to add, "everything is already
+    // here" would be false — the warning above says what is missing.
     `<p class="take-over-counts">${counts.add
       ? game.i18n.format("CAIRN.TakeOver.WillCopy", { counts: esc(counts.add) })
         + (counts.kept ? ` ${game.i18n.format("CAIRN.TakeOver.Kept", { kept: esc(counts.kept) })}` : "")
-      : L("CAIRN.TakeOver.NothingMissing")}</p>`,
+      : counts.locked
+        ? (counts.kept ? game.i18n.format("CAIRN.TakeOver.Kept", { kept: esc(counts.kept) }) : "")
+        : L("CAIRN.TakeOver.NothingMissing")}</p>`,
     `<p class="hint">${L("CAIRN.TakeOver.Rerun")}</p>`,
   ].join("");
 
   const picked = await foundry.applications.api.DialogV2.wait({
+    classes: DIALOG_CLASSES,
     window: { title: L(kind.title), icon: "fa-solid fa-file-import" },
     position: { width: 480 },
     content: `<div class="cairn-take-over">${body}</div>`,
@@ -566,16 +697,17 @@ const openDirectory = (tab, folder) => {
  */
 const showResult = async (kind, { tables, backgrounds }) => {
   const lines = [];
+  const values = namesFor(kind, tables?.folders);
   const made = tables ? countsPhrase([
     ["CAIRN.TakeOver.NTables", tables.counts?.tables ?? 0],
     ["CAIRN.TakeOver.NItems", tables.counts?.items ?? 0],
     ["CAIRN.TakeOver.NActors", tables.counts?.actors ?? 0],
   ]) : "";
 
-  if (backgrounds?.locked) lines.push(`<p class="warning">${L("CAIRN.TakeOver.PackLocked")}</p>`);
+  if (backgrounds?.locked) lines.push(`<p class="warning">${game.i18n.format("CAIRN.TakeOver.PackLocked", values)}</p>`);
   else if (backgrounds?.added) {
     lines.push(`<p>${game.i18n.format("CAIRN.TakeOver.Result.Backgrounds", {
-      counts: esc(formatCount("CAIRN.TakeOver.NBackgrounds", backgrounds.added)),
+      ...values, counts: esc(formatCount("CAIRN.TakeOver.NBackgrounds", backgrounds.added)),
     })}</p>`);
   }
   // Name only the directories a folder actually landed in — a run that added no
@@ -585,9 +717,9 @@ const showResult = async (kind, { tables, backgrounds }) => {
     ["Actor", "CAIRN.TakeOver.Result.DirActors"],
   ].filter(([type]) => tables?.folders[type]).map(([, key]) => L(key)));
   if (made) {
-    lines.push(`<p>${game.i18n.format(kind.done, {
-      counts: esc(made), folder: esc(L(kind.spec.folder)), where: esc(where),
-    })}</p>`);
+    // `folder` is the Folder DOCUMENT's name — the one the copies sit in,
+    // whatever the Warden has renamed it to — never the key's default.
+    lines.push(`<p>${game.i18n.format(kind.done, { ...values, counts: esc(made), where: esc(where) })}</p>`);
   }
   // Nothing was missing. Say so plainly rather than quoting a sentence full of
   // zeroes, and still offer the buttons — the Warden came here to find the copies.
@@ -606,7 +738,7 @@ const showResult = async (kind, { tables, backgrounds }) => {
 
   const buttons = [];
   if (kind.backgrounds) {
-    buttons.push({ action: "backgrounds", label: L("CAIRN.TakeOver.Result.OpenBackgrounds"), icon: "fa-solid fa-book-atlas", type: "button" });
+    buttons.push({ action: "backgrounds", label: game.i18n.format("CAIRN.TakeOver.Result.OpenBackgrounds", { pack: L("CAIRN.CustomBackgroundsPack") }), icon: "fa-solid fa-book-atlas", type: "button" });
   }
   if (tables?.folders.RollTable) {
     buttons.push({ action: "tables", label: L("CAIRN.TakeOver.Result.OpenTables"), icon: "fa-solid fa-th-list", type: "button" });
@@ -617,6 +749,7 @@ const showResult = async (kind, { tables, backgrounds }) => {
   buttons.push({ action: "close", label: L("CAIRN.Close"), type: "button", default: true, callback: () => "close" });
 
   const picked = await foundry.applications.api.DialogV2.wait({
+    classes: DIALOG_CLASSES,
     window: { title: L("CAIRN.TakeOver.Result.Title"), icon: "fa-solid fa-circle-check" },
     position: { width: 480 },
     content: `<div class="cairn-take-over">${lines.join("")}</div>`,
@@ -630,7 +763,10 @@ const showResult = async (kind, { tables, backgrounds }) => {
 };
 
 let running = false;
-/** Is a copy in flight? A probe waits on this after the confirm closes. */
+/** Is a button's job in flight — plan, confirm or run? A probe waits on this
+ *  after the confirm closes. It goes up BEFORE the plan's first await, so a
+ *  double-click opens one confirm and not two (review #31: two confirms, both
+ *  answered, was two runs and a second flagged folder). */
 export const isTakeOverRunning = () => running;
 
 /** A kind with its click-time members resolved to plain values. */
@@ -650,10 +786,11 @@ const specsOf = (kind) => (kind.specs ? kind.specs() : [resolveKind(kind).spec])
  * drift: add a table to a kind and its copy explains itself. Synchronous, off
  * the pack INDEX, which core populates at boot for every pack.
  *
- * A name shipped in two packs (Scars: `tables-2e` and `utils`) takes the
- * button's kind for a WORLD table, because `kinds` are asked first and a
- * world table has no pack to disambiguate by; for a pack table the pack
- * decides, so utils' Scars is nobody's button.
+ * A name shipped in two packs (Scars: `utils` and `tables-2e`) takes the
+ * button's kind for a WORLD table, because a world table has no pack to
+ * disambiguate by; for a pack table the pack decides, and the 2e set names
+ * utils' Scars, so tables-2e's — the sheet checklist's list — is nobody's
+ * button (table-banner.js says what it is instead).
  * @param {string} name
  * @param {{pack?: string|null}} [options]  restrict to tables shipped in this pack
  * @returns {{key: string, spec: object, kind: object}|null}
@@ -661,11 +798,8 @@ const specsOf = (kind) => (kind.specs ? kind.specs() : [resolveKind(kind).spec])
 export const kindOfTable = (name, { pack = null } = {}) => {
   for (const [key, kind] of Object.entries(KINDS)) {
     for (const spec of specsOf(kind)) {
-      if (pack && spec.pack !== pack) continue;
-      const index = game.packs.get(spec.pack)?.index;
-      if (!index) continue;
-      const shipped = spec.only ? spec.only.includes(name) : index.some((e) => e.name === name);
-      if (shipped) return { key, spec, kind };
+      const packs = pack ? [pack] : specPacks(spec);
+      if (packs.some((p) => specCovers(spec, p, name))) return { key, spec, kind };
     }
   }
   return null;
@@ -679,21 +813,22 @@ export const kindOfTable = (name, { pack = null } = {}) => {
 export const openTakeOver = async (name) => {
   if (!KINDS[name] || !game.user.isGM || running) return null;
   const kind = resolveKind(KINDS[name]);
-
-  const [tablePlan, bgPlan] = await Promise.all([
-    planTableTakeOver(kind.spec),
-    kind.backgrounds ? planBackgroundsTakeOver() : null,
-  ]);
-  if (!tablePlan.ok && !bgPlan?.ok) {
-    ui.notifications.warn(game.i18n.format("CAIRN.TakeOver.PackMissing", { pack: tablePlan.pack }));
-    return null;
-  }
-
-  if (!await confirmTakeOver(kind, countsFor(kind, tablePlan, bgPlan))) return null;
-
-  const out = {};
+  // Up before the first await: the plan and the confirm are where a second
+  // click used to land, and they opened a second confirm.
   running = true;
+  const out = {};
   try {
+    const [tablePlan, bgPlan] = await Promise.all([
+      planTableTakeOver(kind.spec),
+      kind.backgrounds ? planBackgroundsTakeOver() : null,
+    ]);
+    if (!tablePlan.ok && !bgPlan?.ok) {
+      ui.notifications.warn(game.i18n.format("CAIRN.TakeOver.PackMissing", { pack: tablePlan.pack }));
+      return null;
+    }
+
+    if (!await confirmTakeOver(kind, countsFor(kind, tablePlan, bgPlan))) return null;
+
     if (bgPlan?.ok) out.backgrounds = await runBackgroundsTakeOver(bgPlan);
     if (tablePlan.ok) {
       out.tables = await runTableTakeOver(tablePlan);
