@@ -30,7 +30,7 @@ manifest. Descends architecturally from a private fork of
   `CONTRIBUTING.md`, `site/index.html` and `docs/testing-dev-branch.md` —
   change one, change all six (the sixth was written after this list said
   "five" and nobody added it; review #19).
-- Latest release **0.1.22** (2026-09-13). `system.json`'s `version` is bumped by
+- Latest release **0.1.23** (2026-09-15). `system.json`'s `version` is bumped by
   `npm run release` in the release commit on `master` (CI substitutes the same
   tag into the manifest URLs), so on `dev` it lags until the post-release sync
   — read the tag, not the file. This line said 0.1.12 through five releases
@@ -1382,7 +1382,7 @@ companion record of who authored what.
   counter row nothing fills is invisible to a count of counters.
 - Data models in `module/data-models.js` (TypeDataModel; `template.json` is gone,
   sub-types are declared in `system.json` `documentTypes`); 29 compendium packs
-  (`more-spellbooks` REMOVED 2026-09-14, so `master` holds 30 until 0.1.23 ships and this line must move with it; 30 on `master` since 0.1.18 shipped `journals-vald`, the Warden's Guide
+  (`more-spellbooks` REMOVED 2026-09-14, and 29 on `master` too since 0.1.23 shipped on 2026-09-15 — this line moved in that release's post-release sync, as its previous wording demanded; before that, 30 on `master` since 0.1.18 shipped `journals-vald`, the Warden's Guide
   setting chapter as one nine-page book, on 2026-08-23 — and since 2026-09-10 a
   SECOND entry in the same pack, "Festivals of Vald", 24 pages the calendar
   window reads by their `flags.air-bladder` and never by name; this count went stale
