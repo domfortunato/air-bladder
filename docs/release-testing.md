@@ -253,7 +253,14 @@ Full procedure in `RELEASE.md` and the `/release` skill. In summary:
    `version` and `compatibility` agree with what is being submitted, so a run fired
    before CI finished attaching the assets, or against the wrong version, fails with
    a sentence saying so rather than an opaque 400. The token is read from
-   `FOUNDRY_RELEASE_TOKEN` and is never printed or passed as an argument. Rate
+   `FOUNDRY_RELEASE_TOKEN`, and **when that is unset and you are at a terminal it
+   simply asks**, muted — so there is no shell syntax to get wrong, which is worth
+   taking: setting that variable by hand cost four failed attempts across cmd.exe
+   and PowerShell (`$env:X = "…"` is a path to cmd; `set X="y"` keeps the quotes;
+   a token copied off the web page brought a literal `…`; and a pasted transcript
+   ran every prompt line as a command). CI has no terminal, so it never asks and
+   the secret stays its only route. The token is never printed or passed as an
+   argument. Rate
    limit: roughly one submission per package per 60 seconds, answered with `429`
    and a `Retry-After`. **Whatever `compatibility.verified` says is what the
    Marketplace advertises to everyone browsing**, so it is worth a look before
