@@ -86,6 +86,14 @@ jobs:
       # hostage to someone else's outage; it stays a pre-tag step on the
       # developer's machine.
       - run: npm run check:manifest
+      # The release ARTIFACT's own shape, over the files this workflow is about
+      # to zip (added 2026-09-19, after a user's "Update All" left quarantined
+      # copies of the system behind and the install had to be redone by hand).
+      # It runs here, after build:packs, because `packs/` is most of what ships
+      # and the checks that matter most — case collisions, names Windows cannot
+      # write or DELETE, a pack built but never declared — are only true of a
+      # built tree. The same gate re-runs against the finished zip below.
+      - run: npm run check:package
       - run: npm run check:fields
       - run: npm run check:refs
       - run: npm run check:traits
@@ -128,6 +136,16 @@ jobs:
       # (module/data-models.js). zip skips a missing file silently, so this listed a
       # file that had not existed for releases without anyone noticing.
       - run: zip -r ./system.zip README.md README.es.md LICENSE.txt system.json art/ css/ fonts/ icons/ lang/ logo/ module/ packs/ templates/
+
+      # And again over the archive itself, which is the only thing a user ever
+      # receives. The tree pass above cannot see what `zip` actually wrote — the
+      # `template.json` that sat in the line above for releases after the file
+      # stopped existing was skipped in silence, and nothing noticed. This pass
+      # reads the archive's own central directory: its top level must be exactly
+      # the list in that line, and every permission bit, name and path length is
+      # re-checked as shipped. `check:package` reads the same line, so a
+      # directory added to one and not the other fails here.
+      - run: node tools/dev/package-audit.mjs --zip ./system.zip
 
       # The release notes ride in the TAG. `npm run release` writes CHANGELOG.md's
       # section for the version as the body of the annotated tag (RELEASE.md), the

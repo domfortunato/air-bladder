@@ -2386,6 +2386,70 @@ sentence; it said 106 against a real 109 (review #26), the fourth number in this
 file to drift, and the parenthetical naming the gate as the authority did not
 save it — a number in prose is a copy whether or not it apologises for itself.
 
+- **THE RELEASE ARTIFACT AND THE UPDATE GESTURE ARE NOW GATED (2026-09-19),
+  after a report that turned out to be PROTON DRIVE and not this system.** A
+  user's "Update All" in Game Systems broke their install and left quarantined
+  copies behind: `Invalid system "air-bladder" detected in directory
+  "air-bladder (# Name clash 2026-09-13 w5v86oC #)"`, twice, on the two days
+  they updated. That sentence is Foundry's own — `Package.fromManifestPath`
+  compares `path.basename(path.dirname(...))` against the manifest `id` and
+  REFUSES the package when they differ — so **an install directory's name is
+  identity, not decoration**, and a quarantined sibling is a second copy that
+  errors on every boot.
+  **What was measured, and what it rules out.** The published 0.1.23 zip is
+  clean on every axis: files at the root, `system.json` at the root, 29 pack
+  directories matching the 29 declared, no case collisions, no
+  Windows-illegal or reserved names, no trailing dots, no symlinks, nothing
+  read-only, longest extracted path 125 of 260 characters. Both manifest URLs
+  serve 0.1.23. The `id` has been `air-bladder` under the `id` key at every
+  tag from 0.1.0 to 0.1.23. **And the phrase "Name clash" appears NOWHERE in
+  Foundry 14.365** — not the server bundle, the client bundle, `public/lang/`,
+  or its `node_modules` (the only "clash" is Acorn's "Argument name clash") —
+  so the build this repo pins CANNOT have written that directory.
+  **CAUSE FOUND, AND IT IS PROTON DRIVE.** `(# Name clash YYYY-MM-DD
+  <random> #)` is the **Proton Drive Windows client's** conflict-rename
+  convention, documented by Proton and common enough that a
+  `protondrive-nameclash-cleaner` script exists for it. The reporter was
+  syncing their Foundry data folder with **Proton Drive AND OneDrive at the
+  same time**. Foundry's updater deletes the whole system directory and writes
+  a new one (`dist/packages/installer.mjs`, `fs.promises.rm(target, {force:
+  true, recursive: true})`, no `maxRetries`), which for this system is 3,233
+  files removed and 3,233 written in one burst; a sync client racing that
+  restores what it thinks was deleted, two folders then want one name, and
+  Proton renames the loser. Foundry's own troubleshooting page already says
+  Dropbox/Google Drive/OneDrive are not compatible with a live data folder.
+  **Nothing in this repo is at fault and no code fix is owed** — the remedy is
+  the reporter's: stop syncing the live `Data` folder, sync a backup ARCHIVE
+  instead, and delete the name-clash directories. Being large makes this
+  system hit it sooner than a small package, which is why it surfaced here.
+  **Verified on the build users actually run: `dev:upgrade` is GREEN on
+  14.368** (a second app install at `foundry/app-14368`, updated in place
+  through Foundry's own Update Software; `foundry/app` stays 14.365 for the
+  dev server and `foundry/app-14.365` is a frozen reference copy). So the
+  14.366 installer rewrite is NOT implicated either, though the fact that
+  update checks now read the website package repository, where this system is
+  **not listed** (`foundryvtt.com/packages/air-bladder` 404s), is worth
+  remembering on its own account.
+  Two gates came out of it, and neither reproduces the report:
+  - `npm run check:package` — the artifact's shape, offline, over the files
+    the workflow zips AND again over the finished archive in CI. It reads the
+    shipped list out of `main.yml`'s own `zip -r` line rather than keeping a
+    copy. 16-case negative control in `--self-test`, **in two halves on
+    purpose**: the path checks run over a SYNTHETIC entry list because a case
+    collision cannot be planted on Windows or macOS, which is the whole reason
+    that check exists, and read-only and symlink need privileges a gate must
+    not assume. The first draft planted them in a real tree and reported "a
+    case collision fails" as PASSING on a filesystem that had silently
+    overwritten one file with the other.
+  - `npm run dev:upgrade` — installs the previous release and then presses
+    UPDATE, which every release leg here had skipped by installing fresh into
+    an empty folder. **It refuses port 30000 outright**: that server's
+    `systems/air-bladder` is a SYMLINK to this working tree, and an installer
+    run there would hand the repository to `rm -rf`. Control: plant an
+    `air-bladder (# Name clash … #)` directory and it reds, naming it. One
+    thing it does NOT prove, measured rather than assumed: `packageWarnings`
+    comes from the server's BOOT scan, so a quarantine created during the leg
+    reds on disk and never appears there.
 - `npm run dev:smoke` — headless Chromium against the local dev world on :30000,
   which loads this working tree via a directory junction. Asserts the system
   loads, SHIPPED packs are non-empty (world packs are excluded — one of them is
