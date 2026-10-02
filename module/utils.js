@@ -314,6 +314,327 @@ export const explodingDamageFormula = (formula) => {
 };
 
 /**
+ * Cairn's unarmed damage, and the Improvised Attack dialog's starting value.
+ *
+ * DELIBERATELY NOT `IMPAIRED_FORMULA`, though both are `1d4` today. They are two
+ * different rules that happen to agree: this one is "Unarmed attacks always do
+ * d4 damage" from the Player's Guide, that one is what Impaired substitutes. If
+ * either ever moves it moves alone, and a single shared constant would carry the
+ * other along silently.
+ *
+ * A CONSTANT AND NOT A SETTING (user ruling 2026-10-02): the button is always
+ * available and the field is editable every time, so a world-level default would
+ * be a third place to look for a number the dialog already shows.
+ */
+export const IMPROVISED_FORMULA = "1d4";
+
+/**
+ * Ask what an improvised attack is made with, what it rolls, and how well.
+ *
+ * ONE DIALOG, TWO SHAPES. Not panicked, it asks all three: a description, a
+ * formula with the shared dice builder, and Standard / Impaired / Enhanced.
+ * PANICKED, it asks only the description and rolls `1d4` — panic imposes
+ * Impaired and offers no choice (the 2026-08-07 ruling that `#onRollDamage`
+ * already follows by not opening the quality dialog at all). The description is
+ * still asked for, because what you grabbed is not a mechanical choice.
+ *
+ * THE DESCRIPTION IS OPTIONAL and rides to the card in the slot a weapon's name
+ * occupies, so "a chair leg" yields "Dom attacks the Goblin with a chair leg!"
+ * from keys that already ship, and an empty one yields the no-weapon sentence
+ * those keys already have a partner for. That is why the label asks what you are
+ * attacking WITH: it has to elicit a noun phrase, or the card reads "attacks the
+ * Goblin with swings wildly".
+ *
+ * THE BUTTONS RELABEL THEMSELVES from the field's LIVE value, which is the whole
+ * reason this is its own dialog rather than an argument to `askDamageQuality` —
+ * that one is handed a fixed formula and can print it once.
+ *
+ * NOTHING IS VALIDATED HERE. The caller checks the formula the way
+ * `openWardenDamage` does, because the same three rules apply (no empty, no `@`,
+ * and `Roll.validate` last since it lies about `@` references).
+ *
+ * @param {Object} [opts]
+ * @param {Boolean} [opts.panicked]  panic imposes Impaired and skips the choice
+ * @return {Promise<{description: String, formula: String, quality: String}|null>}
+ *   null = dismissed, and a dismissal must roll NOTHING.
+ */
+export const askImprovisedAttack = async ({ panicked = false } = {}) => {
+  // BARE: DialogV2 throws on a content element carrying ANY attribute, a single
+  // class included (dialog.mjs:189), so the class goes on a wrapper inside it.
+  const content = document.createElement("div");
+  const inner = document.createElement("div");
+  inner.className = "cairn-improvised";
+  content.append(inner);
+
+  const group = (labelKey, control) => {
+    const wrap = document.createElement("div");
+    wrap.className = "form-group";
+    const label = document.createElement("label");
+    label.textContent = game.i18n.localize(labelKey);
+    const fields = document.createElement("div");
+    fields.className = "form-fields";
+    fields.append(control);
+    wrap.append(label, fields);
+    inner.append(wrap);
+  };
+
+  const description = document.createElement("input");
+  description.setAttribute("type", "text");
+  description.setAttribute("name", "description");
+  description.setAttribute("placeholder", game.i18n.localize("CAIRN.Improvised.WithPlaceholder"));
+  group("CAIRN.Improvised.With", description);
+
+  if (panicked) {
+    const note = document.createElement("p");
+    note.className = "cairn-improvised-panic";
+    note.textContent = game.i18n.format("CAIRN.Improvised.PanicNote", { formula: IMPAIRED_FORMULA });
+    inner.append(note);
+  } else {
+    const formula = document.createElement("input");
+    formula.setAttribute("type", "text");
+    formula.setAttribute("name", "formula");
+    formula.setAttribute("value", IMPROVISED_FORMULA);
+    group("CAIRN.Damage", formula);
+    inner.append(buildDiceBuilder());
+    const prompt = document.createElement("p");
+    prompt.textContent = game.i18n.localize("CAIRN.DamageQuality.Prompt");
+    inner.append(prompt);
+  }
+
+  // `button.form` is the dialog's form, so the fields are read at CLICK time
+  // rather than captured when the content was built — the dice builder writes
+  // straight into the formula input and nothing re-renders.
+  const read = (form, quality) => ({
+    description: String(form?.elements?.description?.value ?? "").trim(),
+    formula: panicked
+      ? IMPAIRED_FORMULA
+      : String(form?.elements?.formula?.value ?? "").trim(),
+    quality,
+  });
+  const opt = (action, key, formula, quality = action) => ({
+    action,
+    label: game.i18n.format(key, { formula }),
+    icon: dieIcon(formula),
+    callback: (_event, button) => read(button.form, quality),
+  });
+
+  const buttons = panicked
+    ? [{
+      ...opt("roll", "CAIRN.Improvised.Roll", IMPAIRED_FORMULA, "impaired"),
+      default: true,
+      class: "cairn-quality-default",
+      tooltip: "CAIRN.DamageQuality.DefaultTip",
+    }]
+    : [
+      {
+        ...opt("standard", "CAIRN.DamageQuality.Standard", IMPROVISED_FORMULA),
+        default: true,
+        class: "cairn-quality-default",
+        tooltip: "CAIRN.DamageQuality.DefaultTip",
+      },
+      opt("impaired", "CAIRN.DamageQuality.Impaired", IMPAIRED_FORMULA),
+      opt("enhanced", "CAIRN.DamageQuality.Enhanced", ENHANCED_FORMULA),
+    ];
+
+  const answer = await foundry.applications.api.DialogV2.wait({
+    // The quality dialog's own class, so the default-button cue and the button
+    // layout it already defines apply here unchanged.
+    classes: ["cairn-damage-quality", "cairn-improvised-dialog"],
+    window: { title: game.i18n.localize("CAIRN.Improvised.Title") },
+    // STATED: `wait` merges no position, unlike `confirm` and `prompt` which
+    // both supply 400 (dialog.mjs:353,374), so an auto-width window would be as
+    // wide as its longest unwrapped line.
+    position: { width: 400 },
+    content,
+    buttons,
+    render: (_event, dialog) => {
+      wireDiceBuilder(dialog.element);
+      relabelQualityButtons(dialog.element);
+    },
+    rejectClose: false,
+  });
+  return answer ?? null;
+};
+
+/**
+ * Keep the Standard button saying what the field actually holds.
+ *
+ * Typing `d6` must turn "Standard (1d4)" into "Standard (1d6)", or the dialog
+ * advertises a die it is not going to roll. Only STANDARD moves: Impaired and
+ * Enhanced substitute fixed formulas and are already correct.
+ *
+ * The label is swapped by rewriting the button's own TEXT NODE rather than its
+ * innerHTML, so the `<i>` DialogV2 put there survives — and so nothing authored
+ * is ever parsed as markup, which is the rule every card rebuild here follows.
+ */
+const relabelQualityButtons = (root) => {
+  const field = root?.querySelector('input[name="formula"]');
+  const std = root?.querySelector('button[data-action="standard"]');
+  if (!field || !std) return;              // panicked: no field, nothing to track
+  const paint = () => {
+    const f = field.value.trim() || IMPROVISED_FORMULA;
+    // THE LABEL IS IN A <span>, not a bare text node: `DialogV2#_renderButtons`
+    // builds `<button><i class=icon></i><span>label</span></button>`
+    // (dialog.mjs:243-250). Reaching for a text node found nothing and the button
+    // silently went on advertising the die it opened with.
+    const text = std.querySelector("span");
+    if (text) text.textContent = game.i18n.format("CAIRN.DamageQuality.Standard", { formula: f });
+    const icon = std.querySelector("i");
+    if (icon) icon.className = dieIcon(f);
+  };
+  field.addEventListener("input", paint);
+  paint();
+};
+
+/**
+ * The dice builder shared by the Warden's Damage dialog and the Improvised
+ * Attack dialog: a row of die buttons, a clear, and a sum/keep-highest pair.
+ *
+ * EXTRACTED when the second consumer arrived (2026-10-02) rather than copied,
+ * because a second dice builder is two things that drift — and the drift would
+ * be invisible, since both would go on producing a plausible formula.
+ *
+ * THE `wd-` CLASS PREFIX AND THE `CAIRN.WardenDamage.*` KEYS ARE KEPT, and that
+ * is deliberate. The classes are what `css/cairn.css` and `dev:hazard`'s
+ * selectors already name, and the keys are TRANSLATED in `lang/es.json` —
+ * renaming either would churn a gate and orphan Malecho's work to fix a prefix
+ * nobody reads. They are historical, not descriptive.
+ *
+ * Returns a DETACHED element with no listeners: DialogV2 serializes its content
+ * to innerHTML and re-parses it, so anything wired here is dead on arrival.
+ * Call `wireDiceBuilder` from the dialog's `render` callback.
+ *
+ * @return {HTMLElement}  the .wd-dice-builder element, to append where wanted
+ */
+export const buildDiceBuilder = () => {
+  // The dice builder. It writes INTO the formula field and holds no state of
+  // its own — every click re-reads the field through `parseDiceFormula`, so a
+  // hand edit is never clobbered, and nothing downstream can tell a built
+  // formula from a typed one. When the field says something the buttons cannot
+  // (`2d6 + 3`, an `@ref`), they grey out and the field stays fully editable:
+  // the greying is the affordance, and there is nothing to enforce because the
+  // field is authoritative.
+  //
+  // Every <button> is `type="button"` EXPLICITLY: DialogV2 renders content
+  // inside a <form>, where a bare <button> is type=submit — a die click would
+  // submit the dialog and close it.
+  //
+  // Listeners are NOT attached here. This element is serialized to innerHTML
+  // and re-parsed (dialog.mjs:187-191), so anything wired now is dead on
+  // arrival; `openWardenDamage` wires the LIVE nodes in its `render` callback.
+  const builder = document.createElement("div");
+  builder.className = "wd-dice-builder";
+
+  const diceRow = document.createElement("div");
+  diceRow.className = "wd-dice-row";
+  for (const size of [...DIE_ICONS].sort((a, b) => a - b)) {
+    const btn = document.createElement("button");
+    btn.setAttribute("type", "button");
+    btn.className = "wd-die";
+    btn.setAttribute("data-die", String(size));
+    btn.setAttribute("data-tooltip", game.i18n.format("CAIRN.WardenDamage.AddDie", { die: `d${size}` }));
+    const icon = document.createElement("i");
+    icon.className = dieIcon(`d${size}`);
+    const label = document.createElement("span");
+    label.textContent = `d${size}`;
+    btn.append(icon, label);
+    diceRow.append(btn);
+  }
+  const clear = document.createElement("button");
+  clear.setAttribute("type", "button");
+  clear.className = "wd-clear";
+  clear.setAttribute("data-tooltip", game.i18n.localize("CAIRN.WardenDamage.Clear"));
+  const clearIcon = document.createElement("i");
+  clearIcon.className = "fa-solid fa-xmark";
+  clear.append(clearIcon);
+  diceRow.append(clear);
+  builder.append(diceRow);
+
+  const modeRow = document.createElement("div");
+  modeRow.className = "wd-mode-row";
+  for (const [value, key] of [["sum", "CAIRN.WardenDamage.Sum"], ["kh", "CAIRN.WardenDamage.KeepHighest"]]) {
+    const lbl = document.createElement("label");
+    const radio = document.createElement("input");
+    radio.setAttribute("type", "radio");
+    radio.setAttribute("name", "diceMode");
+    radio.setAttribute("value", value);
+    // `checked` as an ATTRIBUTE — a property never reaches the serialized markup.
+    if (value === "sum") radio.setAttribute("checked", "");
+    const text = document.createElement("span");
+    text.textContent = game.i18n.localize(key);
+    lbl.append(radio, text);
+    modeRow.append(lbl);
+  }
+  builder.append(modeRow);
+  return builder;
+};
+
+/**
+ * Wire the dice builder onto the dialog's LIVE nodes.
+ *
+ * Called from DialogV2's `render` option (dialog.mjs:405, :420-422) — the seam
+ * the client's own docs point at for exactly this ("the element will get
+ * stringified, so any listeners … will not carry forward; you must still use
+ * the `render` option", dialog.mjs:152-155). The same rule the background
+ * picker's eye toggles already follow via `dialog.render(true).then(...)`.
+ *
+ * THE FIELD IS THE ONLY STATE. Every gesture is read-modify-write against the
+ * formula input via `parseDiceFormula` / `composeDiceFormula`:
+ *
+ *  - a die button parses the field, appends its die, recomposes;
+ *  - a mode radio recomposes the same dice under the new mode;
+ *  - ✕ EMPTIES the field (user ruling — ✕ means clear, the buttons are the way
+ *    back; only opening the dialog pre-fills 1d6);
+ *  - a hand edit re-greys or re-enables on every keystroke.
+ *
+ * The DIALECT is read from the setting ONCE here and passed as an argument —
+ * `composeDiceFormula` itself reads nothing, which is what lets a probe drive
+ * both dialects with zero world writes against a `requiresReload` setting.
+ */
+export const wireDiceBuilder = (root) => {
+  const field = root.querySelector('input[name="formula"]');
+  const dice = [...root.querySelectorAll(".wd-die")];
+  const clear = root.querySelector(".wd-clear");
+  const radios = [...root.querySelectorAll('input[name="diceMode"]')];
+  if (!field || !dice.length || !clear || !radios.length) return;
+  const cairnNotation = game.settings.get(SETTINGS_NS, "use-cairn-dice-notation");
+
+  const mode = () => radios.find((r) => r.checked)?.value ?? "sum";
+  const refresh = () => {
+    const parsed = parseDiceFormula(field.value);
+    const off = parsed === null;
+    for (const el of [...dice, ...radios]) el.disabled = off;
+    // The string decides the mode where it can (2d6 is a sum, d6 + d6 a keep-
+    // highest); a single die or an empty field leaves the radios where they are.
+    if (parsed?.mode) for (const r of radios) r.checked = r.value === parsed.mode;
+  };
+
+  for (const btn of dice) {
+    btn.addEventListener("click", () => {
+      const parsed = parseDiceFormula(field.value);
+      if (parsed === null) return; // disabled anyway; a race is not a crash
+      parsed.sizes.push(Number(btn.dataset.die));
+      field.value = composeDiceFormula(parsed.sizes, mode(), { cairnNotation });
+      refresh();
+    });
+  }
+  for (const r of radios) {
+    r.addEventListener("change", () => {
+      const parsed = parseDiceFormula(field.value);
+      if (parsed === null || !parsed.sizes.length) return;
+      field.value = composeDiceFormula(parsed.sizes, mode(), { cairnNotation });
+      refresh();
+    });
+  }
+  clear.addEventListener("click", () => {
+    field.value = "";
+    refresh();
+  });
+  field.addEventListener("input", refresh);
+  refresh();
+};
+
+/**
  * The badge a card shows for an impaired or enhanced roll, and "" for a standard
  * one — a card that says nothing is saying the roll was ordinary, which is most
  * of them. Its own line on the card rather than folded into

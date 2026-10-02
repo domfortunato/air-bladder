@@ -271,6 +271,12 @@ try {
         // of the read set was dead here (review #18). The anchors never were.
         const dof = sheet.element.querySelector('[data-action="dieOfFate"]');
         out.dieOfFate = { present: !!dof, tag: dof?.tagName ?? null, disabled: !!dof?.disabled };
+        // Improvised Attack is the SECOND read roll rendered as a <button> in
+        // that stack (2026-10-02), so core's _toggleDisabled sweep catches it the
+        // same way and the same exemption has to cover it. One button re-enabled
+        // and the other missed is the shape this leg exists to catch.
+        const imp = sheet.element.querySelector('[data-action="improvisedAttack"]');
+        out.improvised = { present: !!imp, tag: imp?.tagName ?? null, disabled: !!imp?.disabled };
         try {
           const before = game.messages.size;
           const target = document.createElement("a");
@@ -324,9 +330,13 @@ try {
         : fail(`rollDamage on a locked pack: rolled=${locked.rolled}, warns=${locked.rollWarns}`,
           "the read set is still wrapped in owned()");
       locked.dieOfFate?.present && !locked.dieOfFate.disabled
-        ? ok("Die of Fate is clickable on a locked pack", "(the one read roll that is a <button>, re-enabled past core's disable)")
+        ? ok("Die of Fate is clickable on a locked pack", "(a read roll that is a <button>, re-enabled past core's disable)")
         : fail(`Die of Fate on a locked pack: ${JSON.stringify(locked.dieOfFate)}`,
           "core's _toggleDisabled(true) disables every form element; the read button must be re-enabled after super._onRender");
+      locked.improvised?.present && !locked.improvised.disabled
+        ? ok("Improvised Attack is clickable on a locked pack", "(the SECOND read button in that stack, covered by the same exemption)")
+        : fail(`Improvised Attack on a locked pack: ${JSON.stringify(locked.improvised)}`,
+          "the _onRender exemption must cover every read <button> in the stack, not just the one found first");
       locked.deleteWarned
         ? ok("itemDelete still warns", "(mutations stay walled)")
         : fail("itemDelete no longer warns on a locked pack — the wall moved too far");

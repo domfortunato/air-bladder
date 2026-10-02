@@ -468,7 +468,7 @@ try {
       let msg = null;
       for (let i = 0; i < 90 && !msg; i++) {
         msg = game.messages.contents.slice().reverse().find(
-          (m) => !before.has(m.id) && m.speaker?.actor === actor.id);
+          (m) => !before.has(m.id) && m.speaker?.actor === actor.id && m.rolls?.length);
         if (!msg) await sleep(200);
       }
       await actor.sheet.close();
@@ -605,6 +605,153 @@ try {
     row2()?.querySelector(".explode-the-die")?.click();
     await sleep(500);
     out.maneuverStillManeuver = game.messages.get(card2.id).getFlag(NS, "maneuverChoice");
+    }
+
+    /* ---- 14. the Improvised Attack button ------------------------------- */
+    // Driven through the REAL sheet button and the REAL dialog, because the
+    // whole point of this control is that it has no item behind it: a probe that
+    // called the handler directly would not prove the button exists, is enabled,
+    // or reaches the dialog at all.
+    const improvise = async (actor, { description = "", formula = null, quality = "standard" } = {}) => {
+      // Per roll, max first then low -- the maximum is the precondition the
+      // maneuver legs need, and the low values terminate any chain on the rows
+      // whose formula really does carry x.
+      const origRU = CONFIG.Dice.randomUniform;
+      let ru = 0;
+      CONFIG.Dice.randomUniform = () => (ru++ === 0 ? MAXU : LOWU);
+      const before = new Set(game.messages.contents.map((m) => m.id));
+      try {
+        await actor.sheet.render(true);
+        for (let i = 0; i < 30 && !(actor.sheet.element instanceof HTMLElement); i++) await sleep(100);
+        await sleep(300);
+        const btn = actor.sheet.element?.querySelector("#improvised-attack-button");
+        if (!btn) { await actor.sheet.close(); return { err: "no Improvised Attack button" }; }
+        if (btn.disabled) { await actor.sheet.close(); return { err: "button disabled" }; }
+        btn.click();
+
+        let dlg = null;
+        for (let i = 0; i < 80 && !dlg; i++) {
+          dlg = document.querySelector("dialog.dialog.cairn-improvised-dialog");
+          if (!dlg) await sleep(150);
+        }
+        if (!dlg) { await actor.sheet.close(); return { err: "no improvised dialog" }; }
+
+        // What the dialog OFFERS is half the measurement -- a panicked actor must
+        // get no formula field and no quality buttons at all.
+        const fField = dlg.querySelector('input[name="formula"]');
+        const shape = {
+          hasDescription: !!dlg.querySelector('input[name="description"]'),
+          hasFormula: !!fField,
+          hasBuilder: !!dlg.querySelector(".wd-dice-builder"),
+          hasStandard: !!dlg.querySelector('button[data-action="standard"]'),
+          hasRoll: !!dlg.querySelector('button[data-action="roll"]'),
+          standardLabel: dlg.querySelector('button[data-action="standard"]')?.textContent.trim() ?? null,
+        };
+
+        const dField = dlg.querySelector('input[name="description"]');
+        if (dField) { dField.value = description; dField.dispatchEvent(new Event("input", { bubbles: true })); }
+        if (fField && formula !== null) {
+          fField.value = formula;
+          fField.dispatchEvent(new Event("input", { bubbles: true }));
+          await sleep(200);
+          // Re-read AFTER typing: the Standard button must relabel itself from
+          // the live field, or the dialog advertises a die it will not roll.
+          shape.standardLabelAfter =
+            dlg.querySelector('button[data-action="standard"]')?.textContent.trim() ?? null;
+        }
+
+        const go = dlg.querySelector(`button[data-action="${shape.hasRoll ? "roll" : quality}"]`);
+        if (!go) { await actor.sheet.close(); return { err: `no ${quality} button`, shape }; }
+        go.click();
+
+        let msg = null;
+        for (let i = 0; i < 90 && !msg; i++) {
+          msg = game.messages.contents.slice().reverse().find(
+            (m) => !before.has(m.id) && m.speaker?.actor === actor.id && m.rolls?.length);
+          if (!msg) await sleep(200);
+        }
+        await actor.sheet.close();
+        if (!msg) return { err: "no message", shape };
+        out.made2.push(msg.id);
+        await sleep(400);
+        const row = document.querySelector(`[data-message-id="${msg.id}"]`);
+        return {
+          shape,
+          id: msg.id,
+          // WHAT THE CLAIMED MESSAGE ACTUALLY IS, carried so a failure names it
+          // instead of just reporting a null formula. It is what identified the
+          // change-log ledger card in one run when this leg first went red.
+          whatIsIt: { rolls: msg.rolls?.length ?? 0,
+            flags: Object.keys(msg.flags?.["air-bladder"] ?? {}),
+            content: String(msg.content ?? "").replace(/<[^>]*>/g, " ").trim().slice(0, 70) },
+          formula: msg.rolls?.[0]?.formula ?? null,
+          line: row?.querySelector(".dmg-label")?.textContent.trim() ?? null,
+          datum: !!row?.querySelector("[data-maneuver]"),
+          explodeBtn: !!row?.querySelector(".explode-the-die"),
+          maneuverBtn: !!row?.querySelector(".take-maneuver"),
+        };
+      } finally {
+        CONFIG.Dice.randomUniform = origRU;
+      }
+    };
+
+    await game.settings.set(NS, "crawler-combat-mode", true);
+    await game.settings.set(NS, "crawler-exploding-damage", true);
+    await game.settings.set(NS, "crawler-maneuver-on-max", true);
+
+    // A d6 clears the floor: with a maneuver on offer the die does NOT explode at
+    // roll time, and the card asks which.
+    out.impD6 = await improvise(pc, { description: "a chair leg", formula: "d6" });
+    // A d4 does not: no explosion, no maneuver -- the floor, reached by a route
+    // that has no item anywhere in it.
+    out.impD4 = await improvise(pc, { description: "my fists", formula: "d4" });
+    // The TYPED formula is what gets rolled, not the 1d4 the field starts on.
+    out.impD10 = await improvise(pc, { description: "a rock", formula: "d10" });
+    // Blank description: the card falls back to the sentence for a roll that
+    // names nothing, rather than showing a dangling "with ".
+    out.impBlank = await improvise(pc, { description: "", formula: "d6" });
+
+    // A MONSTER never explodes, though the Warden may press the button.
+    await game.settings.set(NS, "crawler-maneuver-on-max", false);
+    out.impMonster = await improvise(monster, { description: "a rock", formula: "d6" });
+    // ...and with maneuver off a PC's d6 auto-explodes, as a weapon would.
+    out.impAutoExplode = await improvise(pc, { description: "a chair leg", formula: "d6" });
+    await game.settings.set(NS, "crawler-maneuver-on-max", true);
+
+    // PANICKED: no formula field, no quality buttons, and 1d4 whatever is typed.
+    await game.settings.set(NS, "use-panic", true);
+    await pc.update({ "system.panicked": true });
+    out.impPanicked = await improvise(pc, { description: "my fists" });
+    await pc.update({ "system.panicked": false });
+    await game.settings.set(NS, "use-panic", false);
+
+    // THE OWNERSHIP GATE, both halves. The probe runs as the Warden, who owns
+    // every actor, so `isOwner` is shadowed on the instance in-page -- a read,
+    // never a world write, and the only way to stand where a non-owning player
+    // stands without a second client.
+    {
+      Object.defineProperty(pc, "isOwner", { get: () => false, configurable: true });
+      try {
+        await pc.sheet.render(true);
+        for (let i = 0; i < 30 && !(pc.sheet.element instanceof HTMLElement); i++) await sleep(100);
+        await sleep(400);
+        // The affordance: the button is not rendered at all.
+        out.gateHidesButton = !pc.sheet.element?.querySelector("#improvised-attack-button");
+        // The refusal: reaching the action another way is still turned away, and
+        // posts nothing.
+        const before = game.messages.size;
+        await pc.sheet.options.actions.improvisedAttack.call(
+          pc.sheet, { preventDefault() {} }, document.createElement("button"));
+        await sleep(500);
+        out.gateRefuses = game.messages.size === before
+          && !document.querySelector("dialog.dialog.cairn-improvised-dialog");
+        await pc.sheet.close();
+      } finally {
+        delete pc.isOwner;
+        // The real getter is inherited, so deleting the own property IS the
+        // restore -- and a GM owning every actor is what proves it answered.
+        out.gateShadowLifted = pc.isOwner === true;
+      }
     }
 
     /* ---- 10. the submenu greying ---------------------------------------- */
@@ -863,6 +1010,53 @@ try {
   r.maneuverTaken?.sealed && r.maneuverStillManeuver === "maneuver"
     ? ok(`...and the pair is EXCLUSIVE: pressing Explode the Die afterwards changes nothing`)
     : fail(`sealed ${r.maneuverTaken?.sealed}, choice after a second click ${r.maneuverStillManeuver} — want it still "maneuver"`);
+
+  // ---- the Improvised Attack button -------------------------------------
+  const impOk = (r2) => r2 && !r2.err;
+  impOk(r.impD6) && noX(r.impD6.formula) && r.impD6.explodeBtn && r.impD6.maneuverBtn
+    ? ok(`Improvised Attack: a d6 typed into the dialog did NOT explode at roll time (${r.impD6.formula}) and the card offers Explode the Die AND Maneuver — no item anywhere in the path`)
+    : fail(`impD6: ${JSON.stringify(r.impD6)}`);
+  r.impD6?.line?.includes("a chair leg")
+    ? ok(`...and the description reaches the card as the thing attacked with: "${r.impD6.line}" — the weapon datum, so no new sentence key was needed`)
+    : fail(`the description did not reach the card: ${JSON.stringify(r.impD6?.line)}`);
+  r.impD6?.shape?.hasFormula && r.impD6?.shape?.hasBuilder && r.impD6?.shape?.hasStandard
+    ? ok(`...and the dialog offered a description, a formula field, the shared dice builder and the three qualities`)
+    : fail(`dialog shape: ${JSON.stringify(r.impD6?.shape)}`);
+  /d6/.test(r.impD6?.shape?.standardLabelAfter ?? "")
+    ? ok(`...with Standard relabelling itself from the live field ("${r.impD6.shape.standardLabel}" -> "${r.impD6.shape.standardLabelAfter}"), so it cannot advertise a die it will not roll`)
+    : fail(`Standard did not follow the field: ${JSON.stringify(r.impD6?.shape)}`);
+
+  impOk(r.impD4) && noX(r.impD4.formula) && !r.impD4.maneuverBtn
+    ? ok(`THE FLOOR, through the improvised route: a typed d4 neither explodes (${r.impD4.formula}) nor offers a maneuver`)
+    : fail(`impD4: ${JSON.stringify(r.impD4)} — a sub-d6 die must do neither`);
+  impOk(r.impD10) && /d10/.test(r.impD10.formula ?? "")
+    ? ok(`the TYPED formula is what gets rolled (${r.impD10.formula}), not the 1d4 the field starts on`)
+    : fail(`impD10: ${JSON.stringify(r.impD10)}`);
+  impOk(r.impBlank) && !/with\s*$/.test(r.impBlank.line ?? "x")
+    ? ok(`a blank description falls back to the no-weapon sentence ("${r.impBlank.line}") rather than a dangling "with "`)
+    : fail(`impBlank: ${JSON.stringify(r.impBlank)}`);
+
+  impOk(r.impMonster) && noX(r.impMonster.formula) && !r.impMonster.maneuverBtn
+    ? ok(`a MONSTER's improvised attack never explodes (${r.impMonster.formula}) and offers nothing — the PC gate is at the roll site, not merely on the button`)
+    : fail(`impMonster: ${JSON.stringify(r.impMonster)}`);
+  impOk(r.impAutoExplode) && hasX(r.impAutoExplode.formula)
+    ? ok(`...while a PC's d6 with maneuver OFF auto-explodes (${r.impAutoExplode.formula}), exactly as a weapon would`)
+    : fail(`impAutoExplode: ${JSON.stringify(r.impAutoExplode)}`);
+
+  impOk(r.impPanicked) && r.impPanicked.shape?.hasDescription
+    && !r.impPanicked.shape?.hasFormula && !r.impPanicked.shape?.hasStandard
+    && r.impPanicked.shape?.hasRoll
+    ? ok(`PANICKED: the dialog still asks what you grabbed but drops the formula field and the three qualities for one Roll button`)
+    : fail(`panicked dialog shape: ${JSON.stringify(r.impPanicked?.shape)}`);
+  r.gateHidesButton && r.gateRefuses
+    ? ok(`the ownership gate holds BOTH ways: a non-owner is shown no button, and reaching the action anyway is refused with nothing posted`)
+    : fail(`ownership gate: button hidden ${r.gateHidesButton}, refused ${r.gateRefuses}`);
+  r.gateShadowLifted
+    ? ok(`...and the isOwner shadow was lifted, leaving the live actor as it was`)
+    : fail(`the isOwner shadow is STILL on the actor — a probe that leaves one poisons every later run`);
+  impOk(r.impPanicked) && /d4/.test(r.impPanicked.formula ?? "") && noX(r.impPanicked.formula)
+    ? ok(`...and rolls ${r.impPanicked.formula} — panic imposes Impaired, and 1d4 is under the floor so it cannot explode either`)
+    : fail(`panicked roll: ${JSON.stringify(r.impPanicked)} — want a plain 1d4`);
 
   // Cleanup: the actors and the three cards this probe minted.
   await page.evaluate(async ({ ids, msgs }) => {

@@ -257,7 +257,15 @@
        HP/Gold counters over STR and Armor. `auto` takes its minimum from the
        content, so it can never be squeezed below what it holds. The 140px floor
        is not lost: the portrait in column 1 is 140px tall and sets it. */
-    grid-template-rows: auto 112px 1fr;
+    /* ROW 2 IS `auto`, NOT A FIXED 112px (2026-10-02). It was 112px to match the
+       three ability rows beside it (3 x 36px + 2 x 2px), which exactly fitted the
+       three stack buttons at 32px + 2px gaps = 100px. A FOURTH button -- Improvised
+       Attack -- makes that stack 134px, and a fixed track does not grow: the extra
+       22px overflowed into the tab section below. `auto` sizes the row to its
+       tallest child, which is what the npc sheet has always done for its own
+       version of this (see `.cairn-npc-sheet .charater-sheet-grid`). Count the
+       buttons before pinning this again. */
+    grid-template-rows: auto auto 1fr;
     height: 100%;
 }
 

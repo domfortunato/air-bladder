@@ -89,6 +89,7 @@ const READ = `(sheet) => {
     deprived:  vis('.deprived-check'),
     restBtn:   vis('#rest-button'),
     dieOfFate: vis('#die-of-fate-button'),
+    improvised: vis('#improvised-attack-button'),
     gold:      vis('input[name="system.gold"]'),
     roleSelect: vis('.role-select'),
     career:    vis('input[name="system.profession"]'),
@@ -201,9 +202,12 @@ try {
   !asThing.hp && !asThing.str && !asThing.armor && !asThing.deprived
     ? ok("HP, STR, Armor, Deprived all gone")
     : bad("HP, STR, Armor, Deprived all gone", JSON.stringify(asThing));
-  !asThing.restBtn && !asThing.dieOfFate
-    ? ok("Rest and Die of Fate gone", "a crate does not rest")
-    : bad("Rest and Die of Fate gone", JSON.stringify(asThing));
+  // All three stack buttons, not two: Improvised Attack joined them 2026-10-02
+  // and rides the same `{{#unless system.isThing}}` gate, so a crate must lose it
+  // for the same reason it loses the others -- it has no hands to improvise with.
+  !asThing.restBtn && !asThing.dieOfFate && !asThing.improvised
+    ? ok("Rest, Die of Fate and Improvised Attack gone", "a crate does not rest, and does not improvise")
+    : bad("Rest, Die of Fate and Improvised Attack gone", JSON.stringify(asThing));
   asThing.banners.length === 0
     ? ok("no Dead/Paralyzed/Delirious banner", "derived conditions suppressed")
     : bad("no Dead/Paralyzed/Delirious banner", asThing.banners.join(" | "));

@@ -1,7 +1,7 @@
 import { canRegenerateContainers, drawBond, bondRecordFrom, withGrantSource, bondEntitlement, resolveRefs, replaceGrantedContainers, promptBackground, changeBackground, promptFailedCareer, rollFailedCareerName, buildFailedCareerItem, getPortraitManifest, pairedTokenFor, randomPortraitInSameFolder, portraitCategoryFor, regenerateNpc, regenerateHireling, rerollNpcBackground, rerollHirelingCareer, rerollNpcName, rerollNpcFaction, promptHirelingCareer, promptNpcBackground, promptNpcFaction, promptPickOmen, promptPickBond, promptPickQuestionOption, promptPickName, findOmensTable, rollNameFromTable, rollAge, rollTextItems, effectiveAgeFormula, effectivePcAbilityFormula, effectivePcGoldFormula, effectivePcHpFormula, rollPcHitProtection, resolveActorBackground, redealBackgroundGear, rerollAllBonds, reorderInventory, postGenerationRolls, isHandBuilt, clearHandBuilt, FLAG_SCOPE } from "../character-generator.js";
 import { promptMonsterTier, regenerateMonster } from "../monster-generator.js";
 import { openMarketplace, TRANSPORTS_CATEGORY } from "../marketplace.js";
-import { evaluateFormula, cleanDescription, bindEditorClickAwaySave, formatCount, sourceLabel, askDamageQuality, damageFormulaFor, damageQualityLabel, damageQualityKind, d20CardBody, d20CardFlavor, D20_CARD_ABILITIES, crawlerCombat, crawlerOption, explodingDamageFormula, damageDie } from "../utils.js";
+import { evaluateFormula, cleanDescription, bindEditorClickAwaySave, formatCount, sourceLabel, askDamageQuality, damageFormulaFor, damageQualityLabel, damageQualityKind, d20CardBody, d20CardFlavor, D20_CARD_ABILITIES, crawlerCombat, crawlerOption, explodingDamageFormula, damageDie, askImprovisedAttack } from "../utils.js";
 import { resultText, compendiumInfoFromString } from "../compendium.js";
 import { SETTINGS_NS } from "../settings.js";
 import { CONTAINER_ART_CHOICES, CONTAINER_CLASSES } from "../icons.js";
@@ -390,6 +390,10 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       rest: owned(CairnActorSheet.#onRest),
       restoreAbilities: owned(CairnActorSheet.#onRestoreAbilities),
       dieOfFate: CairnActorSheet.#onDieOfFate,
+      // NOT owned(): a damage roll is a READ, and owned() tests `isEditable`,
+      // which also refuses a locked compendium -- the bug review #18 fixed for
+      // Die of Fate. Its own ownership gate is inside the handler.
+      improvisedAttack: CairnActorSheet.#onImprovisedAttack,
       // Description tab
       rollAge: owned(mayRandomize(CairnActorSheet.#onRollAge)),
       rollOmen: owned(mayRandomize(CairnActorSheet.#onRollOmen)),
@@ -894,6 +898,11 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // Foundry ROLE gate (Actor deletion is Assistant+, no player-grantable
     // permission) and stays isGM — the reason the two were never one flag.
     context.canManageConnections = game.user.isGM || this.actor.isOwner;
+    // Improvised Attack: a player improvises for a character they control, the
+    // Warden anywhere -- and `isOwner` is true for a GM on every actor, so this
+    // is both halves in one test. The handler repeats it as the refusal; this is
+    // only the affordance. NOT `isEditable`, which a locked compendium also fails.
+    context.canImprovise = this.actor.isOwner;
     // The Warden's switch for player shopping (allow-player-marketplace, the
     // shipped macro's setting). Both sheet templates pass this straight into
     // the items-list partial's withShop — it was a hardcoded 1 there until the
@@ -1891,9 +1900,15 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // shares the read set with are not form elements, so only this one went
     // dead: a Warden with a locked-pack monster open could roll its attack but
     // not the die (review #18). Re-enabled after super, for exactly that case.
+    //
+    // IMPROVISED ATTACK rides the same exemption for the same reason: it is a
+    // read roll rendered as a <button> in that stack, so it is disabled by the
+    // same sweep. Both, not just the one that was found first.
     if (!this.isEditable) {
-      const dof = el.querySelector('[data-action="dieOfFate"]');
-      if (dof) dof.disabled = false;
+      for (const action of ["dieOfFate", "improvisedAttack"]) {
+        const btn = el.querySelector(`[data-action="${action}"]`);
+        if (btn) btn.disabled = false;
+      }
     }
 
     // The title-bar generation buttons live on the frame, which is built once —
@@ -4429,6 +4444,102 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       flavor: game.i18n.localize("CAIRN.DieOfFate"),
       flags: { [FLAG_SCOPE]: { rollFlavor: "dieOfFate" } },
     });
+  }
+
+  /**
+   * An IMPROVISED ATTACK: a damage roll with no item behind it.
+   *
+   * Every other damage roll in the system hangs off an inventory row and reads
+   * `item.system.damageFormula`, so a character who grabs a chair leg, throws a
+   * rock or swings a fist had nothing to press — and Cairn has such attacks
+   * ("Unarmed attacks always do d4 damage"). This asks what it was and what it
+   * rolls, then posts the ORDINARY damage card, which is what brings targeting,
+   * Apply, scars and Crawler Combat Mode along without any of them knowing it is
+   * a new caller.
+   *
+   * THE GATE IS `isOwner`, AND IT IS NOT `owned()`. A player may improvise for a
+   * character they control and the Warden may anywhere, which `isOwner` says in
+   * one test because a GM owns every actor. `owned()` would be wrong twice: it
+   * is documented as being for MUTATING actions, and it tests `isEditable`,
+   * which ALSO refuses a locked compendium — exactly the bug review #18 fixed
+   * when a Warden could roll a locked-pack monster's weapon but not its die. The
+   * template hides the button from a non-owner as the affordance; this is the
+   * refusal behind it.
+   *
+   * ALL THREE CRAWLER BEHAVIOURS FALL OUT WITH NO NEW RULES. There is no item,
+   * so there is no `ranged` field and `damageDie`'s floor and the PC test are
+   * asked exactly as `#onRollDamage` asks them — an improvised attack is melee
+   * by nature, which is the answer that gate would give anyway.
+   *
+   * @this {CairnActorSheet}
+   */
+  static async #onImprovisedAttack() {
+    if (!this.actor.isOwner) {
+      ui.notifications.warn(game.i18n.localize("CAIRN.Notify.ImprovisedNotYours"));
+      return;
+    }
+
+    // PANIC IMPOSES IMPAIRED AND OFFERS NO CHOICE, the 2026-08-07 ruling
+    // `#onRollDamage` follows by not opening the quality dialog at all. Here the
+    // dialog still opens, because what you grabbed is not a mechanical choice —
+    // it just stops asking the question panic has already answered.
+    const panicked = game.settings.get(SETTINGS_NS, "use-panic")
+      && this.actor.system.panicked === true;
+
+    const answer = await askImprovisedAttack({ panicked });
+    if (!answer) return;                    // dismissed: roll nothing
+
+    // The same three rules, in the same order, as the Warden's Damage field.
+    // The `@` guard comes FIRST because `Roll.validate` stubs every `@ref` to 1
+    // and then says yes to a formula the evaluator would silently gut.
+    const typed = answer.formula;
+    if (!typed || typed.includes("@") || !Roll.validate(typed)) {
+      ui.notifications.warn(
+        game.i18n.format("CAIRN.Notify.WardenDamageBadFormula", { formula: typed || "" }));
+      return;
+    }
+
+    const base = damageFormulaFor(answer.quality, typed);
+
+    // No item, so no `ranged` field: this reads as MELEE, which is what an
+    // improvised attack is. Floor and PC test exactly as #onRollDamage asks them.
+    const mayManeuver = this.actor.type === "character"
+      && (damageDie(base)?.faces ?? 0) >= 6
+      && crawlerOption("crawler-maneuver-on-max");
+    const formula = this.actor.type === "character"
+      && crawlerOption("crawler-exploding-damage") && !mayManeuver
+      ? explodingDamageFormula(base)
+      : base;
+
+    const roll = await evaluateFormula(formula, this.actor.getRollData());
+
+    // THE DESCRIPTION RIDES AS THE WEAPON, which is why this card needs no new
+    // markup, no new datum and no new sentence. `data-weapon` exists to carry
+    // "the thing this attack was made with" verbatim so the sentences rebuild
+    // per viewer from it, and a typed description is the same kind of value as
+    // an item's name. Left blank it is "", which both rebuilds already handle by
+    // falling back to the keys written for a roll that names nothing.
+    const what = answer.description;
+    const label = what
+      ? game.i18n.format(panicked ? "CAIRN.RollingDmgWithWeaponPanic" : "CAIRN.RollingDmgWithWeapon",
+        { weapon: what })
+      : "";
+
+    const targetedTokens = Array.from(game.user.targets).map((tk) => tk.id);
+    const targetIds = targetedTokens.length ? targetedTokens.join(";") : null;
+
+    const flavor = await foundry.applications.handlebars.renderTemplate(
+      "systems/air-bladder/templates/chat/dmg-roll-card.html",
+      {
+        label, targets: targetIds,
+        weapon: what,
+        quality: damageQualityLabel(answer.quality, { panicked }),
+        qualityKind: damageQualityKind(answer.quality, { panicked }),
+        panic: panicked,
+        maneuver: mayManeuver,
+      }
+    );
+    roll.toMessage({ speaker: ChatMessage.getSpeaker({ actor: this.actor }), flavor });
   }
 
   /**

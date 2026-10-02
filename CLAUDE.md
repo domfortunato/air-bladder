@@ -358,6 +358,80 @@ companion record of who authored what.
   sheet's checkbox list, read from the pack only, because the generic "import
   it and keep its name" sentence on it was an invitation to the same hijack by
   hand.
+- **IMPROVISED ATTACK, the fourth button in the sheet's stack (2026-10-02, user
+  ask).** A damage roll with NO item behind it — every other one in the system
+  hangs off an inventory row and reads `item.system.damageFormula`, so a
+  character who grabbed a chair leg had nothing to press, though Cairn has such
+  attacks ("Unarmed attacks always do d4 damage"). It asks what you are attacking
+  with and what it rolls, then posts the ORDINARY damage card, which is what
+  brings targeting, Apply, scars and every Crawler Combat Mode behaviour along
+  without one of them knowing there is a new caller. **No setting of any kind**
+  (user ruling): the button is simply there, and the formula is typed each time
+  from a `1d4` start. Six things that will bite:
+  - **THE PC SHEET'S BUTTON ROW WAS A FIXED 112px AND A FOURTH BUTTON DOES NOT
+    FIT.** That track was sized to match the three ability rows (3 × 36px + 2 ×
+    2px), which exactly held three 32px buttons and two gaps at 100px. Four come
+    to 134px, and a fixed grid track does not grow — the extra 22px overflowed
+    into the tab section below. It is `auto` now, which is what
+    `.cairn-npc-sheet` has always overridden it to. **`dev:sheet-layout` catches
+    this precisely** and was run red first: it reports `div
+    .character-sheet-section-buttons (134 in 112)` on all six dev characters.
+    Count the buttons before pinning that row again.
+  - **`isOwner` IS THE GATE, AND `owned()` WOULD BE WRONG TWICE.** A player
+    improvises for a character they control and the Warden anywhere, which
+    `isOwner` says in one test because a GM owns every actor. `owned()` is
+    documented as being for MUTATING actions, and it tests `isEditable`, which
+    ALSO refuses a locked compendium — the bug review #18 fixed when a Warden
+    could roll a locked-pack monster's weapon but not its die. The template
+    hides the button (`context.canImprovise`) as the affordance and the handler
+    refuses as the wall; both halves are probe-covered by shadowing `isOwner` on
+    the instance in-page, since the probe otherwise runs as a Warden who owns
+    everything.
+  - **THE SHEET CONTEXT HAS NEVER CARRIED `isOwner`.** The first cut gated the
+    template on `{{#if isOwner}}`, which is simply undefined there — the button
+    would have rendered for nobody, silently, with every probe still green.
+    `context.canImprovise` is a NAMED flag for that reason and because it says
+    why. Check a context flag exists before gating on it.
+  - **THE `_onRender` RE-ENABLE NOW COVERS BOTH BUTTONS.** `DocumentSheetV2
+    ._onRender` runs `_toggleDisabled(true)` over every form element of a
+    non-editable sheet, which is why Die of Fate was re-enabled by hand (review
+    #18). Improvised Attack is the SECOND read roll rendered as a `<button>` in
+    that stack, so it is caught by the same sweep and needs the same exemption —
+    one re-enabled and the other missed is exactly the shape that leg exists to
+    catch, and `dev:review-batch2` now asserts both on a locked pack.
+  - **THE DESCRIPTION RIDES AS THE CARD'S WEAPON, so the card needed NO new
+    code.** `data-weapon` exists to carry "the thing this attack was made with"
+    as a datum, verbatim and never re-localized, so the sentences rebuild per
+    viewer from it; a typed description is the same kind of value as an item's
+    name. "a chair leg" yields `CAIRN.AttacksTargetWeapon`, and a blank one falls
+    through to `CAIRN.AttacksTarget`, which is what makes it optional for free —
+    no `data-improvised` datum, no new sentence keys, no new branch in either
+    rebuild. Free text is safe on that path by construction: Handlebars escapes
+    `data-weapon="{{weapon}}"`, and both rebuilds write through `textContent`.
+    **The field label has to elicit a NOUN PHRASE** ("What are you attacking
+    with?"), or the card reads "attacks the Goblin with swings wildly".
+  - **PANIC DROPS THE QUESTION, NOT THE DIALOG.** A panicked actor is still asked
+    what they grabbed — that is not a mechanical choice — but gets no formula
+    field and no quality buttons, and rolls `1d4`. `IMPROVISED_FORMULA` and
+    `IMPAIRED_FORMULA` are DELIBERATELY two constants that agree: one is the
+    Player's Guide's unarmed damage, the other is what Impaired substitutes, and
+    if either moves it moves alone.
+  **THE DICE BUILDER NOW HAS TWO CONSUMERS** and was EXTRACTED into `utils.js`
+  (`buildDiceBuilder` / `wireDiceBuilder`) rather than copied, since a second one
+  is two things that drift. Its `wd-` class prefix and `CAIRN.WardenDamage.*`
+  keys are KEPT on purpose: the classes are what `css/cairn.css` and
+  `dev:hazard`'s selectors name, and the keys are translated in `lang/es.json` —
+  renaming either would churn a gate and orphan Malecho's work to fix a prefix
+  nobody reads. `dev:hazard` is the regression witness and was run green after.
+  Two more traps paid for in the probe: **`DialogV2` puts a button's label in a
+  `<span>`** (`dialog.mjs:243-250`), not a bare text node, so the live relabel of
+  "Standard (1d4)" found nothing and the dialog went on advertising the die it
+  opened with; and **a damage card must be claimed as a ROLL message**, because
+  `actor.update()` posts a change-log ledger card spoken by the SAME actor which
+  lands after the snapshot — the panicked leg duly read "Changed by Warden —
+  Panicked marked" and reported no roll. Same shape as the CT 123 speaker race:
+  claim a card by what it IS, never by being new.
+
 - **A token's name follows its actor's on rename — only where it still matched
   the OLD name** (2026-08-23, user ruling after a player's rename left their
   token stale on every map: "preserve custom token names"). Core copies the

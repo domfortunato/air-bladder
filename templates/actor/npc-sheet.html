@@ -282,6 +282,12 @@
             <button id="rest-button" type="button" data-action="rest" class="strict-size-button" data-tooltip="{{#if system.deprived}}{{ localize deprivedTipKey }}{{else}}{{ localize 'CAIRN.RestTip' }}{{/if}}" {{#if system.deprived}}disabled{{/if}}><i class="fas fa-campground"></i> {{ localize 'CAIRN.Rest' }}</button>
             <button id="restore-abilities-button" type="button" data-action="restoreAbilities" class="strict-size-button" data-tooltip="{{#if system.deprived}}{{ localize deprivedTipKey }}{{else}}{{ localize 'CAIRN.RestoreTip' }}{{/if}}" {{#if system.deprived}}disabled{{/if}}><i class="fas fa-heart-pulse"></i> {{ localize 'CAIRN.RestoreAbilities' }}</button>
             <button id="die-of-fate-button" type="button" data-action="dieOfFate" class="strict-size-button" data-tooltip="{{ localize 'CAIRN.DieOfFateTip' }}"><i class="fas fa-dice-d6"></i> {{ localize 'CAIRN.DieOfFate' }}</button>
+    {{!-- Improvised Attack: a damage roll with no item behind it. `canImprovise` is
+          the affordance -- a player improvises for a character they control and
+          the Warden anywhere -- with the refusal in the handler behind it. --}}
+    {{#if canImprovise}}
+    <button id="improvised-attack-button" type="button" data-action="improvisedAttack" class="strict-size-button" data-tooltip="{{ localize 'CAIRN.ImprovisedAttackTip' }}"><i class="fas fa-hand-fist"></i> {{ localize 'CAIRN.ImprovisedAttack' }}</button>
+    {{/if}}
         </div>
         {{/unless}}
         {{#unless system.isThing}}

@@ -54,6 +54,10 @@ to be interesting.
 **Every explosion is announced.** The damage card gains a line — *A d6 exploded!*
 — once for each time the die went again, so a chain of three says so three times.
 
+**An improvised attack counts.** The **Improvised Attack** button on the sheet
+rolls whatever die you type into it, and that die is judged like any other: type
+a d6 and it explodes, leave it at the d4 an unarmed attack rolls and it does not.
+
 **Only player characters' damage rolls explode.** A monster's attack, an NPC's,
 and the Warden's Damage tool for a trap or hazard all roll normally.
 
@@ -120,7 +124,8 @@ offering maneuvers.
 
 **d6 or larger.** The same floor as exploding dice: an **Impaired** attack is a d4
 and never offers a maneuver, and neither does a d4 weapon. Enhanced attacks (d12)
-do.
+do. An **improvised attack** is judged on the die you typed, so a chair leg at
+d6 can maneuver and bare fists at d4 cannot.
 
 **One limit, the same one exploding dice has.** A keep-highest formula written out
 of separate dice — `d6 + d6` or `d6 + d8` — offers no maneuver, because when the
