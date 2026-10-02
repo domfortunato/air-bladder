@@ -171,16 +171,17 @@ try {
       if (!ctl) return { err: "no rollDamage control" };
       ctl.click();
       let btn = null;
-      for (let i = 0; i < 40 && !btn; i++) {
+      for (let i = 0; i < 80 && !btn; i++) {
         btn = document.querySelector('dialog.dialog button[data-action="standard"]');
         if (!btn) await sleep(150);
       }
       if (!btn) return { err: "no quality dialog" };
       btn.click();
       let msg = null;
-      for (let i = 0; i < 40 && !msg; i++) {
-        msg = game.messages.contents.slice().reverse().find((m) => !before.has(m.id));
-        if (!msg) await sleep(150);
+      for (let i = 0; i < 90 && !msg; i++) {
+        msg = game.messages.contents.slice().reverse().find(
+          (m) => !before.has(m.id) && m.speaker?.actor === actor.id);
+        if (!msg) await sleep(200);
       }
       await actor.sheet.close();
       return { formula: msg?.rolls?.[0]?.formula ?? null };
@@ -458,16 +459,17 @@ try {
       if (!ctl) { await actor.sheet.close(); CONFIG.Dice.randomUniform = origRU; return { err: "no rollDamage control" }; }
       ctl.click();
       let btn = null;
-      for (let i = 0; i < 40 && !btn; i++) {
+      for (let i = 0; i < 80 && !btn; i++) {
         btn = document.querySelector(`dialog.dialog button[data-action="${quality}"]`);
         if (!btn) await sleep(150);
       }
       if (!btn) { await actor.sheet.close(); CONFIG.Dice.randomUniform = origRU; return { err: `no ${quality} button` }; }
       btn.click();
       let msg = null;
-      for (let i = 0; i < 40 && !msg; i++) {
-        msg = game.messages.contents.slice().reverse().find((m) => !before.has(m.id));
-        if (!msg) await sleep(150);
+      for (let i = 0; i < 90 && !msg; i++) {
+        msg = game.messages.contents.slice().reverse().find(
+          (m) => !before.has(m.id) && m.speaker?.actor === actor.id);
+        if (!msg) await sleep(200);
       }
       await actor.sheet.close();
       CONFIG.Dice.randomUniform = origRU;
