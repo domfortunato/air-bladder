@@ -19,17 +19,32 @@ manifest. Descends architecturally from a private fork of
 
 ## Version reality
 
-- **Deploy target is Foundry 14.365.** `system.json` declares
-  `compatibility: {minimum: "14.365", verified: "14.365"}`. Raised from 13 on
-  2026-07-29 and pinned to the build on 2026-08-04 (user ruling — docs and
-  manifest say "v14.365 or higher" everywhere): the AppV2 sheets use
-  `_getFrameButtons`, `_canDetach` and `_onDetach`/`_onAttach`, all confirmed
-  against the shipped 14.365 client and none of them verifiable on anything
-  older from this machine. A minimum nobody has ever tested is a claim, not a
-  fact. The same statement lives in `README.md`, `README.es.md`,
+- **The MINIMUM is Foundry 14.365; `verified` is 14.368 since 2026-10-01.**
+  `system.json` declares
+  `compatibility: {minimum: "14.365", verified: "14.368"}`. The minimum was
+  raised from 13 on 2026-07-29 and pinned to the build on 2026-08-04 (user
+  ruling — docs and manifest say "v14.365 or higher" everywhere): the AppV2
+  sheets use `_getFrameButtons`, `_canDetach` and `_onDetach`/`_onAttach`, all
+  confirmed against the shipped 14.365 client and none of them verifiable on
+  anything older from this machine. A minimum nobody has ever tested is a
+  claim, not a fact. The same statement lives in `README.md`, `README.es.md`,
   `CONTRIBUTING.md`, `site/index.html` and `docs/testing-dev-branch.md` —
   change one, change all six (the sixth was written after this list said
   "five" and nobody added it; review #19).
+  **`verified` MOVED and `minimum` DID NOT, so those five sentences all stayed
+  true and were deliberately left alone** — they state the floor, not the
+  ceiling, and every one of them reads "or higher". Checked rather than
+  assumed, because the change-all-six rule above reads like it fires on any
+  compatibility edit and does not.
+  **14.368 is the build `dev:upgrade` was proven green on** (2026-09-19, via
+  the second app install at `foundry/app-14368`), and `verified` means the most
+  recent version during which the package has been VERIFIED to work — so it is
+  that number and not whatever Foundry has released since. The same rule that
+  pinned the minimum pins this: a version nobody has run is a claim.
+  **It matters more since the Marketplace listing (2026-10-01):** `verified` is
+  submitted by `npm run publish:foundry` and is what the package page
+  advertises to everyone browsing, so it is read by people who will never open
+  this file.
 - Latest release **0.1.23** (2026-09-15). `system.json`'s `version` is bumped by
   `npm run release` in the release commit on `master` (CI substitutes the same
   tag into the manifest URLs), so on `dev` it lags until the post-release sync
