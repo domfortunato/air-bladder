@@ -700,32 +700,118 @@ export const rollAge = async (fallback) => {
 };
 
 /**
- * The formula the age die will ACTUALLY roll: the Warden's `age-formula`
- * setting when it is set and usable, else `fallback`. ONE answer for the die
- * above and for the sheet's tooltip beside Age (review #18 finding 10: the
- * tooltip said "(2d20 + 10)" while the die obeyed the setting), so the two
- * cannot disagree — the tooltip shows what a click will roll, fallback
- * included.
+ * THE validator behind every Warden-TYPED dice formula here — the age formula,
+ * and since 2026-10-02 a player character's Hit Protection. Factored out of
+ * `effectiveAgeFormula` rather than copied: two near-identical validators is
+ * the drift this codebase keeps finding, and `dev:age-override` is the witness
+ * that the factoring changed nothing.
  *
- * `usable` is the test rollAge always applied, moved here whole. `@`
- * references are refused before validation — warden-damage.js's guard, copied
- * because the same two client stubs make Roll.validate lie about the whole
- * class: it replaces every `@ref` with "1" before evaluating
+ * Returns the formula that will ACTUALLY be rolled: the Warden's setting when
+ * it is set and usable, else `fallback`. ONE answer for the die and for the
+ * tooltip beside it (review #18 finding 10: the age tooltip said
+ * "(2d20 + 10)" while the die obeyed the setting), so the two cannot
+ * disagree — a tooltip shows what a click will roll, fallback included.
+ *
+ * BLANK FALLS BACK SILENTLY, which is what `configured` is for: blank means
+ * "reset to the default", not a mistake, so each caller gates its warning on
+ * `!usable && configured` and names the REJECTED raw text rather than the
+ * fallback that replaced it.
+ *
+ * `@` REFERENCES ARE REFUSED BEFORE VALIDATION — warden-damage.js's guard,
+ * copied because the same two client stubs make Roll.validate lie about the
+ * whole class: it replaces every `@ref` with "1" before evaluating
  * (dice/roll.mjs:772-790) so it ACCEPTS them, while real evaluation resolves
  * them with `{missing: "0"}` (:689-701) — so "2d20 + @bonus" passed the gate
  * and rolled "2d20 + 0", and "@x + 3" made every age exactly 3, with the
  * warn-and-fall-back contract unreachable for the one input class that needed
  * it most (review #17). Generation has no actor to resolve against, so
  * refusing is the honest answer, not a workaround.
- * @param {string} fallback
+ *
+ * A BARE NUMBER IS VALID AND IS MEANT TO BE: `Roll.validate("4")` is true, and
+ * `evaluateFormula` leaves a string carrying no `+` alone, so a Warden typing
+ * `4` gets exactly 4 every time. Both settings' hints say so in as many words,
+ * because it was not discoverable otherwise.
+ * @param {string} key       the setting key to read
+ * @param {string} fallback  used when the setting is blank or unusable
  * @returns {{formula: string, configured: string, usable: boolean}}
  *   `configured` is the trimmed setting (blank when unset), for the warning.
  */
-export const effectiveAgeFormula = (fallback) => {
-  const configured = String(game.settings.get(SETTINGS_NS, "age-formula") ?? "").trim();
+const effectiveFormula = (key, fallback) => {
+  const configured = String(game.settings.get(SETTINGS_NS, key) ?? "").trim();
   const candidate = configured || String(fallback ?? "");
   const usable = !candidate.includes("@") && Roll.validate(candidate);
   return { formula: usable ? candidate : fallback, configured, usable };
+};
+
+/**
+ * The formula the age die will ACTUALLY roll. Contract: `effectiveFormula`
+ * above. The fallback every real call site passes is the config's one copy,
+ * RAW `2d20 + 10`.
+ * @param {string} fallback
+ * @returns {{formula: string, configured: string, usable: boolean}}
+ */
+export const effectiveAgeFormula = (fallback) => effectiveFormula("age-formula", fallback);
+
+/**
+ * The formula a PLAYER CHARACTER's Hit Protection will ACTUALLY roll. The same
+ * contract as the age formula, deliberately: the ask was "1d6 or a set value
+ * that the warden provides", so this text is the Warden's and has to be
+ * validated, warned about and fallen back on exactly as age is.
+ *
+ * Takes NO fallback argument — unlike age there is only ever one, and it lives
+ * at `Cairn.pcHpFormula`. NPCs and hirelings never reach here: `generateNpc`
+ * reads `npcGenerator.hitProtection`, and a hireling's HP comes off its career.
+ * @returns {{formula: string, configured: string, usable: boolean}}
+ */
+export const effectivePcHpFormula = () => effectiveFormula("pc-hp-formula", Cairn.pcHpFormula);
+
+/**
+ * One of the three PC dice TIERS, by setting key. The stored value is a key
+ * into `Cairn.pcDiceTiers`, and anything that map does not hold falls back to
+ * `standard` — so a world holding a renamed or removed tier cannot throw
+ * mid-generation.
+ *
+ * NO `Roll.validate` AND NO `@` GUARD, deliberately, which is the whole reason
+ * this is a second helper rather than a third caller of the one above: these
+ * three formulas are constants this project authors, not text a Warden can
+ * type. THE CLOSED SET IS THE VALIDATION, and that was the point of choosing
+ * dropdowns over a free-text field — nothing here can throw at roll time.
+ * @param {string} key
+ * @returns {string}
+ */
+const pcTierFormula = (key) => {
+  const tiers = Cairn.pcDiceTiers;
+  const stored = String(game.settings.get(SETTINGS_NS, key) ?? "");
+  return tiers[stored] ?? tiers.standard;
+};
+
+/** The dice each of a PC's STR, DEX and WIL is rolled with. @returns {string} */
+export const effectivePcAbilityFormula = () => pcTierFormula("pc-ability-dice");
+
+/** The dice a PC's starting gold is rolled with. @returns {string} */
+export const effectivePcGoldFormula = () => pcTierFormula("pc-gold-dice");
+
+/**
+ * Roll a PLAYER CHARACTER's Hit Protection off the Warden's `pc-hp-formula`.
+ *
+ * The `rollAge` shape, for the `rollAge` reason: ONE place the bad-formula
+ * warning fires, so all three call sites — both generators and the sheet's Roll
+ * Character checklist — behave identically. Without this wrapper the checklist
+ * would silently accept a formula the generators warn about, which is exactly
+ * the class of split this whole change exists to end.
+ *
+ * Returns the ROLL and not its total, because `rollHitProtection` does: the
+ * generation chat card hands real Roll objects to ChatMessage so Dice So Nice
+ * can animate them. (`rollAge` is the deliberate exception and answers with a
+ * Number, being excluded from that card.)
+ * @returns {Promise<Roll>}
+ */
+export const rollPcHitProtection = async () => {
+  const { formula, configured, usable } = effectivePcHpFormula();
+  if (!usable && configured) {
+    ui.notifications.warn(game.i18n.format("CAIRN.Notify.BadPcHpFormula", { formula: configured }));
+  }
+  return rollHitProtection(formula);
 };
 
 /**
@@ -883,7 +969,7 @@ const defaultBondsTable = async () => findTableByName("Bonds");
 export const resolveBondsTable = async (tableName) => {
   const wanted = String(tableName ?? "").trim();
   // World-first, by name — the rationale lives on findTableByName.
-  let table = wanted ? await findTableByName(wanted) : null;
+  const table = wanted ? await findTableByName(wanted) : null;
   if (wanted && !table) {
     console.warn(`Air Bladder | no RollTable named "${wanted}" — falling back to the default Bonds table`);
   }
@@ -1661,9 +1747,15 @@ export const generate2eCharacter = async (chosenBg = null) => {
     bondGold += rec.bond.gold;
   }
 
-  const hpRoll = await rollHitProtection("1d6");
-  const goldRoll = await rollGold(Cairn.characterGenerator2e.gold);
-  const abilityRolls = await rollAbilities("3d6");
+  // The Warden's dice (2026-10-02), not this function's literals. All three
+  // read a helper so that the sheet's Roll Character checklist — which rolls
+  // these same three values through `evaluateFormula` directly, never through
+  // the rollers — cannot disagree with generation. The 2e and Barebones calls
+  // are now byte-identical, which they always were in effect: every branch of
+  // the old ternaries was the same formula.
+  const hpRoll = await rollPcHitProtection();
+  const goldRoll = await rollGold(effectivePcGoldFormula());
+  const abilityRolls = await rollAbilities(effectivePcAbilityFormula());
 
   return {
     name,
@@ -2074,9 +2166,12 @@ export const generateBarebonesCharacter = async (chosenBg = null) => {
     if (fcItem) failedCareerItems.push(fcItem);
   }
 
-  const hpRoll = await rollHitProtection(Cairn.barebonesGenerator.hitProtection);
-  const goldRoll = await rollGold(Cairn.barebonesGenerator.gold);
-  const abilityRolls = await rollAbilities(Cairn.barebonesGenerator.ability);
+  // The Warden's dice, the same three helpers 2e reads — a player character is
+  // a player character whichever generator made it, and the content source
+  // gates generation and nothing else.
+  const hpRoll = await rollPcHitProtection();
+  const goldRoll = await rollGold(effectivePcGoldFormula());
+  const abilityRolls = await rollAbilities(effectivePcAbilityFormula());
 
   return {
     name: await rollNameFromTable(Cairn.barebonesGenerator.name, bg.name),

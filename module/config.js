@@ -12,14 +12,59 @@ export const Cairn = {};
 // Twenty-five declarations here, plus Scars in damage.js and the Barebones
 // creation tables in character-generator.js, all read the same way now.
 
+// A PLAYER CHARACTER's generation dice, the Warden's since 2026-10-02 (user
+// ask). Abilities and starting gold each pick one of three TIERS; Hit
+// Protection takes a formula outright, because "a flat value that the warden
+// provides" was the ask and no tier can express it.
+//
+// THIS IS THE ONE MAP, and three things read it: both settings' `choices`
+// (settings.js), both tier helpers (character-generator.js), and the
+// `dev:pc-dice` leg that holds each rendered option label in step with it. The
+// consequence is accepted on purpose — gold cannot gain a fourth tier without
+// abilities gaining one too.
+//
+// NPCs, hirelings and monsters are untouched and that is STRUCTURAL, not a
+// promise: an NPC reads `npcGenerator.ability` below, a hireling takes its
+// statblock off the career catalogue with no dice at all, a monster uses
+// weighted picks, and both person payloads set `gold: 0` flat.
+//
+// Every tier is checked against the Cairn `+` overload (utils.js
+// `evaluateFormula`), which rewrites `a + b` to keep-highest when EVERY
+// `+`-separated term is a bare die: `3d6` and `4d6kh3` carry no `+`, and
+// `2d6 + 6`'s second term is not a die, so all three roll verbatim. A tier
+// added here must be re-checked against that rule — `d6 + d6 + d6` would
+// silently become max(d6,d6,d6), 1..6 — and must cap at 18, because a save is
+// `d20cs<=@abilities.X.value` and an ability of 20 makes every save against it
+// succeed in silence.
+//
+// The stored value is the KEY, never the formula, so a label can be reworded
+// and a formula corrected without orphaning what worlds already hold. `hero`
+// was the middle key for a day and is `adventurer` (user, 2026-10-02); nothing
+// had shipped, and a key reading `hero` under a label reading Adventurer is
+// the correct-sounding lie this codebase keeps finding.
+Cairn.pcDiceTiers = {
+  standard: "3d6",
+  adventurer: "4d6kh3",
+  crawler: "2d6 + 6",
+};
+
+// Hit Protection's default. NOT a tier — that setting is free text — so this is
+// the ONE copy, the same arrangement `characterGenerator2e.biography.age` has
+// below: `pc-hp-formula` registers it as its default, and `effectivePcHpFormula`
+// falls back to it when the Warden's own formula is blank or unusable.
+Cairn.pcHpFormula = "1d6";
+
 // Cairn 2e generation config. Backgrounds, gear, and bonds come from their own
 // packs (see character-generator.js); this covers the shared biography, which
 // draws the 8 physical/personality traits from tables-2e and rolls age.
 // 2e drops the 1e system's Misfortune and Reputation.
 Cairn.characterGenerator2e = {
-  // Cairn 2e starts every character with 3d6 coins, on top of any coins their
-  // bond or background choice-tables grant.
-  gold: "3d6",
+  // `gold: "3d6"` was here and is GONE (2026-10-02) — a player character's
+  // starting coins are the Warden's now, read through
+  // `effectivePcGoldFormula()` off `pc-gold-dice`. The fact the old comment
+  // carried is worth keeping and has moved to that setting's HINT, where a
+  // Warden reads it rather than a maintainer: the coins a bond or a background
+  // question grants are added ON TOP of this roll and are not affected by it.
   biography: {
     // No sentence template here, on purpose (review #13). One lived here —
     // "I have a <strong>{physique}</strong> physique, …" — with no reader:
@@ -186,9 +231,15 @@ Cairn.monsterGenerator = {
 // dropped 1e's name tables and Barebones ships none of its own.
 Cairn.barebonesGenerator = {
   name: "air-bladder.warden-npcs;Warden: NPC - Name",
-  ability: "3d6",
-  hitProtection: "1d6",
-  gold: "3d6",
+  // `ability: "3d6"`, `hitProtection: "1d6"` and `gold: "3d6"` were here and
+  // are GONE (2026-10-02). A player character's dice are the Warden's now and
+  // no longer differ by content source — which collapses a 2e/Barebones
+  // distinction that was a no-op anyway, every branch having been the same
+  // formula. Every site reads `effectivePcAbilityFormula()`,
+  // `effectivePcHpFormula()` or `effectivePcGoldFormula()`
+  // (character-generator.js). Left in place these would have been dead config
+  // that reads as live, which is the liability this file's own notes keep
+  // recording.
 };
 
 CONFIG.Cairn = Cairn;

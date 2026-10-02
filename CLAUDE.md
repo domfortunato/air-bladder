@@ -1450,7 +1450,7 @@ companion record of who authored what.
   "N on master" parenthetical went stale a THIRD way by surviving two releases
   — a new pack's commit must carry this line, and so must the release that
   moves the master count, which is what this post-release merge is doing)
-- 28 Warden-facing settings in `module/settings.js` (38 `register` calls + 4 `registerMenu` menus from ONE call site,
+- 31 Warden-facing settings in `module/settings.js` (41 `register` calls + 4 `registerMenu` menus from ONE call site,
   ALL `config: false` since 2026-08-22 — see the submenu paragraph below; `roles-restamped`,
   `companion-restamped`, `hireling-split`, `grimoire-keys-stamped`,
   `connections-migrated`, `art-migration-generation` (2026-08-21, review #17 —
@@ -1461,7 +1461,9 @@ companion record of who authored what.
   (review #13's catch, its third "record claiming what the code does not say"),
   then `enable-glog-magic` rode a topic branch whose cherry-picks never carried
   this line, caught only when the branch merged — so each settings change updates
-  them in its own commit, this one dated 2026-09-11 for `weather-log` (General,
+  them in its own commit, this one dated 2026-10-02 for the PC DICE TRIO
+  (`pc-ability-dice`, `pc-hp-formula`, `pc-gold-dice`, Character Generation —
+  see the paragraph below) and before it 2026-09-11 for `weather-log` (General,
   default OFF — switching it on makes this system CREATE a document in
   somebody's world, which an update must never start doing by itself; see the
   Keeping time paragraph) and before it 2026-09-10 for the TIME pair plus the
@@ -1491,6 +1493,81 @@ companion record of who authored what.
   the journal entry breaks a pointer no gate checks. The Kettlewright
   importer's clamp on PARSED ages retired too, an imported age lands
   verbatim) —
+  **AND THE OTHER THREE GENERATION DICE JOINED IT ON 2026-10-02 (user ask), so
+  every die in character generation is now the Warden's.** `pc-ability-dice`
+  and `pc-gold-dice` are independent dropdowns over ONE shared tier map
+  (`Cairn.pcDiceTiers` — Standard `3d6`, Adventurer `4d6kh3`, Crawler
+  `2d6 + 6`), `pc-hp-formula` is free text on the `age-formula` shape because
+  the ask was "1d6 or a set value that the warden provides". DROPDOWNS for two
+  of the three on purpose: a closed set of project-authored constants has
+  nothing to validate and cannot throw at roll time, the accepted cost being
+  that a fourth tier needs a code change. The middle tier was **Hero** for a
+  day and is **Adventurer**, KEY included — nothing had shipped, and a key
+  reading `hero` under a label reading Adventurer is the correct-sounding lie
+  this file keeps finding. PLAYER CHARACTERS ONLY, and structurally so: an NPC
+  reads `npcGenerator.*`, a hireling takes its statblock off its career, a
+  monster uses weighted picks, so nothing had to be gated to achieve it. Four
+  config keys went with the change (`barebonesGenerator.ability`/`.gold`/
+  `.hitProtection`, `characterGenerator2e.gold`), leaving that object holding
+  only `name`.
+  Four things here that will bite if forgotten:
+  - **EACH VALUE HAS A THIRD FORMULA SITE, AND IT BYPASSES THE ROLLER.**
+    Abilities, gold and HP are each rolled in three places, and the third is
+    `_applyRerollParts` — the sheet's **Roll Character checklist** — which
+    calls `evaluateFormula` DIRECTLY rather than through `rollAbilities` /
+    `rollGold` / `rollHitProtection`. A setting wired into the rollers alone
+    would have been silently half-done, with generation obeying the Warden and
+    the control a player uses most often (re-roll one STR) still on the old
+    literal. The answer is the `effectiveAgeFormula` answer applied three more
+    times: one exported helper per value that every site reads. **Count the
+    call sites before wiring a setting into a roll.**
+  - **THE CHECKLIST NAMES ITS DICE NOW, AND ONLY IN A TOOLTIP** (same day, user
+    ask: "like we do for the Age die and make it symmetric"). `Rolls {formula}`
+    on six rows — STR, DEX, WIL, Hit Protection, Gold and **Age, which had
+    carried no tooltip since the checklist shipped** — with the VISIBLE labels
+    untouched, which is what keeps `dev:reroll-dialog`'s exact-label assertions
+    green. The rule is **a tooltip if and only if the row rolls a dice
+    FORMULA**; the other eleven rows roll a table or scan a folder, and a rule
+    beats the subset somebody picked. Three traps paid for: it is the FIRST
+    `data-tooltip` inside a DialogV2 here and **a typo in the attribute NAME
+    fails silently by either of two mechanisms** — measured against
+    `foundry.utils.cleanHTML`, since the obvious half is only half true:
+    anything outside core's `ALLOWED_HTML_ATTRIBUTES` is DROPPED
+    (`dat-tooltip`, `tooltip`, `wibble` all vanish), but **`data-*` is
+    whitelisted WHOLESALE**, so a typo in the suffix SURVIVES the sanitizer and
+    lands in the DOM (`data-toolip="x"` arrives as `dataset.toolip`) where
+    TooltipManager never reads it. Neither logs anything, so the markup can look
+    right, pass sanitization and still produce no tooltip — which is why the
+    probe reads `dataset.tooltip` off the rendered dialog rather than trusting
+    the markup, proven by a control that misspells it; the attribute goes on BOTH the
+    `<label>` and its `<span>`, because `TooltipManager` reads
+    `event.target.dataset` with no `closest()` walk
+    (`tooltip-manager.mjs:133-143`) and either one alone leaves part of the row
+    dead; and there is deliberately **NO `aria-label`**, unlike the age die —
+    that control is an icon with no text so `aria-label` is its only accessible
+    name, while these spans hold "STR (Strength)" and an `aria-label` would
+    REPLACE it. Do not "fix" that asymmetry to match.
+  - **`registerSettings()` RUNS ON `init`, BEFORE `i18nInit`** (`cairn.js`), so
+    **`game.i18n` is unusable at registration** — a `choices` label cannot be
+    composed from a config map there and must be a bare key core localizes at
+    render. That is why the three tier labels carry their dice as a LITERAL
+    ("Standard (3d6)"), duplicating `Cairn.pcDiceTiers`: precisely the review
+    #18 shape, not removable, so GATED instead — `dev:pc-dice` asserts each
+    rendered option label contains the map's formula. Reusable well beyond this
+    change: a config read at registration is fine, an i18n call is not.
+  - **A BARE NUMBER WAS ALWAYS VALID AND NOTHING SAID SO.** Asked of the
+    Warden's Damage field the same day; the answer is that `Roll.validate("3")`
+    is true, `evaluateFormula` leaves a `+`-less string alone, and `"3"` is
+    already that probe's own main input (`e2e-warden-damage.mjs`) — the feature
+    existed and only the surface was silent, while the one visible signal (the
+    dice-builder buttons greying out) suggested the opposite. One sentence
+    appended to `CAIRN.WardenDamage.Hint`, in the same construction as the HP
+    hint so two fields teach it the same way, and `docs/dice-formulas.md` now
+    states the flat-value rule once for all of them. **Additive, never a
+    reword:** `lang/es.json` carries a full translation of that hint with no
+    drift-baseline entry, so `classifyDrift` files it as *unverified* and a
+    reword would have made it wrong with no gate saying so.
+  Gate: `npm run dev:pc-dice`.
   **Since 2026-08-22 the 25 live behind FOUR `registerMenu` SUBMENUS** (user
   ruling, "one submenu per group" — General, Character Generation, Inventory
   & Encumbrance, and GLOG & Other Hacks, the fourth asked for the same day to

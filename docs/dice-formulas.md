@@ -1,8 +1,17 @@
 # Dice Formulas
 
 Air Bladder reads dice formulas in a few places a Warden can edit — a
-weapon's damage, a monster's attack, and the **Age formula** setting under
-Character Generation. This page is what those formulas can say.
+weapon's damage, a monster's attack, the **Damage** field on the Warden's
+Damage tool, and two settings under Character Generation: the **Age
+formula** and the **Hit Protection formula for player characters**. This
+page is what those formulas can say. It also explains the notation on the
+**Ability dice** and **Gold dice** menus, which offer a fixed set of
+formulas rather than a box to type in.
+
+**Every field that takes dice also takes a plain number.** Put `4` in the
+Hit Protection formula and every character has 4 Hit Protection; put `3` in
+the Warden's Damage field and it deals 3. A fixed amount is simply a
+formula with no dice in it, so there is nothing special to turn on.
 
 ## The basics
 
@@ -29,6 +38,26 @@ applies:
 
 Only the die-plus-die form keeps the highest. With the notation setting
 off, `+` always adds and `d8 + d8` is simply 2–16.
+
+## Keeping the best of several dice
+
+`kh` after a die means "keep the highest", and the number after it says how
+many dice to keep:
+
+| You write | It means | Result |
+|---|---|---|
+| `4d6kh3` | roll four d6, keep the best three | 3–18, high results much more likely |
+| `2d20kh1` | roll two d20, keep the higher | 1–20 |
+| `3d6kl2` | roll three d6, keep the lowest two | 2–12 (**k**eep **l**owest) |
+
+This is Foundry's own notation rather than Cairn's, so it works whether the
+Cairn notation setting is on or off. It is what the **Adventurer** option on
+the Ability dice and Gold dice menus rolls: `4d6kh3` covers the same 3–18
+range as the book's `3d6`, but weights it heavily towards the top.
+
+Mind the difference from Cairn's plus form above. `d8 + d8` keeps **one** die
+of two, so it stays within one die's range, 1–8. `4d6kh3` keeps **three**
+dice and adds them, so its range is three dice wide.
 
 ## Minimums and maximums
 

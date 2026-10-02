@@ -1,4 +1,4 @@
-import { canRegenerateContainers, drawBond, bondRecordFrom, withGrantSource, bondEntitlement, resolveRefs, replaceGrantedContainers, promptBackground, changeBackground, promptFailedCareer, rollFailedCareerName, buildFailedCareerItem, getPortraitManifest, pairedTokenFor, randomPortraitInSameFolder, portraitCategoryFor, regenerateNpc, regenerateHireling, rerollNpcBackground, rerollHirelingCareer, rerollNpcName, rerollNpcFaction, promptHirelingCareer, promptNpcBackground, promptNpcFaction, promptPickOmen, promptPickBond, promptPickQuestionOption, promptPickName, findOmensTable, rollNameFromTable, rollAge, rollTextItems, effectiveAgeFormula, resolveActorBackground, redealBackgroundGear, rerollAllBonds, reorderInventory, postGenerationRolls, isHandBuilt, clearHandBuilt, FLAG_SCOPE } from "../character-generator.js";
+import { canRegenerateContainers, drawBond, bondRecordFrom, withGrantSource, bondEntitlement, resolveRefs, replaceGrantedContainers, promptBackground, changeBackground, promptFailedCareer, rollFailedCareerName, buildFailedCareerItem, getPortraitManifest, pairedTokenFor, randomPortraitInSameFolder, portraitCategoryFor, regenerateNpc, regenerateHireling, rerollNpcBackground, rerollHirelingCareer, rerollNpcName, rerollNpcFaction, promptHirelingCareer, promptNpcBackground, promptNpcFaction, promptPickOmen, promptPickBond, promptPickQuestionOption, promptPickName, findOmensTable, rollNameFromTable, rollAge, rollTextItems, effectiveAgeFormula, effectivePcAbilityFormula, effectivePcGoldFormula, effectivePcHpFormula, rollPcHitProtection, resolveActorBackground, redealBackgroundGear, rerollAllBonds, reorderInventory, postGenerationRolls, isHandBuilt, clearHandBuilt, FLAG_SCOPE } from "../character-generator.js";
 import { promptMonsterTier, regenerateMonster } from "../monster-generator.js";
 import { openMarketplace, TRANSPORTS_CATEGORY } from "../marketplace.js";
 import { evaluateFormula, cleanDescription, bindEditorClickAwaySave, formatCount, sourceLabel, askDamageQuality, damageFormulaFor, damageQualityLabel, damageQualityKind, d20CardBody, d20CardFlavor, D20_CARD_ABILITIES } from "../utils.js";
@@ -3082,9 +3082,60 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     const is2e = (actor.system.contentSource || "2e") !== "barebones";
     const bg = await resolveActorBackground(actor);
     const L = (k) => game.i18n.localize(k);
-    const row = (part, label, checked = true) =>
-      `<label class="reroll-row" data-part="${part}"><input type="checkbox" name="${part}"${checked ? " checked" : ""}>
-        <span class="reroll-label">${label}</span></label>`;
+    // THE DICE EACH ROW WILL ROLL, named in a tooltip (2026-10-02, user ask:
+    // "include the dice formulas in the tool tips like we do for the Age die
+    // and make it symmetric"). Read through the same helpers the rolls below
+    // read, so the label and the die cannot disagree — the review #18 contract,
+    // applied at last to the control review #18 never reached. The VISIBLE
+    // labels are untouched: the formula rides the tooltip and nothing else, so
+    // "the rows stay plain" still holds on the channel it was about.
+    //
+    // A ROW GETS A TOOLTIP IF AND ONLY IF IT ROLLS A DICE FORMULA. Six do.
+    // Everything else here rolls a TABLE (background, gear, the questions,
+    // bonds, failed career, keepsake, name, traits, omen) or scans a folder
+    // (portrait), and has no formula to name. A rule, not a subset somebody
+    // picked.
+    //
+    // `data-tooltip` ONLY, and deliberately NOT the age die's `data-tooltip` +
+    // `aria-label` pair: that control is an icon with no text, so `aria-label`
+    // is its only accessible name, while these spans already hold
+    // "STR (Strength)" and an `aria-label` would REPLACE it. Do not "fix" this
+    // to match the die.
+    //
+    // ON BOTH THE LABEL AND THE SPAN, because core's TooltipManager reads
+    // `event.target.dataset` directly with no `closest()` walk
+    // (tooltip-manager.mjs:133-143): on the span alone the row's padding is
+    // dead, on the label alone it dies the moment the pointer reaches the words.
+    //
+    // ESCAPED, because the HP formula is Warden-TYPED free text going into a
+    // quoted attribute.
+    //
+    // AND A TYPO IN THE ATTRIBUTE NAME FAILS SILENTLY, BY EITHER OF TWO
+    // MECHANISMS — measured 2026-10-02 against `foundry.utils.cleanHTML`, because
+    // the obvious half of this is only half true. Anything outside core's
+    // ALLOWED_HTML_ATTRIBUTES is DROPPED (`dat-tooltip`, `tooltip`, `wibble` all
+    // vanish), but `data-*` is whitelisted WHOLESALE, so a typo in the suffix
+    // SURVIVES sanitization and lands in the DOM — `data-toolip="x"` arrives as
+    // `dataset.toolip` — where TooltipManager simply never reads it. Neither
+    // mechanism logs anything. So the markup can look right, pass the sanitizer,
+    // and produce no tooltip at all, which is why `dev:pc-dice` reads
+    // `dataset.tooltip` off the RENDERED dialog instead of trusting this line.
+    // Worth the care because it is the first `data-tooltip` inside a DialogV2
+    // here, with no in-repo precedent to copy.
+    const esc = foundry.utils.escapeHTML;
+    const rollsTip = (formula) => esc(game.i18n.format("CAIRN.Reroll.RollsTip", { formula }));
+    const abilityTip = rollsTip(effectivePcAbilityFormula());
+    const row = (part, label, checked = true, tooltip = null) => {
+      // DIRECTION RIGHT, and it is not a preference. Core's default drops the
+      // tooltip BELOW its anchor, and in a thirteen-row vertical checklist that
+      // lands it squarely on the next row — hovering STR hid DEX completely.
+      // Seen only by opening the dialog and looking at it; the probe reads
+      // `dataset.tooltip` and passed throughout. The rows are short labels in a
+      // 440px dialog, so the space to their right is empty and covers nothing.
+      const t = tooltip ? ` data-tooltip="${tooltip}" data-tooltip-direction="RIGHT"` : "";
+      return `<label class="reroll-row" data-part="${part}"${t}><input type="checkbox" name="${part}"${checked ? " checked" : ""}>
+        <span class="reroll-label"${t}>${label}</span></label>`;
+    };
 
     const bgChecked = actor.getFlag("air-bladder", "backgroundChosen") !== true;
     // A 2e Name is the Background's child (its list is the background's own);
@@ -3108,16 +3159,23 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // shared STR/DEX/WIL keys — and spelled statically, because the i18n
     // source gate records a template literal as a dynamic prefix and goes
     // blind (the trait-labels rule at the top of this file).
-    list += row("STR", L("CAIRN.Reroll.STR"));
-    list += row("DEX", L("CAIRN.Reroll.DEX"));
-    list += row("WIL", L("CAIRN.Reroll.WIL"));
-    list += row("hp", L("CAIRN.HitProtectionLong"));
-    list += row("gold", L("CAIRN.Gold"));
+    list += row("STR", L("CAIRN.Reroll.STR"), true, abilityTip);
+    list += row("DEX", L("CAIRN.Reroll.DEX"), true, abilityTip);
+    list += row("WIL", L("CAIRN.Reroll.WIL"), true, abilityTip);
+    // `.formula`, so an unusable HP setting names the FALLBACK — what a click
+    // will actually roll, which is the whole point of reading the helper.
+    list += row("hp", L("CAIRN.HitProtectionLong"), true, rollsTip(effectivePcHpFormula().formula));
+    list += row("gold", L("CAIRN.Gold"), true, rollsTip(effectivePcGoldFormula()));
     // The omen row's precedent below: a Warden who hid rolled flavor is not
     // offered a re-roll of it. An unoffered row's checkbox never exists, so
     // parts.age / parts.traits stay falsy and the run cannot roll them.
     if (traitsVisible()) {
-      list += row("age", L("CAIRN.Age"));
+      // Age's tooltip is the free half of this change — the helper already
+      // existed for the sheet's die, and this row has carried no tooltip since
+      // the checklist shipped. Including it is what makes the set symmetric,
+      // and it is why the tooltip count is SIX here and FIVE with traits off.
+      list += row("age", L("CAIRN.Age"), true,
+        rollsTip(effectiveAgeFormula(CONFIG.Cairn?.characterGenerator2e?.biography?.age).formula));
       list += row("traits", L("CAIRN.Traits"));
     }
     list += row("portrait", L("CAIRN.Reroll.PortraitToken"));
@@ -3306,7 +3364,14 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // The scalar fields, batched into one update.
     const update = {};
     const rolls = {};
-    const abilityFormula = is2e ? "3d6" : (CONFIG.Cairn?.barebonesGenerator?.ability ?? "3d6");
+    // The Warden's tier, not a 2e/Barebones ternary whose every branch was
+    // "3d6" (2026-10-02). THIS WAS ONE OF THE THREE SITES THAT BYPASSED THE
+    // ROLLERS: the checklist calls `evaluateFormula` directly, so a setting
+    // wired only into `rollAbilities` would have left the control a player
+    // reaches for most often — re-roll one STR — on the old literal, with
+    // generation obeying the Warden and the sheet not. `rollAbilities` itself
+    // is no use here because it rolls all three unconditionally.
+    const abilityFormula = effectivePcAbilityFormula();
     for (const ab of ["STR", "DEX", "WIL"]) {
       if (!parts[ab]) continue;
       const roll = await evaluateFormula(abilityFormula);
@@ -3318,7 +3383,11 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // then: re-rolling a portrait must not quietly heal anyone.
     if (parts.STR) update["system.critical"] = false;
     if (parts.hp) {
-      const roll = await evaluateFormula(is2e ? "1d6" : (CONFIG.Cairn?.barebonesGenerator?.hitProtection ?? "1d6"));
+      // `rollPcHitProtection`, never `evaluateFormula`, because this formula is
+      // Warden-TYPED: the wrapper validates it, refuses an `@` reference and
+      // WARNS naming the rejected text, so a bad setting behaves identically
+      // here and at generation. One warning site, the `rollAge` arrangement.
+      const roll = await rollPcHitProtection();
       rolls.hp = roll;
       update["system.hp.value"] = roll.total;
       update["system.hp.max"] = roll.total;
@@ -3327,9 +3396,10 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       // The BASE roll plus whatever the (new or surviving) bonds and question
       // answers grant — the same sum generation writes. With gold unchecked,
       // the bond/question paths above already traded their deltas instead.
-      const roll = await evaluateFormula(is2e
-        ? (CONFIG.Cairn?.characterGenerator2e?.gold ?? "3d6")
-        : (CONFIG.Cairn?.barebonesGenerator?.gold ?? "3d6"));
+      // The Warden's gold tier. No validation wrapper and none needed: the
+      // three tier formulas are project-authored constants, which is the whole
+      // reason gold and abilities are dropdowns while HP is a text box.
+      const roll = await evaluateFormula(effectivePcGoldFormula());
       rolls.gold = roll;
       const bondGold = (actor.system.bonds ?? []).reduce((n, b) => n + (b.gold ?? 0), 0);
       const questionGold = (actor.system.questions ?? []).reduce((n, q) => n + (q.gold ?? 0), 0);

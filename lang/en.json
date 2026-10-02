@@ -559,6 +559,7 @@
     "BackgroundNotCharacter": "Only a player character has a background.",
     "BackgroundWrongSource": "That is a {backgroundEdition} background and this is a {characterEdition} character. A character does not change edition.",
     "BadAgeFormula": "The Age formula setting (\"{formula}\") is not a valid dice formula — the default was rolled instead.",
+    "BadPcHpFormula": "The Hit Protection formula setting (\"{formula}\") is not a valid dice formula — the default was rolled instead.",
     "Bought": "Bought {name} for {cost} gold.",
     "CannotConnect": "{name} can't be connected — monsters never join a party's connections.",
     "ChangeLogOff": "The change log is off.",
@@ -791,6 +792,7 @@
   "CAIRN.Reroll.PortraitToken": "Portrait & token",
   "CAIRN.Reroll.Question": "Question #{num}",
   "CAIRN.Reroll.QuestionsNote": "The two Background Questions belong to the character's Background — their answers and what they grant come from its tables. Re-rolling the Background deals new questions with it.",
+  "CAIRN.Reroll.RollsTip": "Rolls {formula}",
   "CAIRN.Reroll.STR": "STR (Strength)",
   "CAIRN.Reroll.StartingGear": "Starting gear",
   "CAIRN.Reroll.WIL": "WIL (Willpower)",
@@ -908,6 +910,23 @@
     "GroupInventoryHint": "Slot limit, the inventory cap, the marketplace and the coins-per-slot threshold.",
     "MaxEquipSlots": {
       "label": "Maximum inventory slots per character"
+    },
+    "PcAbilityDice": {
+      "hint": "How each of a player character's STR, DEX and WIL is rolled. Standard is the book's roll. Adventurer rolls four dice and keeps the best three. Crawler never rolls below 8. NPCs, hirelings and monsters are not affected. Keep-highest notation is explained on the Dice Formulas page of the System Docs journal, and at airbladder.xyz under Guides.",
+      "label": "Ability dice for player characters"
+    },
+    "PcDice": {
+      "Adventurer": "Adventurer (4d6kh3)",
+      "Crawler": "Crawler (2d6 + 6)",
+      "Standard": "Standard (3d6)"
+    },
+    "PcGoldDice": {
+      "hint": "How a player character's starting coins are rolled. Standard is the book's roll. Coins a bond or a background question grants are added on top and are not affected, and neither are NPCs or hirelings.",
+      "label": "Gold dice for player characters"
+    },
+    "PcHpFormula": {
+      "hint": "The dice a player character's Hit Protection is rolled with. Enter a plain number for a fixed value: 4 gives every character 4. Blank rolls 1d6, the book's roll. NPCs and hirelings are not affected.",
+      "label": "Hit Protection formula for player characters"
     },
     "ShowGenerateHeader": {
       "label": "Show a Roll Character button on the character sheet header"
@@ -1165,7 +1184,7 @@
   "CAIRN.WardenDamage.AddDie": "Add a {die}",
   "CAIRN.WardenDamage.Clear": "Clear the damage",
   "CAIRN.WardenDamage.Formula": "Damage",
-  "CAIRN.WardenDamage.Hint": "Damage from a trap, the environment or a condition. Anyone you have targeted takes it; with nothing targeted, the card's splat asks who.",
+  "CAIRN.WardenDamage.Hint": "Damage from a trap, the environment or a condition. Enter a plain number for a fixed amount: 3 deals 3. Anyone you have targeted takes it; with nothing targeted, the card's splat asks who.",
   "CAIRN.WardenDamage.KeepHighest": "Keep highest",
   "CAIRN.WardenDamage.Pool": "Applies to",
   "CAIRN.WardenDamage.Roll": "Roll damage",

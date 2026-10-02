@@ -51,6 +51,7 @@ export const SETTING_KEYS = [
   // a stored `role: "npc"` that a real NPC also carries once it has run. Do not
   // reason about any new marker from that sentence; reason about the migration.
   "custom-portrait-folder", "custom-portrait-list", "age-formula",
+  "pc-ability-dice", "pc-hp-formula", "pc-gold-dice",
   "disabled-backgrounds",
   // Internal but CONFIGURATION, not a marker: the parked-Connections flag
   // (2026-08-09) must ride the namespace migration — losing it would re-park
@@ -207,7 +208,12 @@ export const SETTING_GROUPS = [
       "content-source-2e", "content-source-custom", "content-source-barebones",
       "show-generate-header", "allow-player-generate",
       "allow-player-randomization", "show-generation-rolls",
-      "custom-portrait-folder", "age-formula",
+      "custom-portrait-folder",
+      // The four dice settings together, in the order the dice are ROLLED —
+      // which is also the order the Roll Character checklist lists its own rows
+      // (STR/DEX/WIL, then HP, then Gold, then Age). This array's order IS the
+      // Warden's order.
+      "pc-ability-dice", "pc-hp-formula", "pc-gold-dice", "age-formula",
     ],
     // The phrase is the SOURCE AS THE LABEL NAMES IT, which is not always the
     // source's own name: the two 2e labels distinguish canon from custom, and
@@ -252,6 +258,34 @@ export const SETTING_GROUPS = [
     subOptions: { master: "content-source-barebones", keys: ["barebones-failed-career"] },
   },
 ];
+
+/**
+ * The three PC dice tiers as a `choices` object, SHARED by `pc-ability-dice`
+ * and `pc-gold-dice` so the two dropdowns are authored once and cannot offer
+ * different dice (user ruling 2026-10-02: "the same tiers as for abilities").
+ *
+ * THE LABELS CARRY THEIR DICE AS A LITERAL ("Standard (3d6)"), and that is
+ * forced rather than chosen. `registerSettings()` runs on `init`, and `i18nInit`
+ * is a LATER hook (cairn.js), so `game.i18n.format` does not work here and the
+ * label cannot be composed from `Cairn.pcDiceTiers` at registration. Core
+ * localizes a `choices` label at RENDER, which is why a bare key works and a
+ * pre-formatted string would not.
+ *
+ * So the dice are duplicated between that map and these strings — precisely the
+ * review #18 shape, where a formula corrected in one place goes on being
+ * advertised by the other. It is not removable, so it is GATED: `dev:pc-dice`
+ * asserts each rendered option label contains `Cairn.pcDiceTiers[key]`.
+ *
+ * And the three keys are written out LITERALLY rather than derived from the
+ * map's keys, because `i18n:source` treats a key nothing references as an
+ * ERROR — a key built by string concatenation is invisible to it, so all three
+ * labels would be reported unused and the gate would red.
+ */
+const PC_DICE_CHOICES = {
+  standard: "CAIRN.Settings.PcDice.Standard",
+  adventurer: "CAIRN.Settings.PcDice.Adventurer",
+  crawler: "CAIRN.Settings.PcDice.Crawler",
+};
 
 /**
  * The registration blocks below are kept roughly in group order for the
@@ -1001,6 +1035,66 @@ export const registerSettings = () => {
     config: false,
     type: String,
     default: Cairn.characterGenerator2e.biography.age,
+    requiresReload: false,
+  });
+
+  // A PLAYER CHARACTER's other three generation dice (2026-10-02, user ask),
+  // which with `age-formula` above makes every die in character generation the
+  // Warden's. Abilities and gold are TIERS; Hit Protection is free text.
+  //
+  // DROPDOWNS FOR TWO OF THE THREE, on purpose, and not the age formula's
+  // shape: a closed set of three project-authored constants has nothing to
+  // validate and cannot throw at roll time. The accepted cost is that a fourth
+  // tier needs a code change. HP is free text because the ask was "1d6 or a set
+  // value that the warden provides", which no tier can express.
+  //
+  // PLAYER CHARACTERS ONLY, and structurally so — `generateNpc` reads
+  // `npcGenerator.*`, a hireling's statblock comes off its career, a monster
+  // uses weighted picks. Nothing here had to be gated to achieve that.
+  //
+  // `scope: "world"` is right for the socket relay as well as the obvious
+  // reason: the `generatePC` broker runs `createCharacter` on the WARDEN's
+  // client for a player who lacks ACTOR_CREATE, so a client-scoped setting
+  // would be read from the wrong user.
+  //
+  // No `onChange` and no reload. Read at ROLL time — and the Roll Character
+  // checklist builds its tooltips when the dialog OPENS, so those are current
+  // every time. (The sheet's age die is composed in `_prepareContext` and does
+  // stay stale on an already-open sheet until the next render; that predates
+  // this change and the age probe re-renders before each read for it.)
+  game.settings.register(SETTINGS_NS, "pc-ability-dice", {
+    name: "CAIRN.Settings.PcAbilityDice.label",
+    hint: "CAIRN.Settings.PcAbilityDice.hint",
+    scope: "world",
+    config: false,
+    type: String,
+    choices: PC_DICE_CHOICES,
+    default: "standard",
+    requiresReload: false,
+  });
+
+  game.settings.register(SETTINGS_NS, "pc-hp-formula", {
+    name: "CAIRN.Settings.PcHpFormula.label",
+    hint: "CAIRN.Settings.PcHpFormula.hint",
+    scope: "world",
+    config: false,
+    type: String,
+    // NO `choices` — its absence is what makes this render as a text box rather
+    // than a select (settings-menus.js builds a StringField from whatever is
+    // here). `Cairn.pcHpFormula` is the ONE copy of the default, which
+    // `effectivePcHpFormula` also falls back to.
+    default: Cairn.pcHpFormula,
+    requiresReload: false,
+  });
+
+  game.settings.register(SETTINGS_NS, "pc-gold-dice", {
+    name: "CAIRN.Settings.PcGoldDice.label",
+    hint: "CAIRN.Settings.PcGoldDice.hint",
+    scope: "world",
+    config: false,
+    type: String,
+    choices: PC_DICE_CHOICES,
+    default: "standard",
     requiresReload: false,
   });
 

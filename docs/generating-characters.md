@@ -118,6 +118,39 @@ Character Creation tools on their sheets"**, flipped by the **Toggle Player
 Creation Tools** macro — so you can allow character creation but keep
 mid-campaign re-rolls to yourself, or hand players the dice entirely.
 
+## Choose the dice
+
+Under **Game Settings → Air Bladder → Configure Character Generation** are
+four settings that decide what a player character is rolled with. They apply
+to player characters only: NPCs, hirelings and monsters are not affected by
+any of them.
+
+| Setting | Choices |
+|---|---|
+| **Ability dice for player characters** | Standard (3d6) · Adventurer (4d6kh3) · Crawler (2d6 + 6) |
+| **Gold dice for player characters** | the same three |
+| **Hit Protection formula for player characters** | any formula; `1d6` by default |
+| **Age formula for generated characters** | any formula; `2d20 + 10` by default |
+
+**Standard is the book.** **Adventurer** rolls four dice and keeps the best
+three, which covers the same 3–18 range but makes high scores far more
+likely. **Crawler** never rolls below 8. The two menus are independent, so
+Adventurer abilities with Standard gold is a perfectly good table.
+
+Hit Protection takes a formula rather than a menu because a fixed value is
+the common want: type `4` and every character arrives with 4. Leave it blank
+for `1d6`. The notation is explained in **Dice Formulas**, also at
+airbladder.xyz under Guides.
+
+These govern the **base roll** only. Coins a bond or a background question
+grants are added on top, as they always were, so a Crawler character still
+receives them above the 8-gold floor.
+
+Whatever you choose, **the dice say what they are**: hover any row of the
+Roll Character checklist — STR, DEX, WIL, Hit Protection, Gold or Age — and
+it tells you the formula that row will roll. The die beside Age on the sheet
+names its formula the same way.
+
 ## Make the tables yours
 
 Everything a generated character is dealt from is a rollable table, and a table
