@@ -1,4 +1,4 @@
-import { evaluateFormula, getInfoFromDropData, askDamageQuality, damageFormulaFor, damageQualityLabel, damageQualityKind, crawlerOption, explodingDamageFormula } from "./utils.js";
+import { evaluateFormula, getInfoFromDropData, askDamageQuality, damageFormulaFor, damageQualityLabel, damageQualityKind, crawlerOption, explodingDamageFormula, damageDie } from "./utils.js";
 import { SETTINGS_NS } from "./settings.js";
 import { t, actorDisplayName } from "./i18n-content.js";
 
@@ -101,7 +101,19 @@ export const rollItemMacro = async (actorId, itemId) => {
   // places a damage roll can be a player character's, and the Warden's Damage
   // tool is deliberately NOT one of them (a trap has no actor).
   const base = damageFormulaFor(quality, item.system.damageFormula);
-  const rollSchema = actor.type === "character" && crawlerOption("crawler-exploding-damage")
+
+  // The maneuver gate, identical to the sheet's: a player character, a melee
+  // weapon, a d6 or larger, and the option on. The d6 floor is enforced inside
+  // `explodingDamageFormula` for the exploding half, so only this half has to ask.
+  const mayManeuver = actor.type === "character"
+    && item?.system?.ranged !== true
+    && (damageDie(base)?.faces ?? 0) >= 6
+    && crawlerOption("crawler-maneuver-on-max");
+
+  // Exploding is OPT-IN while a maneuver is on offer — the chain is rolled from
+  // the card instead. See `#onRollDamage` for the whole reason.
+  const rollSchema = actor.type === "character"
+    && crawlerOption("crawler-exploding-damage") && !mayManeuver
     ? explodingDamageFormula(base)
     : base;
 
@@ -136,6 +148,8 @@ export const rollItemMacro = async (actorId, itemId) => {
     // roller and templates/chat/dmg-roll-card.html.
     qualityKind: damageQualityKind(quality, { panicked }),
     panic: panicked,
+    // See the sheet's roller: the datum says "a PC's melee attack, option on".
+    maneuver: mayManeuver,
   };
   const msg = await foundry.applications.handlebars.renderTemplate(rollMessageTpl, tplData);
   roll.toMessage({    

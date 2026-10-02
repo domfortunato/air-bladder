@@ -1,7 +1,7 @@
 import { canRegenerateContainers, drawBond, bondRecordFrom, withGrantSource, bondEntitlement, resolveRefs, replaceGrantedContainers, promptBackground, changeBackground, promptFailedCareer, rollFailedCareerName, buildFailedCareerItem, getPortraitManifest, pairedTokenFor, randomPortraitInSameFolder, portraitCategoryFor, regenerateNpc, regenerateHireling, rerollNpcBackground, rerollHirelingCareer, rerollNpcName, rerollNpcFaction, promptHirelingCareer, promptNpcBackground, promptNpcFaction, promptPickOmen, promptPickBond, promptPickQuestionOption, promptPickName, findOmensTable, rollNameFromTable, rollAge, rollTextItems, effectiveAgeFormula, effectivePcAbilityFormula, effectivePcGoldFormula, effectivePcHpFormula, rollPcHitProtection, resolveActorBackground, redealBackgroundGear, rerollAllBonds, reorderInventory, postGenerationRolls, isHandBuilt, clearHandBuilt, FLAG_SCOPE } from "../character-generator.js";
 import { promptMonsterTier, regenerateMonster } from "../monster-generator.js";
 import { openMarketplace, TRANSPORTS_CATEGORY } from "../marketplace.js";
-import { evaluateFormula, cleanDescription, bindEditorClickAwaySave, formatCount, sourceLabel, askDamageQuality, damageFormulaFor, damageQualityLabel, damageQualityKind, d20CardBody, d20CardFlavor, D20_CARD_ABILITIES, crawlerCombat, crawlerOption, explodingDamageFormula } from "../utils.js";
+import { evaluateFormula, cleanDescription, bindEditorClickAwaySave, formatCount, sourceLabel, askDamageQuality, damageFormulaFor, damageQualityLabel, damageQualityKind, d20CardBody, d20CardFlavor, D20_CARD_ABILITIES, crawlerCombat, crawlerOption, explodingDamageFormula, damageDie } from "../utils.js";
 import { resultText, compendiumInfoFromString } from "../compendium.js";
 import { SETTINGS_NS } from "../settings.js";
 import { CONTAINER_ART_CHOICES, CONTAINER_CLASSES } from "../icons.js";
@@ -4000,13 +4000,35 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       quality = await askDamageQuality(dataset.roll, dataset.label ?? "");
       if (quality === null) return; // dismissed: roll nothing
     }
-    // AFTER the quality substitution, so Impaired (1d4) and Enhanced (1d12)
-    // explode too — and after the dialog, so its buttons advertise the plain
+    // AFTER the quality substitution — so an ENHANCED roll (1d12) explodes, and
+    // so an IMPAIRED one (1d4) is judged on the die it actually rolls rather than
+    // on the weapon's — and after the dialog, so its buttons advertise the plain
     // formula rather than `1d6x`. PLAYER CHARACTERS ONLY, tested here because
     // `evaluateFormula` is handed `(formula, data)` and `getRollData()` carries
     // no document: the evaluator cannot know who rolled.
+    //
+    // A DIE SMALLER THAN d6 NEITHER EXPLODES NOR OFFERS A MANEUVER (user ruling
+    // 2026-10-02). The exploding half enforces that inside
+    // `explodingDamageFormula`, so this call site cannot forget it and neither can
+    // macros.js; the maneuver half asks `damageDie` here, where the item is.
     const base = damageFormulaFor(quality, dataset.roll);
-    const formula = this.actor.type === "character" && crawlerOption("crawler-exploding-damage")
+
+    // The row carries the id; the control itself carries only the formula and the
+    // label. A non-weapon with a damage formula (an armor's horns) has no `ranged`
+    // field at all, and reads as melee — which is what it is.
+    const rolledItem = this.actor.items.get(
+      event.target?.closest("[data-item-id]")?.dataset.itemId);
+    const mayManeuver = this.actor.type === "character"
+      && rolledItem?.system?.ranged !== true
+      && (damageDie(base)?.faces ?? 0) >= 6
+      && crawlerOption("crawler-maneuver-on-max");
+
+    // EXPLODING IS OPT-IN WHEN A MANEUVER IS ON OFFER: the player chooses on the
+    // card between exploding the die and forgoing the damage, so the chain must
+    // NOT be resolved here. With nothing to choose — ranged, sub-d6, or the
+    // option off — this is the behaviour that shipped, untouched.
+    const formula = this.actor.type === "character"
+      && crawlerOption("crawler-exploding-damage") && !mayManeuver
       ? explodingDamageFormula(base)
       : base;
 
@@ -4037,6 +4059,11 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
         // Which of the two whole-sentence weapon keys was used, so the hook can
         // rebuild the line for a card that never got a target.
         panic: panicked,
+        // The ONE thing the render hook cannot work out for itself: that this was
+        // a player character's melee attack and the option was on when the die was
+        // thrown. Die size and "did it roll its max" are both in the stored roll,
+        // so the hook reads those rather than trusting a datum for them.
+        maneuver: mayManeuver,
       }
     );
     roll.toMessage({ speaker: ChatMessage.getSpeaker({ actor: this.actor }), flavor });

@@ -1384,6 +1384,16 @@
     font-weight: 700;
 }
 
+/* "A d6 exploded!", one line per explosion on a damage card (module/cairn.js
+   nameExplodedDice). Deliberately .dmg-quality's treatment above -- bold, its
+   own full-width line, NO colour -- so a three-step chain stacks up without
+   competing with the card it sits on (user ruling 2026-10-02; the red scar-banner
+   glow and an amber "ran hot" were both offered and declined). */
+.chat-message .dmg-exploded {
+    flex-basis: 100%;
+    font-weight: 700;
+}
+
 /* "Got a scar!" on a damage card. A scar is a rules event with lasting
    consequences and it read as one more bold label in a stack of them. Centred
    and glowed, borrowing #die-of-fate-button's treatment (user ask) -- the same
@@ -1541,6 +1551,35 @@
 
 .mark-critical-damage:hover {
     text-shadow: 0 0 12px var(--color-level-error, #ce0707);
+}
+
+/* Crawler Combat Mode's alternative to Mark Critical Damage, directly beside it
+   on the same card. Deliberately that button's SHAPE -- bold, a coloured border,
+   an 8px text glow brightening to 12px -- recoloured in the teal Fatigue wears in
+   the inventory (.fatigue-row) and on the cast whisper's Add Fatigue button, so
+   the two controls read as a matched pair of equal choices separated only by
+   colour (user ask, 2026-10-02). NOT .grimoire-add-fatigue's box-shadow halo:
+   that button never sits next to a bordered one, and a haloed button beside a
+   bordered one reads as a different KIND of control rather than an alternative.
+   Unscoped, like .mark-critical-damage above and unlike .grimoire-add-fatigue,
+   so the pair's two rules stay symmetric in this file.
+   --ab-fatigue-chat, NEVER --ab-accent: the accent is re-pointed to #35c8da for
+   a .chat-message under a dark interface (see its declaration) and washes out on
+   a tile that is parchment in BOTH themes. Same hue in light, so this is the
+   sheet's Fatigue colour wherever the two surfaces can share one. The mistake is
+   invisible in light mode, which is why dev:crawler-combat reads it in dark. */
+.take-fatigue-instead {
+    font-weight: bold;
+    border-color: var(--ab-fatigue-chat);
+    text-shadow: 0 0 8px var(--ab-fatigue-chat);
+}
+
+/* The hover is scoped to THIS button and deliberately not shared with
+   .grimoire-add-fatigue, which has never had one: the two no longer share a
+   rule, so there is nothing to keep identical, and the GLOG whisper is a
+   different surface that this change does not touch. */
+.take-fatigue-instead:hover {
+    text-shadow: 0 0 12px var(--ab-fatigue-chat);
 }
 
 /* THE DAMAGE-QUALITY DIALOG -- askDamageQuality in module/utils.js, which passes

@@ -236,6 +236,14 @@
   "CAIRN.Crawler.FatigueButton": "Take a Fatigue instead",
   "CAIRN.Crawler.OverburdenedBanner": "Over capacity — HP stays 0 and you are Deprived until you free a slot.",
   "CAIRN.Crawler.FatigueButtonTip": "Take Critical Damage, or take a Fatigue instead. The Fatigue fills a slot even if you have none free, leaving you overburdened — Deprived and at 0 Hit Protection until you free one.",
+  "CAIRN.Ranged": "Ranged",
+  "CAIRN.RangedTip": "A bow, crossbow or sling rather than something swung in reach. Cairn 2e does not distinguish the two, so this matters only to the Maneuver on max melee damage option of Crawler Combat Mode, which never offers a maneuver for a ranged attack.",
+  "CAIRN.Crawler.DieExploded": "A d{die} exploded!",
+  "CAIRN.Crawler.ExplodeButton": "Explode the Die",
+  "CAIRN.Crawler.ExplodeButtonTip": "Roll the die again and add it, for as long as it keeps rolling its highest face.",
+  "CAIRN.Crawler.ManeuverButton": "Maneuver",
+  "CAIRN.Crawler.ManeuverButtonTip": "Forgo all of this damage and attempt a maneuver instead, resolved with an ability check the Warden calls for.",
+  "CAIRN.Crawler.DamageForgone": "Damage forgone for a maneuver.",
   "CAIRN.CriticalDamageStatusFor": "Critical Damage — {key}",
   "CAIRN.CriticalDamageToggle": "Critical Damage (STR): mark or clear. A critically wounded PC can only crawl until stabilized.",
   "CAIRN.CurrentOf": "Current {name}",
@@ -560,6 +568,7 @@
   "CAIRN.NotesPlaceholderMonster": "Click here to add notes about this monster.",
   "CAIRN.Notify": {
     "ApplyDamageWardenOnly": "Only the Warden can apply damage.",
+    "DamageForgoneForManeuver": "That damage was forgone for a maneuver, so it cannot be applied. Use the Warden's Damage tool if some of it should land anyway.",
     "BackgroundNotCharacter": "Only a player character has a background.",
     "BackgroundWrongSource": "That is a {backgroundEdition} background and this is a {characterEdition} character. A character does not change edition.",
     "BadAgeFormula": "The Age formula setting (\"{formula}\") is not a valid dice formula — the default was rolled instead.",
@@ -893,8 +902,12 @@
       "label": "Crawler Combat Mode"
     },
     "CrawlerExplodingDamage": {
-      "hint": "When a player character's damage die rolls its highest face, it is rolled again and added, for as long as it keeps rolling the highest. Only the die that is kept explodes, so two sixes on a keep-highest weapon are one six, not two. Only player characters' damage rolls explode — never an NPC's, a monster's, or a trap's. Only available while Crawler Combat Mode is on; the row is greyed out otherwise.",
+      "hint": "When a player character's damage die rolls its highest face, it is rolled again and added, for as long as it keeps rolling the highest. Only the die that is kept explodes, so two sixes on a keep-highest weapon are one six, not two. Dice smaller than a d6 never explode, so an impaired attack does not. Every explosion is announced on the damage card. Only player characters' damage rolls explode — never an NPC's, a monster's, or a trap's. Only available while Crawler Combat Mode is on; the row is greyed out otherwise.",
       "label": "Exploding damage dice"
+    },
+    "CrawlerManeuverOnMax": {
+      "hint": "When a player character rolls maximum damage with a melee weapon, their chat card offers to forgo all of that damage and attempt a maneuver instead, resolved with an ability check the Warden calls for. Only dice of d6 or larger qualify, so an impaired attack never offers one, and ranged weapons never do. With Exploding damage dice also on, the card offers the choice: explode the die, or maneuver. Borrowed from Knave 2e by Ben Milton. Only available while Crawler Combat Mode is on; the row is greyed out otherwise.",
+      "label": "Maneuver on max melee damage"
     },
     "CrawlerFatigueForCritical": {
       "hint": "When a player character fails a Critical Damage save, their chat card also offers to take a Fatigue instead. The Fatigue fills a slot even if none is free, which leaves them overburdened. Only available while Crawler Combat Mode is on; the row is greyed out otherwise.",

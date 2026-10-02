@@ -75,9 +75,17 @@ only the kept die explodes. Two sixes are one six. Written the other way round,
 not what you want.
 
 **Crawler Combat Mode applies this for you**, to player characters' damage rolls
-only, so you do not normally type it. See that guide. Its one limit is a
-keep-highest roll of **different** dice, `d6 + d8`, which is left alone: keeping
-the highest and then exploding it cannot be written for mixed dice.
+only, so you do not normally type it. See that guide. Two limits go with it.
+A keep-highest roll of **different** dice, `d6 + d8`, is left alone — keeping the
+highest and then exploding it cannot be written for mixed dice. And **nothing
+smaller than a d6 explodes**, so a d4 weapon and every Impaired roll are left
+alone too; Enhanced rolls are a d12 and explode normally.
+
+With **Maneuver on max melee damage** also on, a melee attack's die does not
+explode by itself: the card offers the player the choice of exploding it or
+forgoing the damage for a maneuver, and pressing **Explode the Die** rolls the
+chain then and there. Typing `x` yourself still explodes immediately — the choice
+is something the hack offers, not something the notation does.
 
 ## Minimums and maximums
 

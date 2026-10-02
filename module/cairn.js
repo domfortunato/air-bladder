@@ -15,7 +15,7 @@ import { Cairn } from "./config.js";
 import { CairnCombat, CairnCombatTracker, registerCombatOrderGuard, markInitiativeOutcome } from "./combat.js";
 import { handleOfferSocket, bindOfferCard } from "./item-offer.js";
 import { createCairnMacro, rollItemMacro } from "./macros.js";
-import { Damage, DAMAGE_APPLIED_FLAG, DAMAGE_SOURCE_FLAG, localizeDamageCard } from "./damage.js";
+import { Damage, DAMAGE_APPLIED_FLAG, DAMAGE_SOURCE_FLAG, MANEUVER_CHOICE_FLAG, localizeDamageCard } from "./damage.js";
 import { registerWardenDamageControl } from "./warden-damage.js";
 import { registerWardenDashboardControl, refreshDashboardTime, localizeDashboardCard } from "./warden-dashboard.js";
 import { installWorldCalendar, checkWorldCalendar } from "./game-time.js";
@@ -27,7 +27,7 @@ import { connectionHeadroom, connectedOwnershipShape, syncPendingOwnership, OWNE
 import { loadContentOverlay, t, translationOf, contentLocalized, tokenDisplayName, actorDisplayName, LOCALIZED_DIRECTORIES, localizeJournalBlocks } from "./i18n-content.js";
 import { injectEncounterButton, localizeEncounterQty, resolveTable } from "./encounters.js";
 import { bindGrimoireFatigueButton, localizeGlogCastCard } from "./grimoire.js";
-import { nameableTokens, DAMAGE_QUALITY_KEYS, localizeD20Card, localizeRollFlavor } from "./utils.js";
+import { nameableTokens, DAMAGE_QUALITY_KEYS, localizeD20Card, localizeRollFlavor, crawlerOption } from "./utils.js";
 
 /**
  * Crawler Combat Mode: the save card's Critical-Damage-or-Fatigue choice, once
@@ -2987,6 +2987,255 @@ const offerUntargetedApply = (html) => {
 };
 
 /**
+ * Announce every exploding die on a damage card (Crawler Combat Mode).
+ *
+ * THE EXPLOSIONS ARE ALREADY STORED, which is why this needs no flag, no
+ * template field and no edit to either producer. Measured in the shipped client:
+ * `Die#explode` stamps `r.exploded = true` on each result that explodes
+ * (dice/terms/die.mjs), `DiceTerm.SERIALIZE_ATTRIBUTES` includes `"results"`
+ * (terms/dice.mjs) and `RollTerm#toJSON` copies every one of those attributes
+ * wholesale (terms/term.mjs) — so the flag rides in the message's roll JSON for
+ * good. `Roll#dice` flattens, pushing each term's own `dice` (which covers a
+ * PoolTerm's inner rolls) and each DiceTerm itself, so one walk catches every die
+ * however the formula was shaped.
+ *
+ * Three things that buys, and they are the reason it is built this way:
+ *  - BOTH producers are covered without touching either (`#onRollDamage` and
+ *    macros.js), and so is any future one.
+ *  - It is language-neutral BY CONSTRUCTION. The only text is built here, per
+ *    viewer, from one key and a number — so this cannot join review #24's class
+ *    of cards frozen in the composer's language, because there is no stored
+ *    sentence to freeze.
+ *  - It is RETROACTIVE: every exploded card already in the log gains its lines
+ *    the moment this loads, which is `nameDamageTargets`' own argument.
+ *
+ * ONE LINE PER EXPLOSION, repeated (user ruling 2026-10-02, re-confirmed when
+ * the consolidated "exploded: 6, 6, 3" form was offered): a 6 -> 6 -> 3 chain
+ * prints two. That count is also a SECOND, INDEPENDENT WITNESS of modifier
+ * order — under the correct `2d6kx` the dropped die is `active: false` and
+ * `explode` skips it, so two sixes give ONE line, where `2d6xk` would give two.
+ *
+ * TWO behaviours that look like bugs and are not. It is driven by the ROLL and
+ * not by the setting, so a card keeps its lines after the option is switched off
+ * (the die really did explode — the price of being retroactive). And a Warden who
+ * types `2d6x` into a weapon's formula, or into the Warden's Damage field, which
+ * shares this template, is announced too: this says "a damage die exploded",
+ * which is true however the `x` got there.
+ */
+const nameExplodedDice = (message, html) => {
+  // The roll's own content is hidden from anyone who may not read it, and an
+  // explosion REVEALS that the die rolled its maximum. Asked FIRST, the rule
+  // localizeD20Card and markInitiativeOutcome already work to.
+  if (!message?.isContentVisible) return;
+  const row = html.querySelector(".flavor-dice-roll");
+  if (!row) return;                                 // not a damage card
+  // Idempotent: this hook fires on every render, and an appending rewrite with no
+  // guard doubles its own lines the first time the log is re-rendered.
+  if (row.querySelector(".dmg-exploded")) return;
+  for (const roll of message.rolls ?? []) {
+    for (const die of roll?.dice ?? []) {
+      const faces = Number(die?.faces);
+      if (!Number.isFinite(faces)) continue;
+      const n = (die.results ?? []).filter((r) => r?.exploded).length;
+      for (let i = 0; i < n; i++) {
+        const line = document.createElement("div");
+        line.className = "dmg-exploded";
+        // textContent, never innerHTML: the number comes off a stored roll, and
+        // a card value reaching a markup sink is the shape review #24 closed.
+        line.textContent = game.i18n.format("CAIRN.Crawler.DieExploded", { die: faces });
+        row.append(line);
+      }
+    }
+  }
+};
+
+/**
+ * The ONE Die term a roll rolled, or null for any other shape.
+ *
+ * `Roll#dice` flattens a PoolTerm into its members' dice, so a `+` formula comes
+ * back with two or more and this answers null — which is the same boundary
+ * `damageDie` draws in utils.js, and for the same reason: on a pool the losing
+ * member may ALSO have rolled its maximum, and nothing here can tell a kept
+ * member from a dropped one without walking `PoolTerm#results`.
+ */
+const soleDie = (roll) => {
+  const dice = roll?.dice ?? [];
+  return dice.length === 1 ? dice[0] : null;
+};
+
+/**
+ * Crawler Combat Mode: offer Explode the Die / Maneuver on a max melee damage
+ * roll, and show what was chosen.
+ *
+ * BUILT HERE AND NOT IN THE TEMPLATE, for the reason `offerUntargetedApply`
+ * already records: the card's markup is rendered once and STORED as the flavor,
+ * so a button with a localized label would freeze in the roller's language for
+ * good. The template emits one silent datum (`data-maneuver`) and this builds the
+ * controls per viewer.
+ *
+ * WHAT COMES FROM WHERE. The datum carries the only thing a card cannot be asked:
+ * that this was a player character's MELEE attack with the option on when the die
+ * was thrown. Everything else is read back off the stored roll — that it was a
+ * single die, that the die is a d6 or larger, and that it rolled its maximum — so
+ * none of those can drift from what actually happened, and the die-size test is
+ * re-asked here FAIL-CLOSED rather than trusted from the producer.
+ *
+ * THE GATE IS `isAuthor || isGM`, and it is deliberately NOT the Fatigue button's
+ * actor-based test. Both controls here write to the MESSAGE — one rewrites
+ * `rolls`, the other sets a flag — and a ChatMessage makes its AUTHOR the owner
+ * (common/documents/chat-message.mjs, `getUserLevel`), with `update` defaulting to
+ * OWNER. A player who owns the character but did not roll is not the author, so an
+ * actor-based gate would offer them a button the server refuses. The roller is the
+ * author and a GM owns everything, so no broker is involved.
+ */
+const nameManeuverChoice = (message, html) => {
+  // An explosion and a max-damage roll both REVEAL the die's face, so this asks
+  // the same question localizeD20Card asks first.
+  if (!message?.isContentVisible) return;
+  if (!html.querySelector("[data-maneuver]")) return;   // not an eligible card
+  const row = html.querySelector(".flavor-dice-roll");
+  if (!row) return;
+
+  const choice = message.getFlag(FLAG_SCOPE, MANEUVER_CHOICE_FLAG) ?? null;
+
+  // The outcome, once something has been chosen. Printed for the FORGONE case
+  // only: an exploded die already says so in its own lines, and a second sentence
+  // repeating it would be noise.
+  if (choice === "maneuver") {
+    const btn = html.querySelector(".apply-dmg");
+    if (btn) {
+      // Affordance only — the refusal lives in onClickChatMessageApplyButton,
+      // which reads this same flag. `.apply-dmg` is an anchor, so `disabled` is
+      // decoration here and the handler is the wall.
+      btn.classList.add("spent");
+      btn.setAttribute("disabled", "disabled");
+      btn.dataset.tooltip = game.i18n.localize("CAIRN.Notify.DamageForgoneForManeuver");
+    }
+    if (!row.querySelector(".dmg-forgone")) {
+      const line = document.createElement("div");
+      line.className = "dmg-forgone";
+      line.textContent = game.i18n.localize("CAIRN.Crawler.DamageForgone");
+      row.append(line);
+    }
+    // NOT a return: the pair is still rendered below, DISABLED. A spent control
+    // that stays on screen is the affordance this codebase uses everywhere else
+    // (the grimoire's Fatigue card, Mark Critical Damage), and it is what tells
+    // somebody scrolling back what was on offer and that it was taken. Returning
+    // here made an exploded card simply LOSE its buttons, because a completed
+    // chain leaves no un-exploded maximum for the eligibility test to find.
+  }
+
+  const roll = message.rolls?.[0];
+  const die = soleDie(roll);
+  const faces = Number(die?.faces);
+  // FAIL-CLOSED on the floor: a producer that somehow stamped the datum on a
+  // sub-d6 roll offers nothing here either.
+  if (!die || !Number.isFinite(faces) || faces < 6) return;
+  // The kept die, having rolled its maximum and not yet exploded. A completed
+  // chain ends on a result BELOW the maximum — that is why it stopped — so this
+  // finds nothing once Explode has been pressed, which is a second guard beside
+  // the flag.
+  const maxResult = (die.results ?? []).find(
+    (r) => r?.active && r.result === faces && !r.exploded);
+  // Eligible if the kept die is sitting on its maximum — OR if a choice is
+  // already recorded, in which case this card WAS eligible and the pair must
+  // still render so it can be shown spent. The second half is load-bearing for
+  // the exploded case, as the note above the forgone branch explains.
+  if (!maxResult && !choice) return;
+
+  if (!(message.isAuthor || game.user.isGM)) return;
+
+  const wrap = document.createElement("div");
+  wrap.className = "dmg-maneuver-choice";
+  const make = (cls, labelKey, tipKey) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = cls;
+    // A BARE KEY: core's TooltipManager localizes `data-tooltip` at hover, which
+    // is how the save card's Fatigue button states its own cost.
+    b.dataset.tooltip = tipKey;
+    b.textContent = game.i18n.localize(labelKey);
+    return b;
+  };
+  // Explode is offered only while that option is on; Maneuver always is, because
+  // the datum would not be on the card otherwise.
+  const explodeBtn = crawlerOption("crawler-exploding-damage")
+    ? make("explode-the-die", "CAIRN.Crawler.ExplodeButton", "CAIRN.Crawler.ExplodeButtonTip")
+    : null;
+  const maneuverBtn = make("take-maneuver", "CAIRN.Crawler.ManeuverButton",
+    "CAIRN.Crawler.ManeuverButtonTip");
+
+  const seal = () => {
+    explodeBtn?.setAttribute("disabled", "disabled");
+    maneuverBtn.setAttribute("disabled", "disabled");
+  };
+
+  // Already decided: render the pair sealed and bind nothing. The flag is the
+  // enforcement either way, but an unbound disabled button cannot be re-armed by
+  // a devtools toggle.
+  if (choice) {
+    seal();
+    if (explodeBtn) wrap.append(explodeBtn);
+    wrap.append(maneuverBtn);
+    row.append(wrap);
+    return;
+  }
+
+  if (explodeBtn) {
+    explodeBtn.onclick = async () => {
+      // SEAL SYNCHRONOUSLY, before the first await. The dice animation is seconds
+      // long — the widest double-click window in this codebase — and the take-over
+      // doors already paid for this lesson once.
+      if (message.getFlag(FLAG_SCOPE, MANEUVER_CHOICE_FLAG)) return;
+      seal();
+      // Rolled as a REAL Roll for two reasons: core supplies the recursion and the
+      // `exploded` flags, and Dice So Nice needs something to animate.
+      const chain = await new Roll(`1d${faces}x`).evaluate();
+      // DSN ANIMATES AN UPDATE ONLY WHEN THE ROLL COUNT GROWS — measured in 6.2.9:
+      // its updateChatMessage hook requires `dsnCountAddedRoll > 0` and animates
+      // `rolls.slice(dsnIndexAddedRoll)`. This rewrites one roll IN PLACE, so the
+      // count does not change and DSN would show nothing at all. Hence the
+      // explicit call — and `synchronize` (argument 3) MUST be true, or the dice
+      // land on this client alone, which a Warden testing solo cannot tell apart
+      // from working (the trap character-generator.js:3804 already records).
+      // Undefined without DSN, and `await undefined` resolves at once.
+      await game.dice3d?.showForRoll(
+        chain, game.user, true, null, false, message.id, message.speaker);
+      // Merge the chain into the stored die: the kept maximum EXPLODED, and the
+      // chain's own results join it as active results of the same term.
+      maxResult.exploded = true;
+      die.results.push(...(chain.dice?.[0]?.results ?? []));
+      // So the card's formula stops claiming a plain `2d6k`. `Roll#formula`
+      // derives from the terms, and `resetFormula()` is core's own way of bringing
+      // the stored `_formula` back into step with them.
+      if (!die.modifiers.some((m) => /^x/i.test(m))) die.modifiers.push("x");
+      roll.resetFormula();
+      // MANDATORY: `Roll.fromData` TRUSTS the stored total and never recomputes
+      // it, so without this every later reader — the Apply path included, which
+      // parses `.dice-total` off the rendered card — keeps the pre-explosion
+      // number. `_evaluateTotal` is what `Roll.fromTerms` itself calls here.
+      roll._total = roll._evaluateTotal();
+      await message.update({ rolls: [roll.toJSON()] });
+      await message.setFlag(FLAG_SCOPE, MANEUVER_CHOICE_FLAG, "explode");
+    };
+  }
+
+  maneuverBtn.onclick = async () => {
+    if (message.getFlag(FLAG_SCOPE, MANEUVER_CHOICE_FLAG)) return;
+    seal();
+    // NOTHING ELSE IS AUTOMATED. The maneuver itself is an ability check the
+    // Warden calls for, and the no-automation deviation keeps that at the table.
+    // All this records is that the damage was given up, which is what greys the
+    // Apply control and what that control's handler refuses on.
+    await message.setFlag(FLAG_SCOPE, MANEUVER_CHOICE_FLAG, "maneuver");
+  };
+
+  if (explodeBtn) wrap.append(explodeBtn);
+  wrap.append(maneuverBtn);
+  row.append(wrap);
+};
+
+/**
  * Who dealt this damage, as a display name.
  *
  * ONE rule, shared by the attack line on the roll card and the attribution line
@@ -3431,6 +3680,16 @@ Hooks.on("renderChatMessageHTML", (message, html, data) => {
   offerUntargetedApply(html);
   nameDamageTargets(message, html, scene);
   localizeDamageQuality(html);
+  // Every exploding die on the card, one line each, derived from the stored roll
+  // rather than from anything the roller composed. Ordering within this group is
+  // free — nothing here replaces `.flavor-dice-roll` wholesale and this only
+  // appends to it — but it rides before the player-trim like its siblings,
+  // because a player watching their own die explode is the point of it.
+  nameExplodedDice(message, html);
+  // Crawler Combat Mode's max-melee-damage choice. AFTER nameExplodedDice, so an
+  // already-exploded card shows its lines above the buttons, and BEFORE the
+  // Warden-only apply block below, whose anchor this may grey.
+  nameManeuverChoice(message, html);
   // Before showDamageApplied, which replaces this tooltip on a spent card —
   // see its docblock.
   relabelApplyTooltip(html);
@@ -3482,6 +3741,20 @@ Hooks.on("renderChatMessageHTML", (message, html, data) => {
     const critActor = token?.actor ?? game.actors.get(message.speaker?.actor);
     const mayAnswer = critActor
       && (critActor.testUserPermission(game.user, "OWNER") || game.user.isGM);
+    // SPENDING THE CHOICE IS A MESSAGE WRITE, and a ChatMessage makes its AUTHOR
+    // the owner (common/documents/chat-message.mjs `getUserLevel`; `update`
+    // defaults to OWNER). So a second player who co-owns the character but did
+    // not roll the save passes `mayAnswer` and is refused by the server on the
+    // flag: the Fatigue lands on the actor, the flag does not, neither button
+    // seals, and they can then ALSO mark Critical Damage -- precisely the
+    // exclusivity this option promises. Found 2026-10-02, in code shipped the
+    // same day.
+    //
+    // SCOPED to the cards that have a choice to spend. An ordinary Critical
+    // Damage card writes no flag at all (see the `if (fatigueBtn)` below), so
+    // requiring authorship there would withdraw a working button from a
+    // co-owner -- a regression dressed as a fix.
+    const mayChoose = mayAnswer && (message.isAuthor || game.user.isGM);
     // CRAWLER COMBAT MODE: the two buttons are EXCLUSIVE, and the choice is
     // spent on the MESSAGE rather than in local DOM. `disabled` alone is what
     // the Critical Damage button has always done, and it does not survive a
@@ -3498,7 +3771,8 @@ Hooks.on("renderChatMessageHTML", (message, html, data) => {
     if (spent()) seal();
 
     if (critBtn) {
-      if (mayAnswer) {
+      // `mayChoose` only where the flag is actually written -- see its comment.
+      if (fatigueBtn ? mayChoose : mayAnswer) {
         critBtn.onclick = async (ev) => {
           // Capture the button before awaiting: event.currentTarget is null once
           // the (async) handler resumes after the update.
@@ -3516,7 +3790,8 @@ Hooks.on("renderChatMessageHTML", (message, html, data) => {
     }
 
     if (fatigueBtn) {
-      if (mayAnswer) {
+      // Always spends the choice, so always needs to be able to write the flag.
+      if (mayChoose) {
         fatigueBtn.onclick = async (ev) => {
           const b = ev.currentTarget;
           if (spent()) return;

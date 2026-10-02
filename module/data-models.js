@@ -677,9 +677,30 @@ class ItemData extends CairnDataModel {
   }
 }
 
+/**
+ * A weapon.
+ *
+ * `ranged` IS THE FIRST THING THIS SYSTEM HAS HAD TO INVENT ABOUT A WEAPON, and
+ * it exists for exactly one rule: Crawler Combat Mode's Maneuver on max melee
+ * damage (2026-10-02). Cairn 2e does not distinguish melee from ranged anywhere
+ * — there is no SRD datum to read — so the alternative was matching the weapon's
+ * NAME, which fails on a Warden's homebrew and fails again on a Spanish client,
+ * where the content overlay has already translated it.
+ *
+ * DEFAULT FALSE, so every weapon that exists is melee and a Warden ticks the
+ * exceptions. Of the eighteen shipped weapons exactly three are ranged: Bow,
+ * Crossbow and Sling.
+ *
+ * NOT on `ArmorData`, which carries `withDamage` too: a horned crown strikes at
+ * arm's length, and a field offered where it can only ever be false is a question
+ * the sheet should not ask.
+ */
 class WeaponData extends CairnDataModel {
   static defineSchema() {
-    return { ...universal(), ...withDamage(), ...consumable(), ...relicFields() };
+    return {
+      ...universal(), ...withDamage(), ...consumable(), ...relicFields(),
+      ranged: bool(),
+    };
   }
 }
 

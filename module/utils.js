@@ -204,7 +204,49 @@ export const crawlerOption = (key) => {
 /** A bare die, with or without an explicit count: `d6`, `1d8`, `2d10`. */
 const BARE_DIE = /^(\d*)d(\d+)$/i;
 /** A die carrying only a keep modifier: `2d6k`, `2d8kh`, `3d6kh1`. */
-const KEEP_DIE = /^\d*d\d+k[hl]?\d*$/i;
+const KEEP_DIE = /^(\d*)d(\d+)k[hl]?\d*$/i;
+
+/**
+ * THE FLOOR, and it governs BOTH halves of Crawler Combat Mode (user ruling
+ * 2026-10-02): a die smaller than a d6 neither explodes nor offers a maneuver.
+ *
+ * ONE threshold rather than two rules, and `< 6` rather than `<= 4` on purpose:
+ * "d4 or lower" and "d6 or larger" are the same boundary described from either
+ * side, and a nonstandard d5 must not fall between them.
+ *
+ * The case that actually fires is IMPAIRED, not a d4 weapon. `IMPAIRED_FORMULA`
+ * is `1d4`, so every impaired attack — and every panicked one, since panic
+ * imposes impaired — is out, on every weapon in the game. Of the eighteen
+ * shipped weapons the only sub-d6 one is the Sling, which is also ranged and so
+ * was excluded anyway.
+ */
+const MIN_EXPLODING_FACES = 6;
+
+/**
+ * The single Die term a damage formula rolls, or null for any other shape.
+ *
+ * ONE recogniser, TWO consumers: `explodingDamageFormula` below and the maneuver
+ * gate in `actor-sheet.js` / `macros.js`. Both need the same two answers — "is
+ * this one plain die?" and "how many faces?" — and keeping two copies of that
+ * parse is exactly how the rules they express would drift apart.
+ *
+ * `null` for a `+` form is deliberate and load-bearing for the maneuver rule: a
+ * `+` formula becomes a PoolTerm, whose losing member may ALSO have rolled its
+ * maximum, and `Roll#dice` cannot tell a kept member from a dropped one without
+ * walking `PoolTerm#results`. So "the die rolled its max" has no unambiguous
+ * answer there and no maneuver is offered. The exploding half handles `+` on its
+ * own, below, because rewriting it to `NdXkx` makes it a single term.
+ *
+ * @param {String} formula
+ * @return {{count: Number, faces: Number}|null}
+ */
+export const damageDie = (formula) => {
+  const f = String(formula ?? "").trim();
+  if (!f) return null;
+  const m = BARE_DIE.exec(f) ?? KEEP_DIE.exec(f);
+  if (!m) return null;
+  return { count: Math.max(1, Number(m[1] || 1)), faces: Number(m[2]) };
+};
 
 /**
  * The exploding form of a damage formula, or the formula unchanged.
@@ -233,6 +275,11 @@ const KEEP_DIE = /^\d*d\d+k[hl]?\d*$/i;
  * rejected). No shipped weapon hits it — the only `+` form in the packs is one
  * `d6+d6` — and `docs/dice-formulas.md` says so.
  *
+ * A DIE SMALLER THAN d6 NEVER EXPLODES (user ruling 2026-10-02) — see
+ * MIN_EXPLODING_FACES above. This REVISES behaviour that shipped in a16e42e0,
+ * where an impaired `1d4` became `1d4x`: impaired attacks no longer explode,
+ * enhanced ones still do.
+ *
  * Anything unrecognised is returned untouched. Guessing at a formula a Warden
  * typed is how a damage roll quietly stops meaning what it says.
  *
@@ -246,7 +293,10 @@ export const explodingDamageFormula = (formula) => {
   // Already exploding, or carrying a modifier we did not write: leave it.
   if (/x/i.test(f)) return formula;
 
-  if (BARE_DIE.test(f) || KEEP_DIE.test(f)) return `${f}x`;
+  // THE FLOOR LIVES HERE, not at the two call sites, so neither can forget it —
+  // which is how the PC gate came to be written twice. See MIN_EXPLODING_FACES.
+  const single = damageDie(f);
+  if (single) return single.faces < MIN_EXPLODING_FACES ? formula : `${f}x`;
 
   if (f.includes("+")) {
     const terms = f.split("+").map((t) => t.trim());
@@ -255,6 +305,7 @@ export const explodingDamageFormula = (formula) => {
     // Each term may carry its own count: `2d6 + d6` is three d6 kept highest.
     const faces = new Set(parsed.map((m) => m[2]));
     if (faces.size !== 1) return formula;          // mixed sizes — see above
+    if (Number([...faces][0]) < MIN_EXPLODING_FACES) return formula;  // the floor
     const count = parsed.reduce((n, m) => n + Math.max(1, Number(m[1] || 1)), 0);
     return `${count}d${[...faces][0]}kx`;
   }

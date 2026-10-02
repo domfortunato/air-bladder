@@ -37,6 +37,18 @@ const damageApplyInFlight = new Set();
 export const DAMAGE_SOURCE_FLAG = "damageSource";
 
 /**
+ * Crawler Combat Mode's max-melee-damage choice, as made on the card:
+ * `"explode"` or `"maneuver"`, absent while the card is still asking.
+ *
+ * ONE flag with two values rather than two booleans, because the two options are
+ * EXCLUSIVE and a pair of booleans can represent a state the rules cannot ("both
+ * taken"). Written by the button handlers in cairn.js and read in three places:
+ * to seal the pair on re-render, to print the forgone line, and to refuse Apply
+ * below once the damage has been given up.
+ */
+export const MANEUVER_CHOICE_FLAG = "maneuverChoice";
+
+/**
  * Where a damage card's damage LANDS.
  *
  * "hp" is the whole of Cairn's combat rule — armour, then Hit Protection, then
@@ -347,6 +359,19 @@ export class Damage {
             // in a scrolled-back log must not be a way past it.
             if (message?.getFlag(FLAG_SCOPE, DAMAGE_APPLIED_FLAG)) {
                 ui.notifications.warn(game.i18n.localize("CAIRN.Notify.DamageAlreadyApplied"));
+                return;
+            }
+            // FORGONE FOR A MANEUVER (Crawler Combat Mode). The player gave this
+            // damage up in exchange for the attempt, so spending the card anyway
+            // would hand them both. The render hook greys the anchor and prints the
+            // line; this is the half that survives a card left open in a
+            // scrolled-back log, exactly as for the already-applied case above.
+            //
+            // It refuses the CARD, not the damage: a Warden who rules that some
+            // damage lands anyway still has the Warden's Damage tool, which is the
+            // right instrument for a number the dice did not decide.
+            if (message?.getFlag(FLAG_SCOPE, MANEUVER_CHOICE_FLAG) === "maneuver") {
+                ui.notifications.warn(game.i18n.localize("CAIRN.Notify.DamageForgoneForManeuver"));
                 return;
             }
             // In-flight lock, taken SYNCHRONOUSLY before the untargeted picker

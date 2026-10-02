@@ -32,6 +32,7 @@ export const SETTING_KEYS = [
   "weather-log", "use-warden-title", "change-log", "auto-record-scars",
   "enable-glog-magic", "enable-vald-calendar",
   "crawler-combat-mode", "crawler-exploding-damage", "crawler-fatigue-for-critical",
+  "crawler-maneuver-on-max",
   // Character Generation
   "content-source-2e", "content-source-custom", "content-source-barebones",
   "barebones-failed-career", "show-generate-header",
@@ -255,6 +256,7 @@ export const SETTING_GROUPS = [
       // Crawler Combat Mode (2026-10-02) and its two options, which follow it
       // directly so the master reads as the heading of what it governs.
       "crawler-combat-mode", "crawler-exploding-damage", "crawler-fatigue-for-critical",
+      "crawler-maneuver-on-max",
     ],
     // The failed career is meaningless unless Barebones sheets are offered —
     // and that master checkbox lives in the Character Generation menu, not
@@ -267,7 +269,13 @@ export const SETTING_GROUPS = [
     // render), Crawler's lives in THIS one (followed live, as it is ticked).
     subOptions: [
       { master: "content-source-barebones", keys: ["barebones-failed-career"] },
-      { master: "crawler-combat-mode", keys: ["crawler-exploding-damage", "crawler-fatigue-for-critical"] },
+      {
+        master: "crawler-combat-mode",
+        keys: [
+          "crawler-exploding-damage", "crawler-fatigue-for-critical",
+          "crawler-maneuver-on-max",
+        ],
+      },
     ],
   },
 ];
@@ -791,6 +799,25 @@ export const registerSettings = () => {
   game.settings.register(SETTINGS_NS, "crawler-fatigue-for-critical", {
     name: "CAIRN.Settings.CrawlerFatigueForCritical.label",
     hint: "CAIRN.Settings.CrawlerFatigueForCritical.hint",
+    scope: "world",
+    config: false,
+    type: Boolean,
+    default: false,
+    requiresReload: false,
+  });
+
+  // Read at ROLL time (does the die explode now, or is the choice deferred to
+  // the card?) and again at RENDER time (does this card offer the buttons?), so
+  // no reload is needed. The card records what it offered, the
+  // crawler-fatigue-for-critical rule above.
+  //
+  // MELEE ONLY, and d6 OR LARGER: both tests live at the roll site, where the
+  // item and the post-quality formula are in hand. See `damageDie` and
+  // MIN_EXPLODING_FACES in utils.js — one threshold serves this and the
+  // exploding option, so an impaired `1d4` neither explodes nor offers a maneuver.
+  game.settings.register(SETTINGS_NS, "crawler-maneuver-on-max", {
+    name: "CAIRN.Settings.CrawlerManeuverOnMax.label",
+    hint: "CAIRN.Settings.CrawlerManeuverOnMax.hint",
     scope: "world",
     config: false,
     type: Boolean,

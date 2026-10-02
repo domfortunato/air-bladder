@@ -1450,7 +1450,7 @@ companion record of who authored what.
   "N on master" parenthetical went stale a THIRD way by surviving two releases
   — a new pack's commit must carry this line, and so must the release that
   moves the master count, which is what this post-release merge is doing)
-- 34 Warden-facing settings in `module/settings.js` (44 `register` calls + 4 `registerMenu` menus from ONE call site,
+- 35 Warden-facing settings in `module/settings.js` (45 `register` calls + 4 `registerMenu` menus from ONE call site,
   ALL `config: false` since 2026-08-22 — see the submenu paragraph below; `roles-restamped`,
   `companion-restamped`, `hireling-split`, `grimoire-keys-stamped`,
   `connections-migrated`, `art-migration-generation` (2026-08-21, review #17 —
@@ -1462,8 +1462,11 @@ companion record of who authored what.
   then `enable-glog-magic` rode a topic branch whose cherry-picks never carried
   this line, caught only when the branch merged — so each settings change updates
   them in its own commit, this one dated 2026-10-02 for CRAWLER COMBAT MODE
-  (`crawler-combat-mode` plus `crawler-exploding-damage` and
-  `crawler-fatigue-for-critical`, Hacks — see the paragraph below) and the same
+  (`crawler-combat-mode` plus `crawler-exploding-damage`,
+  `crawler-fatigue-for-critical` and — later the same day —
+  `crawler-maneuver-on-max`, Hacks: FOUR keys, one master and three options, and
+  the third option is why the group's `subOptions` list had to be a list at all;
+  see the paragraph below) and the same
   day for the PC DICE TRIO
   (`pc-ability-dice`, `pc-hp-formula`, `pc-gold-dice`, Character Generation —
   see the paragraph below) and before it 2026-09-11 for `weather-log` (General,
@@ -1605,9 +1608,23 @@ companion record of who authored what.
     and `getRollData()` carries no document, so it cannot know who rolled. The
     two PC damage sites are `actor-sheet.js` `#onRollDamage` and `macros.js`
     `rollItemMacro`; `warden-damage.js` is deliberately NOT one (a trap has no
-    actor). The transform runs AFTER `damageFormulaFor` so Impaired and Enhanced
-    explode too, and after the quality dialog so its buttons still advertise the
+    actor). The transform runs AFTER `damageFormulaFor` — so an ENHANCED roll
+    (`1d12`) explodes and an IMPAIRED one is judged on the `1d4` it actually
+    rolls — and after the quality dialog so its buttons still advertise the
     plain formula.
+    **THIS SENTENCE SAID "Impaired and Enhanced explode too" AND WAS REVISED ON
+    2026-10-02, the same day it shipped.** A die smaller than d6 now explodes
+    NEVER (user ruling), so impaired attacks do not — and the three sites that
+    promised otherwise (here, the comment at that call site, and
+    `docs/crawler-combat.md`) all had to move together, the
+    correct-sounding-comment trap this file already records. The floor is
+    `MIN_EXPLODING_FACES` in `utils.js`, enforced INSIDE
+    `explodingDamageFormula` so neither call site can forget it, and `< 6`
+    rather than `<= 4` so a nonstandard d5 cannot fall between "d4 or lower" and
+    "d6 or larger". **The transform table in `crawler-combat-probe.mjs` had no
+    `d4` row at all**, which is exactly why the behaviour shipped unexamined: a
+    table of twelve shapes is a claim about the input space that left out the
+    case which fires on every weapon in the game.
   - **DEPRIVED IS DERIVED, NEVER WRITTEN, and it is a TOTAL assignment.**
     `system.deprived` is a hand-ticked boolean with NO PROVENANCE, so a hack
     that wrote it could not tell its own deprivation from one the player set for
@@ -1627,6 +1644,92 @@ companion record of who authored what.
     exercise BOTH branches of `masterOn`, Barebones' master living in another
     submenu (stored value at render) and Crawler's in the same one (followed
     live). That makes the Barebones row the regression witness for the widening.
+  **ROUND TWO THE SAME DAY (2026-10-02): the Fatigue button's colour, exploding
+  dice announced in chat, a d6 FLOOR that revises round one, and a THIRD option,
+  MANEUVER ON MAX MELEE DAMAGE.** Five things from it that will bite:
+  - **THE EXPLOSIONS ARE ALREADY STORED, so announcing them cost no flag, no
+    template field and no edit to either producer.** `Die#explode` stamps
+    `r.exploded = true` on each result that explodes (`dice/terms/die.mjs`),
+    `DiceTerm.SERIALIZE_ATTRIBUTES` includes `results` and `RollTerm#toJSON`
+    copies every serialize attribute wholesale, so the flag rides in the
+    message's roll JSON for good; `Roll#dice` flattens, pushing each term's own
+    `dice` (covering a PoolTerm's inner rolls) and each DiceTerm itself, so one
+    walk catches every die. `nameExplodedDice` therefore reads the MESSAGE, which
+    buys three things at once: both producers covered without touching either,
+    language-neutrality by construction (there is no stored sentence to freeze,
+    so it cannot join review #24's class), and RETROACTIVITY — every exploded
+    card already in the log gains its lines the moment it loads. **ONE LINE PER
+    EXPLOSION, repeated** (user ruling, re-confirmed when the consolidated
+    "exploded: 6, 6, 3" form was offered and declined), and that count is a
+    SECOND, INDEPENDENT WITNESS of modifier order: under the correct `2d6kx` the
+    dropped die is inactive and `explode` skips it, so two sixes print ONE line
+    where `2d6xk` would print two.
+  - **A DIE SMALLER THAN d6 NEVER EXPLODES, which REVISES what shipped hours
+    earlier.** One threshold, `MIN_EXPLODING_FACES` in `utils.js`, serves the
+    exploding option AND the maneuver gate, enforced INSIDE
+    `explodingDamageFormula` so neither call site can forget it. `< 6` not
+    `<= 4`, so a nonstandard d5 cannot fall between "d4 or lower" and "d6 or
+    larger". **The case that fires is IMPAIRED, not a d4 weapon**: of the
+    eighteen shipped weapons the only sub-d6 one is the Sling, which is also
+    ranged and so was excluded anyway, while `IMPAIRED_FORMULA` is `1d4` and
+    every weapon in the game can be impaired. `damageDie(formula)` is the ONE
+    shape recogniser both features read — its `null` for a `+` form is
+    load-bearing for the maneuver rule, because a PoolTerm's losing member may
+    also have rolled its maximum and nothing can tell kept from dropped without
+    walking `PoolTerm#results`.
+  - **`ranged` IS THE FIRST FIELD THIS SYSTEM HAS INVENTED ABOUT A WEAPON**, and
+    only because Cairn 2e distinguishes melee from ranged nowhere, so there was
+    no datum to read. Default FALSE (every weapon is melee; Bow, Crossbow and
+    Sling arrive ticked), NOT on `ArmorData` though it carries `withDamage` too,
+    and deliberately a FIELD rather than a name match: a keyword regex fails on
+    a Warden's homebrew and fails again on a Spanish client, where the content
+    overlay has already translated the name. It is the weapon sheet's TENTH
+    counter — the base grid holds ten and armor already proves it there, but see
+    the note above `.object.item-sheet-grid`, where a ninth counter once
+    auto-placed BELOW the tabs and pushed Cost off the bottom of the window.
+  - **EXPLODING BECOMES OPT-IN WHERE A MANEUVER IS ON OFFER, and that is the
+    whole architecture of the third option.** With both on, a melee d6+ attack
+    rolls PLAIN and the card offers **Explode the Die** / **Maneuver**; ranged,
+    sub-d6 and option-off all keep the shipped auto-explode. Pressing Explode
+    rolls `1d{faces}x`, merges its results into the stored die, marks the kept
+    maximum `exploded`, pushes `x` onto `die.modifiers`, calls `resetFormula()`
+    so the displayed formula follows the terms, and **sets `roll._total =
+    roll._evaluateTotal()` before `message.update`** — MANDATORY, because
+    `Roll.fromData` TRUSTS the stored total and never recomputes it
+    (`roll.mjs`), so without it the Apply path (which parses `.dice-total` off
+    the rendered card) keeps spending the pre-explosion number. Part two's lines
+    then appear for free off `results[].exploded`.
+  - **DICE SO NICE ANIMATES AN UPDATE ONLY WHEN THE ROLL COUNT GROWS**, measured
+    in 6.2.9: `preUpdateChatMessage` computes `dsnCountAddedRoll = changed.rolls
+    .length - stored.length` and `updateChatMessage` requires it `> 0`, animating
+    `rolls.slice(dsnIndexAddedRoll)`. An in-place rewrite is therefore SILENT —
+    the damage climbs with no dice — and appending a second roll is not the fix
+    either, since the card would carry two `.dice-total` elements and
+    `damage.js`'s Apply reads the FIRST. So the chain is animated by an explicit
+    `game.dice3d?.showForRoll(chain, game.user, true, …)`, where
+    `synchronize: true` is load-bearing for the second time in this repo: without
+    it the dice land on the roller's client alone, which a Warden testing solo
+    cannot tell apart from working (`character-generator.js` already records the
+    trap). The probe shadows the CALL rather than timing the animation, and
+    FAILS rather than skipping when DSN is absent.
+  - **THE TWO MANEUVER BUTTONS ARE GATED `isAuthor || isGM`, NOT on the actor**,
+    because both write to the MESSAGE and a ChatMessage makes its AUTHOR the
+    owner (`common/documents/chat-message.mjs` `getUserLevel`; `update` defaults
+    to OWNER). **That found a defect in round one the same day:** the Fatigue
+    button was gated on actor ownership while its spend is `message.setFlag`, so
+    a second player co-owning the character but not authoring the save got the
+    Fatigue created, the flag refused, neither button sealed, and could then ALSO
+    mark Critical Damage — the exact exclusivity the option promises. Fixed with
+    `mayChoose`, SCOPED to the cards that have a choice to spend: an ordinary
+    Critical Damage card writes no flag, so requiring authorship there would have
+    withdrawn a working button from a co-owner.
+  - **Knave 2e's maneuver list is NOT shipped and NOT reworded.** The option is
+    borrowed from Knave 2e by Ben Milton and the guide credits it and points at
+    that book; the strings state the MECHANIC in this project's own words.
+    Rewording someone's list is copying it, so no eighth licensing regime was
+    added and `check:licence` is untouched. The `--ab-fatigue-chat`-not-
+    `--ab-accent` trap is recorded at that token's own declaration in
+    `css/cairn.css`.
   **Since 2026-08-22 the 25 live behind FOUR `registerMenu` SUBMENUS** (user
   ruling, "one submenu per group" — General, Character Generation, Inventory
   & Encumbrance, and GLOG & Other Hacks, the fourth asked for the same day to

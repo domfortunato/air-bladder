@@ -132,6 +132,36 @@ try {
       });
       return msg.id;
     };
+    // 2b. CRAWLER COMBAT MODE's explosion lines. `nameExplodedDice` rebuilds them
+    //     from the stored roll on EVERY client, so it is in the isContentVisible
+    //     class: an explosion reveals that the die rolled its maximum, and core
+    //     has already replaced a blind card's content with "rolled privately".
+    const dmgCard = async (messageMode) => {
+      const orig = CONFIG.Dice.randomUniform;
+      let i = 0;
+      // INVERTED, and a TERMINATING sequence: a flat pin at the maximum throws
+      // against an exploding formula at recursion depth 1000.
+      const seq = [0.0001, 0.5];
+      CONFIG.Dice.randomUniform = () => seq[Math.min(i++, seq.length - 1)];
+      try {
+        const roll = await new Roll("1d6x").evaluate();
+        const msg = await roll.toMessage({
+          speaker: { scene: null, actor: null, token: null, alias: `${MARK} Dmg` },
+          flavor: await foundry.applications.handlebars.renderTemplate(
+            "systems/air-bladder/templates/chat/dmg-roll-card.html",
+            { label: `${MARK} attack`, weapon: "ZZ Blade", panic: false, maneuver: true }),
+          flags: { "air-bladder": { [FLAG]: true } },
+        }, { messageMode });
+        return msg.id;
+      } finally {
+        CONFIG.Dice.randomUniform = orig;
+      }
+    };
+    out.dmgBlind = await dmgCard("blind");
+    out.dmgPublic = await dmgCard("public");
+    out.dmgBlindExploded = (game.messages.get(out.dmgBlind)?.rolls?.[0]?.dice?.[0]?.results ?? [])
+      .filter((r) => r.exploded).length;
+
     out.dashPrivate = await draw("gm");
     out.dashPublic = await draw("public");
 
@@ -159,7 +189,8 @@ try {
   const seen = await alice.evaluate(async ({ ids, tableName, gmName, MARK }) => {
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     const wd = await import("/systems/air-bladder/module/warden-dashboard.js");
-    const all = [ids.initHidden, ids.initShown, ids.dashPrivate, ids.dashPublic, ids.qtyPrivate, ids.qtyPublic];
+    const all = [ids.initHidden, ids.initShown, ids.dashPrivate, ids.dashPublic, ids.qtyPrivate, ids.qtyPublic,
+      ids.dmgBlind, ids.dmgPublic];
     for (let i = 0; i < 60; i++) {
       if (all.every((id) => document.querySelector(`[data-message-id="${id}"]`))) break;
       await sleep(100);
@@ -172,9 +203,20 @@ try {
       flavor: el(id, ".flavor-text")?.textContent?.trim() ?? null,
       totalClass: el(id, ".dice-total")?.className ?? "",
       total: el(id, ".dice-total")?.textContent?.trim() ?? null,
+      // SCOPED to ONE rendering. Core shows a message in the log AND as a chat
+      // notification, so a document-wide count returns one line PER RENDERING and
+      // reads like a doubling bug. The crawler probe counts inside a single
+      // element for the same reason; the privacy claim here is 0-versus-some
+      // either way, but an unexplained number in a probe's output is a trap for
+      // whoever reads it next.
+      explodedLines: document.querySelector(`[data-message-id="${id}"]`)
+        ?.querySelectorAll(".dmg-exploded").length ?? 0,
+      renderings: document.querySelectorAll(`[data-message-id="${id}"]`).length,
+      maneuverBtns: document.querySelectorAll(`[data-message-id="${id}"] .take-maneuver`).length,
     });
     return {
       initHidden: read(ids.initHidden), initShown: read(ids.initShown),
+      dmgBlind: read(ids.dmgBlind), dmgPublic: read(ids.dmgPublic),
       dashPrivate: read(ids.dashPrivate), dashPublic: read(ids.dashPublic),
       qtyPrivate: read(ids.qtyPrivate), qtyPublic: read(ids.qtyPublic),
       // Core's own substitution, computed on HER client.
@@ -185,6 +227,20 @@ try {
   }, { ids: posted, tableName: posted.tableName, gmName: posted.gmName, MARK });
 
   const s = seen;
+  console.log("\nCrawler Combat Mode's explosion lines");
+  posted.dmgBlindExploded >= 1
+    ? ok(`fixture: the blind damage card really did explode (${posted.dmgBlindExploded} explosion(s) stored)`)
+    : fail(`the blind damage fixture did not explode (${posted.dmgBlindExploded}) — the leg below would pass for the wrong reason`);
+  s.dmgBlind.present && s.dmgBlind.explodedLines === 0
+    ? ok(`Alice reads NO "A d6 exploded!" line on a Blind GM Roll — an explosion reveals that the die rolled its maximum, so the rebuild asks isContentVisible first`)
+    : fail(`the explosion LEAKED to Alice on a blind card: ${s.dmgBlind.explodedLines} line(s)`);
+  s.dmgPublic.present && s.dmgPublic.explodedLines >= 1
+    ? ok(`CONTROL: on the PUBLIC card she reads ${s.dmgPublic.explodedLines} line(s) in each of its ${s.dmgPublic.renderings} rendering(s) — so the guard withholds, rather than the feature simply being absent`)
+    : fail(`the public control shows ${s.dmgPublic.explodedLines} line(s); without it the leg above proves nothing`);
+  s.dmgBlind.maneuverBtns === 0 && s.dmgPublic.maneuverBtns === 0
+    ? ok(`...and neither card offers HER the maneuver buttons — those are gated isAuthor||isGM and she is neither`)
+    : fail(`maneuver buttons reached Alice: blind ${s.dmgBlind.maneuverBtns}, public ${s.dmgPublic.maneuverBtns}`);
+
   console.log("\na hidden combatant's initiative save");
   s.initHidden.present
     && !s.initHidden.flavor.includes("DEX save")
