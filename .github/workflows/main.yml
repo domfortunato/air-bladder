@@ -194,3 +194,53 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           artifacts: "./system.json, ./system.zip"
           tag: ${{ env.RELEASE_TAG }}
+
+  # ---------------------------------------------------------------------------
+  # Tell the Foundry Marketplace the release exists.
+  #
+  # A SEPARATE JOB, `needs: build`, and both halves of that are deliberate.
+  #
+  # `needs: build` because Foundry FETCHES the manifest URL to validate the
+  # submission, so the release and its assets have to exist first. This cannot
+  # be folded into `npm run release` for the same reason — that only pushes the
+  # tag, and the assets do not exist for another minute or two.
+  #
+  # SEPARATE rather than one more step on `build`, so the signal stays precise.
+  # If foundryvtt.com is down, or the token has expired, the release itself is
+  # already published and green and only this job reds — which reads as "it
+  # shipped, the Marketplace was not told", recoverable with one command
+  # (`npm run publish:foundry X.Y.Z`). Folding it into `build` would paint a
+  # perfectly good release red and say nothing about which half failed. It is
+  # also the reason `check:warden` is kept out of this workflow entirely: a
+  # release should not be hostage to someone else's outage. The difference is
+  # that this runs AFTER publishing, so it cannot block anything.
+  #
+  # It FAILS rather than skips when the secret is missing. A silent skip is how
+  # 0.1.22 shipped with empty release notes — a step nobody's checklist held.
+  marketplace:
+    needs: build
+    runs-on: ubuntu-latest
+    # TAG PUSHES ONLY. `workflow_dispatch` exists to rebuild an existing
+    # release's assets, which is not a reason to re-announce it — a rebuild of
+    # 0.1.10 would otherwise submit 0.1.10 to the Marketplace today.
+    if: github.event_name == 'push'
+    # Narrower than the workflow default: this job writes nothing to the
+    # repository, it only reads the checkout and POSTs to foundryvtt.com.
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.ref }}
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+      # No `npm ci`: tools/release-foundry.mjs imports only node builtins and
+      # uses global fetch, so the job needs no dependency install at all.
+      - name: Announce the release to the Foundry Marketplace
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+          # Repository secret. The script refuses with an explanatory message if
+          # it is unset or lacks the `fvttp_` prefix, and never prints its value.
+          FOUNDRY_RELEASE_TOKEN: ${{ secrets.FOUNDRY_RELEASE_TOKEN }}
+        run: node tools/release-foundry.mjs

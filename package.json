@@ -28,6 +28,7 @@
     "i18n:source": "node tools/i18n/source-check.mjs",
     "check:translations": "node tools/i18n/translation-guard.mjs",
     "release": "node tools/release.mjs",
+    "publish:foundry": "node tools/release-foundry.mjs",
     "dev:enc-damage": "node tools/dev/e2e-encumbered-damage.mjs",
     "dev:hazard": "node tools/dev/e2e-warden-damage.mjs",
     "dev:combat": "node tools/dev/e2e-combat-order.mjs",

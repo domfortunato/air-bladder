@@ -235,6 +235,29 @@ Full procedure in `RELEASE.md` and the `/release` skill. In summary:
 4. **Always** `npm run dev:players`. A test world must never be left GM-only, and
    ownership behaviour is only exercised with real player accounts.
 5. Unpause.
+6. **`npm run publish:foundry X.Y.Z -- --dry-run`, then again without the flag** —
+   announce the release to the Foundry Marketplace
+   ([the package page](https://foundryvtt.com/packages/air-bladder); the API is
+   documented at `foundryvtt.com/article/package-release-api/`). Air Bladder was
+   accepted on 2026-10-01, and this is the step that makes a published release
+   visible to Foundry's own in-app update check — which until the listing existed
+   could not see this system at all, the loose end the "Update All" investigation
+   left open. **It comes LAST, after the GitHub release exists**, and not as part of
+   `npm run release`: Foundry FETCHES the manifest URL to validate the submission,
+   so the asset has to be downloadable first. It submits the **versioned** manifest
+   (`releases/download/X.Y.Z/system.json`), deliberately NOT the `releases/latest/`
+   URL that `system.json`'s own `manifest` field carries — a Marketplace row names a
+   fixed version, and a moving URL would make every historical row resolve to
+   whatever shipped most recently. The script refuses the `latest` form outright.
+   It also reads the published asset back and refuses unless the asset's own `id`,
+   `version` and `compatibility` agree with what is being submitted, so a run fired
+   before CI finished attaching the assets, or against the wrong version, fails with
+   a sentence saying so rather than an opaque 400. The token is read from
+   `FOUNDRY_RELEASE_TOKEN` and is never printed or passed as an argument. Rate
+   limit: roughly one submission per package per 60 seconds, answered with `429`
+   and a `Retry-After`. **Whatever `compatibility.verified` says is what the
+   Marketplace advertises to everyone browsing**, so it is worth a look before
+   this step rather than after.
 
 ### If the release carries a migration
 
