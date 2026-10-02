@@ -1,0 +1,26 @@
+_id: CHEOyj2XEhz6kvBJ
+name: Crawler Combat Mode
+pages:
+  - _id: 5YXtLJOgfyfpMzCS
+    name: Crawler Combat Mode
+    type: text
+    title:
+      show: false
+      level: 1
+    text:
+      content: '<p><strong>Crawler Combat Mode</strong> is an optional hack for a harsher, more lethal game. It is <strong>off by default</strong> and changes nothing until you turn it on, under <strong>Game Settings → Air Bladder → Configure Hacks</strong>.</p> <p>It affects <strong>player characters only</strong>. NPCs, hirelings and monsters are untouched by every part of it.</p> <p>Turning it on reloads the world, so everyone at the table sees the same rules at the same moment.</p> <h2>What the hack itself does</h2> <p><strong>An overburdened player character is Deprived.</strong></p> <p>Cairn already sets a character&#39;s Hit Protection to 0 while they are overburdened. With Crawler Combat Mode on, they are <strong>Deprived</strong> as well, until they are no longer overburdened.</p> <p>Being Deprived means they cannot Rest and cannot Restore Abilities — both buttons grey out on the sheet. This is <strong>not</strong> the same as Critical Damage, which is a separate condition with its own banner and its own recovery.</p> <p>While the hack is holding a character Deprived, the Deprived box on their sheet is ticked and cannot be unticked — hovering it says why. <strong>Your own use of the box is not lost</strong>: if you had marked a character Deprived for going without food or rest, that is still there, and it comes back the moment they stop being overburdened.</p> <p>One thing worth knowing at the table: <strong>overburdened means no free slot</strong>. A pack filled to exactly its limit counts, so clearing it means ending up with a slot genuinely spare. A character at 11 of 10 slots has to put down two things, not one.</p> <h2>Exploding damage dice</h2> <p>Tick <strong>Exploding damage dice</strong> and a player character&#39;s damage die that rolls its highest face is rolled again and added — for as long as it keeps rolling the highest.</p> <p>A d6 rolling 6 then 4 deals 10. A d6 rolling 6, 6 and then 2 deals 14.</p> <p><strong>Only the die you keep explodes.</strong> Cairn&#39;s dual-wield and similar rules roll two dice and keep the higher. If both come up 6, that is <strong>one</strong> six, so it explodes once — you do not get two chains.</p> <p>Impaired (d4) and Enhanced (d12) rolls explode too.</p> <p><strong>Only player characters&#39; damage rolls explode.</strong> A monster&#39;s attack, an NPC&#39;s, and the Warden&#39;s Damage tool for a trap or hazard all roll normally.</p> <p><strong>One limit, stated plainly.</strong> If you write a keep-highest damage formula out of <strong>different</strong> dice — <code>d6 + d8</code>, say — it will not explode. Keeping the highest and then exploding only that die has no way to be written for mixed dice, and the alternative would quietly give you better odds than the rule above. No weapon that ships with the system is written this way. Same-sized dice — <code>2d6k</code>, <code>d6 + d6</code>, and every shipped weapon — explode normally.</p> <h2>Fatigue instead of Critical Damage</h2> <p>Tick <strong>Fatigue instead of Critical Damage</strong> and a player character who fails a Critical Damage save is offered a choice on the chat card: take the Critical Damage as usual, or <strong>Take a Fatigue instead</strong>.</p> <p>Taking the Fatigue adds it to their inventory <strong>even if they have no free slot</strong> — Fatigue is a cost the rules impose, not something they chose to pick up. That will usually leave them overburdened, which under this hack means Deprived and at 0 Hit Protection until they free a slot. The button says so before you press it.</p> <p>It is one choice or the other. Pressing either button settles the card, and it stays settled — coming back to it later, the buttons are spent.</p> <p>The choice appears on a card only if the option was on when the save was rolled. Turning the option off later does not retract a choice already on screen.</p> <h2>A matching character generator</h2> <p>This hack suits characters built to survive it. Under <strong>Configure Character Generation</strong>, <strong>Ability dice for player characters</strong> offers <strong>Crawler (2d6 + 6)</strong>, which never rolls an ability below 8.</p> <p>That setting is independent of this hack — you can use either without the other.</p> <h2>See also</h2> <ul> <li><strong>Dice Formulas</strong> — what a damage formula can say, including keep-highest notation.</li> <li><strong>GLOG Magic in Foundry</strong> — the system&#39;s other optional hack.</li> </ul>'
+      format: 1
+    sort: 0
+    ownership:
+      default: -1
+    flags: {}
+    _key: '!journal.pages!CHEOyj2XEhz6kvBJ.5YXtLJOgfyfpMzCS'
+folder: null
+sort: 0
+ownership:
+  default: 0
+flags: {}
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!journal!CHEOyj2XEhz6kvBJ'

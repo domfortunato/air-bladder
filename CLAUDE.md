@@ -1450,7 +1450,7 @@ companion record of who authored what.
   "N on master" parenthetical went stale a THIRD way by surviving two releases
   — a new pack's commit must carry this line, and so must the release that
   moves the master count, which is what this post-release merge is doing)
-- 31 Warden-facing settings in `module/settings.js` (41 `register` calls + 4 `registerMenu` menus from ONE call site,
+- 34 Warden-facing settings in `module/settings.js` (44 `register` calls + 4 `registerMenu` menus from ONE call site,
   ALL `config: false` since 2026-08-22 — see the submenu paragraph below; `roles-restamped`,
   `companion-restamped`, `hireling-split`, `grimoire-keys-stamped`,
   `connections-migrated`, `art-migration-generation` (2026-08-21, review #17 —
@@ -1461,7 +1461,10 @@ companion record of who authored what.
   (review #13's catch, its third "record claiming what the code does not say"),
   then `enable-glog-magic` rode a topic branch whose cherry-picks never carried
   this line, caught only when the branch merged — so each settings change updates
-  them in its own commit, this one dated 2026-10-02 for the PC DICE TRIO
+  them in its own commit, this one dated 2026-10-02 for CRAWLER COMBAT MODE
+  (`crawler-combat-mode` plus `crawler-exploding-damage` and
+  `crawler-fatigue-for-critical`, Hacks — see the paragraph below) and the same
+  day for the PC DICE TRIO
   (`pc-ability-dice`, `pc-hp-formula`, `pc-gold-dice`, Character Generation —
   see the paragraph below) and before it 2026-09-11 for `weather-log` (General,
   default OFF — switching it on makes this system CREATE a document in
@@ -1568,6 +1571,62 @@ companion record of who authored what.
     drift-baseline entry, so `classifyDrift` files it as *unverified* and a
     reword would have made it wrong with no gate saying so.
   Gate: `npm run dev:pc-dice`.
+  **CRAWLER COMBAT MODE — THE SECOND OPTIONAL HACK (2026-10-02, user ask).**
+  Default OFF, in the Hacks group beside GLOG Magic, and **PLAYER CHARACTERS
+  ONLY throughout** (`type === "character"`, the `auto-record-scars` gate — not
+  `livesByPlayerRules`, which is broader). The master carries a rule of its own:
+  an **overburdened PC is DEPRIVED** as well as at 0 Hit Protection, on the same
+  `encumbered` (`>=`) predicate the HP rule uses, so one threshold governs both
+  and clearing needs a genuinely free slot. Two options beside it, **Exploding
+  damage dice** and **Fatigue instead of Critical Damage**. The master
+  `requiresReload` on the `use-panic` precedent — it changes a DERIVED value and
+  a re-render does not re-derive. Gate: `npm run dev:crawler-combat`.
+  Five things that will bite:
+  - **`2d6kx` IS the rule, natively, and MODIFIER ORDER IS LOAD-BEARING.**
+    Measured in the shipped client: modifiers apply in WRITTEN order
+    (`DiceTerm#_evaluateModifiers`), `keep` flags the loser `active: false`
+    (`_keepOrDrop`), and `explode` skips it (`if (!r.active) continue;`). So
+    `2d6kx` keeps the highest and explodes only that one — `6(drop) 6! 2` = 8,
+    two sixes being ONE six, which is the rule as asked for. **`2d6xk` is the
+    trap**: it explodes both and then `keep` compares raw FACES, so it can never
+    exceed the die. The probe pins both, the second as the control.
+  - **APPENDING `x` TO A CAIRN `+` FORMULA INVERTS IT, and that is measured, not
+    feared.** `evaluateFormula` rewrites `a + b` to `{a,b}kh` only when every
+    term matches a bare die, so `d6x + d6x` falls through to arithmetic: pinned
+    identically, `d6 + d6` keeps highest for **6**, `d6x + d6x` SUMS two chains
+    for **16**, and the correct `2d6kx` gives **8**. The naive append would have
+    doubled every Cairn keep-highest weapon in the game.
+    `explodingDamageFormula` (utils.js) therefore REWRITES that shape to
+    `2d6kx`, leaving no `+` behind. **Mixed sizes (`d6 + d8`) are left
+    un-exploded on purpose** — the semantic has no native spelling there and the
+    alternative changes the odds; no shipped weapon hits it, and the guide says
+    so.
+  - **THE GATE IS AT THE CALL SITE.** `evaluateFormula` gets `(formula, data)`
+    and `getRollData()` carries no document, so it cannot know who rolled. The
+    two PC damage sites are `actor-sheet.js` `#onRollDamage` and `macros.js`
+    `rollItemMacro`; `warden-damage.js` is deliberately NOT one (a trap has no
+    actor). The transform runs AFTER `damageFormulaFor` so Impaired and Enhanced
+    explode too, and after the quality dialog so its buttons still advertise the
+    plain formula.
+  - **DEPRIVED IS DERIVED, NEVER WRITTEN, and it is a TOTAL assignment.**
+    `system.deprived` is a hand-ticked boolean with NO PROVENANCE, so a hack
+    that wrote it could not tell its own deprivation from one the player set for
+    no food and would stomp theirs when it cleared — the control for that leg
+    writes to source and reds with the character still deprived after
+    un-encumbering. And it must assign BOTH halves (`stored || encumbered`)
+    outside the encumbered branch, because **`Document#prepareData` does not
+    reset `system` from `_source`** — only a re-initialize does — so a one-sided
+    `if (encumbered) deprived = true` leaves a stale true behind. The sheet
+    DISABLES the checkbox while the hack holds it (`deprivedLocked`), or a
+    control that snapped back every render would read as broken. Rest and
+    Restore refuse for free, through the field they already read.
+  - **`subOptions` IS A LIST NOW.** `settings-menus.js` destructured it as one
+    object and the Hacks group had already spent its slot on
+    `content-source-barebones`. It is normalized with `[spec].flat()`, so a
+    group may still declare a single object — and the two live declarations
+    exercise BOTH branches of `masterOn`, Barebones' master living in another
+    submenu (stored value at render) and Crawler's in the same one (followed
+    live). That makes the Barebones row the regression witness for the widening.
   **Since 2026-08-22 the 25 live behind FOUR `registerMenu` SUBMENUS** (user
   ruling, "one submenu per group" — General, Character Generation, Inventory
   & Encumbrance, and GLOG & Other Hacks, the fourth asked for the same day to

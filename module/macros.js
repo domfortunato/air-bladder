@@ -1,4 +1,4 @@
-import { evaluateFormula, getInfoFromDropData, askDamageQuality, damageFormulaFor, damageQualityLabel, damageQualityKind } from "./utils.js";
+import { evaluateFormula, getInfoFromDropData, askDamageQuality, damageFormulaFor, damageQualityLabel, damageQualityKind, crawlerOption, explodingDamageFormula } from "./utils.js";
 import { SETTINGS_NS } from "./settings.js";
 import { t, actorDisplayName } from "./i18n-content.js";
 
@@ -96,7 +96,14 @@ export const rollItemMacro = async (actorId, itemId) => {
     quality = await askDamageQuality(item.system.damageFormula, weaponName);
     if (quality === null) return; // dismissed: roll nothing
   }
-  const rollSchema = damageFormulaFor(quality, item.system.damageFormula);
+  // The second PC damage call site — the hotbar macro. Gated identically to the
+  // sheet's control (actor-sheet.js `#onRollDamage`); the two are the only
+  // places a damage roll can be a player character's, and the Warden's Damage
+  // tool is deliberately NOT one of them (a trap has no actor).
+  const base = damageFormulaFor(quality, item.system.damageFormula);
+  const rollSchema = actor.type === "character" && crawlerOption("crawler-exploding-damage")
+    ? explodingDamageFormula(base)
+    : base;
 
   // determine roll result
   const roll = await evaluateFormula(rollSchema, actor.getRollData());

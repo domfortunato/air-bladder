@@ -166,6 +166,102 @@ export const damageFormulaFor = (quality, standardFormula) =>
     : quality === "enhanced" ? ENHANCED_FORMULA
       : standardFormula;
 
+/* -------------------------------------------- */
+/*  Crawler Combat Mode                         */
+/* -------------------------------------------- */
+
+/**
+ * Is Crawler Combat Mode on? (2026-10-02, user ask.) The `glogEnabled()` shape,
+ * try/catch included for the same reason: this is read from
+ * `prepareDerivedData`, which can run before settings are registered.
+ * @return {Boolean}
+ */
+export const crawlerCombat = () => {
+  try {
+    return !!game.settings.get(SETTINGS_NS, "crawler-combat-mode");
+  } catch {
+    return false;
+  }
+};
+
+/**
+ * One of the hack's sub-options, which mean nothing unless the master is on —
+ * so the master is ANDed in here rather than at each call site. The settings
+ * app greys the rows out, but a stored `true` under a master that was later
+ * switched off must not keep acting.
+ * @param {String} key  a `crawler-*` sub-option key
+ * @return {Boolean}
+ */
+export const crawlerOption = (key) => {
+  if (!crawlerCombat()) return false;
+  try {
+    return !!game.settings.get(SETTINGS_NS, key);
+  } catch {
+    return false;
+  }
+};
+
+/** A bare die, with or without an explicit count: `d6`, `1d8`, `2d10`. */
+const BARE_DIE = /^(\d*)d(\d+)$/i;
+/** A die carrying only a keep modifier: `2d6k`, `2d8kh`, `3d6kh1`. */
+const KEEP_DIE = /^\d*d\d+k[hl]?\d*$/i;
+
+/**
+ * The exploding form of a damage formula, or the formula unchanged.
+ *
+ * MEASURED IN THE SHIPPED CLIENT (2026-10-02), because the whole feature rests
+ * on one ordering fact: modifiers apply in WRITTEN order
+ * (`DiceTerm#_evaluateModifiers`), `keep` flags the losers `active: false`
+ * (`_keepOrDrop`), and `explode` skips them (`if (!r.active) continue;`). So:
+ *
+ *   2d6kx  both dice roll 6  ->  6(dropped) 6! 2  = 8   ONE six, one chain
+ *   2d6xk  both dice roll 6  ->  6(dropped) 6! 2(dropped) 2(dropped) = 6
+ *
+ * The second is the trap and the probe's control: explode-then-keep compares
+ * raw FACES, so it can never exceed the die. `kx` is the user's rule exactly —
+ * "if both dice roll a 6 that should be treated as one six".
+ *
+ * THE `+` FORM IS REWRITTEN, NEVER APPENDED TO. `evaluateFormula` above turns
+ * `a + b` into `{a,b}kh` only when every `+`-separated term matches a bare die,
+ * so `d6x + d6x` fails that test and evaluates as an arithmetic SUM — a
+ * keep-highest weapon silently dealing double. Emitting `2d6kx` leaves no `+`
+ * for the rewrite to see, and is the same roll.
+ *
+ * MIXED SIZES ARE LEFT ALONE, a stated limit rather than an oversight: "keep
+ * the highest, then explode the kept die" has no native spelling when the
+ * members differ (`{1d6x,1d8x}kh` explodes BOTH, which is the semantic that was
+ * rejected). No shipped weapon hits it — the only `+` form in the packs is one
+ * `d6+d6` — and `docs/dice-formulas.md` says so.
+ *
+ * Anything unrecognised is returned untouched. Guessing at a formula a Warden
+ * typed is how a damage roll quietly stops meaning what it says.
+ *
+ * @param {String} formula  what a standard/impaired/enhanced roll would be
+ * @return {String}
+ */
+export const explodingDamageFormula = (formula) => {
+  const f = String(formula ?? "").trim();
+  if (!f) return formula;
+
+  // Already exploding, or carrying a modifier we did not write: leave it.
+  if (/x/i.test(f)) return formula;
+
+  if (BARE_DIE.test(f) || KEEP_DIE.test(f)) return `${f}x`;
+
+  if (f.includes("+")) {
+    const terms = f.split("+").map((t) => t.trim());
+    const parsed = terms.map((t) => BARE_DIE.exec(t));
+    if (parsed.some((m) => !m)) return formula;
+    // Each term may carry its own count: `2d6 + d6` is three d6 kept highest.
+    const faces = new Set(parsed.map((m) => m[2]));
+    if (faces.size !== 1) return formula;          // mixed sizes — see above
+    const count = parsed.reduce((n, m) => n + Math.max(1, Number(m[1] || 1)), 0);
+    return `${count}d${[...faces][0]}kx`;
+  }
+
+  return formula;
+};
+
 /**
  * The badge a card shows for an impaired or enhanced roll, and "" for a standard
  * one — a card that says nothing is saying the roll was ordinary, which is most
@@ -264,19 +360,31 @@ export const d20CardFlavor = (kind, ability) => {
  * @param {Number} p.rolled
  * @param {Boolean} p.failed
  * @param {Boolean} p.crit   offer the Mark Critical Damage button
+ * @param {Boolean} [p.fatigue]  also offer "Take a Fatigue instead" (Crawler
+ *   Combat Mode). Rendered HERE and nowhere else: `localizeD20Card` replaces
+ *   `.message-content`'s whole innerHTML per viewer, so a button injected
+ *   anywhere else is destroyed on the next render.
  */
-export const d20CardBody = ({ formula, rolled, failed, crit }) => {
+export const d20CardBody = ({ formula, rolled, failed, crit, fatigue }) => {
   const f = foundry.utils.escapeHTML(String(formula));
   const result = game.i18n.localize(failed ? "CAIRN.Fail" : "CAIRN.Success");
   const cls = failed ? "failure" : "success";
   const critButton = crit
     ? `<button type="button" class="mark-critical-damage">${game.i18n.localize("CAIRN.MarkCriticalDamage")}</button>`
     : "";
+  // The choice was ruled a BUTTON and not a dialog, so nothing interrupts the
+  // table — which means the tooltip is the only place the cost can be stated
+  // before it is paid. `data-tooltip` carries a bare key; core's TooltipManager
+  // localizes it at hover.
+  const fatigueButton = crit && fatigue
+    ? `<button type="button" class="take-fatigue-instead" data-tooltip="CAIRN.Crawler.FatigueButtonTip">`
+      + `${game.i18n.localize("CAIRN.Crawler.FatigueButton")}</button>`
+    : "";
   return `<div class="dice-roll"><div class="dice-result"><div class="dice-formula">${f}</div>`
     + `<div class="dice-tooltip" style="display: none;"><section class="tooltip-part"><div class="dice">`
     + `<header class="part-header flexrow"><span class="part-formula">${f}</span></header>`
     + `<ol class="dice-rolls"><li class="roll die d20">${rolled}</li></ol></div></section></div>`
-    + `<h4 class="dice-total ${cls}">${result} (${rolled})</h4></div></div>${critButton}`;
+    + `<h4 class="dice-total ${cls}">${result} (${rolled})</h4></div></div>${critButton}${fatigueButton}`;
 };
 
 /**
@@ -312,6 +420,9 @@ export const localizeD20Card = (message, html) => {
   if (!body) return false;
   body.innerHTML = d20CardBody({
     formula: raw.formula, rolled, failed: raw.failed === true, crit: raw.crit === true,
+    // `=== true` like its siblings: the flag is player-authorable and never
+    // server-sanitized (the review #24 class), so nothing here is coerced.
+    fatigue: raw.fatigue === true,
   });
   // The flavor sits OUTSIDE .message-content, in the header core renders.
   const flavor = html.querySelector(".flavor-text");

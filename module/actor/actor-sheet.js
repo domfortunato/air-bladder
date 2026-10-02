@@ -1,7 +1,7 @@
 import { canRegenerateContainers, drawBond, bondRecordFrom, withGrantSource, bondEntitlement, resolveRefs, replaceGrantedContainers, promptBackground, changeBackground, promptFailedCareer, rollFailedCareerName, buildFailedCareerItem, getPortraitManifest, pairedTokenFor, randomPortraitInSameFolder, portraitCategoryFor, regenerateNpc, regenerateHireling, rerollNpcBackground, rerollHirelingCareer, rerollNpcName, rerollNpcFaction, promptHirelingCareer, promptNpcBackground, promptNpcFaction, promptPickOmen, promptPickBond, promptPickQuestionOption, promptPickName, findOmensTable, rollNameFromTable, rollAge, rollTextItems, effectiveAgeFormula, effectivePcAbilityFormula, effectivePcGoldFormula, effectivePcHpFormula, rollPcHitProtection, resolveActorBackground, redealBackgroundGear, rerollAllBonds, reorderInventory, postGenerationRolls, isHandBuilt, clearHandBuilt, FLAG_SCOPE } from "../character-generator.js";
 import { promptMonsterTier, regenerateMonster } from "../monster-generator.js";
 import { openMarketplace, TRANSPORTS_CATEGORY } from "../marketplace.js";
-import { evaluateFormula, cleanDescription, bindEditorClickAwaySave, formatCount, sourceLabel, askDamageQuality, damageFormulaFor, damageQualityLabel, damageQualityKind, d20CardBody, d20CardFlavor, D20_CARD_ABILITIES } from "../utils.js";
+import { evaluateFormula, cleanDescription, bindEditorClickAwaySave, formatCount, sourceLabel, askDamageQuality, damageFormulaFor, damageQualityLabel, damageQualityKind, d20CardBody, d20CardFlavor, D20_CARD_ABILITIES, crawlerCombat, crawlerOption, explodingDamageFormula } from "../utils.js";
 import { resultText, compendiumInfoFromString } from "../compendium.js";
 import { SETTINGS_NS } from "../settings.js";
 import { CONTAINER_ART_CHOICES, CONTAINER_CLASSES } from "../icons.js";
@@ -1287,6 +1287,16 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // stay dumb.
     context.deprivedTipKey = this._wording("CAIRN.DeprivedTip");
     context.panickedTipKey = this._wording("CAIRN.PanickedTip");
+    // Crawler Combat Mode holds Deprived DERIVED while a PC is overburdened
+    // (actor.js), so the checkbox must not accept a tick that cannot stick:
+    // unticking writes false to source and the next prepare puts it straight
+    // back, which reads as a broken control rather than a rule. Disabled with
+    // a tooltip naming the reason, the affordance Rest and Restore already use
+    // while deprived. Recomputed here rather than stored, so it follows the
+    // load live.
+    context.deprivedLocked = crawlerCombat()
+      && this.actor.type === "character"
+      && this.actor.system.encumbered === true;
     return context;
   }
 
@@ -1826,8 +1836,18 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     }
     // Encumbrance is a carry state, not an ability loss, but likewise forces HP
     // to 0, so surface it as a persistent banner too. Suppressed when dead.
-    if (!dead && this.actor.system.encumbered)
-      banners.push({ key: "encumbered", icon: "fa-weight-hanging", label: L("CAIRN.Overburdened"), text: L("CAIRN.OverburdenedBanner") });
+    if (!dead && this.actor.system.encumbered) {
+      // Under Crawler Combat Mode a PC is DEPRIVED as well, and this banner is
+      // the loudest thing on the sheet — left saying only "HP stays 0" it would
+      // be a half-truth, and nothing else on screen explains why Rest and
+      // Restore Abilities have greyed out. Found by looking at the sheet; the
+      // probe was green.
+      const crawlerDeprived = crawlerCombat() && this.actor.type === "character";
+      banners.push({
+        key: "encumbered", icon: "fa-weight-hanging", label: L("CAIRN.Overburdened"),
+        text: L(crawlerDeprived ? "CAIRN.Crawler.OverburdenedBanner" : "CAIRN.OverburdenedBanner"),
+      });
+    }
     context.statusBanners = banners;
   }
 
@@ -3980,7 +4000,15 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       quality = await askDamageQuality(dataset.roll, dataset.label ?? "");
       if (quality === null) return; // dismissed: roll nothing
     }
-    const formula = damageFormulaFor(quality, dataset.roll);
+    // AFTER the quality substitution, so Impaired (1d4) and Enhanced (1d12)
+    // explode too — and after the dialog, so its buttons advertise the plain
+    // formula rather than `1d6x`. PLAYER CHARACTERS ONLY, tested here because
+    // `evaluateFormula` is handed `(formula, data)` and `getRollData()` carries
+    // no document: the evaluator cannot know who rolled.
+    const base = damageFormulaFor(quality, dataset.roll);
+    const formula = this.actor.type === "character" && crawlerOption("crawler-exploding-damage")
+      ? explodingDamageFormula(base)
+      : base;
 
     const roll = await evaluateFormula(formula, this.actor.getRollData());
     // Two whole-sentence keys, not fragments glued with `+`: word order is not
@@ -4290,6 +4318,14 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     const card = {
       kind: "abilityRoll", ability: dataset.ability, formula: roll.formula,
       rolled, failed, crit: offerCrit,
+      // Crawler Combat Mode's alternative to Critical Damage. Recorded on the
+      // card, so what was offered is frozen at the moment of the roll and
+      // switching the option off later cannot retract a choice already on
+      // screen. The sheet's STR save and the damage flow's are the same moment
+      // and both carry it — offering it on one and not the other is the
+      // asymmetry this codebase keeps finding.
+      fatigue: offerCrit && this.actor.type === "character"
+        && crawlerOption("crawler-fatigue-for-critical"),
     };
     // A whole-sentence key, not localize()+concat — the translator owns the word order.
     const flavor = known

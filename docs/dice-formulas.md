@@ -59,6 +59,26 @@ Mind the difference from Cairn's plus form above. `d8 + d8` keeps **one** die
 of two, so it stays within one die's range, 1–8. `4d6kh3` keeps **three**
 dice and adds them, so its range is three dice wide.
 
+## Exploding dice
+
+`x` after a die rolls it again whenever it comes up its highest face, and adds
+the result — for as long as it keeps rolling the highest:
+
+| You write | It means | Result |
+|---|---|---|
+| `1d6x` | roll a d6; on a 6, roll and add again | 1–5, or 6 plus another roll |
+| `2d6kx` | roll two d6, keep the higher, and explode **that one** | 1–5, or 6 plus another roll |
+
+Order matters, and `2d6kx` is deliberate: `k` keeps the higher die first, so
+only the kept die explodes. Two sixes are one six. Written the other way round,
+`2d6xk` explodes both dice and then compares them, which can never exceed 6 —
+not what you want.
+
+**Crawler Combat Mode applies this for you**, to player characters' damage rolls
+only, so you do not normally type it. See that guide. Its one limit is a
+keep-highest roll of **different** dice, `d6 + d8`, which is left alone: keeping
+the highest and then exploding it cannot be written for mixed dice.
+
 ## Minimums and maximums
 
 Braces compare two rolls and keep one, which is how a formula says "but

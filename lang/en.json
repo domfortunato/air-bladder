@@ -232,6 +232,10 @@
   "CAIRN.CriticalDamage": "Critical Dmg.",
   "CAIRN.CriticalDamageBanner": "can only crawl — stabilize with aid, or die within the hour.",
   "CAIRN.CriticalDamagePlaceholder": "Click here to describe this weapon's critical damage.",
+  "CAIRN.Crawler.DeprivedLockedTip": "Crawler Combat Mode: you are Deprived because you are overburdened, and stay Deprived until you free a slot.",
+  "CAIRN.Crawler.FatigueButton": "Take a Fatigue instead",
+  "CAIRN.Crawler.OverburdenedBanner": "Over capacity — HP stays 0 and you are Deprived until you free a slot.",
+  "CAIRN.Crawler.FatigueButtonTip": "Take Critical Damage, or take a Fatigue instead. The Fatigue fills a slot even if you have none free, leaving you overburdened — Deprived and at 0 Hit Protection until you free one.",
   "CAIRN.CriticalDamageStatusFor": "Critical Damage — {key}",
   "CAIRN.CriticalDamageToggle": "Critical Damage (STR): mark or clear. A critically wounded PC can only crawl until stabilized.",
   "CAIRN.CurrentOf": "Current {name}",
@@ -884,6 +888,18 @@
       "hint": "Include custom 2e backgrounds — backgrounds not published in the Cairn 2e Player's Guide: the shipped Backgrounds (Custom) compendium plus any GM-authored ones from your world's compendiums. They appear in their own picker section; turn off 'Offer canon Cairn 2e backgrounds' to generate only from custom ones.",
       "label": "Offer custom Cairn 2e backgrounds"
     },
+    "CrawlerCombatMode": {
+      "hint": "A harsher, more lethal combat. While it is on, a player character who is overburdened is Deprived as well as at 0 Hit Protection, until they free a slot. NPCs, hirelings and monsters are not affected. For a game pitched to match, consider setting 'Ability dice for player characters' to Crawler (2d6 + 6) under Character Generation. Changing this reloads the world.",
+      "label": "Crawler Combat Mode"
+    },
+    "CrawlerExplodingDamage": {
+      "hint": "When a player character's damage die rolls its highest face, it is rolled again and added, for as long as it keeps rolling the highest. Only the die that is kept explodes, so two sixes on a keep-highest weapon are one six, not two. Only player characters' damage rolls explode — never an NPC's, a monster's, or a trap's. Only available while Crawler Combat Mode is on; the row is greyed out otherwise.",
+      "label": "Exploding damage dice"
+    },
+    "CrawlerFatigueForCritical": {
+      "hint": "When a player character fails a Critical Damage save, their chat card also offers to take a Fatigue instead. The Fatigue fills a slot even if none is free, which leaves them overburdened. Only available while Crawler Combat Mode is on; the row is greyed out otherwise.",
+      "label": "Fatigue instead of Critical Damage"
+    },
     "CustomPortraitFolder": {
       "hint": "A folder of your own character portraits (relative to the Foundry data root). When it holds images, new characters and NPCs use them instead of the shipped tlomdev humanoid art, and the portrait picker gains a 'Custom' tab. Name a subfolder 'pc', 'npc', 'monster' or 'companion' and it becomes the pool for that kind alone; monsters and companions use your art only when such a folder exists. Leave empty or unfilled to use only the shipped portraits. The default folder is created for you — just drop images in and click Refresh in the picker.",
       "label": "Custom character portrait folder"
@@ -904,7 +920,7 @@
     "GroupGenerationHint": "Which content sources are offered, what players may generate or randomize, the portrait folder and the age formula.",
     "GroupHacks": "GLOG & Other Hacks",
     "GroupHacksButton": "Configure Hacks",
-    "GroupHacksHint": "Optional rule hacks: GLOG Magic, and a Knave-style failed career for Barebones characters.",
+    "GroupHacksHint": "Optional rule hacks: GLOG Magic, the Vald calendar, Crawler Combat Mode, and a Knave-style failed career for Barebones characters.",
     "GroupInventory": "Inventory & Encumbrance",
     "GroupInventoryButton": "Configure Inventory",
     "GroupInventoryHint": "Slot limit, the inventory cap, the marketplace and the coins-per-slot threshold.",

@@ -31,6 +31,7 @@ export const SETTING_KEYS = [
   "show-grant-tags-print", "show-traits", "show-omens", "show-watch-clock",
   "weather-log", "use-warden-title", "change-log", "auto-record-scars",
   "enable-glog-magic", "enable-vald-calendar",
+  "crawler-combat-mode", "crawler-exploding-damage", "crawler-fatigue-for-critical",
   // Character Generation
   "content-source-2e", "content-source-custom", "content-source-barebones",
   "barebones-failed-career", "show-generate-header",
@@ -249,13 +250,25 @@ export const SETTING_GROUPS = [
     button: "CAIRN.Settings.GroupHacksButton",
     hint: "CAIRN.Settings.GroupHacksHint",
     icon: "fa-solid fa-flask",
-    keys: ["enable-glog-magic", "enable-vald-calendar", "barebones-failed-career"],
+    keys: [
+      "enable-glog-magic", "enable-vald-calendar", "barebones-failed-career",
+      // Crawler Combat Mode (2026-10-02) and its two options, which follow it
+      // directly so the master reads as the heading of what it governs.
+      "crawler-combat-mode", "crawler-exploding-damage", "crawler-fatigue-for-critical",
+    ],
     // The failed career is meaningless unless Barebones sheets are offered —
     // and that master checkbox lives in the Character Generation menu, not
     // here, so this app greys the row from the STORED value at render instead
     // of following a checkbox live (settings-menus.js handles both shapes).
     // Down to one carrier: the omen/bond lending settings went 2026-08-09.
-    subOptions: { master: "content-source-barebones", keys: ["barebones-failed-career"] },
+    // A LIST since 2026-10-02 — see settings-menus.js. The two entries are
+    // deliberately different shapes and together they cover both branches:
+    // Barebones' master lives in ANOTHER submenu (read from the stored value at
+    // render), Crawler's lives in THIS one (followed live, as it is ticked).
+    subOptions: [
+      { master: "content-source-barebones", keys: ["barebones-failed-career"] },
+      { master: "crawler-combat-mode", keys: ["crawler-exploding-damage", "crawler-fatigue-for-critical"] },
+    ],
   },
 ];
 
@@ -728,6 +741,61 @@ export const registerSettings = () => {
     // never change what a Warden's table already sees.
     default: false,
     requiresReload: true,
+  });
+
+  // ---- Crawler Combat Mode (2026-10-02, user ask) --------------------------
+  // A harsher combat, default OFF, the GLOG pattern: mainline stays clean Cairn
+  // 2e at defaults and a table that wants something else switches it on.
+  //
+  // THE MASTER CARRIES A RULE OF ITS OWN -- an overburdened PLAYER CHARACTER is
+  // deprived as well as at 0 Hit Protection (actor.js `_prepareCharacterData`)
+  // -- and offers two options beside it. More are expected, which is why the
+  // Hacks group's `subOptions` became a list rather than this taking a submenu
+  // of its own.
+  //
+  // PLAYER CHARACTERS ONLY, all three: `type === "character"`, the
+  // auto-record-scars precedent (damage.js), which is the one other automated
+  // sheet write here and is gated exactly this way.
+  //
+  // requiresReload on the MASTER, copying `use-panic` -- the precedent that
+  // matters, being the other setting that changes a DERIVED value. A re-render
+  // does not re-derive, so a fan of re-renders would leave half the table
+  // reading a stale sheet; a reload is the honest answer. The two options are
+  // read at ROLL time and at CARD-BUILD time, so neither needs one.
+  game.settings.register(SETTINGS_NS, "crawler-combat-mode", {
+    name: "CAIRN.Settings.CrawlerCombatMode.label",
+    hint: "CAIRN.Settings.CrawlerCombatMode.hint",
+    scope: "world",
+    config: false,
+    type: Boolean,
+    default: false,
+    requiresReload: true,
+  });
+
+  // Read live per roll by `explodingDamageFormula` (utils.js) at the two PC
+  // damage call sites. `crawlerOption` ANDs the master in, so a stored true
+  // under a master later switched off stops acting rather than lingering.
+  game.settings.register(SETTINGS_NS, "crawler-exploding-damage", {
+    name: "CAIRN.Settings.CrawlerExplodingDamage.label",
+    hint: "CAIRN.Settings.CrawlerExplodingDamage.hint",
+    scope: "world",
+    config: false,
+    type: Boolean,
+    default: false,
+    requiresReload: false,
+  });
+
+  // Read when the save CARD is built, and recorded on it: what a card offered
+  // is frozen at the moment of the roll, so switching this off later does not
+  // retract a choice already on screen.
+  game.settings.register(SETTINGS_NS, "crawler-fatigue-for-critical", {
+    name: "CAIRN.Settings.CrawlerFatigueForCritical.label",
+    hint: "CAIRN.Settings.CrawlerFatigueForCritical.hint",
+    scope: "world",
+    config: false,
+    type: Boolean,
+    default: false,
+    requiresReload: false,
   });
 
   // Today's weather, as the Warden called it. INTERNAL — it is a record of

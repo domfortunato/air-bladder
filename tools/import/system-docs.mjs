@@ -106,6 +106,8 @@ const ROSTER = [
   // generating-monsters.md ships, monster-generation.md does not.
   ["using-your-own-portraits.md", "Using Your Own Portraits"],
   ["glog-magic.md", "GLOG Magic in Foundry"],
+  // The system's second optional hack (2026-10-02), beside the first.
+  ["crawler-combat.md", "Crawler Combat Mode"],
   ["supplied-macros.md", "Supplied Macros"],
   // The Age formula setting's hint names this page by title ("the Dice
   // Formulas page of the System Docs journal") — renaming the entry breaks

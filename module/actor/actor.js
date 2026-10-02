@@ -6,7 +6,7 @@ import {
   connectedOwnershipShape, brokenOwnershipShape, OWNERSHIP_SYNC_FLAG,
 } from "../connections.js";
 import { actorDisplayName, t } from "../i18n-content.js";
-import { concealmentWhisper, formatCount } from "../utils.js";
+import { concealmentWhisper, formatCount, crawlerCombat } from "../utils.js";
 import { FATIGUE_NAME } from "../item/item.js";
 
 /** Document names go into dialog HTML; a name is user-authored text. */
@@ -1048,6 +1048,39 @@ export class CairnActor extends Actor {
       if (this.system.goldSlots > 0) {
         this.system.maybeTooMuchGold = true;
       }
+    }
+
+    // CRAWLER COMBAT MODE (2026-10-02, user ask): an overburdened PLAYER
+    // CHARACTER is DEPRIVED as well as at 0 Hit Protection, until they are no
+    // longer overburdened. PCs only — narrower than the HP rule above on
+    // purpose, which is the ask read literally ("not NPCs or Monsters") and the
+    // auto-record-scars gate.
+    //
+    // The same `encumbered` predicate as the HP line, so ONE threshold governs
+    // both consequences. What that means in play: it is `slotsUsed >=
+    // slotsMax`, so a pack filled to exactly its limit counts and clearing
+    // needs a genuinely FREE slot. Taking this hack's Fatigue at 10/10 leaves
+    // 11/10, so two things must go.
+    //
+    // DERIVED, NEVER WRITTEN, and that is the design rather than a detail.
+    // `system.deprived` is a stored boolean a player ticks by hand and it
+    // carries NO PROVENANCE: a hack that wrote it could not tell its own
+    // deprivation from one the player set for no food or no rest, and would
+    // stomp theirs when it cleared. Deriving keeps the hack's half transient —
+    // the player's stored value governs again the moment a slot frees — exactly
+    // as the HP 0 above is transient. The sheet disables the checkbox while
+    // this holds (`deprivedLocked`), because a control that snapped back on
+    // every re-render reads as broken rather than as a rule.
+    //
+    // A TOTAL ASSIGNMENT, OUTSIDE the encumbered branch, and that is not style.
+    // `Document#prepareData` does NOT reset `system` from `_source` — only a
+    // re-initialize does — so a one-sided `if (encumbered) deprived = true`
+    // leaves a stale true behind on any prepare that runs without one. Stating
+    // both halves makes the derivation idempotent, and makes the sentence it
+    // encodes legible: deprived is what the PLAYER stored, OR the load.
+    if (crawlerCombat() && this.type === "character") {
+      this.system.deprived = this._source.system.deprived === true
+        || this.system.encumbered === true;
     }
 
     // Panic stays for all three types: unlike encumbrance it is a checkbox the

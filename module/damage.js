@@ -1,6 +1,6 @@
 import { findDeclaredTable, findCompendiumItem, resultText } from './compendium.js'
 import { SETTINGS_NS } from './settings.js'
-import { evaluateFormula, askDamageTargets, concealmentWhisper, d20CardBody, d20CardFlavor } from './utils.js'
+import { evaluateFormula, askDamageTargets, concealmentWhisper, d20CardBody, d20CardFlavor, crawlerOption } from './utils.js'
 import { postStatusCard } from './actor/actor.js'
 
 // The system's flag namespace, imported rather than re-declared: a second
@@ -772,7 +772,14 @@ export class Damage {
         // it. This card is PUBLIC, so before the flag existed the whole table
         // read "Success"/"Fail" and the Critical Damage button in whatever
         // language the roller happened to be using (review #28).
-        const card = { kind: "save", ability: "STR", formula: roll.formula, rolled, failed, crit: failed };
+        // `fatigue`: Crawler Combat Mode's alternative to Critical Damage, the
+        // path the feature was asked for -- a PC whose STR dropped in combat.
+        // Recorded on the card so what was offered is frozen at the roll.
+        const card = {
+            kind: "save", ability: "STR", formula: roll.formula, rolled, failed, crit: failed,
+            fatigue: failed && token.actor?.type === "character"
+                && crawlerOption("crawler-fatigue-for-critical"),
+        };
         roll.toMessage({
             speaker: ChatMessage.getSpeaker({ token: token }),
             flavor: d20CardFlavor(card.kind, card.ability),

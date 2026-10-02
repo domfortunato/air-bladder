@@ -29,6 +29,14 @@ import { injectEncounterButton, localizeEncounterQty, resolveTable } from "./enc
 import { bindGrimoireFatigueButton, localizeGlogCastCard } from "./grimoire.js";
 import { nameableTokens, DAMAGE_QUALITY_KEYS, localizeD20Card, localizeRollFlavor } from "./utils.js";
 
+/**
+ * Crawler Combat Mode: the save card's Critical-Damage-or-Fatigue choice, once
+ * taken. On the MESSAGE, because a `disabled` attribute is local DOM and does
+ * not survive a re-render — the grimoire's `fatigueApplied` precedent, and the
+ * thing the Mark Critical Damage button has always lacked.
+ */
+const CRAWLER_CHOICE_FLAG = "crawlerChoiceTaken";
+
 Hooks.once("init", async function () {
   game.cairn = {
     CairnActor,
@@ -3469,18 +3477,68 @@ Hooks.on("renderChatMessageHTML", (message, html, data) => {
   // speaker even with no token; STR is already reduced, so this only sets the
   // status.
   const critBtn = html.querySelector(".mark-critical-damage");
-  if (critBtn) {
+  const fatigueBtn = html.querySelector(".take-fatigue-instead");
+  if (critBtn || fatigueBtn) {
     const critActor = token?.actor ?? game.actors.get(message.speaker?.actor);
-    if (critActor && (critActor.testUserPermission(game.user, "OWNER") || game.user.isGM)) {
-      critBtn.onclick = async (ev) => {
-        // Capture the button before awaiting: event.currentTarget is null once
-        // the (async) handler resumes after the update.
-        const b = ev.currentTarget;
-        await critActor.update({ "system.critical": true });
-        b.setAttribute("disabled", "disabled");
-      };
-    } else {
-      critBtn.style.display = "none";
+    const mayAnswer = critActor
+      && (critActor.testUserPermission(game.user, "OWNER") || game.user.isGM);
+    // CRAWLER COMBAT MODE: the two buttons are EXCLUSIVE, and the choice is
+    // spent on the MESSAGE rather than in local DOM. `disabled` alone is what
+    // the Critical Damage button has always done, and it does not survive a
+    // re-render — the counter-example, not the precedent. The grimoire's
+    // Fatigue card is the precedent: the disabled button is the affordance,
+    // the flag check is the enforcement, and a card scrolled back to hours
+    // later is still spent.
+    const spent = () => !!message.getFlag(FLAG_SCOPE, CRAWLER_CHOICE_FLAG);
+    const spend = async () => { await message.setFlag(FLAG_SCOPE, CRAWLER_CHOICE_FLAG, true); };
+    const seal = () => {
+      critBtn?.setAttribute("disabled", "disabled");
+      fatigueBtn?.setAttribute("disabled", "disabled");
+    };
+    if (spent()) seal();
+
+    if (critBtn) {
+      if (mayAnswer) {
+        critBtn.onclick = async (ev) => {
+          // Capture the button before awaiting: event.currentTarget is null once
+          // the (async) handler resumes after the update.
+          const b = ev.currentTarget;
+          if (spent()) return;
+          await critActor.update({ "system.critical": true });
+          b.setAttribute("disabled", "disabled");
+          // Only when the alternative was on offer — an ordinary card has no
+          // choice to spend and must not grow a flag nothing reads.
+          if (fatigueBtn) { await spend(); seal(); }
+        };
+      } else {
+        critBtn.style.display = "none";
+      }
+    }
+
+    if (fatigueBtn) {
+      if (mayAnswer) {
+        fatigueBtn.onclick = async (ev) => {
+          const b = ev.currentTarget;
+          if (spent()) return;
+          // Fatigue is a COST the rules impose, never a purchase, so it lands
+          // past a full pack — `ignoreCapacity` is the flag that exists for
+          // exactly this. The character is then overburdened: deprived and at
+          // 0 Hit Protection until they free a slot, which is what the
+          // button's tooltip promises.
+          //
+          // `system.critical` is deliberately NOT written. Taking the Fatigue
+          // INSTEAD of Critical Damage is the whole point of the choice.
+          await critActor.createOwnedItem(
+            { name: FATIGUE_NAME, type: "item" },
+            { ignoreCapacity: true },
+          );
+          b.setAttribute("disabled", "disabled");
+          await spend();
+          seal();
+        };
+      } else {
+        fatigueBtn.style.display = "none";
+      }
     }
   }
 
