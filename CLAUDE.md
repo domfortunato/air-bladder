@@ -41,6 +41,51 @@ manifest. Descends architecturally from a private fork of
   its own it FAST-FORWARDS, no merge commit, and a rule hung on "the merge"
   never fires. The sync is the trigger, however it lands.
 - Node 24.x. `npm run release X.Y.Z` is the whole release — see `RELEASE.md`.
+- **THE `id` IS `air-bladder` AND IS NOT CHANGING — measured 2026-09-29 and
+  CLOSED.** Asked as "how much trouble will it be to change the id to
+  `air-bladder-cairn2e`". The answer is that it is not a rename, it is
+  publishing a DIFFERENT SYSTEM: Foundry updates a package by id, so every
+  existing install would have to install fresh, and an official listing would
+  be a new package with a new install base. **Do not re-raise it, and do not
+  re-derive the cost** — it is below.
+  The repo half is the cheap half and misleads about the scale: the string is
+  in 1,141 of 1,142 pack YAML files, but nearly all of that is
+  `_stats.systemId` and `Compendium.air-bladder.<pack>` uuids the importers
+  regenerate, so it is about half a day with the gates re-run. `check:package`
+  would have accepted the new name too — its portable-directory-name rule
+  matches it — so validity was never the obstacle.
+  **FOUR NAMESPACES ARE THE id, and all four are already written into every
+  world that exists.**
+  - **`world.json` declares `"system": "air-bladder"`.** Foundry refuses to
+    launch a world whose system is missing, and it refuses BEFORE any system
+    code runs, so no migration of ours can ever reach it. Every world needs a
+    hand edit to that file, outside the application, by whoever owns it.
+  - **Settings, and this is the DESTRUCTIVE one.** `SETTINGS_NS` is the id
+    (`settings.js`), so a new id orphans every setting including every
+    migration marker — and `migrateHirelingSplit` converts every actor whose
+    stored role is `"npc"` into a hireling. After that migration has run, a
+    GENUINE NPC is exactly what stores `"npc"`. Lose the marker and the next
+    GM load turns every NPC in the world into a hireling, one batch, no
+    prompt. The marker is the only guard, which the hireling-split bullet
+    below already says in as many words.
+  - **Flags.** `getFlagScopes()` returns `["core", "world", game.system.id,
+    ...active modules]` (`client/data/client-backend.mjs:646-653`), so the flag
+    scope IS the id. Every `grantSource` tag goes invisible — and untagged is
+    how a Warden's own gift is recognised, so every piece of generated gear in
+    every world would silently become the Warden's and survive every re-roll.
+    The festival, Warden-event and weather-log finders lose the flag they are
+    found by.
+  - **Stored paths.** `systems/air-bladder/art/…` is copied onto a document at
+    creation and never re-read, so every hand-picked portrait breaks; so does
+    every stored `Compendium.air-bladder.…` uuid and every
+    `_stats.compendiumSource` the take-over doors adopt by. This one is the
+    least bad — `migrateArtPaths` rewrites by prefix and would need a new
+    generation rather than new machinery.
+  **What the question almost always wants is the TITLE, which is free**, and
+  which already reads `Air Bladder — Cairn 2e`. A title, a description and the
+  website are what anyone searches and reads; the id is plumbing visible only
+  as a folder name. A future sibling system needs nothing here either —
+  `mythic` is its own package with its own id.
 
 ## Git: two branches, one direction
 
