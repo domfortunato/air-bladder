@@ -2376,6 +2376,47 @@ What belongs here is what those two files do not say:
   named by some clause — `lang/` had been named by none, which the "these and only
   these" wording makes an exclusion rather than an oversight.
 
+## No generated text a player or a Warden reads (user ruling 2026-09-23)
+
+**The art rule now has a text twin, and it is absolute.** `README.md` has always
+said generative-AI art will never appear here; the same is now true of
+**player- and Warden-facing TEXT**. Table rows, flavour prose, anything a die
+deals to somebody at the table — none of it is model-written. It is Cairn's,
+somebody else's under a licence that permits it, or the maintainer's own.
+
+This is not the same statement as "the code is written with AI assistance",
+which `README.md` and `docs/provenance.md` both say plainly and which stands.
+The line is what a PLAYER or a WARDEN reads as the game: content, not
+machinery. Interface strings and the `docs/` guides sit on the machinery side
+of it and always have — provenance bucket 4 already records them — but **content
+is content whichever file it lives in**, so a table row does not become
+acceptable by being written into `lang/en.json` or a `tools/` importer instead
+of a pack.
+
+**What it cost when it was nearly missed.** A "Stranger" generator built that
+day — a person rolled off a real 2e background rather than the Warden's Guide
+d20 word — was designed with two new tables beside it, twenty quirks and twenty
+motivations, to be written for this project. Forty sentences were drafted (in
+chat, never to disk) and REJECTED on this ruling. The answer was not to write
+better ones: it was that Cairn already ships the table, `Warden: NPC - Quirk`
+and `Warden: NPC - Goal` off the Warden's Guide, and a stranger rolls those like
+every other person. The feature got smaller, the gate count did not move, and
+`check:warden` still reports 560 rows across 37 tables. **Reach for the
+official table before reaching for a new one** — and if there is genuinely no
+table, that is a conversation, not a drafting exercise.
+
+**The generator itself was rolled back on 2026-10-01, by user ask, and the
+RULING is not** — which is why this section outlives the feature that
+occasioned it. Nothing of that work is in the tree; the record of what it was
+and why it is gone sits in the memory note for the cairn-table review. Do not
+rebuild it on the strength of this paragraph.
+
+A second trap the same afternoon, worth the line because it nearly shipped: the
+first draft of those forty was, on inspection, the upstream author's own forty
+reworded — the same forty situations in other words. That is a derivative of
+his CC BY-SA text with the attribution stripped, and it would have passed every
+gate here. **Rewording somebody's list is copying it.**
+
 ## Testing
 
 **`docs/release-testing.md` is the full list — what each probe covers, and what to
