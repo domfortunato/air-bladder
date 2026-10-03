@@ -112,8 +112,13 @@ const CORE_RESOLVED = [/^TYPES\./];
  * prefix: a prefix would hide a typo'd COMBAT.* key of our own, which is
  * this gate's whole job to catch. (Review #11: these three rows kept the
  * gate permanently red, which is the failure mode its docstring names.)
+ * `COMMON.Yes` / `COMMON.No` (2026-10-03) are the Drop confirm's buttons,
+ * kept as core's own words so that dialog added no string to translate; both
+ * verified present in core's en.json. The gate was red on them from the
+ * commit that introduced them (a5e3f58e) until this line.
  */
-const CORE_SUPPLIED = new Set(["COMBATANT.Ping", "COMBATANT.PanTo", "COMBAT.InitiativeRoll"]);
+const CORE_SUPPLIED = new Set(["COMBATANT.Ping", "COMBATANT.PanTo", "COMBAT.InitiativeRoll",
+  "COMMON.Yes", "COMMON.No"]);
 
 /** Literal keys, plus the PREFIXES of keys built by interpolation. */
 const collectKeys = () => {
