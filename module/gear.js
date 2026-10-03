@@ -504,24 +504,24 @@ export const capacityVerdict = (actor, need) => {
 };
 
 /**
- * Would one more Fatigue fit, or would it overburden them?
+ * Must this character drop something before taking a Fatigue instead of
+ * Critical Damage? Only when they are ALREADY overburdened.
  *
- * The gate on the Fatigue-instead-of-Critical-Damage bargain (2026-10-03, user
- * ruling, REVERSING the day-old "the Fatigue has to be paid for": at 8 of 10
- * slots they were asked to drop something for a Fatigue that fit, "that isn't
- * right"). A character with room takes the Fatigue and drops nothing; one
- * without is asked what to put down — the same `capacityVerdict` every other
- * acquisition asks, so the bargain and the drop handler cannot disagree about
- * what "fits" means.
+ * The gate on the Fatigue bargain, ruled three times on 2026-10-02/03: every
+ * press asked ("the Fatigue has to be paid for"); then only when the Fatigue
+ * would not fit — `capacityVerdict(actor, 1)`, so 9 of 10 asked; then, the
+ * same night, only when they are already overburdened (user: "it only prompts
+ * a character to drop something and requires them to do so if the player is
+ * already overburdened"), because asking at 9 of 10 was "an undesired
+ * situation". So a character at 9 of 10 takes the Fatigue without a word and
+ * lands overburdened, at 0 Hit Protection, which the ruling accepts.
  *
- * A Fatigue fills one slot, like any ordinary item, so the question is
- * whether one more slot fits: at 9 of 10 it does not. (For a day the first
- * Fatigue was free and a character carrying none was never asked; that house
- * rule went on 2026-10-03, user ruling.)
+ * "Overburdened" is `isEncumbered()` — no free slot, so 10 of 10 counts — the
+ * one predicate HP 0 and every acquisition refusal already read.
  * @param {CairnActor} actor
  * @returns {Boolean}
  */
-export const fatigueFits = (actor) => capacityVerdict(actor, 1) === "fits";
+export const mustDropForFatigue = (actor) => actor?.isEncumbered?.() === true;
 
 /** Slots an item wants. Bulky 2, weightless 0, otherwise 1. */
 export const slotsNeeded = (itemLike) =>

@@ -19,7 +19,7 @@ import { Damage, DAMAGE_APPLIED_FLAG, DAMAGE_SOURCE_FLAG, MANEUVER_CHOICE_FLAG, 
 import { registerWardenDamageControl } from "./warden-damage.js";
 import { registerWardenDashboardControl, refreshDashboardTime, localizeDashboardCard } from "./warden-dashboard.js";
 import { handlePileSocket, localizePileCard, PILE_DROP_ACTION, askWhatToDrop, dropItemToPile } from "./party-pile.js";
-import { fatigueFits } from "./gear.js";
+import { mustDropForFatigue } from "./gear.js";
 import { installWorldCalendar, checkWorldCalendar } from "./game-time.js";
 import { renderWatchClock, refreshWatchClock } from "./watch-clock.js";
 import { refreshValdCalendar } from "./vald-calendar.js";
@@ -3924,12 +3924,12 @@ Hooks.on("renderChatMessageHTML", (message, html, data) => {
         fatigueBtn.onclick = async (ev) => {
           const b = ev.currentTarget;
           if (spent()) return;
-          // SOMETHING GOES ON THE FLOOR FIRST — BUT ONLY WHEN THE FATIGUE WOULD
-          // NOT FIT (user ruling 2026-10-03, reversing the day-old "required":
-          // a character at 8 of 10 slots pressed this and was asked to drop
-          // something for a Fatigue that fit — "that isn't right"). `fatigueFits`
-          // asks `capacityVerdict` whether one more slot fits, and with room the
-          // Fatigue simply lands. Without it, the picker asks what the
+          // SOMETHING GOES ON THE FLOOR FIRST — BUT ONLY WHEN THE CHARACTER IS
+          // ALREADY OVERBURDENED (user ruling, the night of 2026-10-03, the
+          // third shape of this rule in two days: every press, then "when it
+          // would not fit", then this). `mustDropForFatigue` is
+          // `isEncumbered()`; anyone else takes the Fatigue with no dialog, a
+          // character at 9 of 10 included. Otherwise the picker asks what the
           // character puts down — WHICH item is always the player's choice,
           // never the system's, which is the line the no-automation deviation
           // draws.
@@ -3958,9 +3958,9 @@ Hooks.on("renderChatMessageHTML", (message, html, data) => {
           //
           // ASKED BEFORE ANY WRITE, deliberately. The drop and the Fatigue are
           // one bargain, and a Fatigue landing while the picker was still open
-          // would be half of it. A Fatigue that fits is answered without a
-          // dialog as "drop nothing".
-          const chose = fatigueFits(critActor) ? { id: null, place: "" } : await askWhatToDrop(critActor);
+          // would be half of it. A character who is not overburdened is
+          // answered without a dialog as "drop nothing".
+          const chose = mustDropForFatigue(critActor) ? await askWhatToDrop(critActor) : { id: null, place: "" };
           if (chose === null) return;
           if (spent()) return;             // re-asked: the dialog is seconds wide
           if (chose === "critical") {

@@ -36,10 +36,11 @@
  * at 0 Hit Protection and NOT deprived, with the checkbox live and the plain
  * Overburdened banner.
  *
- * EVERY FATIGUE FILLS A SLOT (2026-10-03, the free first Fatigue withdrawn), so
- * the bargain's picker opens at 9 of 10 whether or not a Fatigue is carried;
- * `atEdge` builds that edge, and the `firstFull` leg holds that a character with
- * NO Fatigue at a full pack is now asked.
+ * THE PICKER OPENS ONLY FOR A CHARACTER ALREADY OVERBURDENED (the night of
+ * 2026-10-03, the third ruling on it in two days). `overburdened` builds that
+ * fixture at ten slots; the `edge` leg holds that 9 of 10 takes the Fatigue with
+ * no picker and lands overburdened, and `firstFull` that 10 of 10 with no
+ * Fatigue is asked (every Fatigue fills a slot, the free first one withdrawn).
  *
  * Dice are pinned through `CONFIG.Dice.randomUniform`, which is INVERTED, and
  * through a SEQUENCE where a chain must terminate: a flat pin at the maximum
@@ -355,17 +356,19 @@ try {
       await sleep(400);
     }
 
-    // AT THE EDGE: the picker opens only when the Fatigue would NOT fit, and
-    // this character sits at 9 of 10 (the blade and eight loads), so a Fatigue
-    // — every one fills a slot since 2026-10-03 — has no room. That keeps this
-    // leg's drop, pile and card assertions on the picker path. The no-picker
-    // path has its own legs below (10b).
+    // ALREADY OVERBURDENED: the picker opens only for a character with no
+    // free slot (the night of 2026-10-03), and this one sits at 9 of 10 (the
+    // blade and eight loads), so a tenth load is planted to keep this leg's
+    // drop, pile and card assertions on the picker path. The no-picker paths
+    // have their own legs below (10b).
+    await pc.createEmbeddedDocuments("Item", [{ name: "ZZ Load Tenth", type: "item" }]);
+    await sleep(300);
     const fatigueBefore = pc.items.filter((i) => i.name === "Fatigue").length;
     const usedBefore = pc.system.slotsUsed;
     const itemsBefore = pc.items.size;
     rowOf(m1).querySelector(".take-fatigue-instead").click();
-    // SOMETHING GOES ON THE FLOOR FIRST when it would not fit (2026-10-02,
-    // narrowed 2026-10-03). The button opens a picker before it creates
+    // SOMETHING GOES ON THE FLOOR FIRST when already overburdened (2026-10-02,
+    // narrowed twice on 2026-10-03). The button opens a picker before it creates
     // anything, so the Fatigue never lands until this is answered — which is
     // exactly what three legs below went red on when the picker arrived and
     // nothing here knew about it.
@@ -530,16 +533,15 @@ try {
     const PETTY = { name: "ZZ Trinket", type: "item", system: { weightless: true } };
     const BULKY = { name: "ZZ Ladder", type: "item", system: { bulky: true } };
     const TORCH = { name: "ZZ Torch", type: "item", system: { uses: { value: 2, max: 3 } } };
-    // AT THE EDGE (2026-10-03, user ruling): the picker opens ONLY when the
-    // Fatigue would not fit, so every fixture that expects it is padded to NINE
-    // slots, one of them a Fatigue already carried — so 9 + 1 >= 10 has no room
-    // for the one the button takes. Every Fatigue fills a slot (the free first
-    // Fatigue was withdrawn the same day), so `slotsOf` counts it like any item:
-    // `items` + the padding + the helper's own Fatigue is exactly nine.
+    // ALREADY OVERBURDENED (the night of 2026-10-03, user ruling): the picker
+    // opens ONLY for a character with no free slot, so every fixture that
+    // expects it is padded to TEN slots, one of them a Fatigue already carried.
+    // Every Fatigue fills a slot, so `slotsOf` counts it like any item: `items`
+    // + the padding + the helper's own Fatigue is exactly ten.
     const slotsOf = (items) => items.reduce((n, it) =>
       n + (it.system?.weightless ? 0 : it.system?.bulky ? 2 : 1), 0);
-    const atEdge = async (name, items) => {
-      const pad = Array.from({ length: Math.max(0, 8 - slotsOf(items)) }, (_, i) => ({ name: `ZZ Pad ${i}`, type: "item" }));
+    const overburdened = async (name, items) => {
+      const pad = Array.from({ length: Math.max(0, 9 - slotsOf(items)) }, (_, i) => ({ name: `ZZ Pad ${i}`, type: "item" }));
       return pcWith(name, [...items, ...pad, { name: "Fatigue", type: "item" }]);
     };
     // The rows a picker should list for an actor: everything that frees a slot.
@@ -594,7 +596,7 @@ try {
     // REFUSED by the named button: the Critical Damage is APPLIED, no Fatigue is
     // created, the pair is sealed and the tick is on the control nobody pressed.
     {
-      const a = await atEdge("ZZ Barg Refuse", [ORD]);
+      const a = await overburdened("ZZ Barg Refuse", [ORD]);
       // The fixture carries one Fatigue (the edge); what must not change is
       // the COUNT, so the leg reads a delta rather than expecting zero.
       const fRefuseBefore = a.items.filter((i) => i.system?.isFatigue).length;
@@ -618,7 +620,7 @@ try {
     // ESCAPE IS NOT A REFUSAL — the guard. Only the named button refuses; a
     // dialog dismissed by accident must leave the card exactly as it was.
     {
-      const a = await atEdge("ZZ Barg Escape", [ORD]);
+      const a = await overburdened("ZZ Barg Escape", [ORD]);
       const fEscapeBefore = a.items.filter((i) => i.system?.isFatigue).length;
       const { m, dlg } = await openPicker(a);
       bargain.escapeAsked = !!dlg;
@@ -637,11 +639,11 @@ try {
     // TAKING IT: the tick goes on the Fatigue button, and the whole bargain
     // NETS TO ZERO — one thing down, one Fatigue on.
     {
-      // AT THE EDGE with two Fatigues already carried: there is no room for a
-      // third, and dropping one thing pays for it exactly. WHICH row goes is
+      // OVERBURDENED with two Fatigues already carried, and dropping one thing
+      // pays for the third exactly. WHICH row goes is
       // the picker's first radio, whatever the sort put there, and the leg
       // asserts THAT item is gone rather than naming one.
-      const a = await atEdge("ZZ Barg Take", [ORD, { name: "Fatigue", type: "item" }]);
+      const a = await overburdened("ZZ Barg Take", [ORD, { name: "Fatigue", type: "item" }]);
       const usedBefore2 = a.system.slotsUsed;
       const { m, dlg } = await openPicker(a);
       const picked = dlg?.querySelector('input[name="dropped"]:checked')?.value ?? null;
@@ -686,8 +688,8 @@ try {
       };
     }
     // A FIRST FATIGUE AT A FULL PACK ASKS (2026-10-03, the free first Fatigue
-    // withdrawn): it fills a slot like any other, so a character at 10 of 10
-    // carrying NO Fatigue has no room and the picker opens. pressFatigue closes
+    // withdrawn): 10 of 10 is overburdened, Fatigue carried or not, so the
+    // picker opens. pressFatigue closes
     // it unanswered, so nothing lands. The red-first witness against the
     // free-first build, where this character was never asked.
     {
@@ -700,6 +702,30 @@ try {
         asked, encumberedBefore,
         fatigues: a.items.filter((i) => i.system?.isFatigue).length,
         usedBefore: usedBefore4, usedAfter: a.system.slotsUsed,
+        flag: m.getFlag(NS, "crawlerChoiceTaken") ?? null,
+        critical: a._source.system.critical === true,
+      };
+    }
+
+    // AT 9 OF 10 THERE IS NO PICKER (the night of 2026-10-03, user: "only
+    // prompts a character to drop something and requires them to do so if the
+    // player is already overburdened"). One free slot is not overburdened, so
+    // the Fatigue lands, nothing is dropped, and they end at 10 of 10 —
+    // overburdened, which the ruling accepts. The red-first witness against the
+    // "would not fit" build, which asked here.
+    {
+      const nine = Array.from({ length: 9 }, (_, i) => ({ name: `ZZ Nine ${i}`, type: "item" }));
+      const a = await pcWith("ZZ Barg Edge", nine);
+      const encumberedBefore = a.isEncumbered();
+      const usedBefore5 = a.system.slotsUsed;
+      const itemsBefore5 = a.items.size;
+      const { m, asked } = await pressFatigue(a);
+      bargain.edge = {
+        asked, encumberedBefore,
+        usedBefore: usedBefore5, usedAfter: a.system.slotsUsed,
+        encumberedAfter: a.isEncumbered(),
+        itemsDelta: a.items.size - itemsBefore5,
+        fatigues: a.items.filter((i) => i.system?.isFatigue).length,
         flag: m.getFlag(NS, "crawlerChoiceTaken") ?? null,
         critical: a._source.system.critical === true,
       };
@@ -721,10 +747,10 @@ try {
       };
     }
 
-    // WHAT THE PICKER OFFERS. Petty is excluded UNCONDITIONALLY, so the same
-    // exclusion is read twice: once on a character who IS overburdened and once on
-    // one who is not. A condition on `isEncumbered()` would pass the first and
-    // fail the second, which is the only thing that tells the two designs apart.
+    // WHAT THE PICKER OFFERS. Petty is never offered: a petty drop frees
+    // nothing. (A second leg read the same exclusion on a character who was NOT
+    // overburdened; since the night of 2026-10-03 the picker opens only for one
+    // who is, so that case cannot arise and the leg went.)
     {
       // TEN fillers plus a Fatigue is eleven slots: overburdened, with room to
       // spare on the count. (Ten was first chosen while the first Fatigue was
@@ -738,23 +764,11 @@ try {
       foundry.applications.instances.get(dlg?.id)?.close();
       await sleep(600);
     }
-    {
-      // Padded to the edge (nine slots, not overburdened), because the picker
-      // no longer opens for a character with room — and nine is still not
-      // overburdened, which is what this leg is about.
-      const a = await atEdge("ZZ Barg Light", [ORD, PETTY]);
-      const { dlg } = await openPicker(a);
-      bargain.lightRows = rowsOf(dlg);
-      bargain.lightExpected = offerable(a);
-      bargain.lightEncumbered = a.isEncumbered();
-      foundry.applications.instances.get(dlg?.id)?.close();
-      await sleep(600);
-    }
     // A SECOND Fatigue costs a real slot, and is STILL not offered: the exclusion
     // is of Fatigue AS Fatigue, never via pettiness, which a pettiness-only
     // implementation fails here.
     {
-      const a = await atEdge("ZZ Barg TwoFat",
+      const a = await overburdened("ZZ Barg TwoFat",
         [ORD, { name: "Fatigue", type: "item" }, { name: "Fatigue", type: "item" }]);
       const { dlg } = await openPicker(a);
       bargain.twoFatRows = rowsOf(dlg);
@@ -765,7 +779,7 @@ try {
     // THE LABELS: a number and never the word "bulky", uses where there are any,
     // and no `x3` anywhere.
     {
-      const a = await atEdge("ZZ Barg Labels", [BULKY, TORCH]);
+      const a = await overburdened("ZZ Barg Labels", [BULKY, TORCH]);
       const { dlg } = await openPicker(a);
       bargain.labelRows = rowsOf(dlg);
       bargain.dialogText = dlg?.textContent ?? "";
@@ -1895,8 +1909,13 @@ try {
       : fail(`room slots: ${b.room?.usedBefore} -> ${b.room?.usedAfter}`);
     b.firstFull?.encumberedBefore && b.firstFull?.asked === true && b.firstFull?.fatigues === 0
       && b.firstFull?.usedAfter === b.firstFull?.usedBefore && b.firstFull?.flag === null && b.firstFull?.critical === false
-      ? ok(`a FIRST Fatigue at a full pack (${b.firstFull.usedBefore} of 10) ASKS — every Fatigue fills a slot — and closing the picker unanswered lands nothing`)
+      ? ok(`a FIRST Fatigue at a full pack (${b.firstFull.usedBefore} of 10) ASKS — already overburdened, Fatigue carried or not — and closing the picker unanswered lands nothing`)
       : fail(`first Fatigue at a full pack: ${JSON.stringify(b.firstFull)} — the free-first build never asked this character`);
+    b.edge?.encumberedBefore === false && b.edge?.asked === false && b.edge?.fatigues === 1
+      && b.edge?.itemsDelta === 1 && b.edge?.usedBefore === 9 && b.edge?.usedAfter === 10
+      && b.edge?.encumberedAfter === true && b.edge?.flag === "fatigue" && b.edge?.critical === false
+      ? ok(`AT 9 OF 10 there is NO picker: the Fatigue lands and leaves them overburdened (${b.edge.usedBefore} -> ${b.edge.usedAfter}) — only an ALREADY overburdened character is asked`)
+      : fail(`edge: ${JSON.stringify(b.edge)} — the "would not fit" build asked here`);
 
     b.legacy?.sealed && b.legacy?.anyTick === false
       ? ok("a card already in a log (flag `true`) seals with NO check — a default would silently mislabel history on cards nothing ever repairs")
@@ -1910,9 +1929,6 @@ try {
     b.fullNote
       ? ok("...with the note saying why petty items are absent, shown because some were hidden")
       : fail("the PettyHidden note was missing although a petty item was filtered out");
-    b.lightEncumbered === false && noPetty(b.lightRows) && b.lightRows?.length === b.lightExpected
-      ? ok(`...and petty is excluded for a character who is NOT overburdened either (${b.lightRows.length} rows at the edge) — the rule is unconditional, which is the leg an isEncumbered() condition fails`)
-      : fail(`not-overburdened rows: ${JSON.stringify(b.lightRows)} encumbered=${b.lightEncumbered} expected=${b.lightExpected}`);
     noFatigue(b.twoFatRows) && b.twoFatRows?.length === b.twoFatExpected
       ? ok(`...and a SECOND Fatigue is not offered though it costs a real slot (${b.twoFatRows.length} rows, none Fatigue) — excluded AS Fatigue, never via pettiness`)
       : fail(`with two Fatigues: ${JSON.stringify(b.twoFatRows)} expected=${b.twoFatExpected}`);

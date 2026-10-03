@@ -678,19 +678,22 @@ companion record of who authored what.
   THE FATIGUE WOULD NOT FIT** (user, testing on CT 123: a character at 8 of 10
   slots with no Fatigue "chose 'take a fatigue instead' and was prompted to
   drop an item! that isn't right is it?"; offered only-when-it-would-not-fit /
-  always / never, they chose the first). `fatigueFits` (gear.js) asks
-  `capacityVerdict(actor, 1)` — the same verdict every other acquisition
-  asks, so the bargain and the drop handler cannot disagree about "fits" —
-  and the handler in `cairn.js` answers "drop nothing" without a dialog on
-  "fits". A Fatigue fills one slot, so the picker opens at 9 of 10 whether or
-  not one is carried (for a few hours the test read a `nextFatigueCost` off
-  the free first Fatigue and a character carrying none was never asked; that
-  rule went the same evening — see the inventory deviations).
-  Nothing-to-drop-and-no-room still applies the Critical Damage with no
-  dialog. `dev:combat-options`'s every picker fixture is padded to the edge
-  (`atEdge`: nine slots, one of them a Fatigue); the `room` leg is the
-  red-first witness against the always-ask build, and `firstFull` (no Fatigue
-  at 10 of 10 IS asked) against the free-first one.
+  always / never, they chose the first). **AND THAT LASTED HOURS: SINCE THE
+  NIGHT OF 2026-10-03 THE DROP IS ASKED ONLY WHEN THE CHARACTER IS ALREADY
+  OVERBURDENED** (user: the would-not-fit test "creates an undesired
+  situation ... it only prompts a character to drop something and requires
+  them to do so if the player is already overburdened"). `mustDropForFatigue`
+  (gear.js) is `isEncumbered()` — no free slot, 10 of 10 counts, the one
+  predicate HP 0 reads — and the handler in `cairn.js` answers "drop nothing"
+  without a dialog for anyone else, so a character at 9 of 10 takes the
+  Fatigue silently and lands overburdened, at 0 Hit Protection; the ruling
+  accepts that. (In between it was `fatigueFits` = `capacityVerdict(actor,
+  1)`, and for a few hours a `nextFatigueCost` off the free first Fatigue.)
+  Nothing-to-drop-and-already-overburdened still applies the Critical Damage
+  with no dialog. `dev:combat-options`'s every picker fixture is padded to TEN
+  slots (`overburdened`); the `room` leg holds 2 of 10, the `edge` leg 9 of 10
+  (no picker — the red-first witness against the would-not-fit build), and
+  `firstFull` 10 of 10 with no Fatigue (asked).
   **The drop is recorded in chat** (user ask) from a flag carrying the
   item's NAME and rebuilt per viewer — the move runs on whichever client
   answered it, so a stored sentence would freeze in that client's language, the
@@ -722,8 +725,8 @@ companion record of who authored what.
   **THE PICKER OFFERS ONLY WHAT FREES A SLOT** (`slotFreeingItems`, deliberately
   NOT a narrowing of `droppableItems`, which still means "everything that may be
   dropped" for the ordinary Drop control). Petty is excluded
-  **unconditionally** — never scoped to `isEncumbered()`: a petty drop frees
-  nothing, so it cannot pay for a Fatigue, and if petty is ever on the menu the
+  **unconditionally**: a petty drop frees nothing, so it cannot pay for a
+  Fatigue, and if petty is ever on the menu the
   sensible play is always to shed the cheapest trinket, which makes a forced
   drop cost nothing. Fatigue is excluded **as Fatigue**: dropping one to make
   room for another is no trade. Rows say what they free
@@ -2848,7 +2851,7 @@ if you find one, deleting it is in scope, not a separate decision.
   bargain read a `nextFatigueCost` off it — all four are gone; the − control
   clears the first Fatigue and the trash can the row it is on. It had been
   chosen so a forced drop would net to zero; the bargain now asks for a drop
-  only when the Fatigue would not fit, and nets to zero for every Fatigue.
+  only of a character already overburdened, and nets to zero for every Fatigue.
   Nothing shipped with the free rule, so removing it re-encumbers no released
   character. Gate: `npm run dev:enc-damage` (9 items + 1 Fatigue is 10 and
   overburdened; no chip; the pressed row is the row deleted).

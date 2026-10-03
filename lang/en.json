@@ -234,7 +234,7 @@
   "CAIRN.CriticalDamageBanner": "can only crawl — stabilize with aid, or die within the hour.",
   "CAIRN.CriticalDamagePlaceholder": "Click here to describe this weapon's critical damage.",
   "CAIRN.Crawler.FatigueButton": "Take a Fatigue instead",
-  "CAIRN.Crawler.FatigueButtonTip": "Take Critical Damage, or take a Fatigue instead. If the Fatigue would not fit in your pack, you are asked to drop something first.",
+  "CAIRN.Crawler.FatigueButtonTip": "Take Critical Damage, or take a Fatigue instead. If you are already overburdened, you are asked to drop something first.",
   "CAIRN.Ranged": "Ranged",
   "CAIRN.RangedTip": "A bow, crossbow or sling rather than something swung in reach. Cairn 2e does not distinguish the two, so this matters only to the Maneuver on max melee damage option, which never offers a maneuver for a ranged attack.",
   "CAIRN.Crawler.DieExploded": "A d{die} exploded!",
@@ -273,7 +273,7 @@
   "CAIRN.Pile.ConfirmDrop": "Drop {name}? It goes to the party's Dropped Item Pile, and the Warden hands it back.",
   "CAIRN.Pile.NoWarden": "No Warden is connected, so nothing can be dropped into the pile right now.",
   "CAIRN.Pile.FatigueTitle": "Fatigue takes a slot",
-  "CAIRN.Pile.FatiguePrompt": "This Fatigue would overburden you. Choose something to drop to make room for it.",
+  "CAIRN.Pile.FatiguePrompt": "You are already overburdened. Choose something to drop to make room for this Fatigue.",
   "CAIRN.Pile.FatigueConfirm": "Drop it and take the Fatigue",
   "CAIRN.Pile.FatigueDropCard": "Dropped {item} to make room for a Fatigue.",
   "CAIRN.Pile.FatigueDropCardAt": "Dropped {item} at {place} to make room for a Fatigue.",
@@ -937,7 +937,7 @@
       "label": "Maneuver on max melee damage"
     },
     "FatigueForCriticalDamage": {
-      "hint": "When a player character fails a Critical Damage save, their chat card also offers to take a Fatigue instead. If the Fatigue would overburden them, they must drop an item, which will be added to the Party's Dropped Item Pile. Refuse to drop anything and the Critical Damage stands.",
+      "hint": "When a player character fails a Critical Damage save, their chat card also offers to take a Fatigue instead. If they are already overburdened, they must drop an item, which will be added to the Party's Dropped Item Pile. Refuse to drop anything and the Critical Damage stands.",
       "label": "Fatigue instead of Critical Damage"
     },
     "CustomPortraitFolder": {

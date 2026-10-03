@@ -658,7 +658,7 @@ untranslated, which is the honest failure.
 | `CAIRN.Crawler.ExplodeButton` | Explode the Die |
 | `CAIRN.Crawler.ExplodeButtonTip` | Roll the die again and add it, for as long as it keeps rolling its highest face. |
 | `CAIRN.Crawler.FatigueButton` | Take a Fatigue instead |
-| `CAIRN.Crawler.FatigueButtonTip` | Take Critical Damage, or take a Fatigue instead. If the Fatigue would not fit in your pack, you are asked to drop something first. |
+| `CAIRN.Crawler.FatigueButtonTip` | Take Critical Damage, or take a Fatigue instead. If you are already overburdened, you are asked to drop something first. |
 | `CAIRN.Crawler.ManeuverButton` | Use a Maneuver! |
 | `CAIRN.Crawler.ManeuverButtonTip` | Forgo all of this damage and attempt a maneuver instead, resolved with an ability check the Warden calls for. |
 
@@ -946,7 +946,7 @@ untranslated, which is the honest failure.
 | `CAIRN.Pile.FatigueConfirm` | Drop it and take the Fatigue |
 | `CAIRN.Pile.FatigueDropCard` | Dropped {item} to make room for a Fatigue. |
 | `CAIRN.Pile.FatigueDropCardAt` | Dropped {item} at {place} to make room for a Fatigue. |
-| `CAIRN.Pile.FatiguePrompt` | This Fatigue would overburden you. Choose something to drop to make room for it. |
+| `CAIRN.Pile.FatiguePrompt` | You are already overburdened. Choose something to drop to make room for this Fatigue. |
 | `CAIRN.Pile.FatigueRefuse` | No — take the Critical Damage |
 | `CAIRN.Pile.FatigueTitle` | Fatigue takes a slot |
 | `CAIRN.Pile.Frees` | frees {slots} |
@@ -987,7 +987,7 @@ untranslated, which is the honest failure.
 | `CAIRN.Settings.EnableValdCalendar.label` | Use the Vald calendar and seasons |
 | `CAIRN.Settings.ExplodingDamageDice.hint` | When a player character's damage die rolls its highest face, it is rolled again and added, for as long as it keeps rolling the highest. Only the die that is kept explodes, so two sixes on a keep-highest weapon are one si… |
 | `CAIRN.Settings.ExplodingDamageDice.label` | Exploding damage dice |
-| `CAIRN.Settings.FatigueForCriticalDamage.hint` | When a player character fails a Critical Damage save, their chat card also offers to take a Fatigue instead. If the Fatigue would overburden them, they must drop an item, which will be added to the Party's Dropped Item P… |
+| `CAIRN.Settings.FatigueForCriticalDamage.hint` | When a player character fails a Critical Damage save, their chat card also offers to take a Fatigue instead. If they are already overburdened, they must drop an item, which will be added to the Party's Dropped Item Pile.… |
 | `CAIRN.Settings.FatigueForCriticalDamage.label` | Fatigue instead of Critical Damage |
 | `CAIRN.Settings.GroupGeneralButton` | Configure General Settings |
 | `CAIRN.Settings.GroupGeneralHint` | Panic, dice notation, item icons, grant tags, omens, the Warden title, the change log and scars. |

@@ -66,9 +66,10 @@ Tick **Fatigue instead of Critical Damage** and a player character who fails a
 Critical Damage save is offered a choice on the chat card, side by side: take the
 Critical Damage as usual, or **Take a Fatigue instead**.
 
-**The Fatigue has to fit.** A Fatigue fills a slot, like any ordinary item. With
-room in the pack, pressing the button simply adds it. If the Fatigue would
-overburden the character — at nine of ten slots or more — pressing it asks what
+**Only an overburdened character has to pay.** A Fatigue fills a slot, like any
+ordinary item. If the character has a free slot, pressing the button simply adds
+the Fatigue — even when that leaves them overburdened, as it does at nine of ten.
+If they are **already** overburdened, with no free slot, pressing it asks what
 they put down to make room, and that item goes to the party's Dropped Item Pile,
 so the trade is one thing on the floor for one Fatigue in the pack. Which item
 is always the player's choice; the system never picks.
