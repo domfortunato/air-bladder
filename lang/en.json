@@ -233,9 +233,7 @@
   "CAIRN.CriticalDamage": "Critical Dmg.",
   "CAIRN.CriticalDamageBanner": "can only crawl — stabilize with aid, or die within the hour.",
   "CAIRN.CriticalDamagePlaceholder": "Click here to describe this weapon's critical damage.",
-  "CAIRN.Crawler.DeprivedLockedTip": "Crawler Combat Mode: you are Deprived because you are overburdened, and stay Deprived until you free a slot.",
   "CAIRN.Crawler.FatigueButton": "Take a Fatigue instead",
-  "CAIRN.Crawler.OverburdenedBanner": "Over capacity — HP stays 0 and you are Deprived until you free a slot.",
   "CAIRN.Crawler.FatigueButtonTip": "Take Critical Damage, or take a Fatigue instead. If the Fatigue would not fit in your pack, you are asked to drop something first.",
   "CAIRN.Ranged": "Ranged",
   "CAIRN.RangedTip": "A bow, crossbow or sling rather than something swung in reach. Cairn 2e does not distinguish the two, so this matters only to the Maneuver on max melee damage option of Crawler Combat Mode, which never offers a maneuver for a ranged attack.",
@@ -934,7 +932,7 @@
       "label": "Offer custom Cairn 2e backgrounds"
     },
     "CrawlerCombatMode": {
-      "hint": "A harsher, more lethal combat. While it is on, a player character who is overburdened is Deprived as well as at 0 Hit Protection, until they free a slot. NPCs, hirelings and monsters are not affected. Player characters are made with 6 Hit Protection, and a Rest rolls for it instead of restoring it: a die the size of their maximum, kept if it beats what they have. For a game pitched to match, consider setting 'Ability dice for player characters' to Crawler (2d6 + 6) under Character Generation. Changing this reloads the world.",
+      "hint": "A harsher, more lethal combat. NPCs, hirelings and monsters are not affected. Player characters are made with 6 Hit Protection, and a Rest rolls for it instead of restoring it: a die the size of their maximum, kept if it beats what they have. For a game pitched to match, consider setting 'Ability dice for player characters' to Crawler (2d6 + 6) under Character Generation. Changing this reloads the world.",
       "label": "Crawler Combat Mode"
     },
     "CrawlerExplodingDamage": {

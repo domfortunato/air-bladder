@@ -765,11 +765,14 @@ export const registerSettings = () => {
   // auto-record-scars precedent (damage.js), which is the one other automated
   // sheet write here and is gated exactly this way.
   //
-  // requiresReload on the MASTER, copying `use-panic` -- the precedent that
-  // matters, being the other setting that changes a DERIVED value. A re-render
-  // does not re-derive, so a fan of re-renders would leave half the table
-  // reading a stale sheet; a reload is the honest answer. The two options are
-  // read at ROLL time and at CARD-BUILD time, so neither needs one.
+  // requiresReload on the MASTER was copied from `use-panic` because the
+  // master then changed a DERIVED value (an overburdened PC was Deprived), and
+  // a re-render does not re-derive. THAT RULE IS GONE (2026-10-03, user
+  // reversal), so nothing derived depends on the master any more: its
+  // options are read at ROLL time and at CARD-BUILD time, and the HP
+  // generation rule at generation time. The reload is KEPT, unexamined, and
+  // flagged for a decision before the release -- dropping it is a behaviour
+  // change nobody has asked for, and the hint promises the reload.
   game.settings.register(SETTINGS_NS, "crawler-combat-mode", {
     name: "CAIRN.Settings.CrawlerCombatMode.label",
     hint: "CAIRN.Settings.CrawlerCombatMode.hint",

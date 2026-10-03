@@ -12,21 +12,9 @@ the same moment.
 
 ## What the hack itself does
 
-**An overburdened player character is Deprived.**
-
-Cairn already sets a character's Hit Protection to 0 while they are
-overburdened. With Crawler Combat Mode on, they are **Deprived** as well, until
-they are no longer overburdened.
-
-Being Deprived means they cannot Rest and cannot Restore Abilities — both
-buttons grey out on the sheet. This is **not** the same as Critical Damage,
-which is a separate condition with its own banner and its own recovery.
-
-While the hack is holding a character Deprived, the Deprived box on their sheet
-is ticked and cannot be unticked — hovering it says why. **Your own use of the
-box is not lost**: if you had marked a character Deprived for going without food
-or rest, that is still there, and it comes back the moment they stop being
-overburdened.
+Being overburdened works exactly as it does in Cairn: Hit Protection is 0 until
+a slot is freed, and nothing else. The hack does not touch the Deprived box,
+which stays what the Player's Guide says it is — going without food or rest.
 
 One thing worth knowing at the table: **overburdened means no free slot**. A pack
 filled to exactly its limit counts, so clearing it means ending up with a slot

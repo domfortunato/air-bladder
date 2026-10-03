@@ -1975,10 +1975,17 @@ companion record of who authored what.
   **CRAWLER COMBAT MODE — THE SECOND OPTIONAL HACK (2026-10-02, user ask).**
   Default OFF, in the Hacks group beside GLOG Magic, and **PLAYER CHARACTERS
   ONLY throughout** (`type === "character"`, the `auto-record-scars` gate — not
-  `livesByPlayerRules`, which is broader). The master carries a rule of its own:
-  an **overburdened PC is DEPRIVED** as well as at 0 Hit Protection, on the same
-  `encumbered` (`>=`) predicate the HP rule uses, so one threshold governs both
-  and clearing needs a genuinely free slot. **AND, SINCE 2026-10-03 (user
+  `livesByPlayerRules`, which is broader). **THE MASTER CARRIED A RULE OF ITS
+  OWN FOR ONE DAY AND DOES NOT ANY MORE**: "an overburdened PC is DEPRIVED as
+  well as at 0 Hit Protection" shipped to `dev` on 2026-10-02 and was REVERSED
+  on 2026-10-03 by the user, reminded what Deprived is ("attempting to try to
+  use deprived in this way was a mistake and we should probably reverse that
+  out"). Deprived is Cairn's lack-of-food-or-rest box a person ticks; nothing
+  derives it now, nothing locks the checkbox, the Overburdened banner has one
+  wording, and `dev:crawler-combat`'s legs 5/6 assert the box LIVE under the
+  hack (red-first against the derived build). The master's `requiresReload`
+  was justified by that derived value and is KEPT for now, unexamined — flag
+  it before the release. **AND, SINCE 2026-10-03 (user
   ask), PLAYER CHARACTERS ARE MADE WITH 6 HIT PROTECTION AND A REST ROLLS FOR
   IT.** "All PCs have a max HP value of 6 and they start with 6 hp" is a
   GENERATION rule and not a cap: "6, or higher if they have a scar" means the
@@ -2046,18 +2053,17 @@ companion record of who authored what.
     assert the reversal — because a table without them is how the first ruling
     shipped unexamined: a table of twelve shapes is a claim about the input
     space that left out the case which fires on every weapon in the game.
-  - **DEPRIVED IS DERIVED, NEVER WRITTEN, and it is a TOTAL assignment.**
-    `system.deprived` is a hand-ticked boolean with NO PROVENANCE, so a hack
-    that wrote it could not tell its own deprivation from one the player set for
-    no food and would stomp theirs when it cleared — the control for that leg
-    writes to source and reds with the character still deprived after
-    un-encumbering. And it must assign BOTH halves (`stored || encumbered`)
-    outside the encumbered branch, because **`Document#prepareData` does not
-    reset `system` from `_source`** — only a re-initialize does — so a one-sided
-    `if (encumbered) deprived = true` leaves a stale true behind. The sheet
-    DISABLES the checkbox while the hack holds it (`deprivedLocked`), or a
-    control that snapped back every render would read as broken. Rest and
-    Restore refuse for free, through the field they already read.
+  - **DEPRIVED WAS DERIVED FOR A DAY, AND THE LESSON OUTLIVES THE RULE.** The
+    reversed rule derived `system.deprived` as `stored || encumbered`, and two
+    things about HOW were paid for and stay true of any derived boolean here:
+    a hand-ticked field with NO PROVENANCE must be derived, never written (a
+    writer could not tell its own value from the player's and stomped theirs
+    on clearing — measured by a control that wrote to source); and the
+    derivation must assign BOTH halves outside the branch, because
+    **`Document#prepareData` does not reset `system` from `_source`** — only a
+    re-initialize does — so a one-sided `if (x) flag = true` leaves a stale
+    true behind. The rule itself, `deprivedLocked` and the two Crawler
+    strings are GONE (2026-10-03); do not rebuild them from this bullet.
   - **`subOptions` IS A LIST NOW.** `settings-menus.js` destructured it as one
     object and the Hacks group had already spent its slot on
     `content-source-barebones`. It is normalized with `[spec].flat()`, so a

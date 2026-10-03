@@ -1324,16 +1324,10 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // stay dumb.
     context.deprivedTipKey = this._wording("CAIRN.DeprivedTip");
     context.panickedTipKey = this._wording("CAIRN.PanickedTip");
-    // Crawler Combat Mode holds Deprived DERIVED while a PC is overburdened
-    // (actor.js), so the checkbox must not accept a tick that cannot stick:
-    // unticking writes false to source and the next prepare puts it straight
-    // back, which reads as a broken control rather than a rule. Disabled with
-    // a tooltip naming the reason, the affordance Rest and Restore already use
-    // while deprived. Recomputed here rather than stored, so it follows the
-    // load live.
-    context.deprivedLocked = crawlerCombat()
-      && this.actor.type === "character"
-      && this.actor.system.encumbered === true;
+    // `deprivedLocked` lived here for a day (2026-10-02): Crawler Combat Mode
+    // derived Deprived from the load and the checkbox was disabled while it
+    // held. Reversed 2026-10-03 (user) — Deprived is a box a person ticks, and
+    // nothing locks it.
     return context;
   }
 
@@ -1880,15 +1874,12 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // Encumbrance is a carry state, not an ability loss, but likewise forces HP
     // to 0, so surface it as a persistent banner too. Suppressed when dead.
     if (!dead && this.actor.system.encumbered) {
-      // Under Crawler Combat Mode a PC is DEPRIVED as well, and this banner is
-      // the loudest thing on the sheet — left saying only "HP stays 0" it would
-      // be a half-truth, and nothing else on screen explains why Rest and
-      // Restore Abilities have greyed out. Found by looking at the sheet; the
-      // probe was green.
-      const crawlerDeprived = crawlerCombat() && this.actor.type === "character";
+      // One wording for every table: the Crawler Combat Mode variant ("…and
+      // you are Deprived until you free a slot") went with the derived
+      // Deprived rule it described, reversed 2026-10-03.
       banners.push({
         key: "encumbered", icon: "fa-weight-hanging", label: L("CAIRN.Overburdened"),
-        text: L(crawlerDeprived ? "CAIRN.Crawler.OverburdenedBanner" : "CAIRN.OverburdenedBanner"),
+        text: L("CAIRN.OverburdenedBanner"),
       });
     }
     context.statusBanners = banners;

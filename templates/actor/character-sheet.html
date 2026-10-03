@@ -181,7 +181,7 @@
             </div>
 
             <div class="resource-counter long-counter deprived-counter">
-                <label data-tooltip="{{#if deprivedLocked}}{{ localize 'CAIRN.Crawler.DeprivedLockedTip' }}{{else}}{{ localize deprivedTipKey }}{{/if}}">{{ localize 'CAIRN.Deprived' }}</label>
+                <label data-tooltip="{{ localize deprivedTipKey }}">{{ localize 'CAIRN.Deprived' }}</label>
                 <div class="resource-input-wrapper">
                     {{!-- id for core's focus restore: _preSyncPartState records
                           focus only as #id or TAG[name] (review #22), and these
@@ -189,7 +189,7 @@
                     {{!-- Disabled while Crawler Combat Mode holds Deprived from
                           the load: the value is DERIVED there, so a tick would
                           be overwritten on the next prepare. --}}
-                    <input type="checkbox" class="deprived-check" id="{{@root.idp}}-deprived-check" {{checked system.deprived}} {{#if deprivedLocked}}disabled{{/if}} />
+                    <input type="checkbox" class="deprived-check" id="{{@root.idp}}-deprived-check" {{checked system.deprived}} />
                 </div>
             </div>
 

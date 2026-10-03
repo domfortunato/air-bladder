@@ -3,12 +3,12 @@
  * Crawler Combat Mode — the optional hack (2026-10-02, user ask).
  *
  * A harsher combat, default OFF, joining GLOG Magic and the Vald calendar under
- * Configure Hacks. One rule of its own and two options beside it, and ALL THREE
- * are PLAYER CHARACTERS ONLY (`type === "character"`, the auto-record-scars
- * gate):
+ * Configure Hacks. Options beside a master, and ALL of them PLAYER CHARACTERS
+ * ONLY (`type === "character"`, the auto-record-scars gate):
  *
- *   - the hack itself: an overburdened PC is DEPRIVED as well as at 0 Hit
- *     Protection, until they are no longer overburdened;
+ *   - the hack itself ("an overburdened PC is DEPRIVED as well as at 0 Hit
+ *     Protection") lasted ONE DAY and was REVERSED 2026-10-03 by user ruling —
+ *     legs 5/6 now hold that the hack leaves Deprived ALONE;
  *   - Exploding damage dice;
  *   - Fatigue instead of Critical Damage.
  *
@@ -26,10 +26,10 @@
  * dealing double. `explodingDamageFormula` emits `2d6kx` for that shape
  * instead, leaving no `+` behind.
  *
- * Deprived is DERIVED, never written: `system.deprived` carries no provenance,
- * so a hack that wrote it could not tell its own deprivation from one the
- * player set for no food, and would stomp theirs when it cleared. Leg 5 asserts
- * `_source` is untouched throughout, which is the whole claim.
+ * Deprived is NEVER DERIVED (2026-10-03): the hack's one-day rule derived it from
+ * the load, and the user reversed it. Leg 5 asserts an overburdened PC is at 0
+ * Hit Protection and NOT deprived, with the checkbox live and the plain
+ * Overburdened banner — the red-first witness against the derived build.
  *
  * Dice are pinned through `CONFIG.Dice.randomUniform`, which is INVERTED, and
  * through a SEQUENCE where a chain must terminate: a flat pin at the maximum
@@ -250,22 +250,23 @@ try {
     out.monsterLoaded = state(monster);
     out.hireLoaded = state(hire);
 
-    // The checkbox must be disabled while the hack holds it.
+    // The checkbox is LIVE and unticked: nothing locks it now (the one-day
+    // derived rule disabled it while the load held).
     await pc.sheet.render(true);
     await sleep(500);
     const box = pc.sheet.element?.querySelector(".deprived-check");
     out.boxDisabled = box ? box.disabled === true : null;
     out.boxChecked = box ? box.checked === true : null;
-    // Rest and Restore refuse while deprived — they read system.deprived.
+    // Rest and Restore read system.deprived, which the hack no longer touches,
+    // so an overburdened PC may still press them (HP 0 is core's business).
     out.restDisabled = pc.sheet.element?.querySelector("#rest-button")?.disabled === true;
     out.restoreDisabled = pc.sheet.element?.querySelector("#restore-abilities-button")?.disabled === true;
-    // The Overburdened banner is the loudest thing on the sheet, so under the
-    // hack it must say BOTH consequences — left at "HP stays 0" it is a
-    // half-truth and nothing explains the greyed Rest button. Found by looking
-    // at the sheet while this probe was green.
+    // The Overburdened banner wears ONE wording for every table; the Crawler
+    // variant ("…and you are Deprived…") went with the rule it described.
     out.bannerText = [...(pc.sheet.element?.querySelectorAll("[class*=banner]") ?? [])]
       .map((b) => b.textContent.trim()).find((t) => /capacity/i.test(t)) ?? null;
-    out.bannerExpected = game.i18n.localize("CAIRN.Crawler.OverburdenedBanner");
+    out.bannerExpected = game.i18n.localize("CAIRN.OverburdenedBanner");
+    out.bannerCrawlerKeyGone = !game.i18n.has("CAIRN.Crawler.OverburdenedBanner", false);
     await pc.sheet.close();
 
     // Hack OFF: an overburdened PC is not deprived. `reset()`, not a bare
@@ -1387,7 +1388,7 @@ try {
     /* ---- 16. NOTHING TO DROP ------------------------------------------- */
     // The leg that keeps the OLD claim honest. Before the picker existed, the
     // Fatigue button's headline property was that it lands past a FULL pack
-    // (`ignoreCapacity`), leaving the character deprived at 0 Hit Protection —
+    // (`ignoreCapacity`), leaving the character at 0 Hit Protection —
     // and with a drop in front of it that is no longer what normally happens,
     // because the drop makes the room. It is still what happens to a character
     // with nothing to give up, so that is where the claim is measured now.
@@ -1486,31 +1487,33 @@ try {
     ? ok("...and a stored option under a master that is OFF does not act either")
     : fail(`master off still exploded: ${JSON.stringify(r.masterOffRoll)}`);
 
-  // ---- 5/6. deprived -----------------------------------------------------
-  r.pcLoaded?.encumbered && r.pcLoaded?.derived && !r.pcLoaded?.source
-    ? ok(`an overburdened PC is deprived (${r.pcLoaded.used}/${r.pcLoaded.max}) — DERIVED, with _source untouched`)
-    : fail(`loaded PC: ${JSON.stringify(r.pcLoaded)} — want encumbered, derived deprived, source false`);
+  // ---- 5/6. overburdened under the hack: HP 0, and Deprived LEFT ALONE ----
+  // The one-day derived rule (2026-10-02) is REVERSED (2026-10-03, user); these
+  // legs are its red-first witness — the derived build ticks and locks the box.
+  r.pcLoaded?.encumbered && !r.pcLoaded?.derived && !r.pcLoaded?.source
+    ? ok(`an overburdened PC under the hack (${r.pcLoaded.used}/${r.pcLoaded.max}) is NOT deprived — derived false, source false`)
+    : fail(`loaded PC: ${JSON.stringify(r.pcLoaded)} — want encumbered, deprived false both ways (the reversed rule derived it true)`);
   r.pcLoaded?.hp === 0 && r.pcLoaded?.srcHp !== 0
-    ? ok("...at 0 Hit Protection, with source HP intact")
+    ? ok("...at 0 Hit Protection, with source HP intact — core's rule, untouched")
     : fail(`PC hp derived=${r.pcLoaded?.hp} source=${r.pcLoaded?.srcHp}`);
   !r.monsterLoaded?.derived && !r.hireLoaded?.derived
-    ? ok("an overburdened monster and hireling are NOT deprived — the hack is PCs only")
+    ? ok("an overburdened monster and hireling are not deprived either")
     : fail(`monster derived=${r.monsterLoaded?.derived}, hireling derived=${r.hireLoaded?.derived}`);
   !r.pcHackOff?.derived && r.pcHackOff?.encumbered
-    ? ok("...and with the hack OFF an overburdened PC is not deprived either")
+    ? ok("...nor with the hack OFF")
     : fail(`hack off: ${JSON.stringify(r.pcHackOff)}`);
   !r.pcFreed?.derived && !r.pcFreed?.source
-    ? ok("freeing a slot clears it, and the player's own stored value was never written")
+    ? ok("...and freeing a slot writes nothing to the player's own stored value")
     : fail(`after freeing: ${JSON.stringify(r.pcFreed)}`);
-  r.boxDisabled === true && r.boxChecked === true
-    ? ok("the Deprived checkbox shows ticked and is DISABLED while the hack holds it")
-    : fail(`deprived checkbox: disabled=${r.boxDisabled}, checked=${r.boxChecked}`);
-  r.restDisabled && r.restoreDisabled
-    ? ok("...and Rest and Restore Abilities refuse, through the field they already read")
+  r.boxDisabled === false && r.boxChecked === false
+    ? ok("the Deprived checkbox is LIVE and unticked under the hack — nothing locks it")
+    : fail(`deprived checkbox: disabled=${r.boxDisabled}, checked=${r.boxChecked} — the reversed rule ticked and locked it`);
+  r.restDisabled === false && r.restoreDisabled === false
+    ? ok("...and Rest and Restore Abilities are not refused by the load")
     : fail(`rest disabled=${r.restDisabled}, restore disabled=${r.restoreDisabled}`);
-  (r.bannerText ?? "").includes(r.bannerExpected ?? "\u0000")
-    ? ok("...and the Overburdened banner names BOTH consequences, not just the HP")
-    : fail(`banner reads ${JSON.stringify(r.bannerText)}, expected it to contain ${JSON.stringify(r.bannerExpected)}`);
+  (r.bannerText ?? "").includes(r.bannerExpected ?? "\u0000") && r.bannerCrawlerKeyGone
+    ? ok("...and the Overburdened banner wears the one plain wording; the Crawler variant key is gone")
+    : fail(`banner reads ${JSON.stringify(r.bannerText)}, expected ${JSON.stringify(r.bannerExpected)}; crawler key gone=${r.bannerCrawlerKeyGone}`);
 
   // ---- 8/9. the Fatigue button -------------------------------------------
   r.fatigueBtnRenders && r.critBtnRenders
