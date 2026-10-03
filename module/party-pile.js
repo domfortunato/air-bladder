@@ -152,7 +152,7 @@ export const partyFolderId = async () => {
   // ITEM_CREATE, JOURNAL_CREATE and six more, and no FOLDER_CREATE at all — so
   // that test was false for EVERYONE, the Warden included, and the folder was
   // silently never made while the pile landed at the root of the directory.
-  // `dev:crawler-combat` caught it on the first run with the pile present and
+  // `dev:combat-options` caught it on the first run with the pile present and
   // `in Party folder=false`. Verify a permission by grepping the client for the
   // constant, never by inventing the name the pattern suggests.
   if (!getDocumentClass("Folder").canUserCreate(game.user)) return null;
@@ -284,20 +284,17 @@ export const droppableItems = (actor) =>
  * finding; this one has a reason it can state.
  *
  * PETTY IS EXCLUDED UNCONDITIONALLY (user ruling), never only when already
- * overburdened. Two reasons, and the second is the stronger: a character at 9
- * items plus a Fatigue is not overburdened, yet giving up a petty item there
- * leaves them at 10 after the second Fatigue where an ordinary drop leaves them
- * at 9 — so a condition would admit petty in exactly the case where it does the
- * harm. And if petty is ever on the menu, the sensible play is always to shed the
- * cheapest weightless trinket, which makes a *forced* drop cost nothing at all.
+ * overburdened. Giving up a petty item frees nothing, so it cannot pay for a
+ * Fatigue — and if petty is ever on the menu, the sensible play is always to
+ * shed the cheapest weightless trinket, which makes a *forced* drop cost
+ * nothing at all.
  * The rule already exists one function away, read backwards: `createOwnedItem`
  * exempts a weightless item from the capacity refusal on the way IN, which is
  * precisely why giving one up cannot help on the way OUT.
  *
- * FATIGUE IS EXCLUDED AS FATIGUE, never via pettiness. The first Fatigue is petty
- * now, but the second costs a real slot, so a pettiness test alone would put the
- * second one on the list. Two exclusions, stated separately, overlapping on one
- * row.
+ * FATIGUE IS EXCLUDED AS FATIGUE: it fills a real slot, so a pettiness test
+ * would put it on the list, and dropping a Fatigue to make room for a Fatigue
+ * is no trade at all. Stated as its own exclusion, beside the petty one.
  *
  * GOLD CAN NEVER BE HERE: coins fill slots and render as "N Gold" rows, but they
  * are derived from `system.gold` and are not item documents, so there is nothing

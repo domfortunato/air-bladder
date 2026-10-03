@@ -1,4 +1,4 @@
-import { evaluateFormula, getInfoFromDropData, askDamageQuality, damageFormulaFor, damageQualityLabel, damageQualityKind, crawlerDamageFormula } from "./utils.js";
+import { evaluateFormula, getInfoFromDropData, askDamageQuality, damageFormulaFor, damageQualityLabel, damageQualityKind, combatDamageFormula } from "./utils.js";
 import { SETTINGS_NS } from "./settings.js";
 import { t, actorDisplayName } from "./i18n-content.js";
 
@@ -98,12 +98,12 @@ export const rollItemMacro = async (actorId, itemId) => {
   }
   // The second PC damage call site — the hotbar macro. Gated through the SAME
   // function as the sheet's control (actor-sheet.js `#onRollDamage`,
-  // `crawlerDamageFormula` in utils.js); the two are the only places a damage
+  // `combatDamageFormula` in utils.js); the two are the only places a damage
   // roll can be a player character's, and the Warden's Damage tool is
   // deliberately NOT one of them (a trap has no actor). No die-size floor since
   // 2026-10-03; melee-only is the one rule the maneuver half keeps.
   const base = damageFormulaFor(quality, item.system.damageFormula);
-  const { formula: rollSchema, maneuver: mayManeuver } = crawlerDamageFormula(base, {
+  const { formula: rollSchema, maneuver: mayManeuver } = combatDamageFormula(base, {
     pc: actor.type === "character",
     melee: item?.system?.ranged !== true,
   });

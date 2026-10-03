@@ -119,7 +119,7 @@
        washes out on a tile that is parchment in both themes. */
     --ab-fatigue-chat: #12a3b4;
 
-    /* Crawler Combat Mode's Use a Maneuver! button, amber beside Explode the
+    /* The maneuver option's Use a Maneuver! button, amber beside Explode the
        Die's red (user ask, 2026-10-02): one is a consequence, the other is a
        different road.
 
@@ -1623,7 +1623,7 @@
     text-shadow: 0 0 12px var(--color-level-error, #ce0707);
 }
 
-/* Crawler Combat Mode's alternative to Mark Critical Damage, directly beside it
+/* The Fatigue option's alternative to Mark Critical Damage, directly beside it
    on the same card. Deliberately that button's SHAPE -- bold, a coloured border,
    an 8px text glow brightening to 12px -- recoloured in the teal Fatigue wears in
    the inventory (.fatigue-row) and on the cast whisper's Add Fatigue button, so
@@ -1637,7 +1637,7 @@
    a .chat-message under a dark interface (see its declaration) and washes out on
    a tile that is parchment in BOTH themes. Same hue in light, so this is the
    sheet's Fatigue colour wherever the two surfaces can share one. The mistake is
-   invisible in light mode, which is why dev:crawler-combat reads it in dark. */
+   invisible in light mode, which is why dev:combat-options reads it in dark. */
 .take-fatigue-instead {
     font-weight: bold;
     border-color: var(--ab-fatigue-chat);
@@ -1652,7 +1652,7 @@
     text-shadow: 0 0 12px var(--ab-fatigue-chat);
 }
 
-/* CRAWLER COMBAT MODE: Explode the Die / Use a Maneuver! on a max melee damage
+/* THE OPTIONAL COMBAT RULES: Explode the Die / Use a Maneuver! on a max melee damage
    card (module/cairn.js nameManeuverChoice).
 
    SIDE BY SIDE (user ask, 2026-10-02). They had no rule here at all until now,

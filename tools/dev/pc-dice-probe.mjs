@@ -16,14 +16,14 @@
  *      catches a `choices` key landing on the wrong registration, which would
  *      silently turn the free-text field into a dropdown.
  *   1b. Each rendered option label NAMES THE DICE THE MAP HOLDS. The labels
- *      carry their formula as a literal ("Standard (3d6)") and cannot do
+ *      carry their formula as a literal ("Default (3d6)") and cannot do
  *      otherwise: `registerSettings()` runs on `init` and `i18nInit` is a later
  *      hook, so `game.i18n.format` is unavailable at registration and the label
  *      cannot be composed from `Cairn.pcDiceTiers`. That duplication is exactly
  *      the review #18 shape — a formula corrected in one place and still
  *      advertised by the other — so it is GATED here rather than wished away.
- *   2. Pinned dice give each tier its true bounds: standard 3..18, adventurer
- *      3..18, crawler 8..18, and HP 1..6 by default or exactly N for a flat N.
+ *   2. Pinned dice give each tier its true bounds: default 3..18, adventurer
+ *      3..18, crawler 5..15, and HP 1..6 by default or exactly N for a flat N.
  *   3. THE ROLL CHARACTER CHECKLIST OBEYS ALL THREE AND LABELS SIX ROWS. This
  *      is the leg that earns the probe. Abilities, gold and HP are each rolled
  *      in THREE places, and the third — `_applyRerollParts` — calls
@@ -34,20 +34,20 @@
  *   3b. With Show traits OFF the age row is gone and the other five still carry
  *      their tooltips — `traitsVisible()` gates that row, so six is not a
  *      constant and a probe asserting six would be asserting a coincidence.
- *   4. The three settings are INDEPENDENT: adventurer abilities with standard
+ *   4. The three settings are INDEPENDENT: adventurer abilities with default
  *      gold and a flat HP all land in one generated character.
  *   4b. HP is the one Warden-TYPED formula, so it keeps the age formula's whole
  *      contract: unparseable falls back AND warns naming the rejected text,
  *      blank falls back SILENTLY (blank is a reset, not a mistake), an
  *      `@`-reference is refused before Roll.validate can accept it — with the
  *      control that Roll.validate still DOES accept one.
- *   5. NPCs are untouched, and the ability leg MUST use crawler: standard and
+ *   5. NPCs are untouched, and the ability leg MUST use crawler: default and
  *      adventurer both span 3..18, so pinned extremes cannot tell a PC from an
- *      NPC under either. Under crawler a PC's floor is 8 and an NPC's is 3.
+ *      NPC under either. Under crawler a PC's floor is 5 and an NPC's is 3.
  *   6. Bond and question gold still add ON TOP of the base roll — those are
  *      grants, not the roll, and a Crawler character still receives them.
- *   7. A stored tier the map does not hold falls back to standard, so a world
- *      holding the retired `hero` key cannot throw mid-generation.
+ *   7. A stored tier the map does not hold falls back to default, so a world
+ *      holding the retired `standard` key cannot throw mid-generation.
  *
  * The tooltips are read off the RENDERED dialog, never off the source, because a
  * typo in the attribute NAME fails SILENTLY by either of two mechanisms
@@ -85,11 +85,6 @@ try {
     const NS = "air-bladder";
     const KEYS = ["pc-ability-dice", "pc-hp-formula", "pc-gold-dice"];
     const out = { tipRows: ["STR", "DEX", "WIL", "hp", "gold", "age"] };
-    // CRAWLER COMBAT MODE OVERRIDES THE HP FORMULA (2026-10-03): every leg
-    // below assumes the setting is READ, so the hack is pinned OFF here rather
-    // than inherited from whatever the world was left at — it also silences
-    // the bad-formula warning the fallback legs count. Its own leg is below.
-    await game.settings.set(NS, "crawler-combat-mode", false);
     const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
     const gen = await import("/systems/air-bladder/module/character-generator.js");
 
@@ -191,20 +186,10 @@ try {
     out.hpDefHigh = await hpAt(0.0001);
     await game.settings.set(NS, "pc-hp-formula", "4");
     out.hpFlat = [await hpAt(0.9999), await hpAt(0.0001)];
-    // Under the hack the setting is IGNORED and every player character is
-    // made with 6, through the ONE helper all three HP sites read — so the
-    // flat 4 above becomes 6 at both pins, and the formula the checklist's
-    // tooltip would name is "6". Read live: `crawlerCombat()` consults the
-    // setting per call, and the reload the master asks for is form-only.
-    await game.settings.set(NS, "crawler-combat-mode", true);
-    out.hpCrawler = [await hpAt(0.9999), await hpAt(0.0001)];
-    out.hpCrawlerFormula = gen.effectivePcHpFormula().formula;
-    await game.settings.set(NS, "crawler-combat-mode", false);
-    out.hpAfterCrawler = [await hpAt(0.9999), await hpAt(0.0001)];
 
     // --- 4. the three are independent, measured on ONE generated character --
     await game.settings.set(NS, "pc-ability-dice", "adventurer");
-    await game.settings.set(NS, "pc-gold-dice", "standard");
+    await game.settings.set(NS, "pc-gold-dice", "default");
     await game.settings.set(NS, "pc-hp-formula", "4");
     const bg = (await game.packs.get(`${NS}.backgrounds-2e`).getDocuments())[0];
     const actor = await pinned(0.9999, async () =>
@@ -323,17 +308,18 @@ try {
       ui.notifications.warn = origWarn;
     }
 
-    // --- 7. an unknown stored tier falls back to standard ------------------
-    // Shadowed rather than written, because `choices` would refuse the value on
-    // the way in — and a world upgraded from the day `hero` was the middle key
-    // is exactly the shape this guards. THE SHADOW FORWARDS EVERY ARGUMENT and
+    // --- 7. an unknown stored tier falls back to default -------------------
+    // Shadowed rather than written, so the world never holds the junk key. A
+    // world that stored `standard` (the first tier's key until 2026-10-03) is
+    // exactly the shape this guards: core does NOT check `choices` on a String
+    // setting's read or write, so a retired key reaches the reader unchanged. THE SHADOW FORWARDS EVERY ARGUMENT and
     // hands a {document: true} request straight to core: #setWorld asks for the
     // Setting DOCUMENT it will update by id, and a plain value handed back there
     // makes core CREATE A DUPLICATE instead (the 131-duplicate scar).
     const origGet = game.settings.get;
     game.settings.get = function (ns, key, ...rest) {
       if (rest[0]?.document) return foundry.helpers.ClientSettings.prototype.get.call(this, ns, key, ...rest);
-      if (ns === NS && key === "pc-ability-dice") return "hero";
+      if (ns === NS && key === "pc-ability-dice") return "standard";
       return origGet.call(this, ns, key, ...rest);
     };
     try {
@@ -392,7 +378,7 @@ try {
     : fail(`npcGenerator pair is ${JSON.stringify(r.npcKeys)}, expected 3d6 / 1d6`);
 
   // ---- 2. pinned extremes per tier --------------------------------------
-  const WANT = { standard: [3, 18], adventurer: [3, 18], crawler: [8, 18] };
+  const WANT = { default: [3, 18], adventurer: [3, 18], crawler: [5, 15] };
   for (const [tier, [lo, hi]] of Object.entries(WANT)) {
     const t = r.tierRolls?.[tier];
     t && t.abLow === lo && t.abHigh === hi && t.goldLow === lo && t.goldHigh === hi
@@ -405,17 +391,11 @@ try {
   JSON.stringify(r.hpFlat) === JSON.stringify([4, 4])
     ? ok("...and a flat 4 is 4 at both pinned extremes")
     : fail(`a flat HP of "4" rolled ${JSON.stringify(r.hpFlat)}`);
-  JSON.stringify(r.hpCrawler) === JSON.stringify([6, 6]) && r.hpCrawlerFormula === "6"
-    ? ok(`under Crawler Combat Mode the formula is IGNORED: a flat 4 deals 6 at both pins, and the effective formula reads "${r.hpCrawlerFormula}"`)
-    : fail(`crawler HP: ${JSON.stringify(r.hpCrawler)} with formula ${JSON.stringify(r.hpCrawlerFormula)} — want [6, 6] and "6"`);
-  JSON.stringify(r.hpAfterCrawler) === JSON.stringify([4, 4])
-    ? ok("...and the setting is read again the moment the hack is off (4, 4)")
-    : fail(`after the hack: ${JSON.stringify(r.hpAfterCrawler)}, want [4, 4]`);
 
   // ---- 4. the three settings are independent ----------------------------
   const abOk = (r.genAbilities ?? []).length === 3 && r.genAbilities.every((v) => v >= 3 && v <= 18);
   abOk && r.genHp === 4 && r.genGold === 3 + r.genBondGold + r.genQuestionGold
-    ? ok(`one character carries all three: abilities ${JSON.stringify(r.genAbilities)} (adventurer), HP ${r.genHp} (flat), gold ${r.genGold} (standard 3 + ${r.genBondGold + r.genQuestionGold} granted)`)
+    ? ok(`one character carries all three: abilities ${JSON.stringify(r.genAbilities)} (adventurer), HP ${r.genHp} (flat), gold ${r.genGold} (default 3 + ${r.genBondGold + r.genQuestionGold} granted)`)
     : fail(`independence: abilities ${JSON.stringify(r.genAbilities)}, HP ${r.genHp} (want 4), gold ${r.genGold} (want ${3 + r.genBondGold + r.genQuestionGold})`);
 
   // ---- 3. the checklist's tooltips --------------------------------------
@@ -437,7 +417,7 @@ try {
 
   // Named formula, and NOT the default it replaced — the age probe's two-sided
   // shape. The settings live at this point are the INDEPENDENCE set from the
-  // leg above: ADVENTURER abilities, STANDARD gold, a flat HP of 4. That makes
+  // leg above: ADVENTURER abilities, DEFAULT gold, a flat HP of 4. That makes
   // this pair of legs a stronger claim than one tier alone would — the ability
   // rows say 4d6kh3 while the gold row says 3d6, on the same open dialog, so
   // the two settings are proven independent in the TOOLTIPS and not only in
@@ -475,22 +455,22 @@ try {
     : fail(`traits-off tooltips: ${JSON.stringify(["STR", "DEX", "WIL", "hp", "gold"].map((p) => [p, r.dialogFive?.seen?.[p]?.span]))}`);
 
   // ---- 3. the checklist's ROLLS: the three bypassing sites ---------------
-  r.rerollStrLow === 8 && r.rerollStrHigh === 18
-    ? ok("ticking only STR rolls the Warden's tier (crawler: 8..18), not the old 3d6 literal")
-    : fail(`checklist STR re-roll pinned ${r.rerollStrLow}/${r.rerollStrHigh}, expected 8/18`);
+  r.rerollStrLow === 5 && r.rerollStrHigh === 15
+    ? ok("ticking only STR rolls the Warden's tier (crawler: 5..15), not the old 3d6 literal")
+    : fail(`checklist STR re-roll pinned ${r.rerollStrLow}/${r.rerollStrHigh}, expected 5/15`);
   r.rerollHp === 4
     ? ok("ticking only Hit Protection honours the flat formula (4 at the MAXIMUM pin)")
     : fail(`checklist HP re-roll gave ${r.rerollHp}, expected 4`);
 
   // ---- 6. bond gold on top ----------------------------------------------
-  r.rerollGold === 8 + r.plantedBondGold
-    ? ok(`bond gold still rides on top of a Crawler roll: 8 + ${r.plantedBondGold} = ${r.rerollGold}`)
-    : fail(`gold re-roll gave ${r.rerollGold}, expected 8 + ${r.plantedBondGold}`);
+  r.rerollGold === 5 + r.plantedBondGold
+    ? ok(`bond gold still rides on top of a Crawler roll: 5 + ${r.plantedBondGold} = ${r.rerollGold}`)
+    : fail(`gold re-roll gave ${r.rerollGold}, expected 5 + ${r.plantedBondGold}`);
 
   // ---- 5. NPCs unaffected -----------------------------------------------
-  r.npcAbilityLow === 3 && r.pcAbilityLowSameMoment === 8
-    ? ok("a generated NPC still rolls 3d6 (floor 3) while a PC rolls crawler (floor 8) at the same moment")
-    : fail(`NPC ability floor ${r.npcAbilityLow} (want 3), PC floor ${r.pcAbilityLowSameMoment} (want 8)`);
+  r.npcAbilityLow === 3 && r.pcAbilityLowSameMoment === 5
+    ? ok("a generated NPC still rolls 3d6 (floor 3) while a PC rolls crawler (floor 5) at the same moment")
+    : fail(`NPC ability floor ${r.npcAbilityLow} (want 3), PC floor ${r.pcAbilityLowSameMoment} (want 5)`);
   r.npcHpLow === 1 && r.pcHpSameMoment === 4
     ? ok("...and its Hit Protection is 1d6 while the PC setting says a flat 4")
     : fail(`NPC HP ${r.npcHpLow} (want 1), PC HP ${r.pcHpSameMoment} (want 4)`);
@@ -520,9 +500,13 @@ try {
     : fail(`fallback tooltips: invalid=${JSON.stringify(r.tipInvalid?.span)}, blank=${JSON.stringify(r.tipBlank?.span)}, @=${JSON.stringify(r.tipAt?.span)}, each should name "${r.hpFallback}"`);
 
   // ---- 7. an unknown stored tier ----------------------------------------
-  r.unknownTierFormula === r.tiers?.standard
-    ? ok(`a stored tier the map does not hold ("hero", the retired key) falls back to standard (${r.unknownTierFormula})`)
-    : fail(`an unknown tier gave ${JSON.stringify(r.unknownTierFormula)}, expected ${JSON.stringify(r.tiers?.standard)}`);
+  // The expectation is read off the map AND required to be a real formula:
+  // with the fallback pointing at a key the map no longer holds, both sides
+  // would be `undefined` and an equality alone would pass.
+  typeof r.unknownTierFormula === "string" && r.unknownTierFormula !== ""
+    && r.unknownTierFormula === r.tiers?.default
+    ? ok(`a stored tier the map does not hold ("standard", the retired first key) falls back to default (${r.unknownTierFormula})`)
+    : fail(`an unknown tier gave ${JSON.stringify(r.unknownTierFormula)}, expected ${JSON.stringify(r.tiers?.default)}`);
 
   if (r.actorId) {
     await page.evaluate(async (id) => { try { await game.actors.get(id)?.delete(); } catch { /* gone */ } }, r.actorId);

@@ -29,13 +29,17 @@ import { connectionHeadroom, connectedOwnershipShape, syncPendingOwnership, OWNE
 import { loadContentOverlay, t, translationOf, contentLocalized, tokenDisplayName, actorDisplayName, LOCALIZED_DIRECTORIES, localizeJournalBlocks } from "./i18n-content.js";
 import { injectEncounterButton, localizeEncounterQty, resolveTable } from "./encounters.js";
 import { bindGrimoireFatigueButton, localizeGlogCastCard } from "./grimoire.js";
-import { nameableTokens, DAMAGE_QUALITY_KEYS, localizeD20Card, localizeRestCard, localizeRollFlavor, crawlerOption, damageDiceIcons } from "./utils.js";
+import { nameableTokens, DAMAGE_QUALITY_KEYS, localizeD20Card, localizeRollFlavor, combatOption, damageDiceIcons } from "./utils.js";
 
 /**
- * Crawler Combat Mode: the save card's Critical-Damage-or-Fatigue choice, once
+ * The Fatigue instead of Critical Damage option: the save card's choice, once
  * taken. On the MESSAGE, because a `disabled` attribute is local DOM and does
  * not survive a re-render — the grimoire's `fatigueApplied` precedent, and the
  * thing the Mark Critical Damage button has always lacked.
+ *
+ * The flag's NAME keeps the `crawler` of the mode it was born under (removed
+ * 2026-10-03): it is stored on every decided card already in a log, and a
+ * rename would leave those cards reading as undecided.
  */
 const CRAWLER_CHOICE_FLAG = "crawlerChoiceTaken";
 
@@ -3002,7 +3006,7 @@ const offerUntargetedApply = (html) => {
 };
 
 /**
- * Announce every exploding die on a damage card (Crawler Combat Mode).
+ * Announce every exploding die on a damage card (the exploding dice option).
  *
  * THE EXPLOSIONS ARE ALREADY STORED, which is why this needs no flag, no
  * template field and no edit to either producer. Measured in the shipped client:
@@ -3079,7 +3083,7 @@ const soleDie = (roll) => {
 };
 
 /**
- * Crawler Combat Mode: offer Explode the Die / Maneuver on a max melee damage
+ * The maneuver option: offer Explode the Die / Maneuver on a max melee damage
  * roll, and show what was chosen.
  *
  * BUILT HERE AND NOT IN THE TEMPLATE, for the reason `offerUntargetedApply`
@@ -3229,7 +3233,7 @@ const nameManeuverChoice = (message, html) => {
   // what keeps a DECIDED card honest: switch the option off afterwards and the
   // card still has to be able to show which of the two was taken, or its check
   // mark would have nothing to sit on.
-  const explodeBtn = crawlerOption("crawler-exploding-damage") || choice === "explode"
+  const explodeBtn = combatOption("exploding-damage-dice") || choice === "explode"
     ? make("explode-the-die", "CAIRN.Crawler.ExplodeButton", "CAIRN.Crawler.ExplodeButtonTip")
     : null;
   const maneuverBtn = make("take-maneuver", "CAIRN.Crawler.ManeuverButton",
@@ -3787,7 +3791,7 @@ Hooks.on("renderChatMessageHTML", (message, html, data) => {
   // appends to it — but it rides before the player-trim like its siblings,
   // because a player watching their own die explode is the point of it.
   nameExplodedDice(message, html);
-  // Crawler Combat Mode's max-melee-damage choice. AFTER nameExplodedDice, so an
+  // The maneuver option's max-melee-damage choice. AFTER nameExplodedDice, so an
   // already-exploded card shows its lines above the buttons, and BEFORE the
   // Warden-only apply block below, whose anchor this may grey.
   nameManeuverChoice(message, html);
@@ -3811,9 +3815,6 @@ Hooks.on("renderChatMessageHTML", (message, html, data) => {
   // roll, one shared builder. Also before the binding below: it replaces the
   // Mark Critical Damage button.
   localizeD20Card(message, html);
-  // The Crawler Rest's roll card (2026-10-03): the same shape as the d20 card,
-  // four numbers and a sentence chosen from them, hidden-stays-hidden first.
-  localizeRestCard(message, html);
   // Die of Fate and anything else whose only localized surface is the flavour
   // line. Cheap and unconditional: it returns on the first line for every
   // message that does not carry the flag.
@@ -3859,7 +3860,7 @@ Hooks.on("renderChatMessageHTML", (message, html, data) => {
     // requiring authorship there would withdraw a working button from a
     // co-owner -- a regression dressed as a fix.
     const mayChoose = mayAnswer && (message.isAuthor || game.user.isGM);
-    // CRAWLER COMBAT MODE: the two buttons are EXCLUSIVE, and the choice is
+    // THE FATIGUE OPTION: the two buttons are EXCLUSIVE, and the choice is
     // spent on the MESSAGE rather than in local DOM. `disabled` alone is what
     // the Critical Damage button has always done, and it does not survive a
     // re-render — the counter-example, not the precedent. The grimoire's
@@ -3927,9 +3928,8 @@ Hooks.on("renderChatMessageHTML", (message, html, data) => {
           // NOT FIT (user ruling 2026-10-03, reversing the day-old "required":
           // a character at 8 of 10 slots pressed this and was asked to drop
           // something for a Fatigue that fit — "that isn't right"). `fatigueFits`
-          // asks `capacityVerdict` with what THIS Fatigue would cost (the first
-          // is free, so a character carrying none is never asked), and with
-          // room the Fatigue simply lands. Without it, the picker asks what the
+          // asks `capacityVerdict` whether one more slot fits, and with room the
+          // Fatigue simply lands. Without it, the picker asks what the
           // character puts down — WHICH item is always the player's choice,
           // never the system's, which is the line the no-automation deviation
           // draws.
@@ -3971,9 +3971,8 @@ Hooks.on("renderChatMessageHTML", (message, html, data) => {
           if (chose.id) await dropItemToPile(critActor, chose.id, { announce: true, place: chose.place });
           // Fatigue is a COST the rules impose, never a purchase, so it lands
           // past a full pack — `ignoreCapacity` is the flag that exists for
-          // exactly this. With the drop in front of it and the first Fatigue
-          // free, the usual case now NETS TO ZERO: one thing down, one Fatigue
-          // on, the same slots as before.
+          // exactly this. With a drop in front of it the bargain NETS TO ZERO:
+          // one thing down, one Fatigue on, the same slots as before.
           //
           // `system.critical` is deliberately NOT written. Taking the Fatigue
           // INSTEAD of Critical Damage is the whole point of the choice.

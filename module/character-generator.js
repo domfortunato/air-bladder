@@ -1,7 +1,7 @@
 import { CairnActor } from "./actor/actor.js";
 import { rollTableText, resultText, findTableByName, findDeclaredTable } from "./compendium.js";
 import { Cairn } from "./config.js";
-import { evaluateFormula, formatCount, crawlerCombat } from "./utils.js";
+import { evaluateFormula, formatCount } from "./utils.js";
 import {
   resolveGearItem, itemDataFromDocument, GEAR_ALIASES, spellScrollItem,
   orderGrantedItems, isLightGear, RATIONS_RE,
@@ -763,26 +763,18 @@ export const effectiveAgeFormula = (fallback) => effectiveFormula("age-formula",
  * reads `npcGenerator.hitProtection`, and a hireling's HP comes off its career.
  * @returns {{formula: string, configured: string, usable: boolean}}
  */
-export const effectivePcHpFormula = () => {
-  // CRAWLER COMBAT MODE (2026-10-03, user ask: "All PCs have a max HP value of
-  // 6 and they start with 6 hp"): a flat 6, whatever the setting says — ONE
-  // helper, so both generators and the Roll Character checklist follow with no
-  // further wiring, and the checklist's "Rolls {formula}" tooltip names what is
-  // dealt. `usable` is true because the setting is IGNORED here, not wrong, so
-  // no warning fires for it. Existing characters are not rewritten: a maximum
-  // stays editable for scars, and a settings change never writes documents.
-  if (crawlerCombat()) {
-    const flat = String(Cairn.crawlerHp);
-    return { formula: flat, configured: flat, usable: true };
-  }
-  return effectiveFormula("pc-hp-formula", Cairn.pcHpFormula);
-};
+export const effectivePcHpFormula = () =>
+  // The setting, always. For a day (2026-10-03) Crawler Combat Mode overrode it
+  // with a flat 6; the user removed that the same evening ("it should use
+  // whatever dice formula is used on the character generation tab").
+  effectiveFormula("pc-hp-formula", Cairn.pcHpFormula);
 
 /**
  * One of the three PC dice TIERS, by setting key. The stored value is a key
  * into `Cairn.pcDiceTiers`, and anything that map does not hold falls back to
- * `standard` — so a world holding a renamed or removed tier cannot throw
- * mid-generation.
+ * `default` — so a world holding a renamed or removed tier cannot throw
+ * mid-generation. (A world that stored `standard`, the first tier's key until
+ * 2026-10-03, reads 3d6 this way, which is the dice it meant.)
  *
  * NO `Roll.validate` AND NO `@` GUARD, deliberately, which is the whole reason
  * this is a second helper rather than a third caller of the one above: these
@@ -795,7 +787,7 @@ export const effectivePcHpFormula = () => {
 const pcTierFormula = (key) => {
   const tiers = Cairn.pcDiceTiers;
   const stored = String(game.settings.get(SETTINGS_NS, key) ?? "");
-  return tiers[stored] ?? tiers.standard;
+  return tiers[stored] ?? tiers.default;
 };
 
 /** The dice each of a PC's STR, DEX and WIL is rolled with. @returns {string} */
@@ -3883,8 +3875,7 @@ export const postGenerationRolls = async (actor, characterData, roller = null, {
     const who = (roller ?? game.user)?.name;
     if (who) speaker.alias = who;
     // A roll with no dice in it goes LAST. Hit Protection can be a flat number
-    // — Crawler Combat Mode deals 6, and the HP formula setting takes a plain
-    // value — and Dice So Nice 6.2.9 animates NOTHING on a message whose FIRST
+    // — the HP formula setting takes a plain value — and Dice So Nice 6.2.9 animates NOTHING on a message whose FIRST
     // roll has no dice, the four dice-bearing rolls behind it included
     // (measured 2026-10-03: flat first, no animation; flat in the middle or
     // last, the dice fly). The order is invisible otherwise: core draws a

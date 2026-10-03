@@ -1,73 +1,19 @@
-# Crawler Combat Mode
+# Optional Combat Rules
 
-**Crawler Combat Mode** is an optional hack for a harsher, more lethal game. It
-is **off by default** and changes nothing until you turn it on, under **Game
-Settings → Air Bladder → Configure Hacks**.
+Three optional rules for a fiercer fight. Each is **off by default**, each is
+switched on and off on its own, and they live under **Game Settings → Air
+Bladder → Configure Hacks**. None of them needs a reload.
 
-It affects **player characters only**. NPCs, hirelings and monsters are untouched
-by every part of it.
+They affect **player characters only**. NPCs, hirelings and monsters are
+untouched by every one of them.
 
-Turning it on reloads the world, so everyone at the table sees the same rules at
-the same moment.
+## Resting costs a ration
 
-## What the hack itself does
-
-Being overburdened works exactly as it does in Cairn: Hit Protection is 0 until
-a slot is freed, and nothing else. The hack does not touch the Deprived box,
-which stays what the Player's Guide says it is — going without food or rest.
-
-One thing worth knowing at the table: **overburdened means no free slot**. A pack
-filled to exactly its limit counts, so clearing it means ending up with a slot
-genuinely spare. A character at 11 of 10 slots has to put down two things, not
-one.
-
-**Player characters are made with 6 Hit Protection.**
-
-While the hack is on, a new player character starts with 6 Hit Protection, and
-6 is their maximum — the **Hit Protection formula** under Character Generation is
-ignored, and its hint says so. Ticking Hit Protection on the Roll Character
-checklist deals 6 as well. Scars can raise a maximum above 6 exactly as they
-always could; type the new number into the sheet.
-
-Switching the hack on does **not** rewrite characters that already exist. Set
-their maximum to 6 by hand, or tick Hit Protection on Roll Character.
-
-**A Rest rolls for Hit Protection instead of restoring it.**
-
-Pressing **Rest** still costs a ration (the house rule below), but under the hack
-it does not refill Hit Protection. It rolls one die the size of the character's
-maximum — a d6 for most, a d7 for a maximum of 7 — and if the roll is higher than
-their current Hit Protection, that is their new Hit Protection. If it is not,
-nothing changes, and the ration is gone either way. A chat card shows the die
-and says which it was.
-
-### The first Fatigue is free
-
-This is a **house rule, and it applies whether or not any of this is switched
-on**: a character carries their **first Fatigue for free**, as though it were
-petty. Every Fatigue after that fills a slot as normal. The free one wears a
-**Petty** tag on the sheet so you can see which it is, and the slot count agrees
-with it — a character with nine things and one Fatigue reads nine of ten, not ten
-of ten.
-
-Cairn as written charges a slot for every Fatigue. The reason for the change is
-further down this page: when a player takes a Fatigue instead of Critical Damage
-and it would not fit, they have to put something down, and without this the
-trade left them no better off than before. With it, they drop one thing, take
-one Fatigue, and end where they started — and a first Fatigue, costing nothing,
-never needs anything put down at all.
-
-When a Fatigue is cleared — by the **−** button or by the row's dustbin — the
-system removes one that **costs a slot**, keeping the free one. That way the
-Petty tag stays put instead of jumping to another row, and the slot you expected
-to get back is the one you get back.
-
-### Resting costs a ration
-
-This is a **house rule too, and it also applies whether or not the hack is on**,
-to player characters only: pressing **Rest** uses up one ration. The button's
-dialog says so and shows how many rations the character has left; with none on
-the sheet it refuses, and the character cannot rest until they have one.
+This one is not optional. It is a **house rule that applies at every table**,
+to player characters only: pressing **Rest** uses up one ration and restores
+Hit Protection to its maximum. The button's dialog says so and shows how many
+rations the character has left; with none on the sheet it refuses, and the
+character cannot rest until they have one.
 
 **Rations are counted by uses.** The Rations item ships with three, so one item
 is three rations, and a Rest spends one use. Several Rations items are fine: the
@@ -120,14 +66,12 @@ Tick **Fatigue instead of Critical Damage** and a player character who fails a
 Critical Damage save is offered a choice on the chat card, side by side: take the
 Critical Damage as usual, or **Take a Fatigue instead**.
 
-**The Fatigue has to fit.** With room in the pack, pressing it simply adds the
-Fatigue. If the Fatigue would overburden the character, pressing it asks what
-they put down to make room, and that item goes to the party's Dropped Item Pile
-— so the trade is one thing on the floor for one Fatigue in the pack. Which
-item is always the player's choice; the system never picks. A first Fatigue
-takes no slot, so a character carrying none is never asked, even with a full
-pack; it is a second or later Fatigue, at nine of ten slots or more, that has to
-be made room for.
+**The Fatigue has to fit.** A Fatigue fills a slot, like any ordinary item. With
+room in the pack, pressing the button simply adds it. If the Fatigue would
+overburden the character — at nine of ten slots or more — pressing it asks what
+they put down to make room, and that item goes to the party's Dropped Item Pile,
+so the trade is one thing on the floor for one Fatigue in the pack. Which item
+is always the player's choice; the system never picks.
 
 The list offers only things whose loss would actually free a slot. Petty items
 are not on it — they take no slot, so giving one up would cost nothing and free
@@ -207,18 +151,15 @@ It is one choice or the other, once. Pressing either button settles the card and
 it stays settled, and the choice appears only if the option was on when the damage
 was rolled.
 
-## A matching character generator
+## Tougher characters, if you want them
 
-This hack suits characters built to survive it. Under **Configure Character
-Generation**, **Ability dice for player characters** offers **Crawler
-(2d6 + 6)**, which never rolls an ability below 8.
-
-That setting is independent of this hack — you can use either without the other.
-Hit Protection is the exception: with the hack on, its formula is ignored and
-every player character is made with 6.
+Under **Configure Character Generation**, **Ability dice for player characters**
+offers **Crawler (2d6 + 3)**, which rolls every ability between 5 and 15. It is
+independent of everything on this page — use either without the other. Hit
+Protection follows the **Hit Protection formula** there, like every other table.
 
 ## See also
 
 - **Dice Formulas** — what a damage formula can say, including keep-highest
   notation.
-- **GLOG Magic in Foundry** — the system's other optional hack.
+- **GLOG Magic in Foundry** — another optional hack.

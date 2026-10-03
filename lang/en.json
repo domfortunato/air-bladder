@@ -236,7 +236,7 @@
   "CAIRN.Crawler.FatigueButton": "Take a Fatigue instead",
   "CAIRN.Crawler.FatigueButtonTip": "Take Critical Damage, or take a Fatigue instead. If the Fatigue would not fit in your pack, you are asked to drop something first.",
   "CAIRN.Ranged": "Ranged",
-  "CAIRN.RangedTip": "A bow, crossbow or sling rather than something swung in reach. Cairn 2e does not distinguish the two, so this matters only to the Maneuver on max melee damage option of Crawler Combat Mode, which never offers a maneuver for a ranged attack.",
+  "CAIRN.RangedTip": "A bow, crossbow or sling rather than something swung in reach. Cairn 2e does not distinguish the two, so this matters only to the Maneuver on max melee damage option, which never offers a maneuver for a ranged attack.",
   "CAIRN.Crawler.DieExploded": "A d{die} exploded!",
   "CAIRN.Crawler.ExplodeButton": "Explode the Die",
   "CAIRN.Crawler.ExplodeButtonTip": "Roll the die again and add it, for as long as it keeps rolling its highest face.",
@@ -840,13 +840,10 @@
   "CAIRN.Rest": "Rest",
   "CAIRN.RestConfirm": "Has your character rested?",
   "CAIRN.RestConfirmNpc": "Has this NPC rested?",
-  "CAIRN.RestCrawlerLine": "Crawler Combat Mode: resting rolls a d{faces}. If it beats your current Hit Protection of {hp}, that is your new Hit Protection.",
   "CAIRN.RestNoRations": "You have no rations. You cannot benefit from a rest unless you consume a ration.",
   "CAIRN.RestRationConfirm": "Rest and eat a ration?",
   "CAIRN.RestRationLine": "Resting for 10 minutes to recover Hit Protection uses up one ration. You have {rations} left.",
   "CAIRN.RestRationTip": "Resting for 10 minutes to recover Hit Protection uses up one ration. Bandages can stabilize a character that has taken critical damage.",
-  "CAIRN.RestRollStays": "Rolled {rolled} on a d{faces}: not above {hp}, so Hit Protection stays at {hp}.",
-  "CAIRN.RestRollUp": "Rolled {rolled} on a d{faces}: Hit Protection rises from {before} to {after}.",
   "CAIRN.RestTip": "Resting for a few moments and having a drink of water restores lost HP but may leave the party exposed. Bandages can stabilize a character that has taken critical damage.",
   "CAIRN.RestoreAbilities": "Restore Abilities",
   "CAIRN.RestoreConfirm": "Has your character rested?",
@@ -931,20 +928,16 @@
       "hint": "Include custom 2e backgrounds — backgrounds not published in the Cairn 2e Player's Guide: the shipped Backgrounds (Custom) compendium plus any GM-authored ones from your world's compendiums. They appear in their own picker section; turn off 'Offer canon Cairn 2e backgrounds' to generate only from custom ones.",
       "label": "Offer custom Cairn 2e backgrounds"
     },
-    "CrawlerCombatMode": {
-      "hint": "A harsher, more lethal combat. NPCs, hirelings and monsters are not affected. Player characters are made with 6 Hit Protection, and a Rest rolls for it instead of restoring it: a die the size of their maximum, kept if it beats what they have. For a game pitched to match, consider setting 'Ability dice for player characters' to Crawler (2d6 + 6) under Character Generation. Changing this reloads the world.",
-      "label": "Crawler Combat Mode"
-    },
-    "CrawlerExplodingDamage": {
-      "hint": "When a player character's damage die rolls its highest face, it is rolled again and added, for as long as it keeps rolling the highest. Only the die that is kept explodes, so two sixes on a keep-highest weapon are one six, not two. Every die explodes, however small: an impaired attack's d4, an unarmed attack's, and a d4 weapon's. Every explosion is announced on the damage card. Only player characters' damage rolls explode — never an NPC's, a monster's, or a trap's. Only available while Crawler Combat Mode is on; the row is greyed out otherwise.",
+    "ExplodingDamageDice": {
+      "hint": "When a player character's damage die rolls its highest face, it is rolled again and added, for as long as it keeps rolling the highest. Only the die that is kept explodes, so two sixes on a keep-highest weapon are one six, not two. Every die explodes, however small: an impaired attack's d4, an unarmed attack's, and a d4 weapon's. Every explosion is announced on the damage card. Only player characters' damage rolls explode — never an NPC's, a monster's, or a trap's.",
       "label": "Exploding damage dice"
     },
-    "CrawlerManeuverOnMax": {
-      "hint": "When a player character rolls maximum damage with a melee weapon, their chat card offers to forgo all of that damage and attempt a maneuver instead, resolved with an ability check the Warden calls for. Any die counts, an impaired attack's d4 included; ranged weapons never offer one. With Exploding damage dice also on, the card offers the choice: explode the die, or maneuver. Borrowed from Knave 2e by Ben Milton. Only available while Crawler Combat Mode is on; the row is greyed out otherwise.",
+    "ManeuverOnMaxMelee": {
+      "hint": "When a player character rolls maximum damage with a melee weapon, their chat card offers to forgo all of that damage and attempt a maneuver instead, resolved with an ability check the Warden calls for. Any die counts, an impaired attack's d4 included; ranged weapons never offer one. With Exploding damage dice also on, the card offers the choice: explode the die, or maneuver. Borrowed from Knave 2e by Ben Milton.",
       "label": "Maneuver on max melee damage"
     },
-    "CrawlerFatigueForCritical": {
-      "hint": "When a player character fails a Critical Damage save, their chat card also offers to take a Fatigue instead. If the Fatigue would overburden them, they must drop an item, which will be added to the Party's Dropped Item Pile. Refuse to drop anything and the Critical Damage stands. Only available while Crawler Combat Mode is on; the row is greyed out otherwise.",
+    "FatigueForCriticalDamage": {
+      "hint": "When a player character fails a Critical Damage save, their chat card also offers to take a Fatigue instead. If the Fatigue would overburden them, they must drop an item, which will be added to the Party's Dropped Item Pile. Refuse to drop anything and the Critical Damage stands.",
       "label": "Fatigue instead of Critical Damage"
     },
     "CustomPortraitFolder": {
@@ -967,7 +960,7 @@
     "GroupGenerationHint": "Which content sources are offered, what players may generate or randomize, the portrait folder and the age formula.",
     "GroupHacks": "GLOG & Other Hacks",
     "GroupHacksButton": "Configure Hacks",
-    "GroupHacksHint": "Optional rule hacks: GLOG Magic, the Vald calendar, Crawler Combat Mode, and a Knave-style failed career for Barebones characters.",
+    "GroupHacksHint": "Optional rule hacks: GLOG Magic, the Vald calendar, three optional combat rules, and a Knave-style failed career for Barebones characters.",
     "GroupInventory": "Inventory & Encumbrance",
     "GroupInventoryButton": "Configure Inventory",
     "GroupInventoryHint": "Slot limit, the inventory cap, the marketplace and the coins-per-slot threshold.",
@@ -975,20 +968,20 @@
       "label": "Maximum inventory slots per character"
     },
     "PcAbilityDice": {
-      "hint": "How each of a player character's STR, DEX and WIL is rolled. Standard is the book's roll. Adventurer rolls four dice and keeps the best three. Crawler never rolls below 8. NPCs, hirelings and monsters are not affected. Keep-highest notation is explained on the Dice Formulas page of the System Docs journal, and at airbladder.xyz under Guides.",
+      "hint": "How each of a player character's STR, DEX and WIL is rolled. Default is the book's roll. Adventurer rolls four dice and keeps the best three. Crawler rolls between 5 and 15. NPCs, hirelings and monsters are not affected. Keep-highest notation is explained on the Dice Formulas page of the System Docs journal, and at airbladder.xyz under Guides.",
       "label": "Ability dice for player characters"
     },
     "PcDice": {
       "Adventurer": "Adventurer (4d6kh3)",
-      "Crawler": "Crawler (2d6 + 6)",
-      "Standard": "Standard (3d6)"
+      "Crawler": "Crawler (2d6 + 3)",
+      "Default": "Default (3d6)"
     },
     "PcGoldDice": {
-      "hint": "How a player character's starting coins are rolled. Standard is the book's roll. Coins a bond or a background question grants are added on top and are not affected, and neither are NPCs or hirelings.",
+      "hint": "How a player character's starting coins are rolled. Default is the book's roll. Coins a bond or a background question grants are added on top and are not affected, and neither are NPCs or hirelings.",
       "label": "Gold dice for player characters"
     },
     "PcHpFormula": {
-      "hint": "The dice a player character's Hit Protection is rolled with. Enter a plain number for a fixed value: 4 gives every character 4. Blank rolls 1d6, the book's roll. NPCs and hirelings are not affected. Ignored while Crawler Combat Mode is on, which gives every player character 6.",
+      "hint": "The dice a player character's Hit Protection is rolled with. Enter a plain number for a fixed value: 4 gives every character 4. Blank rolls 1d6, the book's roll. NPCs and hirelings are not affected.",
       "label": "Hit Protection formula for player characters"
     },
     "ShowGenerateHeader": {

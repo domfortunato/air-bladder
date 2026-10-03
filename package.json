@@ -81,7 +81,7 @@
     "dev:settings": "node tools/dev/settings-probe.mjs",
     "dev:age-override": "node tools/dev/age-override-probe.mjs",
     "dev:pc-dice": "node tools/dev/pc-dice-probe.mjs",
-    "dev:crawler-combat": "node tools/dev/crawler-combat-probe.mjs",
+    "dev:combat-options": "node tools/dev/combat-options-probe.mjs",
     "dev:bg-picker": "node tools/dev/background-picker-probe.mjs",
     "dev:content-sources": "node tools/dev/e2e-content-sources.mjs",
     "dev:bg-containers": "node tools/dev/bg-container-probe.mjs",

@@ -31,21 +31,23 @@ export const Cairn = {};
 // Every tier is checked against the Cairn `+` overload (utils.js
 // `evaluateFormula`), which rewrites `a + b` to keep-highest when EVERY
 // `+`-separated term is a bare die: `3d6` and `4d6kh3` carry no `+`, and
-// `2d6 + 6`'s second term is not a die, so all three roll verbatim. A tier
+// `2d6 + 3`'s second term is not a die, so all three roll verbatim. A tier
 // added here must be re-checked against that rule — `d6 + d6 + d6` would
 // silently become max(d6,d6,d6), 1..6 — and must cap at 18, because a save is
 // `d20cs<=@abilities.X.value` and an ability of 20 makes every save against it
-// succeed in silence.
+// succeed in silence. (Crawler caps at 15 and floors at 5; it was `2d6 + 6`,
+// 8..18, until the user changed it on 2026-10-03.)
 //
 // The stored value is the KEY, never the formula, so a label can be reworded
-// and a formula corrected without orphaning what worlds already hold. `hero`
-// was the middle key for a day and is `adventurer` (user, 2026-10-02); nothing
-// had shipped, and a key reading `hero` under a label reading Adventurer is
-// the correct-sounding lie this codebase keeps finding.
+// and a formula corrected without orphaning what worlds already hold — and a
+// key must say what its label says, so a renamed label takes its key with it
+// (the first tier became `default` on 2026-10-03, user ruling). A world still
+// holding a retired key reads as `default` (character-generator.js
+// `pcTierFormula`).
 Cairn.pcDiceTiers = {
-  standard: "3d6",
+  default: "3d6",
   adventurer: "4d6kh3",
-  crawler: "2d6 + 6",
+  crawler: "2d6 + 3",
 };
 
 // Hit Protection's default. NOT a tier — that setting is free text — so this is
@@ -53,12 +55,6 @@ Cairn.pcDiceTiers = {
 // below: `pc-hp-formula` registers it as its default, and `effectivePcHpFormula`
 // falls back to it when the Warden's own formula is blank or unusable.
 Cairn.pcHpFormula = "1d6";
-
-// Hit Protection under CRAWLER COMBAT MODE (2026-10-03, user ask): every
-// player character is MADE with 6, and the formula above is ignored while the
-// hack is on. A number and not a formula on purpose — "All PCs have a max HP
-// value of 6" is the rule, and a Rest rolls a die of that size.
-Cairn.crawlerHp = 6;
 
 // Cairn 2e generation config. Backgrounds, gear, and bonds come from their own
 // packs (see character-generator.js); this covers the shared biography, which

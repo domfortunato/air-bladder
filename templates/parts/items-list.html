@@ -94,21 +94,6 @@
       {{#if item.system.weightless}}{{#unless item.system.isContainerItem}}{{#unless item.system.bound}}
       <div class="cairn-item-tag">{{ localize 'CAIRN.Weightless' }}</div>
       {{/unless}}{{/unless}}{{/if}}
-      {{!-- THE FIRST FATIGUE IS FREE and says so, with the chip that already
-            means "this takes no slot" -- no new string. Without it a character
-            carrying 9 items and 1 Fatigue reads "9 / 10" above ten rows, which
-            looks like a defect.
-            WHICH row is decided by the ACTOR (system.freeFatigueId, derived in
-            prepareDerivedData beside the subtraction it explains), never here: a
-            template picking "the first one I rendered" would be a second opinion
-            about the same fact, and the chip and the arithmetic could then
-            disagree on screen.
-            `../` is load-bearing -- a bare `system` inside {{#each}} resolves
-            against the ITEM and silently finds nothing, which this one file has
-            already been bitten by twice. --}}
-      {{#if (eq item._id ../system.freeFatigueId)}}
-      <div class="cairn-item-tag">{{ localize 'CAIRN.Weightless' }}</div>
-      {{/if}}
       {{#if (gt item.system.quantity 1)}}
       <div class="cairn-item-tag">{{ localize 'CAIRN.NQuantity' n=item.system.quantity }}</div>
       {{/if}}

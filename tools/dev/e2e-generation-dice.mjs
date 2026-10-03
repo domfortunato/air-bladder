@@ -47,13 +47,10 @@ try {
   const r = await withSettings(page, () => page.evaluate(async () => {
     const NS = "air-bladder";
     const out = { legs: {} };
-    // The HP formula this probe expects on the card ("1d6") is IGNORED under
-    // Crawler Combat Mode (2026-10-03), so the hack is pinned off rather than
-    // inherited from the world; withSettings puts it back.
-    await game.settings.set(NS, "crawler-combat-mode", false);
-    // And the card's five formulas are the three dice settings' DEFAULTS, so
-    // those are pinned too: CT 123's world had ability dice on Crawler
-    // (2d6 + 6) and the formulas leg read that as a defect (2026-10-03).
+    // The card's five formulas are the three dice settings' DEFAULTS, so those
+    // are pinned rather than inherited from the world: CT 123's world had
+    // ability dice on Crawler and the formulas leg read that as a defect
+    // (2026-10-03). withSettings puts them back.
     for (const key of ["pc-ability-dice", "pc-gold-dice", "pc-hp-formula"]) {
       await game.settings.set(NS, key, game.settings.settings.get(`${NS}.${key}`).default);
     }
@@ -320,12 +317,11 @@ try {
 
     // State every precondition rather than inheriting the world's: no card
     // means no dice, and the glimpse would be unobservable in a way that reads
-    // as green. Crawler Combat Mode is pinned OFF because its flat HP of 6 is
-    // a roll with no dice, which is what the leg below is about — this one
-    // measures the ordinary card (CT 123's world had the hack on, 2026-10-03).
+    // as green. The HP formula is pinned to its default because a flat value
+    // is a roll with no dice, which is what the leg below is about — this
+    // one measures the ordinary card.
     const NS = "air-bladder";
     await game.settings.set(NS, "show-generation-rolls", true);
-    await game.settings.set(NS, "crawler-combat-mode", false);
     for (const key of ["pc-ability-dice", "pc-gold-dice", "pc-hp-formula"]) {
       await game.settings.set(NS, key, game.settings.settings.get(`${NS}.${key}`).default);
     }
@@ -408,7 +404,10 @@ try {
       const track = (globalThis.__genDiceProbe ??= { actors: [], messages: [] });
       const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
       await game.settings.set(NS, "show-generation-rolls", true);
-      await game.settings.set(NS, "crawler-combat-mode", true);
+      // A FLAT Hit Protection, the plain number the setting's hint invites:
+      // a roll with no dice in it. (Crawler Combat Mode's flat 6 was the
+      // first route here and is gone, 2026-10-03.)
+      await game.settings.set(NS, "pc-hp-formula", "4");
 
       const completed = new Set();
       const onDice = (id) => completed.add(id);
@@ -444,11 +443,11 @@ try {
       }
     }));
     if (flat.noCard) {
-      fail("flat HP: generating under Crawler Combat Mode posted no roll card — the leg proves nothing");
+      fail("flat HP: generating with a flat HP formula posted no roll card — the leg proves nothing");
     } else {
       flat.flatCount >= 1
-        ? ok(`precondition: under Crawler Combat Mode the card carries a roll with no dice (${JSON.stringify(flat.formulas)})`)
-        : fail(`precondition: no dice-less roll on the card (${JSON.stringify(flat.formulas)}) — the hack's flat 6 did not reach it`);
+        ? ok(`precondition: with a flat HP formula the card carries a roll with no dice (${JSON.stringify(flat.formulas)})`)
+        : fail(`precondition: no dice-less roll on the card (${JSON.stringify(flat.formulas)}) — the flat HP formula did not reach it`);
       flat.firstHasDice
         ? ok("the dice-less roll is not first on the card")
         : fail(`the card's FIRST roll has no dice (${JSON.stringify(flat.formulas)})`);

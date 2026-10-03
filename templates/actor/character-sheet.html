@@ -186,9 +186,6 @@
                     {{!-- id for core's focus restore: _preSyncPartState records
                           focus only as #id or TAG[name] (review #22), and these
                           class-managed controls deliberately carry no name. --}}
-                    {{!-- Disabled while Crawler Combat Mode holds Deprived from
-                          the load: the value is DERIVED there, so a tick would
-                          be overwritten on the next prepare. --}}
                     <input type="checkbox" class="deprived-check" id="{{@root.idp}}-deprived-check" {{checked system.deprived}} />
                 </div>
             </div>

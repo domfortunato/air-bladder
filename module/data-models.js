@@ -681,7 +681,7 @@ class ItemData extends CairnDataModel {
  * A weapon.
  *
  * `ranged` IS THE FIRST THING THIS SYSTEM HAS HAD TO INVENT ABOUT A WEAPON, and
- * it exists for exactly one rule: Crawler Combat Mode's Maneuver on max melee
+ * it exists for exactly one rule: the optional Maneuver on max melee
  * damage (2026-10-02). Cairn 2e does not distinguish melee from ranged anywhere
  * — there is no SRD datum to read — so the alternative was matching the weapon's
  * NAME, which fails on a Warden's homebrew and fails again on a Spanish client,

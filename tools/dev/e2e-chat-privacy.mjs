@@ -132,7 +132,7 @@ try {
       });
       return msg.id;
     };
-    // 2b. CRAWLER COMBAT MODE's explosion lines. `nameExplodedDice` rebuilds them
+    // 2b. THE EXPLODING DICE OPTION's lines. `nameExplodedDice` rebuilds them
     //     from the stored roll on EVERY client, so it is in the isContentVisible
     //     class: an explosion reveals that the die rolled its maximum, and core
     //     has already replaced a blind card's content with "rolled privately".
@@ -205,7 +205,7 @@ try {
       total: el(id, ".dice-total")?.textContent?.trim() ?? null,
       // SCOPED to ONE rendering. Core shows a message in the log AND as a chat
       // notification, so a document-wide count returns one line PER RENDERING and
-      // reads like a doubling bug. The crawler probe counts inside a single
+      // reads like a doubling bug. The combat-options probe counts inside a single
       // element for the same reason; the privacy claim here is 0-versus-some
       // either way, but an unexplained number in a probe's output is a trap for
       // whoever reads it next.
@@ -227,7 +227,7 @@ try {
   }, { ids: posted, tableName: posted.tableName, gmName: posted.gmName, MARK });
 
   const s = seen;
-  console.log("\nCrawler Combat Mode's explosion lines");
+  console.log("\nexploding dice: the explosion lines");
   posted.dmgBlindExploded >= 1
     ? ok(`fixture: the blind damage card really did explode (${posted.dmgBlindExploded} explosion(s) stored)`)
     : fail(`the blind damage fixture did not explode (${posted.dmgBlindExploded}) — the leg below would pass for the wrong reason`);

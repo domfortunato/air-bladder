@@ -31,8 +31,7 @@ export const SETTING_KEYS = [
   "show-grant-tags-print", "show-traits", "show-omens", "show-watch-clock",
   "weather-log", "use-warden-title", "change-log", "auto-record-scars",
   "enable-glog-magic", "enable-vald-calendar",
-  "crawler-combat-mode", "crawler-exploding-damage", "crawler-fatigue-for-critical",
-  "crawler-maneuver-on-max",
+  "exploding-damage-dice", "fatigue-for-critical-damage", "maneuver-on-max-melee",
   // Character Generation
   "content-source-2e", "content-source-custom", "content-source-barebones",
   "barebones-failed-career", "show-generate-header",
@@ -253,29 +252,22 @@ export const SETTING_GROUPS = [
     icon: "fa-solid fa-flask",
     keys: [
       "enable-glog-magic", "enable-vald-calendar", "barebones-failed-career",
-      // Crawler Combat Mode (2026-10-02) and its two options, which follow it
-      // directly so the master reads as the heading of what it governs.
-      "crawler-combat-mode", "crawler-exploding-damage", "crawler-fatigue-for-critical",
-      "crawler-maneuver-on-max",
+      // The three optional combat rules (2026-10-02). Standalone since
+      // 2026-10-03: they sat under a "Crawler Combat Mode" master for a day,
+      // and the user took the master away — each is off by default and none
+      // is ever greyed.
+      "exploding-damage-dice", "fatigue-for-critical-damage", "maneuver-on-max-melee",
     ],
     // The failed career is meaningless unless Barebones sheets are offered —
     // and that master checkbox lives in the Character Generation menu, not
     // here, so this app greys the row from the STORED value at render instead
     // of following a checkbox live (settings-menus.js handles both shapes).
     // Down to one carrier: the omen/bond lending settings went 2026-08-09.
-    // A LIST since 2026-10-02 — see settings-menus.js. The two entries are
-    // deliberately different shapes and together they cover both branches:
-    // Barebones' master lives in ANOTHER submenu (read from the stored value at
-    // render), Crawler's lives in THIS one (followed live, as it is ticked).
+    // A LIST since 2026-10-02, when Crawler Combat Mode needed a second
+    // master; it went again on 2026-10-03, and the list form stays because it
+    // costs nothing and a group may still declare more than one.
     subOptions: [
       { master: "content-source-barebones", keys: ["barebones-failed-career"] },
-      {
-        master: "crawler-combat-mode",
-        keys: [
-          "crawler-exploding-damage", "crawler-fatigue-for-critical",
-          "crawler-maneuver-on-max",
-        ],
-      },
     ],
   },
 ];
@@ -285,7 +277,7 @@ export const SETTING_GROUPS = [
  * and `pc-gold-dice` so the two dropdowns are authored once and cannot offer
  * different dice (user ruling 2026-10-02: "the same tiers as for abilities").
  *
- * THE LABELS CARRY THEIR DICE AS A LITERAL ("Standard (3d6)"), and that is
+ * THE LABELS CARRY THEIR DICE AS A LITERAL ("Default (3d6)"), and that is
  * forced rather than chosen. `registerSettings()` runs on `init`, and `i18nInit`
  * is a LATER hook (cairn.js), so `game.i18n.format` does not work here and the
  * label cannot be composed from `Cairn.pcDiceTiers` at registration. Core
@@ -303,7 +295,7 @@ export const SETTING_GROUPS = [
  * labels would be reported unused and the gate would red.
  */
 const PC_DICE_CHOICES = {
-  standard: "CAIRN.Settings.PcDice.Standard",
+  default: "CAIRN.Settings.PcDice.Default",
   adventurer: "CAIRN.Settings.PcDice.Adventurer",
   crawler: "CAIRN.Settings.PcDice.Crawler",
 };
@@ -311,8 +303,8 @@ const PC_DICE_CHOICES = {
 /**
  * The registration blocks below are kept roughly in group order for the
  * reader's sake only — General, then Character Generation, then Inventory &
- * Encumbrance, with the two Hacks settings still sitting in the blocks they
- * grew up in. Nothing positional depends on it (see SETTING_GROUPS).
+ * Encumbrance, with the Hacks settings still sitting in the blocks they grew
+ * up in. Nothing positional depends on it (see SETTING_GROUPS).
  */
 export const registerSettings = () => {
   // Not a setting anyone sets: the completion marker for the role migration.
@@ -735,10 +727,8 @@ export const registerSettings = () => {
   // the reload prompt. One reload gives every client one consistent state at
   // one moment. use-panic and use-item-icons set the precedent.
   //
-  // ONE key, never a calendar/weather pair: settings-menus.js destructures
-  // `subOptions` as a single object, one master per group, and Hacks has
-  // already spent it on content-source-barebones. A second master here would
-  // mean reworking that first.
+  // ONE key, never a calendar/weather pair: a pair would need a master and a
+  // `subOptions` entry for what is one decision about one calendar.
   game.settings.register(SETTINGS_NS, "enable-vald-calendar", {
     name: "CAIRN.Settings.EnableValdCalendar.label",
     hint: "CAIRN.Settings.EnableValdCalendar.hint",
@@ -751,44 +741,28 @@ export const registerSettings = () => {
     requiresReload: true,
   });
 
-  // ---- Crawler Combat Mode (2026-10-02, user ask) --------------------------
-  // A harsher combat, default OFF, the GLOG pattern: mainline stays clean Cairn
-  // 2e at defaults and a table that wants something else switches it on.
+  // ---- The optional combat rules (2026-10-02, user ask) --------------------
+  // Three rules, each off by default, the GLOG pattern: mainline stays clean
+  // Cairn 2e at defaults and a table that wants something else switches it on.
   //
-  // THE MASTER CARRIES A RULE OF ITS OWN -- an overburdened PLAYER CHARACTER is
-  // deprived as well as at 0 Hit Protection (actor.js `_prepareCharacterData`)
-  // -- and offers two options beside it. More are expected, which is why the
-  // Hacks group's `subOptions` became a list rather than this taking a submenu
-  // of its own.
+  // NO MASTER (2026-10-03, user). For a day they sat under "Crawler Combat
+  // Mode", which greyed them while off and carried rules of its own: an
+  // overburdened PC was Deprived, PCs were made with 6 Hit Protection, and a
+  // Rest rolled for it. All three were reversed, and with nothing left for the
+  // master to do the user removed it: "there is no need for Crawler Combat
+  // Mode to exist at all or act as a gate". The keys lost their `crawler-`
+  // prefix with it — nothing had shipped.
   //
   // PLAYER CHARACTERS ONLY, all three: `type === "character"`, the
   // auto-record-scars precedent (damage.js), which is the one other automated
-  // sheet write here and is gated exactly this way.
+  // sheet write here and is gated exactly this way. Each is read at ROLL or
+  // CARD-BUILD time, so none needs a reload.
   //
-  // requiresReload on the MASTER was copied from `use-panic` because the
-  // master then changed a DERIVED value (an overburdened PC was Deprived), and
-  // a re-render does not re-derive. THAT RULE IS GONE (2026-10-03, user
-  // reversal), so nothing derived depends on the master any more: its
-  // options are read at ROLL time and at CARD-BUILD time, and the HP
-  // generation rule at generation time. The reload is KEPT, unexamined, and
-  // flagged for a decision before the release -- dropping it is a behaviour
-  // change nobody has asked for, and the hint promises the reload.
-  game.settings.register(SETTINGS_NS, "crawler-combat-mode", {
-    name: "CAIRN.Settings.CrawlerCombatMode.label",
-    hint: "CAIRN.Settings.CrawlerCombatMode.hint",
-    scope: "world",
-    config: false,
-    type: Boolean,
-    default: false,
-    requiresReload: true,
-  });
-
-  // Read live per roll by `explodingDamageFormula` (utils.js) at the two PC
-  // damage call sites. `crawlerOption` ANDs the master in, so a stored true
-  // under a master later switched off stops acting rather than lingering.
-  game.settings.register(SETTINGS_NS, "crawler-exploding-damage", {
-    name: "CAIRN.Settings.CrawlerExplodingDamage.label",
-    hint: "CAIRN.Settings.CrawlerExplodingDamage.hint",
+  // Read live per roll through `combatDamageFormula` (utils.js) at the three
+  // PC damage call sites.
+  game.settings.register(SETTINGS_NS, "exploding-damage-dice", {
+    name: "CAIRN.Settings.ExplodingDamageDice.label",
+    hint: "CAIRN.Settings.ExplodingDamageDice.hint",
     scope: "world",
     config: false,
     type: Boolean,
@@ -799,9 +773,9 @@ export const registerSettings = () => {
   // Read when the save CARD is built, and recorded on it: what a card offered
   // is frozen at the moment of the roll, so switching this off later does not
   // retract a choice already on screen.
-  game.settings.register(SETTINGS_NS, "crawler-fatigue-for-critical", {
-    name: "CAIRN.Settings.CrawlerFatigueForCritical.label",
-    hint: "CAIRN.Settings.CrawlerFatigueForCritical.hint",
+  game.settings.register(SETTINGS_NS, "fatigue-for-critical-damage", {
+    name: "CAIRN.Settings.FatigueForCriticalDamage.label",
+    hint: "CAIRN.Settings.FatigueForCriticalDamage.hint",
     scope: "world",
     config: false,
     type: Boolean,
@@ -812,16 +786,16 @@ export const registerSettings = () => {
   // Read at ROLL time (does the die explode now, or is the choice deferred to
   // the card?) and again at RENDER time (does this card offer the buttons?), so
   // no reload is needed. The card records what it offered, the
-  // crawler-fatigue-for-critical rule above.
+  // fatigue-for-critical-damage rule above.
   //
   // MELEE ONLY, and ANY die: the tests live at the roll site, where the item
-  // and the post-quality formula are in hand, through `crawlerDamageFormula`
+  // and the post-quality formula are in hand, through `combatDamageFormula`
   // in utils.js — the ONE gate this and the exploding option share, so the two
   // cannot disagree about which rolls qualify. The d6 floor of 2026-10-02 was
   // REVERSED on 2026-10-03 (user ruling): an impaired `1d4` offers a maneuver.
-  game.settings.register(SETTINGS_NS, "crawler-maneuver-on-max", {
-    name: "CAIRN.Settings.CrawlerManeuverOnMax.label",
-    hint: "CAIRN.Settings.CrawlerManeuverOnMax.hint",
+  game.settings.register(SETTINGS_NS, "maneuver-on-max-melee", {
+    name: "CAIRN.Settings.ManeuverOnMaxMelee.label",
+    hint: "CAIRN.Settings.ManeuverOnMaxMelee.hint",
     scope: "world",
     config: false,
     type: Boolean,
@@ -1168,7 +1142,7 @@ export const registerSettings = () => {
     config: false,
     type: String,
     choices: PC_DICE_CHOICES,
-    default: "standard",
+    default: "default",
     requiresReload: false,
   });
 
@@ -1193,7 +1167,7 @@ export const registerSettings = () => {
     config: false,
     type: String,
     choices: PC_DICE_CHOICES,
-    default: "standard",
+    default: "default",
     requiresReload: false,
   });
 

@@ -364,7 +364,7 @@ companion record of who authored what.
   character who grabbed a chair leg had nothing to press, though Cairn has such
   attacks ("Unarmed attacks always do d4 damage"). It asks what you are
   attacking with and what it rolls, then posts the ORDINARY damage card, which
-  is what brings targeting, Apply, scars and every Crawler Combat Mode behaviour
+  is what brings targeting, Apply, scars and every optional combat rule
   along without one of them knowing there is a new caller. **No setting of any
   kind** (user ruling): it is simply there, and the formula is typed each time
   from a `1d4` start.
@@ -378,7 +378,7 @@ companion record of who authored what.
     (user ask: "should not be removeable and should not consume a slot"). There
     is nothing to delete, nothing to equip, nothing to give, nothing to drag,
     nothing for a grant sweep to find, and `slotsUsed` counts documents on the
-    actor — of which this is none. `dev:crawler-combat` measures the ROW, not
+    actor — of which this is none. `dev:combat-options` measures the ROW, not
     the template: an `<a>` inside `.unarmed-row` with no trash can and no Drop
     control beside it.
   - **`canUnarmed` IS ONE PREDICATE, `isOwner && !isThing`.** The
@@ -623,7 +623,7 @@ companion record of who authored what.
     **With no Warden connected a player's Drop refuses and says so** — a control
     that does nothing without explanation is the worst of the three outcomes.
     **THE BROKER IS MEASURED FROM A SECOND BROWSER CONTEXT**, because every
-    other leg in `dev:crawler-combat` runs as the Warden, who owns everything —
+    other leg in `dev:combat-options` runs as the Warden, who owns everything —
     so the one path the broker exists for had never executed. As Alice it proves
     the PREMISE (she sees the pile, does not own it, and her own write to it is
     refused by the server), then the GESTURE, then the AUTHORIZATION: a crafted
@@ -663,7 +663,7 @@ companion record of who authored what.
     included, and the folder was silently never made while the pile landed at
     the root of the directory. `Folder.canUserCreate(game.user)` is the real
     test (`common/abstract/document.mjs:346`, which resolves the document's own
-    `metadata.permissions.create`). `dev:crawler-combat` caught it on the first
+    `metadata.permissions.create`). `dev:combat-options` caught it on the first
     run — pile present, `in Party folder=false` — which is the whole argument
     for asserting WHERE a document landed and not merely that it exists.
     **Verify a permission by grepping the client for the constant, never by
@@ -679,18 +679,18 @@ companion record of who authored what.
   slots with no Fatigue "chose 'take a fatigue instead' and was prompted to
   drop an item! that isn't right is it?"; offered only-when-it-would-not-fit /
   always / never, they chose the first). `fatigueFits` (gear.js) asks
-  `capacityVerdict(actor, actor.nextFatigueCost())` — the same verdict every
-  other acquisition asks, so the bargain and the drop handler cannot disagree
-  about "fits" — and the handler in `cairn.js` answers "drop nothing" without
-  a dialog on "fits". `nextFatigueCost` is the FOURTH reader of the free-first
-  rule, off `freeFatigueId` like the other three. Two edges, stated: a
-  character carrying NO Fatigue is never asked, even at 10 of 10, because a
-  Fatigue that costs nothing cannot overburden them further; the second asks
-  at 9 of 10. Nothing-to-drop-and-no-room still applies the Critical Damage
-  with no dialog. `dev:crawler-combat`'s every picker fixture is padded to the
-  edge (`atEdge`: nine slots plus one Fatigue), and two legs hold the
-  no-picker side — the `room` leg is the red-first witness against the
-  always-ask build.
+  `capacityVerdict(actor, 1)` — the same verdict every other acquisition
+  asks, so the bargain and the drop handler cannot disagree about "fits" —
+  and the handler in `cairn.js` answers "drop nothing" without a dialog on
+  "fits". A Fatigue fills one slot, so the picker opens at 9 of 10 whether or
+  not one is carried (for a few hours the test read a `nextFatigueCost` off
+  the free first Fatigue and a character carrying none was never asked; that
+  rule went the same evening — see the inventory deviations).
+  Nothing-to-drop-and-no-room still applies the Critical Damage with no
+  dialog. `dev:combat-options`'s every picker fixture is padded to the edge
+  (`atEdge`: nine slots, one of them a Fatigue); the `room` leg is the
+  red-first witness against the always-ask build, and `firstFull` (no Fatigue
+  at 10 of 10 IS asked) against the free-first one.
   **The drop is recorded in chat** (user ask) from a flag carrying the
   item's NAME and rebuilt per viewer — the move runs on whichever client
   answered it, so a stored sentence would freeze in that client's language, the
@@ -722,12 +722,11 @@ companion record of who authored what.
   **THE PICKER OFFERS ONLY WHAT FREES A SLOT** (`slotFreeingItems`, deliberately
   NOT a narrowing of `droppableItems`, which still means "everything that may be
   dropped" for the ordinary Drop control). Petty is excluded
-  **unconditionally** — never scoped to `isEncumbered()`, because after the
-  free-first-Fatigue rule a character at 9 items plus a Fatigue is not
-  overburdened yet a petty drop still strands them, and because if petty is ever
-  on the menu the sensible play is always to shed the cheapest trinket, which
-  makes a forced drop cost nothing. Fatigue is excluded **as Fatigue** and never
-  via pettiness, since the second one costs a real slot. Rows say what they free
+  **unconditionally** — never scoped to `isEncumbered()`: a petty drop frees
+  nothing, so it cannot pay for a Fatigue, and if petty is ever on the menu the
+  sensible play is always to shed the cheapest trinket, which makes a forced
+  drop cost nothing. Fatigue is excluded **as Fatigue**: dropping one to make
+  room for another is no trade. Rows say what they free
   as a NUMBER, never the word "bulky", and show uses where there are any —
   **no `x3` anywhere** (user ruling: a quantity chip beside a uses chip is two
   numbers meaning different things on one row). The slot arithmetic is
@@ -736,8 +735,8 @@ companion record of who authored what.
   **THE OLD "past a full pack" CLAIM IS GONE, not moved.** It survived one
   revision as "what happens to a character with nothing to give up"; that case
   now takes the Critical Damage instead, so the Fatigue-for-critical route does
-  not reach `ignoreCapacity` at all. The flag itself stays — casting and a second
-  Fatigue still use it. `dev:crawler-combat`'s all-Fatigue leg was rewritten to
+  not reach `ignoreCapacity` at all. The flag itself stays — casting and the Add
+  Fatigue control still use it. `dev:combat-options`'s all-Fatigue leg was rewritten to
   assert the Critical Damage, and it still runs LAST because it strips an
   inventory every earlier leg needs. The probe's cleanup deletes the pile, the
   drop cards and the Party folder — but only if the probe emptied the folder,
@@ -1848,7 +1847,7 @@ companion record of who authored what.
   "N on master" parenthetical went stale a THIRD way by surviving two releases
   — a new pack's commit must carry this line, and so must the release that
   moves the master count, which is what this post-release merge is doing)
-- 35 Warden-facing settings in `module/settings.js` (45 `register` calls + 4 `registerMenu` menus from ONE call site,
+- 34 Warden-facing settings in `module/settings.js` (44 `register` calls + 4 `registerMenu` menus from ONE call site,
   ALL `config: false` since 2026-08-22 — see the submenu paragraph below; `roles-restamped`,
   `companion-restamped`, `hireling-split`, `grimoire-keys-stamped`,
   `connections-migrated`, `art-migration-generation` (2026-08-21, review #17 —
@@ -1859,12 +1858,11 @@ companion record of who authored what.
   (review #13's catch, its third "record claiming what the code does not say"),
   then `enable-glog-magic` rode a topic branch whose cherry-picks never carried
   this line, caught only when the branch merged — so each settings change updates
-  them in its own commit, this one dated 2026-10-02 for CRAWLER COMBAT MODE
-  (`crawler-combat-mode` plus `crawler-exploding-damage`,
-  `crawler-fatigue-for-critical` and — later the same day —
-  `crawler-maneuver-on-max`, Hacks: FOUR keys, one master and three options, and
-  the third option is why the group's `subOptions` list had to be a list at all;
-  see the paragraph below) and the same
+  them in its own commit, this one dated 2026-10-03 for the OPTIONAL COMBAT RULES
+  (`exploding-damage-dice`, `fatigue-for-critical-damage`,
+  `maneuver-on-max-melee`, Hacks: three standalone keys since the user removed
+  their `crawler-combat-mode` master that day, the keys losing their `crawler-`
+  prefix with it; see the paragraph below) and the same
   day for the PC DICE TRIO
   (`pc-ability-dice`, `pc-hp-formula`, `pc-gold-dice`, Character Generation —
   see the paragraph below) and before it 2026-09-11 for `weather-log` (General,
@@ -1900,15 +1898,18 @@ companion record of who authored what.
   **AND THE OTHER THREE GENERATION DICE JOINED IT ON 2026-10-02 (user ask), so
   every die in character generation is now the Warden's.** `pc-ability-dice`
   and `pc-gold-dice` are independent dropdowns over ONE shared tier map
-  (`Cairn.pcDiceTiers` — Standard `3d6`, Adventurer `4d6kh3`, Crawler
-  `2d6 + 6`), `pc-hp-formula` is free text on the `age-formula` shape because
+  (`Cairn.pcDiceTiers` — Default `3d6`, Adventurer `4d6kh3`, Crawler
+  `2d6 + 3`), `pc-hp-formula` is free text on the `age-formula` shape because
   the ask was "1d6 or a set value that the warden provides". DROPDOWNS for two
   of the three on purpose: a closed set of project-authored constants has
   nothing to validate and cannot throw at roll time, the accepted cost being
-  that a fourth tier needs a code change. The middle tier was **Hero** for a
-  day and is **Adventurer**, KEY included — nothing had shipped, and a key
-  reading `hero` under a label reading Adventurer is the correct-sounding lie
-  this file keeps finding. PLAYER CHARACTERS ONLY, and structurally so: an NPC
+  that a fourth tier needs a code change. A renamed label
+  takes its KEY with it — a key that disagrees with its label is the
+  correct-sounding lie this file keeps finding — so the first tier is
+  **Default** (`default`) since 2026-10-03 (user ruling), when Crawler also
+  became `2d6 + 3` (5..15; it was 8..18). A world still holding the old key
+  reads 3d6 through `pcTierFormula`'s fallback, which `dev:pc-dice` asserts
+  is a real formula and not merely equal to the map's entry. PLAYER CHARACTERS ONLY, and structurally so: an NPC
   reads `npcGenerator.*`, a hireling takes its statblock off its career, a
   monster uses weighted picks, so nothing had to be gated to achieve it. Four
   config keys went with the change (`barebonesGenerator.ability`/`.gold`/
@@ -1955,7 +1956,7 @@ companion record of who authored what.
     **`game.i18n` is unusable at registration** — a `choices` label cannot be
     composed from a config map there and must be a bare key core localizes at
     render. That is why the three tier labels carry their dice as a LITERAL
-    ("Standard (3d6)"), duplicating `Cairn.pcDiceTiers`: precisely the review
+    ("Default (3d6)"), duplicating `Cairn.pcDiceTiers`: precisely the review
     #18 shape, not removable, so GATED instead — `dev:pc-dice` asserts each
     rendered option label contains the map's formula. Reusable well beyond this
     change: a config read at registration is fine, an i18n call is not.
@@ -1972,45 +1973,36 @@ companion record of who authored what.
     drift-baseline entry, so `classifyDrift` files it as *unverified* and a
     reword would have made it wrong with no gate saying so.
   Gate: `npm run dev:pc-dice`.
-  **CRAWLER COMBAT MODE — THE SECOND OPTIONAL HACK (2026-10-02, user ask).**
-  Default OFF, in the Hacks group beside GLOG Magic, and **PLAYER CHARACTERS
-  ONLY throughout** (`type === "character"`, the `auto-record-scars` gate — not
-  `livesByPlayerRules`, which is broader). **THE MASTER CARRIED A RULE OF ITS
-  OWN FOR ONE DAY AND DOES NOT ANY MORE**: "an overburdened PC is DEPRIVED as
-  well as at 0 Hit Protection" shipped to `dev` on 2026-10-02 and was REVERSED
-  on 2026-10-03 by the user, reminded what Deprived is ("attempting to try to
-  use deprived in this way was a mistake and we should probably reverse that
-  out"). Deprived is Cairn's lack-of-food-or-rest box a person ticks; nothing
-  derives it now, nothing locks the checkbox, the Overburdened banner has one
-  wording, and `dev:crawler-combat`'s legs 5/6 assert the box LIVE under the
-  hack (red-first against the derived build). The master's `requiresReload`
-  was justified by that derived value and is KEPT for now, unexamined — flag
-  it before the release. **AND, SINCE 2026-10-03 (user
-  ask), PLAYER CHARACTERS ARE MADE WITH 6 HIT PROTECTION AND A REST ROLLS FOR
-  IT.** "All PCs have a max HP value of 6 and they start with 6 hp" is a
-  GENERATION rule and not a cap: "6, or higher if they have a scar" means the
-  maximum stays editable upward, so it cannot be derived, and a settings
-  change never rewrites documents (the Deprived rule, the weather-log rule) —
-  existing characters KEEP their maximum when the hack is switched on, the
-  guide says to set them by hand or tick Hit Protection on Roll Character,
-  and the blank sheet keeps `BLANK_HP`. `effectivePcHpFormula()` answers a
-  flat `6` (`Cairn.crawlerHp`) while `crawlerCombat()`, so all three HP sites
-  follow with no further wiring, including the checklist's "Rolls 6" tooltip;
-  the `pc-hp-formula` setting is ignored and its hint says so (no greying:
-  `subOptions` greys while a master is OFF, and inverting it for one row is
-  machinery for a sentence). **The Rest** rolls `1d{hp.max}`, posts it as a
-  ROLL message (Dice So Nice, the chat-mode dropdown) rebuilt per viewer from
-  `restRoll: {faces, rolled, before, after}` — numbers only, `isContentVisible`
-  first, rose-or-stayed chosen FROM the numbers — and writes `hp.value` only
-  when the roll beats it; the ration is spent either way. **A maximum below 1
-  takes the plain path**: core's `mapRandomFace` has no floor and `1d0`
-  evaluates to 0 in silence, and 0 is reachable through a typed sheet or a
-  Kettlewright import. The hack's HP rule and the ungated ration rule are
-  recorded separately on purpose: one is the hack's, the other is every
-  table's. Two options beside it, **Exploding
-  damage dice** and **Fatigue instead of Critical Damage**. The master
-  `requiresReload` on the `use-panic` precedent — it changes a DERIVED value and
-  a re-render does not re-derive. Gate: `npm run dev:crawler-combat`.
+  **THE OPTIONAL COMBAT RULES (2026-10-02, user ask; standalone since
+  2026-10-03).** Three settings in the Hacks group beside GLOG Magic —
+  **Exploding damage dice** (`exploding-damage-dice`), **Fatigue instead of
+  Critical Damage** (`fatigue-for-critical-damage`) and **Maneuver on max melee
+  damage** (`maneuver-on-max-melee`) — each OFF by default and never greyed,
+  each read at roll or card-build time so none needs a reload, and **PLAYER
+  CHARACTERS ONLY throughout** (`type === "character"`, the `auto-record-scars`
+  gate — not `livesByPlayerRules`, which is broader). `combatOption(key)`
+  (utils.js) is the one read. Guide `docs/optional-combat-rules.md`; gate
+  `npm run dev:combat-options`.
+  **FOR ONE DAY THEY SAT UNDER A MASTER, "CRAWLER COMBAT MODE", AND EVERY RULE
+  THE MASTER CARRIED OF ITS OWN WAS REVERSED (2026-10-03, user).** The master
+  greyed the three while off (`crawlerOption` ANDed it in) and itself (1) made
+  an overburdened PC Deprived — reversed once the user was reminded what
+  Deprived is: "attempting to try to use deprived in this way was a mistake";
+  (2) made PCs with a flat 6 Hit Protection — "Crawl mode should no longer set
+  Player HP to 6", so HP follows `pc-hp-formula` again; and (3) made a Rest
+  ROLL `1d{max}` and keep it only if it beat current HP, on a per-viewer roll
+  card — "it should just restore to max HP. it still costs a ration". With
+  nothing left for it to do: "there is no need for Crawler Combat Mode to exist
+  at all or act as a gate". So the keys lost their `crawler-` prefix (nothing
+  had shipped), the guide became **Optional Combat Rules** (a new journal id,
+  hashed from the file name; nothing linked to the old one), the probe became
+  `dev:combat-options`, and `crawlerDamageFormula` became
+  `combatDamageFormula`. **Two things keep the old word on purpose**: the
+  `CAIRN.Crawler.*` string keys (a namespace nobody reads) and the
+  `crawlerChoiceTaken` card flag (stored on every decided card already in a
+  log). The **Crawler (2d6 + 3)** ability-dice tier is a separate thing and
+  keeps its name. Do NOT rebuild a master, the HP rule or the Rest roll from
+  the history in this bullet.
   Five things that will bite:
   - **`2d6kx` IS the rule, natively, and MODIFIER ORDER IS LOAD-BEARING.**
     Measured in the shipped client: modifiers apply in WRITTEN order
@@ -2046,10 +2038,10 @@ companion record of who authored what.
     made by PCs, including impaired attacks, improvised attack, and attacks
     with dice smaller than a d6"). Each time, every site that stated the rule
     had to move together (here, the call-site comments, the setting hint,
-    `docs/crawler-combat.md`, the probe), the correct-sounding-comment trap
+    the guide, the probe), the correct-sounding-comment trap
     this file already records. `MIN_EXPLODING_FACES` is GONE; `judgedDie` in
     `utils.js` is the one recogniser, with no size test in it. **The transform
-    table in `crawler-combat-probe.mjs` KEEPS its five sub-d6 rows** — they now
+    table in `combat-options-probe.mjs` KEEPS its five sub-d6 rows** — they now
     assert the reversal — because a table without them is how the first ruling
     shipped unexamined: a table of twelve shapes is a claim about the input
     space that left out the case which fires on every weapon in the game.
@@ -2064,13 +2056,12 @@ companion record of who authored what.
     re-initialize does — so a one-sided `if (x) flag = true` leaves a stale
     true behind. The rule itself, `deprivedLocked` and the two Crawler
     strings are GONE (2026-10-03); do not rebuild them from this bullet.
-  - **`subOptions` IS A LIST NOW.** `settings-menus.js` destructured it as one
-    object and the Hacks group had already spent its slot on
-    `content-source-barebones`. It is normalized with `[spec].flat()`, so a
-    group may still declare a single object — and the two live declarations
-    exercise BOTH branches of `masterOn`, Barebones' master living in another
-    submenu (stored value at render) and Crawler's in the same one (followed
-    live). That makes the Barebones row the regression witness for the widening.
+  - **`subOptions` IS A LIST**, widened from one object on 2026-10-02 for the
+    master's second declaration and KEPT when the master went: normalized with
+    `[spec].flat()`, so a group may declare either shape. Only Barebones'
+    declaration remains (its master lives in another submenu, read from the
+    stored value at render); the live-follow branch is plain code with no live
+    caller, and the Barebones row is the regression witness for the list form.
   **ROUND TWO THE SAME DAY (2026-10-02): the Fatigue button's colour, exploding
   dice announced in chat, a d6 FLOOR that revises round one, and a THIRD option,
   MANEUVER ON MAX MELEE DAMAGE.** Five things from it that will bite:
@@ -2099,7 +2090,7 @@ companion record of who authored what.
     die", "maneuvers should parallel exploding dice" — and then held ONE
     difference: "I don't want maneuvers to be available on ranged attack
     rolls". So: `judgedDie(formula)` in `utils.js` is the ONE recogniser both
-    options read, with no size test; `crawlerDamageFormula(base, {pc, melee})`
+    options read, with no size test; `combatDamageFormula(base, {pc, melee})`
     is the ONE gate the three PC damage sites call (the sheet's roll control,
     the unarmed row, the hotbar macro — it had been spelled three times and the
     floor had to come out of all three in one afternoon); and `melee` is the
@@ -2848,50 +2839,27 @@ if you find one, deleting it is in scope, not a separate decision.
   STR at 0 is death.
 - Armor is hard-capped at 3.
 - Slot inventory: bulky = 2, weightless = 0, times quantity.
-- **THE FIRST FATIGUE IS FREE, and this one is a HOUSE RULE (2026-10-02, user
-  ruling).** A character carries one Fatigue as though it were petty; every
-  Fatigue beyond the first fills a slot. As far as anyone here knows Cairn
-  charges a slot for every Fatigue, and this repo does not ship the Player's
-  Guide's inventory section, so there is nothing in the tree to check it
-  against — which is exactly why it is written down as a deviation rather than
-  slipped in as if it were RAW. **The THRESHOLD DID NOT MOVE**: "more than 9
-  non-petty items is overburdened" IS `slotsUsed >= 10`, so the 2026-08-05
-  ruling below stands untouched and `isEncumbered` goes on answering both of
-  its questions with one number. What changed is the count — one line in
-  `calcSlotsUsed`, a PRESENCE test and never a count, so a Fatigue that somehow
-  carried a quantity can never refund more than it cost. Ungated and on every
-  actor type, like the coin rule one line above it.
-  Why this and not a higher threshold: it makes the forced drop in the Fatigue
-  bargain **net out to zero** — drop one thing, take one Fatigue, end where you
-  started. Under the old count a full pack that gave up an ordinary item was
-  still at 0 Hit Protection afterwards, which made the drop pointless for
-  exactly the characters it was written for. **Since 2026-10-03 that drop is
-  asked only when the Fatigue would not fit** (the bargain bullet above), so
-  this rationale now describes the at-the-edge case alone — a FIRST Fatigue,
-  costing nothing, is never asked for a drop at all. The rule itself was not
-  re-opened and stands.
-  Two consequences. The free row wears the existing **Petty** chip, and WHICH
-  row is decided by the actor (`system.freeFatigueId`, derived beside the
-  subtraction) and never by the template — a template picking "the first one I
-  rendered" would be a second opinion about the same fact, and without the chip
-  a character shows "9 / 10" above ten rows, which reads as a defect. And
-  **clearing a Fatigue takes a COSTED one first** (`fatigueToClear`, shared by
-  the − control and the row's trash can, which the ruling names specifically):
-  the arithmetic is identical either way, but the chip stays where it is instead
-  of hopping to a neighbour, and "I deleted the free one and gained a slot" is
-  not a thought a player should have to work through.
-  It **silently un-encumbers existing characters** — `slotsUsed` is derived so
-  nothing migrates, but anyone at 10/10 with a Fatigue becomes 9/10 and gets
-  their Hit Protection back on the next prepare. A relaxation, and it belongs in
-  the release notes. Gate: `npm run dev:enc-damage`.
+- **EVERY FATIGUE FILLS A SLOT, as Cairn has it. A free first Fatigue was a
+  house rule for ONE DAY (2026-10-02) and is WITHDRAWN** (2026-10-03, user:
+  "remove the rule about making the Fatigue petty if the PC is only carrying
+  one"). For that day `calcSlotsUsed` subtracted one when any Fatigue was
+  carried, the row wore a Petty chip off a derived `system.freeFatigueId`,
+  clearing took a "costed" Fatigue first (`fatigueToClear`), and the Fatigue
+  bargain read a `nextFatigueCost` off it — all four are gone; the − control
+  clears the first Fatigue and the trash can the row it is on. It had been
+  chosen so a forced drop would net to zero; the bargain now asks for a drop
+  only when the Fatigue would not fit, and nets to zero for every Fatigue.
+  Nothing shipped with the free rule, so removing it re-encumbers no released
+  character. Gate: `npm run dev:enc-damage` (9 items + 1 Fatigue is 10 and
+  overburdened; no chip; the pressed row is the row deleted).
 - **RESTING COSTS A RATION, and this one is a HOUSE RULE too (2026-10-03,
   user ask: "the Rest button should inform the players that they must consume
   a ration to rest for 10 minutes and recover their hit protection. If they
   don't have rations on their sheet, they are not allowed to rest").** Every
   table, PLAYER CHARACTERS ONLY (user ruling, asked: "the ration rule is for
   every table, not just Crawlers"); an NPC's Rest is untouched. Cairn as
-  written has no ration cost on a rest, so it sits here as a deviation like
-  the free Fatigue above it. Six things:
+  written has no ration cost on a rest, so it sits here as a deviation. A Rest
+  restores Hit Protection to its MAXIMUM, always. Five things:
   - **A ration is a USE, found by `RATIONS_RE`** (`gear.js`), the classifier
     generation already bands and tags rations with, so a Warden's "Iron
     Rations" counts and no second notion of "ration" exists. The count is
@@ -2917,8 +2885,9 @@ if you find one, deleting it is in scope, not a separate decision.
     HP change and the ration inside it, `#postChangeLog` reads
     `changed.items` for the two audited fields (quantity, uses) off a stash
     `_preUpdate` takes, and the card reads "Rest — Hit Protection 1 → 6,
-    Rations 3 → 2 uses". When the hack's roll does not beat current HP, the
-    write carries the ration alone and the card still records it under Rest.
+    Rations 3 → 2 uses". At full Hit Protection the HP write is a
+    no-op, the write carries the ration alone, and the card still records it
+    under Rest.
   - **The confirm is `_confirmAction` with extra lines, not a copy**: it owns
     the `.cairn-confirm` markup a probe reads. No rations → a one-button
     `DialogV2.prompt`. **AND SINCE LATER THE SAME DAY THE PC CONFIRM CARRIES
@@ -2935,11 +2904,8 @@ if you find one, deleting it is in scope, not a separate decision.
     PC tooltip reads English until the key is translated. `dev:rest` holds
     the PC confirm WITHOUT the prose and the NPC confirm WITH it, which is
     what proves the omission is PC-scoped; `dev:ui-parity` holds the tooltip.
-  - **UNDER CRAWLER COMBAT MODE A REST ROLLS INSTEAD OF RESTORING** — see the
-    Crawler bullet below. Everything above still happens; only the HP half
-    changes.
-  - Gates: `npm run dev:rest` (the whole gesture, both modes, a second
-    browser context for the privacy leg), `dev:change-log` (the one-card
+  - Gates: `npm run dev:rest` (the whole gesture; for a day it also drove the
+    master's Rest roll, gone with the master), `dev:change-log` (the one-card
     shape, with a Rations item planted because the refusal prompt's only
     button is `ok`).
 - **Being encumbered sets HP to 0 outright. So does panic.** Intentional.

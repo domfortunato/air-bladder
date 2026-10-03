@@ -1,16 +1,21 @@
 #!/usr/bin/env node
 /**
- * Crawler Combat Mode — the optional hack (2026-10-02, user ask).
+ * The optional combat rules (2026-10-02, user ask) — `npm run dev:combat-options`.
  *
- * A harsher combat, default OFF, joining GLOG Magic and the Vald calendar under
- * Configure Hacks. Options beside a master, and ALL of them PLAYER CHARACTERS
- * ONLY (`type === "character"`, the auto-record-scars gate):
+ * Three settings under Configure Hacks beside GLOG Magic and the Vald calendar,
+ * each OFF by default and never greyed, and ALL of them PLAYER CHARACTERS ONLY
+ * (`type === "character"`, the auto-record-scars gate):
  *
- *   - the hack itself ("an overburdened PC is DEPRIVED as well as at 0 Hit
- *     Protection") lasted ONE DAY and was REVERSED 2026-10-03 by user ruling —
- *     legs 5/6 now hold that the hack leaves Deprived ALONE;
  *   - Exploding damage dice;
- *   - Fatigue instead of Critical Damage.
+ *   - Fatigue instead of Critical Damage;
+ *   - Maneuver on max melee damage.
+ *
+ * For a day they sat under a "Crawler Combat Mode" master (this probe was
+ * `dev:crawler-combat`), which greyed them while off and carried rules of its
+ * own — Deprived when overburdened, 6 HP at generation, a rolled Rest. All of
+ * that was reversed on 2026-10-03 and the master removed (user ruling); leg 10
+ * now holds that the three rows are NEVER greyed, and legs 5/6 that an
+ * overburdened PC is not Deprived.
  *
  * THE KEYSTONE IS MODIFIER ORDER, and leg 1 proves it before anything rests on
  * it. `2d6kx` keeps the highest and explodes ONLY that one, because modifiers
@@ -26,10 +31,15 @@
  * dealing double. `explodingDamageFormula` emits `2d6kx` for that shape
  * instead, leaving no `+` behind.
  *
- * Deprived is NEVER DERIVED (2026-10-03): the hack's one-day rule derived it from
- * the load, and the user reversed it. Leg 5 asserts an overburdened PC is at 0
- * Hit Protection and NOT deprived, with the checkbox live and the plain
- * Overburdened banner — the red-first witness against the derived build.
+ * Deprived is NEVER DERIVED (2026-10-03): the master's one-day rule derived it
+ * from the load, and the user reversed it. Leg 5 asserts an overburdened PC is
+ * at 0 Hit Protection and NOT deprived, with the checkbox live and the plain
+ * Overburdened banner.
+ *
+ * EVERY FATIGUE FILLS A SLOT (2026-10-03, the free first Fatigue withdrawn), so
+ * the bargain's picker opens at 9 of 10 whether or not a Fatigue is carried;
+ * `atEdge` builds that edge, and the `firstFull` leg holds that a character with
+ * NO Fatigue at a full pack is now asked.
  *
  * Dice are pinned through `CONFIG.Dice.randomUniform`, which is INVERTED, and
  * through a SEQUENCE where a chain must terminate: a flat pin at the maximum
@@ -44,13 +54,14 @@ const errors = watchErrors(page);
 let failed = false;
 const fail = (m) => { console.error(`  FAIL  ${m}`); failed = true; };
 const ok = (m) => console.log(`  ok    ${m}`);
+const KEYS_ALL = ["exploding-damage-dice", "fatigue-for-critical-damage", "maneuver-on-max-melee"];
 
 try {
   await joinAsGM(page);
 
   const r = await withSettings(page, () => page.evaluate(async () => {
     const NS = "air-bladder";
-    const KEYS = ["crawler-combat-mode", "crawler-exploding-damage", "crawler-fatigue-for-critical"];
+    const KEYS = ["exploding-damage-dice", "fatigue-for-critical-damage", "maneuver-on-max-melee"];
     const out = { made: [], made2: [] };
     const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
     const utils = await import("/systems/air-bladder/module/utils.js");
@@ -63,7 +74,7 @@ try {
       out.registered[k] = !!cfg;
       out.configFlags[k] = cfg?.config ?? null;
     }
-    out.reload = game.settings.settings.get(`${NS}.crawler-combat-mode`)?.requiresReload ?? null;
+    out.masterGone = !game.settings.settings.has(`${NS}.crawler-combat-mode`);
     out.inSettingKeys = KEYS.filter((k) => mod.SETTING_KEYS.includes(k));
     out.inInternal = KEYS.filter((k) => mod.INTERNAL_SETTING_KEYS.includes(k));
     const hacks = mod.SETTING_GROUPS.find((g) => g.id === "hacks");
@@ -209,8 +220,7 @@ try {
     await pc.createEmbeddedDocuments("Item", [weapon]);
     await monster.createEmbeddedDocuments("Item", [weapon]);
 
-    await game.settings.set(NS, "crawler-combat-mode", true);
-    await game.settings.set(NS, "crawler-exploding-damage", true);
+    await game.settings.set(NS, "exploding-damage-dice", true);
     // MANEUVER OFF, STATED. With it on, a melee d6+ attack rolls PLAIN and the
     // card offers the choice — which is the shipped design, so these legs would
     // read `1d6` and be RIGHT about a question they were not asking. The probe
@@ -218,17 +228,13 @@ try {
     // happened to be false; a run killed partway through leaves it true and the
     // next one reds on an unrelated leg. A precondition must be asserted, never
     // inherited from whatever the last run left behind.
-    await game.settings.set(NS, "crawler-maneuver-on-max", false);
+    await game.settings.set(NS, "maneuver-on-max-melee", false);
     out.pcRoll = await rollDamageVia(pc);
     out.monsterRoll = await rollDamageVia(monster);
 
-    await game.settings.set(NS, "crawler-exploding-damage", false);
+    await game.settings.set(NS, "exploding-damage-dice", false);
     out.optionOffRoll = await rollDamageVia(pc);
-    await game.settings.set(NS, "crawler-combat-mode", false);
-    await game.settings.set(NS, "crawler-exploding-damage", true);
-    // The master is OFF: `crawlerOption` ANDs it in, so a stored true must not act.
-    out.masterOffRoll = await rollDamageVia(pc);
-    await game.settings.set(NS, "crawler-combat-mode", true);
+    await game.settings.set(NS, "exploding-damage-dice", true);
 
     /* ---- 5/6. overburdened means deprived -------------------------------- */
     const fill = async (actor, n) => {
@@ -257,7 +263,7 @@ try {
     const box = pc.sheet.element?.querySelector(".deprived-check");
     out.boxDisabled = box ? box.disabled === true : null;
     out.boxChecked = box ? box.checked === true : null;
-    // Rest and Restore read system.deprived, which the hack no longer touches,
+    // Rest and Restore read system.deprived, which nothing derives any more,
     // so an overburdened PC may still press them (HP 0 is core's business).
     out.restDisabled = pc.sheet.element?.querySelector("#rest-button")?.disabled === true;
     out.restoreDisabled = pc.sheet.element?.querySelector("#restore-abilities-button")?.disabled === true;
@@ -269,16 +275,12 @@ try {
     out.bannerCrawlerKeyGone = !game.i18n.has("CAIRN.Crawler.OverburdenedBanner", false);
     await pc.sheet.close();
 
-    // Hack OFF: an overburdened PC is not deprived. `reset()`, not a bare
+    // A full re-initialize changes nothing either: `reset()`, not a bare
     // `prepareData()` — the latter does NOT rebuild `system` from `_source`, so
     // a derived value set by an earlier prepare would still be sitting there
-    // and the leg would be measuring staleness rather than the rule. In play
-    // the master requiresReload, which is this same re-initialize.
-    await game.settings.set(NS, "crawler-combat-mode", false);
+    // and the leg would be measuring staleness rather than the rule.
     pc.reset();
-    out.pcHackOff = state(pc);
-    await game.settings.set(NS, "crawler-combat-mode", true);
-    pc.reset();
+    out.pcReset = state(pc);
 
     // Freeing a slot clears it, and SOURCE was never written at any point.
     // TWO items: `encumbered` is `slotsUsed >= slotsMax`, so going 11 -> 10 is
@@ -288,7 +290,7 @@ try {
     out.pcFreed = state(pc);
 
     /* ---- 8/9. the Fatigue button ---------------------------------------- */
-    await game.settings.set(NS, "crawler-fatigue-for-critical", true);
+    await game.settings.set(NS, "fatigue-for-critical-damage", true);
     const postSave = async (actor, fatigue) => {
       const card = {
         kind: "save", ability: "STR", formula: "d20cs<=10",
@@ -353,14 +355,11 @@ try {
       await sleep(400);
     }
 
-    // AT THE EDGE (2026-10-03): the picker opens only when the Fatigue would
-    // NOT fit, and this character sits at 9 of 10 with no Fatigue — a first
-    // Fatigue is free and would simply land. One is planted so the one about
-    // to be taken is the SECOND, costing a slot that 9 + 1 >= 10 has no room
-    // for, which is what keeps this leg's drop, pile and card assertions on
-    // the picker path. The no-picker path has its own legs below (10b).
-    await pc.createEmbeddedDocuments("Item", [{ name: "Fatigue", type: "item" }]);
-    await sleep(300);
+    // AT THE EDGE: the picker opens only when the Fatigue would NOT fit, and
+    // this character sits at 9 of 10 (the blade and eight loads), so a Fatigue
+    // — every one fills a slot since 2026-10-03 — has no room. That keeps this
+    // leg's drop, pile and card assertions on the picker path. The no-picker
+    // path has its own legs below (10b).
     const fatigueBefore = pc.items.filter((i) => i.name === "Fatigue").length;
     const usedBefore = pc.system.slotsUsed;
     const itemsBefore = pc.items.size;
@@ -509,7 +508,7 @@ try {
     out.critSealedFatigue = rowOf(m2)?.querySelector(".take-fatigue-instead")?.disabled === true;
 
     // The option off: no button on a new card.
-    await game.settings.set(NS, "crawler-fatigue-for-critical", false);
+    await game.settings.set(NS, "fatigue-for-critical-damage", false);
     const m3 = await postSave(monster, false);
     out.noBtnWhenOff = !rowOf(m3)?.querySelector(".take-fatigue-instead");
     out.madeMsgs = [m1.id, m2.id, m3.id];
@@ -519,7 +518,7 @@ try {
     // (user ruling, reversing "cancel backs out of the whole thing"). Each case
     // gets its own character and its own card, because every one of them ends with
     // a spent choice and a changed inventory.
-    await game.settings.set(NS, "crawler-fatigue-for-critical", true);
+    await game.settings.set(NS, "fatigue-for-critical-damage", true);
     const bargain = {};
     const pcWith = async (name, items) => {
       const a = await mk({ name, type: "character" });
@@ -532,15 +531,15 @@ try {
     const BULKY = { name: "ZZ Ladder", type: "item", system: { bulky: true } };
     const TORCH = { name: "ZZ Torch", type: "item", system: { uses: { value: 2, max: 3 } } };
     // AT THE EDGE (2026-10-03, user ruling): the picker opens ONLY when the
-    // Fatigue would not fit, so every fixture that expects it is padded to nine
-    // slots and given one Fatigue — the one the button then takes is the SECOND,
-    // costs a slot, and 9 + 1 >= 10 has no room for it. The helper's own
-    // Fatigue is the +1 the free-first rule's -1 cancels, so `slotsOf(items)`
-    // plus the padding is the slot count whatever `items` holds.
+    // Fatigue would not fit, so every fixture that expects it is padded to NINE
+    // slots, one of them a Fatigue already carried — so 9 + 1 >= 10 has no room
+    // for the one the button takes. Every Fatigue fills a slot (the free first
+    // Fatigue was withdrawn the same day), so `slotsOf` counts it like any item:
+    // `items` + the padding + the helper's own Fatigue is exactly nine.
     const slotsOf = (items) => items.reduce((n, it) =>
       n + (it.system?.weightless ? 0 : it.system?.bulky ? 2 : 1), 0);
     const atEdge = async (name, items) => {
-      const pad = Array.from({ length: Math.max(0, 9 - slotsOf(items)) }, (_, i) => ({ name: `ZZ Pad ${i}`, type: "item" }));
+      const pad = Array.from({ length: Math.max(0, 8 - slotsOf(items)) }, (_, i) => ({ name: `ZZ Pad ${i}`, type: "item" }));
       return pcWith(name, [...items, ...pad, { name: "Fatigue", type: "item" }]);
     };
     // The rows a picker should list for an actor: everything that frees a slot.
@@ -635,16 +634,13 @@ try {
       };
     }
 
-    // TAKING IT: the tick goes on the Fatigue button, and with the first Fatigue
-    // free the whole bargain NETS TO ZERO — one thing down, one Fatigue on.
+    // TAKING IT: the tick goes on the Fatigue button, and the whole bargain
+    // NETS TO ZERO — one thing down, one Fatigue on.
     {
-      // WITH A FATIGUE ALREADY ON BOARD AND AT THE EDGE, which is the case the
-      // free-first rule exists for: the one being taken is the SECOND, so it
-      // costs a real slot, there is no room for it, and dropping one thing pays
-      // for it exactly. (Taking a FIRST Fatigue is free, so that case never
-      // asks at all — the Room leg below.) WHICH row goes is the picker's
-      // first radio, whatever the sort put there, and the leg asserts THAT
-      // item is gone rather than naming one.
+      // AT THE EDGE with two Fatigues already carried: there is no room for a
+      // third, and dropping one thing pays for it exactly. WHICH row goes is
+      // the picker's first radio, whatever the sort put there, and the leg
+      // asserts THAT item is gone rather than naming one.
       const a = await atEdge("ZZ Barg Take", [ORD, { name: "Fatigue", type: "item" }]);
       const usedBefore2 = a.system.slotsUsed;
       const { m, dlg } = await openPicker(a);
@@ -689,9 +685,11 @@ try {
         tickOnCrit: !!rowOf(m)?.querySelector(".mark-critical-damage .fa-check"),
       };
     }
-    // A FIRST FATIGUE AT A FULL PACK: free, so it cannot overburden anyone
-    // further, so no picker — the stated edge of the rule rather than an
-    // accident of it. Ten plain items, no Fatigue, already at 10 of 10.
+    // A FIRST FATIGUE AT A FULL PACK ASKS (2026-10-03, the free first Fatigue
+    // withdrawn): it fills a slot like any other, so a character at 10 of 10
+    // carrying NO Fatigue has no room and the picker opens. pressFatigue closes
+    // it unanswered, so nothing lands. The red-first witness against the
+    // free-first build, where this character was never asked.
     {
       const brim = Array.from({ length: 10 }, (_, i) => ({ name: `ZZ Brim ${i}`, type: "item" }));
       const a = await pcWith("ZZ Barg FirstFull", brim);
@@ -728,10 +726,9 @@ try {
     // one who is not. A condition on `isEncumbered()` would pass the first and
     // fail the second, which is the only thing that tells the two designs apart.
     {
-      // TEN fillers, not nine: with the first Fatigue free, nine plus a Fatigue is
-      // nine slots and this character would not be overburdened at all — which is
-      // the arithmetic Unit D changed, and the reason this fixture had to be
-      // recounted rather than copied from the old one.
+      // TEN fillers plus a Fatigue is eleven slots: overburdened, with room to
+      // spare on the count. (Ten was first chosen while the first Fatigue was
+      // free; every Fatigue fills a slot since 2026-10-03, and it still holds.)
       const filler = Array.from({ length: 10 }, (_, i) => ({ name: `ZZ Fill ${i}`, type: "item" }));
       const a = await pcWith("ZZ Barg Full", [...filler, PETTY, { name: "Fatigue", type: "item" }]);
       const { dlg } = await openPicker(a);
@@ -783,9 +780,8 @@ try {
     // in-memory Roll: the whole feature rests on `exploded` surviving
     // serialization (DiceTerm.SERIALIZE_ATTRIBUTES includes "results"), and an
     // assertion against the object we just built would prove nothing about that.
-    await game.settings.set(NS, "crawler-combat-mode", true);
-    await game.settings.set(NS, "crawler-exploding-damage", true);
-    await game.settings.set(NS, "crawler-maneuver-on-max", false);
+    await game.settings.set(NS, "exploding-damage-dice", true);
+    await game.settings.set(NS, "maneuver-on-max-melee", false);
 
     // A terminating sequence, NEVER a flat pin at the maximum: an exploding
     // formula pinned at max throws at recursion depth 1000.
@@ -913,8 +909,8 @@ try {
       };
     };
 
-    await game.settings.set(NS, "crawler-maneuver-on-max", true);
-    await game.settings.set(NS, "crawler-exploding-damage", true);
+    await game.settings.set(NS, "maneuver-on-max-melee", true);
+    await game.settings.set(NS, "exploding-damage-dice", true);
     // No block-level pin: rollWeapon pins each roll itself — see its comment.
     {
       // BOTH options on, melee d10, max rolled: the die must NOT have exploded at
@@ -942,17 +938,17 @@ try {
       out.mvMonster = await rollWeapon(monster, "ZZ Big Blade");
 
       // Maneuver OFF, exploding ON: back to auto-explode with no buttons.
-      await game.settings.set(NS, "crawler-maneuver-on-max", false);
+      await game.settings.set(NS, "maneuver-on-max-melee", false);
       out.mvOptionOff = await rollWeapon(pc, "ZZ Big Blade");
       // ...and NO FLOOR on that half either: a melee d4 auto-explodes at roll
       // time with the maneuver option off, the leg no run had before 2026-10-03.
       out.mvD4Off = await rollWeapon(pc, "ZZ Tiny Blade");
-      await game.settings.set(NS, "crawler-maneuver-on-max", true);
+      await game.settings.set(NS, "maneuver-on-max-melee", true);
 
       // Maneuver ON, exploding OFF: Maneuver alone, no Explode button.
-      await game.settings.set(NS, "crawler-exploding-damage", false);
+      await game.settings.set(NS, "exploding-damage-dice", false);
       out.mvNoExplode = await rollWeapon(pc, "ZZ Big Blade");
-      await game.settings.set(NS, "crawler-exploding-damage", true);
+      await game.settings.set(NS, "exploding-damage-dice", true);
     }
 
     /* ---- 13. pressing the buttons ---------------------------------------- */
@@ -1246,9 +1242,8 @@ try {
       }
     };
 
-    await game.settings.set(NS, "crawler-combat-mode", true);
-    await game.settings.set(NS, "crawler-exploding-damage", true);
-    await game.settings.set(NS, "crawler-maneuver-on-max", true);
+    await game.settings.set(NS, "exploding-damage-dice", true);
+    await game.settings.set(NS, "maneuver-on-max-melee", true);
 
     // With a maneuver on offer the die does NOT explode at roll time, and the
     // card asks which.
@@ -1304,11 +1299,11 @@ try {
     }
 
     // A MONSTER never explodes, though the Warden may press the button.
-    await game.settings.set(NS, "crawler-maneuver-on-max", false);
+    await game.settings.set(NS, "maneuver-on-max-melee", false);
     out.impMonster = await improvise(monster, { description: "a rock", formula: "d6" });
     // ...and with maneuver off a PC's d6 auto-explodes, as a weapon would.
     out.impAutoExplode = await improvise(pc, { description: "a chair leg", formula: "d6" });
-    await game.settings.set(NS, "crawler-maneuver-on-max", true);
+    await game.settings.set(NS, "maneuver-on-max-melee", true);
 
     // PANICKED: the field is STILL THERE and still editable, a note says the
     // override is coming, and `d10` typed into it still rolls 1d4. The typed
@@ -1359,30 +1354,29 @@ try {
       }
     }
 
-    /* ---- 10. the submenu greying ---------------------------------------- */
-    await game.settings.set(NS, "crawler-combat-mode", false);
+    /* ---- 10. the submenu: three rows, NEVER greyed ----------------------- */
+    // With every option OFF, which is exactly when the master's build greyed
+    // them: each row must be live, with no disabled input and no greyed-row
+    // class. The red-first witness against the master build.
+    for (const k of KEYS) await game.settings.set(NS, k, false);
     const menu = game.settings.menus.get(`${NS}.hacks`);
     const app = menu ? new menu.type() : null;
     if (app) { await app.render(true); await sleep(700); }
     const root = app?.element;
-    const dis = (k) => root?.querySelector(`[name="${NS}.${k}"]`)?.disabled ?? null;
-    out.greyedOff = { ex: dis("crawler-exploding-damage"), fa: dis("crawler-fatigue-for-critical") };
+    const input = (k) => root?.querySelector(`[name="${NS}.${k}"]`) ?? null;
+    out.rowsLive = Object.fromEntries(KEYS.map((k) => [k, {
+      present: !!input(k),
+      disabled: input(k)?.disabled ?? null,
+      greyed: !!input(k)?.closest(".form-group")?.classList.contains("cairn-setting-disabled"),
+    }]));
+    out.masterRow = !!input("crawler-combat-mode");
     // The OTHER spec must still work — its master lives in another submenu and
-    // is read from the stored value at render. This is the regression witness
-    // for widening subOptions to a list.
+    // is read from the stored value at render. The regression witness for the
+    // list form of subOptions, which outlived the second master.
     out.barebonesSub = {
       masterStored: game.settings.get(NS, "content-source-barebones"),
-      disabled: dis("barebones-failed-career"),
+      disabled: input("barebones-failed-career")?.disabled ?? null,
     };
-    // Live branch: tick the master IN this app and the rows must un-grey
-    // without anything being saved.
-    const master = root?.querySelector(`[name="${NS}.crawler-combat-mode"]`);
-    if (master) {
-      master.checked = true;
-      master.dispatchEvent(new Event("change", { bubbles: true }));
-      await sleep(200);
-    }
-    out.greyedOn = { ex: dis("crawler-exploding-damage"), fa: dis("crawler-fatigue-for-critical") };
     if (app) await app.close();
 
     /* ---- 16. NOTHING TO DROP ------------------------------------------- */
@@ -1396,8 +1390,7 @@ try {
     // RUNS LAST, on purpose: it strips the character's inventory, and every
     // earlier leg needs the weapons and the filler items that are on it.
     {
-      await game.settings.set(NS, "crawler-combat-mode", true);
-      await game.settings.set(NS, "crawler-fatigue-for-critical", true);
+      await game.settings.set(NS, "fatigue-for-critical-damage", true);
       const notFatigue = pc.items.filter((i) => !i.system?.isFatigue).map((i) => i.id);
       if (notFatigue.length) await pc.deleteEmbeddedDocuments("Item", notFatigue);
       // Fill the pack with Fatigue, which is the one thing the picker will not
@@ -1422,7 +1415,7 @@ try {
       // gesture in the system where a control does the opposite of its label,
       // which is why the check mark below is load-bearing.
       //
-      // `ignoreCapacity` itself stays: casting and a second Fatigue still use it.
+      // `ignoreCapacity` itself stays: casting and the Add Fatigue control use it.
       await sleep(1200);
       out.emptyNoPicker = !document.querySelector("dialog.dialog.cairn-drop-dialog");
       out.emptyFatigueAdded = pc.items.filter((i) => i.name === "Fatigue").length - fBefore;
@@ -1483,15 +1476,11 @@ try {
   !/x/.test(r.optionOffRoll?.formula ?? "x")
     ? ok("...with the option off, nothing explodes")
     : fail(`option off still exploded: ${JSON.stringify(r.optionOffRoll)}`);
-  !/x/.test(r.masterOffRoll?.formula ?? "x")
-    ? ok("...and a stored option under a master that is OFF does not act either")
-    : fail(`master off still exploded: ${JSON.stringify(r.masterOffRoll)}`);
 
-  // ---- 5/6. overburdened under the hack: HP 0, and Deprived LEFT ALONE ----
-  // The one-day derived rule (2026-10-02) is REVERSED (2026-10-03, user); these
-  // legs are its red-first witness — the derived build ticks and locks the box.
+  // ---- 5/6. overburdened: HP 0, and Deprived LEFT ALONE ------------------
+  // The one-day derived rule (2026-10-02) is REVERSED (2026-10-03, user).
   r.pcLoaded?.encumbered && !r.pcLoaded?.derived && !r.pcLoaded?.source
-    ? ok(`an overburdened PC under the hack (${r.pcLoaded.used}/${r.pcLoaded.max}) is NOT deprived — derived false, source false`)
+    ? ok(`an overburdened PC (${r.pcLoaded.used}/${r.pcLoaded.max}) is NOT deprived — derived false, source false`)
     : fail(`loaded PC: ${JSON.stringify(r.pcLoaded)} — want encumbered, deprived false both ways (the reversed rule derived it true)`);
   r.pcLoaded?.hp === 0 && r.pcLoaded?.srcHp !== 0
     ? ok("...at 0 Hit Protection, with source HP intact — core's rule, untouched")
@@ -1499,14 +1488,14 @@ try {
   !r.monsterLoaded?.derived && !r.hireLoaded?.derived
     ? ok("an overburdened monster and hireling are not deprived either")
     : fail(`monster derived=${r.monsterLoaded?.derived}, hireling derived=${r.hireLoaded?.derived}`);
-  !r.pcHackOff?.derived && r.pcHackOff?.encumbered
-    ? ok("...nor with the hack OFF")
-    : fail(`hack off: ${JSON.stringify(r.pcHackOff)}`);
+  !r.pcReset?.derived && r.pcReset?.encumbered
+    ? ok("...nor after a full re-initialize (reset, not prepareData)")
+    : fail(`after reset: ${JSON.stringify(r.pcReset)}`);
   !r.pcFreed?.derived && !r.pcFreed?.source
     ? ok("...and freeing a slot writes nothing to the player's own stored value")
     : fail(`after freeing: ${JSON.stringify(r.pcFreed)}`);
   r.boxDisabled === false && r.boxChecked === false
-    ? ok("the Deprived checkbox is LIVE and unticked under the hack — nothing locks it")
+    ? ok("the Deprived checkbox is LIVE and unticked — nothing locks it")
     : fail(`deprived checkbox: disabled=${r.boxDisabled}, checked=${r.boxChecked} — the reversed rule ticked and locked it`);
   r.restDisabled === false && r.restoreDisabled === false
     ? ok("...and Rest and Restore Abilities are not refused by the load")
@@ -1572,18 +1561,21 @@ try {
   Object.values(r.configFlags ?? {}).every((v) => v === false) && r.inSettingKeys?.length === 3 && r.inInternal?.length === 0
     ? ok("all three keys registered config:false, in SETTING_KEYS, none internal")
     : fail(`config=${JSON.stringify(r.configFlags)}, inKeys=${JSON.stringify(r.inSettingKeys)}, internal=${JSON.stringify(r.inInternal)}`);
-  r.reload === true
-    ? ok("the master requiresReload — it changes a DERIVED value, the use-panic precedent")
-    : fail(`crawler-combat-mode requiresReload is ${r.reload}, expected true`);
-  JSON.stringify(r.subSpecs) === JSON.stringify(["content-source-barebones", "crawler-combat-mode"])
-    ? ok("the Hacks group declares TWO subOptions specs")
+  // NO MASTER (2026-10-03, user ruling): the key is unregistered, nothing in
+  // the Hacks group names it, and the three rows are live with every option
+  // off — exactly when the master's build greyed them.
+  r.masterGone && !r.masterRow && !(r.hackKeys ?? []).includes("crawler-combat-mode")
+    ? ok("there is no Crawler Combat Mode: the key is unregistered and the Hacks submenu has no such row")
+    : fail(`master still present: registered=${!r.masterGone}, row=${r.masterRow}, hackKeys=${JSON.stringify(r.hackKeys)}`);
+  KEYS_ALL.every((k) => (r.hackKeys ?? []).includes(k))
+    ? ok("...and the three options are in the Hacks group")
+    : fail(`hack keys: ${JSON.stringify(r.hackKeys)}`);
+  JSON.stringify(r.subSpecs) === JSON.stringify(["content-source-barebones"])
+    ? ok("the Hacks group's only subOptions spec is Barebones' — nothing gates the three")
     : fail(`subOptions masters are ${JSON.stringify(r.subSpecs)}`);
-  r.greyedOff?.ex === true && r.greyedOff?.fa === true
-    ? ok("...both option rows greyed while the master is off")
-    : fail(`greyed with master off: ${JSON.stringify(r.greyedOff)}`);
-  r.greyedOn?.ex === false && r.greyedOn?.fa === false
-    ? ok("...and un-greyed LIVE when the master is ticked, before anything is saved")
-    : fail(`greyed after ticking the master: ${JSON.stringify(r.greyedOn)}`);
+  KEYS_ALL.every((k) => r.rowsLive?.[k]?.present && r.rowsLive[k].disabled === false && !r.rowsLive[k].greyed)
+    ? ok("all three rows are LIVE with every option off — no disabled input, no greyed row")
+    : fail(`rows: ${JSON.stringify(r.rowsLive)} — the master build greyed them while it was off`);
   r.barebonesSub?.disabled === !r.barebonesSub?.masterStored
     ? ok(`REGRESSION WITNESS: the Barebones sub-option still follows its own master in another submenu (stored ${r.barebonesSub.masterStored} -> disabled ${r.barebonesSub.disabled})`)
     : fail(`Barebones sub-option: ${JSON.stringify(r.barebonesSub)} — widening subOptions to a list broke the cross-menu branch`);
@@ -1899,12 +1891,12 @@ try {
       ? ok(`WITH ROOM (${b.room.usedBefore} of 10) there is NO picker: the Fatigue lands, nothing is dropped, check on the Fatigue button`)
       : fail(`room: ${JSON.stringify(b.room)} — at 8 of 10 the user was asked to drop something for a Fatigue that fit`);
     b.room?.usedAfter === b.room?.usedBefore + 1
-      ? ok(`...and it cost its slot (${b.room.usedBefore} -> ${b.room.usedAfter}), being the second`)
+      ? ok(`...and it cost its slot (${b.room.usedBefore} -> ${b.room.usedAfter})`)
       : fail(`room slots: ${b.room?.usedBefore} -> ${b.room?.usedAfter}`);
-    b.firstFull?.encumberedBefore && b.firstFull?.asked === false && b.firstFull?.fatigues === 1
-      && b.firstFull?.usedAfter === b.firstFull?.usedBefore && b.firstFull?.flag === "fatigue" && b.firstFull?.critical === false
-      ? ok(`a FIRST Fatigue at a full pack (${b.firstFull.usedBefore} of 10) is free, so it cannot overburden anyone further: no picker, lands, ${b.firstFull.usedAfter} after — the rule's stated edge`)
-      : fail(`first Fatigue at a full pack: ${JSON.stringify(b.firstFull)}`);
+    b.firstFull?.encumberedBefore && b.firstFull?.asked === true && b.firstFull?.fatigues === 0
+      && b.firstFull?.usedAfter === b.firstFull?.usedBefore && b.firstFull?.flag === null && b.firstFull?.critical === false
+      ? ok(`a FIRST Fatigue at a full pack (${b.firstFull.usedBefore} of 10) ASKS — every Fatigue fills a slot — and closing the picker unanswered lands nothing`)
+      : fail(`first Fatigue at a full pack: ${JSON.stringify(b.firstFull)} — the free-first build never asked this character`);
 
     b.legacy?.sealed && b.legacy?.anyTick === false
       ? ok("a card already in a log (flag `true`) seals with NO check — a default would silently mislabel history on cards nothing ever repairs")
@@ -2291,5 +2283,5 @@ try {
   if (errors.length) { console.error("\nconsole errors:"); errors.slice(0, 10).forEach((e) => console.error("  " + e)); failed = true; }
   await browser.close();
 }
-console.log(failed ? "\nCRAWLER COMBAT PROBE FAILED\n" : "\ncrawler combat probe passed\n");
+console.log(failed ? "\nCOMBAT OPTIONS PROBE FAILED\n" : "\ncombat options probe passed\n");
 process.exit(failed ? 1 : 0);

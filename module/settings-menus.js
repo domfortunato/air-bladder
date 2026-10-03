@@ -171,13 +171,13 @@ export class SettingsGroupMenu extends HandlebarsApplicationMixin(ApplicationV2)
     // STORED value decides, read at render. (Was the Barebones sub-option
     // rule in the old renderSettingsConfig hook; same behaviour, declared on
     // the group.)
-    // A LIST since 2026-10-02 (Crawler Combat Mode, whose two options need a
-    // second master in Hacks — the group had already spent its one slot on
-    // content-source-barebones). Normalized rather than converted, so a group
-    // may still declare a single object and both shapes behave identically.
-    // The two live declarations exercise BOTH branches of `masterOn` below —
-    // Barebones' master is in another submenu, Crawler's is in this one — so
-    // the normalization cannot quietly break one while serving the other.
+    // A LIST since 2026-10-02 (Crawler Combat Mode needed a second master in
+    // Hacks). Normalized rather than converted, so a group may still declare a
+    // single object and both shapes behave identically. That master went on
+    // 2026-10-03, so the one live declaration (Barebones, whose master is in
+    // another submenu) exercises only the STORED-value branch of `masterOn`;
+    // the live-follow branch is kept as plain code, unexercised, for the next
+    // group whose master sits in its own submenu.
     for (const spec of [subOptions].flat().filter(Boolean)) {
       const master = root.querySelector(`[name="${ns}.${spec.master}"]`);
       const masterOn = () => (master ? !!master.checked : !!game.settings.get(ns, spec.master));

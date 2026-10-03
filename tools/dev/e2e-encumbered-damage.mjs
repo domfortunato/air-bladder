@@ -1937,19 +1937,17 @@ const rebuilt = await (async () => {
 })();
 
 /* ---------------------------------------------------------------------------
- * THE FIRST FATIGUE IS FREE (2026-10-02, user ruling).
+ * EVERY FATIGUE FILLS A SLOT (2026-10-03, user ruling).
  *
- * A character carries one Fatigue as though it were petty; every Fatigue beyond
- * it fills a slot. The THRESHOLD does not move — "more than 9 non-petty items is
- * overburdened" IS `slotsUsed >= 10` — so this lives here, with the rest of the
- * slot arithmetic `isEncumbered` reads, and not in the Crawler Combat probe: it
- * is an inventory rule, ungated, and not part of that hack.
- *
- * It is what makes the forced drop net out to zero: drop one thing, take one
- * Fatigue, end where you started. Under the old count a full pack that gave up
- * an ordinary item was still at 0 Hit Protection afterwards.
+ * For a day a house rule made the first Fatigue free — carried as though it
+ * were petty, with a Petty chip on its row and a "clear a costed one first"
+ * rule for the − control and the trash can. The user withdrew it ("remove the
+ * rule about making the Fatigue petty if the PC is only carrying one"), so a
+ * Fatigue is an ordinary item to the slot count again, as Cairn has it. These
+ * legs hold that, and are the red-first witness against the free-first build:
+ * it reads 9 items + 1 Fatigue as 9 and chips one row.
  * ------------------------------------------------------------------------- */
-const freeFatigue = await page.evaluate(async () => {
+const fatigueSlots = await page.evaluate(async () => {
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const res = { made: [] };
   const Cls = CONFIG.Actor.documentClass;
@@ -1967,64 +1965,58 @@ const freeFatigue = await page.evaluate(async () => {
     return { used: a.system.slotsUsed, max: a.system.slotsMax, enc: a.isEncumbered() };
   };
 
-  // The four fixtures that pin the rule, and the pair that pins the threshold.
   res.nine1 = await fill(await mk("ZZ Fat Nine1", "character"), 9, 1);
-  res.nine2 = await fill(await mk("ZZ Fat Nine2", "character"), 9, 2);
-  res.ten1 = await fill(await mk("ZZ Fat Ten1", "character"), 10, 1);
   res.alone = await fill(await mk("ZZ Fat Alone", "character"), 0, 1);
-
-  // UNGATED: every actor type, exactly as the coin rule one line above it is.
-  // Nothing else in the suite would catch a `type === "character"` creeping in.
+  // Every actor type, as the coin rule is: an npc and a hireling count a
+  // Fatigue exactly as a character does.
   res.npc = await fill(await mk("ZZ Fat NPC", "npc", "npc"), 9, 1);
   res.hire = await fill(await mk("ZZ Fat Hire", "npc", "hireling"), 9, 1);
 
-  // THE CHIP, read off the rendered sheet and not from the flag: it is the one
-  // thing a player sees, and "9 / 10 above ten rows" is what it exists to
-  // explain. Three Fatigues, so the free one has costed neighbours.
-  const chipped = await mk("ZZ Fat Chip", "character");
-  await chipped.createEmbeddedDocuments("Item", [
+  // NO PETTY CHIP on any Fatigue row, read off the rendered sheet: the chip is
+  // what a player saw of the withdrawn rule.
+  const sheetActor = await mk("ZZ Fat Rows", "character");
+  await sheetActor.createEmbeddedDocuments("Item", [
     { name: FAT, type: "item" }, { name: FAT, type: "item" }, { name: FAT, type: "item" }]);
-  await chipped.sheet.render(true);
-  for (let i = 0; i < 30 && !(chipped.sheet.element instanceof HTMLElement); i++) await sleep(100);
-  chipped.sheet.element?.querySelector('[data-action="tab"][data-tab="items"]')?.click();
+  await sheetActor.sheet.render(true);
+  for (let i = 0; i < 30 && !(sheetActor.sheet.element instanceof HTMLElement); i++) await sleep(100);
+  sheetActor.sheet.element?.querySelector('[data-action="tab"][data-tab="items"]')?.click();
   await sleep(400);
-  const pettyRows = () => [...chipped.sheet.element.querySelectorAll(".fatigue-row")]
+  const fatigueRows = () => [...sheetActor.sheet.element.querySelectorAll(".fatigue-row")];
+  res.rowCount = fatigueRows().length;
+  res.chips = fatigueRows()
     .filter((row) => [...row.querySelectorAll(".cairn-item-tag")]
       .some((t) => t.textContent.trim() === game.i18n.localize("CAIRN.Weightless")))
     .map((row) => row.dataset.itemId);
-  res.chips = pettyRows();
-  res.freeId = chipped.system.freeFatigueId;
-  res.fatigueCount = chipped.items.filter((i) => i.system.isFatigue).length;
 
-  // CLEARING ONE TAKES A COSTED FATIGUE, and the chip is the witness: it must
-  // still be on the SAME document afterwards rather than hopping to a
-  // neighbouring row. Asserting the slot count could not show this — it falls to
-  // the same number whichever document goes.
-  //
-  // The confirm is answered by shadowing it: this leg is about which document is
-  // chosen, and the dialog has its own coverage elsewhere.
+  // CLEARING: the − control removes one Fatigue, and the trash can removes THE
+  // ROW IT IS ON — no redirect to some other Fatigue any more. The confirm is
+  // answered by shadowing it: this leg is about which document goes, and the
+  // dialog has its own coverage elsewhere.
   const DialogV2 = foundry.applications.api.DialogV2;
   const origConfirm = DialogV2.confirm;
   DialogV2.confirm = async () => true;
   try {
-    // Route 1: the − control.
-    chipped.sheet.element?.querySelector('[data-action="removeFatigue"]')?.click();
-    for (let i = 0; i < 40 && chipped.items.filter((x) => x.system.isFatigue).length > 2; i++) await sleep(150);
+    sheetActor.sheet.element?.querySelector('[data-action="removeFatigue"]')?.click();
+    for (let i = 0; i < 40 && sheetActor.items.filter((x) => x.system.isFatigue).length > 2; i++) await sleep(150);
     await sleep(400);
-    res.afterMinus = { left: chipped.items.filter((x) => x.system.isFatigue).length,
-      freeId: chipped.system.freeFatigueId, freeStillThere: !!chipped.items.get(res.freeId) };
+    res.afterMinus = sheetActor.items.filter((x) => x.system.isFatigue).length;
 
-    // Route 2: the trash can ON THE CHIPPED ROW — the case the ruling names.
+    // The trash can on the LAST Fatigue row in document order — the one the
+    // withdrawn rule would have spared in favour of another.
     await sleep(200);
-    const row = chipped.sheet.element?.querySelector(`[data-item-id="${res.freeId}"]`);
-    row?.querySelector('[data-action="itemDelete"]')?.click();
-    for (let i = 0; i < 40 && chipped.items.filter((x) => x.system.isFatigue).length > 1; i++) await sleep(150);
+    const ids = sheetActor.items.filter((x) => x.system.isFatigue).map((x) => x.id);
+    const pressed = ids.at(-1);
+    sheetActor.sheet.element?.querySelector(`[data-item-id="${pressed}"]`)
+      ?.querySelector('[data-action="itemDelete"]')?.click();
+    for (let i = 0; i < 40 && sheetActor.items.filter((x) => x.system.isFatigue).length > 1; i++) await sleep(150);
     await sleep(400);
-    res.afterTrash = { left: chipped.items.filter((x) => x.system.isFatigue).length,
-      freeId: chipped.system.freeFatigueId, freeStillThere: !!chipped.items.get(res.freeId) };
+    res.afterTrash = {
+      left: sheetActor.items.filter((x) => x.system.isFatigue).length,
+      pressedGone: !sheetActor.items.get(pressed),
+    };
   } finally {
     DialogV2.confirm = origConfirm;
-    await chipped.sheet.close();
+    await sheetActor.sheet.close();
   }
 
   for (const id of res.made) { try { await game.actors.get(id)?.delete(); } catch { /* gone */ } }
@@ -2566,33 +2558,25 @@ check("a PRIVATE d20 roll stays private",
   + `body="${rebuilt.seen.privateBody.trim()}" flavor="${rebuilt.seen.privateFlavor}" — a whispered ROLL is `
   + "still `visible`, so the hook fires on her client over core's 'rolled privately' substitution");
 
-console.log("the first Fatigue is free");
-check("9 items + 1 Fatigue is 9 slots, not overburdened",
-  freeFatigue.nine1?.used === 9 && freeFatigue.nine1?.enc === false,
-  `used=${freeFatigue.nine1?.used}/${freeFatigue.nine1?.max} encumbered=${freeFatigue.nine1?.enc} — the drop bargain nets to zero only if this holds`);
-check("...and a SECOND Fatigue costs a slot",
-  freeFatigue.nine2?.used === 10 && freeFatigue.nine2?.enc === true,
-  `used=${freeFatigue.nine2?.used} encumbered=${freeFatigue.nine2?.enc} — free FIRST, not free Fatigue`);
-check("10 items + 1 Fatigue is still overburdened",
-  freeFatigue.ten1?.used === 10 && freeFatigue.ten1?.enc === true,
-  `used=${freeFatigue.ten1?.used} — the threshold did not move, which is the 2026-08-05 ruling`);
-check("a lone Fatigue costs nothing",
-  freeFatigue.alone?.used === 0 && freeFatigue.alone?.enc === false,
-  `used=${freeFatigue.alone?.used}`);
-check("UNGATED: an npc and a hireling get it too",
-  freeFatigue.npc?.used === 9 && freeFatigue.hire?.used === 9,
-  `npc=${freeFatigue.npc?.used} hireling=${freeFatigue.hire?.used} — one inventory rule for every actor type, like the coin rule it copies`);
-check("exactly ONE Fatigue row wears the Petty chip",
-  freeFatigue.chips?.length === 1 && freeFatigue.chips[0] === freeFatigue.freeId
-  && freeFatigue.fatigueCount === 3,
-  `chipped=${JSON.stringify(freeFatigue.chips)} freeId=${freeFatigue.freeId} of ${freeFatigue.fatigueCount} — the ACTOR decides which, so the chip and the arithmetic cannot disagree`);
-check("the − control clears a COSTED Fatigue, leaving the chip where it was",
-  freeFatigue.afterMinus?.left === 2 && freeFatigue.afterMinus?.freeStillThere === true
-  && freeFatigue.afterMinus?.freeId === freeFatigue.freeId,
-  `left=${freeFatigue.afterMinus?.left} free kept=${freeFatigue.afterMinus?.freeStillThere} — it used to take items.find(name), i.e. the free one every time`);
-check("...and so does the trash can ON the chipped row",
-  freeFatigue.afterTrash?.left === 1 && freeFatigue.afterTrash?.freeStillThere === true,
-  `left=${freeFatigue.afterTrash?.left} free kept=${freeFatigue.afterTrash?.freeStillThere} — the ruling names this case, and a fix on the − control alone would be half of one`);
+console.log("every Fatigue fills a slot");
+check("9 items + 1 Fatigue is 10 slots, and overburdened",
+  fatigueSlots.nine1?.used === 10 && fatigueSlots.nine1?.enc === true,
+  `used=${fatigueSlots.nine1?.used}/${fatigueSlots.nine1?.max} encumbered=${fatigueSlots.nine1?.enc} — the withdrawn free-first rule read this as 9`);
+check("a lone Fatigue costs one slot",
+  fatigueSlots.alone?.used === 1 && fatigueSlots.alone?.enc === false,
+  `used=${fatigueSlots.alone?.used}`);
+check("...on an npc and a hireling too",
+  fatigueSlots.npc?.used === 10 && fatigueSlots.hire?.used === 10,
+  `npc=${fatigueSlots.npc?.used} hireling=${fatigueSlots.hire?.used}`);
+check("NO Fatigue row wears the Petty chip",
+  fatigueSlots.rowCount === 3 && (fatigueSlots.chips ?? []).length === 0,
+  `rows=${fatigueSlots.rowCount} chipped=${JSON.stringify(fatigueSlots.chips)} — the chip was the withdrawn rule's face`);
+check("the − control clears one Fatigue",
+  fatigueSlots.afterMinus === 2,
+  `left=${fatigueSlots.afterMinus}`);
+check("...and the trash can deletes the row it is on",
+  fatigueSlots.afterTrash?.left === 1 && fatigueSlots.afterTrash?.pressedGone === true,
+  `left=${fatigueSlots.afterTrash?.left} pressed row gone=${fatigueSlots.afterTrash?.pressedGone} — no redirect to another Fatigue`);
 
 if (errors.length) { bad++; console.log("Console errors:\n" + errors.join("\n")); }
 console.log(bad === 0 ? "\nencumbered-damage e2e passed" : `\nencumbered-damage e2e FAILED — ${bad}`);

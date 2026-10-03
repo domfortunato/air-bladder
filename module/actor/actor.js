@@ -998,12 +998,6 @@ export class CairnActor extends Actor {
       : Math.min(3, Math.max(derivedArmor, storedBase));
     this.system.slotsUsed = this.calcSlotsUsed();
     this.system.slotsMax = this.calcCurrentMaxSlots();
-    // Stamped beside the count it explains, so the row's Petty chip and the
-    // subtraction inside calcSlotsUsed can never name different documents.
-    // TOTAL, never inside an `if`: `prepareData()` does not reset `system` from
-    // `_source`, so a one-sided derived assignment goes stale — the rule the
-    // Deprived flag already records one file over.
-    this.system.freeFatigueId = this.freeFatigueId();
     this.system.encumbered =
       this.system.slotsUsed >= this.calcCurrentMaxSlots();
     this.system.maybeTooMuchGold = false;
@@ -1557,91 +1551,13 @@ export class CairnActor extends Actor {
     // One coin-weight rule for every actor type (Cairn 2e, p.9): first N petty,
     // then 1 slot per further N. N is the GM's coins-per-slot setting.
     totalSlots += this._calcGoldSlots();
-    // THE FIRST FATIGUE IS FREE, as though it were petty; every Fatigue beyond
-    // it fills a slot (user ruling, 2026-10-02). The sentence above with Fatigue
-    // in it, and ungated for the same reason that one is — it is an inventory
-    // rule, not a hack, so it is not behind Crawler Combat Mode and not narrowed
-    // to `character`. A role predicate that quietly grows is this codebase's
-    // thrice-repeated bug.
-    //
-    // THE THRESHOLD DOES NOT MOVE. "More than 9 non-petty items is
-    // overburdened" IS `slotsUsed >= 10`, which `isEncumbered` already computes,
-    // so the 2026-08-05 ruling stands and that predicate goes on answering both
-    // of its questions — may they acquire, and are they at 0 Hit Protection —
-    // with one number. What changes is the count.
-    //
-    // SUBTRACT ONE, FROM A PRESENCE TEST, NEVER A COUNT. The reduce above
-    // charged each Fatigue one slot, so a single subtraction is exactly "the
-    // first is free" — and asking only whether one exists means a Fatigue that
-    // somehow carried a quantity can never refund more than it cost.
-    //
-    // HOUSE RULE, not RAW: as far as anyone here knows Cairn charges a slot for
-    // every Fatigue, and this repo does not ship the Player's Guide's inventory
-    // section, so there is nothing in the tree to check it against. It is in
-    // CLAUDE.md's deviations list and in docs/ as a deviation, said plainly.
-    if (this.items.some((i) => i.system?.isFatigue)) totalSlots -= 1;
+    // EVERY FATIGUE FILLS A SLOT, as Cairn has it. For a day a house rule made
+    // the first one free ("petty"), with a chip on its row and a "costed one
+    // first" rule for clearing; the user withdrew it on 2026-10-03 ("remove
+    // the rule about making the Fatigue petty if the PC is only carrying
+    // one"). A Fatigue is an ordinary item to this count, so nothing here
+    // mentions it.
     return totalSlots;
-  }
-
-  /**
-   * WHICH Fatigue is the free one — the id, derived once.
-   *
-   * Three readers need the same answer and must not each decide for themselves:
-   * the subtraction in `calcSlotsUsed`, the Petty chip the row wears, and
-   * `freeFatigueLast` when one is cleared. A template that picked "the first one
-   * I rendered" would be a second opinion about the same fact, and the chip and
-   * the arithmetic could then disagree on screen.
-   *
-   * WHICH one is arbitrary and harmless: Fatigues are identical documents, so
-   * document order is as good an answer as any — and keeping it stable is what
-   * stops the chip hopping to a neighbouring row when an unrelated item is
-   * dropped.
-   * @return {String|null}
-   */
-  freeFatigueId() {
-    return this.items.find((i) => i.system?.isFatigue)?.id ?? null;
-  }
-
-  /**
-   * What the NEXT Fatigue would cost in slots: 0 while none is carried (the
-   * first is free), 1 after that. The fourth reader of the free-first rule,
-   * and like the other three it asks `freeFatigueId` rather than keeping its
-   * own presence test — `fatigueFits` (gear.js) feeds it to `capacityVerdict`
-   * to decide whether the Fatigue bargain asks for a drop at all.
-   * @return {Number}
-   */
-  nextFatigueCost() {
-    return this.freeFatigueId() ? 1 : 0;
-  }
-
-  /**
-   * WHICH Fatigue to remove when one is cleared: a COSTED one before the free
-   * one (user ruling, 2026-10-02 — "if a player clears fatigue at the warden's
-   * request and they remove the fatigue marked petty while still carrying more
-   * fatigue, one of the non-petty fatigues should be removed instead").
-   *
-   * The slot arithmetic is identical either way — three Fatigues become two
-   * however you pick. What it changes is that the Petty chip stays on the row it
-   * was on instead of hopping to a neighbour the moment one is cleared, and that
-   * "I deleted the free one and gained a slot" is not a thought a player has to
-   * work through.
-   *
-   * BOTH ROUTES COME THROUGH HERE, because a rule implemented on the − control
-   * and not on the row's trash can would be half a fix: `#onRemoveFatigue` took
-   * `items.find(name === FATIGUE_NAME)`, which is the first in document order and
-   * therefore the free one every single time.
-   * @param {String|null} [clickedId]  the row whose control was pressed, if any
-   * @return {String|null}  the Fatigue to delete
-   */
-  fatigueToClear(clickedId = null) {
-    const fatigues = this.items.filter((i) => i.system?.isFatigue);
-    if (!fatigues.length) return null;
-    const free = this.freeFatigueId();
-    // A deliberate click on a COSTED row is honoured as given — the player
-    // picked a row and there is no reason to second-guess it. Only a click on
-    // the free one is redirected, and only while a costed one exists.
-    if (clickedId && clickedId !== free && fatigues.some((f) => f.id === clickedId)) return clickedId;
-    return (fatigues.find((f) => f.id !== free) ?? fatigues[0]).id;
   }
 
   calcArmor() {
@@ -2059,7 +1975,7 @@ export class CairnActor extends Actor {
     if (userId !== game.user.id) return;
     if (options.abNoStatusCard) return;
     // Either half may be absent: a parent update carrying ONLY an embedded
-    // ration diff (a Crawler Rest whose roll did not beat current HP) has an
+    // ration diff (a Rest at full Hit Protection, where the HP write is a no-op) has an
     // itemAudit and no field audit, and must still post its one card.
     const before = stash?.audit ?? {};
     const itemAudit = stash?.itemAudit;

@@ -1,6 +1,6 @@
 import { findDeclaredTable, findCompendiumItem, resultText } from './compendium.js'
 import { SETTINGS_NS } from './settings.js'
-import { evaluateFormula, askDamageTargets, concealmentWhisper, d20CardBody, d20CardFlavor, crawlerOption } from './utils.js'
+import { evaluateFormula, askDamageTargets, concealmentWhisper, d20CardBody, d20CardFlavor, combatOption } from './utils.js'
 import { postStatusCard } from './actor/actor.js'
 
 // The system's flag namespace, imported rather than re-declared: a second
@@ -37,7 +37,7 @@ const damageApplyInFlight = new Set();
 export const DAMAGE_SOURCE_FLAG = "damageSource";
 
 /**
- * Crawler Combat Mode's max-melee-damage choice, as made on the card:
+ * The maneuver option's max-melee-damage choice, as made on the card:
  * `"explode"` or `"maneuver"`, absent while the card is still asking.
  *
  * ONE flag with two values rather than two booleans, because the two options are
@@ -361,7 +361,7 @@ export class Damage {
                 ui.notifications.warn(game.i18n.localize("CAIRN.Notify.DamageAlreadyApplied"));
                 return;
             }
-            // FORGONE FOR A MANEUVER (Crawler Combat Mode). The player gave this
+            // FORGONE FOR A MANEUVER (the maneuver option). The player gave this
             // damage up in exchange for the attempt, so spending the card anyway
             // would hand them both. The render hook greys the anchor and prints the
             // line; this is the half that survives a card left open in a
@@ -797,13 +797,13 @@ export class Damage {
         // it. This card is PUBLIC, so before the flag existed the whole table
         // read "Success"/"Fail" and the Critical Damage button in whatever
         // language the roller happened to be using (review #28).
-        // `fatigue`: Crawler Combat Mode's alternative to Critical Damage, the
+        // `fatigue`: the Fatigue instead of Critical Damage option, the
         // path the feature was asked for -- a PC whose STR dropped in combat.
         // Recorded on the card so what was offered is frozen at the roll.
         const card = {
             kind: "save", ability: "STR", formula: roll.formula, rolled, failed, crit: failed,
             fatigue: failed && token.actor?.type === "character"
-                && crawlerOption("crawler-fatigue-for-critical"),
+                && combatOption("fatigue-for-critical-damage"),
         };
         roll.toMessage({
             speaker: ChatMessage.getSpeaker({ token: token }),

@@ -2,7 +2,7 @@ import { dieIconOrGeneric } from "../utils.js";
 import { canRegenerateContainers, drawBond, bondRecordFrom, withGrantSource, bondEntitlement, resolveRefs, replaceGrantedContainers, promptBackground, changeBackground, promptFailedCareer, rollFailedCareerName, buildFailedCareerItem, getPortraitManifest, pairedTokenFor, randomPortraitInSameFolder, portraitCategoryFor, regenerateNpc, regenerateHireling, rerollNpcBackground, rerollHirelingCareer, rerollNpcName, rerollNpcFaction, promptHirelingCareer, promptNpcBackground, promptNpcFaction, promptPickOmen, promptPickBond, promptPickQuestionOption, promptPickName, findOmensTable, rollNameFromTable, rollAge, rollTextItems, effectiveAgeFormula, effectivePcAbilityFormula, effectivePcGoldFormula, effectivePcHpFormula, rollPcHitProtection, resolveActorBackground, redealBackgroundGear, rerollAllBonds, reorderInventory, postGenerationRolls, isHandBuilt, clearHandBuilt, FLAG_SCOPE } from "../character-generator.js";
 import { promptMonsterTier, regenerateMonster } from "../monster-generator.js";
 import { openMarketplace, TRANSPORTS_CATEGORY } from "../marketplace.js";
-import { evaluateFormula, cleanDescription, bindEditorClickAwaySave, formatCount, sourceLabel, askDamageQuality, damageFormulaFor, damageQualityLabel, damageQualityKind, d20CardBody, d20CardFlavor, D20_CARD_ABILITIES, crawlerCombat, crawlerOption, crawlerDamageFormula, askUnarmedAttack, UNARMED_FORMULA, restCardBody } from "../utils.js";
+import { evaluateFormula, cleanDescription, bindEditorClickAwaySave, formatCount, sourceLabel, askDamageQuality, damageFormulaFor, damageQualityLabel, damageQualityKind, d20CardBody, d20CardFlavor, D20_CARD_ABILITIES, combatOption, combatDamageFormula, askUnarmedAttack, UNARMED_FORMULA } from "../utils.js";
 import { resultText, compendiumInfoFromString } from "../compendium.js";
 import { SETTINGS_NS } from "../settings.js";
 import { CONTAINER_ART_CHOICES, CONTAINER_CLASSES } from "../icons.js";
@@ -2127,7 +2127,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
   async _confirmAction(titleKey, tipKey, questionKey, extraLines = []) {
     const k = (key) => this._wording(key);
     // Already-localized sentences between the tip and the question (the Rest's
-    // ration line, the Crawler roll line) — here rather than in a second copy
+    // ration line) — here rather than in a second copy
     // of this markup, which a probe reads by its class. Escaped: a line may
     // carry a number a sheet typed.
     const extra = extraLines
@@ -3810,12 +3810,10 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // — descendant deletes render the parent (client-document.mjs:691-694) — and
     // the row goes with it.
     if (row.dataset.isContainer) return void this.actor.deleteOwnedContainer(row.dataset.itemId);
-    // A FATIGUE ROW CLEARS A COSTED FATIGUE FIRST, whichever row was pressed —
-    // the same rule the − control follows, in the one helper both share. Every
-    // Fatigue is an identical document showing the same name, so a substitution
-    // is invisible: the confirm names "Fatigue" either way and the player gets
-    // what they asked for, one Fatigue fewer, with the Petty chip left where it
-    // was. Only the free row is redirected, and only while a costed one exists.
+    // The pressed row is the row deleted, Fatigue included. For a day a Fatigue
+    // row redirected to a "costed" one first, to keep the free first Fatigue's
+    // Petty chip in place; the free Fatigue went on 2026-10-03 (user ruling)
+    // and the redirect with it.
     // NOT named `target`: that is this method's own parameter, and a `const` of
     // the same name is a duplicate declaration that makes the whole CLASS fail to
     // parse. Two things made it expensive the one time it was written:
@@ -3829,11 +3827,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // The symptom in Foundry is that the system module never loads at all: ZERO
     // settings registered, every probe failing on something unrelated. Read
     // `game.settings.settings.size` or run dev:smoke after editing a big class.
-    const clicked = row.dataset.itemId;
-    const toDelete = this.actor.items.get(clicked)?.system?.isFatigue
-      ? this.actor.fatigueToClear(clicked) ?? clicked
-      : clicked;
-    this.actor.deleteOwnedItem(toDelete);
+    this.actor.deleteOwnedItem(row.dataset.itemId);
   }
 
   /**
@@ -4105,16 +4099,15 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
   }
 
   /**
-   * Clear one Fatigue.
-   *
-   * A COSTED one goes before the free one — see `CairnActor#fatigueToClear`.
-   * This used to take `items.find(name === FATIGUE_NAME)`, the first in document
-   * order, which is exactly the one the Petty chip marks.
+   * Clear one Fatigue — the first in document order. Every Fatigue is the same
+   * document and fills one slot, so which one goes changes nothing. (For a day
+   * a "costed" one went first, to keep the free first Fatigue's Petty chip in
+   * place; that rule went on 2026-10-03.)
    * @this {CairnActorSheet}
    */
   static #onRemoveFatigue(event) {
     event.preventDefault();
-    const id = this.actor.fatigueToClear();
+    const id = this.actor.items.find((i) => i.system?.isFatigue)?.id;
     if (id) this.actor.deleteOwnedItem(id);
   }
 
@@ -4155,7 +4148,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       quality = await askDamageQuality(dataset.roll, dataset.label ?? "");
       if (quality === null) return; // dismissed: roll nothing
     }
-    // CRAWLER COMBAT MODE, through the ONE gate (`crawlerDamageFormula`,
+    // THE OPTIONAL COMBAT RULES, through the ONE gate (`combatDamageFormula`,
     // utils.js): a player character's die explodes at roll time, or — with a
     // maneuver on offer — is rolled plain so the card can ask. Called AFTER the
     // quality substitution and after the dialog, for the reasons its docblock
@@ -4169,7 +4162,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // field at all, and reads as melee — which is what it is.
     const rolledItem = this.actor.items.get(
       event.target?.closest("[data-item-id]")?.dataset.itemId);
-    const { formula, maneuver: mayManeuver } = crawlerDamageFormula(base, {
+    const { formula, maneuver: mayManeuver } = combatDamageFormula(base, {
       pc: this.actor.type === "character",
       melee: rolledItem?.system?.ranged !== true,
     });
@@ -4487,14 +4480,14 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     const card = {
       kind: "abilityRoll", ability: dataset.ability, formula: roll.formula,
       rolled, failed, crit: offerCrit,
-      // Crawler Combat Mode's alternative to Critical Damage. Recorded on the
+      // The Fatigue instead of Critical Damage option. Recorded on the
       // card, so what was offered is frozen at the moment of the roll and
       // switching the option off later cannot retract a choice already on
       // screen. The sheet's STR save and the damage flow's are the same moment
       // and both carry it — offering it on one and not the other is the
       // asymmetry this codebase keeps finding.
       fatigue: offerCrit && this.actor.type === "character"
-        && crawlerOption("crawler-fatigue-for-critical"),
+        && combatOption("fatigue-for-critical-damage"),
     };
     // A whole-sentence key, not localize()+concat — the translator owns the word order.
     const flavor = known
@@ -4540,15 +4533,11 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    * side logs the ration beside the HP. Rations are counted by USES
    * (`rationsLeft`, gear.js).
    *
-   * UNDER CRAWLER COMBAT MODE A REST ROLLS instead of restoring: one die the
-   * size of the maximum, kept only if it beats current — current read from
-   * SOURCE, because derived HP is pinned to 0 under encumbrance and panic and
-   * the ledger's own rule is "what was WRITTEN". The roll goes out as a ROLL
-   * message (Dice So Nice, the chat-mode dropdown) AFTER the write, so a card
-   * never claims a change that failed to land, and is rebuilt per viewer by
-   * `localizeRestCard` from four numbers. A maximum below 1 takes the plain
-   * path: core's `mapRandomFace` has no floor and `1d0` evaluates to 0 in
-   * silence, and 0 is reachable through a typed sheet or an import.
+   * A REST RESTORES TO THE MAXIMUM, always. For a day (2026-10-03) a Rest
+   * under Crawler Combat Mode ROLLED a die the size of the maximum and kept it
+   * only if it beat current HP, on a roll card of its own; the user removed it
+   * the same evening ("it should just restore to max HP. it still costs a
+   * ration"), and the mode with it.
    * @this {CairnActorSheet}
    */
   static async #onRest() {
@@ -4574,40 +4563,20 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       return;
     }
 
-    const max = Math.max(0, Number(actor.system.hp.max) || 0);
-    const current = Math.max(0, Number(actor._source.system.hp.value) || 0);
-    const rolls = crawlerCombat() && max >= 1;
     const lines = [game.i18n.format("CAIRN.RestRationLine",
       { rations: formatCount("CAIRN.NRation", rationsLeft(actor)) })];
-    if (rolls) lines.push(game.i18n.format("CAIRN.RestCrawlerLine", { faces: max, hp: current }));
     // NO RestTip here (2026-10-03, user ask, having read the dialog): a PC's
-    // Rest opens on the ration line, then the Crawler line, then the question.
-    // Cairn's "few moments" prose still heads the NPC confirm above and is not
-    // edited; the PC sheet's tooltip carries the ration sentence instead.
+    // Rest opens on the ration line, then the question. Cairn's "few moments"
+    // prose still heads the NPC confirm above and is not edited; the PC
+    // sheet's tooltip carries the ration sentence instead.
     if (!(await this._confirmAction("CAIRN.Rest", null, "CAIRN.RestRationConfirm", lines))) return;
 
-    const update = { items: [{ _id: ration.id, ...ration.spendUse() }] };
-    let card = null;
-    if (rolls) {
-      const roll = await new Roll(`1d${max}`).evaluate();
-      const rolled = Number(roll.total) || 0;
-      const after = rolled > current ? rolled : current;
-      if (after > current) update["system.hp.value"] = after;
-      card = { roll, data: { faces: max, rolled, before: current, after } };
-    } else {
-      update["system.hp.value"] = max;
-    }
     // ONE write: the ration and the Hit Protection land together or not at
     // all, and the ledger posts one card for the press, headed by the button.
-    await actor.update(update, { abChangeLogAction: "CAIRN.Rest" });
-    if (card) {
-      await card.roll.toMessage({
-        speaker: ChatMessage.getSpeaker({ actor }),
-        flavor: game.i18n.localize("CAIRN.Rest"),
-        content: restCardBody(card.data),
-        flags: { [FLAG_SCOPE]: { restRoll: card.data } },
-      });
-    }
+    await actor.update({
+      items: [{ _id: ration.id, ...ration.spendUse() }],
+      "system.hp.value": actor.system.hp.max,
+    }, { abChangeLogAction: "CAIRN.Rest" });
   }
 
   /** @this {CairnActorSheet} */
@@ -4648,7 +4617,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    * rock or swings a fist had nothing to press — and Cairn has such attacks
    * ("Unarmed attacks always do d4 damage"). This asks what it was and what it
    * rolls, then posts the ORDINARY damage card, which is what brings targeting,
-   * Apply, scars and Crawler Combat Mode along without any of them knowing it is
+   * Apply, scars and the optional combat rules along without any of them knowing it is
    * a new caller.
    *
    * IT IS A ROW IN THE INVENTORY, not a button in the sheet's stack (user ruling
@@ -4667,8 +4636,8 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    * template hides the button from a non-owner as the affordance; this is the
    * refusal behind it.
    *
-   * ALL THREE CRAWLER BEHAVIOURS FALL OUT WITH NO NEW RULES. There is no item,
-   * so there is no `ranged` field, and `crawlerDamageFormula` is asked exactly
+   * THE OPTIONAL COMBAT RULES FALL OUT WITH NO NEW RULES. There is no item,
+   * so there is no `ranged` field, and `combatDamageFormula` is asked exactly
    * as `#onRollDamage` asks it — an unarmed attack is melee by nature, which is
    * the answer that gate would give anyway.
    *
@@ -4707,7 +4676,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // unarmed attack is. The same gate #onRollDamage reads, and since 2026-10-03
     // no die is too small: a panicked 1d4 explodes, or offers a maneuver, like
     // any other.
-    const { formula, maneuver: mayManeuver } = crawlerDamageFormula(base, {
+    const { formula, maneuver: mayManeuver } = combatDamageFormula(base, {
       pc: this.actor.type === "character", melee: true,
     });
 

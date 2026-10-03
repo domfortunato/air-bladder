@@ -6,11 +6,11 @@ as of 2026-10-03, measured against the last release (`0.1.23`).
 
 | | |
 | --- | --- |
-| English interface keys | 1198 |
-| translated in `lang/es.json` | 686 (57%) |
+| English interface keys | 1193 |
+| translated in `lang/es.json` | 686 (58%) |
 | **changed under your translation** | **29** ← Part 1 |
 | **content you translated, now unreachable** | **270** ← Part 2 |
-| new interface keys, untranslated | 512 ← Part 3 |
+| new interface keys, untranslated | 507 ← Part 3 |
 | new content strings, untranslated | 2072 ← Part 4 |
 
 Only two files are yours, and only you should edit them: `lang/es.json`
@@ -557,7 +557,7 @@ to do — they are listed so the work is accounted for rather than vanishing.
 
 ---
 
-## Part 3 — new interface keys, untranslated (512)
+## Part 3 — new interface keys, untranslated (507)
 
 Ordinary outstanding work: these have no Spanish at all, so a Spanish client
 falls back to English for them. Nothing here is urgent — a missing key is visibly
@@ -764,7 +764,7 @@ untranslated, which is the honest failure.
 | `CAIRN.GameIconCategory.Metal` | Metal |
 | `CAIRN.GameIconCategory.Reptiles` | Reptiles |
 
-### General (60)
+### General (57)
 
 | key | English |
 | --- | --- |
@@ -803,15 +803,12 @@ untranslated, which is the honest failure.
 | `CAIRN.PrintRoleCareer` | {role} — {career} |
 | `CAIRN.PrintSlotsUsed` | Slots used |
 | `CAIRN.Ranged` | Ranged |
-| `CAIRN.RangedTip` | A bow, crossbow or sling rather than something swung in reach. Cairn 2e does not distinguish the two, so this matters only to the Maneuver on max melee damage option of Crawler Combat Mode, which never offers a maneuver … |
+| `CAIRN.RangedTip` | A bow, crossbow or sling rather than something swung in reach. Cairn 2e does not distinguish the two, so this matters only to the Maneuver on max melee damage option, which never offers a maneuver for a ranged attack. |
 | `CAIRN.RechargePlaceholder` | Click here to set what it takes to recharge this relic. Left empty, its counter reads uses rather than charges. |
-| `CAIRN.RestCrawlerLine` | Crawler Combat Mode: resting rolls a d{faces}. If it beats your current Hit Protection of {hp}, that is your new Hit Protection. |
 | `CAIRN.RestNoRations` | You have no rations. You cannot benefit from a rest unless you consume a ration. |
 | `CAIRN.RestRationConfirm` | Rest and eat a ration? |
 | `CAIRN.RestRationLine` | Resting for 10 minutes to recover Hit Protection uses up one ration. You have {rations} left. |
 | `CAIRN.RestRationTip` | Resting for 10 minutes to recover Hit Protection uses up one ration. Bandages can stabilize a character that has taken critical damage. |
-| `CAIRN.RestRollStays` | Rolled {rolled} on a d{faces}: not above {hp}, so Hit Protection stays at {hp}. |
-| `CAIRN.RestRollUp` | Rolled {rolled} on a d{faces}: Hit Protection rises from {before} to {after}. |
 | `CAIRN.RoleHireling` | Hireling |
 | `CAIRN.RollAgeTitle` | Roll age ({formula}) |
 | `CAIRN.RollTrait` | Roll {trait} |
@@ -980,39 +977,37 @@ untranslated, which is the honest failure.
 | `CAIRN.Reroll.StartingGear` | Starting gear |
 | `CAIRN.Reroll.WIL` | WIL (Willpower) |
 
-### Settings (40)
+### Settings (38)
 
 | key | English |
 | --- | --- |
 | `CAIRN.Settings.AgeFormula.hint` | The dice rolled for every generated person's age, and by the age die on sheets. Default 2d20 + 10, the book's roll. Want a minimum? {2d20 + 10, 21}kh rolls 2d20 + 10 but never below 21. Want a range? 2d6 + 18 gives ages … |
 | `CAIRN.Settings.AgeFormula.label` | Age formula for generated characters |
-| `CAIRN.Settings.CrawlerCombatMode.hint` | A harsher, more lethal combat. NPCs, hirelings and monsters are not affected. Player characters are made with 6 Hit Protection, and a Rest rolls for it instead of restoring it: a die the size of their maximum, kept if it… |
-| `CAIRN.Settings.CrawlerCombatMode.label` | Crawler Combat Mode |
-| `CAIRN.Settings.CrawlerExplodingDamage.hint` | When a player character's damage die rolls its highest face, it is rolled again and added, for as long as it keeps rolling the highest. Only the die that is kept explodes, so two sixes on a keep-highest weapon are one si… |
-| `CAIRN.Settings.CrawlerExplodingDamage.label` | Exploding damage dice |
-| `CAIRN.Settings.CrawlerFatigueForCritical.hint` | When a player character fails a Critical Damage save, their chat card also offers to take a Fatigue instead. If the Fatigue would overburden them, they must drop an item, which will be added to the Party's Dropped Item P… |
-| `CAIRN.Settings.CrawlerFatigueForCritical.label` | Fatigue instead of Critical Damage |
-| `CAIRN.Settings.CrawlerManeuverOnMax.hint` | When a player character rolls maximum damage with a melee weapon, their chat card offers to forgo all of that damage and attempt a maneuver instead, resolved with an ability check the Warden calls for. Any die counts, an… |
-| `CAIRN.Settings.CrawlerManeuverOnMax.label` | Maneuver on max melee damage |
 | `CAIRN.Settings.EnableValdCalendar.hint` | Vald keeps its own year: twelve months of twenty-four days, a six-day week, and four seasons — Dead, Dry, Wet and Harvest — each with its own weather table, plus a six-day Reclamation week every tenth year. Cairn's own s… |
 | `CAIRN.Settings.EnableValdCalendar.label` | Use the Vald calendar and seasons |
+| `CAIRN.Settings.ExplodingDamageDice.hint` | When a player character's damage die rolls its highest face, it is rolled again and added, for as long as it keeps rolling the highest. Only the die that is kept explodes, so two sixes on a keep-highest weapon are one si… |
+| `CAIRN.Settings.ExplodingDamageDice.label` | Exploding damage dice |
+| `CAIRN.Settings.FatigueForCriticalDamage.hint` | When a player character fails a Critical Damage save, their chat card also offers to take a Fatigue instead. If the Fatigue would overburden them, they must drop an item, which will be added to the Party's Dropped Item P… |
+| `CAIRN.Settings.FatigueForCriticalDamage.label` | Fatigue instead of Critical Damage |
 | `CAIRN.Settings.GroupGeneralButton` | Configure General Settings |
 | `CAIRN.Settings.GroupGeneralHint` | Panic, dice notation, item icons, grant tags, omens, the Warden title, the change log and scars. |
 | `CAIRN.Settings.GroupGenerationButton` | Configure Character Generation |
 | `CAIRN.Settings.GroupGenerationHint` | Which content sources are offered, what players may generate or randomize, the portrait folder and the age formula. |
 | `CAIRN.Settings.GroupHacks` | GLOG & Other Hacks |
 | `CAIRN.Settings.GroupHacksButton` | Configure Hacks |
-| `CAIRN.Settings.GroupHacksHint` | Optional rule hacks: GLOG Magic, the Vald calendar, Crawler Combat Mode, and a Knave-style failed career for Barebones characters. |
+| `CAIRN.Settings.GroupHacksHint` | Optional rule hacks: GLOG Magic, the Vald calendar, three optional combat rules, and a Knave-style failed career for Barebones characters. |
 | `CAIRN.Settings.GroupInventoryButton` | Configure Inventory |
 | `CAIRN.Settings.GroupInventoryHint` | Slot limit, the inventory cap, the marketplace and the coins-per-slot threshold. |
-| `CAIRN.Settings.PcAbilityDice.hint` | How each of a player character's STR, DEX and WIL is rolled. Standard is the book's roll. Adventurer rolls four dice and keeps the best three. Crawler never rolls below 8. NPCs, hirelings and monsters are not affected. K… |
+| `CAIRN.Settings.ManeuverOnMaxMelee.hint` | When a player character rolls maximum damage with a melee weapon, their chat card offers to forgo all of that damage and attempt a maneuver instead, resolved with an ability check the Warden calls for. Any die counts, an… |
+| `CAIRN.Settings.ManeuverOnMaxMelee.label` | Maneuver on max melee damage |
+| `CAIRN.Settings.PcAbilityDice.hint` | How each of a player character's STR, DEX and WIL is rolled. Default is the book's roll. Adventurer rolls four dice and keeps the best three. Crawler rolls between 5 and 15. NPCs, hirelings and monsters are not affected.… |
 | `CAIRN.Settings.PcAbilityDice.label` | Ability dice for player characters |
 | `CAIRN.Settings.PcDice.Adventurer` | Adventurer (4d6kh3) |
-| `CAIRN.Settings.PcDice.Crawler` | Crawler (2d6 + 6) |
-| `CAIRN.Settings.PcDice.Standard` | Standard (3d6) |
-| `CAIRN.Settings.PcGoldDice.hint` | How a player character's starting coins are rolled. Standard is the book's roll. Coins a bond or a background question grants are added on top and are not affected, and neither are NPCs or hirelings. |
+| `CAIRN.Settings.PcDice.Crawler` | Crawler (2d6 + 3) |
+| `CAIRN.Settings.PcDice.Default` | Default (3d6) |
+| `CAIRN.Settings.PcGoldDice.hint` | How a player character's starting coins are rolled. Default is the book's roll. Coins a bond or a background question grants are added on top and are not affected, and neither are NPCs or hirelings. |
 | `CAIRN.Settings.PcGoldDice.label` | Gold dice for player characters |
-| `CAIRN.Settings.PcHpFormula.hint` | The dice a player character's Hit Protection is rolled with. Enter a plain number for a fixed value: 4 gives every character 4. Blank rolls 1d6, the book's roll. NPCs and hirelings are not affected. Ignored while Crawler… |
+| `CAIRN.Settings.PcHpFormula.hint` | The dice a player character's Hit Protection is rolled with. Enter a plain number for a fixed value: 4 gives every character 4. Blank rolls 1d6, the book's roll. NPCs and hirelings are not affected. |
 | `CAIRN.Settings.PcHpFormula.label` | Hit Protection formula for player characters |
 | `CAIRN.Settings.ShowGrantTagsPrint.label` | Show grant-source tags on printed sheets |
 | `CAIRN.Settings.ShowOmens.hint` | Cairn 2e gives the party's youngest member an omen. Turn this off for a game that does not use them: the Omen checkbox and field leave every character sheet, and printed sheets drop their Omen section. Any omen already w… |

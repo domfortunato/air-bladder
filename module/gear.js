@@ -514,15 +514,14 @@ export const capacityVerdict = (actor, need) => {
  * acquisition asks, so the bargain and the drop handler cannot disagree about
  * what "fits" means.
  *
- * `nextFatigueCost()` is the actor's own answer to what THIS Fatigue would cost
- * (the first is free — `calcSlotsUsed`'s rule, read off `freeFatigueId`), so
- * a character carrying none is never asked, even at 10 of 10: a Fatigue that
- * costs nothing cannot overburden anybody. The second asks at 9 of 10.
+ * A Fatigue fills one slot, like any ordinary item, so the question is
+ * whether one more slot fits: at 9 of 10 it does not. (For a day the first
+ * Fatigue was free and a character carrying none was never asked; that house
+ * rule went on 2026-10-03, user ruling.)
  * @param {CairnActor} actor
  * @returns {Boolean}
  */
-export const fatigueFits = (actor) =>
-  capacityVerdict(actor, actor?.nextFatigueCost?.() ?? 1) === "fits";
+export const fatigueFits = (actor) => capacityVerdict(actor, 1) === "fits";
 
 /** Slots an item wants. Bulky 2, weightless 0, otherwise 1. */
 export const slotsNeeded = (itemLike) =>

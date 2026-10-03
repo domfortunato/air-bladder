@@ -167,33 +167,21 @@ export const damageFormulaFor = (quality, standardFormula) =>
       : standardFormula;
 
 /* -------------------------------------------- */
-/*  Crawler Combat Mode                         */
+/*  The optional combat rules                   */
 /* -------------------------------------------- */
 
 /**
- * Is Crawler Combat Mode on? (2026-10-02, user ask.) The `glogEnabled()` shape,
- * try/catch included for the same reason: this is read from
- * `prepareDerivedData`, which can run before settings are registered.
+ * Is one of the three optional combat rules on? (`exploding-damage-dice`,
+ * `fatigue-for-critical-damage`, `maneuver-on-max-melee`.)
+ *
+ * A plain read, NO MASTER (2026-10-03, user). For a day this was
+ * `crawlerOption`, which ANDed in a "Crawler Combat Mode" master; the master
+ * was removed and the three stand alone, off by default and never greyed. The
+ * try/catch stays: a card can render before settings are registered.
+ * @param {String} key  one of the three keys above
  * @return {Boolean}
  */
-export const crawlerCombat = () => {
-  try {
-    return !!game.settings.get(SETTINGS_NS, "crawler-combat-mode");
-  } catch {
-    return false;
-  }
-};
-
-/**
- * One of the hack's sub-options, which mean nothing unless the master is on —
- * so the master is ANDed in here rather than at each call site. The settings
- * app greys the rows out, but a stored `true` under a master that was later
- * switched off must not keep acting.
- * @param {String} key  a `crawler-*` sub-option key
- * @return {Boolean}
- */
-export const crawlerOption = (key) => {
-  if (!crawlerCombat()) return false;
+export const combatOption = (key) => {
   try {
     return !!game.settings.get(SETTINGS_NS, key);
   } catch {
@@ -207,8 +195,8 @@ const BARE_DIE = /^(\d*)d(\d+)$/i;
 const KEEP_DIE = /^(\d*)d(\d+)k[hl]?\d*$/i;
 
 /**
- * THE DIE A DAMAGE ROLL IS JUDGED ON — one recogniser for BOTH halves of
- * Crawler Combat Mode, so the exploding option and the maneuver option can
+ * THE DIE A DAMAGE ROLL IS JUDGED ON — one recogniser for BOTH dice options
+ * (exploding and maneuvers), so the exploding option and the maneuver option can
  * never disagree about which rolls qualify (user ruling 2026-10-03: "maneuvers
  * should parallel exploding dice").
  *
@@ -244,7 +232,7 @@ const KEEP_DIE = /^(\d*)d(\d+)k[hl]?\d*$/i;
  * MELEE-ONLY IS NOT DECIDED HERE. The one place the two options still differ
  * is that a ranged weapon never offers a maneuver (user ruling, same day: "I
  * don't want maneuvers to be available on ranged attack rolls"); that is the
- * `melee` argument of `crawlerDamageFormula` below, read off the item's
+ * `melee` argument of `combatDamageFormula` below, read off the item's
  * `ranged` field by each caller, because a formula cannot know what threw it.
  *
  * @param {String} formula
@@ -302,8 +290,8 @@ export const explodingDamageFormula = (formula) => {
 };
 
 /**
- * What a damage roll BECOMES under Crawler Combat Mode, and whether the card
- * should offer a maneuver — the ONE gate the three player-character damage
+ * What a damage roll BECOMES under the optional combat rules, and whether the
+ * card should offer a maneuver — the ONE gate the three player-character damage
  * sites read (`actor-sheet.js` `#onRollDamage` and `#onUnarmedAttack`,
  * `macros.js` `rollItemMacro`). It was spelled three times, and the d6 floor
  * had to be removed from all three on the same afternoon; a gate written once
@@ -334,13 +322,13 @@ export const explodingDamageFormula = (formula) => {
  * @param {Boolean} [o.melee] not a ranged weapon; the unarmed route is melee
  * @return {{formula: String, maneuver: Boolean}}
  */
-export const crawlerDamageFormula = (base, { pc = false, melee = true } = {}) => {
+export const combatDamageFormula = (base, { pc = false, melee = true } = {}) => {
   if (!pc) return { formula: base, maneuver: false };
   const judged = judgedDie(base);
-  const maneuver = melee && judged !== null && crawlerOption("crawler-maneuver-on-max");
+  const maneuver = melee && judged !== null && combatOption("maneuver-on-max-melee");
   if (maneuver) return { formula: judged.formula, maneuver: true };
   return {
-    formula: crawlerOption("crawler-exploding-damage") ? explodingDamageFormula(base) : base,
+    formula: combatOption("exploding-damage-dice") ? explodingDamageFormula(base) : base,
     maneuver: false,
   };
 };
@@ -740,8 +728,8 @@ export const d20CardFlavor = (kind, ability) => {
  * @param {Number} p.rolled
  * @param {Boolean} p.failed
  * @param {Boolean} p.crit   offer the Mark Critical Damage button
- * @param {Boolean} [p.fatigue]  also offer "Take a Fatigue instead" (Crawler
- *   Combat Mode). Rendered HERE and nowhere else: `localizeD20Card` replaces
+ * @param {Boolean} [p.fatigue]  also offer "Take a Fatigue instead" (the
+ *   Fatigue instead of Critical Damage option). Rendered HERE and nowhere else: `localizeD20Card` replaces
  *   `.message-content`'s whole innerHTML per viewer, so a button injected
  *   anywhere else is destroyed on the next render.
  */
@@ -768,7 +756,7 @@ export const d20CardBody = ({ formula, rolled, failed, crit, fatigue }) => {
   // maneuver pair's flex rule now also carries, so one rule lays out both pairs
   // rather than a copy that can drift.
   //
-  // A ROW OF ONE IS FINE: with Crawler Combat Mode off a crit card carries only
+  // A ROW OF ONE IS FINE: with the Fatigue option off a crit card carries only
   // Mark Critical Damage, and the wrapper then holds a single button.
   //
   // RETROACTIVE FOR FREE — `localizeD20Card` replaces `.message-content`'s whole
@@ -824,63 +812,6 @@ export const localizeD20Card = (message, html) => {
   // The flavor sits OUTSIDE .message-content, in the header core renders.
   const flavor = html.querySelector(".flavor-text");
   if (flavor) flavor.textContent = d20CardFlavor(kind, ability);
-  return true;
-};
-
-/**
- * The REST ROLL card's body (Crawler Combat Mode, 2026-10-03, user ask): a Rest
- * rolls one die the size of the character's maximum Hit Protection and keeps
- * it only if it beats what they have. The four numbers are the whole datum;
- * the sentence is chosen FROM them — `after > before` — and never from a stored
- * boolean, so a crafted flag cannot make the card contradict its own numbers.
- *
- * Same shape as `d20CardBody` above and for the same reasons: the dice block
- * is core's own markup so the roll reads like every other roll in the log, and
- * the whole body is rebuilt per viewer by `localizeRestCard` below, so nothing
- * stored can freeze a language.
- * @param {Object} p
- * @param {Number} p.faces   the die rolled, which is the maximum
- * @param {Number} p.rolled
- * @param {Number} p.before  Hit Protection before the rest
- * @param {Number} p.after   Hit Protection after it (the roll, or `before`)
- */
-export const restCardBody = ({ faces, rolled, before, after }) => {
-  const line = after > before
-    ? game.i18n.format("CAIRN.RestRollUp", { rolled, faces, before, after })
-    : game.i18n.format("CAIRN.RestRollStays", { rolled, faces, hp: before });
-  const f = `1d${faces}`;
-  return `<div class="dice-roll"><div class="dice-result"><div class="dice-formula">${f}</div>`
-    + `<div class="dice-tooltip" style="display: none;"><section class="tooltip-part"><div class="dice">`
-    + `<header class="part-header flexrow"><span class="part-formula">${f}</span></header>`
-    + `<ol class="dice-rolls"><li class="roll die d${faces}">${rolled}</li></ol></div></section></div>`
-    + `<h4 class="dice-total">${rolled}</h4></div></div>`
-    + `<p class="rest-roll-line">${foundry.utils.escapeHTML(line)}</p>`;
-};
-
-/**
- * Rebuild a stored rest-roll card in THIS viewer's language, from its flag
- * alone. `localizeD20Card`'s contract line for line: hidden stays hidden
- * (`isContentVisible` FIRST — a Private GM Roll must stay "rolled privately"
- * on a player's client), every number coerced and finite-gated, the die at
- * least a d1 and the after never below the before, because the flag is
- * player-authorable and never server-sanitized.
- * @param {ChatMessage} message
- * @param {HTMLElement} html
- * @returns {boolean} whether the body was rebuilt
- */
-export const localizeRestCard = (message, html) => {
-  if (!message?.isContentVisible) return false;
-  const raw = message?.getFlag?.("air-bladder", "restRoll");
-  if (!raw || typeof raw !== "object") return false;
-  const n = (v) => (Number.isFinite(Number(v)) ? Number(v) : null);
-  const faces = n(raw.faces), rolled = n(raw.rolled), before = n(raw.before), after = n(raw.after);
-  if ([faces, rolled, before, after].some((v) => v === null)) return false;
-  if (faces < 1 || after < before) return false;
-  const body = html.querySelector(".message-content");
-  if (!body) return false;
-  body.innerHTML = restCardBody({ faces, rolled, before, after });
-  const flavor = html.querySelector(".flavor-text");
-  if (flavor) flavor.textContent = game.i18n.localize("CAIRN.Rest");
   return true;
 };
 
