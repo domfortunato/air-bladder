@@ -127,6 +127,23 @@ export function watchdog(ms = 120000, label = "probe", cleanup = null) {
     // refuses outright). A timeout in one probe must not become a red in the
     // next four. Bounded, because the whole point is that something is stuck:
     // if the close does not come back in two seconds we exit anyway.
+    //
+    // THE CLEANUP IS NO LONGER THE CALLER'S TO REMEMBER (2026-10-03). It was an
+    // optional third argument, and 3 probes of 45 passed it — so for the other
+    // 42 the paragraph above described an intention rather than a behaviour, and
+    // the cost landed: `dev:enc-damage` timed out, left a Warden session parked,
+    // and the next probe's brokered-drop legs duplicated every item because the
+    // system's socket brokers answer once per SESSION (see
+    // `foundry-userconnected-activegm`). An hour went into the duplication
+    // before the parked session was suspected. Every browser that has joined
+    // through `joinAsGM`/`joinAs` is registered below and closed here, so the
+    // guarantee holds for probes that never knew about it.
+    try {
+      await Promise.race([
+        Promise.all([...joinedBrowsers].map((b) => b.close().catch(() => {}))),
+        new Promise((r) => setTimeout(r, 2000)),
+      ]);
+    } catch { /* exiting anyway */ }
     if (typeof cleanup === "function") {
       try {
         await Promise.race([
@@ -140,6 +157,22 @@ export function watchdog(ms = 120000, label = "probe", cleanup = null) {
   t.unref();
   return t;
 }
+
+/**
+ * Every browser a probe has joined the world through.
+ *
+ * Collected so the watchdog can close them without each probe passing a cleanup
+ * — see its comment for what the omission cost. A Set, because a probe joins
+ * several contexts of ONE browser (a GM page, a player page, a second Warden),
+ * and `browser.close()` takes the lot.
+ */
+const joinedBrowsers = new Set();
+
+/** Register the browser behind a page that is about to join the world. */
+const noteBrowser = (page) => {
+  const b = page?.context?.()?.browser?.();
+  if (b) joinedBrowsers.add(b);
+};
 
 /**
  * Run `fn` with one of the system's hooks unregistered, then put it back.
@@ -236,6 +269,7 @@ export function watchErrors(page) {
 
 /** Join the world as the first available user (the Gamemaster on a fresh world). */
 export async function joinAsGM(page) {
+  noteBrowser(page);
   await page.goto(`${FOUNDRY_URL}/join`, { waitUntil: "networkidle", timeout: 60000 });
 
   // Wait for the CONTROL, not the network — the join form is rendered
@@ -284,6 +318,7 @@ export async function joinAsGM(page) {
  * @param {String} name  a User name that already exists in the world
  */
 export async function joinAs(page, name) {
+  noteBrowser(page);
   await page.goto(`${FOUNDRY_URL}/join`, { waitUntil: "networkidle", timeout: 60000 });
   // The join form is rendered client-side, so it can still be absent at
   // networkidle. Wait for the control itself rather than the network.

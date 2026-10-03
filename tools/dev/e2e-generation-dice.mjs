@@ -47,6 +47,10 @@ try {
   const r = await withSettings(page, () => page.evaluate(async () => {
     const NS = "air-bladder";
     const out = { legs: {} };
+    // The HP formula this probe expects on the card ("1d6") is IGNORED under
+    // Crawler Combat Mode (2026-10-03), so the hack is pinned off rather than
+    // inherited from the world; withSettings puts it back.
+    await game.settings.set(NS, "crawler-combat-mode", false);
     const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
 
     // Stashed on window so the Node-level cleanup can find them even if this

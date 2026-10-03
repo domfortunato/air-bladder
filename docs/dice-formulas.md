@@ -11,7 +11,9 @@ formulas rather than a box to type in.
 **Every field that takes dice also takes a plain number.** Put `4` in the
 Hit Protection formula and every character has 4 Hit Protection; put `3` in
 the Warden's Damage field and it deals 3. A fixed amount is simply a
-formula with no dice in it, so there is nothing special to turn on.
+formula with no dice in it, so there is nothing special to turn on. (Under
+**Crawler Combat Mode** the Hit Protection formula is ignored altogether and
+every player character is made with 6.)
 
 ## The basics
 

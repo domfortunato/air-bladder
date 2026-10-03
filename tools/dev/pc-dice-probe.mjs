@@ -85,6 +85,11 @@ try {
     const NS = "air-bladder";
     const KEYS = ["pc-ability-dice", "pc-hp-formula", "pc-gold-dice"];
     const out = { tipRows: ["STR", "DEX", "WIL", "hp", "gold", "age"] };
+    // CRAWLER COMBAT MODE OVERRIDES THE HP FORMULA (2026-10-03): every leg
+    // below assumes the setting is READ, so the hack is pinned OFF here rather
+    // than inherited from whatever the world was left at — it also silences
+    // the bad-formula warning the fallback legs count. Its own leg is below.
+    await game.settings.set(NS, "crawler-combat-mode", false);
     const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
     const gen = await import("/systems/air-bladder/module/character-generator.js");
 
@@ -186,6 +191,16 @@ try {
     out.hpDefHigh = await hpAt(0.0001);
     await game.settings.set(NS, "pc-hp-formula", "4");
     out.hpFlat = [await hpAt(0.9999), await hpAt(0.0001)];
+    // Under the hack the setting is IGNORED and every player character is
+    // made with 6, through the ONE helper all three HP sites read — so the
+    // flat 4 above becomes 6 at both pins, and the formula the checklist's
+    // tooltip would name is "6". Read live: `crawlerCombat()` consults the
+    // setting per call, and the reload the master asks for is form-only.
+    await game.settings.set(NS, "crawler-combat-mode", true);
+    out.hpCrawler = [await hpAt(0.9999), await hpAt(0.0001)];
+    out.hpCrawlerFormula = gen.effectivePcHpFormula().formula;
+    await game.settings.set(NS, "crawler-combat-mode", false);
+    out.hpAfterCrawler = [await hpAt(0.9999), await hpAt(0.0001)];
 
     // --- 4. the three are independent, measured on ONE generated character --
     await game.settings.set(NS, "pc-ability-dice", "adventurer");
@@ -390,6 +405,12 @@ try {
   JSON.stringify(r.hpFlat) === JSON.stringify([4, 4])
     ? ok("...and a flat 4 is 4 at both pinned extremes")
     : fail(`a flat HP of "4" rolled ${JSON.stringify(r.hpFlat)}`);
+  JSON.stringify(r.hpCrawler) === JSON.stringify([6, 6]) && r.hpCrawlerFormula === "6"
+    ? ok(`under Crawler Combat Mode the formula is IGNORED: a flat 4 deals 6 at both pins, and the effective formula reads "${r.hpCrawlerFormula}"`)
+    : fail(`crawler HP: ${JSON.stringify(r.hpCrawler)} with formula ${JSON.stringify(r.hpCrawlerFormula)} — want [6, 6] and "6"`);
+  JSON.stringify(r.hpAfterCrawler) === JSON.stringify([4, 4])
+    ? ok("...and the setting is read again the moment the hack is off (4, 4)")
+    : fail(`after the hack: ${JSON.stringify(r.hpAfterCrawler)}, want [4, 4]`);
 
   // ---- 4. the three settings are independent ----------------------------
   const abOk = (r.genAbilities ?? []).length === 3 && r.genAbilities.every((v) => v >= 3 && v <= 18);

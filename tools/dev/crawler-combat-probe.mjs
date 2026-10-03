@@ -36,7 +36,7 @@
  * explodes for ever and core throws at depth 1000.
  */
 import { chromium } from "playwright";
-import { VIEWPORT, joinAsGM, watchErrors, withSettings } from "./lib.mjs";
+import { VIEWPORT, joinAsGM, joinAs, dismissChrome, watchErrors, withSettings } from "./lib.mjs";
 
 const browser = await chromium.launch();
 const page = await browser.newContext({ viewport: VIEWPORT }).then((c) => c.newPage());
@@ -136,12 +136,12 @@ try {
       plusSame: T("d6 + d6"), plusCount: T("2d6 + d6"),
       plusMixed: T("d6 + d8"),
       arithmetic: T("2d20 + 10"), already: T("1d6x"), empty: T(""),
-      // THE d6 FLOOR (user ruling 2026-10-02). These five rows are the ones this
-      // table never had, which is exactly why an impaired `1d4` shipped exploding
-      // in a16e42e0 with every leg green: a transform table with no d4 in it is a
-      // claim about the input space that leaves out the case that fires most.
-      // `1d5` pins the threshold as `< 6` rather than `<= 4`, so a nonstandard die
-      // cannot fall between "d4 or lower" and "d6 or larger".
+      // THE SUB-d6 ROWS, kept though the floor is gone. Added 2026-10-02 for a
+      // d6 floor, which the user REVERSED on 2026-10-03 ("including impaired
+      // attacks ... and attacks with dice smaller than a d6"); they now assert
+      // the reversal. A table without them is how the first ruling shipped
+      // unexamined: it had no d4 row at all, and the impaired `1d4` is the case
+      // that fires on every weapon in the game.
       d4: T("1d4"), d4bare: T("d4"), d4keep: T("2d4k"), d4plus: T("d4 + d4"),
       d5: T("1d5"),
       // ...and the enhanced die, which still explodes. The pair is the point:
@@ -155,6 +155,23 @@ try {
       out.made.push(a.id);
       return a;
     };
+    // THE PILE LEGS BELOW ASSERT A PILE MADE ON DEMAND, IN THE PARTY FOLDER, so
+    // they need a world with no pile in it — a precondition that must not be
+    // satisfiable by stale state, and one a leftover from an interrupted run
+    // quietly breaks (a pile at the root of the directory reds "in Party
+    // folder=false" with nothing saying why). Recorded rather than swept: a
+    // Warden's own pile is legitimate and is not this probe's to delete.
+    // IDS, not just a count (2026-10-03): the cleanup deletes every pile this
+    // run did not find here. It used to delete `pileId` alone, and the
+    // split-world leg below plants a SECOND pile whose random id wins the
+    // canonical election about half the time — the original is then merged
+    // into it and deleted by the repair, the cleanup deletes the original's id
+    // (already gone), and the planted "ZZ Second Floor" survives as an empty
+    // pile at the root, which reds the next run's three note legs and the
+    // "in Party folder" leg. Fails once, passes next: a coin flip, not a race.
+    const pileIdsAtStart = (game.actors?.filter((a) => a.getFlag(NS, "droppedItemPile")) ?? []).map((a) => a.id);
+    out.pileIdsAtStart = pileIdsAtStart;
+    out.pilesAtStart = pileIdsAtStart.length;
     const pc = await mk({ name: "ZZ Crawler PC", type: "character" });
     const monster = await mk({ name: "ZZ Crawler Monster", type: "npc", system: { role: "monster" } });
     const hire = await mk({ name: "ZZ Crawler Hireling", type: "npc", system: { role: "hireling" } });
@@ -194,6 +211,14 @@ try {
 
     await game.settings.set(NS, "crawler-combat-mode", true);
     await game.settings.set(NS, "crawler-exploding-damage", true);
+    // MANEUVER OFF, STATED. With it on, a melee d6+ attack rolls PLAIN and the
+    // card offers the choice — which is the shipped design, so these legs would
+    // read `1d6` and be RIGHT about a question they were not asking. The probe
+    // never set it here and passed only because the world's stored value
+    // happened to be false; a run killed partway through leaves it true and the
+    // next one reds on an unrelated leg. A precondition must be asserted, never
+    // inherited from whatever the last run left behind.
+    await game.settings.set(NS, "crawler-maneuver-on-max", false);
     out.pcRoll = await rollDamageVia(pc);
     out.monsterRoll = await rollDamageVia(monster);
 
@@ -329,14 +354,132 @@ try {
 
     const fatigueBefore = pc.items.filter((i) => i.name === "Fatigue").length;
     const usedBefore = pc.system.slotsUsed;
+    const itemsBefore = pc.items.size;
     rowOf(m1).querySelector(".take-fatigue-instead").click();
+    // SOMETHING GOES ON THE FLOOR FIRST (2026-10-02). The button opens a picker
+    // before it creates anything, so the Fatigue never lands until this is
+    // answered — which is exactly what three legs below went red on when the
+    // picker arrived and nothing here knew about it.
+    {
+      let dlg = null;
+      for (let i = 0; i < 60 && !dlg; i++) {
+        dlg = document.querySelector("dialog.dialog.cairn-drop-dialog");
+        if (!dlg) await sleep(150);
+      }
+      out.dropAsked = !!dlg;
+      // WHICH item is the player's choice, so the probe makes one: the first
+      // radio, whatever it is, and the name is carried so a failure names the
+      // thing that moved.
+      const picked = dlg?.querySelector('input[name="dropped"]:checked');
+      out.dropPickedId = picked?.value ?? null;
+      out.dropPickedName = pc.items.get(picked?.value ?? "")?.name ?? null;
+      dlg?.querySelector('button[data-action="drop"]')?.click();
+    }
     for (let i = 0; i < 40 && pc.items.filter((x) => x.name === "Fatigue").length === fatigueBefore; i++) await sleep(150);
-    await sleep(400);
+    await sleep(600);
     out.fatigueAdded = pc.items.filter((i) => i.name === "Fatigue").length - fatigueBefore;
+    // THE DROP LANDED IN THE PILE and left the character. One in, one out, so
+    // the item count is unchanged — which is a tighter test than either half
+    // alone, and it is what distinguishes a real move from a delete.
+    out.itemsNetZero = pc.items.size === itemsBefore;
+    out.droppedGone = !pc.items.get(out.dropPickedId ?? "");
+    {
+      const pile = game.actors.find((a) => a.getFlag("air-bladder", "droppedItemPile"));
+      out.pileMade = !!pile;
+      out.pileHasIt = !!pile?.items?.find((i) => i.name === out.dropPickedName);
+      out.pileInParty = pile?.folder?.getFlag("air-bladder", "partyFolder") === true;
+      // UNLIMITED, and read off the derived value rather than from the source
+      // `slots` the pile is created with (0): Infinity is what every capacity
+      // path actually consults.
+      out.pileUnlimited = pile?.system?.slotsMax === Infinity && pile?.isEncumbered() === false;
+      out.pileOwnership = pile?.ownership?.default ?? null;
+      // The chat record of the Fatigue drop, rebuilt per viewer from a flag.
+      const card = game.messages.contents.slice().reverse()
+        .find((m) => m.getFlag("air-bladder", "pileDrop"));
+      out.dropCard = card
+        ? { item: card.getFlag("air-bladder", "pileDrop")?.item ?? null,
+          text: String(card.content ?? "").replace(/<[^>]*>/g, " ").trim() }
+        : null;
+      out.pileId = pile?.id ?? null;
+    }
+
+    /* ---- the "where did you drop it" note ------------------------------- */
+    // A 25-character note taken at drop time and shown on the PILE's rows, so a
+    // Warden going down the list can tell the rope left at the bridge from the
+    // rope left in the crypt.
+    //
+    // THE TAGS ARE COUNTED AS RENDERED, never read off the flag. The partial
+    // gates them on `../withDropNote`, and a missing `../` fails SILENTLY with
+    // exactly the signature this file has already paid for twice: flag set, zero
+    // elements. Reading the flag would pass in that case.
+    {
+      const noteActor = await mk({ name: "ZZ Note PC", type: "character" });
+      await noteActor.createEmbeddedDocuments("Item", [
+        { name: "ZZ Note Rope", type: "item" },
+        { name: "ZZ Note Sack", type: "item" },
+        // Never dropped: it carries the flag directly, so the CHARACTER-sheet leg
+        // below has something a tag could render from if the gate were wrong.
+        { name: "ZZ Note Kept", type: "item",
+          flags: { [NS]: { droppedAt: "on their own sheet" } } },
+      ]);
+      // BY NAME, never by position (2026-10-03). This destructured the create's
+      // return as `[here, nowhere, kept]`, and the order the documents come back
+      // in is not the order they went in — so on the runs where "ZZ Note Kept"
+      // came back second, the BLANK drop moved the planted item instead: the
+      // pile then showed "ZZ Note Kept" wearing "on their own sheet" (its own
+      // planted flag travelling with it), the sack stayed on the character, and
+      // three legs went red. Green on the runs where the order happened to
+      // match, which is how it read as a race for a morning.
+      const here = noteActor.items.getName("ZZ Note Rope");
+      const nowhere = noteActor.items.getName("ZZ Note Sack");
+      const kept = noteActor.items.getName("ZZ Note Kept");
+      const { dropItemToPile } = await import("/systems/air-bladder/module/party-pile.js");
+      // AWAITED TO COMPLETION, each of them. A drop is several writes — the pile
+      // may have to be made, the item created, then deleted — and a fixed sleep
+      // read the state halfway through: "the blank one is not in the pile" looks
+      // exactly like "the blank one got no tag", which is the leg below.
+      for (const [item, place] of [[here, "under the bridge"], [nowhere, ""]]) {
+        await dropItemToPile(noteActor, item.id, place ? { place } : {});
+        for (let i = 0; i < 40 && noteActor.items.get(item.id); i++) await sleep(150);
+      }
+      await sleep(400);
+      const pile = game.actors.find((a) => a.getFlag(NS, "droppedItemPile"));
+      out.noteDerived = {
+        here: pile?.items.find((i) => i.name === "ZZ Note Rope")?.system?.droppedAt ?? null,
+        blank: pile?.items.find((i) => i.name === "ZZ Note Sack")?.system?.droppedAt ?? null,
+      };
+      // The PILE's own sheet: the tag is rendered, and only on the row that has one.
+      // POLLS FOR THE ROWS IT IS GOING TO READ. Rendering the sheet and clicking
+      // the Items tab are not the same thing as the rows being in the DOM, and a
+      // fixed wait made a missing row indistinguishable from an absent tag — which
+      // is the exact failure this leg is supposed to detect.
+      const readTags = async (actor, expect) => {
+        await actor.sheet.render(true);
+        for (let i = 0; i < 30 && !(actor.sheet.element instanceof HTMLElement); i++) await sleep(100);
+        actor.sheet.element?.querySelector('[data-action="tab"][data-tab="items"]')?.click();
+        const rows = () => actor.sheet.element?.querySelectorAll("[data-item-id]")?.length ?? 0;
+        for (let i = 0; i < 40 && rows() < expect; i++) await sleep(150);
+        await sleep(250);
+        const out2 = { rowCount: rows(), expected: expect };
+        for (const row of actor.sheet.element.querySelectorAll("[data-item-id]")) {
+          const name = actor.items.get(row.dataset.itemId)?.name;
+          if (!name) continue;
+          const tag = row.querySelector(".cairn-drop-tag");
+          out2[name] = tag ? tag.textContent.trim() : null;
+        }
+        await actor.sheet.close();
+        return out2;
+      };
+      // The pile holds at least the two just dropped; the character keeps the one
+      // that was never dropped.
+      out.pileTags = pile ? await readTags(pile, 2) : null;
+      out.charTags = await readTags(noteActor, 1);
+      out.noteKeptFlag = kept.system?.droppedAt ?? null;
+    }
     out.critAfterFatigue = pc._source.system.critical === true;
     out.afterFatigue = state(pc);
     out.usedGrew = pc.system.slotsUsed > usedBefore;
-    out.spentFlag = m1.getFlag("air-bladder", "crawlerChoiceTaken") === true;
+    out.spentFlag = m1.getFlag("air-bladder", "crawlerChoiceTaken") === "fatigue";
     // Both buttons sealed, and still sealed after a re-render.
     await ui.chat.render(true);
     await sleep(500);
@@ -352,7 +495,7 @@ try {
     rowOf(m2).querySelector(".mark-critical-damage").click();
     for (let i = 0; i < 40 && pc._source.system.critical !== true; i++) await sleep(150);
     await sleep(400);
-    out.critSpends = m2.getFlag("air-bladder", "crawlerChoiceTaken") === true;
+    out.critSpends = m2.getFlag("air-bladder", "crawlerChoiceTaken") === "critical";
     out.critSealedFatigue = rowOf(m2)?.querySelector(".take-fatigue-instead")?.disabled === true;
 
     // The option off: no button on a new card.
@@ -360,6 +503,188 @@ try {
     const m3 = await postSave(monster, false);
     out.noBtnWhenOff = !rowOf(m3)?.querySelector(".take-fatigue-instead");
     out.madeMsgs = [m1.id, m2.id, m3.id];
+
+    /* ---- 10b. THE BARGAIN: refuse, Escape, and what the picker offers ---- */
+    // The Fatigue is BOUGHT with an item now, and declining to pay costs the save
+    // (user ruling, reversing "cancel backs out of the whole thing"). Each case
+    // gets its own character and its own card, because every one of them ends with
+    // a spent choice and a changed inventory.
+    await game.settings.set(NS, "crawler-fatigue-for-critical", true);
+    const bargain = {};
+    const pcWith = async (name, items) => {
+      const a = await mk({ name, type: "character" });
+      if (items.length) await a.createEmbeddedDocuments("Item", items);
+      await sleep(250);
+      return a;
+    };
+    const ORD = { name: "ZZ Plain", type: "item" };
+    const PETTY = { name: "ZZ Trinket", type: "item", system: { weightless: true } };
+    const BULKY = { name: "ZZ Ladder", type: "item", system: { bulky: true } };
+    const TORCH = { name: "ZZ Torch", type: "item", system: { uses: { value: 2, max: 3 } } };
+    // Open the picker from a real card and hand back the dialog.
+    const openPicker = async (actor) => {
+      const m = await postSave(actor, true);
+      out.made2.push(m.id);
+      rowOf(m)?.querySelector(".take-fatigue-instead")?.click();
+      let dlg = null;
+      for (let i = 0; i < 60 && !dlg; i++) {
+        dlg = document.querySelector("dialog.dialog.cairn-drop-dialog");
+        if (!dlg) await sleep(150);
+      }
+      return { m, dlg };
+    };
+    const rowsOf = (dlg) => [...(dlg?.querySelectorAll(".cairn-drop-list label") ?? [])]
+      .map((l) => l.textContent.trim());
+
+    // THE PAIR SIDE BY SIDE. It had no CSS at all, so two block-level buttons
+    // stacked — and a column reads as a list of things to do in order.
+    {
+      const a = await pcWith("ZZ Barg Row", [ORD]);
+      const m = await postSave(a, true);
+      out.made2.push(m.id);
+      const wrap = rowOf(m)?.querySelector(".dmg-choice-row");
+      const f = rowOf(m)?.querySelector(".take-fatigue-instead");
+      const c = rowOf(m)?.querySelector(".mark-critical-damage");
+      bargain.row = wrap && f && c
+        ? { display: getComputedStyle(wrap).display,
+          sameTop: Math.abs(f.getBoundingClientRect().top - c.getBoundingClientRect().top) < 2,
+          differentLeft: Math.abs(f.getBoundingClientRect().left - c.getBoundingClientRect().left) > 2 }
+        : null;
+    }
+
+    // REFUSED by the named button: the Critical Damage is APPLIED, no Fatigue is
+    // created, the pair is sealed and the tick is on the control nobody pressed.
+    {
+      const a = await pcWith("ZZ Barg Refuse", [ORD]);
+      const { m, dlg } = await openPicker(a);
+      bargain.refuseAsked = !!dlg;
+      bargain.refuseBtnLabel = dlg?.querySelector('button[data-action="critical"]')?.textContent.trim() ?? null;
+      dlg?.querySelector('button[data-action="critical"]')?.click();
+      await sleep(1200);
+      bargain.refuse = {
+        critical: a._source.system.critical === true,
+        fatigues: a.items.filter((i) => i.system?.isFatigue).length,
+        stillHasItem: !!a.items.find((i) => i.name === "ZZ Plain"),
+        flag: m.getFlag(NS, "crawlerChoiceTaken") ?? null,
+        sealedBoth: rowOf(m)?.querySelector(".take-fatigue-instead")?.disabled === true
+          && rowOf(m)?.querySelector(".mark-critical-damage")?.disabled === true,
+        tickOnCrit: !!rowOf(m)?.querySelector(".mark-critical-damage .fa-check"),
+        tickOnFatigue: !!rowOf(m)?.querySelector(".take-fatigue-instead .fa-check"),
+      };
+    }
+
+    // ESCAPE IS NOT A REFUSAL — the guard. Only the named button refuses; a
+    // dialog dismissed by accident must leave the card exactly as it was.
+    {
+      const a = await pcWith("ZZ Barg Escape", [ORD]);
+      const { m, dlg } = await openPicker(a);
+      bargain.escapeAsked = !!dlg;
+      // The window's own close, which is what Escape reaches.
+      foundry.applications.instances.get(dlg?.id)?.close();
+      await sleep(1200);
+      bargain.escape = {
+        critical: a._source.system.critical === true,
+        fatigues: a.items.filter((i) => i.system?.isFatigue).length,
+        flag: m.getFlag(NS, "crawlerChoiceTaken") ?? null,
+        liveBoth: rowOf(m)?.querySelector(".take-fatigue-instead")?.disabled === false
+          && rowOf(m)?.querySelector(".mark-critical-damage")?.disabled === false,
+      };
+    }
+
+    // TAKING IT: the tick goes on the Fatigue button, and with the first Fatigue
+    // free the whole bargain NETS TO ZERO — one thing down, one Fatigue on.
+    {
+      // WITH A FATIGUE ALREADY ON BOARD, which is the case the free-first rule
+      // exists for: the one being taken is the SECOND, so it costs a real slot,
+      // and dropping one thing pays for it exactly. (Taking a FIRST Fatigue is
+      // free, so that case ends one slot BETTER off, not level -- a distinction
+      // worth fixing the fixture for rather than loosening the assertion.)
+      const a = await pcWith("ZZ Barg Take", [ORD, { name: "Fatigue", type: "item" }]);
+      const usedBefore2 = a.system.slotsUsed;
+      const { m, dlg } = await openPicker(a);
+      dlg?.querySelector('button[data-action="drop"]')?.click();
+      // POLLED, not slept: the bargain is a drop (which may create the pile and
+      // post a card) followed by the Fatigue and the flag, and a fixed wait read
+      // the state halfway through — "dropped, no Fatigue yet" looks exactly like
+      // a broken feature.
+      for (let i = 0; i < 60 && !m.getFlag(NS, "crawlerChoiceTaken"); i++) await sleep(200);
+      await sleep(500);
+      bargain.take = {
+        critical: a._source.system.critical === true,
+        fatigues: a.items.filter((i) => i.system?.isFatigue).length,
+        gone: !a.items.find((i) => i.name === "ZZ Plain"),
+        usedBefore: usedBefore2, usedAfter: a.system.slotsUsed,
+        flag: m.getFlag(NS, "crawlerChoiceTaken") ?? null,
+        tickOnFatigue: !!rowOf(m)?.querySelector(".take-fatigue-instead .fa-check"),
+        tickOnCrit: !!rowOf(m)?.querySelector(".mark-critical-damage .fa-check"),
+      };
+    }
+
+    // A LEGACY CARD carries `true` and is left alone: sealed, quiet, NO check,
+    // because a default would silently mislabel history on exactly the cards
+    // nothing ever repairs.
+    {
+      const a = await pcWith("ZZ Barg Legacy", [ORD]);
+      const m = await postSave(a, true);
+      out.made2.push(m.id);
+      await m.setFlag(NS, "crawlerChoiceTaken", true);
+      await ui.chat.render(true);
+      await sleep(700);
+      bargain.legacy = {
+        sealed: rowOf(m)?.querySelector(".take-fatigue-instead")?.disabled === true,
+        anyTick: !!rowOf(m)?.querySelector(".dmg-choice-row .fa-check"),
+      };
+    }
+
+    // WHAT THE PICKER OFFERS. Petty is excluded UNCONDITIONALLY, so the same
+    // exclusion is read twice: once on a character who IS overburdened and once on
+    // one who is not. A condition on `isEncumbered()` would pass the first and
+    // fail the second, which is the only thing that tells the two designs apart.
+    {
+      // TEN fillers, not nine: with the first Fatigue free, nine plus a Fatigue is
+      // nine slots and this character would not be overburdened at all — which is
+      // the arithmetic Unit D changed, and the reason this fixture had to be
+      // recounted rather than copied from the old one.
+      const filler = Array.from({ length: 10 }, (_, i) => ({ name: `ZZ Fill ${i}`, type: "item" }));
+      const a = await pcWith("ZZ Barg Full", [...filler, PETTY, { name: "Fatigue", type: "item" }]);
+      const { dlg } = await openPicker(a);
+      bargain.fullRows = rowsOf(dlg);
+      bargain.fullEncumbered = a.isEncumbered();
+      bargain.fullNote = !!dlg?.querySelector(".cairn-drop-petty-note");
+      foundry.applications.instances.get(dlg?.id)?.close();
+      await sleep(600);
+    }
+    {
+      const a = await pcWith("ZZ Barg Light", [ORD, PETTY]);
+      const { dlg } = await openPicker(a);
+      bargain.lightRows = rowsOf(dlg);
+      bargain.lightEncumbered = a.isEncumbered();
+      foundry.applications.instances.get(dlg?.id)?.close();
+      await sleep(600);
+    }
+    // A SECOND Fatigue costs a real slot, and is STILL not offered: the exclusion
+    // is of Fatigue AS Fatigue, never via pettiness, which a pettiness-only
+    // implementation fails here.
+    {
+      const a = await pcWith("ZZ Barg TwoFat",
+        [ORD, { name: "Fatigue", type: "item" }, { name: "Fatigue", type: "item" }]);
+      const { dlg } = await openPicker(a);
+      bargain.twoFatRows = rowsOf(dlg);
+      foundry.applications.instances.get(dlg?.id)?.close();
+      await sleep(600);
+    }
+    // THE LABELS: a number and never the word "bulky", uses where there are any,
+    // and no `x3` anywhere.
+    {
+      const a = await pcWith("ZZ Barg Labels", [BULKY, TORCH]);
+      const { dlg } = await openPicker(a);
+      bargain.labelRows = rowsOf(dlg);
+      bargain.dialogText = dlg?.textContent ?? "";
+      bargain.labelNote = !!dlg?.querySelector(".cairn-drop-petty-note");
+      foundry.applications.instances.get(dlg?.id)?.close();
+      await sleep(600);
+    }
+    out.bargain = bargain;
 
     /* ---- 11. Part 2: every explosion is announced on the card ------------ */
     // THE KEYSTONE FIRST, and read back off the STORED message rather than the
@@ -421,12 +746,16 @@ try {
 
     /* ---- 12. Part 3: maneuver on max melee damage ------------------------ */
     // Fixtures the shipped content cannot supply: a melee d4 weapon (no shipped
-    // melee weapon is sub-d6, so a probe using only shipped gear would assert the
-    // floor against nothing) and an explicitly ranged one.
+    // melee weapon is sub-d6, so a probe using only shipped gear could not show
+    // the smallest die being offered everything the d10 is) and an explicitly
+    // ranged one.
     await pc.createEmbeddedDocuments("Item", [
       { name: "ZZ Ranged Bow", type: "weapon", system: { damageFormula: "d6", equipped: false, ranged: true } },
       { name: "ZZ Tiny Blade", type: "weapon", system: { damageFormula: "d4", equipped: false } },
       { name: "ZZ Big Blade", type: "weapon", system: { damageFormula: "d10", equipped: false } },
+      // The one `+` shape the packs ship (a single d6+d6 weapon): the pool the
+      // maneuver rule gained on 2026-10-03.
+      { name: "ZZ Twin Blades", type: "weapon", system: { damageFormula: "d6 + d6", equipped: false } },
     ]);
     const equipOnly = async (name) => {
       const ups = pc.items.filter((i) => i.type === "weapon")
@@ -443,8 +772,9 @@ try {
       // THE PIN IS PER ROLL, and that is not a tidy-up. One pin around the whole
       // block shares its counter, so only the FIRST roll in it lands on the
       // maximum and every later leg rolls a 1 — which makes "offers no maneuver"
-      // trivially true for the ranged, d4 and impaired legs and passes them for
-      // the wrong reason. Max first, low after: the maximum is the precondition
+      // trivially true for the ranged leg, and "offers both" false for the d4
+      // and impaired legs, each for the wrong reason. Max first, low after: the
+      // maximum is the precondition
       // every one of these legs needs, and the low values terminate the chain on
       // the rows whose formula really does carry x (a flat pin at the maximum
       // throws at recursion depth 1000 rather than capping).
@@ -500,12 +830,18 @@ try {
       out.mvBoth = await rollWeapon(pc, "ZZ Big Blade");
       // RANGED: no maneuver, and it auto-explodes -- the two halves of the gate.
       out.mvRanged = await rollWeapon(pc, "ZZ Ranged Bow");
-      // THE FLOOR, melee d4: neither offers nor explodes.
+      // NO FLOOR (user ruling 2026-10-03, reversing the d6 floor of the day
+      // before): a melee d4 is rolled plain and offers BOTH buttons, the mvBoth
+      // shape on the smallest die.
       out.mvD4 = await rollWeapon(pc, "ZZ Tiny Blade");
-      // THE FLOOR VIA IMPAIRED, on a d10 weapon -- the case that actually fires,
-      // and the one that proves the test reads the POST-quality formula. Judged on
-      // the weapon it would both explode and offer.
+      // IMPAIRED, on a d10 weapon -- the case that actually fires, and the one
+      // that proves the test reads the POST-quality formula: a plain 1d4, both
+      // buttons. Judged on the weapon it would read d10.
       out.mvImpaired = await rollWeapon(pc, "ZZ Big Blade", "impaired");
+      // A `+` POOL joins the maneuver rule ("maneuvers should parallel exploding
+      // dice"): `d6 + d6` is rolled as its keep form `2d6k`, ONE Die term the
+      // card can judge, and offers both.
+      out.mvPlus = await rollWeapon(pc, "ZZ Twin Blades");
       // ENHANCED is a d12 and stays in.
       out.mvEnhanced = await rollWeapon(pc, "ZZ Big Blade", "enhanced");
       // A MONSTER never offers.
@@ -516,6 +852,9 @@ try {
       // Maneuver OFF, exploding ON: back to auto-explode with no buttons.
       await game.settings.set(NS, "crawler-maneuver-on-max", false);
       out.mvOptionOff = await rollWeapon(pc, "ZZ Big Blade");
+      // ...and NO FLOOR on that half either: a melee d4 auto-explodes at roll
+      // time with the maneuver option off, the leg no run had before 2026-10-03.
+      out.mvD4Off = await rollWeapon(pc, "ZZ Tiny Blade");
       await game.settings.set(NS, "crawler-maneuver-on-max", true);
 
       // Maneuver ON, exploding OFF: Maneuver alone, no Explode button.
@@ -548,6 +887,42 @@ try {
         out.dsnCalls = [];
         throw new Error("SKIP_EXPLODE");
       }
+      // THE PAIR'S LOOK, read off the LIVE card before the click seals it, and
+      // in BOTH interface schemes. The dark pass is the only discriminating
+      // half: the chat tile is parchment either way, so a token that re-points
+      // for dark (--ab-amber does; the pinned --ab-maneuver-chat does not) is
+      // indistinguishable from the right one in light mode — which is where it
+      // would be written. Apply is read here too, because it must be ABSENT
+      // while the choice is pending.
+      {
+        const glow = (cs) => (cs.textShadow.match(/rgba?\([^)]*\)/) ?? [null])[0];
+        const readPair = () => {
+          const e = row()?.querySelector(".explode-the-die");
+          const m = row()?.querySelector(".take-maneuver");
+          if (!e || !m) return null;
+          const ecs = getComputedStyle(e), mcs = getComputedStyle(m);
+          const wrap = row()?.querySelector(".dmg-maneuver-choice");
+          return {
+            explodeBorder: ecs.borderTopColor, explodeGlow: glow(ecs),
+            maneuverBorder: mcs.borderTopColor, maneuverGlow: glow(mcs),
+            // Side by side: one flex row, so the two buttons share a top edge.
+            display: wrap ? getComputedStyle(wrap).display : null,
+            sameRow: !!e && !!m
+              && Math.abs(e.getBoundingClientRect().top - m.getBoundingClientRect().top) < 2,
+            applyPresent: !!row()?.querySelector(".apply-dmg"),
+            maneuverLabel: m.textContent.trim(),
+            ticks: { explode: !!e.querySelector(".fa-check"), maneuver: !!m.querySelector(".fa-check") },
+          };
+        };
+        out.pairLight = readPair();
+        try {
+          await setScheme("dark");
+          out.pairDark = readPair();
+        } finally {
+          game.configureUI(game.settings.get("core", "uiConfig"));
+          await sleep(400);
+        }
+      }
       // The chain rolls 6 then a low value, so it stops: pinned mid-click.
       const o2 = CONFIG.Dice.randomUniform;
       let k = 0;
@@ -572,6 +947,20 @@ try {
         explode: row()?.querySelector(".explode-the-die")?.disabled === true,
         maneuver: row()?.querySelector(".take-maneuver")?.disabled === true,
       };
+      // ONCE DECIDED: no glow on either, and a check on the one that was taken.
+      // The tick is drawn from the FLAG per viewer, so this also measures that
+      // the rebuild knows WHICH was pressed and not merely that something was.
+      {
+        const e = row()?.querySelector(".explode-the-die");
+        const m = row()?.querySelector(".take-maneuver");
+        out.sealedLook = e && m ? {
+          explodeGlow: getComputedStyle(e).textShadow,
+          maneuverGlow: getComputedStyle(m).textShadow,
+          explodeTick: !!e.querySelector(".fa-check"),
+          maneuverTick: !!m.querySelector(".fa-check"),
+          applyBack: !!row()?.querySelector(".apply-dmg"),
+        } : null;
+      }
       out.dsnCalls = dsnCalls;
     } catch (e) {
       if (e?.message !== "SKIP_EXPLODE") throw e;
@@ -607,12 +996,12 @@ try {
     out.maneuverStillManeuver = game.messages.get(card2.id).getFlag(NS, "maneuverChoice");
     }
 
-    /* ---- 14. the Improvised Attack button ------------------------------- */
-    // Driven through the REAL sheet button and the REAL dialog, because the
+    /* ---- 14. the Unarmed Attack row ------------------------------------- */
+    // Driven through the REAL inventory row and the REAL dialog, because the
     // whole point of this control is that it has no item behind it: a probe that
-    // called the handler directly would not prove the button exists, is enabled,
-    // or reaches the dialog at all.
-    const improvise = async (actor, { description = "", formula = null, quality = "standard" } = {}) => {
+    // called the handler directly would not prove the row exists, is reachable,
+    // or opens anything.
+    const improvise = async (actor, { description = "", formula = null } = {}) => {
       // Per roll, max first then low -- the maximum is the precondition the
       // maneuver legs need, and the low values terminate any chain on the rows
       // whose formula really does carry x.
@@ -624,28 +1013,95 @@ try {
         await actor.sheet.render(true);
         for (let i = 0; i < 30 && !(actor.sheet.element instanceof HTMLElement); i++) await sleep(100);
         await sleep(300);
-        const btn = actor.sheet.element?.querySelector("#improvised-attack-button");
-        if (!btn) { await actor.sheet.close(); return { err: "no Improvised Attack button" }; }
-        if (btn.disabled) { await actor.sheet.close(); return { err: "button disabled" }; }
-        btn.click();
+        // THE ROW IS ON THE ITEMS TAB, so the tab is opened explicitly rather
+        // than relied on. A person sheet's initial tab IS Items, which is
+        // precisely why not clicking it would let this leg pass on a default
+        // that a later ruling could change without anything here noticing.
+        actor.sheet.element?.querySelector('[data-action="tab"][data-tab="items"]')?.click();
+        await sleep(250);
+        const ctrl = actor.sheet.element?.querySelector('[data-action="unarmedAttack"]');
+        if (!ctrl) { await actor.sheet.close(); return { err: "no Unarmed Attack control" }; }
+        // The row itself, and that it is not an item: a trash can on this row
+        // would mean somebody had made it a document.
+        const unarmedRow = ctrl.closest(".unarmed-row");
+        const rowShape = {
+          isRow: !!unarmedRow,
+          tag: ctrl.tagName,
+          deletable: !!unarmedRow?.querySelector('[data-action="itemDelete"]'),
+          droppable: !!unarmedRow?.querySelector('[data-action="itemDrop"]'),
+          glyphs: [...ctrl.querySelectorAll("i")].map((i) => i.className).join(" "),
+        };
+        // THE DIE MUST SIT ON THE LINE ITS NEIGHBOURS SIT ON. Measured on an
+        // ORDINARY item row, where the helper-written `fa-solid` die stands
+        // beside hand-written `fas` controls: the stylesheet rule was keyed to
+        // `.fas` alone, so the die took the browser's line-height and rode high
+        // in a box that already shared its neighbours' top edge. Read as computed
+        // style AND as geometry, because the boxes matching was what ruled out
+        // flex alignment and sent the search to the rule.
+        const anyRow = [...(actor.sheet.element?.querySelectorAll(".cairn-item-controls") ?? [])]
+          .find((c) => c.querySelector("a.roll-control i") && c.querySelector('[data-action="itemDelete"] i'));
+        if (anyRow) {
+          const die = anyRow.querySelector("a.roll-control i");
+          const bin = anyRow.querySelector('[data-action="itemDelete"] i');
+          const box = (el) => el.getBoundingClientRect();
+          rowShape.align = {
+            dieClass: die.className,
+            binClass: bin.className,
+            dieLine: getComputedStyle(die).lineHeight,
+            binLine: getComputedStyle(bin).lineHeight,
+            // TOP EDGES, not centres. Measured across all four states: the
+            // glyph centres sit within 0px whether or not the rule applies, so
+            // `midGap` cannot tell the states apart and asserting it would be a
+            // leg that always passes. With `align-items: center` shipped on the
+            // control, a short line-height moves the die's box down 6px, which
+            // this does see.
+            topGap: Math.abs(box(die).top - box(bin).top),
+          };
+          // ONE MARK PER CONTROL ON A ROW, asserted as the RULE. Nothing caught
+          // Give and Drop rendering the same hand because nothing ever asked:
+          // the two were byte-identical in the partial, one row apart. The family
+          // prefix is dropped, since `fas` and `fa-solid` are the same font.
+          const marks = [...anyRow.querySelectorAll("a > i")]
+            .map((i) => [...i.classList].find((c) => c.startsWith("fa-") && c !== "fa-solid"))
+            .filter(Boolean);
+          rowShape.marks = marks;
+          rowShape.uniqueMarks = new Set(marks).size;
+          // A MISSPELLED FA CLASS RENDERS AN EMPTY BOX WITH NO ERROR, so the
+          // glyph is read as rendered content and never from the class list —
+          // this build is FA5-era, and the modern spelling of this very arrow
+          // (`fa-arrow-down-to-line`) is absent from the shipped font.
+          const dropI = anyRow.querySelector('[data-action="itemDrop"] i');
+          rowShape.dropGlyph = dropI
+            ? { cls: dropI.className,
+              content: getComputedStyle(dropI, "::before").content }
+            : null;
+        }
+        ctrl.click();
 
         let dlg = null;
         for (let i = 0; i < 80 && !dlg; i++) {
-          dlg = document.querySelector("dialog.dialog.cairn-improvised-dialog");
+          dlg = document.querySelector("dialog.dialog.cairn-unarmed-dialog");
           if (!dlg) await sleep(150);
         }
-        if (!dlg) { await actor.sheet.close(); return { err: "no improvised dialog" }; }
+        if (!dlg) { await actor.sheet.close(); return { err: "no unarmed dialog", rowShape }; }
 
-        // What the dialog OFFERS is half the measurement -- a panicked actor must
-        // get no formula field and no quality buttons at all.
+        // WHAT THE DIALOG OFFERS IS HALF THE MEASUREMENT. Two fields and two
+        // buttons: the dice builder and the three quality buttons were removed
+        // by ruling, and their ABSENCE is asserted rather than assumed, because
+        // a stale template would put them back in silence. The formula field is
+        // present even when panicked -- panic overrides the value, it does not
+        // take the field away.
         const fField = dlg.querySelector('input[name="formula"]');
         const shape = {
           hasDescription: !!dlg.querySelector('input[name="description"]'),
           hasFormula: !!fField,
+          formulaStart: fField?.value ?? null,
           hasBuilder: !!dlg.querySelector(".wd-dice-builder"),
-          hasStandard: !!dlg.querySelector('button[data-action="standard"]'),
+          hasQuality: !!dlg.querySelector('button[data-action="standard"]')
+            || !!dlg.querySelector('button[data-action="enhanced"]'),
           hasRoll: !!dlg.querySelector('button[data-action="roll"]'),
-          standardLabel: dlg.querySelector('button[data-action="standard"]')?.textContent.trim() ?? null,
+          hasCancel: !!dlg.querySelector('button[data-action="cancel"]'),
+          panicNote: dlg.querySelector(".cairn-unarmed-panic")?.textContent.trim() ?? null,
         };
 
         const dField = dlg.querySelector('input[name="description"]');
@@ -653,15 +1109,11 @@ try {
         if (fField && formula !== null) {
           fField.value = formula;
           fField.dispatchEvent(new Event("input", { bubbles: true }));
-          await sleep(200);
-          // Re-read AFTER typing: the Standard button must relabel itself from
-          // the live field, or the dialog advertises a die it will not roll.
-          shape.standardLabelAfter =
-            dlg.querySelector('button[data-action="standard"]')?.textContent.trim() ?? null;
+          await sleep(150);
         }
 
-        const go = dlg.querySelector(`button[data-action="${shape.hasRoll ? "roll" : quality}"]`);
-        if (!go) { await actor.sheet.close(); return { err: `no ${quality} button`, shape }; }
+        const go = dlg.querySelector('button[data-action="roll"]');
+        if (!go) { await actor.sheet.close(); return { err: "no Roll Damage button", shape, rowShape }; }
         go.click();
 
         let msg = null;
@@ -671,12 +1123,16 @@ try {
           if (!msg) await sleep(200);
         }
         await actor.sheet.close();
-        if (!msg) return { err: "no message", shape };
+        if (!msg) return { err: "no message", shape, rowShape };
         out.made2.push(msg.id);
         await sleep(400);
         const row = document.querySelector(`[data-message-id="${msg.id}"]`);
         return {
           shape,
+          rowShape,
+          // Apply is WITHHELD while a choice is pending, so whether the control
+          // is on the card is part of what this leg reports.
+          applyBtn: !!row?.querySelector(".apply-dmg"),
           id: msg.id,
           // WHAT THE CLAIMED MESSAGE ACTUALLY IS, carried so a failure names it
           // instead of just reporting a null formula. It is what identified the
@@ -686,6 +1142,9 @@ try {
             content: String(msg.content ?? "").replace(/<[^>]*>/g, " ").trim().slice(0, 70) },
           formula: msg.rolls?.[0]?.formula ?? null,
           line: row?.querySelector(".dmg-label")?.textContent.trim() ?? null,
+          // The card's own attributes, so a sentence failure names the datum it
+          // was rebuilt from instead of only the text that came out.
+          labelData: { ...(row?.querySelector(".dmg-label")?.dataset ?? {}) },
           datum: !!row?.querySelector("[data-maneuver]"),
           explodeBtn: !!row?.querySelector(".explode-the-die"),
           maneuverBtn: !!row?.querySelector(".take-maneuver"),
@@ -699,17 +1158,58 @@ try {
     await game.settings.set(NS, "crawler-exploding-damage", true);
     await game.settings.set(NS, "crawler-maneuver-on-max", true);
 
-    // A d6 clears the floor: with a maneuver on offer the die does NOT explode at
-    // roll time, and the card asks which.
+    // With a maneuver on offer the die does NOT explode at roll time, and the
+    // card asks which.
     out.impD6 = await improvise(pc, { description: "a chair leg", formula: "d6" });
-    // A d4 does not: no explosion, no maneuver -- the floor, reached by a route
-    // that has no item anywhere in it.
+    // A d4 the same (no floor since 2026-10-03), reached by a route that has no
+    // item anywhere in it.
     out.impD4 = await improvise(pc, { description: "my fists", formula: "d4" });
     // The TYPED formula is what gets rolled, not the 1d4 the field starts on.
     out.impD10 = await improvise(pc, { description: "a rock", formula: "d10" });
-    // Blank description: the card falls back to the sentence for a roll that
-    // names nothing, rather than showing a dangling "with ".
+    // Blank description: the card NAMES THE ATTACK ITSELF. Before this it
+    // rendered an empty `.dmg-label` -- a damage roll with no sentence at all --
+    // and this leg passed anyway, because it asserted only that the line did not
+    // end in a dangling "with " and "" satisfies that. The expected sentences
+    // are localized IN-PAGE so the leg survives a translation instead of pinning
+    // an English literal.
+    out.expect = {
+      unarmed: game.i18n.localize("CAIRN.RollingDmgUnarmed"),
+      unarmedPanic: game.i18n.localize("CAIRN.RollingDmgUnarmedPanic"),
+    };
     out.impBlank = await improvise(pc, { description: "", formula: "d6" });
+
+    // THE TARGETED SENTENCE, BOTH HALVES. This probe has no scene machinery of
+    // its own, so a foe is placed and TARGETED the way `#onUnarmedAttack` reads
+    // its targets -- not the canvas selection, which is a different signal. Both
+    // halves are rolled because the contrast is the whole measurement: a blank
+    // field must reach the unarmed key and typed text must still reach the
+    // weapon key, and one arm always winning would pass either leg alone.
+    {
+      const foe = await mk({
+        name: "ZZ Unarmed Foe", type: "npc",
+        system: { role: "monster", hp: { value: 9, max: 9 }, armor: 0 },
+      });
+      const scene = await Scene.create({ name: "ZZ Unarmed Scene", width: 1000, height: 1000 });
+      out.sceneId = scene.id;
+      const [tok] = await scene.createEmbeddedDocuments(
+        "Token", [await foe.getTokenDocument({ x: 100, y: 100 })]);
+      await scene.view();
+      await sleep(600);
+      tok.object?.setTarget(true, { releaseOthers: true });
+      await sleep(200);
+      out.tgtCount = game.user.targets.size;
+      // Formatted in-page through the same helpers the rebuild uses, so the leg
+      // reads a sentence rather than an English literal.
+      const names = game.i18n.getListFormatter().format([tok.name]);
+      out.expect.tgtUnarmed = game.i18n.format("CAIRN.AttacksTargetUnarmed",
+        { attacker: pc.name, target: names, weapon: "" });
+      out.expect.tgtWeapon = game.i18n.format("CAIRN.AttacksTargetWeapon",
+        { attacker: pc.name, target: names, weapon: "a chair leg" });
+      out.impTgtBlank = await improvise(pc, { description: "", formula: "d6" });
+      out.impTgtTyped = await improvise(pc, { description: "a chair leg", formula: "d6" });
+      game.user.targets.forEach((t) => t.setTarget(false, { releaseOthers: false }));
+      await sleep(200);
+    }
 
     // A MONSTER never explodes, though the Warden may press the button.
     await game.settings.set(NS, "crawler-maneuver-on-max", false);
@@ -718,12 +1218,23 @@ try {
     out.impAutoExplode = await improvise(pc, { description: "a chair leg", formula: "d6" });
     await game.settings.set(NS, "crawler-maneuver-on-max", true);
 
-    // PANICKED: no formula field, no quality buttons, and 1d4 whatever is typed.
+    // PANICKED: the field is STILL THERE and still editable, a note says the
+    // override is coming, and `d10` typed into it still rolls 1d4. The typed
+    // value is deliberately a big die, so a leg that merely read "1d4" could not
+    // pass by the field having been removed and defaulted.
+    // RESTORED TO WHAT IT WAS, never hardcoded back to false. `use-panic`
+    // DEFAULTS TO TRUE, so setting false here left the dev world one reload away
+    // from a character sheet with no Panicked checkbox at all -- and
+    // `dev:ui-parity`, which assumes the world sits at defaults, duly went red on
+    // `.panicked-check` missing. `withSettings` repairs this at the end of a
+    // COMPLETE run; a run that is interrupted leaves the world broken for the
+    // next probe, which is a bill the next person pays.
+    const panicWas = game.settings.get(NS, "use-panic");
     await game.settings.set(NS, "use-panic", true);
     await pc.update({ "system.panicked": true });
-    out.impPanicked = await improvise(pc, { description: "my fists" });
+    out.impPanicked = await improvise(pc, { description: "my fists", formula: "d10" });
     await pc.update({ "system.panicked": false });
-    await game.settings.set(NS, "use-panic", false);
+    await game.settings.set(NS, "use-panic", panicWas);
 
     // THE OWNERSHIP GATE, both halves. The probe runs as the Warden, who owns
     // every actor, so `isOwner` is shadowed on the instance in-page -- a read,
@@ -735,16 +1246,18 @@ try {
         await pc.sheet.render(true);
         for (let i = 0; i < 30 && !(pc.sheet.element instanceof HTMLElement); i++) await sleep(100);
         await sleep(400);
-        // The affordance: the button is not rendered at all.
-        out.gateHidesButton = !pc.sheet.element?.querySelector("#improvised-attack-button");
+        pc.sheet.element?.querySelector('[data-action="tab"][data-tab="items"]')?.click();
+        await sleep(250);
+        // The affordance: the row is not rendered at all.
+        out.gateHidesButton = !pc.sheet.element?.querySelector('[data-action="unarmedAttack"]');
         // The refusal: reaching the action another way is still turned away, and
         // posts nothing.
         const before = game.messages.size;
-        await pc.sheet.options.actions.improvisedAttack.call(
-          pc.sheet, { preventDefault() {} }, document.createElement("button"));
+        await pc.sheet.options.actions.unarmedAttack.call(
+          pc.sheet, { preventDefault() {} }, document.createElement("a"));
         await sleep(500);
         out.gateRefuses = game.messages.size === before
-          && !document.querySelector("dialog.dialog.cairn-improvised-dialog");
+          && !document.querySelector("dialog.dialog.cairn-unarmed-dialog");
         await pc.sheet.close();
       } finally {
         delete pc.isOwner;
@@ -780,6 +1293,54 @@ try {
     out.greyedOn = { ex: dis("crawler-exploding-damage"), fa: dis("crawler-fatigue-for-critical") };
     if (app) await app.close();
 
+    /* ---- 16. NOTHING TO DROP ------------------------------------------- */
+    // The leg that keeps the OLD claim honest. Before the picker existed, the
+    // Fatigue button's headline property was that it lands past a FULL pack
+    // (`ignoreCapacity`), leaving the character deprived at 0 Hit Protection —
+    // and with a drop in front of it that is no longer what normally happens,
+    // because the drop makes the room. It is still what happens to a character
+    // with nothing to give up, so that is where the claim is measured now.
+    //
+    // RUNS LAST, on purpose: it strips the character's inventory, and every
+    // earlier leg needs the weapons and the filler items that are on it.
+    {
+      await game.settings.set(NS, "crawler-combat-mode", true);
+      await game.settings.set(NS, "crawler-fatigue-for-critical", true);
+      const notFatigue = pc.items.filter((i) => !i.system?.isFatigue).map((i) => i.id);
+      if (notFatigue.length) await pc.deleteEmbeddedDocuments("Item", notFatigue);
+      // Fill the pack with Fatigue, which is the one thing the picker will not
+      // offer — so this character is genuinely full AND has nothing to drop.
+      const need = Math.max(0, pc.system.slotsMax - pc.system.slotsUsed);
+      if (need > 0) {
+        await pc.createEmbeddedDocuments("Item",
+          Array.from({ length: need }, () => ({ name: "Fatigue", type: "item" })));
+      }
+      await sleep(400);
+      out.emptyBefore = { used: pc.system.slotsUsed, max: pc.system.slotsMax };
+      const fBefore = pc.items.filter((i) => i.name === "Fatigue").length;
+      const m4 = await postSave(pc, true);
+      out.made2.push(m4.id);
+      rowOf(m4)?.querySelector(".take-fatigue-instead")?.click();
+      // NO PICKER, AND NOW THE OPPOSITE OUTCOME. This leg used to prove that a
+      // character with nothing to give up got the Fatigue anyway, past a full
+      // pack, through `ignoreCapacity`. That carve-out is REVERSED (user ruling):
+      // the price is an item that frees a slot, and nothing to pay with means the
+      // price cannot be paid — so the save stands and the Critical Damage lands
+      // the instant the button is pressed, with no dialog in between. The one
+      // gesture in the system where a control does the opposite of its label,
+      // which is why the check mark below is load-bearing.
+      //
+      // `ignoreCapacity` itself stays: casting and a second Fatigue still use it.
+      await sleep(1200);
+      out.emptyNoPicker = !document.querySelector("dialog.dialog.cairn-drop-dialog");
+      out.emptyFatigueAdded = pc.items.filter((i) => i.name === "Fatigue").length - fBefore;
+      out.emptyCritical = pc._source.system.critical === true;
+      out.emptyChoice = m4.getFlag(NS, "crawlerChoiceTaken") ?? null;
+      out.emptyTickOnCrit = !!rowOf(m4)?.querySelector(".mark-critical-damage .fa-check");
+      out.emptyTickOnFatigue = !!rowOf(m4)?.querySelector(".take-fatigue-instead .fa-check");
+      out.emptyAfter = state(pc);
+    }
+
     return out;
   }));
 
@@ -810,13 +1371,14 @@ try {
     keep: "2d6kx", keepH: "2d8khx", keepH1: "3d6kh1x",
     plusSame: "2d6kx", plusCount: "3d6kx",
     plusMixed: "d6 + d8", arithmetic: "2d20 + 10", already: "1d6x", empty: "",
-    // The floor: every sub-d6 shape comes back UNCHANGED, and d12 still explodes.
-    d4: "1d4", d4bare: "d4", d4keep: "2d4k", d4plus: "d4 + d4", d5: "1d5",
+    // NO FLOOR (2026-10-03): every sub-d6 shape explodes like any other, the
+    // `+` pool through its keep form, and d12 still does.
+    d4: "1d4x", d4bare: "d4x", d4keep: "2d4kx", d4plus: "2d4kx", d5: "1d5x",
     d12: "1d12x",
   };
   const bad = Object.entries(WANT).filter(([k, v]) => r.transform?.[k] !== v);
   bad.length === 0
-    ? ok(`the formula transform is right on all ${Object.keys(WANT).length} shapes, including d6 + d6 -> 2d6kx (no "+" left for the Cairn rewrite to invert), every sub-d6 shape left alone (1d4, d4, 2d4k, d4 + d4, 1d5) and 1d12 still exploding`)
+    ? ok(`the formula transform is right on all ${Object.keys(WANT).length} shapes, including d6 + d6 -> 2d6kx (no "+" left for the Cairn rewrite to invert), every sub-d6 shape exploding too since the floor went (1d4x, d4x, 2d4kx, d4 + d4 -> 2d4kx, 1d5x) and 1d12`)
     : fail(`transform: ${JSON.stringify(bad.map(([k, v]) => [k, r.transform?.[k], "want " + v]))}`);
 
   // ---- 3/4. the gate -----------------------------------------------------
@@ -866,15 +1428,42 @@ try {
   r.tipKeyed === "CAIRN.Crawler.FatigueButtonTip"
     ? ok("...and the Fatigue button names its cost in a tooltip, the only place it can")
     : fail(`tooltip attribute is ${JSON.stringify(r.tipKeyed)}`);
-  r.fatigueAdded === 1 && r.usedGrew
-    ? ok("clicking it adds exactly one Fatigue, past a full pack")
-    : fail(`fatigue added=${r.fatigueAdded}, slots grew=${r.usedGrew}`);
+  // SOMETHING GOES ON THE FLOOR FIRST (2026-10-02). The button asks before it
+  // creates anything, so `usedGrew` is no longer the right question: one item
+  // leaves and the Fatigue arrives, which is the whole point of the drop.
+  r.dropAsked && r.fatigueAdded === 1 && r.droppedGone && r.itemsNetZero
+    ? ok(`clicking it asks what to drop, then adds exactly one Fatigue — "${r.dropPickedName}" went out as the Fatigue came in`)
+    : fail(`drop asked=${r.dropAsked}, fatigue added=${r.fatigueAdded}, dropped gone=${r.droppedGone}, net zero=${r.itemsNetZero}`);
+  r.pileMade && r.pileHasIt && r.pileInParty
+    ? ok(`...and it is IN the Dropped Item Pile, which was made on demand inside the Party folder`)
+    : fail(`pile made=${r.pileMade}, holds it=${r.pileHasIt}, in Party folder=${r.pileInParty}`
+      + (r.pilesAtStart ? ` — NOTE: ${r.pilesAtStart} pile(s) already existed when this run started, so this leg read one it did not create` : ""));
+
+  /* ---- the "where did you drop it" note -------------------------------- */
+  r.pileTags?.["ZZ Note Rope"] === "under the bridge"
+    ? ok(`a drop RENDERS where it was left ("${r.pileTags["ZZ Note Rope"]}") on the pile's row — counted as rendered elements, because the partial's `
+      + "`../` gate fails silently and leaves flag-set-zero-elements")
+    : fail(`drop note tag: ${JSON.stringify(r.pileTags)} (derived: ${JSON.stringify(r.noteDerived)})`);
+  r.pileTags?.["ZZ Note Sack"] === null && r.noteDerived?.blank === ""
+    ? ok("...and a blank one leaves the row with no tag at all — optional, because a forced field mostly yields \"x\"")
+    : fail(`blank note: tag=${JSON.stringify(r.pileTags?.["ZZ Note Sack"])} derived=${JSON.stringify(r.noteDerived?.blank)}`);
+  r.noteKeptFlag === "on their own sheet" && r.charTags?.["ZZ Note Kept"] === null
+    ? ok("...and a CHARACTER's row shows none even for an item carrying the note — the tag is gated on the sheet, so a handed-back item simply stops advertising where it used to be")
+    : fail(`character-sheet tag: ${JSON.stringify(r.charTags)} — the flag reads "${r.noteKeptFlag}", so this leg has something to render if the gate is wrong`);
+  // Unlimited is the ruling, and it is read off the DERIVED value every capacity
+  // path actually consults, not off the `slots: 0` the pile is created with.
+  r.pileUnlimited && r.pileOwnership === 2
+    ? ok(`...with no slot limit at all (slotsMax Infinity, never encumbered) and OBSERVER for players: they see what was dropped, the Warden hands it back`)
+    : fail(`pile unlimited=${r.pileUnlimited}, ownership.default=${r.pileOwnership} (want 2 = OBSERVER)`);
+  // The chat record, and that the card stores a NAME rather than a sentence —
+  // it is composed on whichever client ran the move, so a stored line would
+  // freeze in that client's language for every reader.
+  r.dropCard && r.dropCard.item === r.dropPickedName && r.dropCard.text.includes(r.dropPickedName)
+    ? ok(`...and the drop is recorded in chat ("${r.dropCard.text}"), rebuilt per viewer from the stored name`)
+    : fail(`drop card: ${JSON.stringify(r.dropCard)} — want the item NAME in the flag, not a composed sentence`);
   r.critAfterFatigue === false
     ? ok("...and does NOT set Critical Damage — that is the whole point of the choice")
     : fail("taking the Fatigue also marked Critical Damage");
-  r.afterFatigue?.derived && r.afterFatigue?.hp === 0 && r.afterFatigue?.srcHp !== 0
-    ? ok("...leaving the character deprived at 0 Hit Protection, source HP intact")
-    : fail(`after fatigue: ${JSON.stringify(r.afterFatigue)}`);
   r.spentFlag && r.sealedCrit && r.sealedFatigue && r.fatigueAfterSecondClick === 1
     ? ok("the choice is spent on the MESSAGE: both buttons stay sealed across a re-render and a second click adds nothing")
     : fail(`spent=${r.spentFlag}, sealedCrit=${r.sealedCrit}, sealedFatigue=${r.sealedFatigue}, secondClick total=${r.fatigueAfterSecondClick}`);
@@ -955,14 +1544,20 @@ try {
   r.mvRanged && hasX(r.mvRanged.formula) && !r.mvRanged.datum && !r.mvRanged.maneuverBtn
     ? ok(`a RANGED weapon offers no maneuver and auto-explodes (${r.mvRanged.formula}) — both halves of the new ranged field`)
     : fail(`mvRanged: ${JSON.stringify(r.mvRanged)} — want x in the formula and no buttons`);
-  r.mvD4 && noX(r.mvD4.formula) && !r.mvD4.maneuverBtn
-    ? ok(`THE FLOOR: a melee d4 neither explodes (${r.mvD4.formula}) nor offers a maneuver`)
-    : fail(`mvD4: ${JSON.stringify(r.mvD4)} — a sub-d6 die must do neither`);
-  r.mvImpaired && /d4/.test(r.mvImpaired.formula ?? "") && noX(r.mvImpaired.formula) && !r.mvImpaired.maneuverBtn
-    ? ok(`...and so does an IMPAIRED attack on a d10 weapon (${r.mvImpaired.formula}) — the case that actually fires, and proof the test reads the POST-quality formula`)
-    : fail(`mvImpaired: ${JSON.stringify(r.mvImpaired)} — want 1d4, no x, no buttons. A formula with x means the floor is missing; buttons mean the gate judged the WEAPON instead of the roll`);
+  r.mvD4 && noX(r.mvD4.formula) && r.mvD4.explodeBtn && r.mvD4.maneuverBtn
+    ? ok(`NO FLOOR (2026-10-03): a melee d4 is rolled plain (${r.mvD4.formula}) and offers Explode the Die AND Maneuver — the smallest die, the same offer as the d10`)
+    : fail(`mvD4: ${JSON.stringify(r.mvD4)} — want a plain d4 and both buttons; x in the formula or a missing button means a floor survived at this site`);
+  r.mvD4Off && hasX(r.mvD4Off.formula) && !r.mvD4Off.maneuverBtn && !r.mvD4Off.datum
+    ? ok(`...and with the maneuver option OFF the same d4 auto-explodes at roll time (${r.mvD4Off.formula}) — no floor on that half either`)
+    : fail(`mvD4Off: ${JSON.stringify(r.mvD4Off)} — want 1d4x and no buttons`);
+  r.mvImpaired && /^1?d4$/.test(r.mvImpaired.formula ?? "") && r.mvImpaired.explodeBtn && r.mvImpaired.maneuverBtn
+    ? ok(`an IMPAIRED attack on a d10 weapon rolls a plain ${r.mvImpaired.formula} and offers both — the case that actually fires, and proof the test reads the POST-quality formula rather than the weapon`)
+    : fail(`mvImpaired: ${JSON.stringify(r.mvImpaired)} — want 1d4, no x, both buttons`);
+  r.mvPlus && /^2d6k/i.test(r.mvPlus.formula ?? "") && !/x/i.test(r.mvPlus.formula ?? "") && r.mvPlus.explodeBtn && r.mvPlus.maneuverBtn
+    ? ok(`a d6 + d6 weapon is rolled as its keep form (${r.mvPlus.formula}) and offers both — the + pool joined the maneuver rule, as "parallel exploding dice" requires`)
+    : fail(`mvPlus: ${JSON.stringify(r.mvPlus)} — want the formula 2d6k and both buttons; d6 + d6 would be a PoolTerm the card cannot judge`);
   r.mvEnhanced && /d12/.test(r.mvEnhanced.formula ?? "") && r.mvEnhanced.maneuverBtn
-    ? ok(`...while an ENHANCED attack (${r.mvEnhanced.formula}) is still in — the two quality substitutions fall on opposite sides of the floor`)
+    ? ok(`...and an ENHANCED attack (${r.mvEnhanced.formula}) offers too`)
     : fail(`mvEnhanced: ${JSON.stringify(r.mvEnhanced)} — a d12 must still offer`);
   r.mvMonster && !r.mvMonster.datum && !r.mvMonster.maneuverBtn
     ? ok(`a MONSTER is offered nothing — player characters only, as everywhere else in this hack`)
@@ -990,6 +1585,72 @@ try {
   r.explodeSealed?.explode && r.explodeSealed?.maneuver
     ? ok(`...and both buttons stay sealed across a re-render, the choice being spent on the MESSAGE`)
     : fail(`seal after exploding: ${JSON.stringify(r.explodeSealed)}`);
+
+  // ---- the pair's look, both schemes -------------------------------------
+  // THE AMBER IS PINNED AND SO IS ASSERTED EXACTLY; the red is Foundry's own
+  // `--color-level-error`, whose value is core's to change, so it is measured as
+  // "a colour, and NOT the amber" exactly as the Fatigue button's red neighbour
+  // already is a few legs above. Pinning a core token would be this file's own
+  // stale-number trap in a stylesheet.
+  // --ab-maneuver-chat: pinned so the dark scheme cannot re-point it, AND tuned
+  // darker than any --ab-amber so the pair carries equal weight on the parchment
+  // tile. See the token's own comment for the contrast arithmetic.
+  const AMBER = "rgb(163, 90, 0)";
+  const pairOk = (p) => p && p.display === "flex" && p.sameRow;
+  pairOk(r.pairLight)
+    ? ok(`the pair sits SIDE BY SIDE (one flex row, both buttons on the same top edge)`)
+    : fail(`pair layout: ${JSON.stringify(r.pairLight)}`);
+  r.pairLight?.maneuverLabel === "Use a Maneuver!"
+    ? ok(`...labelled "Use a Maneuver!"`)
+    : fail(`maneuver label is ${JSON.stringify(r.pairLight?.maneuverLabel)}`);
+  r.pairLight?.applyPresent === false
+    ? ok(`...with Apply withheld while the choice is pending`)
+    : fail(`Apply was on an undecided card: ${JSON.stringify(r.pairLight?.applyPresent)}`);
+  /^rgb/.test(r.pairLight?.explodeGlow ?? "") && r.pairLight?.explodeGlow !== AMBER
+    && r.pairLight?.maneuverGlow === AMBER
+    ? ok(`...Explode glows the error red (${r.pairLight.explodeGlow}) and Maneuver the pinned amber (${AMBER}) — two colours, so one selector cannot repaint both`)
+    : fail(`light colours: ${JSON.stringify({ explode: r.pairLight?.explodeGlow, maneuver: r.pairLight?.maneuverGlow })}`);
+  // EQUAL WEIGHT, asserted as the RULE and not as a second literal. The pair is
+  // meant to read as two equal choices separated only by colour, and the literal
+  // above catches a swapped token while saying nothing about whether the two
+  // carry the same weight — which is what was actually wrong: the old amber was
+  // nearly twice as light as the red and 62% of its contrast on the tile.
+  //
+  // No background sample is needed or possible here: the chat tile is an IMAGE,
+  // so `getComputedStyle().backgroundColor` cannot tell a probe what the pair
+  // sits on (parchment.jpg, sampled offline to #D9D9CD). Comparing the two
+  // buttons to EACH OTHER needs no ground at all.
+  const lum = (css) => {
+    const [r1, g1, b1] = (String(css).match(/\d+(\.\d+)?/g) ?? []).slice(0, 3).map(Number);
+    if ([r1, g1, b1].some((v) => !Number.isFinite(v))) return null;
+    const lin = (v) => (v / 255 <= 0.03928 ? v / 255 / 12.92 : (((v / 255) + 0.055) / 1.055) ** 2.4);
+    return 0.2126 * lin(r1) + 0.7152 * lin(g1) + 0.0722 * lin(b1);
+  };
+  {
+    const le = lum(r.pairLight?.explodeBorder);
+    const lm = lum(r.pairLight?.maneuverBorder);
+    const gap = le !== null && lm !== null ? Math.abs(le - lm) : null;
+    gap !== null && gap <= 0.04
+      ? ok(`...and they carry EQUAL WEIGHT: border luminance ${le.toFixed(3)} vs ${lm.toFixed(3)}, a gap of ${gap.toFixed(3)} — a matched pair, not one button and one hint`)
+      : fail(`border weight: explode ${le} vs maneuver ${lm}, gap ${gap} — over 0.04 the lighter one stops reading as an equal choice`);
+  }
+
+  // THE DISCRIMINATING HALF. --ab-amber re-points to rgb(232,163,60) for a
+  // .chat-message in dark; the pinned token does not, and the tile is parchment
+  // in both schemes. In light mode the two are identical, so only this read can
+  // tell the right token from the wrong one.
+  r.pairDark?.maneuverGlow === AMBER && r.pairDark?.explodeGlow === r.pairLight?.explodeGlow
+    ? ok(`...and BOTH are unmoved under a DARK interface — the pinned token, not --ab-amber, which re-points to rgb(232, 163, 60) for a .chat-message and would wash out on a tile that is parchment either way`)
+    : fail(`dark colours: ${JSON.stringify({ explode: r.pairDark?.explodeGlow, maneuver: r.pairDark?.maneuverGlow })}`);
+  r.sealedLook?.explodeGlow === "none" && r.sealedLook?.maneuverGlow === "none"
+    ? ok(`once decided NEITHER glows — the colours said "choose", and that is over`)
+    : fail(`sealed glow: ${JSON.stringify(r.sealedLook)}`);
+  r.sealedLook?.explodeTick === true && r.sealedLook?.maneuverTick === false
+    ? ok(`...and the check is on the one that was TAKEN, drawn from the flag per viewer`)
+    : fail(`sealed ticks: ${JSON.stringify(r.sealedLook)}`);
+  r.sealedLook?.applyBack === true
+    ? ok(`...and Apply comes back, now that the total is the damage`)
+    : fail(`Apply did not return after the roll resolved: ${JSON.stringify(r.sealedLook)}`);
   r.dsnCalls?.length === 1 && r.dsnCalls[0].synchronize === true
     ? ok(`THE DICE ANIMATE: showForRoll called exactly once with synchronize=true (${r.dsnCalls[0].formula}) — an in-place rolls rewrite makes DSN's own dsnCountAddedRoll zero, so without this call nothing would tumble`)
     : fail(`showForRoll calls: ${JSON.stringify(r.dsnCalls)} — want exactly one with synchronize=true. Zero means the silent-dice defect; synchronize=false means the dice land on the roller's client alone`);
@@ -1011,30 +1672,77 @@ try {
     ? ok(`...and the pair is EXCLUSIVE: pressing Explode the Die afterwards changes nothing`)
     : fail(`sealed ${r.maneuverTaken?.sealed}, choice after a second click ${r.maneuverStillManeuver} — want it still "maneuver"`);
 
-  // ---- the Improvised Attack button -------------------------------------
+  // ---- the Unarmed Attack row -------------------------------------------
   const impOk = (r2) => r2 && !r2.err;
   impOk(r.impD6) && noX(r.impD6.formula) && r.impD6.explodeBtn && r.impD6.maneuverBtn
-    ? ok(`Improvised Attack: a d6 typed into the dialog did NOT explode at roll time (${r.impD6.formula}) and the card offers Explode the Die AND Maneuver — no item anywhere in the path`)
+    ? ok(`Unarmed Attack: a d6 typed into the dialog did NOT explode at roll time (${r.impD6.formula}) and the card offers Explode the Die AND Use a Maneuver! — no item anywhere in the path`)
     : fail(`impD6: ${JSON.stringify(r.impD6)}`);
   r.impD6?.line?.includes("a chair leg")
     ? ok(`...and the description reaches the card as the thing attacked with: "${r.impD6.line}" — the weapon datum, so no new sentence key was needed`)
     : fail(`the description did not reach the card: ${JSON.stringify(r.impD6?.line)}`);
-  r.impD6?.shape?.hasFormula && r.impD6?.shape?.hasBuilder && r.impD6?.shape?.hasStandard
-    ? ok(`...and the dialog offered a description, a formula field, the shared dice builder and the three qualities`)
+  // THE ROW IS NOT AN ITEM, measured on the row itself rather than trusted from
+  // the template: no trash can and no Drop control, because there is no document
+  // for either to act on. If it ever becomes an Item those controls appear with
+  // it, and this is the leg that says so.
+  r.impD6?.rowShape?.isRow && r.impD6.rowShape.tag === "A"
+    && !r.impD6.rowShape.deletable && !r.impD6.rowShape.droppable
+    ? ok(`...pressed from a permanent row in the inventory that cannot be deleted or dropped (${r.impD6.rowShape.glyphs})`)
+    : fail(`the unarmed row: ${JSON.stringify(r.impD6?.rowShape)}`);
+  // TWO FIELDS AND TWO BUTTONS. The absences are the ruling, so they are
+  // asserted: a stale template would restore the builder or the qualities in
+  // silence, and every other leg here would still pass.
+  r.impD6?.shape?.hasDescription && r.impD6?.shape?.hasFormula
+    && r.impD6?.shape?.hasRoll && r.impD6?.shape?.hasCancel
+    && !r.impD6?.shape?.hasBuilder && !r.impD6?.shape?.hasQuality
+    ? ok(`...and the dialog is exactly two fields and two buttons: no dice builder, no Standard/Impaired/Enhanced (opens on ${r.impD6.shape.formulaStart})`)
     : fail(`dialog shape: ${JSON.stringify(r.impD6?.shape)}`);
-  /d6/.test(r.impD6?.shape?.standardLabelAfter ?? "")
-    ? ok(`...with Standard relabelling itself from the live field ("${r.impD6.shape.standardLabel}" -> "${r.impD6.shape.standardLabelAfter}"), so it cannot advertise a die it will not roll`)
-    : fail(`Standard did not follow the field: ${JSON.stringify(r.impD6?.shape)}`);
+  // The pending-choice withholding, on the card this leg already has in hand.
+  r.impD6?.applyBtn === false
+    ? ok(`...and Apply is WITHHELD while the choice is pending — the total on the card is not yet the damage`)
+    : fail(`Apply was on an undecided card: ${JSON.stringify(r.impD6?.applyBtn)}`);
+  r.impAutoExplode?.applyBtn === true
+    ? ok(`...while a card with nothing to decide keeps it`)
+    : fail(`Apply missing from a resolved card: ${JSON.stringify(r.impAutoExplode?.applyBtn)}`);
 
-  impOk(r.impD4) && noX(r.impD4.formula) && !r.impD4.maneuverBtn
-    ? ok(`THE FLOOR, through the improvised route: a typed d4 neither explodes (${r.impD4.formula}) nor offers a maneuver`)
-    : fail(`impD4: ${JSON.stringify(r.impD4)} — a sub-d6 die must do neither`);
+  {
+    const al = r.impD6?.rowShape?.align;
+    al && al.dieLine === al.binLine && al.topGap < 1
+      ? ok(`the damage die sits on the line its neighbours sit on: line-height ${al.dieLine} on both, boxes level to ${al.topGap.toFixed(2)}px — the rule covers "${al.dieClass.split(" ")[0]}" as well as "${al.binClass.split(" ")[0]}"`)
+      : fail(`die alignment: ${JSON.stringify(al)} — a rule keyed to one spelling misses the other, and Font Awesome's own \`line-height: 1\` takes over (14px against 26px)`);
+  }
+
+  {
+    const rs = r.impD6?.rowShape;
+    rs?.marks?.length >= 3 && rs.uniqueMarks === rs.marks.length
+      ? ok(`no two controls on one row share a mark (${rs.marks.length} controls, ${rs.uniqueMarks} marks): ${rs.marks.join(" ")}`)
+      : fail(`duplicate control glyph: ${JSON.stringify(rs?.marks)} — Give and Drop both wore fa-hand-holding, one row apart`);
+    const g = rs?.dropGlyph;
+    g && /fa-down-to-line/.test(g.cls) && g.content && g.content !== "none" && g.content !== '""'
+      ? ok(`...and Drop's arrow actually RENDERS (${g.content}) — read as content, never as a class, because a name this build lacks draws an empty box in silence`)
+      : fail(`Drop glyph: ${JSON.stringify(g)} — fa-arrow-down-to-line is absent from the bundled FA5-era font; only fa-down-to-line resolves`);
+  }
+
+  impOk(r.impD4) && noX(r.impD4.formula) && r.impD4.explodeBtn && r.impD4.maneuverBtn
+    ? ok(`NO FLOOR through the unarmed route: a typed d4 is rolled plain (${r.impD4.formula}) and offers both buttons`)
+    : fail(`impD4: ${JSON.stringify(r.impD4)} — want a plain d4 and both buttons`);
   impOk(r.impD10) && /d10/.test(r.impD10.formula ?? "")
     ? ok(`the TYPED formula is what gets rolled (${r.impD10.formula}), not the 1d4 the field starts on`)
     : fail(`impD10: ${JSON.stringify(r.impD10)}`);
-  impOk(r.impBlank) && !/with\s*$/.test(r.impBlank.line ?? "x")
-    ? ok(`a blank description falls back to the no-weapon sentence ("${r.impBlank.line}") rather than a dangling "with "`)
-    : fail(`impBlank: ${JSON.stringify(r.impBlank)}`);
+  // THE SENTENCE IS COMPARED, not merely checked for a dangling "with ". The
+  // old assertion was `!/with\s*$/` and "" passes that, which is how a card with
+  // NO SENTENCE AT ALL shipped green.
+  impOk(r.impBlank) && r.impBlank.line === r.expect?.unarmed
+    ? ok(`a blank description NAMES THE ATTACK ("${r.impBlank.line}") — not the empty label this leg used to accept`)
+    : fail(`impBlank: expected "${r.expect?.unarmed}", read "${r.impBlank?.line}" from ${JSON.stringify(r.impBlank?.labelData)}`);
+  r.impBlank?.labelData?.unarmed === "1"
+    ? ok(`...off a KIND on the card (data-unarmed), never the phrase stored as the weapon — which a possessive frame one card along would render "from X's an unarmed attack"`)
+    : fail(`data-unarmed missing: ${JSON.stringify(r.impBlank?.labelData)}`);
+  r.impTgtBlank?.line === r.expect?.tgtUnarmed
+    ? ok(`TARGETED and blank: "${r.impTgtBlank.line}"`)
+    : fail(`impTgtBlank: expected "${r.expect?.tgtUnarmed}", read "${r.impTgtBlank?.line}" (targets ${r.tgtCount})`);
+  r.impTgtTyped?.line === r.expect?.tgtWeapon
+    ? ok(`...while typed text still reaches the weapon key ("${r.impTgtTyped.line}") — the contrast is what proves the ternary picks an arm rather than one arm always winning`)
+    : fail(`impTgtTyped: expected "${r.expect?.tgtWeapon}", read "${r.impTgtTyped?.line}"`);
 
   impOk(r.impMonster) && noX(r.impMonster.formula) && !r.impMonster.maneuverBtn
     ? ok(`a MONSTER's improvised attack never explodes (${r.impMonster.formula}) and offers nothing — the PC gate is at the roll site, not merely on the button`)
@@ -1044,25 +1752,431 @@ try {
     : fail(`impAutoExplode: ${JSON.stringify(r.impAutoExplode)}`);
 
   impOk(r.impPanicked) && r.impPanicked.shape?.hasDescription
-    && !r.impPanicked.shape?.hasFormula && !r.impPanicked.shape?.hasStandard
-    && r.impPanicked.shape?.hasRoll
-    ? ok(`PANICKED: the dialog still asks what you grabbed but drops the formula field and the three qualities for one Roll button`)
+    && r.impPanicked.shape?.hasFormula && !r.impPanicked.shape?.hasQuality
+    && r.impPanicked.shape?.hasRoll && !!r.impPanicked.shape?.panicNote
+    ? ok(`PANICKED: the field is still there and still editable, with a note saying the override is coming ("${r.impPanicked.shape.panicNote}")`)
     : fail(`panicked dialog shape: ${JSON.stringify(r.impPanicked?.shape)}`);
   r.gateHidesButton && r.gateRefuses
-    ? ok(`the ownership gate holds BOTH ways: a non-owner is shown no button, and reaching the action anyway is refused with nothing posted`)
-    : fail(`ownership gate: button hidden ${r.gateHidesButton}, refused ${r.gateRefuses}`);
+    ? ok(`the ownership gate holds BOTH ways: a non-owner is shown no row, and reaching the action anyway is refused with nothing posted`)
+    : fail(`ownership gate: row hidden ${r.gateHidesButton}, refused ${r.gateRefuses}`);
   r.gateShadowLifted
     ? ok(`...and the isOwner shadow was lifted, leaving the live actor as it was`)
     : fail(`the isOwner shadow is STILL on the actor — a probe that leaves one poisons every later run`);
   impOk(r.impPanicked) && /d4/.test(r.impPanicked.formula ?? "") && noX(r.impPanicked.formula)
-    ? ok(`...and rolls ${r.impPanicked.formula} — panic imposes Impaired, and 1d4 is under the floor so it cannot explode either`)
-    : fail(`panicked roll: ${JSON.stringify(r.impPanicked)} — want a plain 1d4`);
+    && r.impPanicked.explodeBtn && r.impPanicked.maneuverBtn
+    ? ok(`...and a typed d10 still rolls ${r.impPanicked.formula} — the override is at the roll site — and that 1d4 offers both buttons like any other die`)
+    : fail(`panicked roll: ${JSON.stringify(r.impPanicked)} — want a plain 1d4 with both buttons`);
 
-  // Cleanup: the actors and the three cards this probe minted.
-  await page.evaluate(async ({ ids, msgs }) => {
-    for (const id of ids ?? []) { try { await game.actors.get(id)?.delete(); } catch { /* gone */ } }
+  // NOTHING TO DROP: the old "past a full pack" claim, measured where it is
+  // still true. A character whose every slot is Fatigue has nothing the picker
+  // would offer, so no dialog opens and the Fatigue lands over the limit.
+  /* ---- the bargain: refuse, Escape, and what the picker offers --------- */
+  {
+    const b = r.bargain ?? {};
+    b.row?.display === "flex" && b.row?.sameTop && b.row?.differentLeft
+      ? ok("the save card's pair sits SIDE BY SIDE (one flex row, same top edge, different left) — they had no CSS at all, which is why two block-level buttons stacked")
+      : fail(`save-card pair layout: ${JSON.stringify(b.row)}`);
+
+    b.refuseAsked && b.refuse?.critical && b.refuse?.fatigues === 0 && b.refuse?.stillHasItem
+      ? ok(`REFUSING APPLIES THE CRITICAL DAMAGE ("${b.refuseBtnLabel}"): no Fatigue created, nothing dropped — the old rule was that cancelling backed out of everything`)
+      : fail(`refuse: ${JSON.stringify(b.refuse)} (asked=${b.refuseAsked}, label=${JSON.stringify(b.refuseBtnLabel)})`);
+    b.refuse?.flag === "critical" && b.refuse?.sealedBoth
+      && b.refuse?.tickOnCrit && !b.refuse?.tickOnFatigue
+      ? ok("...and the pair seals with the check on Mark Critical Damage, which nobody pressed")
+      : fail(`after refusing: ${JSON.stringify(b.refuse)}`);
+
+    b.escapeAsked && b.escape?.critical === false && b.escape?.fatigues === 0
+      && b.escape?.flag === null && b.escape?.liveBoth
+      ? ok("ESCAPE IS NOT A REFUSAL — nothing written, nothing spent, both buttons still live. This is the accident guard the old ruling existed for, kept")
+      : fail(`escape: ${JSON.stringify(b.escape)} — only the NAMED button may refuse`);
+
+    b.take?.critical === false && b.take?.fatigues === 2 && b.take?.gone
+      && b.take?.flag === "fatigue" && b.take?.tickOnFatigue && !b.take?.tickOnCrit
+      ? ok(`TAKING IT: one thing down, one Fatigue on, Critical Damage NOT written, check on the Fatigue button`)
+      : fail(`take: ${JSON.stringify(b.take)}`);
+    b.take?.usedAfter === b.take?.usedBefore
+      ? ok(`...and the bargain NETS TO ZERO (${b.take.usedBefore} slots before, ${b.take.usedAfter} after) — which is the whole reason the first Fatigue is free`)
+      : fail(`slots: ${b.take?.usedBefore} -> ${b.take?.usedAfter} — the drop is meant to pay for the Fatigue exactly`);
+
+    b.legacy?.sealed && b.legacy?.anyTick === false
+      ? ok("a card already in a log (flag `true`) seals with NO check — a default would silently mislabel history on cards nothing ever repairs")
+      : fail(`legacy card: ${JSON.stringify(b.legacy)}`);
+
+    const noPetty = (rows) => !rows?.some((t) => t.includes("ZZ Trinket"));
+    const noFatigue = (rows) => !rows?.some((t) => t.includes("Fatigue"));
+    b.fullEncumbered && noPetty(b.fullRows) && b.fullRows?.some((t) => t.includes("ZZ Fill"))
+      ? ok(`overburdened: the picker lists what frees a slot and no petty item (${b.fullRows.length} rows)`)
+      : fail(`overburdened rows: ${JSON.stringify(b.fullRows)} encumbered=${b.fullEncumbered}`);
+    b.fullNote
+      ? ok("...with the note saying why petty items are absent, shown because some were hidden")
+      : fail("the PettyHidden note was missing although a petty item was filtered out");
+    b.lightEncumbered === false && noPetty(b.lightRows) && b.lightRows?.length === 1
+      ? ok("...and petty is excluded for a character who is NOT overburdened either — the rule is unconditional, which is the leg an isEncumbered() condition fails")
+      : fail(`not-overburdened rows: ${JSON.stringify(b.lightRows)} encumbered=${b.lightEncumbered}`);
+    noFatigue(b.twoFatRows) && b.twoFatRows?.length === 1
+      ? ok("...and a SECOND Fatigue is not offered though it costs a real slot — excluded AS Fatigue, never via pettiness")
+      : fail(`with two Fatigues: ${JSON.stringify(b.twoFatRows)}`);
+
+    const bulkyRow = b.labelRows?.find((t) => t.includes("ZZ Ladder")) ?? "";
+    const torchRow = b.labelRows?.find((t) => t.includes("ZZ Torch")) ?? "";
+    /2\s*slots/.test(bulkyRow) && !/bulky/i.test(bulkyRow)
+      ? ok(`a bulky row says the NUMBER it frees ("${bulkyRow.replace(/\s+/g, " ")}") and never the word "bulky" — the number is what the decision turns on`)
+      : fail(`bulky row: "${bulkyRow}"`);
+    /2 of 3 uses/.test(torchRow) && /1\s*slot/.test(torchRow)
+      ? ok(`...and a part-used torch shows its uses beside what it frees ("${torchRow.replace(/\s+/g, " ")}") — ONE item with three uses, not three torches`)
+      : fail(`torch row: "${torchRow}"`);
+    !/\bx\s*\d/i.test(b.dialogText ?? "") && !b.labelNote
+      ? ok("...with no `x3` anywhere in the dialog, and no petty note where nothing was hidden")
+      : fail(`quantity chip or a stray note: text=${JSON.stringify((b.dialogText ?? "").slice(0, 160))} note=${b.labelNote}`);
+  }
+
+  r.emptyNoPicker && r.emptyFatigueAdded === 0 && r.emptyCritical
+    ? ok(`with NOTHING that frees a slot the picker does NOT open and the Critical Damage lands at once (${r.emptyBefore?.used}/${r.emptyBefore?.max}) — the price cannot be paid, so the save stands`)
+    : fail(`nothing to pay with: picker suppressed=${r.emptyNoPicker}, fatigue added=${r.emptyFatigueAdded}, critical=${r.emptyCritical}`);
+  r.emptyChoice === "critical" && r.emptyTickOnCrit && !r.emptyTickOnFatigue
+    ? ok("...and the check lands on Mark Critical Damage although nobody pressed it — the only thing on screen telling a player who chose \"Fatigue instead\" what they actually got")
+    : fail(`after a refusal by emptiness: flag=${JSON.stringify(r.emptyChoice)} tick on crit=${r.emptyTickOnCrit} on fatigue=${r.emptyTickOnFatigue}`);
+
+  /* ---- 17. A PLAYER'S DROP, through the broker ------------------------- */
+  // THE HALF NO SINGLE-CONTEXT LEG CAN REACH. Every leg above runs as the
+  // Warden, who owns every actor and writes to the pile directly — so the whole
+  // reason the broker exists (a player may only OBSERVE the pile, and the server
+  // refuses their create) has never executed. It is also the authorization
+  // boundary: without the ownership test on the GM side, any client could emit
+  // another player's actor uuid and strip their sheet an item at a time.
+  {
+    const seed = await page.evaluate(async () => {
+      const Cls = getDocumentClass("Actor");
+      const alice = game.users.find((u) => u.name === "Alice");
+      if (!alice) return { error: "no Alice user in this world" };
+      const L = CONST.DOCUMENT_OWNERSHIP_LEVELS;
+      const mine = await Cls.create({
+        name: "ZZ Pile Alice PC", type: "character",
+        ownership: { default: L.NONE, [alice.id]: L.OWNER },
+      });
+      // A second character Alice does NOT own: the decoy the broker must refuse.
+      const theirs = await Cls.create({
+        name: "ZZ Pile Foreign PC", type: "character", ownership: { default: L.NONE },
+      });
+      const item = { name: "ZZ Alice Rope", type: "item" };
+      await mine.createEmbeddedDocuments("Item", [item]);
+      const foreignItem = (await theirs.createEmbeddedDocuments("Item",
+        [{ name: "ZZ Foreign Rope", type: "item" }]))[0];
+      return {
+        aliceId: alice.id, mineUuid: mine.uuid, theirsUuid: theirs.uuid,
+        mineId: mine.id, theirsId: theirs.id, foreignItemId: foreignItem.id,
+      };
+    });
+    if (seed.error) {
+      fail(`player drop leg setup: ${seed.error}`);
+    } else {
+      const alicePage = await (await browser.newContext({ viewport: VIEWPORT })).newPage();
+      const aliceErrors = watchErrors(alicePage);
+      await joinAs(alicePage, "Alice");
+      await dismissChrome(alicePage);
+
+      const player = await alicePage.evaluate(async ({ mineUuid, theirsUuid, foreignItemId }) => {
+        const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+        const out = {};
+        const mine = await fromUuid(mineUuid);
+        const theirs = await fromUuid(theirsUuid);
+        const rope = mine.items.find((i) => i.name === "ZZ Alice Rope");
+        out.ownsMine = mine.isOwner;
+        out.ownsTheirs = theirs?.isOwner ?? null;
+
+        // THE PILE IS READABLE AND NOT WRITABLE, which is the premise. Proven by
+        // trying the write Alice's client would have to make without a broker:
+        // the server refuses it, so the item would simply have been destroyed.
+        const pile = game.actors.find((a) => a.getFlag("air-bladder", "droppedItemPile"));
+        out.pileVisible = !!pile;
+        out.pileOwner = pile?.isOwner ?? null;
+        out.directWriteRefused = false;
+        out.pileId = pile?.id ?? null;
+        if (pile) {
+          try {
+            await pile.createEmbeddedDocuments("Item", [{ name: "ZZ Should Not Land", type: "item" }]);
+          } catch { out.directWriteRefused = true; }
+          await sleep(600);
+          out.directWriteLanded = !!pile.items.find((i) => i.name === "ZZ Should Not Land");
+        }
+
+        // The affordance: the Drop control is on her own row.
+        await mine.sheet.render(true);
+        for (let i = 0; i < 30 && !(mine.sheet.element instanceof HTMLElement); i++) await sleep(100);
+        mine.sheet.element?.querySelector('[data-action="tab"][data-tab="items"]')?.click();
+        await sleep(400);
+        const row = mine.sheet.element?.querySelector(`[data-item-id="${rope.id}"]`);
+        out.dropControl = !!row?.querySelector('[data-action="itemDrop"]');
+
+        // The real gesture, through the real handler, with the real confirm.
+        // The button is `drop`, not core's `yes`: this dialog became a `wait` when
+        // it grew the "Where?" field, so it declares its own buttons. It also
+        // ASKS WHERE now, and the field is filled here so the player's own route
+        // is the one that proves a note survives the broker.
+        const { dropItemToPile } = await import("/systems/air-bladder/module/party-pile.js");
+        const clicking = mine.sheet.options.actions.itemDrop.call(
+          mine.sheet, { preventDefault() {} },
+          row.querySelector('[data-action="itemDrop"]'));
+        let yes = null;
+        for (let i = 0; i < 40 && !yes; i++) {
+          yes = document.querySelector('dialog.dialog button[data-action="drop"]');
+          if (!yes) await sleep(150);
+        }
+        out.confirmAsked = !!yes;
+        const where = document.querySelector('dialog.dialog input[name="place"]');
+        out.confirmAsksWhere = !!where;
+        if (where) where.value = "in the long grass";
+        yes?.click();
+        await clicking;
+        // The GM answers over the socket, so this waits on the DELETE landing
+        // back on her client rather than on any return value.
+        for (let i = 0; i < 60 && mine.items.get(rope.id); i++) await sleep(200);
+        await sleep(600);
+        out.goneFromHer = !mine.items.get(rope.id);
+        out.inPile = !!pile?.items?.find((i) => i.name === "ZZ Alice Rope");
+        // The note she typed, carried across the broker and surfaced on the copy.
+        out.brokeredNote = pile?.items?.find((i) => i.name === "ZZ Alice Rope")
+          ?.system?.droppedAt ?? null;
+        await mine.sheet.close();
+
+        // THE NOTE IS CLAMPED WHERE THE WRITE HAPPENS, not where it is typed.
+        // `maxlength="25"` on the field is the affordance; a player's drop is
+        // brokered and `senderId` is the only field the server authenticates, so
+        // a crafted emit can carry a note of any length. Sent as 40 characters
+        // from HER client, through the real path, and read back on the pile.
+        {
+          const long = "x".repeat(40);
+          const [big] = await mine.createEmbeddedDocuments(
+            "Item", [{ name: "ZZ Alice Chest", type: "item" }]);
+          await dropItemToPile(mine, big.id, { place: long });
+          for (let i = 0; i < 60 && mine.items.get(big.id); i++) await sleep(200);
+          await sleep(1200);
+          const landed = pile?.items?.find((i) => i.name === "ZZ Alice Chest");
+          out.clamped = landed?.system?.droppedAt?.length ?? null;
+        }
+
+        // THE DECOY: emit the broker's own payload naming an actor she does not
+        // own. `senderId` is the only field the server authenticates, so the GM
+        // must refuse this on ownership — otherwise one player can empty
+        // another's sheet.
+        game.socket.emit(`system.${game.system.id}`, {
+          action: "pileDrop", actorUuid: theirsUuid, itemId: foreignItemId, announce: false,
+        });
+        await sleep(2500);
+        out.foreignStillThere = !!theirs?.items?.get(foreignItemId);
+        out.foreignNotInPile = !pile?.items?.find((i) => i.name === "ZZ Foreign Rope");
+        // EXACTLY ONE COPY. The broker runs on "the active GM's client", which is
+        // a test on the USER and not the session, so every Warden session answers
+        // the same request — measured: two sessions made two copies and one
+        // delete that threw. `movePileItem` keeps the item's id so the embedded
+        // collection's own uniqueness elects one winner. Counted here, because
+        // "is it in the pile" passes with any number of them.
+        out.copiesInPile = pile?.items?.filter((i) => i.name === "ZZ Alice Rope").length ?? null;
+        // Carried so a failure names WHERE the copies are: two in one pile is a
+        // different defect from one in each of two piles.
+        out.pileShape = game.actors.filter((a) => a.getFlag("air-bladder", "droppedItemPile"))
+          .map((p) => ({ pile: p.id, ropes: p.items.filter((i) => i.name === "ZZ Alice Rope").map((i) => i.id) }));
+        out.droppedItemId = rope.id;
+        return out;
+      }, seed);
+
+      player.ownsMine && player.pileVisible && player.pileOwner === false
+        ? ok("a player SEES the pile and does not own it — OBSERVER, which is the ruling")
+        : fail(`player's view of the pile: ${JSON.stringify({ owns: player.ownsMine, visible: player.pileVisible, pileOwner: player.pileOwner })}`);
+      player.directWriteLanded === false
+        ? ok("...and her own write to it is REFUSED by the server, which is why the broker exists at all")
+        : fail("a player wrote to the pile directly — the premise of the whole broker is false");
+      player.dropControl && player.confirmAsked && player.confirmAsksWhere
+        ? ok("the Drop control is on her row, asks before it moves anything, and asks WHERE")
+        : fail(`drop control=${player.dropControl}, confirm asked=${player.confirmAsked}, where field=${player.confirmAsksWhere}`);
+      player.brokeredNote === "in the long grass"
+        ? ok(`...and the note she typed survives the broker ("${player.brokeredNote}") — it travels in the payload and is written GM-side`)
+        : fail(`brokered note: ${JSON.stringify(player.brokeredNote)}`);
+      player.goneFromHer && player.inPile
+        ? ok("THE BROKERED MOVE LANDS: the Warden's client does both halves, so the item leaves her sheet and arrives in the pile")
+        : fail(`brokered move: gone from her=${player.goneFromHer}, in pile=${player.inPile}`);
+      player.foreignStillThere && player.foreignNotInPile
+        ? ok("...and a crafted emit naming an actor she does NOT own is refused: senderId is the only trusted field, and the GM checks ownership against it")
+        : fail(`AUTHORIZATION HOLE: foreign item still there=${player.foreignStillThere}, kept out of the pile=${player.foreignNotInPile}`);
+
+      player.clamped === 25
+        ? ok("...and a 40-character note sent through the broker lands clamped to 25 — the enforcement is on the GM's side, where the write is, because maxlength binds the field and not the wire")
+        : fail(`brokered note length: ${player.clamped} — a crafted emit is not bound by the field's maxlength`);
+      player.copiesInPile === 1
+        ? ok("...and EXACTLY ONE copy landed — the item keeps its id, so the pile's own collection elects one winner however many Warden SESSIONS answered")
+        : fail(`${player.copiesInPile} copies in the pile — the broker's activeGM guard tests the USER, not the session`
+          + ` — dropped ${player.droppedItemId}, piles ${JSON.stringify(player.pileShape)}`);
+
+      // THE REFUSAL THIS LEG EXISTS TO PROVE LOGS A CONSOLE ERROR, and it is the
+      // probe's own doing: Alice deliberately tries the write the broker exists
+      // to avoid, and the server turning her away is the measurement. Filtered
+      // NARROWLY — the message must name the pile she was refused on — so any
+      // other console error on her client still fails the run. A blanket mute
+      // here would hide the next real one.
+      /* ---- 18. TWO WARDEN SESSIONS, one drop ---------------------------- */
+      // THE BROKER'S GUARD TESTS THE USER, NOT THE SESSION. Foundry lets one
+      // Warden hold several sessions — a desktop and a laptop, or two tabs — and
+      // `game.users.activeGM === game.user` is true in every one of them, so each
+      // answers the same request and each ran the whole move. Measured before the
+      // fix: two sessions put two copies in the pile and minted two piles, with
+      // one delete throwing "does not exist" because the other had landed; three
+      // sessions made three. `game.users.active` counts the USER once, so nothing
+      // in the data model shows this.
+      //
+      // The leg opens a second Warden deliberately, because it cannot be reached
+      // from one client at all — the same argument that put Alice in this probe.
+      {
+        const gm2 = await (await browser.newContext({ viewport: VIEWPORT })).newPage();
+        const gm2Errors = watchErrors(gm2);
+        await joinAsGM(gm2);
+        await dismissChrome(gm2);
+        const twoSessions = await gm2.evaluate(() => ({
+          sameUser: game.users.activeGM === game.user,
+          usersActive: game.users.filter((u) => u.active).length,
+        }));
+        twoSessions.sameUser
+          ? ok("a SECOND Warden session also answers the broker (activeGM === game.user in both) — and the user list still counts one Warden, so nothing in the data model shows it")
+          : fail("the second session does not consider itself the active GM; this leg proves nothing");
+
+        const second = await alicePage.evaluate(async ({ mineUuid }) => {
+          const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+          const mine = await fromUuid(mineUuid);
+          const [it] = await mine.createEmbeddedDocuments(
+            "Item", [{ name: "ZZ Alice Lamp", type: "item" }]);
+          const { dropItemToPile } = await import("/systems/air-bladder/module/party-pile.js");
+          await dropItemToPile(mine, it.id);
+          for (let i = 0; i < 60 && mine.items.get(it.id); i++) await sleep(200);
+          await sleep(1500);
+          return { id: it.id, goneFromHer: !mine.items.get(it.id) };
+        }, seed);
+        // Read on the FIRST Warden's client, and after a beat: the second
+        // session's writes have to have arrived for the count to mean anything.
+        const shape = await page.evaluate(async ({ name }) => {
+          await new Promise((r) => setTimeout(r, 1200));
+          const piles = game.actors.filter((a) => a.getFlag("air-bladder", "droppedItemPile"));
+          return { piles: piles.length,
+            copies: piles.map((p) => p.items.filter((i) => i.name === name).length) };
+        }, { name: "ZZ Alice Lamp" });
+
+        second.goneFromHer && shape.copies.reduce((a, b) => a + b, 0) === 1
+          ? ok(`...yet the drop lands EXACTLY ONCE (${JSON.stringify(shape.copies)}): the item keeps its id, and an embedded collection is the one place Foundry refuses a duplicate, so the create IS the election`)
+          : fail(`two sessions, one drop: gone from her=${second.goneFromHer}, copies ${JSON.stringify(shape.copies)} across ${shape.piles} pile(s)`);
+
+        /* ---- 19. A SPLIT WORLD REPAIRS ITSELF ----------------------------- */
+        // The pile create cannot be made atomic — a world create over an existing
+        // id REPLACES rather than being refused, contents and all — so two
+        // sessions racing a world's FIRST drop can each mint a pile, and a second
+        // floor is one no sheet will ever show, since every reader resolves
+        // through `findDroppedPile`.
+        //
+        // PLANTED, not raced. The race needs a world with no pile and two
+        // sessions arriving together, which by this point in the run is gone —
+        // and a leg that waits for a race it cannot cause passes by never
+        // reaching the code. So the split state is planted directly, with an item
+        // in the extra pile, and the next drop is what must repair it.
+        const split = await page.evaluate(async () => {
+          const L = CONST.DOCUMENT_OWNERSHIP_LEVELS;
+          const extra = await CONFIG.Actor.documentClass.create({
+            name: "ZZ Second Floor", type: "npc",
+            system: { role: "container" },
+            ownership: { default: L.OBSERVER },
+            flags: { "air-bladder": { droppedItemPile: true } },
+          });
+          const [stranded] = await extra.createEmbeddedDocuments(
+            "Item", [{ name: "ZZ Stranded Sack", type: "item" }]);
+          return { extraId: extra.id, strandedId: stranded.id,
+            piles: game.actors.filter((a) => a.getFlag("air-bladder", "droppedItemPile")).length };
+        });
+        split.piles === 2
+          ? ok("a world SPLIT into two piles (planted, with an item stranded in the second)")
+          : fail(`could not plant the split: ${split.piles} pile(s)`);
+
+        // Any drop runs `ensureDroppedPile`, which is where the repair lives.
+        const repaired = await page.evaluate(async () => {
+          const a = await CONFIG.Actor.documentClass.create({ name: "ZZ Repair PC", type: "character" });
+          const [it] = await a.createEmbeddedDocuments("Item", [{ name: "ZZ Repair Rope", type: "item" }]);
+          const { dropItemToPile } = await import("/systems/air-bladder/module/party-pile.js");
+          await dropItemToPile(a, it.id);
+          await new Promise((r) => setTimeout(r, 1200));
+          const piles = game.actors.filter((x) => x.getFlag("air-bladder", "droppedItemPile"));
+          const out = {
+            piles: piles.length,
+            // The stranded item must be ON the surviving pile — merged, not lost
+            // with the document it sat in.
+            strandedKept: piles.some((p) => p.items.some((i) => i.name === "ZZ Stranded Sack")),
+            dropped: piles.some((p) => p.items.some((i) => i.name === "ZZ Repair Rope")),
+          };
+          await a.delete();
+          return out;
+        });
+        repaired.piles === 1 && repaired.strandedKept && repaired.dropped
+          ? ok("...and the next drop REPAIRS it: one floor again, with the stranded item merged into it rather than deleted along with the pile it sat in")
+          : fail(`repair: ${JSON.stringify(repaired)} — contents must move BEFORE the extra pile goes`);
+
+        // THE LOSING SESSION'S REFUSAL IS THE MECHANISM, and Foundry logs it.
+        // Filtered by that exact SHAPE on both clients — a duplicate `_id` inside
+        // an embedded collection, which is the election refusing the second
+        // create and nothing else — so any other console error still fails the
+        // run. Not pinned to one id: every brokered drop made while two sessions
+        // are open produces one, and this block makes more than one.
+        const dupe = /_id \[\w+\] already exists within the parent collection/;
+        for (const [tag, list] of [["second Warden", gm2Errors], ["Warden", errors]]) {
+          const left = list.filter((e) => !dupe.test(String(e)));
+          const removed = list.length - left.length;
+          list.length = 0;
+          list.push(...left);
+          if (removed) ok(`...and the ${tag} session's refused create is the only thing logged (${removed} duplicate-id refusal${removed === 1 ? "" : "s"})`);
+        }
+        await gm2.context().close();
+      }
+
+      const expected = new RegExp(`lacks permission to create Item .* in parent Actor \\[${player.pileId}\\]`);
+      const unexpected = aliceErrors.filter((e) => !expected.test(String(e)));
+      if (unexpected.length) {
+        console.error("\n  player console errors:");
+        unexpected.slice(0, 5).forEach((e) => console.error("  " + e));
+        failed = true;
+      }
+      await alicePage.context().close();
+      await page.evaluate(async ({ mineId, theirsId }) => {
+        for (const id of [mineId, theirsId]) {
+          try { await game.actors.get(id)?.delete(); } catch { /* gone */ }
+        }
+        const pile = game.actors.find((a) => a.getFlag("air-bladder", "droppedItemPile"));
+        const stray = pile?.items?.filter((i) => i.name.startsWith("ZZ ")) ?? [];
+        if (stray.length) await pile.deleteEmbeddedDocuments("Item", stray.map((i) => i.id));
+      }, seed);
+    }
+  }
+  // Cleanup: the actors and the cards this probe minted — INCLUDING the pile and
+  // the Party folder, which this run creates on demand the way a table would. A
+  // probe that leaves them behind makes the next run's "made on demand" leg pass
+  // for the wrong reason.
+  await page.evaluate(async ({ ids, msgs, pileId, pileIdsAtStart, sceneId }) => {
     for (const id of msgs ?? []) { try { await game.messages.get(id)?.delete(); } catch { /* gone */ } }
-  }, { ids: r.made, msgs: [...(r.madeMsgs ?? []), ...(r.made2 ?? [])] });
+    // The scene the targeted legs placed a foe on, and its token with it.
+    if (sceneId) { try { await game.scenes.get(sceneId)?.delete(); } catch { /* gone */ } }
+    for (const m of game.messages.filter((x) => x.getFlag("air-bladder", "pileDrop"))) {
+      try { await m.delete(); } catch { /* gone */ }
+    }
+    const folder = game.actors.get(pileId)?.folder ?? null;
+    try { await game.actors.get(pileId)?.delete(); } catch { /* gone */ }
+    // EVERY pile this run did not find at its start — by ID DIFFERENCE, the
+    // rule for planted documents. The split-world leg's planted pile may have
+    // become the floor (see pileIdsAtStart), in which case `pileId` is already
+    // gone and the planted one is what would otherwise survive.
+    const keep = new Set(pileIdsAtStart ?? []);
+    for (const p of game.actors.filter((a) => a.getFlag("air-bladder", "droppedItemPile") && !keep.has(a.id))) {
+      try { await p.delete(); } catch { /* gone */ }
+    }
+    for (const id of ids ?? []) { try { await game.actors.get(id)?.delete(); } catch { /* gone */ } }
+    // The folder goes only if the probe emptied it — a Warden's own party must
+    // survive a probe run, and `deleteSubfolders` is never passed.
+    if (folder?.getFlag("air-bladder", "partyFolder") && !folder.contents.length) {
+      try { await folder.delete(); } catch { /* gone */ }
+    }
+  }, { ids: r.made, msgs: [...(r.madeMsgs ?? []), ...(r.made2 ?? [])],
+    pileId: r.pileId ?? null, pileIdsAtStart: r.pileIdsAtStart ?? [], sceneId: r.sceneId ?? null });
 } catch (e) {
   fail(`${e.name}: ${e.message}`);
 } finally {

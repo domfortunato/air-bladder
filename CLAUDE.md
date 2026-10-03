@@ -358,80 +358,367 @@ companion record of who authored what.
   sheet's checkbox list, read from the pack only, because the generic "import
   it and keep its name" sentence on it was an invitation to the same hijack by
   hand.
-- **IMPROVISED ATTACK, the fourth button in the sheet's stack (2026-10-02, user
-  ask).** A damage roll with NO item behind it — every other one in the system
-  hangs off an inventory row and reads `item.system.damageFormula`, so a
+- **UNARMED ATTACK, a permanent row at the top of the inventory (2026-10-02,
+  user ask).** A damage roll with NO item behind it — every other one in the
+  system hangs off an inventory row and reads `item.system.damageFormula`, so a
   character who grabbed a chair leg had nothing to press, though Cairn has such
-  attacks ("Unarmed attacks always do d4 damage"). It asks what you are attacking
-  with and what it rolls, then posts the ORDINARY damage card, which is what
-  brings targeting, Apply, scars and every Crawler Combat Mode behaviour along
-  without one of them knowing there is a new caller. **No setting of any kind**
-  (user ruling): the button is simply there, and the formula is typed each time
-  from a `1d4` start. Six things that will bite:
-  - **THE PC SHEET'S BUTTON ROW WAS A FIXED 112px AND A FOURTH BUTTON DOES NOT
-    FIT.** That track was sized to match the three ability rows (3 × 36px + 2 ×
-    2px), which exactly held three 32px buttons and two gaps at 100px. Four come
-    to 134px, and a fixed grid track does not grow — the extra 22px overflowed
-    into the tab section below. It is `auto` now, which is what
-    `.cairn-npc-sheet` has always overridden it to. **`dev:sheet-layout` catches
-    this precisely** and was run red first: it reports `div
-    .character-sheet-section-buttons (134 in 112)` on all six dev characters.
-    Count the buttons before pinning that row again.
+  attacks ("Unarmed attacks always do d4 damage"). It asks what you are
+  attacking with and what it rolls, then posts the ORDINARY damage card, which
+  is what brings targeting, Apply, scars and every Crawler Combat Mode behaviour
+  along without one of them knowing there is a new caller. **No setting of any
+  kind** (user ruling): it is simply there, and the formula is typed each time
+  from a `1d4` start.
+  **IT SHIPPED AS A FOURTH BUTTON IN THE SHEET'S STACK AND WAS MOVED THE SAME
+  DAY** (user ruling, having seen it: "I don't like that placement after all").
+  A row pressed with the same roll control every equipped weapon carries reads
+  as "the weapon you always have" and needs no new gesture. Eight things that
+  will bite:
+  - **IT IS NOT AN ITEM DOCUMENT, and that is what makes it unremovable and
+    slotless BY CONSTRUCTION** rather than by a rule somebody has to maintain
+    (user ask: "should not be removeable and should not consume a slot"). There
+    is nothing to delete, nothing to equip, nothing to give, nothing to drag,
+    nothing for a grant sweep to find, and `slotsUsed` counts documents on the
+    actor — of which this is none. `dev:crawler-combat` measures the ROW, not
+    the template: an `<a>` inside `.unarmed-row` with no trash can and no Drop
+    control beside it.
+  - **`canUnarmed` IS ONE PREDICATE, `isOwner && !isThing`.** The
+    crate-and-wagon exclusion used to be the `{{#unless system.isThing}}` block
+    the button sat inside, and the row is not in that block — so the gate had to
+    move INTO the flag rather than be spelled a second time in the partial. A
+    role predicate spelled twice is this codebase's thrice-repeated bug.
+    `dev:roles` asserts the row present on a person and absent on a crate FROM
+    THE SAME TAB, because "not visible" on a hidden tab would pass for free.
+  - **IT LEFT THE `_onRender` RE-ENABLE LOOP, and that is a fix and not an
+    omission.** `DocumentSheetV2._onRender` runs `_toggleDisabled(true)` over
+    every FORM element of a non-editable sheet, which is why Die of Fate needed
+    re-enabling by hand (review #18). An `<a>` is not a form element — which is
+    exactly why every weapon row's roll control has always worked on a locked
+    pack — so an exemption here would be inert, and a comment claiming it was
+    load-bearing would be false. `dev:review-batch2` asserts the TAG as well as
+    the state, so a return to `<button>` without the exemption reds.
+  - **THE SHEET CONTEXT HAS NEVER CARRIED `isOwner`.** The first cut gated the
+    template on `{{#if isOwner}}`, which is simply undefined there — the control
+    would have rendered for nobody, silently, with every probe still green.
+    `context.canUnarmed` is a NAMED flag for that reason and because it says
+    why. Check a context flag exists before gating on it.
   - **`isOwner` IS THE GATE, AND `owned()` WOULD BE WRONG TWICE.** A player
-    improvises for a character they control and the Warden anywhere, which
+    attacks for a character they control and the Warden anywhere, which
     `isOwner` says in one test because a GM owns every actor. `owned()` is
     documented as being for MUTATING actions, and it tests `isEditable`, which
-    ALSO refuses a locked compendium — the bug review #18 fixed when a Warden
-    could roll a locked-pack monster's weapon but not its die. The template
-    hides the button (`context.canImprovise`) as the affordance and the handler
-    refuses as the wall; both halves are probe-covered by shadowing `isOwner` on
-    the instance in-page, since the probe otherwise runs as a Warden who owns
-    everything.
-  - **THE SHEET CONTEXT HAS NEVER CARRIED `isOwner`.** The first cut gated the
-    template on `{{#if isOwner}}`, which is simply undefined there — the button
-    would have rendered for nobody, silently, with every probe still green.
-    `context.canImprovise` is a NAMED flag for that reason and because it says
-    why. Check a context flag exists before gating on it.
-  - **THE `_onRender` RE-ENABLE NOW COVERS BOTH BUTTONS.** `DocumentSheetV2
-    ._onRender` runs `_toggleDisabled(true)` over every form element of a
-    non-editable sheet, which is why Die of Fate was re-enabled by hand (review
-    #18). Improvised Attack is the SECOND read roll rendered as a `<button>` in
-    that stack, so it is caught by the same sweep and needs the same exemption —
-    one re-enabled and the other missed is exactly the shape that leg exists to
-    catch, and `dev:review-batch2` now asserts both on a locked pack.
-  - **THE DESCRIPTION RIDES AS THE CARD'S WEAPON, so the card needed NO new
-    code.** `data-weapon` exists to carry "the thing this attack was made with"
-    as a datum, verbatim and never re-localized, so the sentences rebuild per
-    viewer from it; a typed description is the same kind of value as an item's
-    name. "a chair leg" yields `CAIRN.AttacksTargetWeapon`, and a blank one falls
-    through to `CAIRN.AttacksTarget`, which is what makes it optional for free —
-    no `data-improvised` datum, no new sentence keys, no new branch in either
-    rebuild. Free text is safe on that path by construction: Handlebars escapes
-    `data-weapon="{{weapon}}"`, and both rebuilds write through `textContent`.
+    ALSO refuses a locked compendium — the bug review #18 fixed. The template
+    hides the row as the affordance and the handler refuses as the wall; both
+    halves are probe-covered by shadowing `isOwner` on the instance in-page.
+  - **THE DESCRIPTION RIDES AS THE CARD'S WEAPON.** `data-weapon` exists to
+    carry "the thing this attack was made with" as a datum, verbatim and never
+    re-localized, so the sentences rebuild per viewer from it; a typed
+    description is the same kind of value as an item's name. "a chair leg"
+    yields `CAIRN.AttacksTargetWeapon`. Free text is safe on that path by
+    construction: Handlebars escapes `data-weapon="{{weapon}}"`, and both
+    rebuilds write through `textContent`.
     **The field label has to elicit a NOUN PHRASE** ("What are you attacking
     with?"), or the card reads "attacks the Goblin with swings wildly".
-  - **PANIC DROPS THE QUESTION, NOT THE DIALOG.** A panicked actor is still asked
-    what they grabbed — that is not a mechanical choice — but gets no formula
-    field and no quality buttons, and rolls `1d4`. `IMPROVISED_FORMULA` and
-    `IMPAIRED_FORMULA` are DELIBERATELY two constants that agree: one is the
-    Player's Guide's unarmed damage, the other is what Impaired substitutes, and
-    if either moves it moves alone.
-  **THE DICE BUILDER NOW HAS TWO CONSUMERS** and was EXTRACTED into `utils.js`
-  (`buildDiceBuilder` / `wireDiceBuilder`) rather than copied, since a second one
-  is two things that drift. Its `wd-` class prefix and `CAIRN.WardenDamage.*`
-  keys are KEPT on purpose: the classes are what `css/cairn.css` and
-  `dev:hazard`'s selectors name, and the keys are translated in `lang/es.json` —
-  renaming either would churn a gate and orphan Malecho's work to fix a prefix
-  nobody reads. `dev:hazard` is the regression witness and was run green after.
-  Two more traps paid for in the probe: **`DialogV2` puts a button's label in a
-  `<span>`** (`dialog.mjs:243-250`), not a bare text node, so the live relabel of
-  "Standard (1d4)" found nothing and the dialog went on advertising the die it
-  opened with; and **a damage card must be claimed as a ROLL message**, because
+    **A BLANK FIELD NEEDED A THIRD PAIR OF KEYS, and this bullet claimed
+    otherwise for a day** — "a blank one falls through to `CAIRN.AttacksTarget`,
+    which is what makes it optional for free". Only the TARGETED rebuild fell
+    through; `relabelWeaponLine` returned on the empty weapon, so an untargeted
+    blank attack rendered an EMPTY `.dmg-label` — a damage roll with no sentence
+    at all, which the probe passed because its leg asserted only
+    `!/with\s*$/.test(line)` and `""` satisfies that. Measured before it was
+    fixed: three such cards in the dev world's log, `data-weapon=""` with empty
+    text. **THE PHRASE CAN NEVER BE THE WEAPON**, which is why the fix is a KIND
+    (`data-unarmed="1"`) and three whole-sentence keys rather than storing "an
+    unarmed attack" in `data-weapon`: that attribute is copied into a POSSESSIVE
+    frame one card along (`CAIRN.DamageFromWeapon`, "from {attacker}'s
+    {weapon}"), which would read "from Adobe's an unarmed attack" — and an
+    article and a preposition belong to the translator together. The attribute
+    is written whenever the roll came from this route, not only when the field
+    was blank, because it states the card's PROVENANCE and that does not go
+    stale; its absence means "posted before it existed", the `data-panic` rule
+    again, so an older blank card stays blank rather than being named
+    retroactively.
+  - **PANIC OVERRIDES THE TYPED FORMULA; IT DOES NOT TAKE THE FIELD AWAY** (user
+    ruling, reversing what shipped that morning: "I still want people to be able
+    to enter a dice formula other than 1d4 — but if the character is panicked I
+    want that formula overridden to 1d4 and to state why"). The field is always
+    rendered and always editable, a note under it says the override is coming,
+    and `#onUnarmedAttack` substitutes `UNARMED_FORMULA` at ROLL time. The
+    substitution is deliberately NOT made in the dialog: the one place that
+    decides what gets rolled is the one that stamps the panic badge, so the two
+    cannot disagree. The probe types a **d10** and asserts `1d4` — a leg merely
+    reading "1d4" could not tell this from the field having been removed and
+    defaulted. `UNARMED_FORMULA` and `IMPAIRED_FORMULA` are DELIBERATELY two
+    constants that agree: one is the Player's Guide's unarmed damage, the other
+    is what Impaired substitutes, and if either moves it moves alone.
+  - **THE QUALITY BUTTONS ARE GONE and the badge survives anyway.** Standard /
+    Impaired / Enhanced and the dice builder were removed the same day (user
+    ruling: the dialog is two fields and two buttons). A quality that
+    substitutes a fixed die is meaningless where the die is typed — Impaired IS
+    typing `1d4` — so the card now carries a quality badge ONLY when panicked,
+    passing `"impaired"` with `{panicked: true}` to get the `BadgePanic` label
+    and the `panic` kind the per-viewer rebuild already knows. No new keys, no
+    new kind, no new branch. The dialog's ABSENCES are asserted by the probe,
+    because a stale template would restore either in silence.
+  **THE DICE BUILDER IS BACK TO ONE CONSUMER.** It was extracted into `utils.js`
+  (`buildDiceBuilder` / `wireDiceBuilder`) that morning when this dialog became a
+  second one, and lost it again that afternoon. It STAYS in `utils.js` — moving
+  it back is churn — but three docblocks claiming two consumers had to be
+  corrected, which is the correct-sounding-comment trap this file keeps
+  recording. `dev:hazard` is the regression witness for the Warden's dialog.
+  Two traps paid for in the probe and worth keeping though the code that hit
+  them is gone: **`DialogV2` puts a button's label in a `<span>`**
+  (`dialog.mjs:243-250`), not a bare text node, so the live relabel of "Standard
+  (1d4)" found nothing and the dialog went on advertising the die it opened
+  with; and **a damage card must be claimed as a ROLL message**, because
   `actor.update()` posts a change-log ledger card spoken by the SAME actor which
   lands after the snapshot — the panicked leg duly read "Changed by Warden —
   Panicked marked" and reported no roll. Same shape as the CT 123 speaker race:
   claim a card by what it IS, never by being new.
-
+- **A DAMAGE ROW'S DICE SAY WHAT IT ROLLS (2026-10-02, user ask).** Every roll
+  control in the inventory wore `fa-dice-d20` regardless of its formula, so a
+  Dagger and a Greatsword were indistinguishable until you read the tag beside
+  them. `damageDiceIcons` (`utils.js`) returns one Font Awesome class per die —
+  measured against the 408 shipped damage formulas, that is one glyph for the
+  221 bare dice, two for the 110 `NdXk` keep-highest weapons, three for the lone
+  `3d6k` and two for the lone `d6+d6`. `items-list.html` is the ONE partial every
+  role's sheet renders, so PC, NPC, monster, hireling and companion all got it
+  from one change. Four things:
+  - **ALL THE GLYPHS LIVE IN ONE ANCHOR**, never one anchor per die (user ask:
+    "they both do the same thing — roll the d6 + d6 attack"). `2d6k` is a single
+    roll of two dice, so two controls would be two click targets and two
+    tooltips for one action. The template loops inside the control, which is
+    that requirement expressed in the markup rather than promised in a comment.
+  - **ALL OR NOTHING ON RECOGNITION.** A formula whose terms are not all bare
+    dice of a size Font Awesome ships — `1d6 + 2`, a flat `3`, `1d7` — gets the
+    single generic `fa-dice-d20` every row wore before this. `dieIcon` returns
+    `""` there by an earlier ruling, which is right for a DIALOG BUTTON (core
+    does `if (icon)` and omits the `<i>`) and wrong for a row, where the glyph is
+    the control's only content and "" would leave nothing to click.
+  - **FOUR GLYPHS IS THE CAP** (user ruling: "render up to four"). Nothing
+    shipped comes near it, but homebrew `10d6` would push the edit and delete
+    controls off the end of the row.
+  - **`.cairn-item-controls a` IS PINNED TO `width: 18px`**, a single-glyph
+    width that clips everything past the first. The roll control takes
+    `width: auto` with `min-width: 18px`, so a one-die control still lines up
+    with its neighbours.
+- **THE PARTY FOLDER AND THE DROPPED ITEM PILE (`module/party-pile.js`,
+  2026-10-02, user ask).** Deleting something off a character sheet destroyed
+  it, so a player clearing a slot in a hurry had no way back and the Warden had
+  no record of what the party shed. The pile is the floor: things put down are
+  still somewhere. A **Party** folder in the Actor directory is where player
+  characters are created by default, and the pile lives inside it.
+  **NEITHER DOCUMENT IS A NEW TYPE.** The pile is an ordinary npc with
+  `role: container` — the directory lists it, the sheet shows an inventory, it
+  takes drops, and the Give control already ships on it. All of this is
+  find-or-create plus one brokered move. Nine things that will bite:
+  - **NOTHING IS CREATED ON LOAD**, which is the `weather-log` rule applied: an
+    update must never start minting documents in somebody's world by itself.
+    The folder appears when the first player character is made through a Create
+    button, the pile when something is first dropped. Both are deliberate
+    gestures by a person.
+  - **FOUND BY FLAG, NEVER BY NAME.** A Warden may rename either and nothing
+    stops working — the folder-naming rule the take-over doors' folders already
+    follow. The names are a starting label and nothing reads them.
+  - **DROP SITS BESIDE THE TRASH, NOT INSTEAD OF IT** (user ruling, offered the
+    alternative). The trash still destroys. This system already answered the
+    same question for connected actors — Unlink sits beside Delete because
+    "destroy this cart" and "drop this cart here" are different intentions — and
+    a trash can that silently stopped destroying would leave a Warden correcting
+    a typo with no way to make anything go away. Fatigue is not a thing you are
+    carrying and a bound grimoire page is the book's, not the carrier's, so
+    neither is offered; `withDrop` is off on the pile itself.
+  - **IT CONFIRMS, though it is not destructive.** Recovery is not the player's:
+    the pile is OBSERVER for them, so getting something back means asking the
+    Warden. An action only another person can undo is worth one question.
+    **AND THE CONFIRM NOW ASKS WHERE (2026-10-02, user ask), which turned it from
+    a `confirm` into a `wait` with a field** — the four `wait` traps this file
+    already records, every one of them: state `position: {width: 400}` (only
+    `confirm` and `prompt` merge it), no attribute on the content element so the
+    class goes on a wrapper inside the bare div, Drop first because Enter fires
+    the FIRST submit button, and the answer tested by SHAPE because Cancel
+    resolves to its action STRING and a dismissal to `null`. The buttons keep
+    core's own `COMMON.Yes` / `COMMON.No`, which is what `confirm` put there
+    before, so the change adds **no new user-facing wording** and needs no
+    translation; Drop is the default rather than Cancel, against the review #30
+    convention and deliberately — this is a form with an optional field, not a
+    destructive guard, so Enter with nothing typed must still drop exactly as it
+    did yesterday.
+  - **THE NOTE IS 25 CHARACTERS, OPTIONAL, AND BOTH ROUTES ASK** (user ask: "can
+    we ask them where they dropped it... somewhere readable from the dropped item
+    pile"). One key and one builder (`buildWhereField`) for the Drop control and
+    the Fatigue drop both, because they land in the same pile and a
+    half-annotated list is worse than either all or none — two wordings would
+    read as two questions. Blank leaves the row with no chip; it is not editable
+    afterwards, and dropping the same thing again overwrites it.
+    `flags.air-bladder.droppedAt` → `system.droppedAt`, derived the `grantLabel`
+    way and as a **TOTAL** assignment, because `prepareData()` does not reset
+    `system` from `_source`. **THE CLAMP IS ON THE GM'S SIDE**, in the broker's
+    handler where the write happens: `maxlength` binds the field and not the
+    wire, and `senderId` is the only field the server authenticates — the
+    marketplace's greyed-rows-plus-refusal pairing again. The chip renders on the
+    **pile's** sheet only (`../withDropNote` off `context.isPile`), which is what
+    leaves the hand-back flow untouched: a returned item keeps the flag
+    harmlessly and simply stops advertising where it used to be. Never
+    localized — it is what the player typed, the same kind of value as a card's
+    `data-weapon` — and rendered with an ordinary `{{ }}`, never a triple-stash.
+    The Fatigue card picks between **two whole-sentence keys** rather than one
+    with an empty `{place}`, the `CAIRN.AttacksTarget` rule.
+  - **DROP NO LONGER WEARS THE GIVE CONTROL'S HAND** (user: "we are already using
+    the hand for offer item to another player!!"). `items-list.html` rendered
+    `fas fa-hand-holding` for Give and again for Drop, byte-identical, two
+    controls on one row — with a third hand beside them for equip. Drop is
+    `fa-down-to-line` now, at **two** sites: the row AND the Fatigue dialog's
+    confirm button (`party-pile.js`), which is the one a grep of the template
+    misses — changing only the row moves the collision rather than ending it.
+    `item-offer.js` KEEPS the hand, so after this the hand means exactly one
+    thing system-wide: it goes to a PERSON.
+    **`fa-arrow-down-to-line` IS ABSENT FROM THIS BUILD** and so is
+    `fa-location-dot` (the note chip uses `fa-map-marker-alt`): Foundry bundles
+    FA5-era names, and `all.min.css` names glyphs whether or not the font carries
+    them. Both were verified by parsing the shipped `fa-solid-900.woff2`'s own
+    character map. The probe asserts the RULE rather than the instance — no two
+    controls on one row share a mark — because nothing caught the duplicated hand
+    for the simple reason that nothing ever asked.
+  - **A PARTIAL'S PARAMETER IS INVISIBLE INSIDE `{{#each}}` WITHOUT `../`, and
+    it fails SILENTLY.** The hash parameter lands on the partial's root context
+    and `{{#each}}` makes each ITEM the context; Handlebars does not walk up for
+    a bare identifier, so `{{#if withDrop}}` on a row resolved against the item,
+    found nothing, and rendered no control at all while `canDrop` was true on
+    the sheet the whole time. Measured on a live sheet: `canDrop: true`, zero
+    controls. `{{#if ../withDrop}}` fixes it. Every other parameter
+    `items-list.html` reads — `withFatigue`, `withShop`, `withUnarmed` — is used
+    OUTSIDE the loop, which is why none of them ever had to discover this.
+    **The neighbouring `{{#unless container}}` has the same shape and nothing
+    passes `container` at either call site**, so the equip toggle renders on
+    every row including a container's, which its own comment says it should not.
+    Left alone as a pre-existing question rather than changed in passing, but
+    it is the second instance of this bug in one file.
+  - **THE MOVE RUNS ON THE ACTIVE GM'S CLIENT.** Ownership is OBSERVER for
+    players by ruling — the table sees what was dropped, the Warden hands things
+    back — and a player cannot write to an actor they only observe, so the
+    server would refuse their create. The broker is the `ownershipSync` shape:
+    the player emits, the active GM answers, and **`senderId` is the only field
+    trusted**, because it is the only one the server authenticates. The GM
+    checks the SENDER owns the source actor; without that test any client could
+    emit another player's actor uuid and strip their sheet one item at a time.
+    **With no Warden connected a player's Drop refuses and says so** — a control
+    that does nothing without explanation is the worst of the three outcomes.
+    **THE BROKER IS MEASURED FROM A SECOND BROWSER CONTEXT**, because every
+    other leg in `dev:crawler-combat` runs as the Warden, who owns everything —
+    so the one path the broker exists for had never executed. As Alice it proves
+    the PREMISE (she sees the pile, does not own it, and her own write to it is
+    refused by the server), then the GESTURE, then the AUTHORIZATION: a crafted
+    emit of the broker's own payload naming an actor she does not own is turned
+    away. A probe that only ever runs as a GM cannot see an ownership wall at
+    all.
+  - **PILE FIRST, THEN THE SHEET, and never the other way round.** If the create
+    lands and the delete fails the player has two of something, which a Warden
+    can see and fix; if the delete lands and the create fails the item is gone,
+    which nobody can. Both halves run on ONE client for the same reason.
+  - **UNLIMITED IS ONE LINE IN `calcCurrentMaxSlots`, returning Infinity.**
+    `slotsMax` is assigned from there, `isEncumbered` compares against it, and
+    `capacityVerdict`, the drop handler and the marketplace all read one or the
+    other — so that single answer makes every path accept, with no second rule
+    to keep in step. A very large NUMBER was the alternative and is worse: the
+    sheet would read "47 / 9999", which is not what unlimited means. The npc
+    sheet prints `slotsMaxLabel`, because a template renders Infinity as the
+    word.
+  - **`party-pile.js` DECLARES `FLAG_SCOPE` RATHER THAN IMPORTING IT**, and that
+    is the one piece of duplication in the file. `actor.js` must call
+    `isDroppedPile` from `calcCurrentMaxSlots`, so this module sits BELOW it in
+    the graph; `FLAG_SCOPE`'s usual home is `character-generator.js`, which
+    imports `actor.js` at its first line, so importing it would close a real
+    cycle around a string. A cycle whose only uses are inside function bodies
+    very probably works, and "very probably works" is not a reason to add one.
+    Safe to restate because the id is frozen and that decision is CLOSED.
+    `createActorInteractive` reaches this module through a DYNAMIC import, the
+    pattern it already uses for `monster-generator.js`.
+  - **AN EXPLICIT FOLDER WINS.** A Warden who presses Create Actor inside a
+    folder of their own gets it there; only a caller that named none is defaulted
+    to Party. Characters only — an NPC, a hireling and a monster are not the
+    party.
+  - **THERE IS NO `FOLDER_CREATE` PERMISSION, and the first cut guarded on one.**
+    `CONST.USER_PERMISSIONS` carries `ACTOR_CREATE`, `ITEM_CREATE`,
+    `JOURNAL_CREATE` and six more, and nothing for folders — so
+    `game.user.can("FOLDER_CREATE")` was false for EVERYONE, the Warden
+    included, and the folder was silently never made while the pile landed at
+    the root of the directory. `Folder.canUserCreate(game.user)` is the real
+    test (`common/abstract/document.mjs:346`, which resolves the document's own
+    `metadata.permissions.create`). `dev:crawler-combat` caught it on the first
+    run — pile present, `in Party folder=false` — which is the whole argument
+    for asserting WHERE a document landed and not merely that it exists.
+    **Verify a permission by grepping the client for the constant, never by
+    inventing the name the pattern suggests** — the same rule this file already
+    records for core i18n keys and for `_stats.createdBy`.
+  **TAKING A FATIGUE INSTEAD OF CRITICAL DAMAGE NOW DROPS SOMETHING FIRST**
+  (user ask), gated by the option that already exists rather than a new setting.
+  The button opens a picker of what the character is carrying; choosing one
+  drops it and THEN the Fatigue lands. Required, but WHICH item is always the
+  player's, never the system's — the line the no-automation deviation draws.
+  **The drop is recorded in chat** (user ask) from a flag carrying the
+  item's NAME and rebuilt per viewer — the move runs on whichever client
+  answered it, so a stored sentence would freeze in that client's language, the
+  rule four other cards here have been fixed under. An ordinary Drop posts
+  nothing: the pile is the record, and a card per tidy-up would be noise.
+  **THE BARGAIN WAS REVERSED THREE WAYS LATER THE SAME DAY (user rulings), and
+  every one of them overturns something this bullet used to state.** The
+  paragraph that stood here said "**Cancel backs out of the whole thing**:
+  nothing spent, nothing sealed, no Fatigue, both buttons still live", and that
+  "a character with nothing droppable answers "" and the choice proceeds: they
+  have already paid everything it could ask". Both are now false. The Fatigue is
+  BOUGHT with an item, and:
+  - **REFUSING APPLIES THE CRITICAL DAMAGE.** The second button reads "No — take
+    the Critical Damage" and marks them. It is `type: "button"` with NO callback,
+    so it resolves to its own action STRING — which is how "refused" is told
+    apart from "dismissed" with no new state anywhere (dialog.mjs:273).
+  - **ESCAPE IS NOT A REFUSAL**, and that is what PRESERVES the old ruling's
+    protection rather than discarding it: only the named button refuses, so the
+    one way to refuse is to read a sentence saying what refusing costs. Escape
+    and the window's × leave the card exactly as it was.
+  - **NOTHING TO PAY WITH IS A REFUSAL TOO, with NO DIALOG** (user ruling,
+    offered the alternative): the price is an item that frees a slot, so a
+    character with none has the Critical Damage applied the instant the button is
+    pressed. Stated because it is the argument against — somebody stripped bare,
+    often the one who has been paying all fight, loses the alternative exactly
+    when they need it. **E2's check mark is load-bearing because of this**, not
+    decorative: it is the only thing telling a player who pressed "take a Fatigue
+    instead" that they got the opposite.
+  **THE PICKER OFFERS ONLY WHAT FREES A SLOT** (`slotFreeingItems`, deliberately
+  NOT a narrowing of `droppableItems`, which still means "everything that may be
+  dropped" for the ordinary Drop control). Petty is excluded
+  **unconditionally** — never scoped to `isEncumbered()`, because after the
+  free-first-Fatigue rule a character at 9 items plus a Fatigue is not
+  overburdened yet a petty drop still strands them, and because if petty is ever
+  on the menu the sensible play is always to shed the cheapest trinket, which
+  makes a forced drop cost nothing. Fatigue is excluded **as Fatigue** and never
+  via pettiness, since the second one costs a real slot. Rows say what they free
+  as a NUMBER, never the word "bulky", and show uses where there are any —
+  **no `x3` anywhere** (user ruling: a quantity chip beside a uses chip is two
+  numbers meaning different things on one row). The slot arithmetic is
+  `itemSlotCost` in utils.js, ONE copy shared with `calcSlotsUsed`, because a
+  picker that disagreed with the slot count would price the trade wrongly.
+  **THE OLD "past a full pack" CLAIM IS GONE, not moved.** It survived one
+  revision as "what happens to a character with nothing to give up"; that case
+  now takes the Critical Damage instead, so the Fatigue-for-critical route does
+  not reach `ignoreCapacity` at all. The flag itself stays — casting and a second
+  Fatigue still use it. `dev:crawler-combat`'s all-Fatigue leg was rewritten to
+  assert the Critical Damage, and it still runs LAST because it strips an
+  inventory every earlier leg needs. The probe's cleanup deletes the pile, the
+  drop cards and the Party folder — but only if the probe emptied the folder,
+  since a Warden's own party must survive a run.
+  **THE PAIR SITS SIDE BY SIDE AND WEARS A CHECK** (user rulings). They had no
+  CSS at all, which is why two block-level buttons stacked; `.dmg-choice-row`
+  now shares the maneuver pair's flex rule. Three things were needed, not one:
+  `display: flex` on the wrapper is necessary and NOT sufficient, because core
+  sizes a chat button to its container's full width and `min-width: auto` forbids
+  a flex item shrinking below its own content — so the buttons also take
+  `flex: 1 1 0`, `min-width: 0` and `white-space: normal`, which lets a label
+  wrap to two lines at the 272px sidebar width (the take-over doors' "ok if that
+  button spans two lines as long as it's all readable" applied again). The flag
+  stores the KIND (`"fatigue"` / `"critical"`) so the tick knows which control to
+  mark; `spent()` is unchanged, being a truthiness test. A card already in a log
+  carries `true` and is LEFT ALONE — sealed, no tick — because a default would
+  silently mislabel history, the `data-panic` rule. `markChoiceTaken` is at
+  module scope, drawn per viewer, shared by both pairs.
 - **A token's name follows its actor's on rename — only where it still matched
   the OLD name** (2026-08-23, user ruling after a player's rename left their
   token stale on every map: "preserve custom token names"). Core copies the
@@ -1654,7 +1941,29 @@ companion record of who authored what.
   `livesByPlayerRules`, which is broader). The master carries a rule of its own:
   an **overburdened PC is DEPRIVED** as well as at 0 Hit Protection, on the same
   `encumbered` (`>=`) predicate the HP rule uses, so one threshold governs both
-  and clearing needs a genuinely free slot. Two options beside it, **Exploding
+  and clearing needs a genuinely free slot. **AND, SINCE 2026-10-03 (user
+  ask), PLAYER CHARACTERS ARE MADE WITH 6 HIT PROTECTION AND A REST ROLLS FOR
+  IT.** "All PCs have a max HP value of 6 and they start with 6 hp" is a
+  GENERATION rule and not a cap: "6, or higher if they have a scar" means the
+  maximum stays editable upward, so it cannot be derived, and a settings
+  change never rewrites documents (the Deprived rule, the weather-log rule) —
+  existing characters KEEP their maximum when the hack is switched on, the
+  guide says to set them by hand or tick Hit Protection on Roll Character,
+  and the blank sheet keeps `BLANK_HP`. `effectivePcHpFormula()` answers a
+  flat `6` (`Cairn.crawlerHp`) while `crawlerCombat()`, so all three HP sites
+  follow with no further wiring, including the checklist's "Rolls 6" tooltip;
+  the `pc-hp-formula` setting is ignored and its hint says so (no greying:
+  `subOptions` greys while a master is OFF, and inverting it for one row is
+  machinery for a sentence). **The Rest** rolls `1d{hp.max}`, posts it as a
+  ROLL message (Dice So Nice, the chat-mode dropdown) rebuilt per viewer from
+  `restRoll: {faces, rolled, before, after}` — numbers only, `isContentVisible`
+  first, rose-or-stayed chosen FROM the numbers — and writes `hp.value` only
+  when the roll beats it; the ration is spent either way. **A maximum below 1
+  takes the plain path**: core's `mapRandomFace` has no floor and `1d0`
+  evaluates to 0 in silence, and 0 is reachable through a typed sheet or a
+  Kettlewright import. The hack's HP rule and the ungated ration rule are
+  recorded separately on purpose: one is the hack's, the other is every
+  table's. Two options beside it, **Exploding
   damage dice** and **Fatigue instead of Critical Damage**. The master
   `requiresReload` on the `use-panic` precedent — it changes a DERIVED value and
   a re-render does not re-derive. Gate: `npm run dev:crawler-combat`.
@@ -1686,19 +1995,20 @@ companion record of who authored what.
     (`1d12`) explodes and an IMPAIRED one is judged on the `1d4` it actually
     rolls — and after the quality dialog so its buttons still advertise the
     plain formula.
-    **THIS SENTENCE SAID "Impaired and Enhanced explode too" AND WAS REVISED ON
-    2026-10-02, the same day it shipped.** A die smaller than d6 now explodes
-    NEVER (user ruling), so impaired attacks do not — and the three sites that
-    promised otherwise (here, the comment at that call site, and
-    `docs/crawler-combat.md`) all had to move together, the
-    correct-sounding-comment trap this file already records. The floor is
-    `MIN_EXPLODING_FACES` in `utils.js`, enforced INSIDE
-    `explodingDamageFormula` so neither call site can forget it, and `< 6`
-    rather than `<= 4` so a nonstandard d5 cannot fall between "d4 or lower" and
-    "d6 or larger". **The transform table in `crawler-combat-probe.mjs` had no
-    `d4` row at all**, which is exactly why the behaviour shipped unexamined: a
-    table of twelve shapes is a claim about the input space that left out the
-    case which fires on every weapon in the game.
+    **THIS SENTENCE SAID "Impaired and Enhanced explode too", WAS REVISED ON
+    2026-10-02 TO "a die smaller than d6 never explodes", AND WAS REVERSED
+    AGAIN ON 2026-10-03 — so impaired and enhanced explode, and so do a d4
+    weapon and an unarmed attack's d4** (user: "available to ALL attack rolls
+    made by PCs, including impaired attacks, improvised attack, and attacks
+    with dice smaller than a d6"). Each time, every site that stated the rule
+    had to move together (here, the call-site comments, the setting hint,
+    `docs/crawler-combat.md`, the probe), the correct-sounding-comment trap
+    this file already records. `MIN_EXPLODING_FACES` is GONE; `judgedDie` in
+    `utils.js` is the one recogniser, with no size test in it. **The transform
+    table in `crawler-combat-probe.mjs` KEEPS its five sub-d6 rows** — they now
+    assert the reversal — because a table without them is how the first ruling
+    shipped unexamined: a table of twelve shapes is a claim about the input
+    space that left out the case which fires on every weapon in the game.
   - **DEPRIVED IS DERIVED, NEVER WRITTEN, and it is a TOTAL assignment.**
     `system.deprived` is a hand-ticked boolean with NO PROVENANCE, so a hack
     that wrote it could not tell its own deprivation from one the player set for
@@ -1738,19 +2048,30 @@ companion record of who authored what.
     SECOND, INDEPENDENT WITNESS of modifier order: under the correct `2d6kx` the
     dropped die is inactive and `explode` skips it, so two sixes print ONE line
     where `2d6xk` would print two.
-  - **A DIE SMALLER THAN d6 NEVER EXPLODES, which REVISES what shipped hours
-    earlier.** One threshold, `MIN_EXPLODING_FACES` in `utils.js`, serves the
-    exploding option AND the maneuver gate, enforced INSIDE
-    `explodingDamageFormula` so neither call site can forget it. `< 6` not
-    `<= 4`, so a nonstandard d5 cannot fall between "d4 or lower" and "d6 or
-    larger". **The case that fires is IMPAIRED, not a d4 weapon**: of the
-    eighteen shipped weapons the only sub-d6 one is the Sling, which is also
-    ranged and so was excluded anyway, while `IMPAIRED_FORMULA` is `1d4` and
-    every weapon in the game can be impaired. `damageDie(formula)` is the ONE
-    shape recogniser both features read — its `null` for a `+` form is
-    load-bearing for the maneuver rule, because a PoolTerm's losing member may
-    also have rolled its maximum and nothing can tell kept from dropped without
-    walking `PoolTerm#results`.
+  - **THE DIE-SIZE FLOOR CAME AND WENT INSIDE TWO DAYS, and "parallel" is the
+    rule that replaced it (2026-10-03, user).** Round two added a d6 floor
+    serving the exploding option AND the maneuver gate (an impaired `1d4` did
+    neither); the next day the user reversed both halves — "maneuvers needs to
+    be allowed on all PC attack rolls where the result is max damage on the
+    die", "maneuvers should parallel exploding dice" — and then held ONE
+    difference: "I don't want maneuvers to be available on ranged attack
+    rolls". So: `judgedDie(formula)` in `utils.js` is the ONE recogniser both
+    options read, with no size test; `crawlerDamageFormula(base, {pc, melee})`
+    is the ONE gate the three PC damage sites call (the sheet's roll control,
+    the unarmed row, the hotbar macro — it had been spelled three times and the
+    floor had to come out of all three in one afternoon); and `melee` is the
+    only argument the two halves do not share. **The case that fires is
+    IMPAIRED, not a d4 weapon**: of the eighteen shipped weapons the only
+    sub-d6 one is the Sling, which is ranged, while `IMPAIRED_FORMULA` is `1d4`
+    and every weapon in the game can be impaired — so with both options on, a
+    max on an impaired attack (one roll in four) now offers Explode / Maneuver.
+    **A same-size `+` pool joined the maneuver rule with the reversal**: the
+    recogniser hands back the KEEP form (`d6 + d6` → `2d6k`), and when a
+    maneuver is on offer the roll is MADE as that form, one Die term whose
+    `active` flags say which member was kept — a PoolTerm's losing member may
+    also have rolled its maximum, and nothing can tell kept from dropped
+    without walking `PoolTerm#results`. Mixed sizes (`d6 + d8`) stay out of
+    both halves, the stated limit.
   - **`ranged` IS THE FIRST FIELD THIS SYSTEM HAS INVENTED ABOUT A WEAPON**, and
     only because Cairn 2e distinguishes melee from ranged nowhere, so there was
     no datum to read. Default FALSE (every weapon is melee; Bow, Crossbow and
@@ -1762,9 +2083,10 @@ companion record of who authored what.
     the note above `.object.item-sheet-grid`, where a ninth counter once
     auto-placed BELOW the tabs and pushed Cost off the bottom of the window.
   - **EXPLODING BECOMES OPT-IN WHERE A MANEUVER IS ON OFFER, and that is the
-    whole architecture of the third option.** With both on, a melee d6+ attack
-    rolls PLAIN and the card offers **Explode the Die** / **Maneuver**; ranged,
-    sub-d6 and option-off all keep the shipped auto-explode. Pressing Explode
+    whole architecture of the third option.** With both on, a melee attack on
+    ANY die rolls PLAIN and the card offers **Explode the Die** / **Maneuver**;
+    ranged and option-off keep the shipped auto-explode (sub-d6 did too, for
+    the one day the floor stood). Pressing Explode
     rolls `1d{faces}x`, merges its results into the stored die, marks the kept
     maximum `exploded`, pushes `x` onto `die.modifiers`, calls `resetFormula()`
     so the displayed formula follows the terms, and **sets `roll._total =
@@ -1804,6 +2126,44 @@ companion record of who authored what.
     added and `check:licence` is untouched. The `--ab-fatigue-chat`-not-
     `--ab-accent` trap is recorded at that token's own declaration in
     `css/cairn.css`.
+  **ROUND THREE, the same day, is all about the CARD the pair sits on.** Five
+  things:
+  - **APPLY IS WITHHELD WHILE THE CHOICE IS PENDING** (user ask). The damage on
+    an undecided card is not yet the damage — Explode will raise it, Maneuver
+    forgoes it — so offering to spend it is offering a provisional total. It is
+    REMOVED rather than hidden, which is safe because the render hook rebuilds
+    the card's DOM from the stored flavor on every render: there is nothing to
+    restore, the next render simply builds it with `pending` false. Asked BEFORE
+    the `isAuthor || isGM` gate, deliberately — who may press the buttons and
+    whether the card is resolved are different questions. If nobody ever
+    chooses, Apply never appears; that is the roll being genuinely unresolved
+    and not a lockout, since every GM is offered the buttons.
+  - **NO RE-PROMPTING WAS ALREADY TRUE, by two independent guards**, and the
+    probe now says so rather than the comment claiming it: the flag seals the
+    pair the moment Explode is pressed, AND the eligibility test looks for an
+    active maximum that has not exploded, which a finished chain never leaves
+    behind because it stops when it rolls BELOW the maximum. A `6 → 6 → 3` chain
+    offers nothing again.
+  - **SIDE BY SIDE, AND THEY HAD NO CSS AT ALL** until now — which is the whole
+    reason two block-level buttons stacked. A row says "either of these"; a
+    column reads as a list of things to do in order.
+  - **EXPLODE TAKES MARK CRITICAL DAMAGE'S EXACT RED**, not a new one: red
+    already means a consequential opt-in damage action on these cards (that
+    button, Apply, the scar banner), and a second red would be a second meaning.
+    **MANEUVER TAKES A PINNED CHAT AMBER, `--ab-maneuver-chat`**, for precisely
+    the reason `--ab-fatigue-chat` is pinned — the dark scheme re-points
+    `--ab-amber` to a brighter gold for a `.chat-message` while the tile is
+    parchment in BOTH themes, and the mistake is invisible in light mode, which
+    is where it would be written.
+  - **ONCE DECIDED, NEITHER GLOWS AND THE ONE TAKEN WEARS A CHECK** (user
+    ruling, revising "stay sealed" from earlier the same hour). A sealed control
+    that still advertises itself invites a click that does nothing, and the
+    colours were there to say "choose", which is over. The tick is drawn from
+    the FLAG per viewer — nothing about it is stored — so it reads correctly in
+    every language and on every client that loads the card later, and
+    `explodeBtn` is built when the option is off but the choice WAS explode, or
+    a decided card would have nothing for its tick to sit on. The label is
+    **"Use a Maneuver!"**, spelled maneuver in the key and the string both.
   **Since 2026-08-22 the 25 live behind FOUR `registerMenu` SUBMENUS** (user
   ruling, "one submenu per group" — General, Character Generation, Inventory
   & Encumbrance, and GLOG & Other Hacks, the fourth asked for the same day to
@@ -2445,6 +2805,85 @@ if you find one, deleting it is in scope, not a separate decision.
   STR at 0 is death.
 - Armor is hard-capped at 3.
 - Slot inventory: bulky = 2, weightless = 0, times quantity.
+- **THE FIRST FATIGUE IS FREE, and this one is a HOUSE RULE (2026-10-02, user
+  ruling).** A character carries one Fatigue as though it were petty; every
+  Fatigue beyond the first fills a slot. As far as anyone here knows Cairn
+  charges a slot for every Fatigue, and this repo does not ship the Player's
+  Guide's inventory section, so there is nothing in the tree to check it
+  against — which is exactly why it is written down as a deviation rather than
+  slipped in as if it were RAW. **The THRESHOLD DID NOT MOVE**: "more than 9
+  non-petty items is overburdened" IS `slotsUsed >= 10`, so the 2026-08-05
+  ruling below stands untouched and `isEncumbered` goes on answering both of
+  its questions with one number. What changed is the count — one line in
+  `calcSlotsUsed`, a PRESENCE test and never a count, so a Fatigue that somehow
+  carried a quantity can never refund more than it cost. Ungated and on every
+  actor type, like the coin rule one line above it.
+  Why this and not a higher threshold: it makes the forced drop in the Fatigue
+  bargain **net out to zero** — drop one thing, take one Fatigue, end where you
+  started. Under the old count a full pack that gave up an ordinary item was
+  still at 0 Hit Protection afterwards, which made the drop pointless for
+  exactly the characters it was written for.
+  Two consequences. The free row wears the existing **Petty** chip, and WHICH
+  row is decided by the actor (`system.freeFatigueId`, derived beside the
+  subtraction) and never by the template — a template picking "the first one I
+  rendered" would be a second opinion about the same fact, and without the chip
+  a character shows "9 / 10" above ten rows, which reads as a defect. And
+  **clearing a Fatigue takes a COSTED one first** (`fatigueToClear`, shared by
+  the − control and the row's trash can, which the ruling names specifically):
+  the arithmetic is identical either way, but the chip stays where it is instead
+  of hopping to a neighbour, and "I deleted the free one and gained a slot" is
+  not a thought a player should have to work through.
+  It **silently un-encumbers existing characters** — `slotsUsed` is derived so
+  nothing migrates, but anyone at 10/10 with a Fatigue becomes 9/10 and gets
+  their Hit Protection back on the next prepare. A relaxation, and it belongs in
+  the release notes. Gate: `npm run dev:enc-damage`.
+- **RESTING COSTS A RATION, and this one is a HOUSE RULE too (2026-10-03,
+  user ask: "the Rest button should inform the players that they must consume
+  a ration to rest for 10 minutes and recover their hit protection. If they
+  don't have rations on their sheet, they are not allowed to rest").** Every
+  table, PLAYER CHARACTERS ONLY (user ruling, asked: "the ration rule is for
+  every table, not just Crawlers"); an NPC's Rest is untouched. Cairn as
+  written has no ration cost on a rest, so it sits here as a deviation like
+  the free Fatigue above it. Six things:
+  - **A ration is a USE, found by `RATIONS_RE`** (`gear.js`), the classifier
+    generation already bands and tags rations with, so a Warden's "Iron
+    Rations" counts and no second notion of "ration" exists. The count is
+    `uses.value + (quantity − 1) × uses.max` summed over matching items; an
+    item with no uses counter, or none left, is not food the system can see
+    (review of the design, accepted: a quantity-only arithmetic would be a
+    second rule for one word). The confirm shows the count, so the state is
+    never a surprise twice.
+  - **`CairnItem#spendUse()` is the row's − arithmetic, ONE copy, and it now
+    RETURNS a diff rather than writing it**: decrement; at 0 with a unit to
+    spare, roll over and refill. `#onItemRemoveUse` writes what it returns;
+    the Rest folds it into its own write. (A stack hand-edited to 0 uses with
+    units to spare opens a unit and spends one from it, which the − control
+    never produced and the old arithmetic got wrong by one.)
+  - **ONE WRITE, ONE LEDGER CARD, and that was MEASURED before it was built.**
+    The ledger already logs an item's `uses.value` write as its own whispered
+    card, so "spend, then heal" would be two cards for one press — the exact
+    defect the − control's own comment records being merged away. A parent
+    `actor.update` carrying the ration's diff in `items: [{_id, …}]` fires
+    ONLY `preUpdateActor`/`updateActor` (with `changed.items`) — no
+    `preUpdateItem`, no `updateItem`, no descendant callbacks — and the
+    embedded source still changes. So the Rest is one actor write with the
+    HP change and the ration inside it, `#postChangeLog` reads
+    `changed.items` for the two audited fields (quantity, uses) off a stash
+    `_preUpdate` takes, and the card reads "Rest — Hit Protection 1 → 6,
+    Rations 3 → 2 uses". When the hack's roll does not beat current HP, the
+    write carries the ration alone and the card still records it under Rest.
+  - **The confirm is `_confirmAction` with extra lines, not a copy**: it owns
+    the `.cairn-confirm` markup a probe reads. No rations → a one-button
+    `DialogV2.prompt`. `CAIRN.RestTip` (Cairn's own prose) is NOT edited: the
+    house-rule sentence FOLLOWS it in the PC sheet's tooltip and the NPC
+    sheet keeps the prose alone, which `dev:ui-parity` asserts byte for byte.
+  - **UNDER CRAWLER COMBAT MODE A REST ROLLS INSTEAD OF RESTORING** — see the
+    Crawler bullet below. Everything above still happens; only the HP half
+    changes.
+  - Gates: `npm run dev:rest` (the whole gesture, both modes, a second
+    browser context for the privacy leg), `dev:change-log` (the one-card
+    shape, with a Rations item planted because the refusal prompt's only
+    button is `ok`).
 - **Being encumbered sets HP to 0 outright. So does panic.** Intentional.
   **Encumbered means NO FREE SLOT** — `actor.js` computes `slotsUsed >=
   slotsMax`, so a pack filled to exactly its limit counts, and it clears only by
@@ -2910,3 +3349,15 @@ save it — a number in prose is a copy whether or not it apologises for itself.
   the product's, deleted it, and left the clone it had just minted for the
   next run to trip on. One red in 112, and the probe was wrong, not the code.
   Snapshot the ids before the click; find the one that is new.
+  **A FIFTH (2026-10-03): A PROBE KILLED FROM OUTSIDE LEAVES ITS BROWSER, AND
+  A PARKED WARDEN SESSION LOOKS LIKE TWO DIFFERENT DEFECTS.** `dev:enc-damage`
+  was diagnosed for a day as "over its 420s watchdog" (a chat sweep of 3,974
+  messages did nothing) and then as doubling every status card. Both were six
+  `chrome-headless-shell` processes from a probe stopped with TaskStop at
+  05:07, each holding a live Warden session: the brokers and `_onUpdate`
+  cards act once per SESSION, and three extra Foundry clients halved the
+  server's speed. With them killed the same probe passed 163/163 in 280s
+  against its 420s budget. The `lib.mjs` watchdog closes browsers when IT
+  fires; a kill from outside is invisible to it. **When a probe times out or
+  a write lands twice, `Get-Process chrome-headless-shell` before reading a
+  line of code**; orphans older than the run are parked sessions.

@@ -122,6 +122,38 @@ export const isLightGear = (name) =>
   LIGHT_SOURCE_RE.test(String(name ?? "")) || LIGHT_FUEL.has(String(name ?? "").trim().toLowerCase());
 
 /**
+ * A REST EATS A RATION (2026-10-03, user ask — a HOUSE RULE for every table,
+ * player characters only), and these three are the whole notion of "ration"
+ * the rule rests on. The same `RATIONS_RE` generation already bands and tags
+ * rations with, so a Warden's "Iron Rations" counts and no second notion is
+ * introduced.
+ *
+ * RATIONS ARE COUNTED BY USES. The shipped Rations item is ONE document with
+ * three uses, so "3 rations" is three uses; a stack of quantity N holds the
+ * open unit's uses plus N − 1 full units. An item with no uses counter, or
+ * none left, is not food the system can see — the Rest's confirm shows the
+ * count, so that state is never a surprise twice, and a quantity-only second
+ * arithmetic is exactly what this rule refuses to grow.
+ */
+export const rationItems = (actor) =>
+  (actor?.items ?? []).filter((i) => RATIONS_RE.test(String(i?.name ?? "")));
+
+/** The rations ONE item holds, by uses: the open unit's plus every full unit behind it. */
+export const rationsOn = (item) => {
+  const max = Math.max(0, Number(item?.system?.uses?.max) || 0);
+  if (max < 1) return 0;
+  const value = Math.max(0, Number(item?.system?.uses?.value) || 0);
+  const quantity = Math.max(1, Number(item?.system?.quantity) || 1);
+  return value + (quantity - 1) * max;
+};
+
+/** Every ration on the sheet, by uses. */
+export const rationsLeft = (actor) => rationItems(actor).reduce((n, i) => n + rationsOn(i), 0);
+
+/** The item a Rest eats from — the first in document order with a ration on it — or null. */
+export const rationToEat = (actor) => rationItems(actor).find((i) => rationsOn(i) >= 1) ?? null;
+
+/**
  * The six ordering bands a granted loadout is arranged into, lowest first.
  * Tested IN ORDER, which is what settles the overlaps: the Candle Helmet is
  * `type: "armor"`, so it files as armor rather than as a light, and a

@@ -811,10 +811,11 @@ export const registerSettings = () => {
   // no reload is needed. The card records what it offered, the
   // crawler-fatigue-for-critical rule above.
   //
-  // MELEE ONLY, and d6 OR LARGER: both tests live at the roll site, where the
-  // item and the post-quality formula are in hand. See `damageDie` and
-  // MIN_EXPLODING_FACES in utils.js — one threshold serves this and the
-  // exploding option, so an impaired `1d4` neither explodes nor offers a maneuver.
+  // MELEE ONLY, and ANY die: the tests live at the roll site, where the item
+  // and the post-quality formula are in hand, through `crawlerDamageFormula`
+  // in utils.js — the ONE gate this and the exploding option share, so the two
+  // cannot disagree about which rolls qualify. The d6 floor of 2026-10-02 was
+  // REVERSED on 2026-10-03 (user ruling): an impaired `1d4` offers a maneuver.
   game.settings.register(SETTINGS_NS, "crawler-maneuver-on-max", {
     name: "CAIRN.Settings.CrawlerManeuverOnMax.label",
     hint: "CAIRN.Settings.CrawlerManeuverOnMax.hint",

@@ -129,7 +129,7 @@ any of them.
 |---|---|
 | **Ability dice for player characters** | Standard (3d6) · Adventurer (4d6kh3) · Crawler (2d6 + 6) |
 | **Gold dice for player characters** | the same three |
-| **Hit Protection formula for player characters** | any formula; `1d6` by default |
+| **Hit Protection formula for player characters** | any formula; `1d6` by default; ignored under Crawler Combat Mode, which gives every player character 6 |
 | **Age formula for generated characters** | any formula; `2d20 + 10` by default |
 
 **Standard is the book.** **Adventurer** rolls four dice and keeps the best
@@ -139,8 +139,9 @@ Adventurer abilities with Standard gold is a perfectly good table.
 
 Hit Protection takes a formula rather than a menu because a fixed value is
 the common want: type `4` and every character arrives with 4. Leave it blank
-for `1d6`. The notation is explained in **Dice Formulas**, also at
-airbladder.xyz under Guides.
+for `1d6`. With **Crawler Combat Mode** on the formula is ignored and every
+player character arrives with 6 — see that hack's page. The notation is
+explained in **Dice Formulas**, also at airbladder.xyz under Guides.
 
 These govern the **base roll** only. Coins a bond or a background question
 grants are added on top, as they always were, so a Crawler character still

@@ -54,6 +54,12 @@ Cairn.pcDiceTiers = {
 // falls back to it when the Warden's own formula is blank or unusable.
 Cairn.pcHpFormula = "1d6";
 
+// Hit Protection under CRAWLER COMBAT MODE (2026-10-03, user ask): every
+// player character is MADE with 6, and the formula above is ignored while the
+// hack is on. A number and not a formula on purpose — "All PCs have a max HP
+// value of 6" is the rule, and a Rest rolls a die of that size.
+Cairn.crawlerHp = 6;
+
 // Cairn 2e generation config. Backgrounds, gear, and bonds come from their own
 // packs (see character-generator.js); this covers the shared biography, which
 // draws the 8 physical/personality traits from tables-2e and rolls age.

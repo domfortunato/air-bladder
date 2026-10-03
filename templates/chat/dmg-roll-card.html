@@ -21,7 +21,22 @@
           such a card alone: rebuilding one with the non-panic key drops the
           "(Panic)" its stored content still holds, and nothing ever repairs an
           untargeted card. See that function for the whole reason. --}}
-    <div class="dmg-label" data-weapon="{{weapon}}"{{#if pool}} data-pool="{{pool}}"{{/if}}{{#if hazard}} data-hazard="1"{{/if}} data-panic="{{#if panic}}1{{else}}0{{/if}}">{{label}}</div>
+    {{!-- data-unarmed marks a roll made with no item behind it, and it is a
+          KIND rather than a name because the phrase can never be the weapon:
+          `data-weapon` is copied verbatim into a POSSESSIVE frame one card
+          along (CAIRN.DamageFromWeapon, "from {attacker}'s {weapon}"), where
+          "an unarmed attack" would read "from Adobe's an unarmed attack". So
+          each sentence is a whole key and the article and the preposition
+          belong to the translator.
+          Emitted whenever the roll came from the unarmed route and not only
+          when the description was left blank -- it is a statement about the
+          card's provenance, which does not go stale. Readers ask
+          `!weapon && unarmed`, so with text typed the weapon branch wins
+          everywhere and this attribute is inert. Its ABSENCE means "posted
+          before it existed", the data-panic rule again: such a card stays
+          blank rather than being retroactively named, because nothing on it
+          says what it was. --}}
+    <div class="dmg-label" data-weapon="{{weapon}}"{{#if pool}} data-pool="{{pool}}"{{/if}}{{#if hazard}} data-hazard="1"{{/if}}{{#if unarmed}} data-unarmed="1"{{/if}} data-panic="{{#if panic}}1{{else}}0{{/if}}">{{label}}</div>
 
     {{#if (isNotNull targets)}}
     <div class="icon-action">

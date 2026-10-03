@@ -18,6 +18,7 @@ import { createCairnMacro, rollItemMacro } from "./macros.js";
 import { Damage, DAMAGE_APPLIED_FLAG, DAMAGE_SOURCE_FLAG, MANEUVER_CHOICE_FLAG, localizeDamageCard } from "./damage.js";
 import { registerWardenDamageControl } from "./warden-damage.js";
 import { registerWardenDashboardControl, refreshDashboardTime, localizeDashboardCard } from "./warden-dashboard.js";
+import { handlePileSocket, localizePileCard, PILE_DROP_ACTION, askWhatToDrop, dropItemToPile } from "./party-pile.js";
 import { installWorldCalendar, checkWorldCalendar } from "./game-time.js";
 import { renderWatchClock, refreshWatchClock } from "./watch-clock.js";
 import { refreshValdCalendar } from "./vald-calendar.js";
@@ -27,7 +28,7 @@ import { connectionHeadroom, connectedOwnershipShape, syncPendingOwnership, OWNE
 import { loadContentOverlay, t, translationOf, contentLocalized, tokenDisplayName, actorDisplayName, LOCALIZED_DIRECTORIES, localizeJournalBlocks } from "./i18n-content.js";
 import { injectEncounterButton, localizeEncounterQty, resolveTable } from "./encounters.js";
 import { bindGrimoireFatigueButton, localizeGlogCastCard } from "./grimoire.js";
-import { nameableTokens, DAMAGE_QUALITY_KEYS, localizeD20Card, localizeRollFlavor, crawlerOption } from "./utils.js";
+import { nameableTokens, DAMAGE_QUALITY_KEYS, localizeD20Card, localizeRestCard, localizeRollFlavor, crawlerOption, damageDiceIcons } from "./utils.js";
 
 /**
  * Crawler Combat Mode: the save card's Critical-Damage-or-Fatigue choice, once
@@ -1107,6 +1108,19 @@ Hooks.once("init", () => {
     // `senderId`. A correct-sounding comment on contradicting code reads as
     // verification; review #28 caught it, and this file records the same
     // failure twice elsewhere.)
+    // A player dropped something into the Dropped Item Pile. The pile is
+    // OBSERVER for players by ruling, so they cannot write to it and the active
+    // GM does the move for them — the ownershipSync shape exactly, including the
+    // catch: `fromUuid` throws on a malformed uuid, and a throw out of an
+    // un-awaited async socket handler names nothing.
+    if (msg?.action === PILE_DROP_ACTION) {
+      try {
+        await handlePileSocket(msg, senderId);
+      } catch (err) {
+        console.error(`Air Bladder | pile drop request from ${game.users.get(senderId)?.name ?? senderId} failed:`, err);
+      }
+      return;
+    }
     if (msg?.action === "ownershipSync") {
       if (game.users.activeGM !== game.user) return;
       // Caught, the handler's own standing rule (review #17): a throw here —
@@ -3076,9 +3090,10 @@ const soleDie = (roll) => {
  * WHAT COMES FROM WHERE. The datum carries the only thing a card cannot be asked:
  * that this was a player character's MELEE attack with the option on when the die
  * was thrown. Everything else is read back off the stored roll — that it was a
- * single die, that the die is a d6 or larger, and that it rolled its maximum — so
- * none of those can drift from what actually happened, and the die-size test is
- * re-asked here FAIL-CLOSED rather than trusted from the producer.
+ * single die and that it rolled its maximum — so neither can drift from what
+ * actually happened, and the single-die test is re-asked here FAIL-CLOSED
+ * rather than trusted from the producer. There is no die-size test since
+ * 2026-10-03: every die qualifies (user ruling).
  *
  * THE GATE IS `isAuthor || isGM`, and it is deliberately NOT the Fatigue button's
  * actor-based test. Both controls here write to the MESSAGE — one rewrites
@@ -3088,6 +3103,33 @@ const soleDie = (roll) => {
  * actor-based gate would offer them a button the server refuses. The roller is the
  * author and a GM owns everything, so no broker is involved.
  */
+
+/**
+ * A check on the control that was taken (user ruling 2026-10-02).
+ *
+ * Both members of a sealed pair go plain and unglowing — the CSS does that from
+ * `[disabled]` — so without this a card scrolled back to says a choice was made
+ * and not WHICH. On the Fatigue pair it matters more than that: a player who
+ * refuses the drop never pressed Mark Critical Damage, so the tick is the only
+ * thing on screen telling them what happened instead.
+ *
+ * MODULE SCOPE, not a closure, because TWO pairs draw it now — the maneuver pair
+ * and the save card's Fatigue pair — and one notion deserves one spelling. It was
+ * a local inside `nameManeuverChoice` while that was the only caller.
+ *
+ * DRAWN FROM THE FLAG, per viewer: nothing about it is stored, so it is right in
+ * every language and on every client that loads the card later. An `<i>` rather
+ * than a character, so it inherits the project's icon treatment and carries no
+ * text for a translator to miss.
+ * @param {HTMLElement|null} btn
+ */
+const markChoiceTaken = (btn) => {
+  if (!btn) return;
+  const tick = document.createElement("i");
+  tick.className = "fa-solid fa-check";
+  btn.prepend(tick);
+};
+
 const nameManeuverChoice = (message, html) => {
   // An explosion and a max-damage roll both REVEAL the die's face, so this asks
   // the same question localizeD20Card asks first.
@@ -3128,15 +3170,39 @@ const nameManeuverChoice = (message, html) => {
   const roll = message.rolls?.[0];
   const die = soleDie(roll);
   const faces = Number(die?.faces);
-  // FAIL-CLOSED on the floor: a producer that somehow stamped the datum on a
-  // sub-d6 roll offers nothing here either.
-  if (!die || !Number.isFinite(faces) || faces < 6) return;
+  // FAIL-CLOSED: one Die term with a real face count, or nothing is offered.
+  // There is NO die-size floor since 2026-10-03 (user ruling, both halves of
+  // the hack); `faces < 1` guards only a die that could never roll a maximum.
+  if (!die || !Number.isFinite(faces) || faces < 1) return;
   // The kept die, having rolled its maximum and not yet exploded. A completed
   // chain ends on a result BELOW the maximum — that is why it stopped — so this
   // finds nothing once Explode has been pressed, which is a second guard beside
   // the flag.
   const maxResult = (die.results ?? []).find(
     (r) => r?.active && r.result === faces && !r.exploded);
+  // APPLY IS WITHHELD WHILE THE CHOICE IS PENDING (user ruling 2026-10-02). The
+  // damage on the card is not yet the damage: Explode will raise it and Maneuver
+  // forgoes it entirely, so a control that spends the number before either
+  // happened is offering to apply a provisional total. It comes back the moment
+  // something is chosen — live after Explode, greyed with the forgone tooltip
+  // after Maneuver.
+  //
+  // REMOVED, not hidden, and that is safe because this hook rebuilds the card's
+  // DOM from the stored flavor on EVERY render: there is nothing to restore
+  // later, the next render simply builds it again with `pending` false.
+  //
+  // ASKED BEFORE THE AUTHOR GATE BELOW, deliberately. Who may press the two
+  // buttons and whether the card is resolved are different questions, and a
+  // Warden who did not roll must not be handed Apply just because the pair is
+  // not theirs to press.
+  //
+  // If nobody ever chooses, Apply never appears. That is the roll being
+  // genuinely unresolved rather than a lockout: the buttons are offered to the
+  // author and to every GM, so a Warden can always resolve a card themselves.
+  if (maxResult && !choice) {
+    html.querySelector(".apply-dmg")?.remove();
+  }
+
   // Eligible if the kept die is sitting on its maximum — OR if a choice is
   // already recorded, in which case this card WAS eligible and the pair must
   // still render so it can be shown spent. The second half is load-bearing for
@@ -3158,8 +3224,11 @@ const nameManeuverChoice = (message, html) => {
     return b;
   };
   // Explode is offered only while that option is on; Maneuver always is, because
-  // the datum would not be on the card otherwise.
-  const explodeBtn = crawlerOption("crawler-exploding-damage")
+  // the datum would not be on the card otherwise. `|| choice === "explode"` is
+  // what keeps a DECIDED card honest: switch the option off afterwards and the
+  // card still has to be able to show which of the two was taken, or its check
+  // mark would have nothing to sit on.
+  const explodeBtn = crawlerOption("crawler-exploding-damage") || choice === "explode"
     ? make("explode-the-die", "CAIRN.Crawler.ExplodeButton", "CAIRN.Crawler.ExplodeButtonTip")
     : null;
   const maneuverBtn = make("take-maneuver", "CAIRN.Crawler.ManeuverButton",
@@ -3175,6 +3244,7 @@ const nameManeuverChoice = (message, html) => {
   // a devtools toggle.
   if (choice) {
     seal();
+    markChoiceTaken(choice === "explode" ? explodeBtn : maneuverBtn);
     if (explodeBtn) wrap.append(explodeBtn);
     wrap.append(maneuverBtn);
     row.append(wrap);
@@ -3315,10 +3385,14 @@ const localizeSpeakerName = (message, html, token) => {
  * force `impaired`, so the badge would answer correctly today, but that is a
  * correlation two independent branches happen to maintain and not something
  * this line should depend on.
+ *
+ * `data-unarmed` picks a THIRD pair of keys, for a roll made with nothing in
+ * hand and the description left blank. Whole sentences rather than "an unarmed
+ * attack" injected as `{weapon}`, because `data-weapon` is also copied into a
+ * possessive frame (`CAIRN.DamageFromWeapon`) and because the article belongs
+ * to the translator.
  */
 const relabelWeaponLine = (label) => {
-  const weapon = label?.dataset?.weapon ?? "";
-  if (!weapon) return;
   // A CARD OLDER THAN `data-panic` CANNOT BE REBUILT, and must be left alone
   // rather than guessed at (review #29). `data-weapon` shipped in f23962cb and
   // `data-panic` only in fb5db539, so every untargeted damage card already in a
@@ -3330,7 +3404,23 @@ const relabelWeaponLine = (label) => {
   // nothing targeted is the common Panic case, and nothing ever repairs the
   // card. Same shape as the rest of the class — `localizeDamageQuality` and
   // `localizeD20Card` both bail when their datum is missing.
-  if (label.dataset.panic === undefined) return;
+  //
+  // THE GUARD SITS ABOVE THE WEAPON TEST, deliberately: there are two sentences
+  // to rebuild now, and the "leave an older card alone" rule covers both with
+  // one line rather than being spelled twice.
+  if (label?.dataset?.panic === undefined) return;
+  const weapon = label.dataset.weapon ?? "";
+  if (!weapon) {
+    // AN UNARMED ATTACK WITH THE FIELD LEFT BLANK NAMES ITSELF. Before this the
+    // function returned here and the card rendered an EMPTY `.dmg-label` -- a
+    // damage roll with no sentence at all. Anything else with no weapon (a
+    // hazard, a card from before the unarmed route existed) still stands as
+    // posted, because there is genuinely nothing to name.
+    if (label.dataset.unarmed !== "1") return;
+    label.textContent = game.i18n.localize(
+      label.dataset.panic === "1" ? "CAIRN.RollingDmgUnarmedPanic" : "CAIRN.RollingDmgUnarmed");
+    return;
+  }
   label.textContent = game.i18n.format(
     label.dataset.panic === "1" ? "CAIRN.RollingDmgWithWeaponPanic" : "CAIRN.RollingDmgWithWeapon",
     { weapon });
@@ -3445,10 +3535,15 @@ const nameDamageTargets = (message, html, scene) => {
   // happened the first time this line was written.
   const MARK = "\u0000";
   const weapon = label.dataset.weapon ?? "";
-  const sentence = game.i18n.format(
-    weapon ? "CAIRN.AttacksTargetWeapon" : "CAIRN.AttacksTarget",
-    { attacker, weapon, target: MARK },
-  );
+  // Three arms, not two. `data-unarmed` with no weapon named is a roll made
+  // with nothing in hand and the field left blank, which has its own sentence —
+  // "Adobe attacks Goblin!" is complete English but says nothing about how.
+  // `replaceChildren` below replaces child NODES and not attributes, so
+  // `data-unarmed` survives the rewrite exactly as `data-weapon` does.
+  const key = weapon ? "CAIRN.AttacksTargetWeapon"
+    : label.dataset.unarmed === "1" ? "CAIRN.AttacksTargetUnarmed"
+      : "CAIRN.AttacksTarget";
+  const sentence = game.i18n.format(key, { attacker, weapon, target: MARK });
   const [before, after = ""] = sentence.split(MARK);
   const strong = document.createElement("strong");
   strong.className = "dmg-target";
@@ -3657,6 +3752,11 @@ Hooks.on("renderChatMessageHTML", (message, html, data) => {
   // and stored, so review #25's overlay fix reached the author and nobody else.
   localizeDashboardCard(message, html);
 
+  // The Dropped Item Pile's record of a Fatigue-driven drop. Composed on
+  // whichever client ran the move — the Warden's, for a player's drop — so the
+  // stored flag carries a NAME and the sentence is rebuilt here.
+  localizePileCard(message, html);
+
   // Roll Str Save.
   //
   // Resolve the token from the scene the message was SPOKEN in, not from whatever
@@ -3710,6 +3810,9 @@ Hooks.on("renderChatMessageHTML", (message, html, data) => {
   // roll, one shared builder. Also before the binding below: it replaces the
   // Mark Critical Damage button.
   localizeD20Card(message, html);
+  // The Crawler Rest's roll card (2026-10-03): the same shape as the d20 card,
+  // four numbers and a sentence chosen from them, hidden-stays-hidden first.
+  localizeRestCard(message, html);
   // Die of Fate and anything else whose only localized surface is the flavour
   // line. Cheap and unconditional: it returns on the first line for every
   // message that does not carry the flag.
@@ -3762,27 +3865,51 @@ Hooks.on("renderChatMessageHTML", (message, html, data) => {
     // Fatigue card is the precedent: the disabled button is the affordance,
     // the flag check is the enforcement, and a card scrolled back to hours
     // later is still spent.
+    //
+    // THE FLAG RECORDS WHICH (user ruling 2026-10-02). It used to store `true`;
+    // it stores `"fatigue"` or `"critical"` now, so the pair can wear a check on
+    // the one that was taken. `spent()` needs no change — it is a truthiness
+    // test, and a non-empty string is as truthy as `true` — which is what lets
+    // every enforcement path below stay exactly as it was.
+    //
+    // A CARD ALREADY IN A LOG CARRIES `true` AND IS LEFT ALONE: it seals with no
+    // check rather than being ticked by a default, because a default would
+    // silently mislabel history on precisely the cards nothing ever repairs. The
+    // `data-panic` rule — a shape older than the datum is not guessed at.
     const spent = () => !!message.getFlag(FLAG_SCOPE, CRAWLER_CHOICE_FLAG);
-    const spend = async () => { await message.setFlag(FLAG_SCOPE, CRAWLER_CHOICE_FLAG, true); };
+    const spend = async (kind) => { await message.setFlag(FLAG_SCOPE, CRAWLER_CHOICE_FLAG, kind); };
     const seal = () => {
       critBtn?.setAttribute("disabled", "disabled");
       fatigueBtn?.setAttribute("disabled", "disabled");
     };
-    if (spent()) seal();
+    /**
+     * ONE WRITER FOR THE CRITICAL DAMAGE. The refusal branch below must not
+     * become a second `critActor.update({"system.critical": true})` — two
+     * spellings of one notion is this codebase's thrice-repeated bug — so the
+     * Mark button's body lives here and both paths call it.
+     *
+     * It keeps the `if (fatigueBtn)` asymmetry: an ordinary Critical Damage card
+     * has no choice to spend and must not grow a flag nothing reads.
+     */
+    const takeCritical = async () => {
+      await critActor.update({ "system.critical": true });
+      critBtn?.setAttribute("disabled", "disabled");
+      if (fatigueBtn) { await spend("critical"); seal(); }
+    };
+    if (spent()) {
+      seal();
+      const taken = message.getFlag(FLAG_SCOPE, CRAWLER_CHOICE_FLAG);
+      if (taken === "fatigue") markChoiceTaken(fatigueBtn);
+      else if (taken === "critical") markChoiceTaken(critBtn);
+    }
 
     if (critBtn) {
       // `mayChoose` only where the flag is actually written -- see its comment.
       if (fatigueBtn ? mayChoose : mayAnswer) {
-        critBtn.onclick = async (ev) => {
-          // Capture the button before awaiting: event.currentTarget is null once
-          // the (async) handler resumes after the update.
-          const b = ev.currentTarget;
+        critBtn.onclick = async () => {
           if (spent()) return;
-          await critActor.update({ "system.critical": true });
-          b.setAttribute("disabled", "disabled");
-          // Only when the alternative was on offer — an ordinary card has no
-          // choice to spend and must not grow a flag nothing reads.
-          if (fatigueBtn) { await spend(); seal(); }
+          await takeCritical();
+          markChoiceTaken(critBtn);
         };
       } else {
         critBtn.style.display = "none";
@@ -3795,11 +3922,51 @@ Hooks.on("renderChatMessageHTML", (message, html, data) => {
         fatigueBtn.onclick = async (ev) => {
           const b = ev.currentTarget;
           if (spent()) return;
+          // SOMETHING GOES ON THE FLOOR FIRST (user ask, 2026-10-02). A Fatigue
+          // fills a slot, so this asks what the character puts down to make room
+          // for it — required, but WHICH item is always the player's choice,
+          // never the system's, which is the line the no-automation deviation
+          // draws.
+          //
+          // THE DIALOG ANSWERS THREE WAYS, and the old rule is REVERSED (user
+          // ruling, same day). It used to be that cancelling backed out of
+          // everything — nothing spent, both buttons still live. Now the Fatigue
+          // is BOUGHT with an item, and declining to pay means the Critical
+          // Damage stands:
+          //   - an object   → the bargain is struck: drop it, then the Fatigue;
+          //   - "critical"  → REFUSED by the named button, so the save stands;
+          //   - null        → Escape or the window's ×: no decision at all.
+          // Escape is deliberately NOT a refusal, which is what preserves the
+          // accident guard the old ruling existed for: the only way to refuse is
+          // to read a sentence saying what refusing costs.
+          //
+          // NOTHING TO PAY WITH IS A REFUSAL TOO, and `askWhatToDrop` returns
+          // "critical" for it with NO DIALOG — the price is an item that frees a
+          // slot, and a character with none cannot pay it. Stated because it is
+          // the argument against: somebody stripped bare, often the one who has
+          // been paying all fight, loses the alternative exactly when they need
+          // it, with no warning at the moment of pressing. The check mark on Mark
+          // Critical Damage is what makes that legible — they pressed "take a
+          // Fatigue instead" and got the opposite, and the tick is the only thing
+          // that says so.
+          //
+          // ASKED BEFORE ANY WRITE, deliberately. The drop and the Fatigue are
+          // one bargain, and a Fatigue landing while the picker was still open
+          // would be half of it.
+          const chose = await askWhatToDrop(critActor);
+          if (chose === null) return;
+          if (spent()) return;             // re-asked: the dialog is seconds wide
+          if (chose === "critical") {
+            await takeCritical();
+            markChoiceTaken(critBtn);
+            return;
+          }
+          await dropItemToPile(critActor, chose.id, { announce: true, place: chose.place });
           // Fatigue is a COST the rules impose, never a purchase, so it lands
           // past a full pack — `ignoreCapacity` is the flag that exists for
-          // exactly this. The character is then overburdened: deprived and at
-          // 0 Hit Protection until they free a slot, which is what the
-          // button's tooltip promises.
+          // exactly this. With the drop in front of it and the first Fatigue
+          // free, the usual case now NETS TO ZERO: one thing down, one Fatigue
+          // on, the same slots as before.
           //
           // `system.critical` is deliberately NOT written. Taking the Fatigue
           // INSTEAD of Critical Damage is the whole point of the choice.
@@ -3808,8 +3975,9 @@ Hooks.on("renderChatMessageHTML", (message, html, data) => {
             { ignoreCapacity: true },
           );
           b.setAttribute("disabled", "disabled");
-          await spend();
+          await spend("fatigue");
           seal();
+          markChoiceTaken(fatigueBtn);
         };
       } else {
         fatigueBtn.style.display = "none";
@@ -3864,6 +4032,13 @@ const configureHandleBar = () => {
 
   Handlebars.registerHelper("ifPrint", (cond, v1) => (cond ? v1 : ""));
   Handlebars.registerHelper("ifPrintElse", (cond, v1, v2) => (cond ? v1 : v2));
+
+  // One glyph per die a damage formula rolls, for the roll control on every
+  // inventory row. A HELPER rather than a prepared context value, because the
+  // rows are rendered by ONE partial that four sheets include and a prepared
+  // field would have to be computed in each of them -- and `items-list.html` is
+  // also handed container contents, which no sheet context walks.
+  Handlebars.registerHelper("damageDiceIcons", (formula) => damageDiceIcons(formula));
 
   Handlebars.registerHelper("times", function (n, block) {
     var accum = "";

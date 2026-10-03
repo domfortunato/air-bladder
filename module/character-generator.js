@@ -1,7 +1,7 @@
 import { CairnActor } from "./actor/actor.js";
 import { rollTableText, resultText, findTableByName, findDeclaredTable } from "./compendium.js";
 import { Cairn } from "./config.js";
-import { evaluateFormula, formatCount } from "./utils.js";
+import { evaluateFormula, formatCount, crawlerCombat } from "./utils.js";
 import {
   resolveGearItem, itemDataFromDocument, GEAR_ALIASES, spellScrollItem,
   orderGrantedItems, isLightGear, RATIONS_RE,
@@ -763,7 +763,20 @@ export const effectiveAgeFormula = (fallback) => effectiveFormula("age-formula",
  * reads `npcGenerator.hitProtection`, and a hireling's HP comes off its career.
  * @returns {{formula: string, configured: string, usable: boolean}}
  */
-export const effectivePcHpFormula = () => effectiveFormula("pc-hp-formula", Cairn.pcHpFormula);
+export const effectivePcHpFormula = () => {
+  // CRAWLER COMBAT MODE (2026-10-03, user ask: "All PCs have a max HP value of
+  // 6 and they start with 6 hp"): a flat 6, whatever the setting says — ONE
+  // helper, so both generators and the Roll Character checklist follow with no
+  // further wiring, and the checklist's "Rolls {formula}" tooltip names what is
+  // dealt. `usable` is true because the setting is IGNORED here, not wrong, so
+  // no warning fires for it. Existing characters are not rewritten: a maximum
+  // stays editable for scars, and a settings change never writes documents.
+  if (crawlerCombat()) {
+    const flat = String(Cairn.crawlerHp);
+    return { formula: flat, configured: flat, usable: true };
+  }
+  return effectiveFormula("pc-hp-formula", Cairn.pcHpFormula);
+};
 
 /**
  * One of the three PC dice TIERS, by setting key. The stored value is a key
@@ -2560,7 +2573,19 @@ export const createActorInteractive = async (kind, { folder = null } = {}) => {
   if (kind === "character") {
     const answer = await promptCharacterCreation();
     if (!answer) return null;
-    return createCharacter({ folder, source: answer.choice, blank: answer.blank });
+    // PLAYER CHARACTERS LAND IN THE PARTY FOLDER (2026-10-02, user ask), made on
+    // demand by the first one. ONLY when the caller named no folder: pressing
+    // Create Actor inside a folder of your own is an explicit gesture and it
+    // wins, the same rule the take-over doors' folders follow. Characters only —
+    // an NPC, a hireling and a monster are not the party.
+    //
+    // Imported dynamically, the pattern this function already uses below:
+    // party-pile.js is low in the graph on purpose (actor.js reads it from
+    // `calcCurrentMaxSlots`), so a static import here would be an edge pointing
+    // the wrong way.
+    const { partyFolderId } = await import("./party-pile.js");
+    const home = folder ?? await partyFolderId();
+    return createCharacter({ folder: home, source: answer.choice, blank: answer.blank });
   }
   if (kind === "monster") {
     // Imported here rather than at the top: monster-generator.js imports THIS

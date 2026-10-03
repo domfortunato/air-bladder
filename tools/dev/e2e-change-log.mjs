@@ -320,17 +320,31 @@ const run = async () => {
           dlg.querySelector("button[data-action='yes']").click();
         }, { id: actorId, sel: buttonSel });
 
+      // A REST EATS A RATION (2026-10-03, house rule, PCs): the witness needs
+      // one on the sheet or the button opens the one-button refusal, whose only
+      // button is `ok` and not the `yes` the click-through presses. Planted
+      // BEFORE the snapshot, silently, so the plant's own card is not counted.
+      await gm.evaluate((id) => game.actors.get(id).createEmbeddedDocuments("Item",
+        [{ name: "Rations", type: "item", system: { uses: { value: 3, max: 3 } } }],
+        { abNoStatusCard: true }), created.witness);
       since = await messageIds(gm);
-      await leg("Rest names itself on the card (real button flow)", async () => {
+      await leg("Rest names itself on the card (real button flow) and logs the ration on the SAME card", async () => {
         await gm.evaluate((id) => game.actors.get(id).update(
           { "system.hp.value": 1 }, { abNoStatusCard: true }), created.witness);
         await clickThroughConfirm(alice, created.witness, "#rest-button");
         const logs = await logsSince(gm, since);
+        // ONE card. The Rest is a single actor write carrying the ration's diff
+        // in `items`, which never reaches the item-side ledger path (measured:
+        // a parent-carried embedded diff fires no preUpdateItem and no
+        // descendant callback) — so a spend-then-heal pair, two cards for one
+        // press, is what this count refuses.
         assert(logs.length === 1, `expected 1 card, got ${logs.length}`);
         assert(logs[0].content.includes('class="change-log-action"'), "no action header on the Rest card");
         const restLabel = await gm.evaluate(() => game.i18n.localize("CAIRN.Rest"));
         assert(logs[0].content.includes(`>${restLabel}<`), `header does not read "${restLabel}"`);
-        assert(logs[0].items === 1, `expected the HP line alone, got ${logs[0].items}`);
+        assert(logs[0].items === 2, `expected the HP line AND the ration's uses line, got ${logs[0].items}`);
+        const usesLine = await gm.evaluate(() => game.i18n.format("CAIRN.ChangeLog.Uses", { name: "Rations", from: 3, to: 2 }));
+        assert(logs[0].content.includes(usesLine), `no "${usesLine}" on the Rest card`);
       });
 
       since = await messageIds(gm);

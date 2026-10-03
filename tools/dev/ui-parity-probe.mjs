@@ -608,6 +608,10 @@ try {
     out.restore = read("#restore-abilities-button");
     out.deprivedTip = game.i18n.localize("CAIRN.DeprivedTip");
     out.restTip = game.i18n.localize("CAIRN.RestTip");
+    // A REST EATS A RATION (2026-10-03): the PC sheet's Rest tooltip is Cairn's
+    // prose FOLLOWED by the house-rule sentence; the NPC sheet keeps the prose
+    // alone (npc-probe asserts that half). This fixture is a player character.
+    out.rationTip = game.i18n.localize("CAIRN.RestRationTip");
     const rct = actor.sheet.element.querySelector("#rest-button").getBoundingClientRect();
     out.center = { x: rct.x + rct.width / 2, y: rct.y + rct.height / 2 };
     return out;
@@ -616,8 +620,8 @@ try {
   !dep.restBefore?.disabledAttr && dep.rest?.disabledAttr && dep.restore?.disabledAttr
     ? ok("Rest/Restore are disabled while deprived, enabled otherwise")
     : fail(`deprived disable wrong: before=${JSON.stringify(dep.restBefore)} after=${JSON.stringify(dep.rest)}`);
-  dep.restBefore?.tooltip === dep.restTip && dep.rest?.tooltip === dep.deprivedTip && dep.restore?.tooltip === dep.deprivedTip
-    ? ok("the tooltip swaps to DeprivedTip while deprived, RestTip otherwise")
+  dep.restBefore?.tooltip === `${dep.restTip} ${dep.rationTip}` && dep.rest?.tooltip === dep.deprivedTip && dep.restore?.tooltip === dep.deprivedTip
+    ? ok("the tooltip swaps to DeprivedTip while deprived, RestTip plus the ration house rule otherwise")
     : fail(`tooltip not swapped: before="${dep.restBefore?.tooltip?.slice(0, 40)}" deprived="${dep.rest?.tooltip?.slice(0, 40)}"`);
 
   await page.mouse.move(dep.center.x - 180, dep.center.y - 120);

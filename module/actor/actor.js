@@ -6,8 +6,9 @@ import {
   connectedOwnershipShape, brokenOwnershipShape, OWNERSHIP_SYNC_FLAG,
 } from "../connections.js";
 import { actorDisplayName, t } from "../i18n-content.js";
-import { concealmentWhisper, formatCount, crawlerCombat } from "../utils.js";
+import { concealmentWhisper, formatCount, crawlerCombat, itemSlotCost } from "../utils.js";
 import { FATIGUE_NAME } from "../item/item.js";
+import { isDroppedPile } from "../party-pile.js";
 
 /** Document names go into dialog HTML; a name is user-authored text. */
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -997,6 +998,12 @@ export class CairnActor extends Actor {
       : Math.min(3, Math.max(derivedArmor, storedBase));
     this.system.slotsUsed = this.calcSlotsUsed();
     this.system.slotsMax = this.calcCurrentMaxSlots();
+    // Stamped beside the count it explains, so the row's Petty chip and the
+    // subtraction inside calcSlotsUsed can never name different documents.
+    // TOTAL, never inside an `if`: `prepareData()` does not reset `system` from
+    // `_source`, so a one-sided derived assignment goes stale — the rule the
+    // Deprived flag already records one file over.
+    this.system.freeFatigueId = this.freeFatigueId();
     this.system.encumbered =
       this.system.slotsUsed >= this.calcCurrentMaxSlots();
     this.system.maybeTooMuchGold = false;
@@ -1567,24 +1574,87 @@ export class CairnActor extends Actor {
   }
 
   calcSlotsUsed() {
-    let totalSlots = this.items.reduce(
-      (memo, item) =>
-        memo +
-        (item.system.bulky ?? false
-          ? item.system.quantity != undefined
-            ? 2 * item.system.quantity
-            : 2
-          : item.system.weightless ?? false
-          ? 0
-          : item.system.quantity != undefined
-          ? item.system.quantity
-          : 1),
-      0
-    );
+    // `itemSlotCost` (utils.js) is the ONE copy of this arithmetic: the Fatigue
+    // drop picker reads it too, to tell a player what each row would free, and a
+    // picker that disagreed with this number would offer a trade at the wrong
+    // price. It is the same reduce this line used to spell out inline.
+    let totalSlots = this.items.reduce((memo, item) => memo + itemSlotCost(item), 0);
     // One coin-weight rule for every actor type (Cairn 2e, p.9): first N petty,
     // then 1 slot per further N. N is the GM's coins-per-slot setting.
     totalSlots += this._calcGoldSlots();
+    // THE FIRST FATIGUE IS FREE, as though it were petty; every Fatigue beyond
+    // it fills a slot (user ruling, 2026-10-02). The sentence above with Fatigue
+    // in it, and ungated for the same reason that one is — it is an inventory
+    // rule, not a hack, so it is not behind Crawler Combat Mode and not narrowed
+    // to `character`. A role predicate that quietly grows is this codebase's
+    // thrice-repeated bug.
+    //
+    // THE THRESHOLD DOES NOT MOVE. "More than 9 non-petty items is
+    // overburdened" IS `slotsUsed >= 10`, which `isEncumbered` already computes,
+    // so the 2026-08-05 ruling stands and that predicate goes on answering both
+    // of its questions — may they acquire, and are they at 0 Hit Protection —
+    // with one number. What changes is the count.
+    //
+    // SUBTRACT ONE, FROM A PRESENCE TEST, NEVER A COUNT. The reduce above
+    // charged each Fatigue one slot, so a single subtraction is exactly "the
+    // first is free" — and asking only whether one exists means a Fatigue that
+    // somehow carried a quantity can never refund more than it cost.
+    //
+    // HOUSE RULE, not RAW: as far as anyone here knows Cairn charges a slot for
+    // every Fatigue, and this repo does not ship the Player's Guide's inventory
+    // section, so there is nothing in the tree to check it against. It is in
+    // CLAUDE.md's deviations list and in docs/ as a deviation, said plainly.
+    if (this.items.some((i) => i.system?.isFatigue)) totalSlots -= 1;
     return totalSlots;
+  }
+
+  /**
+   * WHICH Fatigue is the free one — the id, derived once.
+   *
+   * Three readers need the same answer and must not each decide for themselves:
+   * the subtraction in `calcSlotsUsed`, the Petty chip the row wears, and
+   * `freeFatigueLast` when one is cleared. A template that picked "the first one
+   * I rendered" would be a second opinion about the same fact, and the chip and
+   * the arithmetic could then disagree on screen.
+   *
+   * WHICH one is arbitrary and harmless: Fatigues are identical documents, so
+   * document order is as good an answer as any — and keeping it stable is what
+   * stops the chip hopping to a neighbouring row when an unrelated item is
+   * dropped.
+   * @return {String|null}
+   */
+  freeFatigueId() {
+    return this.items.find((i) => i.system?.isFatigue)?.id ?? null;
+  }
+
+  /**
+   * WHICH Fatigue to remove when one is cleared: a COSTED one before the free
+   * one (user ruling, 2026-10-02 — "if a player clears fatigue at the warden's
+   * request and they remove the fatigue marked petty while still carrying more
+   * fatigue, one of the non-petty fatigues should be removed instead").
+   *
+   * The slot arithmetic is identical either way — three Fatigues become two
+   * however you pick. What it changes is that the Petty chip stays on the row it
+   * was on instead of hopping to a neighbour the moment one is cleared, and that
+   * "I deleted the free one and gained a slot" is not a thought a player has to
+   * work through.
+   *
+   * BOTH ROUTES COME THROUGH HERE, because a rule implemented on the − control
+   * and not on the row's trash can would be half a fix: `#onRemoveFatigue` took
+   * `items.find(name === FATIGUE_NAME)`, which is the first in document order and
+   * therefore the free one every single time.
+   * @param {String|null} [clickedId]  the row whose control was pressed, if any
+   * @return {String|null}  the Fatigue to delete
+   */
+  fatigueToClear(clickedId = null) {
+    const fatigues = this.items.filter((i) => i.system?.isFatigue);
+    if (!fatigues.length) return null;
+    const free = this.freeFatigueId();
+    // A deliberate click on a COSTED row is honoured as given — the player
+    // picked a row and there is no reason to second-guess it. Only a click on
+    // the free one is redirected, and only while a costed one exists.
+    if (clickedId && clickedId !== free && fatigues.some((f) => f.id === clickedId)) return clickedId;
+    return (fatigues.find((f) => f.id !== free) ?? fatigues[0]).id;
   }
 
   calcArmor() {
@@ -1611,6 +1681,13 @@ export class CairnActor extends Actor {
    * @returns {number}
    */
   calcCurrentMaxSlots() {
+    // THE DROPPED ITEM PILE HAS NO LIMIT, and this is the one place that says
+    // so. `slotsMax` is assigned from here, `isEncumbered` compares against it,
+    // and `capacityVerdict`, the drop handler and the marketplace all read one or
+    // the other — so Infinity here makes every one of those paths accept, with no
+    // second rule to keep in step. A very large NUMBER was the alternative and is
+    // worse: the sheet would read "47 / 9999", which is not what unlimited means.
+    if (isDroppedPile(this)) return Infinity;
     const override = this.system.slots ?? 0;
     if (["npc", "hireling"].includes(this.type) && override > 0) return override;
     if (game.settings.get(SETTINGS_NS, "character-inventory-limit") && override > 0) return override;
@@ -1861,6 +1938,30 @@ export class CairnActor extends Actor {
     }
     if (!foundry.utils.isEmpty(audit)) stash.audit = audit;
 
+    // A PARENT update may carry EMBEDDED diffs (`changed.items`), and those
+    // never reach _preUpdateDescendantDocuments — MEASURED 2026-10-03: a
+    // parent-carried item diff fires no item hook and no descendant callback,
+    // only this actor's own `_preUpdate`/`_onUpdate`, with the item's source
+    // changing all the same. The Rest writes the ration it eats this way, so
+    // that one press is ONE ledger card carrying both the HP line and the
+    // ration's uses line. The item-side stash cannot see such a diff, so the
+    // actor side takes the same two audited fields here, in the same shape.
+    if (Array.isArray(changed.items)) {
+      const itemAudit = {};
+      for (const change of changed.items) {
+        const item = change?._id ? this.items.get(change._id) : null;
+        if (!item) continue;
+        const flat = foundry.utils.flattenObject(change);
+        if (!("system.quantity" in flat) && !("system.uses.value" in flat)) continue;
+        const isrc = item.toObject();
+        const a = {};
+        if ("system.quantity" in flat) a.quantity = isrc.system.quantity ?? 1;
+        if ("system.uses.value" in flat) a.uses = isrc.system.uses?.value ?? 0;
+        itemAudit[change._id] = a;
+      }
+      if (!foundry.utils.isEmpty(itemAudit)) stash.itemAudit = itemAudit;
+    }
+
     return result;
   }
 
@@ -1970,8 +2071,12 @@ export class CairnActor extends Actor {
   #postChangeLog(stash, options, userId) {
     if (userId !== game.user.id) return;
     if (options.abNoStatusCard) return;
-    const before = stash.audit;
-    if (!before) return;
+    // Either half may be absent: a parent update carrying ONLY an embedded
+    // ration diff (a Crawler Rest whose roll did not beat current HP) has an
+    // itemAudit and no field audit, and must still post its one card.
+    const before = stash?.audit ?? {};
+    const itemAudit = stash?.itemAudit;
+    if (!stash?.audit && !itemAudit) return;
     if (!game.settings.get(SETTINGS_NS, "change-log")) return;
 
     const src = this.toObject();
@@ -2001,6 +2106,25 @@ export class CairnActor extends Actor {
         else entries.push({ k: "scar", added: true, name: s });
       }
       for (const s of old) entries.push({ k: "scar", added: false, name: s });
+    }
+    // Item diffs carried by THIS parent update (see _preUpdate): the same two
+    // audited fields the item-side half logs, from the same kind of stash, so
+    // a Rest's ration sits on the Rest's own card.
+    if (itemAudit) {
+      const monster = this.npcRole === "monster";
+      for (const [id, b] of Object.entries(itemAudit)) {
+        const d = this.items.get(id);
+        if (!d) continue;
+        const isrc = d.toObject();
+        if (b.quantity !== undefined) {
+          const now = isrc.system.quantity ?? 1;
+          if (now !== b.quantity) entries.push({ k: "qty", name: d.name, monster, from: b.quantity, to: now });
+        }
+        if (b.uses !== undefined) {
+          const now = isrc.system.uses?.value ?? 0;
+          if (now !== b.uses) entries.push({ k: "uses", name: d.name, monster, from: b.uses, to: now });
+        }
+      }
     }
     if (entries.length) {
       // Whitelisted or dropped — never pass a wire-supplied key through raw.

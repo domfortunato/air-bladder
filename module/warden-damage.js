@@ -126,7 +126,8 @@ const buildForm = () => {
   formula.setAttribute("value", DEFAULT_FORMULA);
   group("CAIRN.WardenDamage.Formula", formula);
 
-  // The dice builder, shared with the Improvised Attack dialog (utils.js).
+  // The dice builder. It lives in utils.js: it was factored out there when a
+  // second dialog wanted it, and stayed when that dialog stopped wanting it.
   content.append(buildDiceBuilder());
 
   const pool = document.createElement("select");
@@ -145,9 +146,11 @@ const buildForm = () => {
   return content;
 };
 
-/* `wireDiceBuilder` MOVED to utils.js on 2026-10-02, when the Improvised
-   Attack dialog became its second consumer. Its `render`-callback contract and
-   the field-is-the-only-state rule are documented there. */
+/* `wireDiceBuilder` MOVED to utils.js on 2026-10-02, when the Unarmed Attack
+   dialog briefly became its second consumer. That dialog lost its dice buttons
+   the same day (user ruling), so this is the only caller again — the helper
+   stays where it is, and its `render`-callback contract and the
+   field-is-the-only-state rule are documented beside it. */
 
 /**
  * Ask the Warden what happened, roll it, and post an ordinary damage card.

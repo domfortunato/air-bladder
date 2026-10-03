@@ -30,6 +30,7 @@
     "release": "node tools/release.mjs",
     "publish:foundry": "node tools/release-foundry.mjs",
     "dev:enc-damage": "node tools/dev/e2e-encumbered-damage.mjs",
+    "dev:rest": "node tools/dev/e2e-rest.mjs",
     "dev:hazard": "node tools/dev/e2e-warden-damage.mjs",
     "dev:combat": "node tools/dev/e2e-combat-order.mjs",
     "dev:print": "node tools/dev/e2e-print.mjs",

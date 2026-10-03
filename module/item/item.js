@@ -456,6 +456,18 @@ export class CairnItem extends Item {
         this.system.uses.value = this.system.uses.max;
     }
     this.system.isFatigue = this.name === FATIGUE_NAME;
+    // WHERE IT WAS PUT DOWN (2026-10-02, user ask): a 25-character note taken at
+    // drop time, so the Warden reading the pile can tell the rope left at the
+    // bridge from the rope left in the crypt. Stamped as a flag by the drop and
+    // surfaced here, the `grantLabel` route a few lines down exactly.
+    //
+    // TOTAL, never inside an `if`: `prepareData()` does not reset `system` from
+    // `_source`, so a one-sided derived assignment goes stale — the rule the
+    // Deprived flag already records. A String() coercion as well, because the
+    // flag's value crosses a socket from a player's client on the brokered route
+    // and is rendered on a sheet; the clamp itself is the broker's job, where the
+    // write happens.
+    this.system.droppedAt = String(this.getFlag("air-bladder", "droppedAt") ?? "");
     // The Give control (item-offer.js). THE GATE IS OWNERSHIP, NOT TYPE
     // (2026-09-10, user ruling reversing the original asymmetry: "whoever owns
     // the NPC should be able to open it and give items without having to
@@ -526,5 +538,41 @@ export class CairnItem extends Item {
     if (this.system.quantity == undefined) {
       this.system.quantity = 1;
     }
+  }
+
+  /**
+   * The diff that spends ONE use of this item — the row's − control's own
+   * arithmetic, and since 2026-10-03 the Rest's too (a rest eats a ration):
+   * the ONE copy of a rule two gestures apply. It RETURNS the diff rather than
+   * writing it, because the Rest folds it into the actor's own write so that
+   * one press is one ledger card (see `#onRest` in actor-sheet.js and the
+   * parent-update measurement recorded at `CairnActor._preUpdate`).
+   *
+   * Decrement; when the last use of a unit goes and another unit is to hand,
+   * roll over — quantity down one, uses refilled. A stack hand-edited to 0
+   * uses with units to spare opens a unit and spends one from it: a state the
+   * − control itself never produces, and one the old arithmetic got wrong by
+   * one (it refilled without spending).
+   * @returns {Object} an update diff for this item
+   */
+  spendUse() {
+    const max = Math.max(0, Number(this.system.uses?.max) || 0);
+    const value = Math.max(0, Number(this.system.uses?.value) || 0);
+    const quantity = Math.max(1, Number(this.system.quantity) || 1);
+    const diff = {};
+    if (value >= 1) {
+      let next = value - 1;
+      if (next === 0 && quantity > 1) {
+        diff["system.quantity"] = quantity - 1;
+        next = max;
+      }
+      diff["system.uses.value"] = next;
+    } else if (quantity > 1 && max >= 1) {
+      diff["system.quantity"] = quantity - 1;
+      diff["system.uses.value"] = max - 1;
+    } else {
+      diff["system.uses.value"] = 0;
+    }
+    return diff;
   }
 }

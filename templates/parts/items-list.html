@@ -18,6 +18,34 @@
         class="fas fa-plus"></i>&nbsp;{{ localize 'CAIRN.AddItem' }}</a>
   </span>
 </div>
+{{!-- UNARMED ATTACK: the weapon you always have, rolled with the gesture every
+      weapon is rolled with (user ruling 2026-10-02, moving it out of the sheet's
+      button stack). IT IS NOT AN ITEM DOCUMENT, which is what makes it
+      unremovable and slotless BY CONSTRUCTION rather than by a rule somebody has
+      to maintain: there is nothing to delete, nothing to equip, nothing to give,
+      nothing to drag, nothing for a grant sweep to find, and `slotsUsed` counts
+      documents on the actor -- of which this is none. The only control is the
+      roll. `withUnarmed` carries `canUnarmed`, which is `isOwner` AND not a
+      thing: a barrel has no fists. --}}
+{{#if withUnarmed}}
+<div class="cairn-items-list-row unarmed-row">
+  <div class="cairn-items-list-row-header">
+    <div class="cairn-item-name-and-tags">
+      <i class="fas fa-hand-fist" style="opacity:0.5"></i>
+      <span class="cairn-item-title">{{ localize 'CAIRN.UnarmedAttack' }}</span>
+      <div class="cairn-item-tag">{{ localize 'CAIRN.NDamage' n=unarmedFormula }}</div>
+    </div>
+    <div class="cairn-item-controls">
+      {{!-- Both the tag above and the glyphs below are derived from the one
+            constant, so if Cairn's unarmed damage ever moves they move with it
+            rather than being two literals to keep in step. --}}
+      <a class="roll-control" data-action="unarmedAttack" title="{{ localize 'CAIRN.UnarmedAttackTip' }}">
+        {{#each (damageDiceIcons unarmedFormula)}}<i class="{{this}}"></i>{{/each}}
+      </a>
+    </div>
+  </div>
+</div>
+{{/if}}
 {{#each items as |item id|}}
 <div class="cairn-items-list-row {{#if item.system.isFatigue}}fatigue-row{{/if}}{{#if item.system.bound}} grimoire-page{{/if}}" data-item-id="{{item._id}}">
   <div class="cairn-items-list-row-header">
@@ -66,9 +94,36 @@
       {{#if item.system.weightless}}{{#unless item.system.isContainerItem}}{{#unless item.system.bound}}
       <div class="cairn-item-tag">{{ localize 'CAIRN.Weightless' }}</div>
       {{/unless}}{{/unless}}{{/if}}
+      {{!-- THE FIRST FATIGUE IS FREE and says so, with the chip that already
+            means "this takes no slot" -- no new string. Without it a character
+            carrying 9 items and 1 Fatigue reads "9 / 10" above ten rows, which
+            looks like a defect.
+            WHICH row is decided by the ACTOR (system.freeFatigueId, derived in
+            prepareDerivedData beside the subtraction it explains), never here: a
+            template picking "the first one I rendered" would be a second opinion
+            about the same fact, and the chip and the arithmetic could then
+            disagree on screen.
+            `../` is load-bearing -- a bare `system` inside {{#each}} resolves
+            against the ITEM and silently finds nothing, which this one file has
+            already been bitten by twice. --}}
+      {{#if (eq item._id ../system.freeFatigueId)}}
+      <div class="cairn-item-tag">{{ localize 'CAIRN.Weightless' }}</div>
+      {{/if}}
       {{#if (gt item.system.quantity 1)}}
       <div class="cairn-item-tag">{{ localize 'CAIRN.NQuantity' n=item.system.quantity }}</div>
       {{/if}}
+      {{!-- WHERE IT WAS DROPPED, on the PILE's rows only (`../withDropNote`, off
+            the sheet's `isPile`), so a Warden going down the list can tell the
+            rope left at the bridge from the rope left in the crypt.
+            An ordinary `{{ }}`, never a triple-stash: this is free text a PLAYER
+            typed, and authored text in markup is the injection this repo has
+            already paid for twice. It is never localized either — it is what they
+            wrote, the same kind of value as a card's data-weapon, and the content
+            overlay is many-to-one with no way back.
+            `../` again, for the third time in this one file. --}}
+      {{#if ../withDropNote}}{{#if item.system.droppedAt}}
+      <div class="cairn-item-tag cairn-drop-tag"><i class="fas fa-map-marker-alt"></i>{{ item.system.droppedAt }}</div>
+      {{/if}}{{/if}}
 
 
       <div class="cairn-item-uses">
@@ -97,9 +152,15 @@
 
       {{#if item.system.equipped}}
       {{#if item.system.damageFormula}}
+      {{!-- The glyphs say what this rolls: one per die, so `2d6k` wears two d6
+            and a Greatsword stops being indistinguishable from a Dagger. ALL
+            INSIDE ONE ANCHOR -- it is a single roll of several dice, so one
+            click target and one tooltip, never one control per die. A formula
+            naming no standard die falls back to the generic d20 every row wore
+            before this (damageDiceIcons in utils.js). --}}
       <a class="roll-control" data-action="rollDamage" data-label="{{item.name}}" data-roll="{{item.system.damageFormula}}"
         title="{{ localize 'CAIRN.RollDamage' }}">
-        <i class="fas fa-dice-d20"></i>
+        {{#each (damageDiceIcons item.system.damageFormula)}}<i class="{{this}}"></i>{{/each}}
       </a>
       {{/if}}
       {{/if}}
@@ -142,6 +203,43 @@
 
       {{#if (not item.system.isFatigue) }}
       <a class="item-control item-edit" data-action="itemEdit" title="{{ localize 'CAIRN.EditItem' }}"><i class="fas fa-edit"></i></a>
+      {{/if}}
+
+      {{!-- DROP: put it on the floor rather than destroy it. BESIDE the trash
+            and not instead of it, which is the answer this system already gave
+            for connected actors -- Unlink sits beside Delete because "destroy
+            this cart" and "drop this cart here" are different intentions, and a
+            Warden correcting a mistake must still be able to make something
+            genuinely go away. Fatigue is not a thing you are carrying and a
+            bound page is the book's, not the carrier's, so neither is offered;
+            `withDrop` is off on the pile itself.
+
+            `../withDrop`, AND THE `../` IS LOAD-BEARING. A partial's hash
+            parameter lands on the partial's root context, and `{{#each}}` makes
+            each ITEM the context — Handlebars does not walk up for a bare
+            identifier, so `{{#if withDrop}}` in here resolves against the item,
+            finds nothing, and renders NOTHING, silently, with the flag true on
+            the sheet the whole time. Measured: `canDrop: true`, zero controls.
+            Every other partial parameter this file reads (`withFatigue`,
+            `withShop`, `withUnarmed`) is used OUTSIDE the loop, which is why
+            none of them had to discover this. --}}
+      {{#if ../withDrop}}
+      {{#unless item.system.isFatigue}}
+      {{#unless item.system.bound}}
+      {{!-- NOT THE HAND: Give wears that one eight rows up, and the two sat on
+            the same row byte-identical. After this the hand means exactly one
+            thing across the system — it goes to a PERSON — and the arrow means
+            it goes on the floor.
+            `fa-down-to-line`, verified present in the shipped fa-solid-900.woff2
+            by parsing the font's own character map. `fa-arrow-down-to-line`, the
+            obvious spelling, is ABSENT from this build: Foundry bundles FA5-era
+            names, and `all.min.css` names glyphs whether or not the font carries
+            them. Accepted with eyes open — Font Awesome documents this glyph for
+            download, so a player who has met it elsewhere met it as save. The
+            tooltip carries the meaning in words either way. --}}
+      <a class="item-control item-drop" data-action="itemDrop" title="{{ localize 'CAIRN.Pile.DropTip' }}"><i class="fas fa-down-to-line"></i></a>
+      {{/unless}}
+      {{/unless}}
       {{/if}}
       <a class="item-control item-delete" data-action="itemDelete" title="{{ localize 'CAIRN.DeleteItem' }}"><i class="fas fa-trash"></i></a>
     </div>

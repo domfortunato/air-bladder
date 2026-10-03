@@ -1,4 +1,4 @@
-import { evaluateFormula, getInfoFromDropData, askDamageQuality, damageFormulaFor, damageQualityLabel, damageQualityKind, crawlerOption, explodingDamageFormula, damageDie } from "./utils.js";
+import { evaluateFormula, getInfoFromDropData, askDamageQuality, damageFormulaFor, damageQualityLabel, damageQualityKind, crawlerDamageFormula } from "./utils.js";
 import { SETTINGS_NS } from "./settings.js";
 import { t, actorDisplayName } from "./i18n-content.js";
 
@@ -96,26 +96,17 @@ export const rollItemMacro = async (actorId, itemId) => {
     quality = await askDamageQuality(item.system.damageFormula, weaponName);
     if (quality === null) return; // dismissed: roll nothing
   }
-  // The second PC damage call site — the hotbar macro. Gated identically to the
-  // sheet's control (actor-sheet.js `#onRollDamage`); the two are the only
-  // places a damage roll can be a player character's, and the Warden's Damage
-  // tool is deliberately NOT one of them (a trap has no actor).
+  // The second PC damage call site — the hotbar macro. Gated through the SAME
+  // function as the sheet's control (actor-sheet.js `#onRollDamage`,
+  // `crawlerDamageFormula` in utils.js); the two are the only places a damage
+  // roll can be a player character's, and the Warden's Damage tool is
+  // deliberately NOT one of them (a trap has no actor). No die-size floor since
+  // 2026-10-03; melee-only is the one rule the maneuver half keeps.
   const base = damageFormulaFor(quality, item.system.damageFormula);
-
-  // The maneuver gate, identical to the sheet's: a player character, a melee
-  // weapon, a d6 or larger, and the option on. The d6 floor is enforced inside
-  // `explodingDamageFormula` for the exploding half, so only this half has to ask.
-  const mayManeuver = actor.type === "character"
-    && item?.system?.ranged !== true
-    && (damageDie(base)?.faces ?? 0) >= 6
-    && crawlerOption("crawler-maneuver-on-max");
-
-  // Exploding is OPT-IN while a maneuver is on offer — the chain is rolled from
-  // the card instead. See `#onRollDamage` for the whole reason.
-  const rollSchema = actor.type === "character"
-    && crawlerOption("crawler-exploding-damage") && !mayManeuver
-    ? explodingDamageFormula(base)
-    : base;
+  const { formula: rollSchema, maneuver: mayManeuver } = crawlerDamageFormula(base, {
+    pc: actor.type === "character",
+    melee: item?.system?.ranged !== true,
+  });
 
   // determine roll result
   const roll = await evaluateFormula(rollSchema, actor.getRollData());
