@@ -147,6 +147,91 @@ try {
         keys: traitDice.map((a) => a.dataset.key),
         physTip: traitDice.find((a) => a.dataset.key === "physique")?.dataset.tooltip ?? "",
       };
+
+      // ---- 5c. THE DIE EACH ROW WEARS IS ITS TABLE'S (2026-10-03, user) ----
+      // The eight 2e trait tables roll 1d10 and the control said d20. The glyph
+      // is DERIVED from the table the row resolves (world-first), so the
+      // expectation is computed the same way in-page — through the same
+      // resolver and the same helper — and never pinned to a literal class.
+      const utils = await import("/systems/air-bladder/module/utils.js");
+      const comp = await import("/systems/air-bladder/module/compendium.js");
+      // Against a build older than the helper (the red-first run), fall back to
+      // `dieIcon` plus the generic class, so the glyph legs red on the GLYPH
+      // rather than the whole evaluate throwing — measured: the first red-first
+      // run died on "dieIconOrGeneric is not a function" and proved nothing.
+      const dieIconOrGeneric = utils.dieIconOrGeneric
+        ?? ((f) => utils.dieIcon(f) || "fa-solid fa-dice-d20");
+      const glyphsOf = async (rootEl, mapping) => {
+        const rows = {};
+        for (const [key, ref] of Object.entries(mapping)) {
+          const table = await comp.findDeclaredTable(ref);
+          rows[key] = {
+            formula: table?.formula ?? null,
+            expected: dieIconOrGeneric(table?.formula),
+            actual: rootEl?.querySelector(`a[data-action="rollTrait"][data-key="${key}"] i`)?.className ?? "",
+          };
+        }
+        return rows;
+      };
+      out.traitGlyphs = await glyphsOf(root, sheet._traitTableMapping());
+
+      // ---- 5d. THE GRID'S GEOMETRY (2026-10-03, user: "deadspace") ---------
+      // The label's TEXT extent, not its element: under the old fixed 96px
+      // column the element reached the select and the hole sat INSIDE it, so
+      // an element-edge measurement passed on the very build this is for.
+      const geometry = (rootEl) => [...(rootEl?.querySelectorAll(".trait-grid .trait-row") ?? [])].map((row) => {
+        const r = (el) => (el ? el.getBoundingClientRect() : null);
+        const label = row.querySelector(".trait-label");
+        let textRight = null;
+        if (label) {
+          const range = document.createRange();
+          range.selectNodeContents(label);
+          textRight = range.getBoundingClientRect().right;
+        }
+        const die = r(row.querySelector(".trait-roll"));
+        const sel = r(row.querySelector(".trait-input"));
+        return {
+          key: row.querySelector(".trait-input")?.name?.split(".").pop() ?? "",
+          textRight, dieLeft: die?.left ?? null, dieRight: die?.right ?? null, selLeft: sel?.left ?? null,
+          dieMid: die ? die.top + die.height / 2 : null, selMid: sel ? sel.top + sel.height / 2 : null,
+        };
+      });
+      out.traitGeomOn = geometry(root);
+
+      // World-first control for the glyph: a world Physique rolled on a d12
+      // puts a d12 on the row. Planted, read, deleted — the trait-roll leg
+      // below must then land a PACK Physique row, which is its own point.
+      let worldPhys = null;
+      try {
+        worldPhys = await RollTable.create({
+          name: "Physique", formula: "1d12",
+          results: [{ type: CONST.TABLE_RESULT_TYPES.TEXT, description: "PROBE PHYSIQUE — like a d12", range: [1, 12] }],
+        });
+        await sheet.render(true);
+        await wait(800);
+        rootOf()?.querySelector('[data-tab="description"]')?.click();
+        await wait(300);
+        // WHICH world Physique the resolver elects: a Warden's own copy (the
+        // Create Custom 2e Tables door makes one) is found first by name and
+        // beats the planted one, so the leg reports the winner rather than
+        // assuming its plant won — CT 123's dev world has exactly such a copy.
+        const physRef = sheet._traitTableMapping().physique;
+        const resolved = await comp.findDeclaredTable(physRef);
+        out.traitGlyphWorld = {
+          plantedWon: resolved?.id === worldPhys.id,
+          winner: resolved ? `${resolved.name} [${resolved.formula}${resolved.pack ? ", pack" : ", world"}]` : null,
+          formula: resolved?.formula ?? null,
+          expected: dieIconOrGeneric(resolved?.formula),
+          actual: rootOf()?.querySelector('a[data-action="rollTrait"][data-key="physique"] i')?.className ?? "",
+        };
+      } finally {
+        if (worldPhys) await worldPhys.delete();
+        await sheet.render(true);
+        await wait(600);
+        rootOf()?.querySelector('[data-tab="description"]')?.click();
+        await wait(300);
+        root = rootOf();
+      }
       // Snapshot every trait, then CLEAR physique before rolling — a freshly
       // generated value is already a table row, so "still a table row after
       // the click" would pass without any click landing.
@@ -397,6 +482,9 @@ try {
         dice: rootOf()?.querySelectorAll('a[data-action="rollTrait"]').length ?? -1,
         rows: rootOf()?.querySelectorAll(".trait-grid .trait-row").length ?? 0,
       };
+      // The geometry with NO die in the row: the select spans the empty die
+      // track, so one gap follows the label, not two.
+      out.traitGeomOff = geometry(rootOf());
       await sheet.close();
 
       // ---- 3b. The npc sheet's save dice take the same gate ---------------
@@ -416,6 +504,27 @@ try {
       out.npcPickIcon = nRoot?.querySelector(".profession-pick i")?.className ?? "";
       out.aria.npc = bareAnchors(nRoot);
       await nSheet.close();
+
+      // ---- 3b'. The NPC sheet's trait dice wear THEIR tables' dice ---------
+      // A role-npc person renders the same partial with the Warden's four d20
+      // tables beside six d10 ones — the second sheet is what proves the glyph
+      // is derived per row and not a new literal.
+      const person = track(await Actor.create({
+        name: "PROBE Tooltip NPC", type: "npc", system: { role: "npc" },
+      }));
+      await person.update({ "system.generationEnabled": true });
+      const pSheet = person.sheet;
+      await pSheet.render(true);
+      await wait(800);
+      const pRootOf = () => (pSheet.element instanceof HTMLElement ? pSheet.element : pSheet.element?.[0]);
+      pRootOf()?.querySelector('[data-tab="description"]')?.click();
+      await wait(300);
+      if (!pRootOf()?.querySelector(".trait-grid")) {
+        pRootOf()?.querySelector('a[data-action="toggleTraits"]')?.click();
+        await wait(300);
+      }
+      out.npcTraitGlyphs = await glyphsOf(pRootOf(), pSheet._traitTableMapping());
+      await pSheet.close();
 
       // ---- 3c. A MONSTER's save dice stay LIVE under the mode -------------
       // 2026-09-02 user ruling (review #21 finding 10): the save-die lock is
@@ -591,6 +700,61 @@ try {
     TDO.dice === 0 && TDO.rows > 0
       ? ok("mode Off: the rows stay, the trait dice vanish")
       : fail(`mode-off trait dice: ${JSON.stringify(TDO)}`);
+
+    // THE DIE EACH ROW WEARS IS ITS TABLE'S (2026-10-03). Expected classes are
+    // computed in-page off the resolved table through the same helper, so a
+    // Warden's own d12 Physique and the NPC sheet's d20 tables are both the
+    // same assertion; the d10/d20 reads here only say which shipped tables
+    // were resolved.
+    const TG = r.traitGlyphs ?? {};
+    const tgKeys = Object.keys(TG);
+    const tgBad = tgKeys.filter((k) => TG[k].actual !== TG[k].expected);
+    tgKeys.length === 8 && !tgBad.length && tgKeys.every((k) => /fa-dice-d10$/.test(TG[k].actual))
+      ? ok(`every 2e trait die wears its TABLE's die — a d10 on all eight (${tgKeys.map((k) => `${k} ${TG[k].formula}`).join(", ")})`)
+      : fail(`trait glyphs: ${JSON.stringify(TG)}`);
+    const TW = r.traitGlyphWorld ?? {};
+    if (TW.plantedWon) {
+      TW.actual && TW.actual === TW.expected && /fa-dice-d12$/.test(TW.actual)
+        ? ok(`…world-first: a world Physique rolled on ${TW.formula} puts a d12 on the row (${TW.actual})`)
+        : fail(`world Physique glyph: ${JSON.stringify(TW)}`);
+    } else {
+      // A Warden's own world Physique pre-empted the plant, so the d12 witness
+      // could not run; the glyph is still held to the table that WON. Said out
+      // loud, because a green here is the weaker claim.
+      TW.actual && TW.actual === TW.expected
+        ? ok(`…world-first, WEAK FORM: the plant lost the name election to ${TW.winner}, and the row wears that table's die (${TW.actual}) — delete the Warden's copy to see the d12 witness`)
+        : fail(`world Physique glyph (election won by ${TW.winner}): ${JSON.stringify(TW)}`);
+    }
+    const NG = r.npcTraitGlyphs ?? {};
+    const ngBad = Object.keys(NG).filter((k) => NG[k].actual !== NG[k].expected);
+    const npcFour = ["quirk", "goal", "virtue", "vice"];
+    const twoESix = ["physique", "skin", "hair", "face", "speech", "clothing"];
+    Object.keys(NG).length === 10 && !ngBad.length
+      && npcFour.every((k) => /fa-dice-d20$/.test(NG[k]?.actual ?? ""))
+      && twoESix.every((k) => /fa-dice-d10$/.test(NG[k]?.actual ?? ""))
+      ? ok("…and on the NPC sheet the Warden's four d20 tables wear a d20 beside six d10 rows — derived per row, not a second literal")
+      : fail(`npc trait glyphs: ${JSON.stringify(NG)}`);
+
+    // THE GRID'S GEOMETRY (2026-10-03, user: "deadspace that looks odd"). The
+    // label column fits its longest label and the labels are right-aligned, so
+    // nothing wider than the 8px gap separates a label's TEXT from what
+    // follows it, while the selects still line up down each half.
+    const GAP = 10;
+    const halves = (rows) => new Set(rows.map((g) => Math.round(g.selLeft ?? -1))).size;
+    const GOn = r.traitGeomOn ?? [];
+    const onBad = GOn.filter((g) => g.dieLeft == null || g.dieLeft - g.textRight > GAP || g.selLeft - g.dieRight > GAP);
+    GOn.length === 8 && !onBad.length && halves(GOn) === 2
+      ? ok(`mode On: label text, die and select sit within ${GAP}px of each other on all 8 rows, selects aligned in two halves`)
+      : fail(`mode-on geometry: ${JSON.stringify(onBad.length ? onBad : GOn)} halves=${halves(GOn)}`);
+    const tilt = GOn.filter((g) => g.dieMid != null && Math.abs(g.dieMid - g.selMid) > 3);
+    !tilt.length && GOn.length === 8
+      ? ok("…and each die sits level with its select (the fa-solid-vs-fas alignment trap, measured)")
+      : fail(`die not level with its select: ${JSON.stringify(tilt)}`);
+    const GOff = r.traitGeomOff ?? [];
+    const offBad = GOff.filter((g) => g.selLeft == null || g.selLeft - g.textRight > GAP);
+    GOff.length === 8 && !offBad.length && halves(GOff) === 2
+      ? ok(`mode Off: with no die, the select follows the label text within ${GAP}px on all 8 rows — the hole beside "Skin" is gone`)
+      : fail(`mode-off geometry: ${JSON.stringify(offBad.length ? offBad : GOff)} halves=${halves(GOff)}`);
 
     r.omenDieWorld === "PROBE OMEN — the sky is a lid"
       ? ok("the omen DIE reads a world table named Omens (world-first)")

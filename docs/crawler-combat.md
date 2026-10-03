@@ -64,9 +64,10 @@ of ten.
 
 Cairn as written charges a slot for every Fatigue. The reason for the change is
 further down this page: when a player takes a Fatigue instead of Critical Damage
-they have to put something down, and without this the trade left them no better
-off than before. With it, they drop one thing, take one Fatigue, and end where
-they started.
+and it would not fit, they have to put something down, and without this the
+trade left them no better off than before. With it, they drop one thing, take
+one Fatigue, and end where they started — and a first Fatigue, costing nothing,
+never needs anything put down at all.
 
 When a Fatigue is cleared — by the **−** button or by the row's dustbin — the
 system removes one that **costs a slot**, keeping the free one. That way the
@@ -131,10 +132,14 @@ Tick **Fatigue instead of Critical Damage** and a player character who fails a
 Critical Damage save is offered a choice on the chat card, side by side: take the
 Critical Damage as usual, or **Take a Fatigue instead**.
 
-**The Fatigue has to be paid for.** Pressing it asks what the character puts
-down to make room, and that item goes to the party's Dropped Item Pile — so the
-trade is one thing on the floor for one Fatigue in the pack. Which item is always
-the player's choice; the system never picks.
+**The Fatigue has to fit.** With room in the pack, pressing it simply adds the
+Fatigue. If the Fatigue would overburden the character, pressing it asks what
+they put down to make room, and that item goes to the party's Dropped Item Pile
+— so the trade is one thing on the floor for one Fatigue in the pack. Which
+item is always the player's choice; the system never picks. A first Fatigue
+takes no slot, so a character carrying none is never asked, even with a full
+pack; it is a second or later Fatigue, at nine of ten slots or more, that has to
+be made room for.
 
 The list offers only things whose loss would actually free a slot. Petty items
 are not on it — they take no slot, so giving one up would cost nothing and free

@@ -2141,15 +2141,53 @@
     cursor: pointer;
 }
 
-/* The 8 trait dropdowns: two columns, column-major (physical traits left). */
+/* The 8 trait dropdowns: two columns, column-major (physical traits left).
+
+   SIX TRACKS, NOT TWO (2026-10-03, user: the fixed 96px label column left a
+   hole beside "Skin" — "deadspace that looks odd"). Each half is label, die,
+   select, and each .trait-row is a SUBGRID spanning its three tracks, so a
+   half's label track is exactly as wide as its longest label — in any
+   language, with no magic number — and the dropdowns still line up. The
+   labels are right-aligned (user's pick of three previews), so what little
+   space remains sits at the left edge, where it reads as indentation.
+   grid-auto-flow: column still fills rows 1-4 of the left half first: a
+   three-track item placed in column flow cannot start at track 2 or 3 while
+   track 1's rows are taken, so the fifth row lands at track 4. */
 .character-traits .trait-grid {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: max-content max-content 1fr max-content max-content 1fr;
+    /* A role-npc sheet has TEN rows (six 2e traits plus the Warden's four) and
+       overflows into a third half of implicit tracks, as it always did; this
+       cycles the same three track sizes over them. */
+    grid-auto-columns: max-content max-content 1fr;
     grid-template-rows: repeat(4, auto);
     grid-auto-flow: column;
-    column-gap: 16px;
+    column-gap: 16px; /* the seam between the two halves */
     row-gap: 4px;
     margin-top: 6px;
+}
+
+/* A row is a subgrid over its half's three tracks. Its OWN column-gap
+   overrides the inherited 16px, so label-die-select stay 8px apart while the
+   seam between halves keeps the parent's 16px. */
+.character-traits .trait-grid .trait-row {
+    display: grid;
+    grid-template-columns: subgrid;
+    grid-column: span 3;
+    align-items: center;
+    column-gap: 8px;
+}
+
+/* With Character Creation Mode off the die is not rendered and its track is
+   empty; the select spans it so there is ONE 8px gap after the label, not
+   two. :has() has a precedent at .reroll-dialog .reroll-row:has(input:disabled). */
+.character-traits .trait-grid .trait-row:not(:has(.trait-roll)) .trait-input {
+    grid-column: span 2;
+}
+
+.character-traits .trait-grid .trait-label {
+    min-width: auto;
+    text-align: right;
 }
 
 /* Separate the traits block from the Omen/Scar block below it. */

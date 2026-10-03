@@ -62,7 +62,10 @@
                                               two-column grid. rollTitle is pre-formatted text
                                               (it carries the row's label), the rollAgeTitle
                                               idiom. --}}
-                                        <a class="trait-roll" data-action="rollTrait" data-key="{{this.key}}" data-tooltip="{{this.rollTitle}}" aria-label="{{this.rollTitle}}"><i class="fas fa-dice-d20"></i></a>
+                                        {{!-- The glyph is the die the row's TABLE rolls (2026-10-03):
+                                              d10 on the eight 2e rows, d20 on the NPC four, a Warden's
+                                              own die on a world copy — never a literal. --}}
+                                        <a class="trait-roll" data-action="rollTrait" data-key="{{this.key}}" data-tooltip="{{this.rollTitle}}" aria-label="{{this.rollTitle}}"><i class="{{this.dieIcon}}"></i></a>
                                         {{/if}}
                                         <select class="trait-input" name="system.traits.{{this.key}}">
                                             <option value="" {{#unless this.value}}selected{{/unless}}></option>

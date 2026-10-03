@@ -503,6 +503,27 @@ export const capacityVerdict = (actor, need) => {
   return used + need > max ? "full" : "fits";
 };
 
+/**
+ * Would one more Fatigue fit, or would it overburden them?
+ *
+ * The gate on the Fatigue-instead-of-Critical-Damage bargain (2026-10-03, user
+ * ruling, REVERSING the day-old "the Fatigue has to be paid for": at 8 of 10
+ * slots they were asked to drop something for a Fatigue that fit, "that isn't
+ * right"). A character with room takes the Fatigue and drops nothing; one
+ * without is asked what to put down — the same `capacityVerdict` every other
+ * acquisition asks, so the bargain and the drop handler cannot disagree about
+ * what "fits" means.
+ *
+ * `nextFatigueCost()` is the actor's own answer to what THIS Fatigue would cost
+ * (the first is free — `calcSlotsUsed`'s rule, read off `freeFatigueId`), so
+ * a character carrying none is never asked, even at 10 of 10: a Fatigue that
+ * costs nothing cannot overburden anybody. The second asks at 9 of 10.
+ * @param {CairnActor} actor
+ * @returns {Boolean}
+ */
+export const fatigueFits = (actor) =>
+  capacityVerdict(actor, actor?.nextFatigueCost?.() ?? 1) === "fits";
+
 /** Slots an item wants. Bulky 2, weightless 0, otherwise 1. */
 export const slotsNeeded = (itemLike) =>
   (itemLike?.bulky ? 2 : itemLike?.weightless ? 0 : 1);

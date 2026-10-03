@@ -963,6 +963,22 @@ export const dieIcon = (formula) => {
 const GENERIC_DIE_ICON = "fa-solid fa-dice-d20";
 
 /**
+ * The die a ROW control wears for a formula: `dieIcon`'s answer, or the generic
+ * d20 when the formula names no standard die (or there is no formula at all).
+ *
+ * THE TRAIT DICE JOINED THE RULE ON 2026-10-03 (user: "the Traits ... are
+ * rolled from d10 tables. therefore the roller die in the sheet, which
+ * currently a d20, should be replaced with a d10"). Not a second literal: the
+ * eight 2e trait tables roll 1d10, the NPC sheet's four roll 1d20 through the
+ * SAME partial, and a Warden's own world `Physique` may roll whatever they
+ * gave it — so each row reads the die off the table it will roll, world-first,
+ * the way an inventory row reads its damage formula.
+ * @param {String} formula  a RollTable's (derived) formula
+ * @return {String}  a class list; never empty
+ */
+export const dieIconOrGeneric = (formula) => dieIcon(formula) || GENERIC_DIE_ICON;
+
+/**
  * At most this many glyphs on one row (user ruling 2026-10-02: "render up to
  * four"). Nothing shipped comes near it — of 408 damage formulas in the packs the
  * largest count is `3d6k` — but homebrew `10d6` would push the edit and delete

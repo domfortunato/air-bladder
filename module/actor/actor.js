@@ -1628,6 +1628,18 @@ export class CairnActor extends Actor {
   }
 
   /**
+   * What the NEXT Fatigue would cost in slots: 0 while none is carried (the
+   * first is free), 1 after that. The fourth reader of the free-first rule,
+   * and like the other three it asks `freeFatigueId` rather than keeping its
+   * own presence test — `fatigueFits` (gear.js) feeds it to `capacityVerdict`
+   * to decide whether the Fatigue bargain asks for a drop at all.
+   * @return {Number}
+   */
+  nextFatigueCost() {
+    return this.freeFatigueId() ? 1 : 0;
+  }
+
+  /**
    * WHICH Fatigue to remove when one is cleared: a COSTED one before the free
    * one (user ruling, 2026-10-02 — "if a player clears fatigue at the warden's
    * request and they remove the fatigue marked petty while still carrying more

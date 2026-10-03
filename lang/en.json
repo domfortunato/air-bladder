@@ -236,7 +236,7 @@
   "CAIRN.Crawler.DeprivedLockedTip": "Crawler Combat Mode: you are Deprived because you are overburdened, and stay Deprived until you free a slot.",
   "CAIRN.Crawler.FatigueButton": "Take a Fatigue instead",
   "CAIRN.Crawler.OverburdenedBanner": "Over capacity — HP stays 0 and you are Deprived until you free a slot.",
-  "CAIRN.Crawler.FatigueButtonTip": "Take Critical Damage, or take a Fatigue instead. The Fatigue fills a slot even if you have none free, leaving you overburdened — Deprived and at 0 Hit Protection until you free one.",
+  "CAIRN.Crawler.FatigueButtonTip": "Take Critical Damage, or take a Fatigue instead. If the Fatigue would not fit in your pack, you are asked to drop something first.",
   "CAIRN.Ranged": "Ranged",
   "CAIRN.RangedTip": "A bow, crossbow or sling rather than something swung in reach. Cairn 2e does not distinguish the two, so this matters only to the Maneuver on max melee damage option of Crawler Combat Mode, which never offers a maneuver for a ranged attack.",
   "CAIRN.Crawler.DieExploded": "A d{die} exploded!",
@@ -275,7 +275,7 @@
   "CAIRN.Pile.ConfirmDrop": "Drop {name}? It goes to the party's Dropped Item Pile, and the Warden hands it back.",
   "CAIRN.Pile.NoWarden": "No Warden is connected, so nothing can be dropped into the pile right now.",
   "CAIRN.Pile.FatigueTitle": "Fatigue takes a slot",
-  "CAIRN.Pile.FatiguePrompt": "Taking a Fatigue fills a slot. Choose something to drop.",
+  "CAIRN.Pile.FatiguePrompt": "This Fatigue would overburden you. Choose something to drop to make room for it.",
   "CAIRN.Pile.FatigueConfirm": "Drop it and take the Fatigue",
   "CAIRN.Pile.FatigueDropCard": "Dropped {item} to make room for a Fatigue.",
   "CAIRN.Pile.FatigueDropCardAt": "Dropped {item} at {place} to make room for a Fatigue.",
@@ -843,10 +843,10 @@
   "CAIRN.RestConfirm": "Has your character rested?",
   "CAIRN.RestConfirmNpc": "Has this NPC rested?",
   "CAIRN.RestCrawlerLine": "Crawler Combat Mode: resting rolls a d{faces}. If it beats your current Hit Protection of {hp}, that is your new Hit Protection.",
-  "CAIRN.RestNoRations": "You have no rations left. You cannot rest without eating one.",
+  "CAIRN.RestNoRations": "You have no rations. You cannot benefit from a rest unless you consume a ration.",
   "CAIRN.RestRationConfirm": "Rest and eat a ration?",
   "CAIRN.RestRationLine": "Resting for 10 minutes to recover Hit Protection uses up one ration. You have {rations} left.",
-  "CAIRN.RestRationTip": "House rule: resting uses up one ration.",
+  "CAIRN.RestRationTip": "Resting for 10 minutes to recover Hit Protection uses up one ration. Bandages can stabilize a character that has taken critical damage.",
   "CAIRN.RestRollStays": "Rolled {rolled} on a d{faces}: not above {hp}, so Hit Protection stays at {hp}.",
   "CAIRN.RestRollUp": "Rolled {rolled} on a d{faces}: Hit Protection rises from {before} to {after}.",
   "CAIRN.RestTip": "Resting for a few moments and having a drink of water restores lost HP but may leave the party exposed. Bandages can stabilize a character that has taken critical damage.",
@@ -946,7 +946,7 @@
       "label": "Maneuver on max melee damage"
     },
     "CrawlerFatigueForCritical": {
-      "hint": "When a player character fails a Critical Damage save, their chat card also offers to take a Fatigue instead. Taking it means putting something down: the player chooses one item, and it goes to the party's Dropped Item Pile. Refuse to drop anything and the Critical Damage stands. Only available while Crawler Combat Mode is on; the row is greyed out otherwise.",
+      "hint": "When a player character fails a Critical Damage save, their chat card also offers to take a Fatigue instead. If the Fatigue would overburden them, they must drop an item, which will be added to the Party's Dropped Item Pile. Refuse to drop anything and the Critical Damage stands. Only available while Crawler Combat Mode is on; the row is greyed out otherwise.",
       "label": "Fatigue instead of Critical Damage"
     },
     "CustomPortraitFolder": {

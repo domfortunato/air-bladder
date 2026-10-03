@@ -476,7 +476,27 @@ companion record of who authored what.
 - **A DAMAGE ROW'S DICE SAY WHAT IT ROLLS (2026-10-02, user ask).** Every roll
   control in the inventory wore `fa-dice-d20` regardless of its formula, so a
   Dagger and a Greatsword were indistinguishable until you read the tag beside
-  them. `damageDiceIcons` (`utils.js`) returns one Font Awesome class per die —
+  them. **THE TRAIT DICE JOINED THE RULE ON 2026-10-03** (user: the 2e trait
+  tables are d10 and the die said d20): `dieIconOrGeneric(table.formula)` per
+  `traitRows` entry in `_prepareBiographyContext`, off the SAME resolved table
+  the dropdown reads, so the eight 2e rows wear a d10, the NPC sheet's four
+  (`warden-npcs`, 1d20) wear a d20 through the same partial, and a Warden's
+  own d12 Physique a d12 — never a second literal, which a flat d10 in the
+  template would have been and would have lied on every NPC row.
+  `dev:tooltip-picker` computes each row's expectation in-page through the
+  same resolver and helper, plants a world `Physique` on `1d12` as the
+  world-first control, and reads the NPC sheet's ten rows as the second
+  surface. **The same day the trait grid lost its dead space**: `.trait-label`
+  reserved `min-width: 96px` so the selects lined up, which left ~66px of
+  nothing beside "Skin"; the grid is six tracks now (label, die, select per
+  half) with each `.trait-row` a SUBGRID, so a half's label column fits its
+  longest label in any language, labels right-aligned (the user's pick of
+  three previews), and with Character Creation Mode off the select spans the
+  empty die track (`:not(:has(.trait-roll))`) so one gap follows the label.
+  The probe measures the label's TEXT extent through a Range, because under
+  the old build the label ELEMENT reached the select and the hole sat inside
+  it — an element-edge check passed on the very build it was written for.
+  `damageDiceIcons` (`utils.js`) returns one Font Awesome class per die —
   measured against the 408 shipped damage formulas, that is one glyph for the
   221 bare dice, two for the 110 `NdXk` keep-highest weapons, three for the lone
   `3d6k` and two for the lone `d6+d6`. `items-list.html` is the ONE partial every
@@ -654,6 +674,23 @@ companion record of who authored what.
   The button opens a picker of what the character is carrying; choosing one
   drops it and THEN the Fatigue lands. Required, but WHICH item is always the
   player's, never the system's — the line the no-automation deviation draws.
+  **"REQUIRED" LASTED ONE DAY: SINCE 2026-10-03 THE DROP IS ASKED ONLY WHEN
+  THE FATIGUE WOULD NOT FIT** (user, testing on CT 123: a character at 8 of 10
+  slots with no Fatigue "chose 'take a fatigue instead' and was prompted to
+  drop an item! that isn't right is it?"; offered only-when-it-would-not-fit /
+  always / never, they chose the first). `fatigueFits` (gear.js) asks
+  `capacityVerdict(actor, actor.nextFatigueCost())` — the same verdict every
+  other acquisition asks, so the bargain and the drop handler cannot disagree
+  about "fits" — and the handler in `cairn.js` answers "drop nothing" without
+  a dialog on "fits". `nextFatigueCost` is the FOURTH reader of the free-first
+  rule, off `freeFatigueId` like the other three. Two edges, stated: a
+  character carrying NO Fatigue is never asked, even at 10 of 10, because a
+  Fatigue that costs nothing cannot overburden them further; the second asks
+  at 9 of 10. Nothing-to-drop-and-no-room still applies the Critical Damage
+  with no dialog. `dev:crawler-combat`'s every picker fixture is padded to the
+  edge (`atEdge`: nine slots plus one Fatigue), and two legs hold the
+  no-picker side — the `room` leg is the red-first witness against the
+  always-ask build.
   **The drop is recorded in chat** (user ask) from a flag carrying the
   item's NAME and rebuilt per viewer — the move runs on whichever client
   answered it, so a stored sentence would freeze in that client's language, the
@@ -2822,7 +2859,11 @@ if you find one, deleting it is in scope, not a separate decision.
   bargain **net out to zero** — drop one thing, take one Fatigue, end where you
   started. Under the old count a full pack that gave up an ordinary item was
   still at 0 Hit Protection afterwards, which made the drop pointless for
-  exactly the characters it was written for.
+  exactly the characters it was written for. **Since 2026-10-03 that drop is
+  asked only when the Fatigue would not fit** (the bargain bullet above), so
+  this rationale now describes the at-the-edge case alone — a FIRST Fatigue,
+  costing nothing, is never asked for a drop at all. The rule itself was not
+  re-opened and stands.
   Two consequences. The free row wears the existing **Petty** chip, and WHICH
   row is decided by the actor (`system.freeFatigueId`, derived beside the
   subtraction) and never by the template — a template picking "the first one I
@@ -2874,9 +2915,20 @@ if you find one, deleting it is in scope, not a separate decision.
     write carries the ration alone and the card still records it under Rest.
   - **The confirm is `_confirmAction` with extra lines, not a copy**: it owns
     the `.cairn-confirm` markup a probe reads. No rations → a one-button
-    `DialogV2.prompt`. `CAIRN.RestTip` (Cairn's own prose) is NOT edited: the
-    house-rule sentence FOLLOWS it in the PC sheet's tooltip and the NPC
-    sheet keeps the prose alone, which `dev:ui-parity` asserts byte for byte.
+    `DialogV2.prompt`. **AND SINCE LATER THE SAME DAY THE PC CONFIRM CARRIES
+    NO TIP AT ALL** (user, having read the dialog: Cairn's "few moments and a
+    drink of water" paragraph sat above the ration line and said nothing the
+    ration line did not) — `_confirmAction` takes a null `tipKey`, the PC
+    Rest passes it, and the dialog opens on the ration line. `CAIRN.RestTip`
+    (Cairn's own prose) is NOT edited: it still heads the NPC confirm and is
+    the NPC sheet's tooltip, byte for byte. **The PC sheet's tooltip is
+    `RestRationTip` ALONE** — the dialog's ration sentence plus Cairn's
+    bandages sentence (user: "update the tooltip but keep the part about
+    bandages"), one key so a translator gets one string; it was RestTip plus a
+    "House rule:" sentence for a few hours. Cost accepted: a Spanish client's
+    PC tooltip reads English until the key is translated. `dev:rest` holds
+    the PC confirm WITHOUT the prose and the NPC confirm WITH it, which is
+    what proves the omission is PC-scoped; `dev:ui-parity` holds the tooltip.
   - **UNDER CRAWLER COMBAT MODE A REST ROLLS INSTEAD OF RESTORING** — see the
     Crawler bullet below. Everything above still happens; only the HP half
     changes.

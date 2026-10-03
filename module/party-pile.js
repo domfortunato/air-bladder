@@ -513,10 +513,14 @@ export const localizePileCard = (message, html) => {
 /**
  * Ask which item to give up, for the Fatigue-instead-of-Critical-Damage choice.
  *
- * REQUIRED, NOT OFFERED (user ruling): the Fatigue only lands once something has
- * been dropped. But WHICH item is always the player's, never the system's: this
- * is a cost the rules impose and a decision the table makes, which is the line
- * the no-automation deviation draws.
+ * ASKED ONLY WHEN THE FATIGUE WOULD NOT FIT (user ruling 2026-10-03, reversing
+ * the day-old "required, not offered — the Fatigue only lands once something
+ * has been dropped": a character at 8 of 10 was asked to drop something for a
+ * Fatigue that fit). The caller asks `fatigueFits` (gear.js) first and comes
+ * here only on "overburden"; with room the Fatigue simply lands. Once here,
+ * WHICH item is always the player's, never the system's: this is a cost the
+ * rules impose and a decision the table makes, which is the line the
+ * no-automation deviation draws.
  *
  * THE FATIGUE IS BOUGHT, AND DECLINING TO PAY COSTS THE SAVE (user ruling,
  * 2026-10-02, reversing "cancelling backs out of the whole choice — no Fatigue,

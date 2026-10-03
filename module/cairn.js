@@ -19,6 +19,7 @@ import { Damage, DAMAGE_APPLIED_FLAG, DAMAGE_SOURCE_FLAG, MANEUVER_CHOICE_FLAG, 
 import { registerWardenDamageControl } from "./warden-damage.js";
 import { registerWardenDashboardControl, refreshDashboardTime, localizeDashboardCard } from "./warden-dashboard.js";
 import { handlePileSocket, localizePileCard, PILE_DROP_ACTION, askWhatToDrop, dropItemToPile } from "./party-pile.js";
+import { fatigueFits } from "./gear.js";
 import { installWorldCalendar, checkWorldCalendar } from "./game-time.js";
 import { renderWatchClock, refreshWatchClock } from "./watch-clock.js";
 import { refreshValdCalendar } from "./vald-calendar.js";
@@ -3922,9 +3923,14 @@ Hooks.on("renderChatMessageHTML", (message, html, data) => {
         fatigueBtn.onclick = async (ev) => {
           const b = ev.currentTarget;
           if (spent()) return;
-          // SOMETHING GOES ON THE FLOOR FIRST (user ask, 2026-10-02). A Fatigue
-          // fills a slot, so this asks what the character puts down to make room
-          // for it — required, but WHICH item is always the player's choice,
+          // SOMETHING GOES ON THE FLOOR FIRST — BUT ONLY WHEN THE FATIGUE WOULD
+          // NOT FIT (user ruling 2026-10-03, reversing the day-old "required":
+          // a character at 8 of 10 slots pressed this and was asked to drop
+          // something for a Fatigue that fit — "that isn't right"). `fatigueFits`
+          // asks `capacityVerdict` with what THIS Fatigue would cost (the first
+          // is free, so a character carrying none is never asked), and with
+          // room the Fatigue simply lands. Without it, the picker asks what the
+          // character puts down — WHICH item is always the player's choice,
           // never the system's, which is the line the no-automation deviation
           // draws.
           //
@@ -3952,8 +3958,9 @@ Hooks.on("renderChatMessageHTML", (message, html, data) => {
           //
           // ASKED BEFORE ANY WRITE, deliberately. The drop and the Fatigue are
           // one bargain, and a Fatigue landing while the picker was still open
-          // would be half of it.
-          const chose = await askWhatToDrop(critActor);
+          // would be half of it. A Fatigue that fits is answered without a
+          // dialog as "drop nothing".
+          const chose = fatigueFits(critActor) ? { id: null, place: "" } : await askWhatToDrop(critActor);
           if (chose === null) return;
           if (spent()) return;             // re-asked: the dialog is seconds wide
           if (chose === "critical") {
@@ -3961,7 +3968,7 @@ Hooks.on("renderChatMessageHTML", (message, html, data) => {
             markChoiceTaken(critBtn);
             return;
           }
-          await dropItemToPile(critActor, chose.id, { announce: true, place: chose.place });
+          if (chose.id) await dropItemToPile(critActor, chose.id, { announce: true, place: chose.place });
           // Fatigue is a COST the rules impose, never a purchase, so it lands
           // past a full pack — `ignoreCapacity` is the flag that exists for
           // exactly this. With the drop in front of it and the first Fatigue

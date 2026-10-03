@@ -1,3 +1,4 @@
+import { dieIconOrGeneric } from "../utils.js";
 import { canRegenerateContainers, drawBond, bondRecordFrom, withGrantSource, bondEntitlement, resolveRefs, replaceGrantedContainers, promptBackground, changeBackground, promptFailedCareer, rollFailedCareerName, buildFailedCareerItem, getPortraitManifest, pairedTokenFor, randomPortraitInSameFolder, portraitCategoryFor, regenerateNpc, regenerateHireling, rerollNpcBackground, rerollHirelingCareer, rerollNpcName, rerollNpcFaction, promptHirelingCareer, promptNpcBackground, promptNpcFaction, promptPickOmen, promptPickBond, promptPickQuestionOption, promptPickName, findOmensTable, rollNameFromTable, rollAge, rollTextItems, effectiveAgeFormula, effectivePcAbilityFormula, effectivePcGoldFormula, effectivePcHpFormula, rollPcHitProtection, resolveActorBackground, redealBackgroundGear, rerollAllBonds, reorderInventory, postGenerationRolls, isHandBuilt, clearHandBuilt, FLAG_SCOPE } from "../character-generator.js";
 import { promptMonsterTier, regenerateMonster } from "../monster-generator.js";
 import { openMarketplace, TRANSPORTS_CATEGORY } from "../marketplace.js";
@@ -1540,6 +1541,12 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
         // rollAgeTitle idiom — the value varies per row, so it cannot be a
         // bare key the template localizes).
         rollTitle: game.i18n.format("CAIRN.RollTrait", { trait: label }),
+        // THE DIE THE ROW WEARS IS THE DIE ITS TABLE ROLLS (2026-10-03, user —
+        // the 2e trait tables are d10 and the control said d20). Read off the
+        // same resolved table the dropdown and the die use, so a 2e row shows
+        // a d10, an NPC row a d20, and a Warden's own d12 Physique a d12; the
+        // generic d20 only when the table is missing or rolls no standard die.
+        dieIcon: dieIconOrGeneric(table?.formula),
         value,
         // Display-only: the <option> VALUE stays the English trait text (what
         // system.traits.<key> stores on save), only the visible label is
@@ -2118,7 +2125,10 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    * A yes/no confirmation whose body reiterates the action's tooltip, then asks
    * the question, so the player re-reads the rule before committing.
    * @param {String} titleKey  i18n key for the dialog title
-   * @param {String} tipKey    i18n key for the explanatory text (may be HTML)
+   * @param {String|null} tipKey  i18n key for the explanatory text (may be
+   *   HTML), or null for no tip paragraph at all — the PC Rest (2026-10-03,
+   *   user ask) opens on its ration line alone, and a null here beats a second
+   *   copy of this markup, which probes read by its class.
    * @param {String} questionKey  i18n key for the yes/no question
    * @returns {Promise<Boolean>}
    * @private
@@ -2131,9 +2141,10 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // carry a number a sheet typed.
     const extra = extraLines
       .map((l) => `<p class="cairn-confirm-line">${foundry.utils.escapeHTML(String(l))}</p>`).join("");
+    const tip = tipKey ? game.i18n.localize(k(tipKey)) : "";
     return foundry.applications.api.DialogV2.confirm({
       window: { title: game.i18n.localize(titleKey) },
-      content: `<div class="cairn-confirm">${game.i18n.localize(k(tipKey))}${extra}<p class="cairn-confirm-q">${game.i18n.localize(k(questionKey))}</p></div>`,
+      content: `<div class="cairn-confirm">${tip}${extra}<p class="cairn-confirm-q">${game.i18n.localize(k(questionKey))}</p></div>`,
       rejectClose: false,
       modal: true,
     });
@@ -4578,7 +4589,11 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     const lines = [game.i18n.format("CAIRN.RestRationLine",
       { rations: formatCount("CAIRN.NRation", rationsLeft(actor)) })];
     if (rolls) lines.push(game.i18n.format("CAIRN.RestCrawlerLine", { faces: max, hp: current }));
-    if (!(await this._confirmAction("CAIRN.Rest", "CAIRN.RestTip", "CAIRN.RestRationConfirm", lines))) return;
+    // NO RestTip here (2026-10-03, user ask, having read the dialog): a PC's
+    // Rest opens on the ration line, then the Crawler line, then the question.
+    // Cairn's "few moments" prose still heads the NPC confirm above and is not
+    // edited; the PC sheet's tooltip carries the ration sentence instead.
+    if (!(await this._confirmAction("CAIRN.Rest", null, "CAIRN.RestRationConfirm", lines))) return;
 
     const update = { items: [{ _id: ration.id, ...ration.spendUse() }] };
     let card = null;

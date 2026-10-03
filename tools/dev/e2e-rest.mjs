@@ -19,16 +19,18 @@
  *
  * Legs, hack OFF:
  *   1. no rations → a one-button refusal; nothing written.
- *   2. rations → the confirm names the count; No spends nothing.
+ *   2. rations → the confirm names the count, WITHOUT Cairn's "few moments"
+ *      prose (2026-10-03, user); No spends nothing.
  *   3. Yes → one use gone, HP at max.
  *   4. Escape → nothing.
  *   5. a stack (uses 1 of quantity 2) → quantity 1, uses refilled; the count
  *      line counted the whole stack.
  *   6. a Rations item at 0 uses does NOT count → the refusal, item untouched.
  *   7. two Rations items → the first with a use left pays.
- *   8. an NPC's Rest is the old confirm: no ration asked, HP to max.
- *   9. the PC tooltip carries the house-rule sentence after Cairn's; the NPC's
- *      is Cairn's alone.
+ *   8. an NPC's Rest is the old confirm, Cairn's prose kept: no ration asked,
+ *      HP to max.
+ *   9. the PC tooltip is the ration sentence plus the bandages sentence, and
+ *      not Cairn's "few moments" opening; the NPC's is Cairn's alone.
  * Hack ON:
  *  10. pinned HIGH → HP becomes the roll; the card's flag holds the four
  *      numbers and its line says HP rose; the flavor names Rest.
@@ -322,9 +324,12 @@ else {
   r.declined.shape?.yes && r.declined.shape?.no && has(r.declined.shape?.text, r.lines[3]) && has(r.declined.shape?.text, S.confirmQ)
     ? ok(`with Rations (3 uses) the confirm names the count — "${r.lines[3]}" — and asks "${S.confirmQ}"`)
     : fail(`confirm shape: ${JSON.stringify(r.declined.shape)}; wanted "${r.lines[3]}" and "${S.confirmQ}"`);
-  has(r.declined.shape?.text, S.restTip)
-    ? ok("...under Cairn's own Rest prose, which is kept")
-    : fail("the confirm lost Cairn's RestTip prose");
+  // 2026-10-03 (user, having read the dialog): the PC confirm opens on the
+  // ration line — Cairn's "few moments" prose is NOT above it. Leg 8 holds the
+  // converse for an NPC, which is what proves the omission is PC-scoped.
+  !has(r.declined.shape?.text, S.restTip)
+    ? ok("...and WITHOUT Cairn's \"few moments\" prose above it")
+    : fail("the PC confirm still opens with Cairn's RestTip prose");
   r.declined.uses === 3 && r.declined.hp === 2
     ? ok("No spends nothing: uses 3, HP 2")
     : fail(`No spent something: uses ${r.declined.uses}, hp ${r.declined.hp}`);
@@ -361,15 +366,22 @@ else {
   r.npc.shape?.yes && r.npc.shape?.no && !has(r.npc.shape?.text, S.rationTip) && !has(r.npc.shape?.text, "ration") && has(r.npc.shape?.text, S.npcQ)
     ? ok(`an NPC's Rest is the old confirm: "${S.npcQ}", no ration asked`)
     : fail(`npc confirm: ${JSON.stringify(r.npc.shape)}`);
+  has(r.npc.shape?.text, S.restTip)
+    ? ok("...and still opens with Cairn's own prose — the PC omission above is PC-scoped, not the helper dropping every tip")
+    : fail("the NPC confirm lost Cairn's RestTip prose");
   r.npc.hp === 6
     ? ok("...and restores HP to its maximum with no rations on the sheet")
     : fail(`npc hp ${r.npc.hp}, want 6`);
 
   // 9
+  // The tooltip is RestRationTip ALONE (2026-10-03, user): the ration sentence
+  // plus Cairn's bandages sentence. The "few moments" opening is read off
+  // RestTip's own first sentence in this client's language, never a literal.
   const pcTip = r.declined.shape?.tooltip ?? "";
-  pcTip.startsWith(S.restTip) && pcTip.endsWith(S.rationTip) && pcTip.length > S.restTip.length
-    ? ok(`the PC Rest tooltip is Cairn's prose followed by the house rule ("${S.rationTip}")`)
-    : fail(`pc tooltip: ${JSON.stringify(pcTip)}`);
+  const fewMoments = S.restTip.split(". ")[0];
+  pcTip === S.rationTip && !has(pcTip, fewMoments)
+    ? ok(`the PC Rest tooltip is the ration sentence plus the bandages sentence ("${S.rationTip}"), without Cairn's "few moments" opening`)
+    : fail(`pc tooltip: ${JSON.stringify(pcTip)} — want exactly "${S.rationTip}"`);
   r.npc.shape?.tooltip === S.restTip
     ? ok("...and the NPC's tooltip is Cairn's prose alone")
     : fail(`npc tooltip: ${JSON.stringify(r.npc.shape?.tooltip)}`);

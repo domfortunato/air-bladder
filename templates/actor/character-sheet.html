@@ -125,10 +125,11 @@
                   tooltip fires on the disabled button as-is — no aria-disabled
                   workaround needed, and dev:ui-parity hovers it for real. --}}
             {{!-- A REST EATS A RATION (2026-10-03, house rule, player characters
-                  only): the house-rule sentence FOLLOWS Cairn's own prose rather
-                  than editing it — RestTip is quoted rules text, and the NPC sheet
-                  keeps it alone. --}}
-            <button id="rest-button" type="button" data-action="rest" class="strict-size-button" data-tooltip="{{#if system.deprived}}{{ localize deprivedTipKey }}{{else}}{{ localize 'CAIRN.RestTip' }} {{ localize 'CAIRN.RestRationTip' }}{{/if}}" {{#if system.deprived}}disabled{{/if}}><i class="fas fa-campground"></i> {{ localize 'CAIRN.Rest' }}</button>
+                  only): the PC tooltip is RestRationTip ALONE — the dialog's own
+                  ration sentence plus Cairn's bandages sentence (user ruling the
+                  same day, having read the two side by side). RestTip, Cairn's
+                  "few moments" prose, is not edited and the NPC sheet keeps it. --}}
+            <button id="rest-button" type="button" data-action="rest" class="strict-size-button" data-tooltip="{{#if system.deprived}}{{ localize deprivedTipKey }}{{else}}{{ localize 'CAIRN.RestRationTip' }}{{/if}}" {{#if system.deprived}}disabled{{/if}}><i class="fas fa-campground"></i> {{ localize 'CAIRN.Rest' }}</button>
             <button id="restore-abilities-button" type="button" data-action="restoreAbilities" class="strict-size-button" data-tooltip="{{#if system.deprived}}{{ localize deprivedTipKey }}{{else}}{{ localize 'CAIRN.RestoreTip' }}{{/if}}" {{#if system.deprived}}disabled{{/if}}><i class="fas fa-heart-pulse"></i> {{ localize 'CAIRN.RestoreAbilities' }}</button>
             <button id="die-of-fate-button" type="button" data-action="dieOfFate" class="strict-size-button" data-tooltip="{{ localize 'CAIRN.DieOfFateTip' }}"><i class="fas fa-dice-d6"></i> {{ localize 'CAIRN.DieOfFate' }}</button>
         </div>
