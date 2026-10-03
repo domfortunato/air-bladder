@@ -51,6 +51,12 @@ try {
     // Crawler Combat Mode (2026-10-03), so the hack is pinned off rather than
     // inherited from the world; withSettings puts it back.
     await game.settings.set(NS, "crawler-combat-mode", false);
+    // And the card's five formulas are the three dice settings' DEFAULTS, so
+    // those are pinned too: CT 123's world had ability dice on Crawler
+    // (2d6 + 6) and the formulas leg read that as a defect (2026-10-03).
+    for (const key of ["pc-ability-dice", "pc-gold-dice", "pc-hp-formula"]) {
+      await game.settings.set(NS, key, game.settings.settings.get(`${NS}.${key}`).default);
+    }
     const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
 
     // Stashed on window so the Node-level cleanup can find them even if this
@@ -306,18 +312,23 @@ try {
   // comes from the wait, not from generation or the render being slow (the
   // render cost rides inside BOTH measurements, which is why the assertion
   // is a difference, not an absolute).
-  const order = await page.evaluate(async () => {
+  const order = await withSettings(page, () => page.evaluate(async () => {
     if (typeof game.dice3d?.waitFor3DAnimationByMessageID !== "function") return { skipped: true };
     const gen = await import("/systems/air-bladder/module/character-generator.js");
     const track = (globalThis.__genDiceProbe ??= { actors: [], messages: [] });
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-    // This leg runs OUTSIDE withSettings, so state its own preconditions rather
-    // than inheriting whatever the previous block restored to: no card means no
-    // dice, and the glimpse would be unobservable in a way that reads as green.
+    // State every precondition rather than inheriting the world's: no card
+    // means no dice, and the glimpse would be unobservable in a way that reads
+    // as green. Crawler Combat Mode is pinned OFF because its flat HP of 6 is
+    // a roll with no dice, which is what the leg below is about — this one
+    // measures the ordinary card (CT 123's world had the hack on, 2026-10-03).
     const NS = "air-bladder";
-    const wasShowing = game.settings.get(NS, "show-generation-rolls");
-    if (!wasShowing) await game.settings.set(NS, "show-generation-rolls", true);
+    await game.settings.set(NS, "show-generation-rolls", true);
+    await game.settings.set(NS, "crawler-combat-mode", false);
+    for (const key of ["pc-ability-dice", "pc-gold-dice", "pc-hp-formula"]) {
+      await game.settings.set(NS, key, game.settings.settings.get(`${NS}.${key}`).default);
+    }
 
     const run = async () => {
       const marks = { card: null, sheet: null, diceLast: null };
@@ -340,9 +351,14 @@ try {
       Hooks.off("createChatMessage", onCard);
       Hooks.off("diceSoNiceRollComplete", onDice);
       Hooks.off("renderCairnActorSheet", onSheet);
+      const card = game.messages.find((m) => !before.has(m.id) && (m.rolls?.length ?? 0) >= 5);
       for (const m of game.messages) if (!before.has(m.id)) track.messages.push(m.id);
       await actor?.sheet?.close();
       return {
+        // Diagnostics for a red: how long the listen ran past the card, and
+        // whether Dice So Nice still had the card's dice in the air at the end.
+        listenedMs: marks.card != null ? Math.round(performance.now() - marks.card) : null,
+        stillAnimating: !!card?._dice3danimating,
         sawCard: marks.card != null,
         sawDice: marks.diceLast != null,
         sawSheet: marks.sheet != null,
@@ -357,14 +373,13 @@ try {
     game.dice3d.waitFor3DAnimationByMessageID = async () => true;   // defeat the wait
     let control;
     try { control = await run(); } finally { game.dice3d.waitFor3DAnimationByMessageID = real; }
-    if (!wasShowing) await game.settings.set(NS, "show-generation-rolls", false);
     return { fixed, control };
-  });
+  }));
 
   if (order.skipped) {
     fail("the dice glimpse NOT CHECKED: Dice So Nice is not active in this world, so the timing this leg exists for cannot be observed");
   } else if (!order.fixed.sawCard || !order.fixed.sawDice || !order.fixed.sawSheet) {
-    fail(`the dice glimpse: never observed all three events (card=${order.fixed.sawCard} dice=${order.fixed.sawDice} sheet=${order.fixed.sawSheet}) — the leg proves nothing`);
+    fail(`the dice glimpse: never observed all three events (card=${order.fixed.sawCard} dice=${order.fixed.sawDice} sheet=${order.fixed.sawSheet}; listened ${order.fixed.listenedMs}ms past the card, still animating=${order.fixed.stillAnimating}) — the leg proves nothing`);
   } else {
     order.fixed.glimpseMs >= 1800
       ? ok(`the sheet holds off ~2s after the card (${order.fixed.glimpseMs}ms)`)
@@ -375,6 +390,75 @@ try {
     order.control.glimpseMs != null && order.fixed.glimpseMs - order.control.glimpseMs >= 1200
       ? ok(`control: defeating the wait collapses the glimpse (${order.fixed.glimpseMs}ms -> ${order.control.glimpseMs}ms)`)
       : fail(`control: the glimpse did NOT collapse with the wait defeated (${order.fixed.glimpseMs}ms -> ${order.control.glimpseMs}ms) — the lower bound above is not measuring the wait`);
+  }
+
+  // ---- Leg 7: a flat Hit Protection does not cost the card its dice --------
+  // Found on CT 123, 2026-10-03, by the leg above while the world had Crawler
+  // Combat Mode on: Dice So Nice 6.2.9 animates NOTHING on a message whose
+  // FIRST roll has no dice, and the card put HP first — so under the hack's
+  // flat 6, or a plain number in the HP formula setting, a generated
+  // character's STR, DEX, WIL and Gold never flew either. postGenerationRolls
+  // now puts dice-less rolls last. The CONTROL re-posts the same rolls in the
+  // old order: it must NOT animate, or this leg cannot tell the fix from DSN
+  // having fixed itself (in which case the ordering may be retired).
+  if (!order.skipped) {
+    const flat = await withSettings(page, () => page.evaluate(async () => {
+      const NS = "air-bladder";
+      const gen = await import("/systems/air-bladder/module/character-generator.js");
+      const track = (globalThis.__genDiceProbe ??= { actors: [], messages: [] });
+      const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+      await game.settings.set(NS, "show-generation-rolls", true);
+      await game.settings.set(NS, "crawler-combat-mode", true);
+
+      const completed = new Set();
+      const onDice = (id) => completed.add(id);
+      Hooks.on("diceSoNiceRollComplete", onDice);
+      try {
+        const before = new Set(game.messages.map((m) => m.id));
+        const actor = await gen.createCharacter({ source: "2e" });
+        if (actor) track.actors.push(actor.id);
+        let card = null;
+        for (let i = 0; i < 50 && !card; i++) {
+          card = game.messages.find((m) => !before.has(m.id) && (m.rolls?.length ?? 0) >= 5);
+          if (!card) await sleep(100);
+        }
+        for (const m of game.messages) if (!before.has(m.id)) track.messages.push(m.id);
+        if (!card) return { noCard: true };
+        const t0 = Date.now();
+        while (Date.now() - t0 < 20000 && !completed.has(card.id)) await sleep(200);
+
+        // The control: the card's own rolls, flat one FIRST, the old order.
+        const old = [...card.rolls].sort((a, b) => a.dice.length - b.dice.length);
+        const ctl = await ChatMessage.create({ content: "gen-dice control", rolls: old.map((r) => r.toJSON()) });
+        track.messages.push(ctl.id);
+        return {
+          formulas: card.rolls.map((r) => r.formula),
+          flatCount: card.rolls.filter((r) => !r.dice.length).length,
+          firstHasDice: card.rolls[0].dice.length > 0,
+          animated: completed.has(card.id),
+          controlFirst: old[0].formula,
+          controlAnimating: !!ctl._dice3danimating,
+        };
+      } finally {
+        Hooks.off("diceSoNiceRollComplete", onDice);
+      }
+    }));
+    if (flat.noCard) {
+      fail("flat HP: generating under Crawler Combat Mode posted no roll card — the leg proves nothing");
+    } else {
+      flat.flatCount >= 1
+        ? ok(`precondition: under Crawler Combat Mode the card carries a roll with no dice (${JSON.stringify(flat.formulas)})`)
+        : fail(`precondition: no dice-less roll on the card (${JSON.stringify(flat.formulas)}) — the hack's flat 6 did not reach it`);
+      flat.firstHasDice
+        ? ok("the dice-less roll is not first on the card")
+        : fail(`the card's FIRST roll has no dice (${JSON.stringify(flat.formulas)})`);
+      flat.animated
+        ? ok("Dice So Nice animated the card to completion with a flat Hit Protection on it")
+        : fail("Dice So Nice never finished animating the card — a flat Hit Protection cost the character every die");
+      !flat.controlAnimating
+        ? ok(`control: the same rolls with the flat one first ("${flat.controlFirst}") are NOT animated, so the leg above can fail`)
+        : fail("control: Dice So Nice now animates a card whose first roll has no dice — this leg no longer tells the ordering from DSN, which may have fixed itself");
+    }
   }
 } catch (e) {
   fail(`${e.name}: ${e.message}`);

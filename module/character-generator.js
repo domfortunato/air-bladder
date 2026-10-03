@@ -3882,9 +3882,19 @@ export const postGenerationRolls = async (actor, characterData, roller = null, {
     const speaker = ChatMessage.getSpeaker({ actor });
     const who = (roller ?? game.user)?.name;
     if (who) speaker.alias = who;
+    // A roll with no dice in it goes LAST. Hit Protection can be a flat number
+    // — Crawler Combat Mode deals 6, and the HP formula setting takes a plain
+    // value — and Dice So Nice 6.2.9 animates NOTHING on a message whose FIRST
+    // roll has no dice, the four dice-bearing rolls behind it included
+    // (measured 2026-10-03: flat first, no animation; flat in the middle or
+    // last, the dice fly). The order is invisible otherwise: core draws a
+    // message's rolls only when its content is empty, and this card's rows
+    // come from the flag. Stable, so a card with dice everywhere keeps the
+    // HP, STR, DEX, WIL, Gold order.
+    const ordered = [rolls.hp, rolls.STR, rolls.DEX, rolls.WIL, rolls.gold];
     const message = await ChatMessage.create({
       speaker,
-      rolls: [rolls.hp, rolls.STR, rolls.DEX, rolls.WIL, rolls.gold],
+      rolls: [...ordered.filter((r) => r.dice.length), ...ordered.filter((r) => !r.dice.length)],
       content,
       flags: { [FLAG_SCOPE]: { [GENERATION_ROLLS_FLAG]: numbers } },
     });
