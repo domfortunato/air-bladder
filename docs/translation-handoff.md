@@ -764,7 +764,7 @@ untranslated, which is the honest failure.
 
 | key | English |
 | --- | --- |
-| `CAIRN.AttacksTargetUnarmed` | {attacker} attacks {target} unarmed! |
+| `CAIRN.AttacksTargetImprovised` | {attacker} makes an improvised attack on {target}! |
 | `CAIRN.ContentSource2e` | Cairn 2e |
 | `CAIRN.ContentSourceBarebones` | Cairn Barebones |
 | `CAIRN.CreateActorHint` | A Monster can be placed on the map many times, and each token takes its own damage. An NPC or Hireling is one person, so all of their tokens share one sheet. |
@@ -776,6 +776,8 @@ untranslated, which is the honest failure.
 | `CAIRN.GenerationRollsRow` | <span class="gen-roll-label">{label}:</span> <span class="gen-roll-value">{value}</span> |
 | `CAIRN.Glog` | GLOG |
 | `CAIRN.HitProtectionLong` | Hit Protection |
+| `CAIRN.ImprovisedAttack` | Improvised Attack |
+| `CAIRN.ImprovisedAttackTip` | Attack with something that is not a weapon — a chair leg, a rock, your fists. |
 | `CAIRN.KindNamedCompanions` | Named Companions |
 | `CAIRN.LydiaCredit` | Art by <a href="https://linktr.ee/lydiadidmyink" target="_blank" rel="noopener">Lydia Comer</a> · <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank" rel="noopener">CC BY-NC-SA 4.0</a> |
 | `CAIRN.MaximumOf` | Maximum {name} |
@@ -809,8 +811,8 @@ untranslated, which is the honest failure.
 | `CAIRN.RollAgeTitle` | Roll age ({formula}) |
 | `CAIRN.RollTrait` | Roll {trait} |
 | `CAIRN.RolledAtCreation` | Rolled at creation. |
-| `CAIRN.RollingDmgUnarmed` | Rolling damage with an unarmed attack |
-| `CAIRN.RollingDmgUnarmedPanic` | Rolling damage with an unarmed attack (Panic) |
+| `CAIRN.RollingDmgImprovised` | Rolling damage with an improvised attack |
+| `CAIRN.RollingDmgImprovisedPanic` | Rolling damage with an improvised attack (Panic) |
 | `CAIRN.SaveRollOffTip` | Turn off Character Creation Mode to roll saves. |
 | `CAIRN.SpellPagePrefix` | Spell —  |
 | `CAIRN.StatChange` | <s>{from}</s> => {to} |
@@ -818,9 +820,17 @@ untranslated, which is the honest failure.
 | `CAIRN.ToggleGenerationHint` | Show the roller buttons and pickers — re-roll or pick any single part of this character, or roll a whole new one. |
 | `CAIRN.ToggleGenerationHintOn` | Put the roller buttons and pickers away — the character plays as-is, and you can bring them back any time. |
 | `CAIRN.TraitsRolledTip` | Rolled at creation — pick from the lists to override. |
-| `CAIRN.UnarmedAttack` | Unarmed Attack |
-| `CAIRN.UnarmedAttackTip` | Attack with something that is not a weapon — a chair leg, a rock, your fists. |
 | `CAIRN.WardenRequired` | Character creation unavailable until a Warden logs in. |
+
+### Improvised (5)
+
+| key | English |
+| --- | --- |
+| `CAIRN.Improvised.PanicNote` | Panicked — whatever you type, this attack rolls {formula}. |
+| `CAIRN.Improvised.Roll` | Roll Damage |
+| `CAIRN.Improvised.Title` | Improvised Attack |
+| `CAIRN.Improvised.With` | What are you attacking with? |
+| `CAIRN.Improvised.WithPlaceholder` | a chair leg, a rock, your fists |
 
 ### Initiative (1)
 
@@ -866,6 +876,7 @@ untranslated, which is the honest failure.
 | `CAIRN.Notify.DashboardWardenOnly` | Only the Warden can open the dashboard. |
 | `CAIRN.Notify.EncounterFailed` | The encounter could not be added to the scene. |
 | `CAIRN.Notify.EventNeedsName` | An event needs a name. |
+| `CAIRN.Notify.ImprovisedNotYours` | You can only make an improvised attack for a character you control. |
 | `CAIRN.Notify.OfferAccepted` | {target} accepted {item}. |
 | `CAIRN.Notify.OfferAnswered` | This offer has already been answered. |
 | `CAIRN.Notify.OfferBusy` | This offer is already being answered — give it a moment. |
@@ -883,7 +894,6 @@ untranslated, which is the honest failure.
 | `CAIRN.Notify.OfferTargetGone` | {target} no longer exists — the offer can't be accepted. |
 | `CAIRN.Notify.OfferWontFit` | {item} won't fit — {target} is full. |
 | `CAIRN.Notify.TimeWardenOnly` | Only the Warden can move the world's clock. |
-| `CAIRN.Notify.UnarmedNotYours` | You can only make an unarmed attack for a character you control. |
 
 ### Offer (30)
 
@@ -1150,16 +1160,6 @@ untranslated, which is the honest failure.
 | `CAIRN.Trait.Quirk` | Quirk |
 | `CAIRN.Trait.Vice` | Vice |
 | `CAIRN.Trait.Virtue` | Virtue |
-
-### Unarmed (5)
-
-| key | English |
-| --- | --- |
-| `CAIRN.Unarmed.PanicNote` | Panicked — whatever you type, this attack rolls {formula}. |
-| `CAIRN.Unarmed.Roll` | Roll Damage |
-| `CAIRN.Unarmed.Title` | Unarmed Attack |
-| `CAIRN.Unarmed.With` | What are you attacking with? |
-| `CAIRN.Unarmed.WithPlaceholder` | a chair leg, a rock, your fists |
 
 ### Vald (39)
 

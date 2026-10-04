@@ -2,7 +2,7 @@ import { dieIconOrGeneric } from "../utils.js";
 import { canRegenerateContainers, drawBond, bondRecordFrom, withGrantSource, bondEntitlement, resolveRefs, replaceGrantedContainers, promptBackground, changeBackground, promptFailedCareer, rollFailedCareerName, buildFailedCareerItem, getPortraitManifest, pairedTokenFor, randomPortraitInSameFolder, portraitCategoryFor, regenerateNpc, regenerateHireling, rerollNpcBackground, rerollHirelingCareer, rerollNpcName, rerollNpcFaction, promptHirelingCareer, promptNpcBackground, promptNpcFaction, promptPickOmen, promptPickBond, promptPickQuestionOption, promptPickName, findOmensTable, rollNameFromTable, rollAge, rollTextItems, effectiveAgeFormula, effectivePcAbilityFormula, effectivePcGoldFormula, effectivePcHpFormula, rollPcHitProtection, resolveActorBackground, redealBackgroundGear, rerollAllBonds, reorderInventory, postGenerationRolls, isHandBuilt, clearHandBuilt, FLAG_SCOPE } from "../character-generator.js";
 import { promptMonsterTier, regenerateMonster } from "../monster-generator.js";
 import { openMarketplace, TRANSPORTS_CATEGORY } from "../marketplace.js";
-import { evaluateFormula, cleanDescription, bindEditorClickAwaySave, formatCount, sourceLabel, askDamageQuality, damageFormulaFor, damageQualityLabel, damageQualityKind, d20CardBody, d20CardFlavor, D20_CARD_ABILITIES, combatOption, combatDamageFormula, askUnarmedAttack, UNARMED_FORMULA } from "../utils.js";
+import { evaluateFormula, cleanDescription, bindEditorClickAwaySave, formatCount, sourceLabel, askDamageQuality, damageFormulaFor, damageQualityLabel, damageQualityKind, d20CardBody, d20CardFlavor, D20_CARD_ABILITIES, combatOption, combatDamageFormula, askImprovisedAttack, IMPROVISED_FORMULA } from "../utils.js";
 import { resultText, compendiumInfoFromString } from "../compendium.js";
 import { SETTINGS_NS } from "../settings.js";
 import { CONTAINER_ART_CHOICES, CONTAINER_CLASSES } from "../icons.js";
@@ -396,7 +396,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       // NOT owned(): a damage roll is a READ, and owned() tests `isEditable`,
       // which also refuses a locked compendium -- the bug review #18 fixed for
       // Die of Fate. Its own ownership gate is inside the handler.
-      unarmedAttack: CairnActorSheet.#onUnarmedAttack,
+      improvisedAttack: CairnActorSheet.#onImprovisedAttack,
       // Description tab
       rollAge: owned(mayRandomize(CairnActorSheet.#onRollAge)),
       rollOmen: owned(mayRandomize(CairnActorSheet.#onRollOmen)),
@@ -901,7 +901,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // Foundry ROLE gate (Actor deletion is Assistant+, no player-grantable
     // permission) and stays isGM — the reason the two were never one flag.
     context.canManageConnections = game.user.isGM || this.actor.isOwner;
-    // Unarmed Attack: a player attacks for a character they control, the Warden
+    // Improvised Attack: a player attacks for a character they control, the Warden
     // anywhere -- and `isOwner` is true for a GM on every actor, so that is both
     // halves in one test. The handler repeats it as the refusal; this is only the
     // affordance. NOT `isEditable`, which a locked compendium also fails.
@@ -912,10 +912,10 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // is not around it any more. A gate spelled in two places is this codebase's
     // thrice-repeated bug, so `isThing` is asked here and nowhere else -- a
     // barrel has no fists.
-    context.canUnarmed = this.actor.isOwner && !this.actor.system?.isThing;
+    context.canImprovise = this.actor.isOwner && !this.actor.system?.isThing;
     // The row's damage tag AND its glyphs both derive from this, so Cairn's
     // unarmed d4 is stated in exactly one place in the running system.
-    context.unarmedFormula = UNARMED_FORMULA;
+    context.improvisedFormula = IMPROVISED_FORMULA;
     // The Dropped Item Pile's maximum is Infinity (calcCurrentMaxSlots), which
     // a template prints as the WORD. The symbol is not localized because it is
     // a symbol, the same reasoning as the ⏎ cue on the quality dialog.
@@ -1926,7 +1926,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // dead: a Warden with a locked-pack monster open could roll its attack but
     // not the die (review #18). Re-enabled after super, for exactly that case.
     //
-    // UNARMED ATTACK IS DELIBERATELY NOT IN THIS LOOP, though it was for a few
+    // IMPROVISED ATTACK IS DELIBERATELY NOT IN THIS LOOP, though it was for a few
     // hours while it was a fourth button in that stack. It is an <a> in the items
     // list now, and `_toggleDisabled` only reaches FORM elements -- which is
     // precisely why every weapon row's roll control has always worked on a locked
@@ -4603,7 +4603,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
   }
 
   /**
-   * An UNARMED ATTACK: a damage roll with no item behind it.
+   * An IMPROVISED ATTACK: a damage roll with no item behind it.
    *
    * Every other damage roll in the system hangs off an inventory row and reads
    * `item.system.damageFormula`, so a character who grabs a chair leg, throws a
@@ -4634,16 +4634,16 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    *
    * @this {CairnActorSheet}
    */
-  static async #onUnarmedAttack() {
+  static async #onImprovisedAttack() {
     if (!this.actor.isOwner) {
-      ui.notifications.warn(game.i18n.localize("CAIRN.Notify.UnarmedNotYours"));
+      ui.notifications.warn(game.i18n.localize("CAIRN.Notify.ImprovisedNotYours"));
       return;
     }
 
     const panicked = game.settings.get(SETTINGS_NS, "use-panic")
       && this.actor.system.panicked === true;
 
-    const answer = await askUnarmedAttack({ panicked });
+    const answer = await askImprovisedAttack({ panicked });
     if (!answer) return;                    // dismissed or cancelled: roll nothing
 
     // The same three rules, in the same order, as the Warden's Damage field.
@@ -4661,7 +4661,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // is also the place that stamps the panic badge on the card below, so the two
     // cannot disagree. The dialog's own note is what tells the player before they
     // type; this is the rule.
-    const base = panicked ? UNARMED_FORMULA : typed;
+    const base = panicked ? IMPROVISED_FORMULA : typed;
 
     // The same gate #onRollDamage reads, and since 2026-10-03 no die is too
     // small: a panicked 1d4 explodes, and earns the maneuver line at its max,
@@ -4694,7 +4694,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     const label = what
       ? game.i18n.format(panicked ? "CAIRN.RollingDmgWithWeaponPanic" : "CAIRN.RollingDmgWithWeapon",
         { weapon: what })
-      : game.i18n.localize(panicked ? "CAIRN.RollingDmgUnarmedPanic" : "CAIRN.RollingDmgUnarmed");
+      : game.i18n.localize(panicked ? "CAIRN.RollingDmgImprovisedPanic" : "CAIRN.RollingDmgImprovised");
 
     const targetedTokens = Array.from(game.user.targets).map((tk) => tk.id);
     const targetIds = targetedTokens.length ? targetedTokens.join(";") : null;

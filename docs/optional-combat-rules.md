@@ -46,9 +46,9 @@ like any other die; so does a d4 weapon, if you write one, and so does an
 **Every explosion is announced.** The damage card gains a line — *A d6 exploded!*
 — once for each time the die went again, so a chain of three says so three times.
 
-**An unarmed attack counts.** The **Unarmed Attack** row at the top of a
+**An improvised attack counts.** The **Improvised Attack** row at the top of a
 character's inventory rolls whatever die you type into it, and that die explodes
-like any other — the d4 an unarmed attack starts on included.
+like any other — the d4 an improvised attack starts on included.
 
 **Only player characters' damage rolls explode.** A monster's attack, an NPC's,
 and the Warden's Damage tool for a trap or hazard all roll normally.
@@ -122,7 +122,7 @@ that rolled its maximum and then exploded still rolled its maximum.
 
 **Any die, melee or ranged.** A bow's maximum counts the same as a sword's. An
 **Impaired** attack's d4 earns the line on a 4, a d4 weapon's does, and so does an
-Enhanced attack's d12 on a 12. An **unarmed attack** is judged on the die you
+Enhanced attack's d12 on a 12. An **improvised attack** is judged on the die you
 typed. The weapon sheet's **Ranged** checkbox, which once kept ranged weapons out
 of this, is still there and does nothing at the moment.
 

@@ -271,17 +271,17 @@ try {
         // of the read set was dead here (review #18). The anchors never were.
         const dof = sheet.element.querySelector('[data-action="dieOfFate"]');
         out.dieOfFate = { present: !!dof, tag: dof?.tagName ?? null, disabled: !!dof?.disabled };
-        // Unarmed Attack is the OTHER read roll with no item behind it, and it
+        // Improvised Attack is the OTHER read roll with no item behind it, and it
         // was a <button> in that stack for a few hours on 2026-10-02 before
         // becoming a row in the items list. As an <a> it is OUTSIDE core's
         // _toggleDisabled sweep entirely -- which is the claim being measured
         // here, not assumed: if it ever goes back to being a <button> without
         // joining the exemption above, `tag` changes and this leg says so.
-        const unarmed = sheet.element.querySelector('[data-action="unarmedAttack"]');
-        out.unarmed = {
-          present: !!unarmed,
-          tag: unarmed?.tagName ?? null,
-          disabled: !!unarmed?.disabled,
+        const improvised = sheet.element.querySelector('[data-action="improvisedAttack"]');
+        out.improvised = {
+          present: !!improvised,
+          tag: improvised?.tagName ?? null,
+          disabled: !!improvised?.disabled,
         };
         try {
           const before = game.messages.size;
@@ -339,9 +339,9 @@ try {
         ? ok("Die of Fate is clickable on a locked pack", "(a read roll that is a <button>, re-enabled past core's disable)")
         : fail(`Die of Fate on a locked pack: ${JSON.stringify(locked.dieOfFate)}`,
           "core's _toggleDisabled(true) disables every form element; the read button must be re-enabled after super._onRender");
-      locked.unarmed?.present && locked.unarmed.tag === "A" && !locked.unarmed.disabled
-        ? ok("the Unarmed Attack row is live on a locked pack", "(an <a>, so core's form-element sweep never reaches it)")
-        : fail(`Unarmed Attack on a locked pack: ${JSON.stringify(locked.unarmed)}`,
+      locked.improvised?.present && locked.improvised.tag === "A" && !locked.improvised.disabled
+        ? ok("the Improvised Attack row is live on a locked pack", "(an <a>, so core's form-element sweep never reaches it)")
+        : fail(`Improvised Attack on a locked pack: ${JSON.stringify(locked.improvised)}`,
           "an <a> is outside _toggleDisabled; if this is a <button> again it needs the _onRender exemption above");
       locked.deleteWarned
         ? ok("itemDelete still warns", "(mutations stay walled)")

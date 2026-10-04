@@ -292,7 +292,7 @@ export const explodingDamageFormula = (formula) => {
 /**
  * What a damage roll BECOMES under the optional combat rules, and whether the
  * card may say a maneuver is possible — the ONE gate the three player-character damage
- * sites read (`actor-sheet.js` `#onRollDamage` and `#onUnarmedAttack`,
+ * sites read (`actor-sheet.js` `#onRollDamage` and `#onImprovisedAttack`,
  * `macros.js` `rollItemMacro`). It was spelled three times, and the d6 floor
  * had to be removed from all three on the same afternoon; a gate written once
  * cannot drift.
@@ -337,7 +337,7 @@ export const combatDamageFormula = (base, { pc = false } = {}) => {
 };
 
 /**
- * Cairn's unarmed damage: the Unarmed Attack dialog's starting value, and what
+ * Cairn's unarmed damage: the Improvised Attack dialog's starting value, and what
  * panic substitutes for whatever was typed there.
  *
  * DELIBERATELY NOT `IMPAIRED_FORMULA`, though both are `1d4` today. They are two
@@ -350,10 +350,10 @@ export const combatDamageFormula = (base, { pc = false } = {}) => {
  * available and the field is editable every time, so a world-level default would
  * be a third place to look for a number the dialog already shows.
  */
-export const UNARMED_FORMULA = "1d4";
+export const IMPROVISED_FORMULA = "1d4";
 
 /**
- * Ask what an unarmed attack is made with and what it rolls.
+ * Ask what an improvised attack is made with and what it rolls.
  *
  * TWO FIELDS AND TWO BUTTONS (user ruling 2026-10-02, reversing the three-question
  * dialog that shipped the same morning): a description, a formula, Roll Damage and
@@ -365,7 +365,7 @@ export const UNARMED_FORMULA = "1d4";
  *
  * PANIC OVERRIDES, IT DOES NOT REMOVE (user ruling, same day). The field is always
  * rendered and always editable; a panicked character's typed formula is replaced
- * with `UNARMED_FORMULA` at ROLL time, and the dialog says so before they type.
+ * with `IMPROVISED_FORMULA` at ROLL time, and the dialog says so before they type.
  * Hiding the field — which is what shipped first — left nothing on screen for the
  * override to be visibly overriding.
  *
@@ -391,12 +391,12 @@ export const UNARMED_FORMULA = "1d4";
  * @return {Promise<{description: String, formula: String}|null>}
  *   null = dismissed OR cancelled, and either must roll NOTHING.
  */
-export const askUnarmedAttack = async ({ panicked = false } = {}) => {
+export const askImprovisedAttack = async ({ panicked = false } = {}) => {
   // BARE: DialogV2 throws on a content element carrying ANY attribute, a single
   // class included (dialog.mjs:189), so the class goes on a wrapper inside it.
   const content = document.createElement("div");
   const inner = document.createElement("div");
-  inner.className = "cairn-unarmed";
+  inner.className = "cairn-improvised";
   content.append(inner);
 
   const group = (labelKey, control) => {
@@ -414,8 +414,8 @@ export const askUnarmedAttack = async ({ panicked = false } = {}) => {
   const description = document.createElement("input");
   description.setAttribute("type", "text");
   description.setAttribute("name", "description");
-  description.setAttribute("placeholder", game.i18n.localize("CAIRN.Unarmed.WithPlaceholder"));
-  group("CAIRN.Unarmed.With", description);
+  description.setAttribute("placeholder", game.i18n.localize("CAIRN.Improvised.WithPlaceholder"));
+  group("CAIRN.Improvised.With", description);
 
   // ALWAYS, panicked or not. The override is announced beneath the field rather
   // than enforced by removing it: a greyed or absent field cannot show what the
@@ -424,13 +424,13 @@ export const askUnarmedAttack = async ({ panicked = false } = {}) => {
   const formula = document.createElement("input");
   formula.setAttribute("type", "text");
   formula.setAttribute("name", "formula");
-  formula.setAttribute("value", UNARMED_FORMULA);
+  formula.setAttribute("value", IMPROVISED_FORMULA);
   group("CAIRN.Damage", formula);
 
   if (panicked) {
     const note = document.createElement("p");
-    note.className = "cairn-unarmed-panic";
-    note.textContent = game.i18n.format("CAIRN.Unarmed.PanicNote", { formula: UNARMED_FORMULA });
+    note.className = "cairn-improvised-panic";
+    note.textContent = game.i18n.format("CAIRN.Improvised.PanicNote", { formula: IMPROVISED_FORMULA });
     inner.append(note);
   }
 
@@ -438,7 +438,7 @@ export const askUnarmedAttack = async ({ panicked = false } = {}) => {
   // rather than captured when the content was built.
   //
   // THE PANIC SUBSTITUTION IS NOT MADE HERE, though it easily could be. The
-  // dialog reports what was TYPED and `#onUnarmedAttack` overrides it, so the one
+  // dialog reports what was TYPED and `#onImprovisedAttack` overrides it, so the one
   // place that decides what gets rolled is the same place that stamps the panic
   // badge on the card. A dialog that quietly handed back `1d4` would leave the
   // badge and the formula agreeing by coincidence.
@@ -448,8 +448,8 @@ export const askUnarmedAttack = async ({ panicked = false } = {}) => {
   });
 
   const answer = await foundry.applications.api.DialogV2.wait({
-    classes: ["cairn-unarmed-dialog"],
-    window: { title: game.i18n.localize("CAIRN.Unarmed.Title") },
+    classes: ["cairn-improvised-dialog"],
+    window: { title: game.i18n.localize("CAIRN.Improvised.Title") },
     // STATED: `wait` merges no position, unlike `confirm` and `prompt` which
     // both supply 400 (dialog.mjs:353,374), so an auto-width window would be as
     // wide as its longest unwrapped line.
@@ -458,7 +458,7 @@ export const askUnarmedAttack = async ({ panicked = false } = {}) => {
     buttons: [
       {
         action: "roll",
-        label: game.i18n.localize("CAIRN.Unarmed.Roll"),
+        label: game.i18n.localize("CAIRN.Improvised.Roll"),
         icon: "fa-solid fa-hand-fist",
         default: true,
         class: "cairn-quality-default",
@@ -486,7 +486,7 @@ export const askUnarmedAttack = async ({ panicked = false } = {}) => {
  * The dice builder: a row of die buttons, a clear, and a sum/keep-highest pair.
  *
  * ONE CONSUMER AGAIN — the Warden's Damage dialog. It was extracted here on
- * 2026-10-02 when the Unarmed Attack dialog became a second one, and that dialog
+ * 2026-10-02 when the Improvised Attack dialog became a second one, and that dialog
  * lost it again the same day (user ruling: the formula field is the only control
  * it needs). It STAYS here rather than moving back: the extraction cost nothing
  * to keep, moving it would be churn in a file this change does not otherwise

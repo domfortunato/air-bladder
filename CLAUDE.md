@@ -358,7 +358,7 @@ companion record of who authored what.
   sheet's checkbox list, read from the pack only, because the generic "import
   it and keep its name" sentence on it was an invitation to the same hijack by
   hand.
-- **UNARMED ATTACK, a permanent row at the top of the inventory (2026-10-02,
+- **IMPROVISED ATTACK, a permanent row at the top of the inventory (2026-10-02,
   user ask).** A damage roll with NO item behind it — every other one in the
   system hangs off an inventory row and reads `item.system.damageFormula`, so a
   character who grabbed a chair leg had nothing to press, though Cairn has such
@@ -368,6 +368,20 @@ companion record of who authored what.
   along without one of them knowing there is a new caller. **No setting of any
   kind** (user ruling): it is simply there, and the formula is typed each time
   from a `1d4` start.
+  **IT HAS HAD THREE NAMES IN THREE DAYS.** It shipped as the Improvised Attack
+  on 2026-10-02, became the **Unarmed Attack** that afternoon, and is the
+  **Improvised Attack** again since 2026-10-04 (user: "Now that we have moved
+  Unarmed Attack to the inventory sheet we can rename it Improvised Attack
+  everywhere it is referenced by its old name"). Labels, i18n keys and code
+  identifiers all moved (`canImprovise`, `improvisedAttack`,
+  `IMPROVISED_FORMULA`, `.improvised-row`). **`data-unarmed` did NOT**: it is
+  stored on every such card already in a chat log, the `crawlerChoiceTaken`
+  precedent. Quotes of the RULE ("Unarmed attacks always do d4 damage") keep
+  Cairn's word, since that is the Player's Guide's. **Monsters, NPCs, hirelings
+  and companions have had the row all along** (asked the same day and
+  confirmed, not changed): the gate is `isOwner && !isThing` on every actor
+  type, so the Warden sees it on all of them and only containers and transports
+  lack it.
   **IT SHIPPED AS A FOURTH BUTTON IN THE SHEET'S STACK AND WAS MOVED THE SAME
   DAY** (user ruling, having seen it: "I don't like that placement after all").
   A row pressed with the same roll control every equipped weapon carries reads
@@ -379,9 +393,9 @@ companion record of who authored what.
     is nothing to delete, nothing to equip, nothing to give, nothing to drag,
     nothing for a grant sweep to find, and `slotsUsed` counts documents on the
     actor — of which this is none. `dev:combat-options` measures the ROW, not
-    the template: an `<a>` inside `.unarmed-row` with no trash can and no Drop
+    the template: an `<a>` inside `.improvised-row` with no trash can and no Drop
     control beside it.
-  - **`canUnarmed` IS ONE PREDICATE, `isOwner && !isThing`.** The
+  - **`canImprovise` IS ONE PREDICATE, `isOwner && !isThing`.** The
     crate-and-wagon exclusion used to be the `{{#unless system.isThing}}` block
     the button sat inside, and the row is not in that block — so the gate had to
     move INTO the flag rather than be spelled a second time in the partial. A
@@ -399,7 +413,7 @@ companion record of who authored what.
   - **THE SHEET CONTEXT HAS NEVER CARRIED `isOwner`.** The first cut gated the
     template on `{{#if isOwner}}`, which is simply undefined there — the control
     would have rendered for nobody, silently, with every probe still green.
-    `context.canUnarmed` is a NAMED flag for that reason and because it says
+    `context.canImprovise` is a NAMED flag for that reason and because it says
     why. Check a context flag exists before gating on it.
   - **`isOwner` IS THE GATE, AND `owned()` WOULD BE WRONG TWICE.** A player
     attacks for a character they control and the Warden anywhere, which
@@ -427,9 +441,9 @@ companion record of who authored what.
     fixed: three such cards in the dev world's log, `data-weapon=""` with empty
     text. **THE PHRASE CAN NEVER BE THE WEAPON**, which is why the fix is a KIND
     (`data-unarmed="1"`) and three whole-sentence keys rather than storing "an
-    unarmed attack" in `data-weapon`: that attribute is copied into a POSSESSIVE
+    improvised attack" in `data-weapon`: that attribute is copied into a POSSESSIVE
     frame one card along (`CAIRN.DamageFromWeapon`, "from {attacker}'s
-    {weapon}"), which would read "from Adobe's an unarmed attack" — and an
+    {weapon}"), which would read "from Adobe's an improvised attack" — and an
     article and a preposition belong to the translator together. The attribute
     is written whenever the roll came from this route, not only when the field
     was blank, because it states the card's PROVENANCE and that does not go
@@ -441,12 +455,12 @@ companion record of who authored what.
     to enter a dice formula other than 1d4 — but if the character is panicked I
     want that formula overridden to 1d4 and to state why"). The field is always
     rendered and always editable, a note under it says the override is coming,
-    and `#onUnarmedAttack` substitutes `UNARMED_FORMULA` at ROLL time. The
+    and `#onImprovisedAttack` substitutes `IMPROVISED_FORMULA` at ROLL time. The
     substitution is deliberately NOT made in the dialog: the one place that
     decides what gets rolled is the one that stamps the panic badge, so the two
     cannot disagree. The probe types a **d10** and asserts `1d4` — a leg merely
     reading "1d4" could not tell this from the field having been removed and
-    defaulted. `UNARMED_FORMULA` and `IMPAIRED_FORMULA` are DELIBERATELY two
+    defaulted. `IMPROVISED_FORMULA` and `IMPAIRED_FORMULA` are DELIBERATELY two
     constants that agree: one is the Player's Guide's unarmed damage, the other
     is what Impaired substitutes, and if either moves it moves alone.
   - **THE QUALITY BUTTONS ARE GONE and the badge survives anyway.** Standard /
@@ -605,7 +619,7 @@ companion record of who authored what.
     found nothing, and rendered no control at all while `canDrop` was true on
     the sheet the whole time. Measured on a live sheet: `canDrop: true`, zero
     controls. `{{#if ../withDrop}}` fixes it. Every other parameter
-    `items-list.html` reads — `withFatigue`, `withShop`, `withUnarmed` — is used
+    `items-list.html` reads — `withFatigue`, `withShop`, `withImprovised` — is used
     OUTSIDE the loop, which is why none of them ever had to discover this.
     **The neighbouring `{{#unless container}}` has the same shape and nothing
     passes `container` at either call site**, so the equip toggle renders on
@@ -2038,7 +2052,7 @@ companion record of who authored what.
     **THIS SENTENCE SAID "Impaired and Enhanced explode too", WAS REVISED ON
     2026-10-02 TO "a die smaller than d6 never explodes", AND WAS REVERSED
     AGAIN ON 2026-10-03 — so impaired and enhanced explode, and so do a d4
-    weapon and an unarmed attack's d4** (user: "available to ALL attack rolls
+    weapon and an improvised attack's d4** (user: "available to ALL attack rolls
     made by PCs, including impaired attacks, improvised attack, and attacks
     with dice smaller than a d6"). Each time, every site that stated the rule
     had to move together (here, the call-site comments, the setting hint,
@@ -2097,7 +2111,7 @@ companion record of who authored what.
     rolls" — which held for one more day (below). So: `judgedDie(formula)` in
     `utils.js` is the ONE recogniser both options read, with no size test, and
     `combatDamageFormula(base, {pc})` is the ONE gate the three PC damage sites
-    call (the sheet's roll control, the unarmed row, the hotbar macro — it had
+    call (the sheet's roll control, the improvised row, the hotbar macro — it had
     been spelled three times and the floor had to come out of all three in one
     afternoon). Its `melee` argument went with the melee-only rule. **The case that fires is
     IMPAIRED, not a d4 weapon**: of the eighteen shipped weapons the only

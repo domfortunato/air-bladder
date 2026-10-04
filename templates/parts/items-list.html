@@ -18,29 +18,29 @@
         class="fas fa-plus"></i>&nbsp;{{ localize 'CAIRN.AddItem' }}</a>
   </span>
 </div>
-{{!-- UNARMED ATTACK: the weapon you always have, rolled with the gesture every
+{{!-- IMPROVISED ATTACK: the weapon you always have, rolled with the gesture every
       weapon is rolled with (user ruling 2026-10-02, moving it out of the sheet's
       button stack). IT IS NOT AN ITEM DOCUMENT, which is what makes it
       unremovable and slotless BY CONSTRUCTION rather than by a rule somebody has
       to maintain: there is nothing to delete, nothing to equip, nothing to give,
       nothing to drag, nothing for a grant sweep to find, and `slotsUsed` counts
       documents on the actor -- of which this is none. The only control is the
-      roll. `withUnarmed` carries `canUnarmed`, which is `isOwner` AND not a
+      roll. `withImprovised` carries `canImprovise`, which is `isOwner` AND not a
       thing: a barrel has no fists. --}}
-{{#if withUnarmed}}
-<div class="cairn-items-list-row unarmed-row">
+{{#if withImprovised}}
+<div class="cairn-items-list-row improvised-row">
   <div class="cairn-items-list-row-header">
     <div class="cairn-item-name-and-tags">
       <i class="fas fa-hand-fist" style="opacity:0.5"></i>
-      <span class="cairn-item-title">{{ localize 'CAIRN.UnarmedAttack' }}</span>
-      <div class="cairn-item-tag">{{ localize 'CAIRN.NDamage' n=unarmedFormula }}</div>
+      <span class="cairn-item-title">{{ localize 'CAIRN.ImprovisedAttack' }}</span>
+      <div class="cairn-item-tag">{{ localize 'CAIRN.NDamage' n=improvisedFormula }}</div>
     </div>
     <div class="cairn-item-controls">
       {{!-- Both the tag above and the glyphs below are derived from the one
             constant, so if Cairn's unarmed damage ever moves they move with it
             rather than being two literals to keep in step. --}}
-      <a class="roll-control" data-action="unarmedAttack" title="{{ localize 'CAIRN.UnarmedAttackTip' }}">
-        {{#each (damageDiceIcons unarmedFormula)}}<i class="{{this}}"></i>{{/each}}
+      <a class="roll-control" data-action="improvisedAttack" title="{{ localize 'CAIRN.ImprovisedAttackTip' }}">
+        {{#each (damageDiceIcons improvisedFormula)}}<i class="{{this}}"></i>{{/each}}
       </a>
     </div>
   </div>
@@ -206,7 +206,7 @@
             finds nothing, and renders NOTHING, silently, with the flag true on
             the sheet the whole time. Measured: `canDrop: true`, zero controls.
             Every other partial parameter this file reads (`withFatigue`,
-            `withShop`, `withUnarmed`) is used OUTSIDE the loop, which is why
+            `withShop`, `withImprovised`) is used OUTSIDE the loop, which is why
             none of them had to discover this. --}}
       {{#if ../withDrop}}
       {{#unless item.system.isFatigue}}

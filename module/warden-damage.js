@@ -146,7 +146,7 @@ const buildForm = () => {
   return content;
 };
 
-/* `wireDiceBuilder` MOVED to utils.js on 2026-10-02, when the Unarmed Attack
+/* `wireDiceBuilder` MOVED to utils.js on 2026-10-02, when the Improvised Attack
    dialog briefly became its second consumer. That dialog lost its dice buttons
    the same day (user ruling), so this is the only caller again — the helper
    stays where it is, and its `render`-callback contract and the

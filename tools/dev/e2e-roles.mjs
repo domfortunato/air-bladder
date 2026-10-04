@@ -89,7 +89,7 @@ const READ = `(sheet) => {
     deprived:  vis('.deprived-check'),
     restBtn:   vis('#rest-button'),
     dieOfFate: vis('#die-of-fate-button'),
-    unarmed:   vis('.unarmed-row'),
+    improvised:   vis('.improvised-row'),
     gold:      vis('input[name="system.gold"]'),
     roleSelect: vis('.role-select'),
     career:    vis('input[name="system.profession"]'),
@@ -202,24 +202,24 @@ try {
   !asThing.hp && !asThing.str && !asThing.armor && !asThing.deprived
     ? ok("HP, STR, Armor, Deprived all gone")
     : bad("HP, STR, Armor, Deprived all gone", JSON.stringify(asThing));
-  // The two stack buttons AND the Unarmed Attack row, which is a different gate
+  // The two stack buttons AND the Improvised Attack row, which is a different gate
   // in a different place since 2026-10-02: the buttons go with the sheet's
   // `{{#unless system.isThing}}` block, while the row is withheld by
-  // `canUnarmed` (`isOwner && !isThing`) inside the items list. A crate loses all
+  // `canImprovise` (`isOwner && !isThing`) inside the items list. A crate loses all
   // three, and it has to be MEASURED that it loses all three, because the moment
   // the row left that block it stopped being covered by the buttons' gate.
-  !asThing.restBtn && !asThing.dieOfFate && !asThing.unarmed
-    ? ok("Rest, Die of Fate and the Unarmed Attack row gone", "a crate does not rest, and has no fists")
-    : bad("Rest, Die of Fate and the Unarmed Attack row gone", JSON.stringify(asThing));
+  !asThing.restBtn && !asThing.dieOfFate && !asThing.improvised
+    ? ok("Rest, Die of Fate and the Improvised Attack row gone", "a crate does not rest, and has no fists")
+    : bad("Rest, Die of Fate and the Improvised Attack row gone", JSON.stringify(asThing));
   // THE POSITIVE HALF, and it is what makes the leg above mean anything. Both
   // snapshots are taken with the Items tab open (a person role and a container
   // are both in ITEMS_FIRST_ROLES), so "no row" on the crate is the gate and not
   // a tab that happened to be hidden -- which is exactly how this leg could pass
   // for the wrong reason.
-  asPerson.unarmed && !asThing.unarmed
+  asPerson.improvised && !asThing.improvised
     ? ok("the row is there on a person and gone on a thing", "same tab, same probe, different gate")
     : bad("the row is there on a person and gone on a thing",
-      `person=${asPerson.unarmed} thing=${asThing.unarmed}`);
+      `person=${asPerson.improvised} thing=${asThing.improvised}`);
   asThing.banners.length === 0
     ? ok("no Dead/Paralyzed/Delirious banner", "derived conditions suppressed")
     : bad("no Dead/Paralyzed/Delirious banner", asThing.banners.join(" | "));

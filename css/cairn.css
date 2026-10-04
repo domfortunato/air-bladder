@@ -1736,7 +1736,7 @@
    #die-of-fate-button and .mark-critical-damage already use to mark the notable
    control in a group. */
 .cairn-damage-quality .cairn-quality-default,
-.cairn-unarmed-dialog .cairn-quality-default {
+.cairn-improvised-dialog .cairn-quality-default {
     font-weight: 700;
     border-color: var(--ab-accent);
 }
@@ -1757,13 +1757,13 @@
    from `tooltip`. It now sits directly after the label as part of the centred
    group — do NOT restore the auto margin. */
 .cairn-damage-quality .cairn-quality-default::after,
-.cairn-unarmed-dialog .cairn-quality-default::after {
+.cairn-improvised-dialog .cairn-quality-default::after {
     content: "\23CE";
     margin-left: 0.4em;
     opacity: 0.7;
 }
 
-/* THE UNARMED ATTACK DIALOG (askUnarmedAttack in module/utils.js). Two fields
+/* THE IMPROVISED ATTACK DIALOG (askImprovisedAttack in module/utils.js). Two fields
    and two buttons, so its footer is deliberately core's own ROW -- the quality
    dialog's column rule exists because three labels each carrying a die wrapped,
    and neither condition holds here. It shares only the default-button cue above.
@@ -1771,7 +1771,7 @@
    The panic note sits under the Damage field it is about to override, quiet
    rather than alarming: the field is still editable and the value still matters
    for the next attack, so this states a rule rather than reporting an error. */
-.cairn-unarmed-panic {
+.cairn-improvised-panic {
     margin: 4px 0 0;
     font-size: var(--font-size-12);
     color: var(--ab-muted);
@@ -2049,12 +2049,12 @@
     opacity: 0.85;
 }
 
-/* Unarmed Attack: the fixed row at the top of the inventory (2026-10-02). The
+/* Improvised Attack: the fixed row at the top of the inventory (2026-10-02). The
    gold rows' treatment exactly, and for the same reason -- both are rows in the
    items list that are NOT items, and the italic is what says so without a tag
    saying it in words. It is also what keeps a player from hunting for the trash
    can that every row below it has. */
-.unarmed-row .cairn-item-title {
+.improvised-row .cairn-item-title {
     font-style: italic;
     opacity: 0.85;
 }

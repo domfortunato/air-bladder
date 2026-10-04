@@ -3229,11 +3229,13 @@ const localizeSpeakerName = (message, html, token) => {
  * correlation two independent branches happen to maintain and not something
  * this line should depend on.
  *
- * `data-unarmed` picks a THIRD pair of keys, for a roll made with nothing in
- * hand and the description left blank. Whole sentences rather than "an unarmed
- * attack" injected as `{weapon}`, because `data-weapon` is also copied into a
+ * `data-unarmed` picks a THIRD pair of keys, for an improvised attack with the
+ * description left blank. Whole sentences rather than "an improvised attack"
+ * injected as `{weapon}`, because `data-weapon` is also copied into a
  * possessive frame (`CAIRN.DamageFromWeapon`) and because the article belongs
- * to the translator.
+ * to the translator. The attribute keeps the feature's earlier name on
+ * purpose: it is STORED on every such card already in a log (see
+ * dmg-roll-card.html).
  */
 const relabelWeaponLine = (label) => {
   // A CARD OLDER THAN `data-panic` CANNOT BE REBUILT, and must be left alone
@@ -3254,14 +3256,14 @@ const relabelWeaponLine = (label) => {
   if (label?.dataset?.panic === undefined) return;
   const weapon = label.dataset.weapon ?? "";
   if (!weapon) {
-    // AN UNARMED ATTACK WITH THE FIELD LEFT BLANK NAMES ITSELF. Before this the
+    // AN IMPROVISED ATTACK WITH THE FIELD LEFT BLANK NAMES ITSELF. Before this the
     // function returned here and the card rendered an EMPTY `.dmg-label` -- a
     // damage roll with no sentence at all. Anything else with no weapon (a
-    // hazard, a card from before the unarmed route existed) still stands as
+    // hazard, a card from before the improvised route existed) still stands as
     // posted, because there is genuinely nothing to name.
     if (label.dataset.unarmed !== "1") return;
     label.textContent = game.i18n.localize(
-      label.dataset.panic === "1" ? "CAIRN.RollingDmgUnarmedPanic" : "CAIRN.RollingDmgUnarmed");
+      label.dataset.panic === "1" ? "CAIRN.RollingDmgImprovisedPanic" : "CAIRN.RollingDmgImprovised");
     return;
   }
   label.textContent = game.i18n.format(
@@ -3384,7 +3386,7 @@ const nameDamageTargets = (message, html, scene) => {
   // `replaceChildren` below replaces child NODES and not attributes, so
   // `data-unarmed` survives the rewrite exactly as `data-weapon` does.
   const key = weapon ? "CAIRN.AttacksTargetWeapon"
-    : label.dataset.unarmed === "1" ? "CAIRN.AttacksTargetUnarmed"
+    : label.dataset.unarmed === "1" ? "CAIRN.AttacksTargetImprovised"
       : "CAIRN.AttacksTarget";
   const sentence = game.i18n.format(key, { attacker, weapon, target: MARK });
   const [before, after = ""] = sentence.split(MARK);

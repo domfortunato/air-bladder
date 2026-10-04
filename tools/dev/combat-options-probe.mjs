@@ -1002,7 +1002,7 @@ try {
       await game.settings.set(NS, "exploding-damage-dice", true);
     }
 
-    /* ---- 14. the Unarmed Attack row ------------------------------------- */
+    /* ---- 14. the Improvised Attack row ------------------------------------- */
     // Driven through the REAL inventory row and the REAL dialog, because the
     // whole point of this control is that it has no item behind it: a probe that
     // called the handler directly would not prove the row exists, is reachable,
@@ -1025,16 +1025,16 @@ try {
         // that a later ruling could change without anything here noticing.
         actor.sheet.element?.querySelector('[data-action="tab"][data-tab="items"]')?.click();
         await sleep(250);
-        const ctrl = actor.sheet.element?.querySelector('[data-action="unarmedAttack"]');
-        if (!ctrl) { await actor.sheet.close(); return { err: "no Unarmed Attack control" }; }
+        const ctrl = actor.sheet.element?.querySelector('[data-action="improvisedAttack"]');
+        if (!ctrl) { await actor.sheet.close(); return { err: "no Improvised Attack control" }; }
         // The row itself, and that it is not an item: a trash can on this row
         // would mean somebody had made it a document.
-        const unarmedRow = ctrl.closest(".unarmed-row");
+        const improvisedRow = ctrl.closest(".improvised-row");
         const rowShape = {
-          isRow: !!unarmedRow,
+          isRow: !!improvisedRow,
           tag: ctrl.tagName,
-          deletable: !!unarmedRow?.querySelector('[data-action="itemDelete"]'),
-          droppable: !!unarmedRow?.querySelector('[data-action="itemDrop"]'),
+          deletable: !!improvisedRow?.querySelector('[data-action="itemDelete"]'),
+          droppable: !!improvisedRow?.querySelector('[data-action="itemDrop"]'),
           glyphs: [...ctrl.querySelectorAll("i")].map((i) => i.className).join(" "),
         };
         // THE DIE MUST SIT ON THE LINE ITS NEIGHBOURS SIT ON. Measured on an
@@ -1092,10 +1092,10 @@ try {
 
         let dlg = null;
         for (let i = 0; i < 80 && !dlg; i++) {
-          dlg = document.querySelector("dialog.dialog.cairn-unarmed-dialog");
+          dlg = document.querySelector("dialog.dialog.cairn-improvised-dialog");
           if (!dlg) await sleep(150);
         }
-        if (!dlg) { await actor.sheet.close(); return { err: "no unarmed dialog", rowShape }; }
+        if (!dlg) { await actor.sheet.close(); return { err: "no improvised dialog", rowShape }; }
 
         // WHAT THE DIALOG OFFERS IS HALF THE MEASUREMENT. Two fields and two
         // buttons: the dice builder and the three quality buttons were removed
@@ -1113,7 +1113,7 @@ try {
             || !!dlg.querySelector('button[data-action="enhanced"]'),
           hasRoll: !!dlg.querySelector('button[data-action="roll"]'),
           hasCancel: !!dlg.querySelector('button[data-action="cancel"]'),
-          panicNote: dlg.querySelector(".cairn-unarmed-panic")?.textContent.trim() ?? null,
+          panicNote: dlg.querySelector(".cairn-improvised-panic")?.textContent.trim() ?? null,
         };
 
         const dField = dlg.querySelector('input[name="description"]');
@@ -1184,23 +1184,23 @@ try {
     // are localized IN-PAGE so the leg survives a translation instead of pinning
     // an English literal.
     out.expect = {
-      unarmed: game.i18n.localize("CAIRN.RollingDmgUnarmed"),
-      unarmedPanic: game.i18n.localize("CAIRN.RollingDmgUnarmedPanic"),
+      improvised: game.i18n.localize("CAIRN.RollingDmgImprovised"),
+      improvisedPanic: game.i18n.localize("CAIRN.RollingDmgImprovisedPanic"),
     };
     out.impBlank = await improvise(pc, { description: "", formula: "d6" });
 
     // THE TARGETED SENTENCE, BOTH HALVES. This probe has no scene machinery of
-    // its own, so a foe is placed and TARGETED the way `#onUnarmedAttack` reads
+    // its own, so a foe is placed and TARGETED the way `#onImprovisedAttack` reads
     // its targets -- not the canvas selection, which is a different signal. Both
     // halves are rolled because the contrast is the whole measurement: a blank
-    // field must reach the unarmed key and typed text must still reach the
+    // field must reach the improvised key and typed text must still reach the
     // weapon key, and one arm always winning would pass either leg alone.
     {
       const foe = await mk({
-        name: "ZZ Unarmed Foe", type: "npc",
+        name: "ZZ Improvised Foe", type: "npc",
         system: { role: "monster", hp: { value: 9, max: 9 }, armor: 0 },
       });
-      const scene = await Scene.create({ name: "ZZ Unarmed Scene", width: 1000, height: 1000 });
+      const scene = await Scene.create({ name: "ZZ Improvised Scene", width: 1000, height: 1000 });
       out.sceneId = scene.id;
       const [tok] = await scene.createEmbeddedDocuments(
         "Token", [await foe.getTokenDocument({ x: 100, y: 100 })]);
@@ -1212,7 +1212,7 @@ try {
       // Formatted in-page through the same helpers the rebuild uses, so the leg
       // reads a sentence rather than an English literal.
       const names = game.i18n.getListFormatter().format([tok.name]);
-      out.expect.tgtUnarmed = game.i18n.format("CAIRN.AttacksTargetUnarmed",
+      out.expect.tgtImprovised = game.i18n.format("CAIRN.AttacksTargetImprovised",
         { attacker: pc.name, target: names, weapon: "" });
       out.expect.tgtWeapon = game.i18n.format("CAIRN.AttacksTargetWeapon",
         { attacker: pc.name, target: names, weapon: "a chair leg" });
@@ -1261,15 +1261,15 @@ try {
         pc.sheet.element?.querySelector('[data-action="tab"][data-tab="items"]')?.click();
         await sleep(250);
         // The affordance: the row is not rendered at all.
-        out.gateHidesButton = !pc.sheet.element?.querySelector('[data-action="unarmedAttack"]');
+        out.gateHidesButton = !pc.sheet.element?.querySelector('[data-action="improvisedAttack"]');
         // The refusal: reaching the action another way is still turned away, and
         // posts nothing.
         const before = game.messages.size;
-        await pc.sheet.options.actions.unarmedAttack.call(
+        await pc.sheet.options.actions.improvisedAttack.call(
           pc.sheet, { preventDefault() {} }, document.createElement("a"));
         await sleep(500);
         out.gateRefuses = game.messages.size === before
-          && !document.querySelector("dialog.dialog.cairn-unarmed-dialog");
+          && !document.querySelector("dialog.dialog.cairn-improvised-dialog");
         await pc.sheet.close();
       } finally {
         delete pc.isOwner;
@@ -1604,10 +1604,10 @@ try {
     ? ok(`...and a d6 + d6 is rolled as ${r.mvPlusNoExplode.formula}, ONE Die term the card can judge — as a PoolTerm the line could never be drawn`)
     : fail(`mvPlusNoExplode: ${JSON.stringify(r.mvPlusNoExplode)} — want 2d6k and the line`);
 
-  // ---- the Unarmed Attack row -------------------------------------------
+  // ---- the Improvised Attack row -------------------------------------------
   const impOk = (r2) => r2 && !r2.err;
   impOk(r.impD6) && hasX(r.impD6.formula) && r.impD6.maneuverLine && !r.impD6.buttons
-    ? ok(`Unarmed Attack: a d6 typed into the dialog exploded at roll time (${r.impD6.formula}) and the card carries the maneuver line — no item anywhere in the path`)
+    ? ok(`Improvised Attack: a d6 typed into the dialog exploded at roll time (${r.impD6.formula}) and the card carries the maneuver line — no item anywhere in the path`)
     : fail(`impD6: ${JSON.stringify(r.impD6)}`);
   r.impD6?.line?.includes("a chair leg")
     ? ok(`...and the description reaches the card as the thing attacked with: "${r.impD6.line}" — the weapon datum, so no new sentence key was needed`)
@@ -1619,7 +1619,7 @@ try {
   r.impD6?.rowShape?.isRow && r.impD6.rowShape.tag === "A"
     && !r.impD6.rowShape.deletable && !r.impD6.rowShape.droppable
     ? ok(`...pressed from a permanent row in the inventory that cannot be deleted or dropped (${r.impD6.rowShape.glyphs})`)
-    : fail(`the unarmed row: ${JSON.stringify(r.impD6?.rowShape)}`);
+    : fail(`the improvised row: ${JSON.stringify(r.impD6?.rowShape)}`);
   // TWO FIELDS AND TWO BUTTONS. The absences are the ruling, so they are
   // asserted: a stale template would restore the builder or the qualities in
   // silence, and every other leg here would still pass.
@@ -1656,7 +1656,7 @@ try {
   }
 
   impOk(r.impD4) && /^1?d4x/.test(r.impD4.formula ?? "") && r.impD4.maneuverLine && !r.impD4.buttons
-    ? ok(`NO FLOOR through the unarmed route: a typed d4 explodes (${r.impD4.formula}) and carries the line`)
+    ? ok(`NO FLOOR through the improvised route: a typed d4 explodes (${r.impD4.formula}) and carries the line`)
     : fail(`impD4: ${JSON.stringify(r.impD4)} — want 1d4x and the line`);
   impOk(r.impD10) && /d10/.test(r.impD10.formula ?? "")
     ? ok(`the TYPED formula is what gets rolled (${r.impD10.formula}), not the 1d4 the field starts on`)
@@ -1664,21 +1664,21 @@ try {
   // THE SENTENCE IS COMPARED, not merely checked for a dangling "with ". The
   // old assertion was `!/with\s*$/` and "" passes that, which is how a card with
   // NO SENTENCE AT ALL shipped green.
-  impOk(r.impBlank) && r.impBlank.line === r.expect?.unarmed
+  impOk(r.impBlank) && r.impBlank.line === r.expect?.improvised
     ? ok(`a blank description NAMES THE ATTACK ("${r.impBlank.line}") — not the empty label this leg used to accept`)
-    : fail(`impBlank: expected "${r.expect?.unarmed}", read "${r.impBlank?.line}" from ${JSON.stringify(r.impBlank?.labelData)}`);
+    : fail(`impBlank: expected "${r.expect?.improvised}", read "${r.impBlank?.line}" from ${JSON.stringify(r.impBlank?.labelData)}`);
   r.impBlank?.labelData?.unarmed === "1"
-    ? ok(`...off a KIND on the card (data-unarmed), never the phrase stored as the weapon — which a possessive frame one card along would render "from X's an unarmed attack"`)
+    ? ok(`...off a KIND on the card (data-unarmed), never the phrase stored as the weapon — which a possessive frame one card along would render "from X's an improvised attack"`)
     : fail(`data-unarmed missing: ${JSON.stringify(r.impBlank?.labelData)}`);
-  r.impTgtBlank?.line === r.expect?.tgtUnarmed
+  r.impTgtBlank?.line === r.expect?.tgtImprovised
     ? ok(`TARGETED and blank: "${r.impTgtBlank.line}"`)
-    : fail(`impTgtBlank: expected "${r.expect?.tgtUnarmed}", read "${r.impTgtBlank?.line}" (targets ${r.tgtCount})`);
+    : fail(`impTgtBlank: expected "${r.expect?.tgtImprovised}", read "${r.impTgtBlank?.line}" (targets ${r.tgtCount})`);
   r.impTgtTyped?.line === r.expect?.tgtWeapon
     ? ok(`...while typed text still reaches the weapon key ("${r.impTgtTyped.line}") — the contrast is what proves the ternary picks an arm rather than one arm always winning`)
     : fail(`impTgtTyped: expected "${r.expect?.tgtWeapon}", read "${r.impTgtTyped?.line}"`);
 
   impOk(r.impMonster) && noX(r.impMonster.formula) && !r.impMonster.maneuverLine && !r.impMonster.datum
-    ? ok(`a MONSTER's unarmed attack never explodes (${r.impMonster.formula}) and carries no line — the PC gate is at the roll site`)
+    ? ok(`a MONSTER's improvised attack never explodes (${r.impMonster.formula}) and carries no line — the PC gate is at the roll site`)
     : fail(`impMonster: ${JSON.stringify(r.impMonster)}`);
   impOk(r.impAutoExplode) && hasX(r.impAutoExplode.formula) && !r.impAutoExplode.maneuverLine
     ? ok(`...while a PC's d6 with maneuver OFF explodes (${r.impAutoExplode.formula}) with no line, exactly as a weapon would`)
