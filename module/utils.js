@@ -289,13 +289,46 @@ export const judgedDie = (formula) => {
  * NO FLOOR (user ruling 2026-10-03, reversing 2026-10-02): an impaired `1d4`
  * explodes, and so does a typed d4 — see `judgedDie` for the whole record.
  *
+ * CAPPED SINCE 2026-10-04 (user ask): `explosionCap` explosions per chain,
+ * written as core's own `x{max}={faces}` modifier — `d6x2=6`, `2d6kx2=6`,
+ * `1d4x1=4`. THE SPELLING IS LOAD-BEARING: `x2` on its own means "explode on
+ * a 2" (`Die#explode` moves a lone number into the TARGET, die.mjs:145-148),
+ * so a cap is only a cap with a comparison beside it. Measured in the shipped
+ * client: the counter decrements per explosion and the loop breaks BEFORE
+ * marking the next result, so the maximum that stops a chain is not flagged
+ * `exploded` — the card's one-line-per-explosion count stays honest, and the
+ * maneuver line, which reads an ACTIVE maximum, still fires on it. The cap is
+ * per TERM: on a keep form only the kept die is active, so it is per chain; a
+ * formula that ADDS two dice (`2d10`, nothing shipped) shares one cap, by
+ * ruling. A cap of 0 (d2, d3) writes no `x` at all. A formula already carrying
+ * its own `x` is left as typed, `judgedDie` refusing it, so a typed `1d6x` is
+ * the one way to roll an uncapped chain.
+ *
  * @param {String} formula  what a standard/impaired/enhanced roll would be
  * @return {String}
  */
 export const explodingDamageFormula = (formula) => {
   const judged = judgedDie(formula);
-  return judged ? `${judged.formula}x` : formula;
+  if (!judged) return formula;
+  const cap = explosionCap(judged.faces);
+  return cap > 0 ? `${judged.formula}x${cap}=${judged.faces}` : judged.formula;
 };
+
+/**
+ * How many times a die of `faces` faces may explode under the Exploding damage
+ * dice option: half its faces, less one (user ruling 2026-10-04).
+ *
+ *   d4 1 · d6 2 · d8 3 · d10 4 · d12 5 · d20 9 · d2 and d3 0 (never)
+ *
+ * Rounded DOWN for an odd die (a d5 explodes once). It caps the CHAIN: a d6
+ * may go 6, 6, 6 and stops at 18, the third six added but not rolled again.
+ * With the option off nothing explodes at all, so this is read only where the
+ * `x` is written — see `explodingDamageFormula` for the spelling it needs.
+ *
+ * @param {Number} faces
+ * @return {Number}  0 when the die may not explode at all
+ */
+export const explosionCap = (faces) => Math.max(0, Math.floor(Number(faces) / 2) - 1);
 
 /**
  * What a damage roll BECOMES under the optional combat rules, and whether the

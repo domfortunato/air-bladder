@@ -997,7 +997,7 @@ untranslated, which is the honest failure.
 | `CAIRN.Settings.AgeFormula.label` | Age formula for generated characters |
 | `CAIRN.Settings.EnableValdCalendar.hint` | Vald keeps its own year: twelve months of twenty-four days, a six-day week, and four seasons — Dead, Dry, Wet and Harvest — each with its own weather table, plus a six-day Reclamation week every tenth year. Cairn's own s… |
 | `CAIRN.Settings.EnableValdCalendar.label` | Use the Vald calendar and seasons |
-| `CAIRN.Settings.ExplodingDamageDice.hint` | When a player character's damage die rolls its highest face, it is rolled again and added, for as long as it keeps rolling the highest. Only the die that is kept explodes, so two sixes on a keep-highest weapon are one si… |
+| `CAIRN.Settings.ExplodingDamageDice.hint` | When a player character's damage die rolls its highest face, it is rolled again and added. A die explodes at most half its faces less one times: a d4 once, a d6 twice, a d8 three times, a d10 four, a d12 five. Only the d… |
 | `CAIRN.Settings.ExplodingDamageDice.label` | Exploding damage dice |
 | `CAIRN.Settings.FatigueForCriticalDamage.hint` | When a player character fails a Critical Damage save, their chat card also offers to take a Fatigue instead. If they are already overburdened, they must drop an item, which will be added to the Party's Dropped Item Pile.… |
 | `CAIRN.Settings.FatigueForCriticalDamage.label` | Fatigue instead of Critical Damage |

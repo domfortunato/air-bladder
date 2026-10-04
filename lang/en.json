@@ -931,7 +931,7 @@
       "label": "Offer custom Cairn 2e backgrounds"
     },
     "ExplodingDamageDice": {
-      "hint": "When a player character's damage die rolls its highest face, it is rolled again and added, for as long as it keeps rolling the highest. Only the die that is kept explodes, so two sixes on a keep-highest weapon are one six, not two. Every die explodes, however small: an impaired attack's d4, an improvised attack's, and a d4 weapon's. Every explosion is announced on the damage card. Only player characters' damage rolls explode — never an NPC's, a monster's, or a trap's.",
+      "hint": "When a player character's damage die rolls its highest face, it is rolled again and added. A die explodes at most half its faces less one times: a d4 once, a d6 twice, a d8 three times, a d10 four, a d12 five. Only the die that is kept explodes, so two sixes on a keep-highest weapon are one six, not two. Every die explodes, however small: an impaired attack's d4, an improvised attack's, and a d4 weapon's. Every explosion is announced on the damage card. Only player characters' damage rolls explode — never an NPC's, a monster's, or a trap's.",
       "label": "Exploding damage dice"
     },
     "ManeuverOnMaxDamage": {

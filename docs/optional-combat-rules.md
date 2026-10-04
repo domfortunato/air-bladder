@@ -32,10 +32,21 @@ and the ration.
 ## Exploding damage dice
 
 Tick **Exploding damage dice** and a player character's damage die that rolls
-its highest face is rolled again and added — for as long as it keeps rolling the
-highest.
+its highest face is rolled again and added. A die explodes at most **half its
+faces, less one** times, and then the chain stops:
 
-A d6 rolling 6 then 4 deals 10. A d6 rolling 6, 6 and then 2 deals 14.
+| Die | Explodes at most |
+|---|---|
+| d4 | once |
+| d6 | twice |
+| d8 | three times |
+| d10 | four times |
+| d12 | five times |
+| d20 | nine times |
+
+A d6 rolling 6 then 4 deals 10. A d6 rolling 6, 6 and then 2 deals 14. A d6
+rolling 6, 6, 6 deals 18 and stops there: the third six is added but not
+rolled again.
 
 **Only the die you keep explodes.** Cairn's dual-wield and similar rules roll two
 dice and keep the higher. If both come up 6, that is **one** six, so it explodes
@@ -46,7 +57,9 @@ like any other die; so does a d4 weapon, if you write one, and so does an
 **Enhanced** roll's d12. There is no smallest die.
 
 **Every explosion is announced.** The damage card gains a line — *A d6 exploded!*
-— once for each time the die went again, so a chain of three says so three times.
+— once for each time the die went again, so a chain that went twice says so
+twice. A die that stops at its cap adds no extra line: the lines count the
+explosions, and the table above says where they stop.
 
 **An improvised attack counts.** The **Improvised Attack** row at the top of a
 character's inventory rolls whatever die you type into it, and that die explodes
@@ -61,6 +74,12 @@ and then exploding only that die has no way to be written for mixed dice, and
 the alternative would quietly give you better odds than the rule above. No
 weapon that ships with the system is written this way. Same-sized dice —
 `2d6k`, `d6 + d6`, and every shipped weapon — explode normally.
+
+**Two more, for formulas of your own.** A damage formula that **adds** two
+dice — `2d10`, which no shipped weapon uses — shares one cap between them
+rather than giving each die its own. And a formula typed with its own `x` (an
+improvised attack rolling `1d6x`, say) is rolled exactly as typed, with no cap:
+the option caps only the chains it writes itself.
 
 ## Fatigue instead of Critical Damage
 

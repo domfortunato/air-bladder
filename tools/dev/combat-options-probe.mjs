@@ -43,8 +43,10 @@
  * Fatigue is asked (every Fatigue fills a slot, the free first one withdrawn).
  *
  * Dice are pinned through `CONFIG.Dice.randomUniform`, which is INVERTED, and
- * through a SEQUENCE where a chain must terminate: a flat pin at the maximum
- * explodes for ever and core throws at depth 1000.
+ * through a SEQUENCE where a chain must terminate: a RAW `x` pinned flat at
+ * the maximum explodes for ever and core throws at depth 1000. The transform's
+ * own output is capped since 2026-10-04 (`x{cap}={faces}`, half the faces less
+ * one) and stops on its own, which leg 2b measures against that raw `x`.
  */
 import { chromium } from "playwright";
 import { VIEWPORT, joinAsGM, joinAs, dismissChrome, watchErrors, withSettings } from "./lib.mjs";
@@ -138,8 +140,9 @@ try {
     if (KEYS.some((k) => !out.registered[k])) return out;
 
     /* ---- 1. the keystone: modifier ORDER -------------------------------- */
-    // A SEQUENCE, not a flat pin: every die at max explodes for ever and core
-    // throws at recursion depth 1000.
+    // A SEQUENCE, not a flat pin: a raw `x` at max explodes for ever and core
+    // throws at recursion depth 1000. (These are raw strings on purpose; the
+    // transform's capped output is leg 2b's business.)
     const withSeq = async (f, vals) => {
       const orig = CONFIG.Dice.randomUniform;
       let i = 0;
@@ -174,8 +177,8 @@ try {
     // Measured here so the claim is a fact and not a comment.
     {
       const orig = CONFIG.Dice.randomUniform;
-      // A SEQUENCE: a flat pin at the maximum explodes for ever (core throws at
-      // depth 1000). Each 6 is followed by a 2, so every chain terminates.
+      // A SEQUENCE: a raw `x` pinned flat at the maximum explodes for ever (core
+      // throws at depth 1000). Each 6 is followed by a 2, so every chain terminates.
       const seqPin = (vals) => {
         let i = 0;
         CONFIG.Dice.randomUniform = () => vals[Math.min(i++, vals.length - 1)];
@@ -214,6 +217,47 @@ try {
       // one quality substitution is excluded and the other is not.
       d12: T("1d12"),
     };
+
+    /* ---- 2b. the cap (2026-10-04) ---------------------------------------- */
+    // HALF THE FACES LESS ONE, through the transform and MEASURED on the roll.
+    // Pinned 6, 6, 6, 6, 2 the capped `1d6x2=6` stops at 18 with two `exploded`
+    // flags and the stopping six UNMARKED (core breaks before marking the next
+    // result), where raw `1d6x` — the old transform's own output, so the
+    // red-first witness — runs to 26 with four. `x2` on its own would be a
+    // TARGET ("explode on a 2"), which is why every capped string carries `=`.
+    // Optional-chained so a build without the helper (the red-first build) reds
+    // this leg on its values instead of throwing past every leg below it.
+    out.capTable = Object.fromEntries([1, 2, 3, 4, 5, 6, 8, 10, 12, 20].map((f) => [f, utils.explosionCap?.(f) ?? null]));
+    const capShape = (roll) => ({
+      total: roll.total,
+      results: (roll.dice[0]?.results ?? []).map((x) => ({ r: x.result, active: x.active, exploded: !!x.exploded })),
+    });
+    {
+      const orig = CONFIG.Dice.randomUniform;
+      const pin = (vals) => {
+        let i = 0;
+        CONFIG.Dice.randomUniform = () => vals[Math.min(i++, vals.length - 1)];
+      };
+      try {
+        pin([MAX, MAX, MAX, MAX, LOW]);
+        out.capD6 = capShape(await utils.evaluateFormula(T("1d6")));
+        pin([MAX, MAX, MAX, MAX, LOW]);
+        out.capControl = capShape(await utils.evaluateFormula("1d6x"));
+        pin([MAX, MAX, LOW]);
+        out.capD4 = capShape(await utils.evaluateFormula(T("1d4")));
+        // Keep form: the kept six chains 6 -> 6 -> 6; the dropped die is inactive.
+        // EVERY SEQUENCE ENDS LOW: the capped form stops before the tail is
+        // read, but on the red-first build the transform still emits a raw `x`,
+        // and a tail pinned at the maximum ran that chain to core's depth-1000
+        // throw — which crashed the section instead of redding the leg.
+        pin([MAX, LOW, MAX, MAX, MAX, LOW]);
+        out.capKeep = capShape(await utils.evaluateFormula(T("2d6k")));
+      } catch (e) {
+        out.capError = `${e.name}: ${e.message}`;
+      } finally {
+        CONFIG.Dice.randomUniform = orig;
+      }
+    }
 
     /* ---- fixtures -------------------------------------------------------- */
     const mk = async (data) => {
@@ -1061,9 +1105,10 @@ try {
     await game.settings.set(NS, "exploding-damage-dice", true);
     await game.settings.set(NS, "maneuver-on-max-damage", false);
 
-    // A terminating sequence, NEVER a flat pin at the maximum: an exploding
-    // formula pinned at max throws at recursion depth 1000.
-    const seqRoll = async (formula, vals) => {
+    // A terminating sequence, NEVER a flat pin at the maximum: a raw exploding
+    // formula pinned at max throws at recursion depth 1000. `extra` lands in the
+    // card template's context (the capped-chain leg passes the maneuver datum).
+    const seqRoll = async (formula, vals, extra = {}) => {
       const orig = CONFIG.Dice.randomUniform;
       let i = 0;
       // INVERTED: u near 1 rolls 1, u near 0 rolls the maximum.
@@ -1074,7 +1119,7 @@ try {
           speaker: ChatMessage.getSpeaker({ actor: pc }),
           flavor: await foundry.applications.handlebars.renderTemplate(
             "systems/air-bladder/templates/chat/dmg-roll-card.html",
-            { label: "ZZ explode", weapon: "ZZ Blade", panic: false }),
+            { label: "ZZ explode", weapon: "ZZ Blade", panic: false, ...extra }),
         });
         out.made2.push(m.id);
         await sleep(450);
@@ -1110,6 +1155,18 @@ try {
     const plainMsg = await seqRoll("1d6", [0.5]);
     out.plainLines = linesOf(plainMsg);
 
+    // A CAPPED CHAIN ON A CARD (2026-10-04): through the transform, the kept
+    // die goes 6 -> 6 -> 6 and stops, so exactly TWO lines — the stopping six
+    // is not an explosion — and the maneuver line is still there, because that
+    // six is an ACTIVE maximum and the line never asked about `exploded`.
+    // The sequence ends LOW so the red-first build's raw `2d6kx` terminates too.
+    const cappedMsg = await seqRoll(utils.explodingDamageFormula("2d6k"),
+      [MAXU, LOWU, MAXU, MAXU, MAXU, LOWU], { maneuver: true });
+    out.cappedFormula = cappedMsg.rolls?.[0]?.formula ?? null;
+    out.cappedTotal = cappedMsg.rolls?.[0]?.total ?? null;
+    out.cappedLines = linesOf(cappedMsg);
+    out.cappedManeuver = !!document.querySelector(`[data-message-id="${cappedMsg.id}"] .dmg-maneuver-line`);
+
     /* ---- 12. Part 3: maneuver on max damage ----------------------------- */
     // Fixtures the shipped content cannot supply: a melee d4 weapon (no shipped
     // melee weapon is sub-d6, so a probe using only shipped gear could not show
@@ -1141,10 +1198,10 @@ try {
       // true for the option-off legs, and "a line" false for the d4 and
       // impaired legs, each for the wrong reason. Max first, low after: the
       // maximum is the precondition the line needs, and the low values
-      // terminate the chain on the rows whose formula really does carry x (a
-      // flat pin at the maximum throws at recursion depth 1000 rather than
-      // capping). `pin: "low"` rolls a 1 throughout, for the leg that proves the
-      // line waits for the maximum.
+      // terminate the chain on the rows whose formula really does carry x (the
+      // transform's capped form stops on its own now; a raw `x` pinned flat at
+      // the maximum throws at recursion depth 1000). `pin: "low"` rolls a 1
+      // throughout, for the leg that proves the line waits for the maximum.
       const origRU = CONFIG.Dice.randomUniform;
       let ru = 0;
       CONFIG.Dice.randomUniform = () => (pin === "max" && ru++ === 0 ? MAXU : LOWU);
@@ -1610,20 +1667,42 @@ try {
     : fail(`inversion: plain=${r.plainKeepHigh} (want 6), naive=${r.naiveExploded} (want 16, a sum), right=${r.rightExploded} (want 8)${r.inversionError ? " — " + r.inversionError : ""}`);
 
   // ---- 2. the transform --------------------------------------------------
+  // CAPPED (2026-10-04): `x{cap}={faces}`, half the faces less one. The `=` is
+  // not decoration — `x2` alone is a TARGET to core, "explode on a 2".
   const WANT = {
-    d6: "d6x", oneD8: "1d8x", twoD10: "2d10x",
-    keep: "2d6kx", keepH: "2d8khx", keepH1: "3d6kh1x",
-    plusSame: "2d6kx", plusCount: "3d6kx",
+    d6: "d6x2=6", oneD8: "1d8x3=8", twoD10: "2d10x4=10",
+    keep: "2d6kx2=6", keepH: "2d8khx3=8", keepH1: "3d6kh1x2=6",
+    plusSame: "2d6kx2=6", plusCount: "3d6kx2=6",
     plusMixed: "d6 + d8", arithmetic: "2d20 + 10", already: "1d6x", empty: "",
     // NO FLOOR (2026-10-03): every sub-d6 shape explodes like any other, the
-    // `+` pool through its keep form, and d12 still does.
-    d4: "1d4x", d4bare: "d4x", d4keep: "2d4kx", d4plus: "2d4kx", d5: "1d5x",
-    d12: "1d12x",
+    // `+` pool through its keep form, and d12 still does — each at its own cap.
+    d4: "1d4x1=4", d4bare: "d4x1=4", d4keep: "2d4kx1=4", d4plus: "2d4kx1=4", d5: "1d5x1=5",
+    d12: "1d12x5=12",
   };
   const bad = Object.entries(WANT).filter(([k, v]) => r.transform?.[k] !== v);
   bad.length === 0
-    ? ok(`the formula transform is right on all ${Object.keys(WANT).length} shapes, including d6 + d6 -> 2d6kx (no "+" left for the Cairn rewrite to invert), every sub-d6 shape exploding too since the floor went (1d4x, d4x, 2d4kx, d4 + d4 -> 2d4kx, 1d5x) and 1d12`)
+    ? ok(`the formula transform is right on all ${Object.keys(WANT).length} shapes, each capped at half its faces less one (d6x2=6, 1d4x1=4, 1d12x5=12), including d6 + d6 -> 2d6kx2=6 (no "+" left for the Cairn rewrite to invert) and every sub-d6 shape since the floor went`)
     : fail(`transform: ${JSON.stringify(bad.map(([k, v]) => [k, r.transform?.[k], "want " + v]))}`);
+
+  // ---- 2b. the cap (2026-10-04) --------------------------------------------
+  const CAPS = { 1: 0, 2: 0, 3: 0, 4: 1, 5: 1, 6: 2, 8: 3, 10: 4, 12: 5, 20: 9 };
+  const capBad = Object.entries(CAPS).filter(([f, n]) => r.capTable?.[f] !== n);
+  capBad.length === 0
+    ? ok("the cap is half the faces less one: d4 1, d6 2, d8 3, d10 4, d12 5, d20 9 — and a d2 or d3 never explodes")
+    : fail(`explosionCap: ${JSON.stringify(capBad.map(([f, n]) => [f, r.capTable?.[f], "want " + n]))}`);
+  const flagged = (s) => (s?.results ?? []).filter((x) => x.exploded).length;
+  r.capD6?.total === 18 && r.capD6.results?.length === 3 && flagged(r.capD6) === 2 && !r.capD6.results[2].exploded
+    ? ok("THE CAP, measured: pinned 6, 6, 6, 6, 2 the transform's 1d6x2=6 stops at 18 — three results, two exploded, the stopping six unmarked")
+    : fail(`capped d6: ${JSON.stringify(r.capD6)} — want 18 with two exploded flags${r.capError ? " — " + r.capError : ""}`);
+  r.capControl?.total === 26 && flagged(r.capControl) === 4
+    ? ok("CONTROL: raw 1d6x on the same pins runs to 26 with four explosions — the old transform's own output, which is what makes this the red-first witness")
+    : fail(`uncapped control: ${JSON.stringify(r.capControl)} — want 26 with four exploded flags`);
+  r.capD4?.total === 8 && r.capD4.results?.length === 2 && flagged(r.capD4) === 1
+    ? ok("a d4 explodes once and stops: 4, 4 = 8")
+    : fail(`capped d4: ${JSON.stringify(r.capD4)} — want 8, two results, one exploded`);
+  r.capKeep?.total === 18 && flagged(r.capKeep) === 2 && r.capKeep.results?.some((x) => !x.active && !x.exploded)
+    ? ok("on 2d6kx2=6 the kept die goes 6, 6, 6 and stops at 18, the dropped die inactive and unexploded")
+    : fail(`capped keep: ${JSON.stringify(r.capKeep)} — want 18, two exploded, the dropped die inactive`);
 
   // ---- 3/4. the gate -----------------------------------------------------
   /x/.test(r.pcRoll?.formula ?? "")
@@ -1809,6 +1888,9 @@ try {
   r.twoSixesLines?.length === 1
     ? ok(`TWO SIXES ARE ONE SIX: one line, not two — a second, independent witness that the formula is 2d6kx and not 2d6xk`)
     : fail(`two sixes produced ${r.twoSixesLines?.length} line(s), want 1 — if 2, the dropped die exploded and the modifier order is reversed`);
+  r.cappedLines?.length === 2 && r.cappedTotal === 18 && r.cappedManeuver && /x2=6$/.test(r.cappedFormula ?? "")
+    ? ok(`a capped chain on a card (${r.cappedFormula}: 6 -> 6 -> 6 = 18) prints exactly TWO lines and still carries the maneuver line — the stopping six is an active maximum, not an explosion`)
+    : fail(`capped card: formula=${r.cappedFormula} total=${r.cappedTotal} lines=${JSON.stringify(r.cappedLines)} maneuver=${r.cappedManeuver} — want 2d6kx2=6, 18, two lines, the maneuver line`);
   r.plainLines?.length === 0
     ? ok(`...and a card where nothing exploded carries no line at all`)
     : fail(`a plain 1d6 card carried ${r.plainLines?.length} line(s)`);
@@ -1829,7 +1911,7 @@ try {
     : fail(`CAIRN.Crawler.ManeuverAvailable came back as ${JSON.stringify(LINE)} — an unknown key localizes to itself`);
   lineOk(r.mvBoth) && /^1?d10x/.test(r.mvBoth.formula ?? "") && r.mvBoth.datum && r.mvBoth.exploded >= 1
     ? ok(`both options on, d10 at its max: the die EXPLODED at roll time (${r.mvBoth.formula}, ${r.mvBoth.exploded} line(s)), the card says a maneuver is possible, and Apply is there — the damage stands`)
-    : fail(`mvBoth: ${JSON.stringify(r.mvBoth)} — want 1d10x, the line, Apply, and no buttons`);
+    : fail(`mvBoth: ${JSON.stringify(r.mvBoth)} — want a capped 1d10x4=10, the line, Apply, and no buttons`);
   // The glows: compared with what the LIVE Mark Critical Damage button and the
   // pinned teal paint in the same scheme, never with a literal of core's red.
   r.linesLight?.exploded && r.linesLight.exploded === r.btnLight?.critGlow
@@ -1846,13 +1928,13 @@ try {
     : fail(`mvRanged: ${JSON.stringify(r.mvRanged)} — want x, the datum and the line; no line means the melee-only rule survived`);
   lineOk(r.mvD4) && /^1?d4x/.test(r.mvD4.formula ?? "")
     ? ok(`NO FLOOR: a d4 at its max explodes (${r.mvD4.formula}) and earns the line`)
-    : fail(`mvD4: ${JSON.stringify(r.mvD4)} — want 1d4x and the line`);
+    : fail(`mvD4: ${JSON.stringify(r.mvD4)} — want a capped 1d4x1=4 and the line`);
   lineOk(r.mvImpaired) && /^1?d4x/.test(r.mvImpaired.formula ?? "")
     ? ok(`an IMPAIRED attack on a d10 weapon rolls ${r.mvImpaired.formula} and earns the line — judged on the 1d4 it actually rolls, not the weapon`)
-    : fail(`mvImpaired: ${JSON.stringify(r.mvImpaired)} — want 1d4x and the line`);
+    : fail(`mvImpaired: ${JSON.stringify(r.mvImpaired)} — want a capped 1d4x1=4 and the line`);
   lineOk(r.mvPlus) && /^2d6kx/i.test(r.mvPlus.formula ?? "")
     ? ok(`a d6 + d6 weapon explodes in its keep form (${r.mvPlus.formula}) and earns the line`)
-    : fail(`mvPlus: ${JSON.stringify(r.mvPlus)} — want 2d6kx and the line`);
+    : fail(`mvPlus: ${JSON.stringify(r.mvPlus)} — want a capped 2d6kx2=6 and the line`);
   lineOk(r.mvEnhanced) && /d12x/.test(r.mvEnhanced.formula ?? "")
     ? ok(`...and an ENHANCED attack (${r.mvEnhanced.formula}) earns it too`)
     : fail(`mvEnhanced: ${JSON.stringify(r.mvEnhanced)}`);
@@ -1928,7 +2010,7 @@ try {
 
   impOk(r.impD4) && /^1?d4x/.test(r.impD4.formula ?? "") && r.impD4.maneuverLine && !r.impD4.buttons
     ? ok(`NO FLOOR through the improvised route: a typed d4 explodes (${r.impD4.formula}) and carries the line`)
-    : fail(`impD4: ${JSON.stringify(r.impD4)} — want 1d4x and the line`);
+    : fail(`impD4: ${JSON.stringify(r.impD4)} — want a capped 1d4x1=4 and the line`);
   impOk(r.impD10) && /d10/.test(r.impD10.formula ?? "")
     ? ok(`the TYPED formula is what gets rolled (${r.impD10.formula}), not the 1d4 the field starts on`)
     : fail(`impD10: ${JSON.stringify(r.impD10)}`);
@@ -1972,7 +2054,7 @@ try {
   impOk(r.impPanicked) && /^1?d4x/.test(r.impPanicked.formula ?? "")
     && r.impPanicked.maneuverLine && !r.impPanicked.buttons
     ? ok(`...and a typed d10 still rolls ${r.impPanicked.formula} — the override is at the roll site — and that 1d4 explodes and carries the line like any other die`)
-    : fail(`panicked roll: ${JSON.stringify(r.impPanicked)} — want 1d4x with the line`);
+    : fail(`panicked roll: ${JSON.stringify(r.impPanicked)} — want a capped 1d4x1=4 with the line`);
 
   // NOTHING TO DROP: the old "past a full pack" claim, measured where it is
   // still true. A character whose every slot is Fatigue has nothing the picker

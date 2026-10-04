@@ -2126,6 +2126,21 @@ companion record of who authored what.
     two sixes being ONE six, which is the rule as asked for. **`2d6xk` is the
     trap**: it explodes both and then `keep` compares raw FACES, so it can never
     exceed the die. The probe pins both, the second as the control.
+    **AND THE CHAIN IS CAPPED AT HALF THE FACES LESS ONE (2026-10-04, user
+    ask): d4 once, d6 twice, d8 three, d10 four, d12 five.** Written as
+    core's own `x{max}={faces}` — `d6x2=6`, `2d6kx2=6`, `1d4x1=4` — and the
+    spelling is load-bearing: **`x2` alone is a TARGET** ("explode on a 2";
+    `Die#explode` moves a lone number into the target), so a cap is only a
+    cap beside a comparison. Measured: the counter decrements per explosion
+    and the loop breaks BEFORE marking the next result, so the maximum that
+    stops a chain is not flagged `exploded` — the one-line-per-explosion
+    count stays true and the maneuver line, reading an ACTIVE maximum, still
+    fires. Per TERM, not per die: a keep form is per chain, a formula that
+    ADDS two dice shares one cap (user ruling; nothing shipped). A typed
+    `1d6x` is left as typed, uncapped. `explosionCap` in utils.js; the
+    probe's witness pins four sixes then a 2: the transform's `1d6x2=6` stops
+    at 18 with two flags where raw `1d6x` — the old output — runs to 26 with
+    four.
   - **APPENDING `x` TO A CAIRN `+` FORMULA INVERTS IT, and that is measured, not
     feared.** `evaluateFormula` rewrites `a + b` to `{a,b}kh` only when every
     term matches a bare die, so `d6x + d6x` falls through to arithmetic: pinned

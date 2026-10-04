@@ -68,6 +68,7 @@ the result — for as long as it keeps rolling the highest:
 |---|---|---|
 | `1d6x` | roll a d6; on a 6, roll and add again | 1–5, or 6 plus another roll |
 | `2d6kx` | roll two d6, keep the higher, and explode **that one** | 1–5, or 6 plus another roll |
+| `1d6x2=6` | roll a d6; on a 6, roll and add again, **at most twice** | 1–5, or 6 plus up to two more |
 
 Order matters, and `2d6kx` is deliberate: `k` keeps the higher die first, so
 only the kept die explodes. Two sixes are one six. Written the other way round,
@@ -76,7 +77,11 @@ not what you want.
 
 **The Exploding damage dice option applies this for you**, to player
 characters' damage rolls only, so you do not normally type it — see
-**Optional Combat Rules**. One limit goes with it: a keep-highest roll of
+**Optional Combat Rules**. It writes the capped form — `1d6x2=6`, `2d6kx2=6`,
+`1d4x1=4` — so a die explodes at most half its faces less one times: the
+number after `x` is the cap and the number after `=` is the face that
+explodes. Write `x2` on its own and Foundry reads it as "explode on a 2", so
+keep the `=` if you type a cap yourself. One limit goes with it: a keep-highest roll of
 **different** dice, `d6 + d8`, is left alone, because keeping the highest and
 then exploding it cannot be written for mixed dice. Every other die explodes,
 however small — a d4 weapon and an Impaired roll's d4 included.
