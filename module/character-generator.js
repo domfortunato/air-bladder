@@ -429,6 +429,15 @@ export const refreshCustomPortraits = async () => {
         + `more than ${MAX_SCAN_DIRS} folders or deeper than ${MAX_SCAN_DEPTH} levels. `
         + "Some portraits will be missing from the Custom tab.");
     }
+    // A SUPERSEDED SCAN WRITES NOTHING (2026-10-04). The walk is seconds long on
+    // a remote server (290 images, ~10s on CT 123) and the login scan is the
+    // ready hook's LAST phase, so a folder change in a session's first moments
+    // started a second scan that finished FIRST — and the login scan then landed
+    // on top of it, caching the OLD folder's images under the new folder's name.
+    // Measured, not inferred: dev:review-batch2's single-writer leg logged the
+    // new folder's list at +3.4s and the old one over it at +7.1s. The scan for
+    // the folder now set is already running, so this one has nothing to say.
+    if (customPortraitFolder() !== dir) return getCustomPortraitPaths();
     await game.settings.set(SETTINGS_NS, "custom-portrait-list", files);
     return files;
   } catch (e) {
