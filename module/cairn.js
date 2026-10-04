@@ -18,7 +18,7 @@ import { createCairnMacro, rollItemMacro } from "./macros.js";
 import { Damage, DAMAGE_APPLIED_FLAG, DAMAGE_SOURCE_FLAG, localizeDamageCard } from "./damage.js";
 import { registerWardenDamageControl } from "./warden-damage.js";
 import { registerWardenDashboardControl, refreshDashboardTime, localizeDashboardCard } from "./warden-dashboard.js";
-import { handlePileSocket, localizePileCard, PILE_DROP_ACTION, askWhatToDrop, dropItemToPile } from "./party-pile.js";
+import { handlePileQuery, localizePileCard, PILE_DROP_QUERY, askWhatToDrop, dropItemToPile, partyFolderId } from "./party-pile.js";
 import { mustDropForFatigue } from "./gear.js";
 import { installWorldCalendar, checkWorldCalendar } from "./game-time.js";
 import { renderWatchClock, refreshWatchClock } from "./watch-clock.js";
@@ -1056,7 +1056,45 @@ async function handleGrantActors(msg, senderId) {
   }
 }
 
+/**
+ * A player's choice on a failed-save card, recorded by the Warden's client.
+ *
+ * THE CARD'S AUTHOR IS ITS OWNER (common/documents/chat-message.mjs), so a
+ * player may write the choice flag only on a save THEY rolled. The Roll STR
+ * save button is bound for the character's owner OR the Warden, and when the
+ * Warden presses it for Alice the card is the Warden's: until review #33 the
+ * gate was `isAuthor || isGM`, so Alice saw neither button and the Warden made
+ * her choice — against "WHICH item is always the player's". The write goes
+ * through here now, for an owner who is not the author, over the same
+ * request-and-reply channel the pile uses; `user` is the server-authenticated
+ * asker, and OWNING THE CARD'S ACTOR is the authorization, nothing in the
+ * payload.
+ * @param {Object} data            `{messageId, kind}`
+ * @param {Object} ctx             `{user}` — the requesting User
+ * @return {Promise<Boolean>}      whether the choice was recorded
+ */
+const handleChoiceQuery = async (data, { user } = {}) => {
+  if (!game.user.isGM || !user) return false;
+  const message = game.messages.get(String(data?.messageId ?? ""));
+  const kind = data?.kind === "fatigue" || data?.kind === "critical" ? data.kind : null;
+  if (!message || !kind) return false;
+  const speaker = message.speaker ?? {};
+  const actor = game.scenes.get(speaker.scene)?.tokens.get(speaker.token)?.actor
+    ?? game.actors.get(speaker.actor) ?? null;
+  if (!actor || !actor.testUserPermission(user, "OWNER")) return false;
+  if (message.getFlag(FLAG_SCOPE, CRAWLER_CHOICE_FLAG)) return false;       // already spent
+  await message.setFlag(FLAG_SCOPE, CRAWLER_CHOICE_FLAG, kind);
+  return true;
+};
+const CHOICE_QUERY = "air-bladder.choiceTaken";
+
 Hooks.once("init", () => {
+  // The two request-and-reply brokers (review #33): core routes a `User#query`
+  // to the named user and returns the handler's value to the asker, which the
+  // bare socket below cannot do. Registered here, where the socket is.
+  CONFIG.queries[PILE_DROP_QUERY] = handlePileQuery;
+  CONFIG.queries[CHOICE_QUERY] = handleChoiceQuery;
+
   game.socket.on(`system.${game.system.id}`, async (msg, senderId) => {
     // The item-offer protocol (item-offer.js): peer-to-peer, answered by the
     // offer message's AUTHOR (the giver's client) or a pending acceptor —
@@ -1118,14 +1156,6 @@ Hooks.once("init", () => {
     // GM does the move for them — the ownershipSync shape exactly, including the
     // catch: `fromUuid` throws on a malformed uuid, and a throw out of an
     // un-awaited async socket handler names nothing.
-    if (msg?.action === PILE_DROP_ACTION) {
-      try {
-        await handlePileSocket(msg, senderId);
-      } catch (err) {
-        console.error(`Air Bladder | pile drop request from ${game.users.get(senderId)?.name ?? senderId} failed:`, err);
-      }
-      return;
-    }
     if (msg?.action === "ownershipSync") {
       if (game.users.activeGM !== game.user) return;
       // Caught, the handler's own standing rule (review #17): a throw here —
@@ -1188,6 +1218,14 @@ Hooks.once("init", () => {
         const source = enabled.includes(msg.source) ? msg.source : (enabled[0] ?? "2e");
         const actor = await createCharacter({
           source,
+          // THE PARTY FOLDER, which only `createActorInteractive` applied until
+          // review #33 — and a player's own Create PC never reaches that
+          // wrapper, because players lack ACTOR_CREATE and always come through
+          // this relay. So the commonest character in any world, a player's
+          // own, landed at the root of the directory while the Warden's test
+          // characters filed themselves. This runs on the GM's client, which
+          // may make the folder.
+          folder: await partyFolderId(),
           // The empty-sheet choice the player made on their own client. Coerced
           // rather than passed through: the wire is not trusted, and anything
           // other than a literal true means roll, which is the safe reading —
@@ -3456,8 +3494,16 @@ const nameDamageSource = (message, html, scene) => {
     // stands as it is rather than announcing that SOMETHING hit them, the same
     // choice the attack line and the applied summary make.
     if (!attacker) return;
+    // THREE FRAMES, picked by the KIND of value in `weapon` (review #33): an
+    // item's name takes the possessive ("from Adobe's Dagger"), an improvised
+    // attack's typed phrase cannot ("from Adobe's a chair leg" — the dev log
+    // held three such cards), and a blank weapon names the attacker alone.
+    // The phrase is never stored as the weapon on the blank route, which is
+    // why `data-unarmed` exists; this is the one site that had not asked it.
     sentence = game.i18n.format(
-      src.weapon ? "CAIRN.DamageFromWeapon" : "CAIRN.DamageFrom",
+      src.weapon
+        ? (src.unarmed ? "CAIRN.DamageFromImprovisedWith" : "CAIRN.DamageFromWeapon")
+        : "CAIRN.DamageFrom",
       { attacker, weapon: src.weapon ?? "" });
   }
 
@@ -3694,11 +3740,14 @@ Hooks.on("renderChatMessageHTML", (message, html, data) => {
     // exclusivity this option promises. Found 2026-10-02, in code shipped the
     // same day.
     //
-    // SCOPED to the cards that have a choice to spend. An ordinary Critical
-    // Damage card writes no flag at all (see the `if (fatigueBtn)` below), so
-    // requiring authorship there would withdraw a working button from a
-    // co-owner -- a regression dressed as a fix.
-    const mayChoose = mayAnswer && (message.isAuthor || game.user.isGM);
+    // THE ANSWER WAS A GATE FOR A DAY AND IS A ROUTE NOW (review #33). Gating
+    // on `isAuthor || isGM` hid BOTH buttons from the one person the choice
+    // belongs to whenever the Warden had pressed Roll STR save for them — the
+    // save button is bound for the owner OR the Warden, and the card is then
+    // the Warden's. So `spend` below writes the flag itself where it may, and
+    // asks the Warden's client to write it otherwise (`handleChoiceQuery`,
+    // which checks that the asker OWNS the card's actor). The gate for both
+    // buttons is simply `mayAnswer`.
     // THE FATIGUE OPTION: the two buttons are EXCLUSIVE, and the choice is
     // spent on the MESSAGE rather than in local DOM. `disabled` alone is what
     // the Critical Damage button has always done, and it does not survive a
@@ -3718,7 +3767,28 @@ Hooks.on("renderChatMessageHTML", (message, html, data) => {
     // silently mislabel history on precisely the cards nothing ever repairs. The
     // `data-panic` rule — a shape older than the datum is not guessed at.
     const spent = () => !!message.getFlag(FLAG_SCOPE, CRAWLER_CHOICE_FLAG);
-    const spend = async (kind) => { await message.setFlag(FLAG_SCOPE, CRAWLER_CHOICE_FLAG, kind); };
+    /**
+     * Record the choice on the message: directly where this user may write it,
+     * through the Warden's client otherwise. Returns whether it was recorded —
+     * a `false` leaves the card live, nothing taken, and says why.
+     */
+    const spend = async (kind) => {
+      if (message.isAuthor || game.user.isGM) {
+        await message.setFlag(FLAG_SCOPE, CRAWLER_CHOICE_FLAG, kind);
+        return true;
+      }
+      const gm = game.users.activeGM;
+      let recorded = false;
+      if (gm) {
+        try {
+          recorded = await gm.query(CHOICE_QUERY, { messageId: message.id, kind }, { timeout: 15000 }) === true;
+        } catch (err) {
+          console.warn("Air Bladder | the Warden's client did not record the choice:", err);
+        }
+      }
+      if (!recorded) ui.notifications.warn(game.i18n.localize("CAIRN.Crawler.NoWardenForChoice"));
+      return recorded;
+    };
     const seal = () => {
       critBtn?.setAttribute("disabled", "disabled");
       fatigueBtn?.setAttribute("disabled", "disabled");
@@ -3733,9 +3803,13 @@ Hooks.on("renderChatMessageHTML", (message, html, data) => {
      * has no choice to spend and must not grow a flag nothing reads.
      */
     const takeCritical = async () => {
+      // The choice is recorded BEFORE the status lands, so a choice that could
+      // not be recorded costs nothing and the card stays live.
+      if (fatigueBtn && !(await spend("critical"))) return false;
       await critActor.update({ "system.critical": true });
       critBtn?.setAttribute("disabled", "disabled");
-      if (fatigueBtn) { await spend("critical"); seal(); }
+      if (fatigueBtn) seal();
+      return true;
     };
     if (spent()) {
       seal();
@@ -3745,12 +3819,10 @@ Hooks.on("renderChatMessageHTML", (message, html, data) => {
     }
 
     if (critBtn) {
-      // `mayChoose` only where the flag is actually written -- see its comment.
-      if (fatigueBtn ? mayChoose : mayAnswer) {
+      if (mayAnswer) {
         critBtn.onclick = async () => {
           if (spent()) return;
-          await takeCritical();
-          markChoiceTaken(critBtn);
+          if (await takeCritical()) markChoiceTaken(critBtn);
         };
       } else {
         critBtn.style.display = "none";
@@ -3758,8 +3830,7 @@ Hooks.on("renderChatMessageHTML", (message, html, data) => {
     }
 
     if (fatigueBtn) {
-      // Always spends the choice, so always needs to be able to write the flag.
-      if (mayChoose) {
+      if (mayAnswer) {
         fatigueBtn.onclick = async (ev) => {
           const b = ev.currentTarget;
           if (spent()) return;
@@ -3803,11 +3874,24 @@ Hooks.on("renderChatMessageHTML", (message, html, data) => {
           if (chose === null) return;
           if (spent()) return;             // re-asked: the dialog is seconds wide
           if (chose === "critical") {
-            await takeCritical();
-            markChoiceTaken(critBtn);
+            if (await takeCritical()) markChoiceTaken(critBtn);
             return;
           }
-          if (chose.id) await dropItemToPile(critActor, chose.id, { announce: true, place: chose.place });
+          // THE DROP MUST HAVE HAPPENED (review #33). Its result was thrown
+          // away here, so with no Warden connected — or a refusal on the
+          // Warden's side — the Fatigue still landed and the card sealed over a
+          // bargain nobody had paid. `dropItemToPile` now answers truthfully
+          // (a real reply from the Warden's client), and a `false` stops here
+          // with the card live and nothing taken.
+          if (chose.id) {
+            const dropped = await dropItemToPile(critActor, chose.id, { announce: true, place: chose.place });
+            if (!dropped) {
+              ui.notifications.warn(game.i18n.localize("CAIRN.Pile.DropRefused"));
+              return;
+            }
+          }
+          // The choice is recorded BEFORE the Fatigue, as takeCritical does.
+          if (!(await spend("fatigue"))) return;
           // Fatigue is a COST the rules impose, never a purchase, so it lands
           // past a full pack — `ignoreCapacity` is the flag that exists for
           // exactly this. With a drop in front of it the bargain NETS TO ZERO:
@@ -3820,7 +3904,6 @@ Hooks.on("renderChatMessageHTML", (message, html, data) => {
             { ignoreCapacity: true },
           );
           b.setAttribute("disabled", "disabled");
-          await spend("fatigue");
           seal();
           markChoiceTaken(fatigueBtn);
         };

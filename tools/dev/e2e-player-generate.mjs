@@ -312,6 +312,17 @@ try {
   made
     ? ok("Create: a character was created")
     : fail("Create: no character appeared within 45s");
+  // IN THE PARTY FOLDER (review #33): only `createActorInteractive` filed a new
+  // character there, and a player's Create PC never reaches it — players lack
+  // ACTOR_CREATE, so theirs always comes through the relay, which passed no
+  // folder. The commonest character in any world landed at the root.
+  const filed = await gm.evaluate((before) => {
+    const fresh = game.actors.filter((a) => !before.includes(a.id));
+    return fresh.map((a) => a.folder?.getFlag("air-bladder", "partyFolder") === true);
+  }, before.actors);
+  filed.length && filed.every(Boolean)
+    ? ok("   …and it was filed in the Party folder, as a Warden-made character is")
+    : fail(`relayed character not in the Party folder: ${JSON.stringify(filed)}`);
   if (!t.canCreate) {
     (await emitsOf("generatePC")) === 1
       ? ok("   …via exactly one generatePC relay emit")

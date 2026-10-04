@@ -147,9 +147,21 @@ try {
     out.declined = { shape: await pressRest(pc, "no"), uses: uses(first()), hp: hp() };
 
     /* ---- 3. Yes -------------------------------------------------------- */
+    // WITH THE RATION'S OWN SHEET OPEN (review #33): the Rest writes the ration
+    // inside the actor's update, which fires no item hooks and re-renders only
+    // the actor's apps, so this sheet kept the old count — and, saving on every
+    // change, its next edit wrote that stale count back. The field is read off
+    // the live sheet after the write.
+    await first().sheet.render(true);
+    await until(() => first().sheet.element instanceof HTMLElement);
     out.rested = { shape: await pressRest(pc, "yes") };
     await until(() => uses(first()) === 2);
-    Object.assign(out.rested, { uses: uses(first()), qty: qty(first()), hp: hp() });
+    await new Promise((r) => setTimeout(r, 400));
+    Object.assign(out.rested, {
+      uses: uses(first()), qty: qty(first()), hp: hp(),
+      sheetUses: first().sheet.element?.querySelector('[name="system.uses.value"]')?.value ?? null,
+    });
+    await first().sheet.close();
 
     /* ---- 4. Escape ----------------------------------------------------- */
     await pc.update({ "system.hp.value": 1 }, { abNoStatusCard: true });
@@ -227,6 +239,9 @@ else {
   r.rested.uses === 2 && r.rested.qty === 1 && r.rested.hp === 6
     ? ok("Yes: one use gone (3 -> 2) and HP at its maximum (6) — a full restore")
     : fail(`Yes: ${JSON.stringify(r.rested)} — want uses 2, qty 1, hp 6`);
+  r.rested.sheetUses === "2"
+    ? ok("...and the ration's OPEN sheet shows the new count, so its next save cannot put the ration back")
+    : fail(`the open Rations sheet shows uses ${JSON.stringify(r.rested.sheetUses)} after the Rest — stale, and its next edit resubmits it`);
 
   // 4
   r.escaped.uses === 2 && r.escaped.hp === 1

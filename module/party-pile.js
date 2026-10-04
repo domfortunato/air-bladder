@@ -58,7 +58,15 @@ const PILE_FLAG = "droppedItemPile";
 /** The chat card a Fatigue-driven drop leaves behind, rebuilt per viewer. */
 export const PILE_DROP_FLAG = "pileDrop";
 /** The socket action the broker answers. */
-export const PILE_DROP_ACTION = "pileDrop";
+/**
+ * The query a player's client sends the active Warden to drop on their behalf
+ * (`CONFIG.queries`, core's request-and-REPLY channel: `User#query`, which
+ * players hold `QUERY_USER` for by default — common/constants.mjs). A socket
+ * emit carried this until review #33; it had no reply, so `dropItemToPile`
+ * answered an optimistic `true` and the Fatigue bargain was paid whether or
+ * not the drop happened.
+ */
+export const PILE_DROP_QUERY = "air-bladder.pileDrop";
 
 /**
  * How long a "where did you drop it" note may be (user ask: limit 25
@@ -117,7 +125,31 @@ export const buildWhereField = () => {
  * @return {Boolean}
  */
 export const isDroppedPile = (actor) =>
-  !!actor?.getFlag?.(FLAG_SCOPE, PILE_FLAG);
+  !!actor?.getFlag?.(FLAG_SCOPE, PILE_FLAG) && !playerOwned(actor);
+
+/**
+ * A FLAG ALONE IS NOT IDENTITY (review #33, 2026-10-04 — the journal lesson of
+ * review #27, repeated on a document players can always write). An OWNER may
+ * set any flag on their own actor, `findDroppedPile` takes the lowest id, and
+ * `reconcilePiles` then runs with the GM's rights: a player who stamped the
+ * flag on their own character had the real pile DELETED, its contents copied
+ * onto that character and every later drop landing there — observed with
+ * planted fixtures before this line existed. With a higher id the same plant
+ * got the GM client to delete it, which lets a player get any actor they own
+ * deleted. The real pile is default OBSERVER and owned by no player, so
+ * requiring that is what tells it from a plant, and nothing a player can write
+ * changes it. Consequence stated: a Warden who hands a player OWNER of the pile
+ * un-piles it, and the next drop makes a fresh one.
+ *
+ * Guarded because `hasPlayerOwner` walks `game.users`, and `isDroppedPile` is
+ * read from `calcCurrentMaxSlots` on every prepare — before the users
+ * collection exists on a loading client it would throw, and a throw there
+ * would cost the slot count of every actor in the world.
+ * @private
+ */
+const playerOwned = (actor) => {
+  try { return actor.hasPlayerOwner === true; } catch { return false; }
+};
 
 /** The Party folder, or null if nobody has made one. */
 export const findPartyFolder = () =>
@@ -135,6 +167,17 @@ export const findPartyFolder = () =>
 export const findDroppedPile = () =>
   (game.actors?.filter((a) => isDroppedPile(a)) ?? [])
     .sort((a, b) => a.id.localeCompare(b.id))[0] ?? null;
+
+/**
+ * The pile's name as the sentences that promise it should say it (review #33):
+ * the DOCUMENT's own name, which a Warden may change, and the key's label only
+ * before the first drop has made one. A literal "Dropped Item Pile" in the Drop
+ * confirm named an actor that was no longer in anybody's directory once the
+ * pile had been renamed — review #31's folder rule, applied to the pile.
+ * @return {String}
+ */
+export const pileDisplayName = () =>
+  findDroppedPile()?.name || game.i18n.localize("CAIRN.Pile.Name");
 
 /**
  * The Party folder's id, making it if this user may.
@@ -193,15 +236,27 @@ const reconcilePiles = async (canonical) => {
   const extras = (game.actors?.filter((a) => isDroppedPile(a)) ?? [])
     .filter((p) => p.id !== canonical.id);
   for (const extra of extras) {
-    const carried = extra.items.map((i) => i.toObject());    // ids KEPT
-    if (carried.length) {
+    // ONLY THE IDS THE CANONICAL PILE LACKS, and the extra goes only once every
+    // one of its ids is there (review #33). This used to copy the whole lot in
+    // one batch and read any throw as "already there" — but the server refuses
+    // a batch on its FIRST duplicate id, inside its `Promise.all`, before any
+    // write, so a mixed batch created NOTHING and the delete below then took
+    // the extra's genuinely new items with it. The docblock's own example did
+    // it: a sidebar Duplicate shares every item id with the original (Duplicate
+    // keeps embedded ids), and anything the Warden then added to the copy was
+    // gone at the next drop. "Nothing is deleted until it exists somewhere else"
+    // is now a test, not a promise.
+    const missing = extra.items.filter((i) => !canonical.items.has(i.id)).map((i) => i.toObject());
+    if (missing.length) {
       try {
-        await canonical.createEmbeddedDocuments("Item", carried, { keepId: true });
+        await canonical.createEmbeddedDocuments("Item", missing, { keepId: true });
       } catch {
-        // Already there, put back by whichever session reconciled first. The
-        // extra is still safe to drop, which is the next line.
+        // Another session is reconciling the same extra and claimed some of
+        // these ids a moment ago; the test below decides whether this one may
+        // delete, and if not the other session finishes the job.
       }
     }
+    if (!extra.items.every((i) => canonical.items.has(i.id))) continue;
     try { await extra.delete(); } catch { /* another session tidied it */ }
   }
   return canonical;
@@ -252,6 +307,13 @@ const ensureDroppedPile = async () => {
     // the Warden hands things back with the Give control.
     ownership: { default: CONST.DOCUMENT_OWNERSHIP_LEVELS.OBSERVER },
     flags: { [FLAG_SCOPE]: { [PILE_FLAG]: true } },
+    // LINKED, stated here because `_preCreate` links PERSONS only and a thing
+    // falls through to Foundry's unlinked default (review #33): placed on a
+    // scene, an unlinked pile's token would carry its own copy of the items, so
+    // Give from the token's sheet removed one copy while the world pile every
+    // reader resolves through `findDroppedPile` kept the other. There is one
+    // pile by construction; one sheet is what linking means.
+    prototypeToken: { actorLink: true },
     ...(folder ? { folder } : {}),
   }) ?? null;
   if (!made) return null;
@@ -322,26 +384,36 @@ export const slotFreeingItems = (actor) =>
  */
 export const dropItemToPile = async (actor, itemId, { announce = false, place = "" } = {}) => {
   if (!actor?.items?.get(itemId)) return false;
-  if (game.user.isGM) return movePileItem(actor, itemId, { announce, place });
+  // THE CLAIM ID IS MINTED HERE, ON THE REQUESTING CLIENT, once per gesture
+  // (review #33) — see movePileItem for why the item's own id could not be it.
+  const claimId = foundry.utils.randomID();
+  if (game.user.isGM) return movePileItem(actor, itemId, { announce, place, claimId });
 
   // No Warden, no drop. SAID OUT LOUD rather than failing quietly: the request
   // would simply never be answered, and a control that does nothing without
   // explanation is the worst of the three outcomes.
-  if (!game.users.activeGM) {
+  const gm = game.users.activeGM;
+  if (!gm) {
     ui.notifications.warn(game.i18n.localize("CAIRN.Pile.NoWarden"));
     return false;
   }
-  game.socket.emit(`system.${game.system.id}`, {
-    action: PILE_DROP_ACTION,
-    actorUuid: actor.uuid,
-    itemId,
-    announce,
-    place,
-  });
-  // Optimistic: the GM answers asynchronously and the sheet re-renders off the
-  // delete when it lands. Nothing here waits on it, because nothing here can —
-  // a socket emit has no reply.
-  return true;
+  // A REAL ANSWER (review #33). This was a socket emit that returned `true`
+  // before the Warden's client had done anything, so a refusal there — or a
+  // Warden who had just dropped off — looked exactly like a drop, and the
+  // Fatigue route paid out on it. `User#query` carries the reply back; a
+  // timeout or a throw is a `false`, never a guess.
+  let landed = false;
+  try {
+    landed = await gm.query(PILE_DROP_QUERY,
+      { actorUuid: actor.uuid, itemId, announce, place, claimId }, { timeout: 15000 }) === true;
+  } catch (err) {
+    console.warn("Air Bladder | the Warden's client did not answer the drop:", err);
+  }
+  // A `false` from a SIBLING SESSION of the same Warden is not a refusal: every
+  // session of that user may answer, exactly one of them wins the claim, and
+  // the one that replied may be the one that lost. The pile is OBSERVER, so
+  // this client can see whether the claim landed — that is the last word.
+  return landed || !!findDroppedPile()?.items.has(claimId);
 };
 
 /**
@@ -352,43 +424,76 @@ export const dropItemToPile = async (actor, itemId, { announce = false, place = 
  * a Warden can see and fix; if the delete lands and the create fails the item is
  * gone, which nobody can.
  *
- * THE ITEM KEEPS ITS ID, AND THAT IS THE LOCK. "The active GM's client" is not
- * one client — the broker's guard is `game.users.activeGM !== game.user`, which
- * tests the USER, and one Warden may hold several sessions (a desktop and a
- * laptop, two tabs). Every one of them answers the same request and ran this
- * whole function: measured, two sessions turned one player's drop into two
- * copies in the pile and one delete that threw "does not exist" because the
- * other had already landed; three sessions made three copies.
+ * THE CLAIM ID IS THE LOCK, AND IT IS MINTED PER GESTURE. "The active GM's
+ * client" is not one client — the broker's guard tests the USER, and one Warden
+ * may hold several sessions (a desktop and a laptop, two tabs). Every one of
+ * them answers the same request and ran this whole function: measured, two
+ * sessions turned one player's drop into two copies in the pile and one delete
+ * that threw "does not exist" because the other had already landed; three
+ * sessions made three copies.
  *
  * An embedded collection is the one place Foundry gives an atomic claim: the
  * server REFUSES a duplicate `_id` there, and two creates started together
  * settle as one `ok` and one rejection with exactly one document in the
- * collection (measured). So the id travels instead of being stripped, the
- * create IS the election, and a session that loses it stops — it does not
- * delete, and it does not post the card. Nothing ships `keepId` for an actor's
- * items, so an id already in the pile can only mean another session got there
- * first, which is why that case is read as a win for somebody rather than as a
- * failure.
+ * collection (measured). So the create IS the election, and a session that
+ * loses it stops — it does not delete, and it does not post the card.
+ *
+ * THE ITEM'S OWN ID WAS THE CLAIM UNTIL REVIEW #33, on the reasoning that
+ * "nothing ships `keepId` for an actor's items, so an id already in the pile
+ * can only mean another session got there first". False: core's own
+ * `ActorSheetV2#_onDropItem` keeps a dragged item's id (`keepId:
+ * !this.actor.items.has(item.id)`, actor-sheet.mjs:347), our `_onDropItem`
+ * delegates to it, unlinked tokens carry their base actor's item ids, and a
+ * Duplicate keeps embedded ids. So two players who each dragged a Torch from
+ * the compendium held the same id, the second Drop was refused with a raw
+ * server error on the Warden's screen, and the loser's client had already
+ * answered `true`. The requesting client mints `claimId` once (`randomID`),
+ * every session of the Warden copies the item under THAT id, and a collision
+ * can again mean only one thing.
+ *
+ * PAGES TRAVEL WITH THE BOOK (review #33), the drag path's own ruling applied
+ * here: dropping a Grimoire moved the book alone, its bound pages stayed on the
+ * character keyed to a book no longer there, and nothing could follow it —
+ * dragging a bound page is refused, its Drop control is hidden, Give refuses
+ * both. The pages ride in the same create, and the copy is STOWED (`equipped`
+ * cleared) because items inside a thing are never equipped, as the drag path
+ * normalises them.
  *
  * The name is read BEFORE the delete: `item.name` on a deleted document is not
  * something to rely on, and the card is composed from it.
  * @private
  */
-const movePileItem = async (actor, itemId, { announce = false, place = "" } = {}) => {
+const movePileItem = async (actor, itemId, { announce = false, place = "", claimId = null } = {}) => {
   const item = actor.items.get(itemId);
   if (!item) return false;
   const pile = await ensureDroppedPile();
   if (!pile) return false;
   const name = item.name;
   const note = cleanDropNote(place);
-  const data = item.toObject();           // `_id` KEPT: it is the claim
-  // WHERE it was put down, stamped onto the copy that lands in the pile. Dropping
-  // the same thing again overwrites it — the note describes where it is now, and
-  // there is no editing it afterwards by ruling.
-  if (note) foundry.utils.setProperty(data, `flags.${FLAG_SCOPE}.${DROP_NOTE_FLAG}`, note);
+  // Dynamic, like the other edge into this module: grimoire.js sits above it
+  // in the graph and a static edge here could close a cycle around two helpers.
+  const { grimoiresOn, pagesOfGrimoire } = await import("./grimoire.js");
+  const pages = grimoiresOn(actor).some((g) => g.id === item.id) ? pagesOfGrimoire(actor, item) : [];
+  const copies = [item, ...pages].map((doc, i) => {
+    const data = doc.toObject();
+    data._id = i === 0 && claimId ? claimId : foundry.utils.randomID();
+    foundry.utils.setProperty(data, "system.equipped", false);
+    // WHERE it was put down, stamped onto the copy that lands in the pile.
+    // Dropping the same thing again overwrites it — the note describes where
+    // it is now, and there is no editing it afterwards by ruling.
+    //
+    // WRITTEN OR REMOVED, NEVER LEFT (review #33): `toObject()` carries
+    // whatever `droppedAt` the item already wore — the offer path and core's
+    // drag both keep flags — so a blank note used to let an item handed back
+    // and dropped again show its OLD place, and a long flag a player wrote on
+    // their own item walked past the clamp, which only ever saw the typed note.
+    if (i === 0 && note) foundry.utils.setProperty(data, `flags.${FLAG_SCOPE}.${DROP_NOTE_FLAG}`, note);
+    else delete data.flags?.[FLAG_SCOPE]?.[DROP_NOTE_FLAG];
+    return data;
+  });
   let won = true;
   try {
-    await pile.createEmbeddedDocuments("Item", [data], { keepId: true });
+    await pile.createEmbeddedDocuments("Item", copies, { keepId: true });
   } catch {
     won = false;
   }
@@ -396,15 +501,11 @@ const movePileItem = async (actor, itemId, { announce = false, place = "" } = {}
   // one that clears the row and posts the card, so a loser that deleted as well
   // would be racing it for no gain — and losing that race logs `Item "..." does
   // not exist!` on the way, which is noise in a Warden's console describing
-  // something that worked.
-  //
-  // The claim can only be lost to another SESSION, never to history: nothing in
-  // this system creates an actor's item with `keepId`, so an id already sitting
-  // in the pile means somebody else put it there moments ago. If their delete
-  // then fails, the player is left holding a copy — visible to the Warden and
-  // fixable, which is the side of that trade the ruling already chose.
+  // something that worked. If the winner's delete then fails, the player is
+  // left holding a copy — visible to the Warden and fixable, which is the side
+  // of that trade the ruling already chose.
   if (!won) return false;
-  await item.delete();
+  await actor.deleteEmbeddedDocuments("Item", [item.id, ...pages.map((p) => p.id)]);
   if (announce) await postDropCard(actor, name, note);
   return true;
 };
@@ -420,23 +521,28 @@ const movePileItem = async (actor, itemId, { announce = false, place = "" } = {}
  * @param {Object} msg
  * @param {String} senderId
  */
-export const handlePileSocket = async (msg, senderId) => {
-  if (game.users.activeGM !== game.user) return;
-  const requester = game.users.get(senderId);
-  if (!requester) return;
-  // fromUuid THROWS on a malformed uuid rather than returning null, which is why
-  // the caller in cairn.js wraps this — the standing rule for every branch of
-  // that socket handler (review #17).
-  const actor = await fromUuid(msg.actorUuid);
-  if (!(actor instanceof getDocumentClass("Actor"))) return;
-  if (!actor.testUserPermission(requester, "OWNER")) return;
+export const handlePileQuery = async (msg, { user } = {}) => {
+  // The query is addressed to the active GM USER; Foundry hands it to that
+  // user's session(s), and every one that runs this competes for the claim.
+  if (!game.user.isGM || !user) return false;
+  // fromUuid THROWS on a malformed uuid rather than returning null; a throw out
+  // of a query handler is reported to the asker as a rejection, which reads as
+  // `false` on the other side — the standing rule for every branch of the
+  // socket handler (review #17) holds here too, so it is caught.
+  let actor = null;
+  try { actor = await fromUuid(String(msg?.actorUuid ?? "")); } catch { return false; }
+  if (!(actor instanceof getDocumentClass("Actor"))) return false;
+  if (!actor.testUserPermission(user, "OWNER")) return false;
   // CLAMPED ON ARRIVAL, where the write happens: `maxlength` on the field is the
-  // affordance, and a crafted emit is not bound by it. `senderId` is the only
-  // field the server authenticates, so everything else in this payload is a
-  // claim — the note included.
-  await movePileItem(actor, msg.itemId, {
-    announce: msg.announce === true,
-    place: cleanDropNote(msg.place),
+  // affordance, and a crafted query is not bound by it. The requesting user is
+  // the only field the server authenticates, so everything else in this payload
+  // is a claim — the note and the claim id included; an id that is not an id
+  // gets a fresh one rather than a crafted `_id` landing in the pile.
+  const claimId = /^[A-Za-z0-9]{16}$/.test(String(msg?.claimId ?? "")) ? msg.claimId : foundry.utils.randomID();
+  return movePileItem(actor, String(msg?.itemId ?? ""), {
+    announce: msg?.announce === true,
+    place: cleanDropNote(msg?.place),
+    claimId,
   });
 };
 
@@ -589,7 +695,9 @@ export const askWhatToDrop = async (actor) => {
       if (max > 0) {
         const uses = document.createElement("span");
         uses.className = "cairn-drop-uses";
-        uses.textContent = game.i18n.format("CAIRN.Pile.Uses",
+        // Plural on the MAXIMUM, through formatCount (review #33: a plain
+        // format read "1 of 1 uses" on the 156 single-use items that ship).
+        uses.textContent = formatCount("CAIRN.Pile.Uses", max,
           { value: Number(item.system?.uses?.value ?? 0), max });
         label.append(uses);
       }

@@ -247,6 +247,14 @@ export const judgedDie = (formula) => {
     return { formula: f, count: Math.max(1, Number(single[1] || 1)), faces: Number(single[2]) };
   }
   if (!f.includes("+")) return null;
+  // A `+` POOL IS CAIRN NOTATION, AND ONLY WHILE THAT SETTING IS ON (review
+  // #33): `evaluateFormula` reads `d6 + d6` as keep-highest only under
+  // `use-cairn-dice-notation`, and with it off the same string is a SUM. Judged
+  // without asking, the keep rewrite below turned the shipped Twin daggers
+  // (`d6+d6`, 2–12) into a 1–6 keep-highest for every player character the
+  // moment either combat option was switched on in a notation-off world. With
+  // the setting off a `+` formula is arithmetic, which neither option judges.
+  if (!game.settings.get(SETTINGS_NS, "use-cairn-dice-notation")) return null;
   const parsed = f.split("+").map((term) => BARE_DIE.exec(term.trim()));
   if (parsed.some((m) => !m)) return null;
   // Each term may carry its own count: `2d6 + d6` is three d6 kept highest.
@@ -391,7 +399,7 @@ export const IMPROVISED_FORMULA = "1d4";
  * @return {Promise<{description: String, formula: String}|null>}
  *   null = dismissed OR cancelled, and either must roll NOTHING.
  */
-export const askImprovisedAttack = async ({ panicked = false } = {}) => {
+export const askImprovisedAttack = async ({ panicked = false, windowId = undefined } = {}) => {
   // BARE: DialogV2 throws on a content element carrying ANY attribute, a single
   // class included (dialog.mjs:189), so the class goes on a wrapper inside it.
   const content = document.createElement("div");
@@ -450,6 +458,9 @@ export const askImprovisedAttack = async ({ panicked = false } = {}) => {
   const answer = await foundry.applications.api.DialogV2.wait({
     classes: ["cairn-improvised-dialog"],
     window: { title: game.i18n.localize("CAIRN.Improvised.Title") },
+    // The sheet's own window when it is popped out (review #33; the reasoning
+    // is at `_confirmAction` in actor-sheet.js).
+    renderOptions: { window: { windowId } },
     // STATED: `wait` merges no position, unlike `confirm` and `prompt` which
     // both supply 400 (dialog.mjs:353,374), so an auto-width window would be as
     // wide as its longest unwrapped line.
@@ -955,7 +966,12 @@ export const damageDiceIcons = (formula) => {
     if (!DIE_ICONS.has(n)) return [GENERIC_DIE_ICON];
     // The COUNT, not one per term: `2d6k` rolls two dice and keeps one, and what
     // the row reports is what hits the table.
-    for (let i = Math.max(1, Number(m[1] || 1)); i > 0; i--) faces.push(n);
+    // BOUNDED INSIDE THE TERM, not only between terms (review #33): the count
+    // is whatever the item's owner typed into an unvalidated string, and this
+    // runs on every render of every sheet that lists the weapon — `100000000d6`
+    // on an equipped weapon pushed 1e8 entries per render on the Warden's own
+    // client the moment they opened that sheet.
+    for (let i = Math.max(1, Number(m[1] || 1)); i > 0 && faces.length < MAX_DIE_GLYPHS; i--) faces.push(n);
     if (faces.length >= MAX_DIE_GLYPHS) break;
   }
   if (!faces.length) return [GENERIC_DIE_ICON];
@@ -1326,6 +1342,29 @@ export const grantSourceLabel = (source) => {
 };
 
 /**
+ * What ONE item costs in inventory slots: bulky = 2, petty/weightless = 0,
+ * anything else = 1, times its quantity.
+ *
+ * ONE COPY OF THE SLOT MATHS. `CairnActor#calcSlotsUsed` sums this over an
+ * actor's items, and the Fatigue drop picker uses it to tell a player what each
+ * row would free — two readers of one rule, which must not be two spellings of
+ * it. A picker that disagreed with the slot count would be worse than no picker:
+ * it would offer a trade whose stated price is wrong.
+ *
+ * `quantity` is `!= undefined` rather than `?? 1`, faithfully to the reduce this
+ * came out of: a stored 0 means zero slots, not one.
+ * @param {Item} item
+ * @return {Number}
+ */
+export const itemSlotCost = (item) => {
+  const sys = item?.system ?? {};
+  const qty = sys.quantity;
+  if (sys.bulky ?? false) return qty != undefined ? 2 * qty : 2;
+  if (sys.weightless ?? false) return 0;
+  return qty != undefined ? qty : 1;
+};
+
+/**
  * Format a counted noun, choosing the locale's plural form.
  *
  * Foundry's Localization has no plural support at all, so "{n} uses" shipped
@@ -1353,29 +1392,6 @@ export const grantSourceLabel = (source) => {
  * @param {Object} [data] extra format values
  * @return {String}
  */
-/**
- * What ONE item costs in inventory slots: bulky = 2, petty/weightless = 0,
- * anything else = 1, times its quantity.
- *
- * ONE COPY OF THE SLOT MATHS. `CairnActor#calcSlotsUsed` sums this over an
- * actor's items, and the Fatigue drop picker uses it to tell a player what each
- * row would free — two readers of one rule, which must not be two spellings of
- * it. A picker that disagreed with the slot count would be worse than no picker:
- * it would offer a trade whose stated price is wrong.
- *
- * `quantity` is `!= undefined` rather than `?? 1`, faithfully to the reduce this
- * came out of: a stored 0 means zero slots, not one.
- * @param {Item} item
- * @return {Number}
- */
-export const itemSlotCost = (item) => {
-  const sys = item?.system ?? {};
-  const qty = sys.quantity;
-  if (sys.bulky ?? false) return qty != undefined ? 2 * qty : 2;
-  if (sys.weightless ?? false) return 0;
-  return qty != undefined ? qty : 1;
-};
-
 export const formatCount = (key, n, data = {}) => {
   const lang = game.i18n?.lang ?? "en";
   const form = new Intl.PluralRules(lang).select(Number(n));

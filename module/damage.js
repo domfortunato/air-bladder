@@ -389,6 +389,12 @@ export class Damage {
                     actor: message?.speaker?.actor ?? null,
                     alias: message?.speaker?.alias ?? "",
                     weapon: label?.dataset.weapon ?? "",
+                    // THE KIND TRAVELS WITH THE WEAPON (review #33): an
+                    // improvised attack's `data-weapon` is a typed NOUN PHRASE
+                    // ("a chair leg"), and the possessive frame below read
+                    // "from Adobe's a chair leg". The rebuild picks a sentence
+                    // whose slot takes a phrase when this is true.
+                    unarmed: label?.dataset.unarmed === "1",
                     // HAZARD-NESS IS THE BOOLEAN, NOT THE TEXT. The Warden may leave
                     // Source blank on purpose — openWardenDamage allows it, and the
                     // roll card then carries the die alone. Deciding hazard-ness from

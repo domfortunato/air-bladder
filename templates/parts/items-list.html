@@ -222,7 +222,10 @@
             them. Accepted with eyes open — Font Awesome documents this glyph for
             download, so a player who has met it elsewhere met it as save. The
             tooltip carries the meaning in words either way. --}}
-      <a class="item-control item-drop" data-action="itemDrop" title="{{ localize 'CAIRN.Pile.DropTip' }}"><i class="fas fa-down-to-line"></i></a>
+      {{!-- `../pileName`: inside {{#each}} the row item is the context, and a bare
+           name resolves against it and finds nothing, silently (the withDrop
+           lesson one line up). --}}
+      <a class="item-control item-drop" data-action="itemDrop" title="{{ localize 'CAIRN.Pile.DropTip' pile=../pileName }}"><i class="fas fa-down-to-line"></i></a>
       {{/unless}}
       {{/unless}}
       {{/if}}

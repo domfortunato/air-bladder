@@ -130,6 +130,18 @@ If a release's assets are missing or you need to rebuild without a new version:
 It checks out the TAG you enter, whichever branch the Run-workflow dialog shows —
 that picker only chooses which copy of the workflow file runs, never what is built.
 
+## The Marketplace job
+
+The same workflow has a third job, `marketplace`, which announces the release
+to Foundry's package listing (`tools/release-foundry.mjs`, the Package Release
+API) on every tag push, straight after the build. It needs the repository
+secret `FOUNDRY_RELEASE_TOKEN` and FAILS rather than skips without it. If it
+goes red, the recovery is by hand once the GitHub release has its assets:
+`npm run publish:foundry X.Y.Z -- --dry-run`, then again without the flag — the
+script asks for the token at a terminal and never prints it. A red job holds
+nothing back from existing installs: their in-app update check reads the
+installed copy's own manifest URL, not the listing.
+
 ## Redoing a version
 
 Delete the tag on both sides, then re-run:
@@ -139,3 +151,11 @@ git tag -d X.Y.Z
 git push origin :refs/tags/X.Y.Z
 # then `npm run release X.Y.Z` again
 ```
+
+**A redo cannot change `compatibility` on the Marketplace.** The API refuses a
+duplicate version, so the listing keeps the FIRST submission's `minimum` and
+`verified`, and the re-run's job goes green saying "already listed". Foundry
+14.368 then merges the listing's compatibility into installed copies whenever
+the versions match, in a way that can only lower the minimum and raise
+verified. If the redo changes compatibility, bump the version instead — or
+correct the row by hand on the website.

@@ -86,6 +86,7 @@ import { readFileSync, readdirSync, lstatSync, existsSync, openSync, readSync, c
 import { fileURLToPath } from "node:url";
 import { dirname, resolve, join, posix } from "node:path";
 import { tmpdir } from "node:os";
+import { inflateRawSync } from "node:zlib";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, "..", "..");
@@ -208,11 +209,60 @@ const collectZip = (file) => {
       const name = cd.toString("utf8", p + 46, p + 46 + nameLen);
       // The high 16 bits carry the Unix mode when the archive was made on Unix.
       const mode = external >>> 16;
-      if (!name.endsWith("/")) out.push({ path: name, symlink: (mode & 0o170000) === 0o120000, mode, size });
+      if (!name.endsWith("/")) {
+        out.push({
+          path: name, symlink: (mode & 0o170000) === 0o120000, mode, size,
+          // Enough to read the entry back (readZipEntry): where its local header
+          // sits, how it was stored, and how many bytes that took.
+          offset: cd.readUInt32LE(p + 42), method: cd.readUInt16LE(p + 10), csize: cd.readUInt32LE(p + 20),
+        });
+      }
       p += 46 + nameLen + extraLen + commentLen;
     }
     return out;
   } finally { closeSync(fd); }
+};
+
+/**
+ * One entry's bytes, out of the archive. Stored (0) or deflated (8) — the two
+ * methods `zip` writes — through the local header, whose name and extra fields
+ * can differ in length from the central directory's.
+ * @param {string} file
+ * @param {{offset: number, method: number, csize: number, path: string}} entry
+ * @returns {Buffer}
+ */
+const readZipEntry = (file, entry) => {
+  const fd = openSync(file, "r");
+  try {
+    const head = Buffer.alloc(30);
+    readSync(fd, head, 0, 30, entry.offset);
+    if (head.readUInt32LE(0) !== 0x04034b50) throw new Error(`${entry.path}: no local file header at ${entry.offset}`);
+    const start = entry.offset + 30 + head.readUInt16LE(26) + head.readUInt16LE(28);
+    const raw = Buffer.alloc(entry.csize);
+    readSync(fd, raw, 0, entry.csize, start);
+    if (entry.method === 0) return raw;
+    if (entry.method === 8) return inflateRawSync(raw);
+    throw new Error(`${entry.path}: compression method ${entry.method} is not one this reader handles`);
+  } finally { closeSync(fd); }
+};
+
+/**
+ * THE ARCHIVE'S OWN MANIFEST (review #33). `--zip` used to audit a built
+ * archive against the WORKING TREE's `system.json`, which is harmless in CI —
+ * the tree was just zipped — and wrong everywhere the usage text sends it: a
+ * published release checked after the fact. An older zip reported a pack it
+ * legitimately shipped as "built but undeclared", and an archive whose own
+ * manifest declared a pack it lacked, or a different id, was never examined,
+ * because its manifest was never read. The id, the pack set and the file
+ * references are claims the archive makes about itself.
+ * @param {string} file
+ * @param {object[]} entries   from collectZip
+ * @returns {object}
+ */
+const manifestFromZip = (file, entries) => {
+  const entry = entries.find((e) => e.path === "system.json");
+  if (!entry) throw new Error("the archive carries no system.json at its root");
+  return JSON.parse(readZipEntry(file, entry).toString("utf8"));
 };
 
 /* --------------------------------------------------------------- the checks */
@@ -427,8 +477,11 @@ if (argv.includes("--self-test")) {
 const zipAt = argv.includes("--zip") ? argv[argv.indexOf("--zip") + 1] : null;
 console.log(zipAt ? `package-audit: ${zipAt}\n` : "package-audit: the working tree as it will ship\n");
 const shipped = shippedListFromWorkflow(ROOT);
-const manifest = JSON.parse(readFileSync(join(ROOT, "system.json"), "utf8"));
 const entries = zipAt ? collectZip(resolve(zipAt)) : collectTree(ROOT, shipped);
+// The archive is audited against ITS OWN manifest, the tree against the tree's.
+const manifest = zipAt
+  ? manifestFromZip(resolve(zipAt), entries)
+  : JSON.parse(readFileSync(join(ROOT, "system.json"), "utf8"));
 const ok = audit({ root: ROOT, entries, shipped, manifest, mode: zipAt ? "zip" : "tree" });
 const failed = results.filter((r) => !r.ok).length;
 console.log(`\n${ok ? "package-audit passed" : `package-audit FAILED (${failed} of ${results.length})`}`);

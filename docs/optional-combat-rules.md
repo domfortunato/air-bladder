@@ -20,7 +20,9 @@ is three rations, and a Rest spends one use. Several Rations items are fine: the
 first one with a use left pays. A stack of Rations (quantity 2) rolls over the
 way the row's **−** button does — when the last use of one unit goes, the next
 unit opens full. Anything named Rations counts, so a Warden's own "Iron
-Rations" does too, as long as it has a uses counter; a Rations item with no uses
+Rations" does too, as long as it has a uses counter — and so does an item named
+with this system's own translation of "Rations" on a translated client, though
+not any other word for food; a Rations item with no uses
 counter, or with all its uses spent, is not food the system can see.
 
 NPCs, hirelings and monsters rest as they always did. Nothing is logged twice:

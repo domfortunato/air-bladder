@@ -6,16 +6,22 @@
  *     npm run publish:foundry 0.1.24                 # the real submission
  *
  * Air Bladder was accepted into the Marketplace on 2026-10-01
- * (foundryvtt.com/packages/air-bladder), which is what makes this possible at
- * all: until then the package was unlisted and Foundry's own in-app update
- * check could not see it — the loose end the "Update All" investigation left
- * open (CLAUDE.md, Testing).
+ * (foundryvtt.com/packages/air-bladder). THE LISTING IS FOR PEOPLE BROWSING,
+ * not for updates (review #33, which corrected this header): Foundry's in-app
+ * update check reads the INSTALLED copy's own manifest URL and consults the
+ * package index only when it lists something newer than both the installed
+ * and the remote copy (14.368, `dist/packages/views.mjs`), so every existing
+ * install sees a new version the moment the GitHub release exists, listed or
+ * not. A red run here holds nothing back.
  *
- * **IT RUNS AFTER THE GITHUB RELEASE EXISTS, NOT AT TAG TIME, AND THAT ORDER IS
- * NOT NEGOTIABLE.** Foundry FETCHES the manifest URL to validate the
- * submission, so the release asset has to be downloadable before this is
- * called. `npm run release` only pushes the tag; `main.yml` then builds, zips,
- * and attaches `system.json` + `system.zip`. This is the step after that.
+ * **CI RUNS THIS ON EVERY TAG PUSH** — the `marketplace` job in `main.yml`,
+ * `needs: build` — so the announcement is automatic and the hand run below is
+ * the RECOVERY for a red job, answered "already listed" whenever the job has
+ * done its work. **IT RUNS AFTER THE ASSETS EXIST, AND THAT ORDER IS NOT
+ * NEGOTIABLE.** Foundry FETCHES the manifest URL to validate the submission,
+ * so the release asset has to be downloadable first: `npm run release` only
+ * pushes the tag; the build job then zips and attaches `system.json` +
+ * `system.zip`, and only then can this be called.
  *
  * The API (foundryvtt.com/article/package-release-api/):
  *   POST https://foundryvtt.com/_api/packages/release_version/
@@ -341,7 +347,19 @@ if (sent.status === 429) {
 const already = json?.errors?.__all__?.some((e) => e.code === "unique_together");
 if (already) {
   ok(`${id} ${version} is already listed on the Marketplace — nothing to do.`);
-  console.log(`\nFoundry already holds this version. That is the expected answer to a re-run.\n`);
+  // WHAT A RE-RUN CANNOT DO (review #33): the API refuses a duplicate version,
+  // so the row keeps whatever `compatibility` the FIRST submission carried. A
+  // version redone with a different `minimum` or `verified` (RELEASE.md,
+  // "Redoing a version") leaves a stale row with nothing red — and 14.368's
+  // `sidegrade` merges the listing's compatibility into installed copies when
+  // the versions match, in a way that can only LOWER the minimum and RAISE
+  // verified. Said here, with the values this run would have sent, so the one
+  // person who can compare them with the website is told to.
+  console.log(`\nFoundry already holds this version. That is the expected answer to a re-run.`);
+  console.log(`This script cannot update an existing row. If this version was REDONE with a different`);
+  console.log(`compatibility, the row still shows the first submission's — check it on the package page.`);
+  console.log(`This run would have sent: minimum ${compatibility.minimum}, verified ${compatibility.verified}`
+    + `${compatibility.maximum ? `, maximum ${compatibility.maximum}` : ""}.\n`);
   process.exit(0);
 }
 

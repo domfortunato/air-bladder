@@ -278,6 +278,12 @@ try {
         // here, not assumed: if it ever goes back to being a <button> without
         // joining the exemption above, `tag` changes and this leg says so.
         const improvised = sheet.element.querySelector('[data-action="improvisedAttack"]');
+        // NO DROP ON A PACK ACTOR (review #33): `owned()` tests only
+        // `isEditable`, which an unlocked world pack passes, so the control
+        // rendered on every compendium row and moved pack items into the
+        // party's world pile. Counted on the locked pack's rows, where the
+        // gate — not the lock — is what must hide it.
+        out.dropControls = sheet.element.querySelectorAll('[data-action="itemDrop"]').length;
         out.improvised = {
           present: !!improvised,
           tag: improvised?.tagName ?? null,
@@ -343,6 +349,9 @@ try {
         ? ok("the Improvised Attack row is live on a locked pack", "(an <a>, so core's form-element sweep never reaches it)")
         : fail(`Improvised Attack on a locked pack: ${JSON.stringify(locked.improvised)}`,
           "an <a> is outside _toggleDisabled; if this is a <button> again it needs the _onRender exemption above");
+      locked.dropControls === 0
+        ? ok("no Drop control on a compendium actor's rows", "(canDrop asks !actor.pack; the pile is for the world's items)")
+        : fail(`${locked.dropControls} Drop control(s) on a pack actor's sheet`, "pressing one would move a pack item into the party's world pile");
       locked.deleteWarned
         ? ok("itemDelete still warns", "(mutations stay walled)")
         : fail("itemDelete no longer warns on a locked pack — the wall moved too far");

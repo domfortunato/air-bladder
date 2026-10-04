@@ -450,6 +450,13 @@ companion record of who authored what.
     stale; its absence means "posted before it existed", the `data-panic` rule
     again, so an older blank card stays blank rather than being named
     retroactively.
+    **THE TYPED PHRASE REACHED THE POSSESSIVE FRAME ANYWAY (review #33):**
+    `data-weapon` is copied into the damage-source flag on Apply and
+    `nameDamageSource` formatted "from {attacker}'s {weapon}" with it — "from
+    Adobe's a chair leg", three such cards in the dev log. The KIND travels in
+    the flag now (`unarmed`) and the typed case has its own frame,
+    `CAIRN.DamageFromImprovisedWith` "from {attacker} with {weapon}"; a blank
+    one still reads "from {attacker}".
   - **PANIC OVERRIDES THE TYPED FORMULA; IT DOES NOT TAKE THE FIELD AWAY** (user
     ruling, reversing what shipped that morning: "I still want people to be able
     to enter a dice formula other than 1d4 — but if the character is panicked I
@@ -460,7 +467,12 @@ companion record of who authored what.
     decides what gets rolled is the one that stamps the panic badge, so the two
     cannot disagree. The probe types a **d10** and asserts `1d4` — a leg merely
     reading "1d4" could not tell this from the field having been removed and
-    defaulted. `IMPROVISED_FORMULA` and `IMPAIRED_FORMULA` are DELIBERATELY two
+    defaulted. **AND THE OVERRIDE IS APPLIED BEFORE THE FORMULA IS JUDGED
+    (review #33):** the handler validated the TYPED formula first, so a
+    panicked player who cleared the field was refused with "not a damage roll"
+    — the one case the dialog's note had just promised could not fail. What is
+    rolled is what is validated; the probe now clears the field under panic
+    and asserts the 1d4. `IMPROVISED_FORMULA` and `IMPAIRED_FORMULA` are DELIBERATELY two
     constants that agree: one is the Player's Guide's unarmed damage, the other
     is what Impaired substitutes, and if either moves it moves alone.
   - **THE QUALITY BUTTONS ARE GONE and the badge survives anyway.** Standard /
@@ -529,7 +541,12 @@ companion record of who authored what.
     the control's only content and "" would leave nothing to click.
   - **FOUR GLYPHS IS THE CAP** (user ruling: "render up to four"). Nothing
     shipped comes near it, but homebrew `10d6` would push the edit and delete
-    controls off the end of the row.
+    controls off the end of the row. **AND THE CAP IS APPLIED INSIDE A TERM
+    (review #33):** the loop pushed one entry per die of the count and sliced
+    afterwards, so `100000000d6` on an equipped weapon — a string any owner may
+    type — pushed 1e8 entries on every render of every sheet listing it, the
+    Warden's included. The probe counts pushes, because the OUTPUT was already
+    four.
   - **`.cairn-item-controls a` IS PINNED TO `width: 18px`**, a single-glyph
     width that clips everything past the first. The roll control takes
     `width: auto` with `min-width: 18px`, so a one-die control still lines up
@@ -552,6 +569,21 @@ companion record of who authored what.
   - **FOUND BY FLAG, NEVER BY NAME.** A Warden may rename either and nothing
     stops working — the folder-naming rule the take-over doors' folders already
     follow. The names are a starting label and nothing reads them.
+    **AND A FLAG ALONE IS NOT IDENTITY (review #33, 2026-10-04) — the pile
+    must also have NO PLAYER OWNER.** Any OWNER may set any flag on their own
+    actor, `findDroppedPile` takes the lowest id, and `reconcilePiles` runs
+    with the Warden's rights: a player who stamped the flag on their own
+    character had the real pile DELETED, its contents copied onto that
+    character and every later drop landing there — observed with planted
+    fixtures before the guard existed; with a higher id the same plant got the
+    Warden's client to delete it, which let a player get any actor they owned
+    deleted. This is review #27's journal lesson ("a player's journal flagged
+    like ours and sorting first captured every line") repeated on a document
+    players can always write. `isDroppedPile` asks `!hasPlayerOwner`, which
+    the real pile (default OBSERVER) passes and no plant can; consequence
+    stated: a Warden who hands a player OWNER of the pile un-piles it, and the
+    next drop makes a fresh one. The Drop confirm names the pile by its
+    CURRENT name (`pileDisplayName`), review #31's folder rule.
   - **DROP SITS BESIDE THE TRASH, NOT INSTEAD OF IT** (user ruling, offered the
     alternative). The trash still destroys. This system already answered the
     same question for connected actors — Unlink sits beside Delete because
@@ -659,6 +691,51 @@ companion record of who authored what.
     lands and the delete fails the player has two of something, which a Warden
     can see and fix; if the delete lands and the create fails the item is gone,
     which nobody can. Both halves run on ONE client for the same reason.
+  - **THE CLAIM IS A FRESH ID PER GESTURE, NOT THE ITEM'S OWN (review #33).**
+    The race between a Warden's several sessions is still settled by the
+    embedded collection refusing a duplicate `_id`, but the id used to be the
+    item's, on the reasoning that "nothing ships `keepId` for an actor's
+    items". False: core's own `ActorSheetV2#_onDropItem` keeps a dragged
+    item's id (`keepId: !this.actor.items.has(item.id)`, actor-sheet.mjs:347)
+    and ours delegates to it, unlinked tokens carry their base actor's item
+    ids, and Duplicate keeps embedded ids — so two players who each dragged a
+    Torch from the compendium held the same id and the second Drop was refused
+    with a raw server toast while the loser's client had already answered
+    `true`. The REQUESTING client mints `claimId` (`randomID`) once, every
+    Warden session copies under that id, and a collision can again mean only
+    one thing.
+  - **THE BROKER REPLIES (review #33): `User#query`, not a socket emit.**
+    `CONFIG.queries["air-bladder.pileDrop"]` is core's request-and-reply
+    channel (players hold `QUERY_USER` by default; the handler receives the
+    server-authenticated `user`), so `dropItemToPile` returns what the Warden's
+    client DID. The emit it replaced returned an optimistic `true` to
+    everything, and the Fatigue bargain paid out on it with no Warden online
+    or a refusal on the Warden's side. A `false` from a sibling session that
+    lost the claim is not a refusal: the pile is OBSERVER, so the asking client
+    checks whether `claimId` landed, and that is the last word. The crafted
+    decoy the probe sends is a crafted QUERY now.
+  - **PAGES TRAVEL WITH THE BOOK, and the copy is STOWED (review #33).**
+    Dropping a Grimoire moved the book alone; its bound pages stayed keyed to a
+    book no longer there, and nothing could follow it (dragging a bound page is
+    refused, its Drop control is hidden, Give refuses both). `movePileItem`
+    bundles `pagesOfGrimoire` in the same create and clears `equipped`, the
+    drag path's own normalisation for a thing.
+  - **RECONCILE COPIES ONLY WHAT THE CANONICAL PILE LACKS, and deletes the
+    extra only once every one of its ids is there (review #33).** It copied the
+    whole lot in one batch and read any throw as "already there" — but the
+    server refuses a batch on its FIRST duplicate id, inside `Promise.all`,
+    before any write, so a mixed batch created nothing and the delete took the
+    extra's new items with it. The docblock's own example did it: a sidebar
+    Duplicate shares every id, and anything added to the copy was gone at the
+    next drop.
+  - **NO DROP ON A COMPENDIUM ACTOR (review #33):** `canDrop` asks
+    `!actor.pack`, the line `canReceiveOffer` already drew — `owned()` tests
+    only `isEditable`, which an unlocked world pack passes, and the move would
+    have walked pack items into the party's world pile.
+  - **THE PILE IS LINKED, stated in its create data (review #33):** `_preCreate`
+    links persons only, so a thing falls through to unlinked, and a placed
+    token's Give would have removed one copy while the world pile kept the
+    other.
   - **UNLIMITED IS ONE LINE IN `calcCurrentMaxSlots`, returning Infinity.**
     `slotsMax` is assigned from there, `isEncumbered` compares against it, and
     `capacityVerdict`, the drop handler and the marketplace all read one or the
@@ -747,6 +824,14 @@ companion record of who authored what.
     when they need it. **E2's check mark is load-bearing because of this**, not
     decorative: it is the only thing telling a player who pressed "take a Fatigue
     instead" that they got the opposite.
+  - **THE DROP MUST HAVE HAPPENED (review #33).** The route discarded
+    `dropItemToPile`'s result, so with no Warden connected — or a refusal on
+    the Warden's side — the Fatigue landed and the card sealed over a bargain
+    nobody had paid. The drop now answers truthfully (the broker replies), and
+    a `false` stops with the card live, nothing taken, and a toast saying so.
+    The order is drop → record the choice → Fatigue. A blank "Where?" REMOVES
+    the note the item already wore rather than leaving last week's place on
+    it, which also closes the clamp bypass of a player-written `droppedAt`.
   **THE PICKER OFFERS ONLY WHAT FREES A SLOT** (`slotFreeingItems`, deliberately
   NOT a narrowing of `droppableItems`, which still means "everything that may be
   dropped" for the ordinary Drop control). Petty is excluded
@@ -2051,7 +2136,12 @@ companion record of who authored what.
     `2d6kx`, leaving no `+` behind. **Mixed sizes (`d6 + d8`) are left
     un-exploded on purpose** — the semantic has no native spelling there and the
     alternative changes the odds; no shipped weapon hits it, and the guide says
-    so.
+    so. **AND A `+` POOL IS JUDGED ONLY WHILE `use-cairn-dice-notation` IS ON
+    (review #33):** with the setting off `d6 + d6` is a SUM to
+    `evaluateFormula`, and `judgedDie` rewriting it to `2d6k` regardless turned
+    the shipped Twin daggers from 2–12 into a 1–6 keep-highest for every PC the
+    moment either option was switched on in a notation-off world. `judgedDie`
+    returns null for a `+` pool there; a single die is judged as before.
   - **THE GATE IS AT THE CALL SITE.** `evaluateFormula` gets `(formula, data)`
     and `getRollData()` carries no document, so it cannot know who rolled. The
     two PC damage sites are `actor-sheet.js` `#onRollDamage` and `macros.js`
@@ -2205,6 +2295,16 @@ companion record of who authored what.
     Fixed with `mayChoose`, SCOPED to the cards that have a choice to spend: an
     ordinary Critical Damage card writes no flag, so requiring authorship there
     would have withdrawn a working button from a co-owner.
+    **THAT GATE HID BOTH BUTTONS FROM THE OWNER WHENEVER THE WARDEN HAD ROLLED
+    THE SAVE (review #33, a defect in the reasoning above).** The Roll STR save
+    button is bound for the owner OR the Warden, so a Warden-rolled save is the
+    WARDEN's card, and the player whose choice it is saw neither button while
+    the Warden made it. The answer is a ROUTE, not a gate: `spend` writes the
+    flag itself where it may and asks the Warden's client otherwise
+    (`CONFIG.queries["air-bladder.choiceTaken"]`, which checks that the asker
+    OWNS the card's actor), both buttons are gated on `mayAnswer` alone, and
+    the choice is recorded BEFORE the Fatigue or the status lands, so a choice
+    that could not be recorded costs nothing.
   - **Knave 2e's maneuver list is NOT shipped and NOT reworded.** The option is
     borrowed from Knave 2e by Ben Milton and the guide credits it and points at
     that book; the strings state the MECHANIC in this project's own words.
@@ -2890,6 +2990,15 @@ if you find one, deleting it is in scope, not a separate decision.
     (review of the design, accepted: a quantity-only arithmetic would be a
     second rule for one word). The confirm shows the count, so the state is
     never a surprise twice.
+    **THE REGEX IS ENGLISH, AND SINCE THE REST IT DECIDES A RULE (review
+    #33).** The shipped Rations item still counts on a Spanish table, because
+    its STORED name is English and the overlay only displays "Raciones" — but
+    a Warden's own "Raciones" never matched and a character holding only it
+    was told they had none. `isRationName` also accepts a stored name equal to
+    the overlay's own translation of "Rations", the one translation this
+    system knows; a Warden's "Comida" still does not, and that limit is stated
+    in the guide. The same week `ranged` was made a field rather than a name
+    match on exactly this ground.
   - **`CairnItem#spendUse()` is the row's − arithmetic, ONE copy, and it now
     RETURNS a diff rather than writing it**: decrement; at 0 with a unit to
     spare, roll over and refill. `#onItemRemoveUse` writes what it returns;
@@ -3325,10 +3434,13 @@ save it — a number in prose is a copy whether or not it apologises for itself.
   14.368** (a second app install at `foundry/app-14368`, updated in place
   through Foundry's own Update Software; `foundry/app` stays 14.365 for the
   dev server and `foundry/app-14.365` is a frozen reference copy). So the
-  14.366 installer rewrite is NOT implicated either, though the fact that
-  update checks now read the website package repository, where this system is
-  **not listed** (`foundryvtt.com/packages/air-bladder` 404s), is worth
-  remembering on its own account.
+  14.366 installer rewrite is NOT implicated either. (This sentence said the
+  update check "now reads the website package repository, where this system is
+  not listed"; the system has been listed since 2026-10-01, and review #33
+  measured the check in 14.368: it reads the INSTALLED copy's own manifest URL
+  and consults the index only when it lists something newer than both the
+  installed and the remote copy. The listing is for people browsing; every
+  install sees a release the moment the GitHub release exists.)
   Two gates came out of it, and neither reproduces the report:
   - `npm run check:package` — the artifact's shape, offline, over the files
     the workflow zips AND again over the finished archive in CI. It reads the

@@ -659,7 +659,11 @@ export const openMarketplace = async (actor, opts = {}) => {
     if (!root) return;
     const gold = actor.system.gold ?? 0;
     root.querySelector(".mkt-coins").textContent = gold;
-    root.querySelector(".mkt-slotval").textContent = `${actor.system.slotsUsed}/${actor.system.slotsMax}`;
+    // The Dropped Item Pile's maximum is Infinity, which a template string
+    // prints as the WORD (review #33: "3/Infinity"); the npc sheet's
+    // `slotsMaxLabel` already shows the symbol, and this is the second readout.
+    const max = actor.system.slotsMax;
+    root.querySelector(".mkt-slotval").textContent = `${actor.system.slotsUsed}/${Number.isFinite(max) ? max : "∞"}`;
     // A full pack greys the rows it cannot take, rather than leaving a live
     // button that answers with a refusal — the shop should not offer what it is
     // about to turn down. `acquire` still refuses on its own: this is the

@@ -553,6 +553,105 @@ try {
         : null;
       out.charDelete = await readDeleteDialog(noteActor);
       out.pileDeleteOne = formatCount("CAIRN.Pile.DeleteWarning", 1);
+
+      /* ---- review #33: the pile under ordinary and adversarial use -------- */
+      const pp = await import("/systems/air-bladder/module/party-pile.js");
+      const utilsMod = await import("/systems/air-bladder/module/utils.js");
+
+      // (18) LINKED, stated in the create data: one pile, one sheet.
+      out.pileLinked = pile?.prototypeToken?.actorLink === true;
+
+      // (2) SHARED IDS. Core's drag keeps an item's id across actors, so two
+      // characters routinely hold the same id; the old "id is the claim" read
+      // the second drop as a lost race and did nothing. Both must land.
+      const twinA = await mk({ name: "ZZ Twin A", type: "character" });
+      const twinB = await mk({ name: "ZZ Twin B", type: "character" });
+      const sharedId = foundry.utils.randomID();
+      for (const twin of [twinA, twinB]) {
+        await twin.createEmbeddedDocuments("Item",
+          [{ _id: sharedId, name: "ZZ Twin Torch", type: "item" }], { keepId: true });
+      }
+      const twinResults = [await pp.dropItemToPile(twinA, sharedId, {}), await pp.dropItemToPile(twinB, sharedId, {})];
+      await sleep(400);
+      out.sharedId = {
+        results: twinResults,
+        inPile: pile.items.filter((i) => i.name === "ZZ Twin Torch").length,
+        leftBehind: [twinA, twinB].filter((a) => a.items.get(sharedId)).length,
+      };
+
+      // (5) PAGES TRAVEL WITH THE BOOK, and the copy is stowed.
+      const mage = await mk({ name: "ZZ Grimoire PC", type: "character" });
+      const [book] = await mage.createEmbeddedDocuments("Item", [{
+        name: "ZZ Tome", type: "item",
+        system: { bulky: true, grimoire: true, grimoireKey: "zz-tome-key", equipped: true },
+      }]);
+      await mage.createEmbeddedDocuments("Item", [
+        { name: "ZZ Page One", type: "spellbook", system: { bound: true, boundTo: "zz-tome-key" } },
+        { name: "ZZ Page Two", type: "spellbook", system: { bound: true, boundTo: "zz-tome-key" } },
+      ]);
+      const bookLanded = await pp.dropItemToPile(mage, book.id, {});
+      await sleep(400);
+      out.grimoireDrop = {
+        landed: bookLanded,
+        bookInPile: !!pile.items.find((i) => i.name === "ZZ Tome"),
+        pagesInPile: pile.items.filter((i) => i.name.startsWith("ZZ Page")).length,
+        pagesLeft: mage.items.filter((i) => i.name.startsWith("ZZ Page")).length,
+        bookLeft: !!mage.items.get(book.id),
+        stowed: pile.items.find((i) => i.name === "ZZ Tome")?.system?.equipped === false,
+      };
+
+      // (14) A BLANK NOTE REMOVES THE OLD ONE rather than leaving it.
+      const [stale] = await noteActor.createEmbeddedDocuments("Item",
+        [{ name: "ZZ Note Stale", type: "item", flags: { [NS]: { droppedAt: "last week" } } }]);
+      await pp.dropItemToPile(noteActor, stale.id, {});
+      await sleep(400);
+      out.staleNote = pile.items.find((i) => i.name === "ZZ Note Stale")?.getFlag(NS, "droppedAt") ?? null;
+
+      // (4) RECONCILE LOSES NOTHING: an extra pile shaped like a sidebar
+      // Duplicate — ids the canonical already holds, plus one it does not —
+      // used to be deleted whole when its batch copy was refused on the first
+      // duplicate. The next drop must bring the new item over before it goes.
+      const extra = await mk({
+        name: "ZZ Second Floor Dup", type: "npc",
+        system: { role: "container", containerClass: "", slots: 0 },
+        ownership: { default: CONST.DOCUMENT_OWNERSHIP_LEVELS.OBSERVER },
+        flags: { [NS]: { droppedItemPile: true } },
+      });
+      const dupData = pile.items.contents.slice(0, 2).map((i) => i.toObject());   // the SAME ids
+      await extra.createEmbeddedDocuments("Item",
+        [...dupData, { name: "ZZ Only In Dup", type: "item" }], { keepId: true });
+      const [trigger] = await noteActor.createEmbeddedDocuments("Item", [{ name: "ZZ Reconcile Trigger", type: "item" }]);
+      await pp.dropItemToPile(noteActor, trigger.id, {});
+      await sleep(800);
+      const canonicalNow = pp.findDroppedPile();
+      out.reconcile = {
+        oneFloor: game.actors.filter((a) => a.getFlag(NS, "droppedItemPile")).length,
+        onlyInDupSurvives: !!canonicalNow?.items.find((i) => i.name === "ZZ Only In Dup"),
+        triggerLanded: !!canonicalNow?.items.find((i) => i.name === "ZZ Reconcile Trigger"),
+      };
+
+      // (10) `+` IS CAIRN NOTATION: with the setting off a `+` pool is a SUM,
+      // and neither option may judge it; a single die is judged as before.
+      const notationWas = game.settings.get(NS, "use-cairn-dice-notation");
+      await game.settings.set(NS, "use-cairn-dice-notation", false);
+      out.notationOff = {
+        judged: utilsMod.judgedDie("d6 + d6"),
+        formula: utilsMod.combatDamageFormula("d6 + d6", { pc: true }).formula,
+        single: utilsMod.judgedDie("1d6")?.formula ?? null,
+      };
+      await game.settings.set(NS, "use-cairn-dice-notation", notationWas);
+
+      // (9) THE GLYPH LOOP IS BOUNDED INSIDE A TERM. The output was already
+      // sliced to four, so the defect was the WORK, not the result: counted as
+      // array pushes, which the old build made once per die.
+      {
+        const origPush = Array.prototype.push;
+        let pushes = 0;
+        Array.prototype.push = function (...a) { pushes++; return origPush.apply(this, a); };
+        let glyphs = null;
+        try { glyphs = utilsMod.damageDiceIcons("1000d6").length; } finally { Array.prototype.push = origPush; }
+        out.iconPushes = { glyphs, count: pushes };
+      }
     }
     out.critAfterFatigue = pc._source.system.critical === true;
     out.afterFatigue = state(pc);
@@ -707,6 +806,35 @@ try {
     {
       // OVERBURDENED with two Fatigues already carried, and dropping one thing
       // pays for the third exactly. WHICH row goes is
+      // A DROP THAT DID NOT HAPPEN BUYS NO FATIGUE (review #33). The pile's
+      // create is made to throw IN-PAGE — never a real write — so the move
+      // answers false: the Fatigue must not land, nothing may be spent, and the
+      // button must stay live. The route used to discard the drop's result and
+      // pay out regardless, with no Warden connected included.
+      {
+        const refusedActor = await overburdened("ZZ Barg Refused", [ORD, { name: "Fatigue", type: "item" }]);
+        const fatiguesBefore = refusedActor.items.filter((i) => i.system?.isFatigue).length;
+        const pileR = game.actors.find((x) => x.getFlag(NS, "droppedItemPile"));
+        if (pileR) pileR.createEmbeddedDocuments = async () => { throw new Error("ZZ refused in-page"); };
+        try {
+          const { m, dlg } = await openPicker(refusedActor);
+          const picked = dlg?.querySelector('input[name="dropped"]:checked')?.value ?? null;
+          dlg?.querySelector('button[data-action="drop"]')?.click();
+          await sleep(2500);
+          bargain.refused = {
+            pileShadowed: !!pileR,
+            fatiguesGained: refusedActor.items.filter((i) => i.system?.isFatigue).length - fatiguesBefore,
+            stillHeld: !!picked && !!refusedActor.items.get(picked),
+            flag: m.getFlag(NS, "crawlerChoiceTaken") ?? null,
+            live: rowOf(m)?.querySelector(".take-fatigue-instead")?.disabled === false,
+          };
+        } finally {
+          // An own property shadowed the prototype's method; removing it is
+          // the restore, and leaves the document exactly as it was.
+          if (pileR) delete pileR.createEmbeddedDocuments;
+        }
+      }
+
       // the picker's first radio, whatever the sort put there, and the leg
       // asserts THAT item is gone rather than naming one.
       const a = await overburdened("ZZ Barg Take", [ORD, { name: "Fatigue", type: "item" }]);
@@ -1275,6 +1403,12 @@ try {
     await game.settings.set(NS, "use-panic", true);
     await pc.update({ "system.panicked": true });
     out.impPanicked = await improvise(pc, { description: "my fists", formula: "d10" });
+    // AND WITH THE FIELD CLEARED (review #33): the typed formula used to be
+    // validated BEFORE the panic override replaced it, so a panicked player who
+    // emptied the field was refused with "not a damage roll" — the one case the
+    // dialog's own note had just promised could not fail. What is rolled is
+    // what is judged.
+    out.impPanicBlank = await improvise(pc, { description: "", formula: "" });
     await pc.update({ "system.panicked": false });
     await game.settings.set(NS, "use-panic", panicWas);
 
@@ -1494,6 +1628,29 @@ try {
   /\b1 item\b/.test(r.pileDeleteOne ?? "") && !/\bitems\b/.test(r.pileDeleteOne ?? "")
     ? ok(`one item reads in the singular: "${r.pileDeleteOne}"`)
     : fail(`singular pile warning: ${JSON.stringify(r.pileDeleteOne)}`);
+  // ---- review #33 ---------------------------------------------------------
+  r.pileLinked
+    ? ok("the pile is LINKED (stated in its create data; a thing falls through to unlinked), so a placed token and the world pile are one sheet")
+    : fail(`pile actorLink: ${JSON.stringify(r.pileLinked)}`);
+  r.sharedId?.results?.every(Boolean) && r.sharedId.inPile === 2 && r.sharedId.leftBehind === 0
+    ? ok("two actors holding the SAME item id both drop it: the claim is a fresh id per gesture, not the item's own")
+    : fail(`shared-id drops: ${JSON.stringify(r.sharedId)}`);
+  r.grimoireDrop?.landed && r.grimoireDrop.bookInPile && r.grimoireDrop.pagesInPile === 2
+    && r.grimoireDrop.pagesLeft === 0 && !r.grimoireDrop.bookLeft && r.grimoireDrop.stowed
+    ? ok("dropping a Grimoire takes its bound pages with it, and the copy lands stowed")
+    : fail(`grimoire drop: ${JSON.stringify(r.grimoireDrop)}`);
+  r.staleNote === null
+    ? ok("a blank \"Where?\" REMOVES the note the item already wore")
+    : fail(`stale note kept: ${JSON.stringify(r.staleNote)}`);
+  r.reconcile?.oneFloor === 1 && r.reconcile.onlyInDupSurvives && r.reconcile.triggerLanded
+    ? ok("a Duplicate-shaped second pile is merged without losing its one new item, then removed")
+    : fail(`reconcile: ${JSON.stringify(r.reconcile)}`);
+  r.notationOff?.judged === null && r.notationOff.formula === "d6 + d6" && r.notationOff.single === "1d6"
+    ? ok("with Cairn dice notation OFF a \"+\" pool is a sum and is not judged (Twin daggers stay 2–12); a single die still is")
+    : fail(`notation off: ${JSON.stringify(r.notationOff)}`);
+  r.iconPushes?.glyphs === 4 && r.iconPushes.count < 10
+    ? ok(`the glyph loop is bounded inside a term: 1000d6 cost ${r.iconPushes.count} pushes for 4 glyphs`)
+    : fail(`glyph loop: ${JSON.stringify(r.iconPushes)}`);
   r.pileTags?.["ZZ Note Sack"] === null && r.noteDerived?.blank === ""
     ? ok("...and a blank one leaves the row with no tag at all — optional, because a forced field mostly yields \"x\"")
     : fail(`blank note: tag=${JSON.stringify(r.pileTags?.["ZZ Note Sack"])} derived=${JSON.stringify(r.noteDerived?.blank)}`);
@@ -1731,6 +1888,9 @@ try {
     && r.impPanicked.shape?.hasRoll && !!r.impPanicked.shape?.panicNote
     ? ok(`PANICKED: the field is still there and still editable, with a note saying the override is coming ("${r.impPanicked.shape.panicNote}")`)
     : fail(`panicked dialog shape: ${JSON.stringify(r.impPanicked?.shape)}`);
+  impOk(r.impPanicBlank) && /^1?d4x/.test(r.impPanicBlank.formula ?? "")
+    ? ok(`PANICKED with the field CLEARED still rolls 1d4 (${r.impPanicBlank.formula}): the override is applied before the formula is judged`)
+    : fail(`panicked + blank field: ${JSON.stringify({ err: r.impPanicBlank?.err, formula: r.impPanicBlank?.formula, whatIsIt: r.impPanicBlank?.whatIsIt })} — want a 1d4 roll, not a refusal`);
   r.gateHidesButton && r.gateRefuses
     ? ok(`the ownership gate holds BOTH ways: a non-owner is shown no row, and reaching the action anyway is refused with nothing posted`)
     : fail(`ownership gate: row hidden ${r.gateHidesButton}, refused ${r.gateRefuses}`);
@@ -1772,6 +1932,10 @@ try {
     b.take?.usedAfter === b.take?.usedBefore
       ? ok(`...and the bargain NETS TO ZERO (${b.take.usedBefore} slots before, ${b.take.usedAfter} after) — the drop pays for the Fatigue exactly`)
       : fail(`slots: ${b.take?.usedBefore} -> ${b.take?.usedAfter} — the drop is meant to pay for the Fatigue exactly`);
+    b.refused?.pileShadowed && b.refused.fatiguesGained === 0 && b.refused.stillHeld
+      && b.refused.flag === null && b.refused.live
+      ? ok("a drop the pile REFUSED buys no Fatigue: nothing spent, the item kept, the button still live")
+      : fail(`refused drop: ${JSON.stringify(b.refused)} — the Fatigue must not land on a bargain that was not paid`);
 
     // ONLY WHEN IT WOULD NOT FIT (2026-10-03, user ruling). The two no-picker
     // legs are what tell this rule from the day-old "always ask" one.
@@ -1946,16 +2110,51 @@ try {
           out.clamped = landed?.system?.droppedAt?.length ?? null;
         }
 
-        // THE DECOY: emit the broker's own payload naming an actor she does not
-        // own. `senderId` is the only field the server authenticates, so the GM
-        // must refuse this on ownership — otherwise one player can empty
-        // another's sheet.
-        game.socket.emit(`system.${game.system.id}`, {
-          action: "pileDrop", actorUuid: theirsUuid, itemId: foreignItemId, announce: false,
-        });
-        await sleep(2500);
+        // THE DECOY: ask the broker's own query naming an actor she does not
+        // own. The requesting user is the only field the server authenticates,
+        // so the GM must refuse this on ownership — otherwise one player can
+        // empty another's sheet. Since review #33 the broker is a `User#query`
+        // with a REPLY, so the refusal is a real `false` on her side too; the
+        // socket emit it replaced answered an optimistic `true` to everything.
+        let decoyAnswer = null;
+        try {
+          decoyAnswer = await game.users.activeGM.query("air-bladder.pileDrop",
+            { actorUuid: theirsUuid, itemId: foreignItemId, announce: false, claimId: foundry.utils.randomID() },
+            { timeout: 15000 });
+        } catch (err) { decoyAnswer = `threw: ${err.message}`; }
+        out.decoyAnswer = decoyAnswer;
+        await sleep(800);
         out.foreignStillThere = !!theirs?.items?.get(foreignItemId);
         out.foreignNotInPile = !pile?.items?.find((i) => i.name === "ZZ Foreign Rope");
+
+        // THE PLANT (review #33, observed before the fix): she stamps the pile's
+        // own flag on her character — an OWNER may write any flag — and drops.
+        // On the old build her character sorted lower than the pile, became the
+        // canonical one, the real pile was DELETED and its contents copied onto
+        // her sheet; or, sorting higher, the GM client deleted HER actor. A pile
+        // must have no player owner now, so the flag on her character is inert:
+        // the real pile survives and her drop lands in it.
+        const pp = await import("/systems/air-bladder/module/party-pile.js");
+        await mine.setFlag("air-bladder", "droppedItemPile", true);
+        const [bait] = await mine.createEmbeddedDocuments("Item", [{ name: "ZZ Alice Bait", type: "item" }]);
+        out.plantCanonical = pp.isDroppedPile(mine);
+        const baitLanded = await pp.dropItemToPile(mine, bait.id, {});
+        for (let i = 0; i < 40 && mine.items.get(bait.id); i++) await sleep(150);
+        await sleep(800);
+        const realPile = game.actors.get(pile.id);
+        out.plant = {
+          landed: baitLanded,
+          realPileExists: !!realPile,
+          mineStillExists: !!game.actors.get(mine.id),
+          baitOnMine: !!mine.items.get(bait.id),
+          baitInRealPile: !!realPile?.items.find((i) => i.name === "ZZ Alice Bait"),
+          ropeStillInRealPile: !!realPile?.items.find((i) => i.name === "ZZ Alice Rope"),
+        };
+        // Tolerant, because on the unfixed build the plant's OTHER branch ran:
+        // her character sorted higher and the Warden's client DELETED it, and
+        // this line then threw "Actor id does not exist" past every assertion
+        // below. A regression must red the plant leg, not crash the section.
+        try { await mine.unsetFlag("air-bladder", "droppedItemPile"); } catch { /* deleted by the takeover */ }
         // EXACTLY ONE COPY. The broker runs on "the active GM's client", which is
         // a test on the USER and not the session, so every Warden session answers
         // the same request — measured: two sessions made two copies and one
@@ -1987,8 +2186,66 @@ try {
         ? ok("THE BROKERED MOVE LANDS: the Warden's client does both halves, so the item leaves her sheet and arrives in the pile")
         : fail(`brokered move: gone from her=${player.goneFromHer}, in pile=${player.inPile}`);
       player.foreignStillThere && player.foreignNotInPile
-        ? ok("...and a crafted emit naming an actor she does NOT own is refused: senderId is the only trusted field, and the GM checks ownership against it")
+        ? ok("...and a crafted query naming an actor she does NOT own is refused: the requesting user is the only trusted field, and the GM checks ownership against it")
         : fail(`AUTHORIZATION HOLE: foreign item still there=${player.foreignStillThere}, kept out of the pile=${player.foreignNotInPile}`);
+      player.decoyAnswer === false
+        ? ok("...and her client receives a REAL refusal (false), not the optimistic true the old socket emit returned")
+        : fail(`decoy answer: ${JSON.stringify(player.decoyAnswer)}`);
+      player.plantCanonical === false && player.plant?.realPileExists && player.plant?.mineStillExists
+        && player.plant?.baitInRealPile && !player.plant?.baitOnMine && player.plant?.ropeStillInRealPile && player.plant?.landed
+        ? ok("A PLAYER CANNOT CAPTURE THE PILE: her character wearing the pile's flag is no pile (it has a player owner), the real pile survives with its contents, and her drop lands there")
+        : fail(`PILE TAKEOVER: ${JSON.stringify({ canonical: player.plantCanonical, ...player.plant })}`);
+
+      /* ---- review #33: the choice belongs to the OWNER, whoever rolled ---- */
+      // The Roll STR save button is bound for the owner OR the Warden, so when
+      // the Warden rolls Alice's save the card is the WARDEN's — and a message's
+      // author is its owner. Gated on authorship, Alice saw neither button and
+      // the Warden made her choice. She must see both, and her press must be
+      // recorded through the Warden's client.
+      const wardenCard = await page.evaluate(async ({ mineUuid }) => {
+        await game.settings.set("air-bladder", "fatigue-for-critical-damage", true);
+        const utils = await import("/systems/air-bladder/module/utils.js");
+        const actor = await fromUuid(mineUuid);
+        const card = { kind: "save", ability: "STR", formula: "d20cs<=10", rolled: 17, failed: true, crit: true, fatigue: true };
+        const m = await ChatMessage.create({
+          speaker: ChatMessage.getSpeaker({ actor }),
+          content: utils.d20CardBody(card),
+          flags: { "air-bladder": { d20Card: card } },
+        });
+        return m.id;
+      }, seed);
+      const ownerChoice = await alicePage.evaluate(async ({ mineUuid, wardenCard }) => {
+        const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+        const mine = await fromUuid(mineUuid);
+        const fatigueBefore = mine.items.filter((i) => i.name === "Fatigue").length;
+        let row = null;
+        for (let i = 0; i < 40 && !row; i++) {
+          row = document.querySelector(`[data-message-id="${wardenCard}"]`);
+          if (!row) await sleep(200);
+        }
+        const m = game.messages.get(wardenCard);
+        const visible = (sel) => { const b = row?.querySelector(sel); return !!b && getComputedStyle(b).display !== "none"; };
+        const out = {
+          isAuthor: m?.isAuthor ?? null,
+          fatigueVisible: visible(".take-fatigue-instead"),
+          critVisible: visible(".mark-critical-damage"),
+        };
+        row?.querySelector(".take-fatigue-instead")?.click();
+        for (let i = 0; i < 50 && m?.getFlag("air-bladder", "crawlerChoiceTaken") !== "fatigue"; i++) await sleep(200);
+        await sleep(600);
+        out.flag = m?.getFlag("air-bladder", "crawlerChoiceTaken") ?? null;
+        out.fatigueGained = mine.items.filter((i) => i.name === "Fatigue").length - fatigueBefore;
+        out.sealed = row?.querySelector(".take-fatigue-instead")?.disabled === true
+          && row?.querySelector(".mark-critical-damage")?.disabled === true;
+        return out;
+      }, { ...seed, wardenCard });
+      await page.evaluate((id) => game.messages.get(id)?.delete(), wardenCard);
+      ownerChoice.isAuthor === false && ownerChoice.fatigueVisible && ownerChoice.critVisible
+        ? ok("the OWNER sees both buttons on a save the Warden rolled (the card is the Warden's, not hers)")
+        : fail(`owner's buttons on a Warden-rolled save: ${JSON.stringify(ownerChoice)}`);
+      ownerChoice.flag === "fatigue" && ownerChoice.fatigueGained === 1 && ownerChoice.sealed
+        ? ok("...and her choice is RECORDED through the Warden's client: flag written, one Fatigue, both buttons sealed on her screen")
+        : fail(`owner's choice via the Warden: ${JSON.stringify(ownerChoice)}`);
 
       player.clamped === 25
         ? ok("...and a 40-character note sent through the broker lands clamped to 25 — the enforcement is on the GM's side, where the write is, because maxlength binds the field and not the wire")

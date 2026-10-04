@@ -1,3 +1,5 @@
+import { t } from "./i18n-content.js";
+
 /**
  * Shared gear resolution for Air Bladder.
  *
@@ -136,7 +138,31 @@ export const isLightGear = (name) =>
  * arithmetic is exactly what this rule refuses to grow.
  */
 export const rationItems = (actor) =>
-  (actor?.items ?? []).filter((i) => RATIONS_RE.test(String(i?.name ?? "")));
+  (actor?.items ?? []).filter((i) => isRationName(i?.name));
+
+/**
+ * Is this stored item name food the Rest can eat?
+ *
+ * THE REGEX IS ENGLISH, AND SINCE THE REST IT DECIDES A RULE (review #33). It
+ * was written to sort a granted loadout, where an English miss cost a row's
+ * position; now it decides whether a player may Rest at all, and a Warden's
+ * own "Raciones" never matched — their row sat beside the shipped one (which
+ * displays "Raciones" through the overlay and still counts, because its STORED
+ * name is English) and the character was told they had no rations. The same
+ * week the `ranged` field was made a field rather than a name match on exactly
+ * this ground. So a stored name equal to the overlay's own translation of
+ * "Rations" counts too — the one translation this system knows for the word —
+ * which is a limit, stated: a Warden's "Comida" still does not.
+ * @param {String} name
+ * @return {Boolean}
+ */
+export const isRationName = (name) => {
+  const s = String(name ?? "").trim();
+  if (!s) return false;
+  if (RATIONS_RE.test(s)) return true;
+  const translated = t("item.name", "Rations");
+  return translated !== "Rations" && s.toLowerCase() === translated.toLowerCase();
+};
 
 /** The rations ONE item holds, by uses: the open unit's plus every full unit behind it. */
 export const rationsOn = (item) => {

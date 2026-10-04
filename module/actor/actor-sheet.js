@@ -44,7 +44,7 @@ import {
   canReceiveOffer, settleOwnOffer,
 } from "../item-offer.js";
 import { actorDisplayName, localizeNameDesc, sourceOf, t } from "../i18n-content.js";
-import { dropItemToPile, isDroppedPile, buildWhereField, cleanDropNote } from "../party-pile.js";
+import { dropItemToPile, isDroppedPile, buildWhereField, cleanDropNote, pileDisplayName } from "../party-pile.js";
 import { FATIGUE_NAME } from "../item/item.js";
 import { castFromGrimoire, castScroll, grimoiresOn, pagesOfGrimoire, ensureGrimoireKey,
   groupPagesUnderBooks } from "../grimoire.js";
@@ -924,7 +924,14 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       : "∞";
     // Drop: an owner may put something on the floor. NOT on the pile itself,
     // where it would offer to move an item from the pile to the pile.
-    context.canDrop = this.actor.isOwner && !isDroppedPile(this.actor);
+    // NOT on a compendium actor either (review #33): `owned()` tests only
+    // `isEditable`, which an unlocked world pack passes, and the move would
+    // delete the item from the pack entry and create it in the party's world
+    // pile — reference content walked into play. The offer system draws the
+    // same line (`canReceiveOffer … && !actor.pack`).
+    context.canDrop = this.actor.isOwner && !this.actor.pack && !isDroppedPile(this.actor);
+    // The Drop tooltip names the pile by its CURRENT name (review #33).
+    context.pileName = pileDisplayName();
     // THE "where" NOTE SHOWS ON THE PILE AND NOWHERE ELSE — the one sheet where
     // the question "where did this come from" is being asked. Gating on the SHEET
     // rather than clearing the flag when the Warden hands something back leaves
@@ -2135,6 +2142,14 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     const tip = tipKey ? game.i18n.localize(k(tipKey)) : "";
     return foundry.applications.api.DialogV2.confirm({
       window: { title: game.i18n.localize(titleKey) },
+      // IN THE SHEET'S OWN WINDOW (review #33). Every sheet here offers Pop
+      // Out, and a dialog opened from a popped-out sheet used to land in the
+      // MAIN window — `_insertElement` appends to `options.window.host`'s
+      // document, and the host is set only from `windowId` (application.mjs
+      // 663-669, 952-978) — where `modal: true` then locked that window behind
+      // a dialog the player could not see. Core's journal sheet passes exactly
+      // this; undefined on an attached sheet, which is a no-op.
+      renderOptions: { window: { windowId: this.window?.windowId } },
       content: `<div class="cairn-confirm">${tip}${extra}<p class="cairn-confirm-q">${game.i18n.localize(k(questionKey))}</p></div>`,
       rejectClose: false,
       modal: true,
@@ -3870,7 +3885,8 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     const inner = document.createElement("div");
     inner.className = "cairn-drop-confirm";
     const ask = document.createElement("p");
-    ask.textContent = game.i18n.format("CAIRN.Pile.ConfirmDrop", { name: t("item.name", item.name) });
+    ask.textContent = game.i18n.format("CAIRN.Pile.ConfirmDrop",
+      { name: t("item.name", item.name), pile: pileDisplayName() });
     inner.append(ask, buildWhereField());
     content.append(inner);
     // THE LABELS ARE CORE'S OWN `COMMON.Yes` / `COMMON.No`, which is what
@@ -3886,7 +3902,11 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // nothing typed must still drop, exactly as it did yesterday.
     const answer = await foundry.applications.api.DialogV2.wait({
       classes: ["cairn-drop-dialog"],
+      // A TITLE (review #33): ApplicationV2's default is "", and this was the
+      // one unlabelled window in the feature.
+      window: { title: game.i18n.format("CAIRN.Pile.DropTitle", { name: t("item.name", item.name) }) },
       position: { width: 400 },
+      renderOptions: { window: { windowId: this.window?.windowId } },   // see _confirmAction
       content,
       buttons: [
         {
@@ -4549,6 +4569,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     if (!ration) {
       await foundry.applications.api.DialogV2.prompt({
         window: { title: game.i18n.localize("CAIRN.Rest") },
+        renderOptions: { window: { windowId: this.window?.windowId } },   // see _confirmAction
         content: `<div class="cairn-confirm"><p>${game.i18n.localize("CAIRN.RestNoRations")}</p></div>`,
         rejectClose: false,
         modal: true,
@@ -4570,6 +4591,14 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       items: [{ _id: ration.id, ...ration.spendUse() }],
       "system.hp.value": actor.system.hp.max,
     }, { abChangeLogAction: "CAIRN.Rest" });
+    // THE RATION'S OWN SHEET, if open, is re-rendered by hand (review #33): a
+    // parent write carrying `items` fires no item hooks and re-renders only the
+    // ACTOR's apps, so an open Rations sheet kept showing the old count — and
+    // with `submitOnChange` its next edit resubmitted the whole form, stale
+    // uses included, and the eaten ration came back. The collection re-uses
+    // the instance (`EmbeddedCollection#_initializeDocument` re-initializes an
+    // existing document), so its `apps` are still the sheets on screen.
+    for (const app of Object.values(actor.items.get(ration.id)?.apps ?? {})) app.render(false);
   }
 
   /** @this {CairnActorSheet} */
@@ -4643,25 +4672,31 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     const panicked = game.settings.get(SETTINGS_NS, "use-panic")
       && this.actor.system.panicked === true;
 
-    const answer = await askImprovisedAttack({ panicked });
+    const answer = await askImprovisedAttack({ panicked, windowId: this.window?.windowId });
     if (!answer) return;                    // dismissed or cancelled: roll nothing
 
     // The same three rules, in the same order, as the Warden's Damage field.
     // The `@` guard comes FIRST because `Roll.validate` stubs every `@ref` to 1
     // and then says yes to a formula the evaluator would silently gut.
     const typed = answer.formula;
-    if (!typed || typed.includes("@") || !Roll.validate(typed)) {
-      ui.notifications.warn(
-        game.i18n.format("CAIRN.Notify.WardenDamageBadFormula", { formula: typed || "" }));
-      return;
-    }
 
     // PANIC OVERRIDES WHATEVER WAS TYPED, and it is overridden HERE rather than
     // in the dialog: this is the one place that decides what gets rolled, and it
     // is also the place that stamps the panic badge on the card below, so the two
     // cannot disagree. The dialog's own note is what tells the player before they
     // type; this is the rule.
+    //
+    // AND IT IS APPLIED BEFORE THE FORMULA IS JUDGED (review #33): the three
+    // rules below used to run on `typed`, so a panicked player who cleared the
+    // field, or typed "fist", was refused with "not a damage roll" — the exact
+    // case the dialog's note had just promised could not fail. What is validated
+    // is what will be rolled.
     const base = panicked ? IMPROVISED_FORMULA : typed;
+    if (!base || base.includes("@") || !Roll.validate(base)) {
+      ui.notifications.warn(
+        game.i18n.format("CAIRN.Notify.WardenDamageBadFormula", { formula: base || "" }));
+      return;
+    }
 
     // The same gate #onRollDamage reads, and since 2026-10-03 no die is too
     // small: a panicked 1d4 explodes, and earns the maneuver line at its max,
