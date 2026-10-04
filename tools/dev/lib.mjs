@@ -267,35 +267,63 @@ export function watchErrors(page) {
   return errors;
 }
 
+/**
+ * Choose the user on the join form, whichever form this build renders.
+ *
+ * TWO SHAPES (measured 2026-10-04, the 0.1.24 post-publish leg). 14.365 — CT
+ * 123 and every probe run before that day — renders a `<select name="userid">`
+ * of every user. 14.368, the build `verified` names, replaced it with a typed
+ * `username` field inside `#join-game-form` and no list at all, so the helper
+ * waited thirty seconds for a select that never came and smoke could not log
+ * in. The page still carries `game.users`, so the name is read from there:
+ * the named user, or for the Warden the first GAMEMASTER (the select's first
+ * option, which this used to pick, is the same user on a fresh world).
+ *
+ * Wait for the CONTROL, not the network — the join form is rendered
+ * client-side and is routinely still absent at networkidle. That wait was once
+ * missing from `joinAsGM`, and two silent `return`s turned it into a 90-second
+ * hang: no user chosen, an empty form posted, the probe sitting on
+ * `game.ready`. It surfaced only when a probe re-joined mid-run
+ * (`dev:connections`), the first join being slow enough to render by itself.
+ *
+ * @param {import("playwright").Page} page
+ * @param {String|null} name  a User name, or null for the Warden
+ * @return {Promise<String|null>}  the name chosen, or null when there is none
+ */
+async function chooseJoinUser(page, name) {
+  await page.waitForSelector(
+    'select[name="userid"] option[value]:not([value=""]), #join-game-form input[name="username"]',
+    { state: "attached", timeout: 30000 });
+  return page.evaluate((name) => {
+    // 14.365: Foundry v14 hides <select> behind custom elements, so
+    // Playwright's selectOption() sees it as invisible. Drive the element.
+    const s = document.querySelector('select[name="userid"]');
+    if (s) {
+      const opt = [...s.options].find((o) => (name ? o.textContent.trim() === name : o.value));
+      if (!opt) return null;
+      s.value = opt.value;
+      s.dispatchEvent(new Event("change", { bubbles: true }));
+      return opt.textContent.trim();
+    }
+    // 14.368: a typed username and no list.
+    const field = document.querySelector('#join-game-form input[name="username"]');
+    const users = globalThis.game?.users?.contents ?? [];
+    const GM = globalThis.CONST?.USER_ROLES?.GAMEMASTER ?? 4;
+    const user = name ? users.find((u) => u.name === name)
+      : (users.find((u) => u.role === GM) ?? users[0]);
+    if (!field || !user) return null;
+    field.value = user.name;
+    field.dispatchEvent(new Event("input", { bubbles: true }));
+    field.dispatchEvent(new Event("change", { bubbles: true }));
+    return user.name;
+  }, name);
+}
+
 /** Join the world as the first available user (the Gamemaster on a fresh world). */
 export async function joinAsGM(page) {
   noteBrowser(page);
   await page.goto(`${FOUNDRY_URL}/join`, { waitUntil: "networkidle", timeout: 60000 });
-
-  // Wait for the CONTROL, not the network — the join form is rendered
-  // client-side and is routinely still absent at networkidle. This wait used to
-  // be missing here (it has always been in `joinAs` below), and the two silent
-  // `return`s underneath turned that into a 90-second hang with a useless
-  // message: no user got selected, the submit posted an empty form, and the
-  // probe sat on `game.ready` until the timeout. It survived because the FIRST
-  // join of a run is slow enough to have rendered by itself; the failure only
-  // appears when a probe closes a GM context and re-joins mid-run, which
-  // `dev:connections` is the first probe to do.
-  await page.waitForSelector('select[name="userid"] option[value]:not([value=""])', {
-    state: "attached", timeout: 30000,
-  });
-
-  // Foundry v14 hides <select> behind custom elements, so Playwright's
-  // selectOption() sees it as invisible. Drive the underlying element directly.
-  const picked = await page.evaluate(() => {
-    const s = document.querySelector('select[name="userid"]');
-    if (!s) return null;
-    const opt = [...s.options].find(o => o.value);
-    if (!opt) return null;
-    s.value = opt.value;
-    s.dispatchEvent(new Event("change", { bubbles: true }));
-    return opt.textContent.trim();
-  });
+  const picked = await chooseJoinUser(page, null);
   // Fail LOUDLY and immediately. Returning quietly here is what bought the
   // 90-second timeout above; a thrown error names the real problem.
   if (!picked) throw new Error("joinAsGM: the join form never offered a user");
@@ -320,22 +348,7 @@ export async function joinAsGM(page) {
 export async function joinAs(page, name) {
   noteBrowser(page);
   await page.goto(`${FOUNDRY_URL}/join`, { waitUntil: "networkidle", timeout: 60000 });
-  // The join form is rendered client-side, so it can still be absent at
-  // networkidle. Wait for the control itself rather than the network.
-  await page.waitForSelector('select[name="userid"] option[value]:not([value=""])', {
-    state: "attached", timeout: 30000,
-  });
-
-  const picked = await page.evaluate((name) => {
-    // v14 hides <select> behind custom elements — drive the underlying element.
-    const s = document.querySelector('select[name="userid"]');
-    if (!s) return null;
-    const opt = [...s.options].find((o) => o.textContent.trim() === name);
-    if (!opt) return null;
-    s.value = opt.value;
-    s.dispatchEvent(new Event("change", { bubbles: true }));
-    return opt.value;
-  }, name);
+  const picked = await chooseJoinUser(page, name);
   if (!picked) throw new Error(`joinAs: no user named "${name}" — run \`npm run dev:players\` first`);
 
   await page.locator('button[type="submit"][name="join"], form#join-game button[type="submit"]')

@@ -231,6 +231,12 @@ Full procedure in `RELEASE.md` and the `/release` skill. In summary:
 1. Install the **published** zip from the manifest URL into the `:30001` environment —
    not a local build. The point is to test what a user downloads.
 2. Create a fresh world, boot it, and run `FOUNDRY_URL=http://localhost:30001 npm run dev:smoke`.
+   A world folder made by hand is invisible to a server already at Setup until it
+   rescans (`POST /setup {"action":"resetPackages"}` from the setup page's own
+   session), and the launch then adds its Gamemaster. On 14.368 the join screen
+   is a typed username, not 14.365's user list; the probes' login helper handles
+   both since 2026-10-04 — before that, smoke could not log in to the build
+   `verified` names.
 3. **`FOUNDRY_URL=http://localhost:30001 npm run dev:upgrade`** — prove an EXISTING
    install survives the update, not just a fresh one. This is a post-publish step by
    necessity: it installs the previous release from its manifest and then updates to
