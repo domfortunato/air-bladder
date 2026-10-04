@@ -1028,8 +1028,14 @@ try {
           // Give and Drop rendering the same hand because nothing ever asked:
           // the two were byte-identical in the partial, one row apart. The family
           // prefix is dropped, since `fas` and `fa-solid` are the same font.
-          const marks = [...anyRow.querySelectorAll("a > i")]
-            .map((i) => [...i.classList].find((c) => c.startsWith("fa-") && c !== "fa-solid"))
+          // ONE MARK PER ANCHOR, not per glyph: a `d6 + d6` weapon's roll
+          // control is ONE anchor carrying two d6 glyphs by design, and a
+          // per-glyph read called that a collision the moment the last leg
+          // above left that weapon equipped (2026-10-04).
+          const marks = [...anyRow.querySelectorAll("a")]
+            .map((a) => [...a.querySelectorAll(":scope > i")]
+              .map((i) => [...i.classList].find((c) => c.startsWith("fa-") && c !== "fa-solid"))
+              .filter(Boolean).join("+"))
             .filter(Boolean);
           rowShape.marks = marks;
           rowShape.uniqueMarks = new Set(marks).size;
