@@ -236,10 +236,14 @@ try {
     // fixed sleep here also made both legs below meaningless: an unrendered
     // sheet yields false for EVERY item, so "absent on Fatigue" was green
     // precisely when nothing worked at all.
+    // ITEM rows only: the Improvised Attack row (2026-10-02) wears the same
+    // class at the top of every inventory and is not an item, so counting the
+    // class read 7 for six items and redded the 0.1.24 battery.
+    const ITEM_ROW = ".cairn-items-list-row[data-item-id]";
     let root = null;
     for (let i = 0; i < 60; i++) {
       root = giver.sheet.element;
-      if (root?.querySelectorAll(".cairn-items-list-row").length === giver.items.size) break;
+      if (root?.querySelectorAll(ITEM_ROW).length === giver.items.size) break;
       await new Promise((r) => setTimeout(r, 100));
       if (i === 20) await giver.sheet.render(true);
     }
@@ -248,7 +252,7 @@ try {
       const row = root?.querySelector(`.cairn-items-list-row[data-item-id="${i.id}"]`);
       per[i.name] = !!row?.querySelector('a[data-action="itemGive"]');
     }
-    return { rows: root?.querySelectorAll(".cairn-items-list-row").length ?? -1, per };
+    return { rows: root?.querySelectorAll(ITEM_ROW).length ?? -1, per };
   });
   // The precondition, asserted rather than assumed: without this the two legs
   // below can both be satisfied by a sheet that never rendered.

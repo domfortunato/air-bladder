@@ -106,6 +106,13 @@ try {
       genRolls: game.settings.get(NS, "show-generation-rolls"),
       grantTags: game.settings.get(NS, "show-grant-tags"),
     };
+    // The Warden's generation dice decide what a seeded re-roll lands on
+    // (18/18/18 is 3d6 at its maximum; Crawler's 2d6 + 3 tops out at 15), so
+    // they are SET to their registered defaults, never assumed: the 0.1.24
+    // battery redded the partial leg on a dev world a Warden had been testing
+    // them in (2026-10-04).
+    const PC_DICE = ["pc-ability-dice", "pc-hp-formula", "pc-gold-dice"];
+    const diceWas = Object.fromEntries(PC_DICE.map((k) => [k, game.settings.get(NS, k)]));
     const origUniform = CONFIG.Dice.randomUniform;
     let emptyOmens = null;
     try {
@@ -113,6 +120,10 @@ try {
       await game.settings.set(NS, "barebones-failed-career", true);
       await game.settings.set(NS, "show-generation-rolls", true);
       await game.settings.set(NS, "show-grant-tags", true);
+      for (const k of PC_DICE) {
+        const initial = game.settings.settings.get(`${NS}.${k}`).default;
+        if (diceWas[k] !== initial) await game.settings.set(NS, k, initial);
+      }
 
       // A 2e character generated FROM a chosen background — the chosen-
       // provenance path, and Fieldwarden's two bonds make the bond re-deal
@@ -628,6 +639,9 @@ try {
       await game.settings.set(NS, "barebones-failed-career", was.failedCareer);
       await game.settings.set(NS, "show-generation-rolls", was.genRolls);
       await game.settings.set(NS, "show-grant-tags", was.grantTags);
+      for (const k of PC_DICE) {
+        if (game.settings.get(NS, k) !== diceWas[k]) await game.settings.set(NS, k, diceWas[k]);
+      }
       const plantedIds = new Set(made.map((a) => a.id));
       for (const a of made) { try { await a.delete(); } catch { /* already gone */ } }
       // The probe's own chat cards go with its actors.

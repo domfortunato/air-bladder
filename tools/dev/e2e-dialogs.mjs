@@ -338,6 +338,26 @@ const installQualityHelpers = async () => page.evaluate(async () => {
   window.__ab = {
     settle: (ms) => new Promise((r) => setTimeout(r, ms)),
     /**
+     * The optional combat rules rewrite a PC's damage formula (`1d12` →
+     * `1d12x`), so every roll in this section runs with them SET OFF, never
+     * assumed off — the 0.1.24 battery redded the enhanced, standard and panic
+     * legs on a dev world a Warden had been testing them in (2026-10-04). Each
+     * roll puts them back before it returns, the way it does use-panic.
+     */
+    combatOff: async () => {
+      const was = {};
+      for (const key of ["exploding-damage-dice", "maneuver-on-max-damage"]) {
+        was[key] = game.settings.get("air-bladder", key);
+        if (was[key]) await game.settings.set("air-bladder", key, false);
+      }
+      return was;
+    },
+    combatRestore: async (was) => {
+      for (const [key, value] of Object.entries(was ?? {})) {
+        if (value) await game.settings.set("air-bladder", key, value);
+      }
+    },
+    /**
      * Wait until NO dialog is left in the DOM.
      *
      * Call before opening the next one. A closing DialogV2 lingers for its
@@ -476,6 +496,7 @@ const rollWith = async (choice) => page.evaluate(async ({ id, choice }) => {
   const actor = game.actors.get(id);
   const panicWas = game.settings.get("air-bladder", "use-panic");
   if (panicWas) await game.settings.set("air-bladder", "use-panic", false);
+  const combatWas = await window.__ab.combatOff();
   // The previous roll's dialog must be off the DOM first, or every click below
   // lands on it instead.
   const priorGone = await gone();
@@ -507,6 +528,7 @@ const rollWith = async (choice) => page.evaluate(async ({ id, choice }) => {
   };
   await card?.delete();
   if (panicWas) await game.settings.set("air-bladder", "use-panic", true);
+  await window.__ab.combatRestore(combatWas);
   return out;
 }, { id: actorId, choice });
 
@@ -523,6 +545,7 @@ const panicRoll = await page.evaluate(async ({ id }) => {
   const actor = game.actors.get(id);
   const panicWas = game.settings.get("air-bladder", "use-panic");
   if (!panicWas) await game.settings.set("air-bladder", "use-panic", true);
+  const combatWas = await window.__ab.combatOff();
   await actor.update({ "system.panicked": true });
   const priorGone = await gone();
 
@@ -558,6 +581,7 @@ const panicRoll = await page.evaluate(async ({ id }) => {
   await card?.delete();
   await actor.update({ "system.panicked": false });
   if (!panicWas) await game.settings.set("air-bladder", "use-panic", false);
+  await window.__ab.combatRestore(combatWas);
   return out;
 }, { id: actorId });
 

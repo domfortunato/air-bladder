@@ -1551,8 +1551,17 @@ try {
         if (!dialog) return false;
         const root = dialog.element;
         fill(root);
+        const name = root.querySelector("[name=name]").value;
+        const t0 = Date.now();
         root.querySelector('button[data-action="add"]').click();
-        await new Promise((r) => setTimeout(r, 500));
+        // WAIT FOR THE PAGE, not a fixed half second (2026-10-04): on CT 123 the
+        // journal write had not landed by 500ms, so the grid rendered without the
+        // event and two legs read no marks for an event that existed a moment
+        // later. Polled on the page itself, the thing the grid reads.
+        const landed = () => game.journal.contents.some((j) => j.pages.some((p) => p.name === name));
+        for (let i = 0; i < 100 && !landed(); i++) await new Promise((r) => setTimeout(r, 100));
+        (out.addMs ??= {})[name] = landed() ? Date.now() - t0 : null;
+        await new Promise((r) => setTimeout(r, 200));
         return true;
       };
 
@@ -1626,8 +1635,8 @@ try {
       : fail("the add-event dialog", JSON.stringify(evented));
 
     JSON.stringify(evented.marked) === JSON.stringify([true, true, true]) && !evented.notMarked
-      ? ok("...and a three-day event marks exactly its three days")
-      : fail("the event's days", JSON.stringify({ marked: evented.marked, next: evented.notMarked }));
+      ? ok("...and a three-day event marks exactly its three days", `page landed in ${evented.addMs?.["ZZ Probe Moot"]}ms`)
+      : fail("the event's days", JSON.stringify({ marked: evented.marked, next: evented.notMarked, addMs: evented.addMs }));
 
     evented.panel === "ZZ Probe Moot" && /Afternoon Watch/.test(evented.panelWatch)
       ? ok("...with the panel naming it and the watch it happens in", evented.panelWatch)
