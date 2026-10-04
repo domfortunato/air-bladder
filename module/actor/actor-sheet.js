@@ -4149,22 +4149,15 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       if (quality === null) return; // dismissed: roll nothing
     }
     // THE OPTIONAL COMBAT RULES, through the ONE gate (`combatDamageFormula`,
-    // utils.js): a player character's die explodes at roll time, or — with a
-    // maneuver on offer — is rolled plain so the card can ask. Called AFTER the
-    // quality substitution and after the dialog, for the reasons its docblock
-    // states. NO DIE-SIZE FLOOR since 2026-10-03 (user ruling): an impaired 1d4
-    // is judged like any other die. Melee-only is the one rule the maneuver
-    // half keeps, and it is read here, where the item is.
+    // utils.js): a player character's die explodes at roll time when that
+    // option is on, and the card is marked for the maneuver line when that one
+    // is. Called AFTER the quality substitution and after the dialog, for the
+    // reasons its docblock states. NO DIE-SIZE FLOOR since 2026-10-03 (user
+    // ruling): an impaired 1d4 is judged like any other die. Melee and ranged
+    // are the same to both since the night of 2026-10-03.
     const base = damageFormulaFor(quality, dataset.roll);
-
-    // The row carries the id; the control itself carries only the formula and the
-    // label. A non-weapon with a damage formula (an armor's horns) has no `ranged`
-    // field at all, and reads as melee — which is what it is.
-    const rolledItem = this.actor.items.get(
-      event.target?.closest("[data-item-id]")?.dataset.itemId);
     const { formula, maneuver: mayManeuver } = combatDamageFormula(base, {
       pc: this.actor.type === "character",
-      melee: rolledItem?.system?.ranged !== true,
     });
 
     const roll = await evaluateFormula(formula, this.actor.getRollData());
@@ -4195,9 +4188,9 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
         // rebuild the line for a card that never got a target.
         panic: panicked,
         // The ONE thing the render hook cannot work out for itself: that this was
-        // a player character's melee attack and the option was on when the die was
-        // thrown. Die size and "did it roll its max" are both in the stored roll,
-        // so the hook reads those rather than trusting a datum for them.
+        // a player character's attack and the maneuver option was on when the die
+        // was thrown. Die size and "did it roll its max" are both in the stored
+        // roll, so the hook reads those rather than trusting a datum for them.
         maneuver: mayManeuver,
       }
     );
@@ -4636,10 +4629,8 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    * template hides the button from a non-owner as the affordance; this is the
    * refusal behind it.
    *
-   * THE OPTIONAL COMBAT RULES FALL OUT WITH NO NEW RULES. There is no item,
-   * so there is no `ranged` field, and `combatDamageFormula` is asked exactly
-   * as `#onRollDamage` asks it — an unarmed attack is melee by nature, which is
-   * the answer that gate would give anyway.
+   * THE OPTIONAL COMBAT RULES FALL OUT WITH NO NEW RULES: `combatDamageFormula`
+   * is asked exactly as `#onRollDamage` asks it.
    *
    * @this {CairnActorSheet}
    */
@@ -4672,12 +4663,11 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // type; this is the rule.
     const base = panicked ? UNARMED_FORMULA : typed;
 
-    // No item, so no `ranged` field: this reads as MELEE, which is what an
-    // unarmed attack is. The same gate #onRollDamage reads, and since 2026-10-03
-    // no die is too small: a panicked 1d4 explodes, or offers a maneuver, like
-    // any other.
+    // The same gate #onRollDamage reads, and since 2026-10-03 no die is too
+    // small: a panicked 1d4 explodes, and earns the maneuver line at its max,
+    // like any other.
     const { formula, maneuver: mayManeuver } = combatDamageFormula(base, {
-      pc: this.actor.type === "character", melee: true,
+      pc: this.actor.type === "character",
     });
 
     const roll = await evaluateFormula(formula, this.actor.getRollData());

@@ -15,7 +15,7 @@ import { Cairn } from "./config.js";
 import { CairnCombat, CairnCombatTracker, registerCombatOrderGuard, markInitiativeOutcome } from "./combat.js";
 import { handleOfferSocket, bindOfferCard } from "./item-offer.js";
 import { createCairnMacro, rollItemMacro } from "./macros.js";
-import { Damage, DAMAGE_APPLIED_FLAG, DAMAGE_SOURCE_FLAG, MANEUVER_CHOICE_FLAG, localizeDamageCard } from "./damage.js";
+import { Damage, DAMAGE_APPLIED_FLAG, DAMAGE_SOURCE_FLAG, localizeDamageCard } from "./damage.js";
 import { registerWardenDamageControl } from "./warden-damage.js";
 import { registerWardenDashboardControl, refreshDashboardTime, localizeDashboardCard } from "./warden-dashboard.js";
 import { handlePileSocket, localizePileCard, PILE_DROP_ACTION, askWhatToDrop, dropItemToPile } from "./party-pile.js";
@@ -29,7 +29,7 @@ import { connectionHeadroom, connectedOwnershipShape, syncPendingOwnership, OWNE
 import { loadContentOverlay, t, translationOf, contentLocalized, tokenDisplayName, actorDisplayName, LOCALIZED_DIRECTORIES, localizeJournalBlocks } from "./i18n-content.js";
 import { injectEncounterButton, localizeEncounterQty, resolveTable } from "./encounters.js";
 import { bindGrimoireFatigueButton, localizeGlogCastCard } from "./grimoire.js";
-import { nameableTokens, DAMAGE_QUALITY_KEYS, localizeD20Card, localizeRollFlavor, combatOption, damageDiceIcons } from "./utils.js";
+import { nameableTokens, DAMAGE_QUALITY_KEYS, localizeD20Card, localizeRollFlavor, damageDiceIcons } from "./utils.js";
 
 /**
  * The Fatigue instead of Critical Damage option: the save card's choice, once
@@ -3073,7 +3073,7 @@ const nameExplodedDice = (message, html) => {
  *
  * `Roll#dice` flattens a PoolTerm into its members' dice, so a `+` formula comes
  * back with two or more and this answers null — which is the same boundary
- * `damageDie` draws in utils.js, and for the same reason: on a pool the losing
+ * `judgedDie` draws in utils.js, and for the same reason: on a pool the losing
  * member may ALSO have rolled its maximum, and nothing here can tell a kept
  * member from a dropped one without walking `PoolTerm#results`.
  */
@@ -3081,33 +3081,6 @@ const soleDie = (roll) => {
   const dice = roll?.dice ?? [];
   return dice.length === 1 ? dice[0] : null;
 };
-
-/**
- * The maneuver option: offer Explode the Die / Maneuver on a max melee damage
- * roll, and show what was chosen.
- *
- * BUILT HERE AND NOT IN THE TEMPLATE, for the reason `offerUntargetedApply`
- * already records: the card's markup is rendered once and STORED as the flavor,
- * so a button with a localized label would freeze in the roller's language for
- * good. The template emits one silent datum (`data-maneuver`) and this builds the
- * controls per viewer.
- *
- * WHAT COMES FROM WHERE. The datum carries the only thing a card cannot be asked:
- * that this was a player character's MELEE attack with the option on when the die
- * was thrown. Everything else is read back off the stored roll — that it was a
- * single die and that it rolled its maximum — so neither can drift from what
- * actually happened, and the single-die test is re-asked here FAIL-CLOSED
- * rather than trusted from the producer. There is no die-size test since
- * 2026-10-03: every die qualifies (user ruling).
- *
- * THE GATE IS `isAuthor || isGM`, and it is deliberately NOT the Fatigue button's
- * actor-based test. Both controls here write to the MESSAGE — one rewrites
- * `rolls`, the other sets a flag — and a ChatMessage makes its AUTHOR the owner
- * (common/documents/chat-message.mjs, `getUserLevel`), with `update` defaulting to
- * OWNER. A player who owns the character but did not roll is not the author, so an
- * actor-based gate would offer them a button the server refuses. The roller is the
- * author and a GM owns everything, so no broker is involved.
- */
 
 /**
  * A check on the control that was taken (user ruling 2026-10-02).
@@ -3118,9 +3091,9 @@ const soleDie = (roll) => {
  * refuses the drop never pressed Mark Critical Damage, so the tick is the only
  * thing on screen telling them what happened instead.
  *
- * MODULE SCOPE, not a closure, because TWO pairs draw it now — the maneuver pair
- * and the save card's Fatigue pair — and one notion deserves one spelling. It was
- * a local inside `nameManeuverChoice` while that was the only caller.
+ * MODULE SCOPE: it was shared with a maneuver pair for the day maneuvers were a
+ * choice on the card (2026-10-02/03); the save card's Fatigue pair is its one
+ * caller now.
  *
  * DRAWN FROM THE FLAG, per viewer: nothing about it is stored, so it is right in
  * every language and on every client that loads the card later. An `<i>` rather
@@ -3135,179 +3108,44 @@ const markChoiceTaken = (btn) => {
   btn.prepend(tick);
 };
 
-const nameManeuverChoice = (message, html) => {
-  // An explosion and a max-damage roll both REVEAL the die's face, so this asks
-  // the same question localizeD20Card asks first.
+/**
+ * The maneuver option: one line on a damage card whose die rolled its maximum,
+ * saying the player may also attempt a maneuver. The damage stands.
+ *
+ * A LINE, NOT A CHOICE (the night of 2026-10-03, user: "They get the damage AND
+ * they are offered a maneuver ... the decision tree should be removed from the
+ * chat"). For a day this was `nameManeuverChoice`: the card offered Explode the
+ * Die / Use a Maneuver!, a maneuver FORWENT the damage and Apply refused it,
+ * and Apply was withheld until one was pressed. All of that went — exploding,
+ * when on, now happens at roll time (`combatDamageFormula`).
+ *
+ * `nameExplodedDice`'s shape, line for line: per viewer, so nothing stored can
+ * freeze a language; `isContentVisible` FIRST, because a maximum REVEALS the
+ * die's face; idempotent, because the hook fires on every render; appended
+ * after the explosion lines. The template emits one silent datum
+ * (`data-maneuver`: a player character's roll with the option on when it was
+ * thrown, on a formula the recogniser accepts); everything else is read back
+ * off the stored roll, fail-closed. An EXPLODED maximum is still an active
+ * maximum, so the test must not exclude exploded results — the choice's old
+ * test did, because there an exploded die had already been decided.
+ *
+ * No author gate: it is information, like the explosion lines, and every
+ * viewer who may read the roll may read this.
+ */
+const nameManeuverAvailable = (message, html) => {
   if (!message?.isContentVisible) return;
   if (!html.querySelector("[data-maneuver]")) return;   // not an eligible card
   const row = html.querySelector(".flavor-dice-roll");
   if (!row) return;
-
-  const choice = message.getFlag(FLAG_SCOPE, MANEUVER_CHOICE_FLAG) ?? null;
-
-  // The outcome, once something has been chosen. Printed for the FORGONE case
-  // only: an exploded die already says so in its own lines, and a second sentence
-  // repeating it would be noise.
-  if (choice === "maneuver") {
-    const btn = html.querySelector(".apply-dmg");
-    if (btn) {
-      // Affordance only — the refusal lives in onClickChatMessageApplyButton,
-      // which reads this same flag. `.apply-dmg` is an anchor, so `disabled` is
-      // decoration here and the handler is the wall.
-      btn.classList.add("spent");
-      btn.setAttribute("disabled", "disabled");
-      btn.dataset.tooltip = game.i18n.localize("CAIRN.Notify.DamageForgoneForManeuver");
-    }
-    if (!row.querySelector(".dmg-forgone")) {
-      const line = document.createElement("div");
-      line.className = "dmg-forgone";
-      line.textContent = game.i18n.localize("CAIRN.Crawler.DamageForgone");
-      row.append(line);
-    }
-    // NOT a return: the pair is still rendered below, DISABLED. A spent control
-    // that stays on screen is the affordance this codebase uses everywhere else
-    // (the grimoire's Fatigue card, Mark Critical Damage), and it is what tells
-    // somebody scrolling back what was on offer and that it was taken. Returning
-    // here made an exploded card simply LOSE its buttons, because a completed
-    // chain leaves no un-exploded maximum for the eligibility test to find.
-  }
-
-  const roll = message.rolls?.[0];
-  const die = soleDie(roll);
+  if (row.querySelector(".dmg-maneuver-line")) return;
+  const die = soleDie(message.rolls?.[0]);
   const faces = Number(die?.faces);
-  // FAIL-CLOSED: one Die term with a real face count, or nothing is offered.
-  // There is NO die-size floor since 2026-10-03 (user ruling, both halves of
-  // the hack); `faces < 1` guards only a die that could never roll a maximum.
   if (!die || !Number.isFinite(faces) || faces < 1) return;
-  // The kept die, having rolled its maximum and not yet exploded. A completed
-  // chain ends on a result BELOW the maximum — that is why it stopped — so this
-  // finds nothing once Explode has been pressed, which is a second guard beside
-  // the flag.
-  const maxResult = (die.results ?? []).find(
-    (r) => r?.active && r.result === faces && !r.exploded);
-  // APPLY IS WITHHELD WHILE THE CHOICE IS PENDING (user ruling 2026-10-02). The
-  // damage on the card is not yet the damage: Explode will raise it and Maneuver
-  // forgoes it entirely, so a control that spends the number before either
-  // happened is offering to apply a provisional total. It comes back the moment
-  // something is chosen — live after Explode, greyed with the forgone tooltip
-  // after Maneuver.
-  //
-  // REMOVED, not hidden, and that is safe because this hook rebuilds the card's
-  // DOM from the stored flavor on EVERY render: there is nothing to restore
-  // later, the next render simply builds it again with `pending` false.
-  //
-  // ASKED BEFORE THE AUTHOR GATE BELOW, deliberately. Who may press the two
-  // buttons and whether the card is resolved are different questions, and a
-  // Warden who did not roll must not be handed Apply just because the pair is
-  // not theirs to press.
-  //
-  // If nobody ever chooses, Apply never appears. That is the roll being
-  // genuinely unresolved rather than a lockout: the buttons are offered to the
-  // author and to every GM, so a Warden can always resolve a card themselves.
-  if (maxResult && !choice) {
-    html.querySelector(".apply-dmg")?.remove();
-  }
-
-  // Eligible if the kept die is sitting on its maximum — OR if a choice is
-  // already recorded, in which case this card WAS eligible and the pair must
-  // still render so it can be shown spent. The second half is load-bearing for
-  // the exploded case, as the note above the forgone branch explains.
-  if (!maxResult && !choice) return;
-
-  if (!(message.isAuthor || game.user.isGM)) return;
-
-  const wrap = document.createElement("div");
-  wrap.className = "dmg-maneuver-choice";
-  const make = (cls, labelKey, tipKey) => {
-    const b = document.createElement("button");
-    b.type = "button";
-    b.className = cls;
-    // A BARE KEY: core's TooltipManager localizes `data-tooltip` at hover, which
-    // is how the save card's Fatigue button states its own cost.
-    b.dataset.tooltip = tipKey;
-    b.textContent = game.i18n.localize(labelKey);
-    return b;
-  };
-  // Explode is offered only while that option is on; Maneuver always is, because
-  // the datum would not be on the card otherwise. `|| choice === "explode"` is
-  // what keeps a DECIDED card honest: switch the option off afterwards and the
-  // card still has to be able to show which of the two was taken, or its check
-  // mark would have nothing to sit on.
-  const explodeBtn = combatOption("exploding-damage-dice") || choice === "explode"
-    ? make("explode-the-die", "CAIRN.Crawler.ExplodeButton", "CAIRN.Crawler.ExplodeButtonTip")
-    : null;
-  const maneuverBtn = make("take-maneuver", "CAIRN.Crawler.ManeuverButton",
-    "CAIRN.Crawler.ManeuverButtonTip");
-
-  const seal = () => {
-    explodeBtn?.setAttribute("disabled", "disabled");
-    maneuverBtn.setAttribute("disabled", "disabled");
-  };
-
-  // Already decided: render the pair sealed and bind nothing. The flag is the
-  // enforcement either way, but an unbound disabled button cannot be re-armed by
-  // a devtools toggle.
-  if (choice) {
-    seal();
-    markChoiceTaken(choice === "explode" ? explodeBtn : maneuverBtn);
-    if (explodeBtn) wrap.append(explodeBtn);
-    wrap.append(maneuverBtn);
-    row.append(wrap);
-    return;
-  }
-
-  if (explodeBtn) {
-    explodeBtn.onclick = async () => {
-      // SEAL SYNCHRONOUSLY, before the first await. The dice animation is seconds
-      // long — the widest double-click window in this codebase — and the take-over
-      // doors already paid for this lesson once.
-      if (message.getFlag(FLAG_SCOPE, MANEUVER_CHOICE_FLAG)) return;
-      seal();
-      // Rolled as a REAL Roll for two reasons: core supplies the recursion and the
-      // `exploded` flags, and Dice So Nice needs something to animate.
-      const chain = await new Roll(`1d${faces}x`).evaluate();
-      // DSN ANIMATES AN UPDATE ONLY WHEN THE ROLL COUNT GROWS — measured in 6.2.9:
-      // its updateChatMessage hook requires `dsnCountAddedRoll > 0` and animates
-      // `rolls.slice(dsnIndexAddedRoll)`. This rewrites one roll IN PLACE, so the
-      // count does not change and DSN would show nothing at all. Hence the
-      // explicit call — and `synchronize` (argument 3) MUST be true, or the dice
-      // land on this client alone, which a Warden testing solo cannot tell apart
-      // from working (the trap character-generator.js:3804 already records).
-      // Undefined without DSN, and `await undefined` resolves at once.
-      await game.dice3d?.showForRoll(
-        chain, game.user, true, null, false, message.id, message.speaker);
-      // Merge the chain into the stored die: the kept maximum EXPLODED, and the
-      // chain's own results join it as active results of the same term.
-      maxResult.exploded = true;
-      die.results.push(...(chain.dice?.[0]?.results ?? []));
-      // So the card's formula stops claiming a plain `2d6k`. `Roll#formula`
-      // derives from the terms, and `resetFormula()` is core's own way of bringing
-      // the stored `_formula` back into step with them.
-      if (!die.modifiers.some((m) => /^x/i.test(m))) die.modifiers.push("x");
-      roll.resetFormula();
-      // MANDATORY: `Roll.fromData` TRUSTS the stored total and never recomputes
-      // it, so without this every later reader — the Apply path included, which
-      // parses `.dice-total` off the rendered card — keeps the pre-explosion
-      // number. `_evaluateTotal` is what `Roll.fromTerms` itself calls here.
-      roll._total = roll._evaluateTotal();
-      await message.update({ rolls: [roll.toJSON()] });
-      await message.setFlag(FLAG_SCOPE, MANEUVER_CHOICE_FLAG, "explode");
-    };
-  }
-
-  maneuverBtn.onclick = async () => {
-    if (message.getFlag(FLAG_SCOPE, MANEUVER_CHOICE_FLAG)) return;
-    seal();
-    // NOTHING ELSE IS AUTOMATED. The maneuver itself is an ability check the
-    // Warden calls for, and the no-automation deviation keeps that at the table.
-    // All this records is that the damage was given up, which is what greys the
-    // Apply control and what that control's handler refuses on.
-    await message.setFlag(FLAG_SCOPE, MANEUVER_CHOICE_FLAG, "maneuver");
-  };
-
-  if (explodeBtn) wrap.append(explodeBtn);
-  wrap.append(maneuverBtn);
-  row.append(wrap);
+  if (!(die.results ?? []).some((r) => r?.active && r.result === faces)) return;
+  const line = document.createElement("div");
+  line.className = "dmg-maneuver-line";
+  line.textContent = game.i18n.localize("CAIRN.Crawler.ManeuverAvailable");
+  row.append(line);
 };
 
 /**
@@ -3791,10 +3629,9 @@ Hooks.on("renderChatMessageHTML", (message, html, data) => {
   // appends to it — but it rides before the player-trim like its siblings,
   // because a player watching their own die explode is the point of it.
   nameExplodedDice(message, html);
-  // The maneuver option's max-melee-damage choice. AFTER nameExplodedDice, so an
-  // already-exploded card shows its lines above the buttons, and BEFORE the
-  // Warden-only apply block below, whose anchor this may grey.
-  nameManeuverChoice(message, html);
+  // The maneuver option's line, AFTER nameExplodedDice so it reads beneath an
+  // exploded die's lines.
+  nameManeuverAvailable(message, html);
   // Before showDamageApplied, which replaces this tooltip on a spent card —
   // see its docblock.
   relabelApplyTooltip(html);

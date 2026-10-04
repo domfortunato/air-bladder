@@ -172,7 +172,7 @@ export const damageFormulaFor = (quality, standardFormula) =>
 
 /**
  * Is one of the three optional combat rules on? (`exploding-damage-dice`,
- * `fatigue-for-critical-damage`, `maneuver-on-max-melee`.)
+ * `fatigue-for-critical-damage`, `maneuver-on-max-damage`.)
  *
  * A plain read, NO MASTER (2026-10-03, user). For a day this was
  * `crawlerOption`, which ANDed in a "Crawler Combat Mode" master; the master
@@ -229,11 +229,11 @@ const KEEP_DIE = /^(\d*)d(\d+)k[hl]?\d*$/i;
  * assert the reversal, and a table without them is how the first ruling
  * shipped unexamined.
  *
- * MELEE-ONLY IS NOT DECIDED HERE. The one place the two options still differ
- * is that a ranged weapon never offers a maneuver (user ruling, same day: "I
- * don't want maneuvers to be available on ranged attack rolls"); that is the
- * `melee` argument of `combatDamageFormula` below, read off the item's
- * `ranged` field by each caller, because a formula cannot know what threw it.
+ * MELEE AND RANGED ARE THE SAME TO BOTH OPTIONS since the night of
+ * 2026-10-03. For a day a ranged weapon never offered a maneuver ("I don't want
+ * maneuvers to be available on ranged attack rolls"); when the maneuver became a
+ * line on the card rather than a choice that cost the damage, the user let
+ * ranged attacks have it too. The weapon's `ranged` field stays, read by nothing.
  *
  * @param {String} formula
  * @return {{formula: String, faces: Number, count: Number}|null}
@@ -291,7 +291,7 @@ export const explodingDamageFormula = (formula) => {
 
 /**
  * What a damage roll BECOMES under the optional combat rules, and whether the
- * card should offer a maneuver — the ONE gate the three player-character damage
+ * card may say a maneuver is possible — the ONE gate the three player-character damage
  * sites read (`actor-sheet.js` `#onRollDamage` and `#onUnarmedAttack`,
  * `macros.js` `rollItemMacro`). It was spelled three times, and the d6 floor
  * had to be removed from all three on the same afternoon; a gate written once
@@ -299,15 +299,20 @@ export const explodingDamageFormula = (formula) => {
  *
  * - Not a player character: the formula unchanged, nothing offered. The
  *   Warden's Damage tool never reaches here at all (a trap has no actor).
- * - EXPLODING IS OPT-IN WHEN A MANEUVER IS ON OFFER: with the option on and a
- *   melee die the recogniser accepts, the roll is made PLAIN — as
+ * - The exploding option, if on, explodes AT ROLL TIME, always — melee,
+ *   ranged, maneuver or not.
+ * - The maneuver option, if on and the formula is one the recogniser accepts,
+ *   marks the card (`maneuver: true` → `data-maneuver`); a die that rolls its
+ *   maximum then gets one line saying a maneuver is also possible
+ *   (`nameManeuverAvailable`, cairn.js). With exploding OFF the roll is made as
  *   `judgedDie`'s formula, so a `d6 + d6` weapon is rolled as `2d6k` and the
- *   card can judge one term — and the player chooses on the card between
- *   exploding the die and forgoing the damage. The chain must not be resolved
- *   here.
- * - Otherwise (ranged, the maneuver option off, or a shape nobody recognises)
- *   the exploding option, if on, explodes at roll time: the behaviour that
- *   shipped first.
+ *   card can judge one term.
+ *
+ * NO CHOICE ANY MORE (the night of 2026-10-03, user: "They get the damage AND
+ * they are offered a maneuver"). For a day a maneuver COST the damage: with
+ * both options on a melee max was rolled plain and the card offered Explode the
+ * Die / Use a Maneuver!, withholding Apply until one was pressed. All of that
+ * went; the damage always stands.
  *
  * Called AFTER the quality substitution, so an ENHANCED roll (1d12) and an
  * IMPAIRED one (1d4) are each judged on the die they actually roll rather than
@@ -319,18 +324,16 @@ export const explodingDamageFormula = (formula) => {
  * @param {String} base       the formula after the quality substitution
  * @param {Object} [o]
  * @param {Boolean} [o.pc]    a player character's roll
- * @param {Boolean} [o.melee] not a ranged weapon; the unarmed route is melee
  * @return {{formula: String, maneuver: Boolean}}
  */
-export const combatDamageFormula = (base, { pc = false, melee = true } = {}) => {
+export const combatDamageFormula = (base, { pc = false } = {}) => {
   if (!pc) return { formula: base, maneuver: false };
   const judged = judgedDie(base);
-  const maneuver = melee && judged !== null && combatOption("maneuver-on-max-melee");
-  if (maneuver) return { formula: judged.formula, maneuver: true };
-  return {
-    formula: combatOption("exploding-damage-dice") ? explodingDamageFormula(base) : base,
-    maneuver: false,
-  };
+  const maneuver = judged !== null && combatOption("maneuver-on-max-damage");
+  const formula = combatOption("exploding-damage-dice") ? explodingDamageFormula(base)
+    : maneuver ? judged.formula
+    : base;
+  return { formula, maneuver };
 };
 
 /**
@@ -752,9 +755,9 @@ export const d20CardBody = ({ formula, rolled, failed, crit, fatigue }) => {
   // Critical Damage Buttons are in fact stacked and they should be side by
   // side"). They had no CSS at all, which is the whole reason two block-level
   // buttons sat in a column — and a column reads as a list of things to do in
-  // order, where a row says "either of these". `.dmg-choice-row` is the class the
-  // maneuver pair's flex rule now also carries, so one rule lays out both pairs
-  // rather than a copy that can drift.
+  // order, where a row says "either of these". `.dmg-choice-row` carries the
+  // flex rule (it laid out a maneuver pair too, for the day maneuvers were a
+  // choice on the card).
   //
   // A ROW OF ONE IS FINE: with the Fatigue option off a crit card carries only
   // Mark Critical Damage, and the wrapper then holds a single button.

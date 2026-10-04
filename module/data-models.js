@@ -681,8 +681,11 @@ class ItemData extends CairnDataModel {
  * A weapon.
  *
  * `ranged` IS THE FIRST THING THIS SYSTEM HAS HAD TO INVENT ABOUT A WEAPON, and
- * it exists for exactly one rule: the optional Maneuver on max melee
- * damage (2026-10-02). Cairn 2e does not distinguish melee from ranged anywhere
+ * NOTHING READS IT since the night of 2026-10-03. It existed for one rule —
+ * "Maneuver on max melee damage" (2026-10-02), which never offered a ranged
+ * attack a maneuver — and when the maneuver became a line on the card that
+ * ranged attacks get too, the user kept the field anyway ("Yes, ranged too;
+ * keep the field") for a later rule. Cairn 2e does not distinguish melee from ranged anywhere
  * — there is no SRD datum to read — so the alternative was matching the weapon's
  * NAME, which fails on a Warden's homebrew and fails again on a Spanish client,
  * where the content overlay has already translated it.

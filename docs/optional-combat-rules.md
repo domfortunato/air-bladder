@@ -101,12 +101,11 @@ the one that was taken.
 The choice appears on a card only if the option was on when the save was rolled.
 Turning the option off later does not retract a choice already on screen.
 
-## Maneuver on max melee damage
+## Maneuver on max damage
 
-Tick **Maneuver on max melee damage** and a player character who rolls the
-**highest face** of their damage die with a **melee** weapon is offered a choice
-on the chat card: keep the damage, or give all of it up and attempt a
-**maneuver** instead.
+Tick **Maneuver on max damage** and when a player character's damage die rolls
+its **highest face**, the damage stands as rolled and the chat card adds a line:
+*Maximum damage! You may also attempt a maneuver.*
 
 A maneuver is anything the Warden agrees is plausible in the moment — the sort of
 thing that changes the situation rather than the enemy's Hit Protection. It is
@@ -114,43 +113,27 @@ resolved with an ability check the Warden calls for, and it causes no damage
 directly. This is borrowed from **Knave 2e** by Ben Milton, which lists the usual
 examples; the system deliberately does not reprint them.
 
-**Press Maneuver and the damage is forgone.** The card says so, and the
-Apply-damage control is greyed and refuses — the player traded that damage for the
-attempt, so the card cannot also spend it. If you rule that some of it lands
-anyway, the **Warden's Damage** tool is the right instrument for a number the dice
-did not decide.
+**The damage is not the price.** Apply it as usual; the maneuver comes on top.
+There is no choice to make on the card and nothing to press.
 
-**With Exploding damage dice also on, the card asks which.** The die has rolled
-its maximum, so the player may either let it **Explode the Die** — rolling the
-chain then and there, with the dice animating and the card's total rewritten — or
-**Maneuver** and forgo the lot. That is the whole bet: more damage, or a chance to
-change the situation. The hover text on each button says what it does.
+**With Exploding damage dice also on, both happen.** The die explodes when it is
+rolled, the chain is added to the damage, and the line is still there — a die
+that rolled its maximum and then exploded still rolled its maximum.
 
-Note what that means for the roll itself: when both options are on, a melee
-attack's die does **not** explode on its own any more, because the explosion is
-now the player's to choose. Ranged attacks still explode immediately, exactly as
-before.
-
-**Melee only.** Cairn 2e does not divide weapons into melee and ranged, so the
-system asks: a weapon's sheet has a **Ranged** checkbox, and the Bow, Crossbow and
-Sling arrive with it ticked. Anything unticked counts as melee, which is every
-other shipped weapon. Tick it on your own ranged weapons and they will stop
-offering maneuvers.
-
-**Any die.** The same rule as exploding dice: an **Impaired** attack's d4 offers a
-maneuver when it rolls a 4, a d4 weapon's does, and so does an Enhanced attack's
-d12 on a 12. An **unarmed attack** is judged on the die you typed. Melee-only is
-the one place the two options differ: a ranged weapon's die explodes but never
-offers a maneuver.
+**Any die, melee or ranged.** A bow's maximum counts the same as a sword's. An
+**Impaired** attack's d4 earns the line on a 4, a d4 weapon's does, and so does an
+Enhanced attack's d12 on a 12. An **unarmed attack** is judged on the die you
+typed. The weapon sheet's **Ranged** checkbox, which once kept ranged weapons out
+of this, is still there and does nothing at the moment.
 
 **One limit, the same one exploding dice has.** A keep-highest formula out of
-**different** dice — `d6 + d8` — offers no maneuver, for the reason it does not
-explode. Same-sized dice written as `d6 + d6` are rolled as `2d6k` when a
-maneuver is on offer, so the card can tell which die was kept, and work normally.
+**different** dice — `d6 + d8` — never shows the line. Same-sized dice written as
+`d6 + d6` are rolled in their keep form, `2d6k`, so the card can tell which die
+was kept, and work normally.
 
-It is one choice or the other, once. Pressing either button settles the card and
-it stays settled, and the choice appears only if the option was on when the damage
-was rolled.
+The line appears only if the option was on when the damage was rolled, and only
+to the people who can see the roll: on a private or blind roll, nobody else learns
+the die came up high.
 
 ## Tougher characters, if you want them
 

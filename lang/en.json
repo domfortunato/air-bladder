@@ -236,13 +236,9 @@
   "CAIRN.Crawler.FatigueButton": "Take a Fatigue instead",
   "CAIRN.Crawler.FatigueButtonTip": "Take Critical Damage, or take a Fatigue instead. If you are already overburdened, you are asked to drop something first.",
   "CAIRN.Ranged": "Ranged",
-  "CAIRN.RangedTip": "A bow, crossbow or sling rather than something swung in reach. Cairn 2e does not distinguish the two, so this matters only to the Maneuver on max melee damage option, which never offers a maneuver for a ranged attack.",
+  "CAIRN.RangedTip": "A bow, crossbow or sling rather than something swung in reach. Cairn 2e does not distinguish the two, and nothing in the system reads this at the moment.",
   "CAIRN.Crawler.DieExploded": "A d{die} exploded!",
-  "CAIRN.Crawler.ExplodeButton": "Explode the Die",
-  "CAIRN.Crawler.ExplodeButtonTip": "Roll the die again and add it, for as long as it keeps rolling its highest face.",
-  "CAIRN.Crawler.ManeuverButton": "Use a Maneuver!",
-  "CAIRN.Crawler.ManeuverButtonTip": "Forgo all of this damage and attempt a maneuver instead, resolved with an ability check the Warden calls for.",
-  "CAIRN.Crawler.DamageForgone": "Damage forgone for a maneuver.",
+  "CAIRN.Crawler.ManeuverAvailable": "Maximum damage! You may also attempt a maneuver.",
   "CAIRN.CriticalDamageStatusFor": "Critical Damage — {key}",
   "CAIRN.CriticalDamageToggle": "Critical Damage (STR): mark or clear. A critically wounded PC can only crawl until stabilized.",
   "CAIRN.CurrentOf": "Current {name}",
@@ -593,7 +589,6 @@
   "CAIRN.Notify": {
     "ApplyDamageWardenOnly": "Only the Warden can apply damage.",
     "UnarmedNotYours": "You can only make an unarmed attack for a character you control.",
-    "DamageForgoneForManeuver": "That damage was forgone for a maneuver, so it cannot be applied. Use the Warden's Damage tool if some of it should land anyway.",
     "BackgroundNotCharacter": "Only a player character has a background.",
     "BackgroundWrongSource": "That is a {backgroundEdition} background and this is a {characterEdition} character. A character does not change edition.",
     "BadAgeFormula": "The Age formula setting (\"{formula}\") is not a valid dice formula — the default was rolled instead.",
@@ -932,9 +927,9 @@
       "hint": "When a player character's damage die rolls its highest face, it is rolled again and added, for as long as it keeps rolling the highest. Only the die that is kept explodes, so two sixes on a keep-highest weapon are one six, not two. Every die explodes, however small: an impaired attack's d4, an unarmed attack's, and a d4 weapon's. Every explosion is announced on the damage card. Only player characters' damage rolls explode — never an NPC's, a monster's, or a trap's.",
       "label": "Exploding damage dice"
     },
-    "ManeuverOnMaxMelee": {
-      "hint": "When a player character rolls maximum damage with a melee weapon, their chat card offers to forgo all of that damage and attempt a maneuver instead, resolved with an ability check the Warden calls for. Any die counts, an impaired attack's d4 included; ranged weapons never offer one. With Exploding damage dice also on, the card offers the choice: explode the die, or maneuver. Borrowed from Knave 2e by Ben Milton.",
-      "label": "Maneuver on max melee damage"
+    "ManeuverOnMaxDamage": {
+      "hint": "When a player character rolls maximum damage, the damage stands and their chat card says they may also attempt a maneuver, resolved with an ability check the Warden calls for. Any die counts, an impaired attack's d4 included. Borrowed from Knave 2e by Ben Milton.",
+      "label": "Maneuver on max damage"
     },
     "FatigueForCriticalDamage": {
       "hint": "When a player character fails a Critical Damage save, their chat card also offers to take a Fatigue instead. If they are already overburdened, they must drop an item, which will be added to the Party's Dropped Item Pile. Refuse to drop anything and the Critical Damage stands.",

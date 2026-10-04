@@ -31,7 +31,7 @@ export const SETTING_KEYS = [
   "show-grant-tags-print", "show-traits", "show-omens", "show-watch-clock",
   "weather-log", "use-warden-title", "change-log", "auto-record-scars",
   "enable-glog-magic", "enable-vald-calendar",
-  "exploding-damage-dice", "fatigue-for-critical-damage", "maneuver-on-max-melee",
+  "exploding-damage-dice", "fatigue-for-critical-damage", "maneuver-on-max-damage",
   // Character Generation
   "content-source-2e", "content-source-custom", "content-source-barebones",
   "barebones-failed-career", "show-generate-header",
@@ -256,7 +256,7 @@ export const SETTING_GROUPS = [
       // 2026-10-03: they sat under a "Crawler Combat Mode" master for a day,
       // and the user took the master away — each is off by default and none
       // is ever greyed.
-      "exploding-damage-dice", "fatigue-for-critical-damage", "maneuver-on-max-melee",
+      "exploding-damage-dice", "fatigue-for-critical-damage", "maneuver-on-max-damage",
     ],
     // The failed career is meaningless unless Barebones sheets are offered —
     // and that master checkbox lives in the Character Generation menu, not
@@ -783,19 +783,20 @@ export const registerSettings = () => {
     requiresReload: false,
   });
 
-  // Read at ROLL time (does the die explode now, or is the choice deferred to
-  // the card?) and again at RENDER time (does this card offer the buttons?), so
-  // no reload is needed. The card records what it offered, the
-  // fatigue-for-critical-damage rule above.
+  // Read at ROLL time, through `combatDamageFormula` in utils.js — the ONE gate
+  // this and the exploding option share, so the two cannot disagree about which
+  // rolls qualify — which marks the card; the line itself is drawn per viewer
+  // at render. No reload needed.
   //
-  // MELEE ONLY, and ANY die: the tests live at the roll site, where the item
-  // and the post-quality formula are in hand, through `combatDamageFormula`
-  // in utils.js — the ONE gate this and the exploding option share, so the two
-  // cannot disagree about which rolls qualify. The d6 floor of 2026-10-02 was
-  // REVERSED on 2026-10-03 (user ruling): an impaired `1d4` offers a maneuver.
-  game.settings.register(SETTINGS_NS, "maneuver-on-max-melee", {
-    name: "CAIRN.Settings.ManeuverOnMaxMelee.label",
-    hint: "CAIRN.Settings.ManeuverOnMaxMelee.hint",
+  // A LINE, NOT A CHOICE, AND MELEE OR RANGED (the night of 2026-10-03, user:
+  // "They get the damage AND they are offered a maneuver"). For a day this was
+  // `maneuver-on-max-melee`: melee only, and the card offered Explode the Die /
+  // Use a Maneuver!, a maneuver forgoing the damage. Both went, and the key and
+  // label lost "melee" with them (a key says what its label says; nothing had
+  // shipped). ANY die: the d6 floor of 2026-10-02 was reversed on 2026-10-03.
+  game.settings.register(SETTINGS_NS, "maneuver-on-max-damage", {
+    name: "CAIRN.Settings.ManeuverOnMaxDamage.label",
+    hint: "CAIRN.Settings.ManeuverOnMaxDamage.hint",
     scope: "world",
     config: false,
     type: Boolean,

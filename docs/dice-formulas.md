@@ -81,11 +81,9 @@ characters' damage rolls only, so you do not normally type it — see
 then exploding it cannot be written for mixed dice. Every other die explodes,
 however small — a d4 weapon and an Impaired roll's d4 included.
 
-With **Maneuver on max melee damage** also on, a melee attack's die does not
-explode by itself: the card offers the player the choice of exploding it or
-forgoing the damage for a maneuver, and pressing **Explode the Die** rolls the
-chain then and there. Typing `x` yourself still explodes immediately — the choice
-is something the option offers, not something the notation does.
+With **Maneuver on max damage** also on, nothing about the roll changes: the die
+still explodes when it is rolled, and the card adds a line saying a maneuver is
+possible as well.
 
 ## Minimums and maximums
 

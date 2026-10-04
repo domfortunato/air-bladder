@@ -6,11 +6,11 @@ as of 2026-10-03, measured against the last release (`0.1.23`).
 
 | | |
 | --- | --- |
-| English interface keys | 1193 |
+| English interface keys | 1188 |
 | translated in `lang/es.json` | 686 (58%) |
 | **changed under your translation** | **29** ← Part 1 |
 | **content you translated, now unreachable** | **270** ← Part 2 |
-| new interface keys, untranslated | 507 ← Part 3 |
+| new interface keys, untranslated | 502 ← Part 3 |
 | new content strings, untranslated | 2072 ← Part 4 |
 
 Only two files are yours, and only you should edit them: `lang/es.json`
@@ -557,7 +557,7 @@ to do — they are listed so the work is accounted for rather than vanishing.
 
 ---
 
-## Part 3 — new interface keys, untranslated (507)
+## Part 3 — new interface keys, untranslated (502)
 
 Ordinary outstanding work: these have no Spanish at all, so a Spanish client
 falls back to English for them. Nothing here is urgent — a missing key is visibly
@@ -649,18 +649,14 @@ untranslated, which is the honest failure.
 | `CAIRN.ChangeLog.Field` | {label}: {from} → {to} |
 | `CAIRN.ChangeLog.MaxOf` | Max {label} |
 
-### Crawler (8)
+### Crawler (4)
 
 | key | English |
 | --- | --- |
-| `CAIRN.Crawler.DamageForgone` | Damage forgone for a maneuver. |
 | `CAIRN.Crawler.DieExploded` | A d{die} exploded! |
-| `CAIRN.Crawler.ExplodeButton` | Explode the Die |
-| `CAIRN.Crawler.ExplodeButtonTip` | Roll the die again and add it, for as long as it keeps rolling its highest face. |
 | `CAIRN.Crawler.FatigueButton` | Take a Fatigue instead |
 | `CAIRN.Crawler.FatigueButtonTip` | Take Critical Damage, or take a Fatigue instead. If you are already overburdened, you are asked to drop something first. |
-| `CAIRN.Crawler.ManeuverButton` | Use a Maneuver! |
-| `CAIRN.Crawler.ManeuverButtonTip` | Forgo all of this damage and attempt a maneuver instead, resolved with an ability check the Warden calls for. |
+| `CAIRN.Crawler.ManeuverAvailable` | Maximum damage! You may also attempt a maneuver. |
 
 ### CustomPortraitCategory (4)
 
@@ -803,7 +799,7 @@ untranslated, which is the honest failure.
 | `CAIRN.PrintRoleCareer` | {role} — {career} |
 | `CAIRN.PrintSlotsUsed` | Slots used |
 | `CAIRN.Ranged` | Ranged |
-| `CAIRN.RangedTip` | A bow, crossbow or sling rather than something swung in reach. Cairn 2e does not distinguish the two, so this matters only to the Maneuver on max melee damage option, which never offers a maneuver for a ranged attack. |
+| `CAIRN.RangedTip` | A bow, crossbow or sling rather than something swung in reach. Cairn 2e does not distinguish the two, and nothing in the system reads this at the moment. |
 | `CAIRN.RechargePlaceholder` | Click here to set what it takes to recharge this relic. Left empty, its counter reads uses rather than charges. |
 | `CAIRN.RestNoRations` | You have no rations. You cannot benefit from a rest unless you consume a ration. |
 | `CAIRN.RestRationConfirm` | Rest and eat a ration? |
@@ -859,13 +855,12 @@ untranslated, which is the honest failure.
 | --- | --- |
 | `CAIRN.MonsterGen.AttackName` | {type}* |
 
-### Notify (26)
+### Notify (25)
 
 | key | English |
 | --- | --- |
 | `CAIRN.Notify.BadAgeFormula` | The Age formula setting ("{formula}") is not a valid dice formula — the default was rolled instead. |
 | `CAIRN.Notify.BadPcHpFormula` | The Hit Protection formula setting ("{formula}") is not a valid dice formula — the default was rolled instead. |
-| `CAIRN.Notify.DamageForgoneForManeuver` | That damage was forgone for a maneuver, so it cannot be applied. Use the Warden's Damage tool if some of it should land anyway. |
 | `CAIRN.Notify.DashboardNoTable` | No roll table named "{name}" was found, so nothing was rolled. |
 | `CAIRN.Notify.DashboardShown` | Showed {name} to the players. |
 | `CAIRN.Notify.DashboardWardenOnly` | Only the Warden can open the dashboard. |
@@ -998,8 +993,8 @@ untranslated, which is the honest failure.
 | `CAIRN.Settings.GroupHacksHint` | Optional rule hacks: GLOG Magic, the Vald calendar, three optional combat rules, and a Knave-style failed career for Barebones characters. |
 | `CAIRN.Settings.GroupInventoryButton` | Configure Inventory |
 | `CAIRN.Settings.GroupInventoryHint` | Slot limit, the inventory cap, the marketplace and the coins-per-slot threshold. |
-| `CAIRN.Settings.ManeuverOnMaxMelee.hint` | When a player character rolls maximum damage with a melee weapon, their chat card offers to forgo all of that damage and attempt a maneuver instead, resolved with an ability check the Warden calls for. Any die counts, an… |
-| `CAIRN.Settings.ManeuverOnMaxMelee.label` | Maneuver on max melee damage |
+| `CAIRN.Settings.ManeuverOnMaxDamage.hint` | When a player character rolls maximum damage, the damage stands and their chat card says they may also attempt a maneuver, resolved with an ability check the Warden calls for. Any die counts, an impaired attack's d4 incl… |
+| `CAIRN.Settings.ManeuverOnMaxDamage.label` | Maneuver on max damage |
 | `CAIRN.Settings.PcAbilityDice.hint` | How each of a player character's STR, DEX and WIL is rolled. Default is the book's roll. Adventurer rolls four dice and keeps the best three. Crawler rolls between 5 and 15. NPCs, hirelings and monsters are not affected.… |
 | `CAIRN.Settings.PcAbilityDice.label` | Ability dice for player characters |
 | `CAIRN.Settings.PcDice.Adventurer` | Adventurer (4d6kh3) |

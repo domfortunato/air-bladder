@@ -58,16 +58,17 @@
     <div class="dmg-quality" data-quality="{{qualityKind}}">{{quality}}</div>
     {{/if}}
 
-    {{!-- data-maneuver says this card MAY offer the optional maneuver:
-          a player character's melee attack, with the option on when the die was
-          thrown. It carries no text and no buttons, because the buttons are built
-          per viewer in module/cairn.js (nameManeuverChoice) -- a stored label
-          would freeze in the roller's language, which is review #24's whole
-          class of defect.
+    {{!-- data-maneuver says this card MAY carry the maneuver line: a player
+          character's attack, with the maneuver option on when the die was
+          thrown. It carries no text, because the line is drawn per viewer in
+          module/cairn.js (nameManeuverAvailable) -- a stored sentence would
+          freeze in the roller's language, which is review #24's whole class of
+          defect. (For a day it marked a card offering Explode the Die / Use a
+          Maneuver! buttons; that choice went on the night of 2026-10-03.)
           It is the ONLY thing the hook cannot derive for itself. Whether the die
           rolled its maximum, and how many faces it has, are both in the stored
-          roll; melee-ness is not on the card at all. Emitted only when true, so
-          an ordinary card's markup is unchanged. --}}
+          roll. Emitted only when true, so an ordinary card's markup is
+          unchanged. --}}
     {{#if maneuver}}
     <div class="dmg-maneuver-offer" data-maneuver="1"></div>
     {{/if}}

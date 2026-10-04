@@ -101,11 +101,10 @@ export const rollItemMacro = async (actorId, itemId) => {
   // `combatDamageFormula` in utils.js); the two are the only places a damage
   // roll can be a player character's, and the Warden's Damage tool is
   // deliberately NOT one of them (a trap has no actor). No die-size floor since
-  // 2026-10-03; melee-only is the one rule the maneuver half keeps.
+  // 2026-10-03, and melee and ranged are the same to both options since.
   const base = damageFormulaFor(quality, item.system.damageFormula);
   const { formula: rollSchema, maneuver: mayManeuver } = combatDamageFormula(base, {
     pc: actor.type === "character",
-    melee: item?.system?.ranged !== true,
   });
 
   // determine roll result
@@ -139,7 +138,7 @@ export const rollItemMacro = async (actorId, itemId) => {
     // roller and templates/chat/dmg-roll-card.html.
     qualityKind: damageQualityKind(quality, { panicked }),
     panic: panicked,
-    // See the sheet's roller: the datum says "a PC's melee attack, option on".
+    // See the sheet's roller: the datum says "a PC's attack, maneuver option on".
     maneuver: mayManeuver,
   };
   const msg = await foundry.applications.handlebars.renderTemplate(rollMessageTpl, tplData);

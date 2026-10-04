@@ -1863,7 +1863,8 @@ companion record of who authored what.
   this line, caught only when the branch merged — so each settings change updates
   them in its own commit, this one dated 2026-10-03 for the OPTIONAL COMBAT RULES
   (`exploding-damage-dice`, `fatigue-for-critical-damage`,
-  `maneuver-on-max-melee`, Hacks: three standalone keys since the user removed
+  `maneuver-on-max-damage` — `-melee` until that night, when ranged attacks
+  joined it — Hacks: three standalone keys since the user removed
   their `crawler-combat-mode` master that day, the keys losing their `crawler-`
   prefix with it; see the paragraph below) and the same
   day for the PC DICE TRIO
@@ -1979,8 +1980,8 @@ companion record of who authored what.
   **THE OPTIONAL COMBAT RULES (2026-10-02, user ask; standalone since
   2026-10-03).** Three settings in the Hacks group beside GLOG Magic —
   **Exploding damage dice** (`exploding-damage-dice`), **Fatigue instead of
-  Critical Damage** (`fatigue-for-critical-damage`) and **Maneuver on max melee
-  damage** (`maneuver-on-max-melee`) — each OFF by default and never greyed,
+  Critical Damage** (`fatigue-for-critical-damage`) and **Maneuver on max
+  damage** (`maneuver-on-max-damage`) — each OFF by default and never greyed,
   each read at roll or card-build time so none needs a reload, and **PLAYER
   CHARACTERS ONLY throughout** (`type === "character"`, the `auto-record-scars`
   gate — not `livesByPlayerRules`, which is broader). `combatOption(key)`
@@ -2067,7 +2068,8 @@ companion record of who authored what.
     caller, and the Barebones row is the regression witness for the list form.
   **ROUND TWO THE SAME DAY (2026-10-02): the Fatigue button's colour, exploding
   dice announced in chat, a d6 FLOOR that revises round one, and a THIRD option,
-  MANEUVER ON MAX MELEE DAMAGE.** Five things from it that will bite:
+  MANEUVER ON MAX DAMAGE** (melee-only, and a choice on the card, until the night
+  of 2026-10-03 — see the reversal below). What survives of it:
   - **THE EXPLOSIONS ARE ALREADY STORED, so announcing them cost no flag, no
     template field and no edit to either producer.** `Die#explode` stamps
     `r.exploded = true` on each result that explodes (`dice/terms/die.mjs`),
@@ -2092,19 +2094,20 @@ companion record of who authored what.
     be allowed on all PC attack rolls where the result is max damage on the
     die", "maneuvers should parallel exploding dice" — and then held ONE
     difference: "I don't want maneuvers to be available on ranged attack
-    rolls". So: `judgedDie(formula)` in `utils.js` is the ONE recogniser both
-    options read, with no size test; `combatDamageFormula(base, {pc, melee})`
-    is the ONE gate the three PC damage sites call (the sheet's roll control,
-    the unarmed row, the hotbar macro — it had been spelled three times and the
-    floor had to come out of all three in one afternoon); and `melee` is the
-    only argument the two halves do not share. **The case that fires is
+    rolls" — which held for one more day (below). So: `judgedDie(formula)` in
+    `utils.js` is the ONE recogniser both options read, with no size test, and
+    `combatDamageFormula(base, {pc})` is the ONE gate the three PC damage sites
+    call (the sheet's roll control, the unarmed row, the hotbar macro — it had
+    been spelled three times and the floor had to come out of all three in one
+    afternoon). Its `melee` argument went with the melee-only rule. **The case that fires is
     IMPAIRED, not a d4 weapon**: of the eighteen shipped weapons the only
     sub-d6 one is the Sling, which is ranged, while `IMPAIRED_FORMULA` is `1d4`
-    and every weapon in the game can be impaired — so with both options on, a
-    max on an impaired attack (one roll in four) now offers Explode / Maneuver.
+    and every weapon in the game can be impaired — so a max on an impaired
+    attack (one roll in four) earns the maneuver line.
     **A same-size `+` pool joined the maneuver rule with the reversal**: the
-    recogniser hands back the KEEP form (`d6 + d6` → `2d6k`), and when a
-    maneuver is on offer the roll is MADE as that form, one Die term whose
+    recogniser hands back the KEEP form (`d6 + d6` → `2d6k`), and with the
+    maneuver option on and exploding off the roll is MADE as that form (with
+    exploding on it is `2d6kx`, already one term), one Die term whose
     `active` flags say which member was kept — a PoolTerm's losing member may
     also have rolled its maximum, and nothing can tell kept from dropped
     without walking `PoolTerm#results`. Mixed sizes (`d6 + d8`) stay out of
@@ -2119,43 +2122,55 @@ companion record of who authored what.
     counter — the base grid holds ten and armor already proves it there, but see
     the note above `.object.item-sheet-grid`, where a ninth counter once
     auto-placed BELOW the tabs and pushed Cost off the bottom of the window.
-  - **EXPLODING BECOMES OPT-IN WHERE A MANEUVER IS ON OFFER, and that is the
-    whole architecture of the third option.** With both on, a melee attack on
-    ANY die rolls PLAIN and the card offers **Explode the Die** / **Maneuver**;
-    ranged and option-off keep the shipped auto-explode (sub-d6 did too, for
-    the one day the floor stood). Pressing Explode
-    rolls `1d{faces}x`, merges its results into the stored die, marks the kept
-    maximum `exploded`, pushes `x` onto `die.modifiers`, calls `resetFormula()`
-    so the displayed formula follows the terms, and **sets `roll._total =
-    roll._evaluateTotal()` before `message.update`** — MANDATORY, because
-    `Roll.fromData` TRUSTS the stored total and never recomputes it
-    (`roll.mjs`), so without it the Apply path (which parses `.dice-total` off
-    the rendered card) keeps spending the pre-explosion number. Part two's lines
-    then appear for free off `results[].exploded`.
-  - **DICE SO NICE ANIMATES AN UPDATE ONLY WHEN THE ROLL COUNT GROWS**, measured
-    in 6.2.9: `preUpdateChatMessage` computes `dsnCountAddedRoll = changed.rolls
-    .length - stored.length` and `updateChatMessage` requires it `> 0`, animating
-    `rolls.slice(dsnIndexAddedRoll)`. An in-place rewrite is therefore SILENT —
-    the damage climbs with no dice — and appending a second roll is not the fix
-    either, since the card would carry two `.dice-total` elements and
-    `damage.js`'s Apply reads the FIRST. So the chain is animated by an explicit
-    `game.dice3d?.showForRoll(chain, game.user, true, …)`, where
-    `synchronize: true` is load-bearing for the second time in this repo: without
-    it the dice land on the roller's client alone, which a Warden testing solo
-    cannot tell apart from working (`character-generator.js` already records the
-    trap). The probe shadows the CALL rather than timing the animation, and
-    FAILS rather than skipping when DSN is absent.
-  - **THE TWO MANEUVER BUTTONS ARE GATED `isAuthor || isGM`, NOT on the actor**,
-    because both write to the MESSAGE and a ChatMessage makes its AUTHOR the
+    **AND NOTHING READS IT since the night of 2026-10-03**, when ranged attacks
+    joined the maneuver rule (user, asked whether to drop it: "Yes, ranged too;
+    keep the field"). The schema field, the checkbox and the three ticked pack
+    weapons stay — removing a field is a migration, keeping one costs nothing —
+    and `CAIRN.RangedTip` says it does nothing at the moment, so a Warden is not
+    left guessing at a box with no effect.
+  - **THE CHOICE ON THE CARD LASTED ONE DAY, AND IT WAS THE WRONG RULE (the
+    night of 2026-10-03, user: "They get the damage AND they are offered a
+    maneuver").** It shipped to `dev` as a pair, **Explode the Die** / **Use a
+    Maneuver!**, on a melee maximum: with both options on the die rolled PLAIN
+    so the explosion could be the player's to choose, Maneuver FORWENT the
+    damage (Apply greyed and refused in `damage.js`), Explode re-rolled the
+    chain into the stored roll, and Apply was withheld until one was pressed.
+    All of it is gone — the buttons, `MANEUVER_CHOICE_FLAG`, the Apply refusal,
+    the withholding, `--ab-maneuver-chat` and the explode/maneuver colours. Now
+    the damage always stands, exploding (when on) happens AT ROLL TIME for every
+    PC damage roll, and a maximum adds ONE line — `nameManeuverAvailable`
+    (`cairn.js`), modelled line for line on `nameExplodedDice`:
+    `isContentVisible` FIRST (the line discloses the face, so a blind roll must
+    not show it; `dev:chat-privacy` holds that with a public control), the
+    card's `[data-maneuver]` datum as the trigger (the option was on when the
+    die was thrown — the one thing the hook cannot derive), idempotent on its
+    own class, and eligible when an ACTIVE result equals the face count. **An
+    exploded maximum is still active**, so `!r.exploded` must NOT be in that
+    test: the old pair had it, because a finished chain was meant to offer
+    nothing again, and copying it would withhold the line from every card the
+    exploding option touched. No author gate — it is information, like the
+    explosion lines. The setting's key followed its label
+    (`maneuver-on-max-melee` → `-damage`; nothing had shipped), so a dev world
+    reads it OFF until re-ticked, and a dev card already decided as a maneuver
+    shows the line and a live Apply — accepted, stated. **Two lessons outlive
+    the code**, both in memory (`foundry-mutating-a-stored-roll`): rewriting a
+    stored roll needs `roll._total = roll._evaluateTotal()` before
+    `message.update`, because `Roll.fromData` TRUSTS the stored total; and Dice
+    So Nice 6.2.9 animates an update only when the roll COUNT grows, so an
+    in-place rewrite is silent unless `showForRoll(…, synchronize: true)` is
+    called — and without `synchronize` the dice land on the roller's client
+    alone, which a Warden testing solo cannot tell from working.
+  - **THE FATIGUE PAIR IS GATED `isAuthor || isGM`, NOT on the actor**, because
+    its spend writes to the MESSAGE and a ChatMessage makes its AUTHOR the
     owner (`common/documents/chat-message.mjs` `getUserLevel`; `update` defaults
-    to OWNER). **That found a defect in round one the same day:** the Fatigue
-    button was gated on actor ownership while its spend is `message.setFlag`, so
-    a second player co-owning the character but not authoring the save got the
-    Fatigue created, the flag refused, neither button sealed, and could then ALSO
-    mark Critical Damage — the exact exclusivity the option promises. Fixed with
-    `mayChoose`, SCOPED to the cards that have a choice to spend: an ordinary
-    Critical Damage card writes no flag, so requiring authorship there would have
-    withdrawn a working button from a co-owner.
+    to OWNER). Found the day the maneuver pair was given that gate: the Fatigue
+    button was gated on actor ownership while its spend is `message.setFlag`,
+    so a second player co-owning the character but not authoring the save got
+    the Fatigue created, the flag refused, neither button sealed, and could then
+    ALSO mark Critical Damage — the exact exclusivity the option promises.
+    Fixed with `mayChoose`, SCOPED to the cards that have a choice to spend: an
+    ordinary Critical Damage card writes no flag, so requiring authorship there
+    would have withdrawn a working button from a co-owner.
   - **Knave 2e's maneuver list is NOT shipped and NOT reworded.** The option is
     borrowed from Knave 2e by Ben Milton and the guide credits it and points at
     that book; the strings state the MECHANIC in this project's own words.
@@ -2163,44 +2178,14 @@ companion record of who authored what.
     added and `check:licence` is untouched. The `--ab-fatigue-chat`-not-
     `--ab-accent` trap is recorded at that token's own declaration in
     `css/cairn.css`.
-  **ROUND THREE, the same day, is all about the CARD the pair sits on.** Five
-  things:
-  - **APPLY IS WITHHELD WHILE THE CHOICE IS PENDING** (user ask). The damage on
-    an undecided card is not yet the damage — Explode will raise it, Maneuver
-    forgoes it — so offering to spend it is offering a provisional total. It is
-    REMOVED rather than hidden, which is safe because the render hook rebuilds
-    the card's DOM from the stored flavor on every render: there is nothing to
-    restore, the next render simply builds it with `pending` false. Asked BEFORE
-    the `isAuthor || isGM` gate, deliberately — who may press the buttons and
-    whether the card is resolved are different questions. If nobody ever
-    chooses, Apply never appears; that is the roll being genuinely unresolved
-    and not a lockout, since every GM is offered the buttons.
-  - **NO RE-PROMPTING WAS ALREADY TRUE, by two independent guards**, and the
-    probe now says so rather than the comment claiming it: the flag seals the
-    pair the moment Explode is pressed, AND the eligibility test looks for an
-    active maximum that has not exploded, which a finished chain never leaves
-    behind because it stops when it rolls BELOW the maximum. A `6 → 6 → 3` chain
-    offers nothing again.
-  - **SIDE BY SIDE, AND THEY HAD NO CSS AT ALL** until now — which is the whole
-    reason two block-level buttons stacked. A row says "either of these"; a
-    column reads as a list of things to do in order.
-  - **EXPLODE TAKES MARK CRITICAL DAMAGE'S EXACT RED**, not a new one: red
-    already means a consequential opt-in damage action on these cards (that
-    button, Apply, the scar banner), and a second red would be a second meaning.
-    **MANEUVER TAKES A PINNED CHAT AMBER, `--ab-maneuver-chat`**, for precisely
-    the reason `--ab-fatigue-chat` is pinned — the dark scheme re-points
-    `--ab-amber` to a brighter gold for a `.chat-message` while the tile is
-    parchment in BOTH themes, and the mistake is invisible in light mode, which
-    is where it would be written.
-  - **ONCE DECIDED, NEITHER GLOWS AND THE ONE TAKEN WEARS A CHECK** (user
-    ruling, revising "stay sealed" from earlier the same hour). A sealed control
-    that still advertises itself invites a click that does nothing, and the
-    colours were there to say "choose", which is over. The tick is drawn from
-    the FLAG per viewer — nothing about it is stored — so it reads correctly in
-    every language and on every client that loads the card later, and
-    `explodeBtn` is built when the option is off but the choice WAS explode, or
-    a decided card would have nothing for its tick to sit on. The label is
-    **"Use a Maneuver!"**, spelled maneuver in the key and the string both.
+  **ROUND THREE, the same day, was about the CARD the pairs sit on**, and since
+  the maneuver pair went only the Fatigue pair's half applies: the two buttons
+  sit SIDE BY SIDE (they had no CSS at all, which is why two block-level buttons
+  stacked; a row says "either of these", a column reads as steps in order), and
+  ONCE DECIDED NEITHER GLOWS AND THE ONE TAKEN WEARS A CHECK (user ruling) —
+  drawn from the flag per viewer by `markChoiceTaken`, nothing stored, so it
+  reads correctly in every language and on every client that loads the card
+  later.
   **Since 2026-08-22 the 25 live behind FOUR `registerMenu` SUBMENUS** (user
   ruling, "one submenu per group" — General, Character Generation, Inventory
   & Encumbrance, and GLOG & Other Hacks, the fourth asked for the same day to

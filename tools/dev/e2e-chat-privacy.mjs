@@ -132,10 +132,12 @@ try {
       });
       return msg.id;
     };
-    // 2b. THE EXPLODING DICE OPTION's lines. `nameExplodedDice` rebuilds them
-    //     from the stored roll on EVERY client, so it is in the isContentVisible
-    //     class: an explosion reveals that the die rolled its maximum, and core
-    //     has already replaced a blind card's content with "rolled privately".
+    // 2b. THE EXPLODING DICE OPTION's lines, and the MANEUVER line beside them.
+    //     `nameExplodedDice` and `nameManeuverAvailable` build both from the
+    //     stored roll on EVERY client, so they are in the isContentVisible class:
+    //     either line reveals that the die rolled its maximum, and core has
+    //     already replaced a blind card's content with "rolled privately".
+    //     `maneuver: true` is the datum a PC's card carries with the option on.
     const dmgCard = async (messageMode) => {
       const orig = CONFIG.Dice.randomUniform;
       let i = 0;
@@ -212,7 +214,8 @@ try {
       explodedLines: document.querySelector(`[data-message-id="${id}"]`)
         ?.querySelectorAll(".dmg-exploded").length ?? 0,
       renderings: document.querySelectorAll(`[data-message-id="${id}"]`).length,
-      maneuverBtns: document.querySelectorAll(`[data-message-id="${id}"] .take-maneuver`).length,
+      maneuverLines: document.querySelector(`[data-message-id="${id}"]`)
+        ?.querySelectorAll(".dmg-maneuver-line").length ?? 0,
     });
     return {
       initHidden: read(ids.initHidden), initShown: read(ids.initShown),
@@ -237,9 +240,12 @@ try {
   s.dmgPublic.present && s.dmgPublic.explodedLines >= 1
     ? ok(`CONTROL: on the PUBLIC card she reads ${s.dmgPublic.explodedLines} line(s) in each of its ${s.dmgPublic.renderings} rendering(s) — so the guard withholds, rather than the feature simply being absent`)
     : fail(`the public control shows ${s.dmgPublic.explodedLines} line(s); without it the leg above proves nothing`);
-  s.dmgBlind.maneuverBtns === 0 && s.dmgPublic.maneuverBtns === 0
-    ? ok(`...and neither card offers HER the maneuver buttons — those are gated isAuthor||isGM and she is neither`)
-    : fail(`maneuver buttons reached Alice: blind ${s.dmgBlind.maneuverBtns}, public ${s.dmgPublic.maneuverBtns}`);
+  s.dmgBlind.present && s.dmgBlind.maneuverLines === 0
+    ? ok(`...and NO maneuver line on the blind card — "Maximum damage!" is the same disclosure as an explosion, behind the same guard`)
+    : fail(`the maneuver line LEAKED to Alice on a blind card: ${s.dmgBlind.maneuverLines} line(s)`);
+  s.dmgPublic.present && s.dmgPublic.maneuverLines === 1
+    ? ok(`CONTROL: the PUBLIC card shows her exactly one maneuver line — information, so no author gate, unlike the buttons it replaced`)
+    : fail(`the public control shows ${s.dmgPublic.maneuverLines} maneuver line(s), want 1`);
 
   console.log("\na hidden combatant's initiative save");
   s.initHidden.present

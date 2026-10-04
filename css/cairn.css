@@ -119,27 +119,7 @@
        washes out on a tile that is parchment in both themes. */
     --ab-fatigue-chat: #12a3b4;
 
-    /* The maneuver option's Use a Maneuver! button, amber beside Explode the
-       Die's red (user ask, 2026-10-02): one is a consequence, the other is a
-       different road.
-
-       PINNED for two reasons now, and it is no longer any --ab-amber value at
-       all. (1) Chat-only, for exactly the reason --ab-fatigue-chat is pinned —
-       the dark scheme re-points --ab-amber to #e8a33c for a .chat-message, and
-       that gold is tuned for a near-black backdrop while the chat tile is
-       parchment in both themes; the mistake is invisible in light mode, which is
-       where it would be written. (2) TUNED DARKER, because the pair has to carry
-       equal weight and the light --ab-amber did not. The tile is an IMAGE, not a
-       colour (foundry2.css sets --chat-message-background to parchment.jpg), so
-       it was sampled rather than assumed: mean #D9D9CD, luminance 0.688. On that
-       ground #c07800 managed 2.49:1 against the red's 4.04:1 — 62% of its
-       weight, which read as muted beside it rather than as an equal choice.
-       #a35a00 is 3.67:1, 91% of the red, and 33 degrees off it in hue so the two
-       still read as two colours rather than two reds; the more vivid #c2410c was
-       passed over at 17 degrees. */
-    --ab-maneuver-chat: #a35a00;
-
-    /* ...and what the pair wears once the choice is spent: no colour, no glow,
+    /* What the Fatigue pair wears once the choice is spent: no colour, no glow,
        just a quiet frame. PINNED for the same reason as its neighbours and not
        --ab-line, which is `black` in light and #7a7266 in dark — a divergence
        with nothing behind it on a tile that is parchment either way. */
@@ -1464,6 +1444,16 @@
     font-weight: 700;
 }
 
+/* "Maximum damage! You may also attempt a maneuver." (the maneuver option,
+   module/cairn.js nameManeuverAvailable). Under the explosion lines and dressed
+   like them: information about the roll, not a control. It was a pair of
+   buttons for a day, and a maneuver forwent the damage; since the night of
+   2026-10-03 the damage stands and this line is all there is. */
+.chat-message .dmg-maneuver-line {
+    flex-basis: 100%;
+    font-weight: 700;
+}
+
 /* "Got a scar!" on a damage card. A scar is a rules event with lasting
    consequences and it read as one more bold label in a stack of them. Centred
    and glowed, borrowing #die-of-fate-button's treatment (user ask) -- the same
@@ -1652,25 +1642,14 @@
     text-shadow: 0 0 12px var(--ab-fatigue-chat);
 }
 
-/* THE OPTIONAL COMBAT RULES: Explode the Die / Use a Maneuver! on a max melee damage
-   card (module/cairn.js nameManeuverChoice).
+/* THE FATIGUE PAIR on a failed save card: Mark Critical Damage / Take a
+   Fatigue instead (utils.js d20CardBody).
 
-   SIDE BY SIDE (user ask, 2026-10-02). They had no rule here at all until now,
-   which is why two block-level buttons stacked. They are alternatives offered at
-   one moment, and a row is what says "either of these", where a column reads as
-   a list of things to do in order.
-
-   TWO WRAPPERS, ONE RULE. `.dmg-choice-row` is the Fatigue / Mark Critical
-   Damage pair on a d20 save card (utils.js d20CardBody), which stacked for the
-   same reason and got the same ruling. The maneuver wrapper KEEPS its own class
-   as the identity hook the JS and the probe find it by; the layout is shared so
-   the two pairs cannot drift apart.
-
-   `flex-basis: 100%` is INERT for the choice row and load-bearing for the
-   maneuver one: that wrapper sits inside the flex `.flavor-dice-roll`, while the
-   save card's sits in `.message-content`, which is not a flex container. Stated
-   so nobody tidies it away and breaks the pair above. */
-.dmg-maneuver-choice,
+   SIDE BY SIDE (user ask, 2026-10-02). They had no rule here at all, which is
+   why two block-level buttons stacked. They are alternatives offered at one
+   moment, and a row is what says "either of these", where a column reads as a
+   list of things to do in order. (A maneuver pair, Explode the Die / Use a
+   Maneuver!, shared this rule for the day maneuvers were a choice.) */
 .dmg-choice-row {
     display: flex;
     flex-wrap: wrap;
@@ -1693,7 +1672,6 @@
    the take-over doors ("ok if that button spans two lines as long as it's all
    readable"). `flex: 1 1 0` makes the pair exact halves, which is what says the
    two choices are equal. */
-.dmg-maneuver-choice > button,
 .dmg-choice-row > button {
     flex: 1 1 0;
     width: auto;
@@ -1702,44 +1680,11 @@
     text-wrap: balance;
 }
 
-/* The matched-pair SHAPE this card already uses twice -- bold, a coloured
-   border, an 8px text glow going to 12px on hover -- in two colours, so the pair
-   reads as two equal choices separated only by colour (.mark-critical-damage and
-   .take-fatigue-instead above are the precedent, and their comments carry the
-   reasoning).
-
-   EXPLODE TAKES MARK CRITICAL DAMAGE'S EXACT RED, not a new one: red already
-   means a consequential, opt-in damage action on these cards (that button, the
-   Apply control, the scar banner), and a second red would be a second meaning.
-   MANEUVER TAKES THE PINNED CHAT AMBER -- see --ab-maneuver-chat's declaration
-   for why it cannot be --ab-amber. */
-.explode-the-die {
-    font-weight: bold;
-    border-color: var(--color-level-error, #ce0707);
-    text-shadow: 0 0 8px var(--color-level-error, #ce0707);
-}
-
-.explode-the-die:hover:not([disabled]) {
-    text-shadow: 0 0 12px var(--color-level-error, #ce0707);
-}
-
-.take-maneuver {
-    font-weight: bold;
-    border-color: var(--ab-maneuver-chat);
-    text-shadow: 0 0 8px var(--ab-maneuver-chat);
-}
-
-.take-maneuver:hover:not([disabled]) {
-    text-shadow: 0 0 12px var(--ab-maneuver-chat);
-}
-
 /* ONCE DECIDED, NEITHER GLOWS (user ruling, 2026-10-02). A sealed control that
    still advertises itself invites a click that does nothing, and the colours
    were there to say "choose" -- which is over. The check that `mark()` prepends
    is what says which one was taken, so the pair goes quiet and the tick carries
-   the whole message. Both selectors, because each sets its own two properties
-   and a shorthand reset on the wrapper would not beat them. */
-.dmg-maneuver-choice button[disabled],
+   the whole message. */
 .dmg-choice-row button[disabled] {
     font-weight: normal;
     border-color: var(--ab-sealed-chat);
@@ -1748,7 +1693,6 @@
 }
 
 /* The tick sits before the label on the button that was pressed. */
-.dmg-maneuver-choice button[disabled] .fa-check,
 .dmg-choice-row button[disabled] .fa-check {
     margin-right: 0.4em;
     opacity: 0.9;

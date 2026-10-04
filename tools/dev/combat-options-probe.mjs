@@ -8,7 +8,7 @@
  *
  *   - Exploding damage dice;
  *   - Fatigue instead of Critical Damage;
- *   - Maneuver on max melee damage.
+ *   - Maneuver on max damage.
  *
  * For a day they sat under a "Crawler Combat Mode" master (this probe was
  * `dev:crawler-combat`), which greyed them while off and carried rules of its
@@ -55,14 +55,14 @@ const errors = watchErrors(page);
 let failed = false;
 const fail = (m) => { console.error(`  FAIL  ${m}`); failed = true; };
 const ok = (m) => console.log(`  ok    ${m}`);
-const KEYS_ALL = ["exploding-damage-dice", "fatigue-for-critical-damage", "maneuver-on-max-melee"];
+const KEYS_ALL = ["exploding-damage-dice", "fatigue-for-critical-damage", "maneuver-on-max-damage"];
 
 try {
   await joinAsGM(page);
 
   const r = await withSettings(page, () => page.evaluate(async () => {
     const NS = "air-bladder";
-    const KEYS = ["exploding-damage-dice", "fatigue-for-critical-damage", "maneuver-on-max-melee"];
+    const KEYS = ["exploding-damage-dice", "fatigue-for-critical-damage", "maneuver-on-max-damage"];
     const out = { made: [], made2: [] };
     const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
     const utils = await import("/systems/air-bladder/module/utils.js");
@@ -222,14 +222,11 @@ try {
     await monster.createEmbeddedDocuments("Item", [weapon]);
 
     await game.settings.set(NS, "exploding-damage-dice", true);
-    // MANEUVER OFF, STATED. With it on, a melee d6+ attack rolls PLAIN and the
-    // card offers the choice — which is the shipped design, so these legs would
-    // read `1d6` and be RIGHT about a question they were not asking. The probe
-    // never set it here and passed only because the world's stored value
-    // happened to be false; a run killed partway through leaves it true and the
-    // next one reds on an unrelated leg. A precondition must be asserted, never
-    // inherited from whatever the last run left behind.
-    await game.settings.set(NS, "maneuver-on-max-melee", false);
+    // MANEUVER OFF, STATED: these legs are about exploding alone. (For a day a
+    // maneuver on offer made a melee roll PLAIN, so an inherited "on" redded
+    // these legs for a reason they were not testing; a precondition is
+    // asserted, never inherited from whatever the last run left behind.)
+    await game.settings.set(NS, "maneuver-on-max-damage", false);
     out.pcRoll = await rollDamageVia(pc);
     out.monsterRoll = await rollDamageVia(monster);
 
@@ -795,7 +792,7 @@ try {
     // serialization (DiceTerm.SERIALIZE_ATTRIBUTES includes "results"), and an
     // assertion against the object we just built would prove nothing about that.
     await game.settings.set(NS, "exploding-damage-dice", true);
-    await game.settings.set(NS, "maneuver-on-max-melee", false);
+    await game.settings.set(NS, "maneuver-on-max-damage", false);
 
     // A terminating sequence, NEVER a flat pin at the maximum: an exploding
     // formula pinned at max throws at recursion depth 1000.
@@ -846,11 +843,11 @@ try {
     const plainMsg = await seqRoll("1d6", [0.5]);
     out.plainLines = linesOf(plainMsg);
 
-    /* ---- 12. Part 3: maneuver on max melee damage ------------------------ */
+    /* ---- 12. Part 3: maneuver on max damage ----------------------------- */
     // Fixtures the shipped content cannot supply: a melee d4 weapon (no shipped
     // melee weapon is sub-d6, so a probe using only shipped gear could not show
-    // the smallest die being offered everything the d10 is) and an explicitly
-    // ranged one.
+    // the smallest die earning the line the d10 does) and an explicitly ranged
+    // one, which proves the `ranged` field no longer withholds anything.
     await pc.createEmbeddedDocuments("Item", [
       { name: "ZZ Ranged Bow", type: "weapon", system: { damageFormula: "d6", equipped: false, ranged: true } },
       { name: "ZZ Tiny Blade", type: "weapon", system: { damageFormula: "d4", equipped: false } },
@@ -869,20 +866,21 @@ try {
     // Roll a named weapon through the REAL control, answering the real dialog,
     // and report what the card became. `quality` picks the dialog button, so the
     // impaired leg goes through the same gesture a panicked player takes.
-    const rollWeapon = async (actor, name, quality = "standard") => {
+    const rollWeapon = async (actor, name, quality = "standard", pin = "max") => {
       await equipOnly(name);
       // THE PIN IS PER ROLL, and that is not a tidy-up. One pin around the whole
       // block shares its counter, so only the FIRST roll in it lands on the
-      // maximum and every later leg rolls a 1 — which makes "offers no maneuver"
-      // trivially true for the ranged leg, and "offers both" false for the d4
-      // and impaired legs, each for the wrong reason. Max first, low after: the
-      // maximum is the precondition
-      // every one of these legs needs, and the low values terminate the chain on
-      // the rows whose formula really does carry x (a flat pin at the maximum
-      // throws at recursion depth 1000 rather than capping).
+      // maximum and every later leg rolls a 1 — which makes "no line" trivially
+      // true for the option-off legs, and "a line" false for the d4 and
+      // impaired legs, each for the wrong reason. Max first, low after: the
+      // maximum is the precondition the line needs, and the low values
+      // terminate the chain on the rows whose formula really does carry x (a
+      // flat pin at the maximum throws at recursion depth 1000 rather than
+      // capping). `pin: "low"` rolls a 1 throughout, for the leg that proves the
+      // line waits for the maximum.
       const origRU = CONFIG.Dice.randomUniform;
       let ru = 0;
-      CONFIG.Dice.randomUniform = () => (ru++ === 0 ? MAXU : LOWU);
+      CONFIG.Dice.randomUniform = () => (pin === "max" && ru++ === 0 ? MAXU : LOWU);
       const before = new Set(game.messages.contents.map((m) => m.id));
       await actor.sheet.render(true);
       for (let i = 0; i < 30 && !(actor.sheet.element instanceof HTMLElement); i++) await sleep(100);
@@ -914,188 +912,55 @@ try {
         formula: msg.rolls?.[0]?.formula ?? null,
         total: msg.rolls?.[0]?.total ?? null,
         datum: !!row?.querySelector("[data-maneuver]"),
-        explodeBtn: !!row?.querySelector(".explode-the-die"),
-        maneuverBtn: !!row?.querySelector(".take-maneuver"),
-        tips: {
-          explode: row?.querySelector(".explode-the-die")?.dataset.tooltip ?? null,
-          maneuver: row?.querySelector(".take-maneuver")?.dataset.tooltip ?? null,
-        },
+        line: row?.querySelector(".dmg-maneuver-line")?.textContent?.trim() ?? null,
+        apply: !!row?.querySelector(".apply-dmg"),
+        exploded: row?.querySelectorAll(".dmg-exploded").length ?? 0,
+        // The withdrawn choice's controls, which must never come back.
+        buttons: !!row?.querySelector(".dmg-maneuver-choice, .explode-the-die, .take-maneuver"),
       };
     };
 
-    await game.settings.set(NS, "maneuver-on-max-melee", true);
+    // NO CHOICE ON THE CARD (the night of 2026-10-03, user: "They get the
+    // damage AND they are offered a maneuver"). With both options on, every
+    // die explodes AT ROLL TIME and a maximum adds one line saying a maneuver
+    // is also possible; Apply is always there. Melee and RANGED alike (user:
+    // "Yes, ranged too; keep the field"). §13, which pressed the old Explode
+    // the Die / Use a Maneuver! buttons, went with them.
+    out.maneuverLineText = game.i18n.localize("CAIRN.Crawler.ManeuverAvailable");
+    await game.settings.set(NS, "maneuver-on-max-damage", true);
     await game.settings.set(NS, "exploding-damage-dice", true);
     // No block-level pin: rollWeapon pins each roll itself — see its comment.
     {
-      // BOTH options on, melee d10, max rolled: the die must NOT have exploded at
-      // roll time, and both buttons must be on offer.
       out.mvBoth = await rollWeapon(pc, "ZZ Big Blade");
-      // RANGED: no maneuver, and it auto-explodes -- the two halves of the gate.
+      // RANGED gets the line too — the reversal of the day-old melee-only rule.
       out.mvRanged = await rollWeapon(pc, "ZZ Ranged Bow");
-      // NO FLOOR (user ruling 2026-10-03, reversing the d6 floor of the day
-      // before): a melee d4 is rolled plain and offers BOTH buttons, the mvBoth
-      // shape on the smallest die.
+      // NO FLOOR: a d4 explodes and earns the line.
       out.mvD4 = await rollWeapon(pc, "ZZ Tiny Blade");
-      // IMPAIRED, on a d10 weapon -- the case that actually fires, and the one
-      // that proves the test reads the POST-quality formula: a plain 1d4, both
-      // buttons. Judged on the weapon it would read d10.
+      // IMPAIRED on a d10 weapon: judged on the 1d4 it actually rolls.
       out.mvImpaired = await rollWeapon(pc, "ZZ Big Blade", "impaired");
-      // A `+` POOL joins the maneuver rule ("maneuvers should parallel exploding
-      // dice"): `d6 + d6` is rolled as its keep form `2d6k`, ONE Die term the
-      // card can judge, and offers both.
+      // A `+` pool explodes in its keep form `2d6kx`, one Die term.
       out.mvPlus = await rollWeapon(pc, "ZZ Twin Blades");
-      // ENHANCED is a d12 and stays in.
       out.mvEnhanced = await rollWeapon(pc, "ZZ Big Blade", "enhanced");
-      // A MONSTER never offers.
+      // NOT AT ITS MAXIMUM: the card is marked, and there is NO line — the line
+      // is about the die, not the option.
+      out.mvLow = await rollWeapon(pc, "ZZ Big Blade", "standard", "low");
+      // A MONSTER: no explosion, no mark, no line.
       await monster.createEmbeddedDocuments("Item",
         [{ name: "ZZ Big Blade", type: "weapon", system: { damageFormula: "d10", equipped: true } }]);
       out.mvMonster = await rollWeapon(monster, "ZZ Big Blade");
 
-      // Maneuver OFF, exploding ON: back to auto-explode with no buttons.
-      await game.settings.set(NS, "maneuver-on-max-melee", false);
+      // Maneuver OFF, exploding ON: explodes, no mark, no line.
+      await game.settings.set(NS, "maneuver-on-max-damage", false);
       out.mvOptionOff = await rollWeapon(pc, "ZZ Big Blade");
-      // ...and NO FLOOR on that half either: a melee d4 auto-explodes at roll
-      // time with the maneuver option off, the leg no run had before 2026-10-03.
       out.mvD4Off = await rollWeapon(pc, "ZZ Tiny Blade");
-      await game.settings.set(NS, "maneuver-on-max-melee", true);
+      await game.settings.set(NS, "maneuver-on-max-damage", true);
 
-      // Maneuver ON, exploding OFF: Maneuver alone, no Explode button.
+      // Maneuver ON, exploding OFF: a plain roll and the line; a `d6 + d6`
+      // weapon is rolled as `2d6k` so the card can judge one Die term.
       await game.settings.set(NS, "exploding-damage-dice", false);
       out.mvNoExplode = await rollWeapon(pc, "ZZ Big Blade");
+      out.mvPlusNoExplode = await rollWeapon(pc, "ZZ Twin Blades");
       await game.settings.set(NS, "exploding-damage-dice", true);
-    }
-
-    /* ---- 13. pressing the buttons ---------------------------------------- */
-    // EXPLODE: the chain is rolled now, the stored total GROWS, the lines appear,
-    // DSN is asked to animate, and the choice seals.
-    const card = await rollWeapon(pc, "ZZ Big Blade");
-    out.explodeBefore = { total: card.total, formula: card.formula };
-    // Shadow showForRoll: the CALL is what is asserted, never the animation, so
-    // the leg does not depend on DSN's timing. DSN must be ACTIVE though -- a
-    // thing the probe cannot observe is not a thing it has checked.
-    out.dsnActive = !!game.dice3d;
-    const dsnCalls = [];
-    const origShow = game.dice3d?.showForRoll;
-    if (origShow) {
-      game.dice3d.showForRoll = function (roll, user, synchronize, users, blind, messageID, ...rest) {
-        dsnCalls.push({ formula: roll?.formula ?? null, synchronize, messageID });
-        return origShow.call(this, roll, user, synchronize, users, blind, messageID, ...rest);
-      };
-    }
-    try {
-      const row = () => document.querySelector(`[data-message-id="${card.id}"]`);
-      if (!row()?.querySelector(".explode-the-die")) {
-        out.explodeAfter = { err: "no Explode the Die button to press" };
-        out.dsnCalls = [];
-        throw new Error("SKIP_EXPLODE");
-      }
-      // THE PAIR'S LOOK, read off the LIVE card before the click seals it, and
-      // in BOTH interface schemes. The dark pass is the only discriminating
-      // half: the chat tile is parchment either way, so a token that re-points
-      // for dark (--ab-amber does; the pinned --ab-maneuver-chat does not) is
-      // indistinguishable from the right one in light mode — which is where it
-      // would be written. Apply is read here too, because it must be ABSENT
-      // while the choice is pending.
-      {
-        const glow = (cs) => (cs.textShadow.match(/rgba?\([^)]*\)/) ?? [null])[0];
-        const readPair = () => {
-          const e = row()?.querySelector(".explode-the-die");
-          const m = row()?.querySelector(".take-maneuver");
-          if (!e || !m) return null;
-          const ecs = getComputedStyle(e), mcs = getComputedStyle(m);
-          const wrap = row()?.querySelector(".dmg-maneuver-choice");
-          return {
-            explodeBorder: ecs.borderTopColor, explodeGlow: glow(ecs),
-            maneuverBorder: mcs.borderTopColor, maneuverGlow: glow(mcs),
-            // Side by side: one flex row, so the two buttons share a top edge.
-            display: wrap ? getComputedStyle(wrap).display : null,
-            sameRow: !!e && !!m
-              && Math.abs(e.getBoundingClientRect().top - m.getBoundingClientRect().top) < 2,
-            applyPresent: !!row()?.querySelector(".apply-dmg"),
-            maneuverLabel: m.textContent.trim(),
-            ticks: { explode: !!e.querySelector(".fa-check"), maneuver: !!m.querySelector(".fa-check") },
-          };
-        };
-        out.pairLight = readPair();
-        try {
-          await setScheme("dark");
-          out.pairDark = readPair();
-        } finally {
-          game.configureUI(game.settings.get("core", "uiConfig"));
-          await sleep(400);
-        }
-      }
-      // The chain rolls 6 then a low value, so it stops: pinned mid-click.
-      const o2 = CONFIG.Dice.randomUniform;
-      let k = 0;
-      const seq = [MAXU, 0.5];
-      CONFIG.Dice.randomUniform = () => seq[Math.min(k++, seq.length - 1)];
-      try {
-        row().querySelector(".explode-the-die").click();
-        for (let i = 0; i < 60 && !game.messages.get(card.id)?.getFlag(NS, "maneuverChoice"); i++) await sleep(200);
-      } finally { CONFIG.Dice.randomUniform = o2; }
-      await sleep(600);
-      const after = game.messages.get(card.id);
-      out.explodeAfter = {
-        total: after?.rolls?.[0]?.total ?? null,
-        formula: after?.rolls?.[0]?.formula ?? null,
-        choice: after.getFlag(NS, "maneuverChoice") ?? null,
-        exploded: (after?.rolls?.[0]?.dice?.[0]?.results ?? []).filter((r) => r.exploded).length,
-      };
-      await ui.chat.render(true);
-      await sleep(500);
-      out.explodeLines = linesOf(after);
-      out.explodeSealed = {
-        explode: row()?.querySelector(".explode-the-die")?.disabled === true,
-        maneuver: row()?.querySelector(".take-maneuver")?.disabled === true,
-      };
-      // ONCE DECIDED: no glow on either, and a check on the one that was taken.
-      // The tick is drawn from the FLAG per viewer, so this also measures that
-      // the rebuild knows WHICH was pressed and not merely that something was.
-      {
-        const e = row()?.querySelector(".explode-the-die");
-        const m = row()?.querySelector(".take-maneuver");
-        out.sealedLook = e && m ? {
-          explodeGlow: getComputedStyle(e).textShadow,
-          maneuverGlow: getComputedStyle(m).textShadow,
-          explodeTick: !!e.querySelector(".fa-check"),
-          maneuverTick: !!m.querySelector(".fa-check"),
-          applyBack: !!row()?.querySelector(".apply-dmg"),
-        } : null;
-      }
-      out.dsnCalls = dsnCalls;
-    } catch (e) {
-      if (e?.message !== "SKIP_EXPLODE") throw e;
-    } finally {
-      if (origShow) game.dice3d.showForRoll = origShow;
-      out.dsnShadowLifted = game.dice3d ? game.dice3d.showForRoll === origShow : null;
-    }
-
-    // MANEUVER: the damage is forgone -- the flag records it, the line appears,
-    // the Apply control greys, and the total is left exactly as it was.
-    const card2 = await rollWeapon(pc, "ZZ Big Blade");
-    const row2 = () => document.querySelector(`[data-message-id="${card2.id}"]`);
-    if (!row2()?.querySelector(".take-maneuver")) {
-      out.maneuverTaken = { err: "no Maneuver button to press" };
-    } else {
-    row2().querySelector(".take-maneuver").click();
-    for (let i = 0; i < 60 && !game.messages.get(card2.id)?.getFlag(NS, "maneuverChoice"); i++) await sleep(200);
-    await ui.chat.render(true);
-    await sleep(600);
-    const mvMsg = game.messages.get(card2.id);
-    out.maneuverTaken = {
-      choice: mvMsg.getFlag(NS, "maneuverChoice") ?? null,
-      total: mvMsg.rolls?.[0]?.total ?? null,
-      wasTotal: card2.total,
-      forgoneLine: !!row2()?.querySelector(".dmg-forgone"),
-      applySpent: row2()?.querySelector(".apply-dmg")?.classList.contains("spent") ?? null,
-      sealed: row2()?.querySelector(".take-maneuver")?.disabled === true,
-      explodeGone: row2()?.querySelector(".explode-the-die")?.disabled === true,
-    };
-    // A second click adds nothing and cannot flip the choice.
-    row2()?.querySelector(".explode-the-die")?.click();
-    await sleep(500);
-    out.maneuverStillManeuver = game.messages.get(card2.id).getFlag(NS, "maneuverChoice");
     }
 
     /* ---- 14. the Unarmed Attack row ------------------------------------- */
@@ -1232,8 +1097,8 @@ try {
         return {
           shape,
           rowShape,
-          // Apply is WITHHELD while a choice is pending, so whether the control
-          // is on the card is part of what this leg reports.
+          // Apply is always on the card now; it was withheld while the old
+          // maneuver choice was pending.
           applyBtn: !!row?.querySelector(".apply-dmg"),
           id: msg.id,
           // WHAT THE CLAIMED MESSAGE ACTUALLY IS, carried so a failure names it
@@ -1248,8 +1113,8 @@ try {
           // was rebuilt from instead of only the text that came out.
           labelData: { ...(row?.querySelector(".dmg-label")?.dataset ?? {}) },
           datum: !!row?.querySelector("[data-maneuver]"),
-          explodeBtn: !!row?.querySelector(".explode-the-die"),
-          maneuverBtn: !!row?.querySelector(".take-maneuver"),
+          maneuverLine: !!row?.querySelector(".dmg-maneuver-line"),
+          buttons: !!row?.querySelector(".dmg-maneuver-choice, .explode-the-die, .take-maneuver"),
         };
       } finally {
         CONFIG.Dice.randomUniform = origRU;
@@ -1257,10 +1122,10 @@ try {
     };
 
     await game.settings.set(NS, "exploding-damage-dice", true);
-    await game.settings.set(NS, "maneuver-on-max-melee", true);
+    await game.settings.set(NS, "maneuver-on-max-damage", true);
 
-    // With a maneuver on offer the die does NOT explode at roll time, and the
-    // card asks which.
+    // Both options on: the die explodes at roll time and the maximum earns the
+    // line, as a weapon's does.
     out.impD6 = await improvise(pc, { description: "a chair leg", formula: "d6" });
     // A d4 the same (no floor since 2026-10-03), reached by a route that has no
     // item anywhere in it.
@@ -1312,12 +1177,13 @@ try {
       await sleep(200);
     }
 
-    // A MONSTER never explodes, though the Warden may press the button.
-    await game.settings.set(NS, "maneuver-on-max-melee", false);
+    // A MONSTER never explodes and earns no line, though the Warden may press
+    // the row: rolled with BOTH options on, so the absences are the PC gate's.
     out.impMonster = await improvise(monster, { description: "a rock", formula: "d6" });
+    await game.settings.set(NS, "maneuver-on-max-damage", false);
     // ...and with maneuver off a PC's d6 auto-explodes, as a weapon would.
     out.impAutoExplode = await improvise(pc, { description: "a chair leg", formula: "d6" });
-    await game.settings.set(NS, "maneuver-on-max-melee", true);
+    await game.settings.set(NS, "maneuver-on-max-damage", true);
 
     // PANICKED: the field is STILL THERE and still editable, a note says the
     // override is coming, and `d10` typed into it still rolls 1d4. The typed
@@ -1631,151 +1497,61 @@ try {
     ? ok(`...and a card where nothing exploded carries no line at all`)
     : fail(`a plain 1d6 card carried ${r.plainLines?.length} line(s)`);
 
-  // ---- Part 3: the maneuver gate ----------------------------------------
+  // ---- Part 3: maneuver on max damage -----------------------------------
+  // NO CHOICE ON THE CARD since the night of 2026-10-03: the damage stands,
+  // exploding (when on) happens at roll time, and a maximum adds ONE line. So
+  // every leg asserts four things — the formula, the line, Apply present, and
+  // the withdrawn buttons absent — because a card that still offered the old
+  // pair would pass a line-only check.
   const noX = (f) => !!f && !/x/.test(f);
   const hasX = (f) => !!f && /x/.test(f);
-  r.mvBoth && noX(r.mvBoth.formula) && r.mvBoth.datum && r.mvBoth.explodeBtn && r.mvBoth.maneuverBtn
-    ? ok(`both options on, melee d10 at its max: the die did NOT explode at roll time (${r.mvBoth.formula}) and the card offers Explode the Die AND Maneuver`)
-    : fail(`mvBoth: ${JSON.stringify(r.mvBoth)} — want an unexploded formula and both buttons`);
-  r.mvBoth?.tips?.explode === "CAIRN.Crawler.ExplodeButtonTip"
-    && r.mvBoth?.tips?.maneuver === "CAIRN.Crawler.ManeuverButtonTip"
-    ? ok(`...and each button carries its own data-tooltip key, so hovering says what it does`)
-    : fail(`button tooltips were ${JSON.stringify(r.mvBoth?.tips)}`);
-  r.mvRanged && hasX(r.mvRanged.formula) && !r.mvRanged.datum && !r.mvRanged.maneuverBtn
-    ? ok(`a RANGED weapon offers no maneuver and auto-explodes (${r.mvRanged.formula}) — both halves of the new ranged field`)
-    : fail(`mvRanged: ${JSON.stringify(r.mvRanged)} — want x in the formula and no buttons`);
-  r.mvD4 && noX(r.mvD4.formula) && r.mvD4.explodeBtn && r.mvD4.maneuverBtn
-    ? ok(`NO FLOOR (2026-10-03): a melee d4 is rolled plain (${r.mvD4.formula}) and offers Explode the Die AND Maneuver — the smallest die, the same offer as the d10`)
-    : fail(`mvD4: ${JSON.stringify(r.mvD4)} — want a plain d4 and both buttons; x in the formula or a missing button means a floor survived at this site`);
-  r.mvD4Off && hasX(r.mvD4Off.formula) && !r.mvD4Off.maneuverBtn && !r.mvD4Off.datum
-    ? ok(`...and with the maneuver option OFF the same d4 auto-explodes at roll time (${r.mvD4Off.formula}) — no floor on that half either`)
-    : fail(`mvD4Off: ${JSON.stringify(r.mvD4Off)} — want 1d4x and no buttons`);
-  r.mvImpaired && /^1?d4$/.test(r.mvImpaired.formula ?? "") && r.mvImpaired.explodeBtn && r.mvImpaired.maneuverBtn
-    ? ok(`an IMPAIRED attack on a d10 weapon rolls a plain ${r.mvImpaired.formula} and offers both — the case that actually fires, and proof the test reads the POST-quality formula rather than the weapon`)
-    : fail(`mvImpaired: ${JSON.stringify(r.mvImpaired)} — want 1d4, no x, both buttons`);
-  r.mvPlus && /^2d6k/i.test(r.mvPlus.formula ?? "") && !/x/i.test(r.mvPlus.formula ?? "") && r.mvPlus.explodeBtn && r.mvPlus.maneuverBtn
-    ? ok(`a d6 + d6 weapon is rolled as its keep form (${r.mvPlus.formula}) and offers both — the + pool joined the maneuver rule, as "parallel exploding dice" requires`)
-    : fail(`mvPlus: ${JSON.stringify(r.mvPlus)} — want the formula 2d6k and both buttons; d6 + d6 would be a PoolTerm the card cannot judge`);
-  r.mvEnhanced && /d12/.test(r.mvEnhanced.formula ?? "") && r.mvEnhanced.maneuverBtn
-    ? ok(`...and an ENHANCED attack (${r.mvEnhanced.formula}) offers too`)
-    : fail(`mvEnhanced: ${JSON.stringify(r.mvEnhanced)} — a d12 must still offer`);
-  r.mvMonster && !r.mvMonster.datum && !r.mvMonster.maneuverBtn
-    ? ok(`a MONSTER is offered nothing — player characters only, as everywhere else in this hack`)
+  const LINE = r.maneuverLineText;
+  const lineOk = (c) => !!c && c.line === LINE && c.apply && !c.buttons;
+  const noLine = (c) => !!c && c.line === null && c.apply && !c.buttons;
+  LINE && !LINE.startsWith("CAIRN.")
+    ? ok(`the maneuver line localizes in-page ("${LINE}"), so every leg below compares the sentence and not a key`)
+    : fail(`CAIRN.Crawler.ManeuverAvailable came back as ${JSON.stringify(LINE)} — an unknown key localizes to itself`);
+  lineOk(r.mvBoth) && /^1?d10x/.test(r.mvBoth.formula ?? "") && r.mvBoth.datum && r.mvBoth.exploded >= 1
+    ? ok(`both options on, d10 at its max: the die EXPLODED at roll time (${r.mvBoth.formula}, ${r.mvBoth.exploded} line(s)), the card says a maneuver is possible, and Apply is there — the damage stands`)
+    : fail(`mvBoth: ${JSON.stringify(r.mvBoth)} — want 1d10x, the line, Apply, and no buttons`);
+  lineOk(r.mvRanged) && hasX(r.mvRanged.formula) && r.mvRanged.datum
+    ? ok(`a RANGED weapon earns the line too (${r.mvRanged.formula}) — the Ranged box withholds nothing any more`)
+    : fail(`mvRanged: ${JSON.stringify(r.mvRanged)} — want x, the datum and the line; no line means the melee-only rule survived`);
+  lineOk(r.mvD4) && /^1?d4x/.test(r.mvD4.formula ?? "")
+    ? ok(`NO FLOOR: a d4 at its max explodes (${r.mvD4.formula}) and earns the line`)
+    : fail(`mvD4: ${JSON.stringify(r.mvD4)} — want 1d4x and the line`);
+  lineOk(r.mvImpaired) && /^1?d4x/.test(r.mvImpaired.formula ?? "")
+    ? ok(`an IMPAIRED attack on a d10 weapon rolls ${r.mvImpaired.formula} and earns the line — judged on the 1d4 it actually rolls, not the weapon`)
+    : fail(`mvImpaired: ${JSON.stringify(r.mvImpaired)} — want 1d4x and the line`);
+  lineOk(r.mvPlus) && /^2d6kx/i.test(r.mvPlus.formula ?? "")
+    ? ok(`a d6 + d6 weapon explodes in its keep form (${r.mvPlus.formula}) and earns the line`)
+    : fail(`mvPlus: ${JSON.stringify(r.mvPlus)} — want 2d6kx and the line`);
+  lineOk(r.mvEnhanced) && /d12x/.test(r.mvEnhanced.formula ?? "")
+    ? ok(`...and an ENHANCED attack (${r.mvEnhanced.formula}) earns it too`)
+    : fail(`mvEnhanced: ${JSON.stringify(r.mvEnhanced)}`);
+  noLine(r.mvLow) && r.mvLow.datum
+    ? ok(`a roll BELOW the maximum carries the datum and no line (${r.mvLow.formula}, total ${r.mvLow.total}) — the line is about the die, not about the option being on`)
+    : fail(`mvLow: ${JSON.stringify(r.mvLow)} — want the datum and NO line`);
+  r.mvMonster && noX(r.mvMonster.formula) && !r.mvMonster.datum && r.mvMonster.line === null && !r.mvMonster.buttons
+    ? ok(`a MONSTER gets nothing — no explosion, no datum, no line; player characters only`)
     : fail(`mvMonster: ${JSON.stringify(r.mvMonster)}`);
-  r.mvOptionOff && hasX(r.mvOptionOff.formula) && !r.mvOptionOff.maneuverBtn
-    ? ok(`maneuver OFF with exploding on: back to auto-explode (${r.mvOptionOff.formula}) and no buttons — the shipped behaviour, untouched`)
+  noLine(r.mvOptionOff) && hasX(r.mvOptionOff.formula) && !r.mvOptionOff.datum
+    ? ok(`maneuver OFF with exploding on: the die explodes (${r.mvOptionOff.formula}) and no line is drawn`)
     : fail(`mvOptionOff: ${JSON.stringify(r.mvOptionOff)}`);
-  r.mvNoExplode && !r.mvNoExplode.explodeBtn && r.mvNoExplode.maneuverBtn
-    ? ok(`maneuver ON with exploding off: Maneuver alone, no Explode the Die`)
-    : fail(`mvNoExplode: ${JSON.stringify(r.mvNoExplode)} — want the maneuver button only`);
-
-  // ---- pressing Explode the Die ------------------------------------------
-  r.dsnActive
-    ? ok(`Dice So Nice is active, so the animation leg below is a real measurement`)
-    : fail(`game.dice3d is absent — this leg FAILS rather than skipping, because a timing it cannot observe is not a timing it has checked`);
-  (r.explodeAfter?.total ?? 0) > (r.explodeBefore?.total ?? 0)
-    ? ok(`Explode the Die rewrote the stored total, ${r.explodeBefore.total} -> ${r.explodeAfter.total} — without _evaluateTotal() the Apply path would still spend the old number, since Roll.fromData trusts the stored one`)
-    : fail(`total went ${r.explodeBefore?.total} -> ${r.explodeAfter?.total}; it must grow`);
-  hasX(r.explodeAfter?.formula)
-    ? ok(`...and the card's formula follows the terms (${r.explodeAfter.formula}) via resetFormula()`)
-    : fail(`formula after exploding was ${r.explodeAfter?.formula}, expected it to carry x`);
-  r.explodeLines?.length >= 1 && r.explodeAfter?.exploded >= 1
-    ? ok(`...and Part 2's lines appear for free from results[].exploded (${r.explodeLines.length} line(s)) — the two features compose with no extra code`)
-    : fail(`after exploding: ${r.explodeAfter?.exploded} exploded result(s), ${r.explodeLines?.length} line(s)`);
-  r.explodeSealed?.explode && r.explodeSealed?.maneuver
-    ? ok(`...and both buttons stay sealed across a re-render, the choice being spent on the MESSAGE`)
-    : fail(`seal after exploding: ${JSON.stringify(r.explodeSealed)}`);
-
-  // ---- the pair's look, both schemes -------------------------------------
-  // THE AMBER IS PINNED AND SO IS ASSERTED EXACTLY; the red is Foundry's own
-  // `--color-level-error`, whose value is core's to change, so it is measured as
-  // "a colour, and NOT the amber" exactly as the Fatigue button's red neighbour
-  // already is a few legs above. Pinning a core token would be this file's own
-  // stale-number trap in a stylesheet.
-  // --ab-maneuver-chat: pinned so the dark scheme cannot re-point it, AND tuned
-  // darker than any --ab-amber so the pair carries equal weight on the parchment
-  // tile. See the token's own comment for the contrast arithmetic.
-  const AMBER = "rgb(163, 90, 0)";
-  const pairOk = (p) => p && p.display === "flex" && p.sameRow;
-  pairOk(r.pairLight)
-    ? ok(`the pair sits SIDE BY SIDE (one flex row, both buttons on the same top edge)`)
-    : fail(`pair layout: ${JSON.stringify(r.pairLight)}`);
-  r.pairLight?.maneuverLabel === "Use a Maneuver!"
-    ? ok(`...labelled "Use a Maneuver!"`)
-    : fail(`maneuver label is ${JSON.stringify(r.pairLight?.maneuverLabel)}`);
-  r.pairLight?.applyPresent === false
-    ? ok(`...with Apply withheld while the choice is pending`)
-    : fail(`Apply was on an undecided card: ${JSON.stringify(r.pairLight?.applyPresent)}`);
-  /^rgb/.test(r.pairLight?.explodeGlow ?? "") && r.pairLight?.explodeGlow !== AMBER
-    && r.pairLight?.maneuverGlow === AMBER
-    ? ok(`...Explode glows the error red (${r.pairLight.explodeGlow}) and Maneuver the pinned amber (${AMBER}) — two colours, so one selector cannot repaint both`)
-    : fail(`light colours: ${JSON.stringify({ explode: r.pairLight?.explodeGlow, maneuver: r.pairLight?.maneuverGlow })}`);
-  // EQUAL WEIGHT, asserted as the RULE and not as a second literal. The pair is
-  // meant to read as two equal choices separated only by colour, and the literal
-  // above catches a swapped token while saying nothing about whether the two
-  // carry the same weight — which is what was actually wrong: the old amber was
-  // nearly twice as light as the red and 62% of its contrast on the tile.
-  //
-  // No background sample is needed or possible here: the chat tile is an IMAGE,
-  // so `getComputedStyle().backgroundColor` cannot tell a probe what the pair
-  // sits on (parchment.jpg, sampled offline to #D9D9CD). Comparing the two
-  // buttons to EACH OTHER needs no ground at all.
-  const lum = (css) => {
-    const [r1, g1, b1] = (String(css).match(/\d+(\.\d+)?/g) ?? []).slice(0, 3).map(Number);
-    if ([r1, g1, b1].some((v) => !Number.isFinite(v))) return null;
-    const lin = (v) => (v / 255 <= 0.03928 ? v / 255 / 12.92 : (((v / 255) + 0.055) / 1.055) ** 2.4);
-    return 0.2126 * lin(r1) + 0.7152 * lin(g1) + 0.0722 * lin(b1);
-  };
-  {
-    const le = lum(r.pairLight?.explodeBorder);
-    const lm = lum(r.pairLight?.maneuverBorder);
-    const gap = le !== null && lm !== null ? Math.abs(le - lm) : null;
-    gap !== null && gap <= 0.04
-      ? ok(`...and they carry EQUAL WEIGHT: border luminance ${le.toFixed(3)} vs ${lm.toFixed(3)}, a gap of ${gap.toFixed(3)} — a matched pair, not one button and one hint`)
-      : fail(`border weight: explode ${le} vs maneuver ${lm}, gap ${gap} — over 0.04 the lighter one stops reading as an equal choice`);
-  }
-
-  // THE DISCRIMINATING HALF. --ab-amber re-points to rgb(232,163,60) for a
-  // .chat-message in dark; the pinned token does not, and the tile is parchment
-  // in both schemes. In light mode the two are identical, so only this read can
-  // tell the right token from the wrong one.
-  r.pairDark?.maneuverGlow === AMBER && r.pairDark?.explodeGlow === r.pairLight?.explodeGlow
-    ? ok(`...and BOTH are unmoved under a DARK interface — the pinned token, not --ab-amber, which re-points to rgb(232, 163, 60) for a .chat-message and would wash out on a tile that is parchment either way`)
-    : fail(`dark colours: ${JSON.stringify({ explode: r.pairDark?.explodeGlow, maneuver: r.pairDark?.maneuverGlow })}`);
-  r.sealedLook?.explodeGlow === "none" && r.sealedLook?.maneuverGlow === "none"
-    ? ok(`once decided NEITHER glows — the colours said "choose", and that is over`)
-    : fail(`sealed glow: ${JSON.stringify(r.sealedLook)}`);
-  r.sealedLook?.explodeTick === true && r.sealedLook?.maneuverTick === false
-    ? ok(`...and the check is on the one that was TAKEN, drawn from the flag per viewer`)
-    : fail(`sealed ticks: ${JSON.stringify(r.sealedLook)}`);
-  r.sealedLook?.applyBack === true
-    ? ok(`...and Apply comes back, now that the total is the damage`)
-    : fail(`Apply did not return after the roll resolved: ${JSON.stringify(r.sealedLook)}`);
-  r.dsnCalls?.length === 1 && r.dsnCalls[0].synchronize === true
-    ? ok(`THE DICE ANIMATE: showForRoll called exactly once with synchronize=true (${r.dsnCalls[0].formula}) — an in-place rolls rewrite makes DSN's own dsnCountAddedRoll zero, so without this call nothing would tumble`)
-    : fail(`showForRoll calls: ${JSON.stringify(r.dsnCalls)} — want exactly one with synchronize=true. Zero means the silent-dice defect; synchronize=false means the dice land on the roller's client alone`);
-  r.dsnCalls?.length === 1 && r.dsnCalls[0].messageID
-    ? ok(`...linked to the card (messageID passed), so DSN can associate the animation with it`)
-    : fail(`showForRoll got messageID ${r.dsnCalls?.[0]?.messageID}`);
-  r.dsnShadowLifted !== false
-    ? ok(`...and the showForRoll shadow was lifted, leaving the live client as it was`)
-    : fail(`the showForRoll shadow is STILL installed — a probe that leaves a shadow behind poisons every later run`);
-
-  // ---- pressing Maneuver -------------------------------------------------
-  r.maneuverTaken?.choice === "maneuver" && r.maneuverTaken.total === r.maneuverTaken.wasTotal
-    ? ok(`Maneuver records the choice and leaves the total alone (${r.maneuverTaken.total})`)
-    : fail(`maneuver: ${JSON.stringify(r.maneuverTaken)}`);
-  r.maneuverTaken?.forgoneLine && r.maneuverTaken?.applySpent
-    ? ok(`...the card says the damage was forgone and the Apply control is greyed — with the refusal in onClickChatMessageApplyButton behind it`)
-    : fail(`forgone line ${r.maneuverTaken?.forgoneLine}, apply spent ${r.maneuverTaken?.applySpent}`);
-  r.maneuverTaken?.sealed && r.maneuverStillManeuver === "maneuver"
-    ? ok(`...and the pair is EXCLUSIVE: pressing Explode the Die afterwards changes nothing`)
-    : fail(`sealed ${r.maneuverTaken?.sealed}, choice after a second click ${r.maneuverStillManeuver} — want it still "maneuver"`);
+  noLine(r.mvD4Off) && /^1?d4x/.test(r.mvD4Off.formula ?? "") && !r.mvD4Off.datum
+    ? ok(`...and the same for a d4 (${r.mvD4Off.formula})`)
+    : fail(`mvD4Off: ${JSON.stringify(r.mvD4Off)}`);
+  lineOk(r.mvNoExplode) && /^1?d10$/.test(r.mvNoExplode.formula ?? "")
+    ? ok(`maneuver ON with exploding off: a plain ${r.mvNoExplode.formula} at its max, and the line`)
+    : fail(`mvNoExplode: ${JSON.stringify(r.mvNoExplode)} — want a plain 1d10 and the line`);
+  lineOk(r.mvPlusNoExplode) && /^2d6k(h1)?$/i.test(r.mvPlusNoExplode.formula ?? "")
+    ? ok(`...and a d6 + d6 is rolled as ${r.mvPlusNoExplode.formula}, ONE Die term the card can judge — as a PoolTerm the line could never be drawn`)
+    : fail(`mvPlusNoExplode: ${JSON.stringify(r.mvPlusNoExplode)} — want 2d6k and the line`);
 
   // ---- the Unarmed Attack row -------------------------------------------
   const impOk = (r2) => r2 && !r2.err;
-  impOk(r.impD6) && noX(r.impD6.formula) && r.impD6.explodeBtn && r.impD6.maneuverBtn
-    ? ok(`Unarmed Attack: a d6 typed into the dialog did NOT explode at roll time (${r.impD6.formula}) and the card offers Explode the Die AND Use a Maneuver! — no item anywhere in the path`)
+  impOk(r.impD6) && hasX(r.impD6.formula) && r.impD6.maneuverLine && !r.impD6.buttons
+    ? ok(`Unarmed Attack: a d6 typed into the dialog exploded at roll time (${r.impD6.formula}) and the card carries the maneuver line — no item anywhere in the path`)
     : fail(`impD6: ${JSON.stringify(r.impD6)}`);
   r.impD6?.line?.includes("a chair leg")
     ? ok(`...and the description reaches the card as the thing attacked with: "${r.impD6.line}" — the weapon datum, so no new sentence key was needed`)
@@ -1796,13 +1572,14 @@ try {
     && !r.impD6?.shape?.hasBuilder && !r.impD6?.shape?.hasQuality
     ? ok(`...and the dialog is exactly two fields and two buttons: no dice builder, no Standard/Impaired/Enhanced (opens on ${r.impD6.shape.formulaStart})`)
     : fail(`dialog shape: ${JSON.stringify(r.impD6?.shape)}`);
-  // The pending-choice withholding, on the card this leg already has in hand.
-  r.impD6?.applyBtn === false
-    ? ok(`...and Apply is WITHHELD while the choice is pending — the total on the card is not yet the damage`)
-    : fail(`Apply was on an undecided card: ${JSON.stringify(r.impD6?.applyBtn)}`);
+  // Apply on the card that carries the line: it was WITHHELD there for a day,
+  // while a maneuver forwent the damage.
+  r.impD6?.applyBtn === true
+    ? ok(`...and Apply is on that card — a maneuver no longer costs the damage`)
+    : fail(`Apply missing from a card with the maneuver line: ${JSON.stringify(r.impD6?.applyBtn)}`);
   r.impAutoExplode?.applyBtn === true
-    ? ok(`...while a card with nothing to decide keeps it`)
-    : fail(`Apply missing from a resolved card: ${JSON.stringify(r.impAutoExplode?.applyBtn)}`);
+    ? ok(`...as it is on a card with no line`)
+    : fail(`Apply missing from a card with no line: ${JSON.stringify(r.impAutoExplode?.applyBtn)}`);
 
   {
     const al = r.impD6?.rowShape?.align;
@@ -1822,9 +1599,9 @@ try {
       : fail(`Drop glyph: ${JSON.stringify(g)} — fa-arrow-down-to-line is absent from the bundled FA5-era font; only fa-down-to-line resolves`);
   }
 
-  impOk(r.impD4) && noX(r.impD4.formula) && r.impD4.explodeBtn && r.impD4.maneuverBtn
-    ? ok(`NO FLOOR through the unarmed route: a typed d4 is rolled plain (${r.impD4.formula}) and offers both buttons`)
-    : fail(`impD4: ${JSON.stringify(r.impD4)} — want a plain d4 and both buttons`);
+  impOk(r.impD4) && /^1?d4x/.test(r.impD4.formula ?? "") && r.impD4.maneuverLine && !r.impD4.buttons
+    ? ok(`NO FLOOR through the unarmed route: a typed d4 explodes (${r.impD4.formula}) and carries the line`)
+    : fail(`impD4: ${JSON.stringify(r.impD4)} — want 1d4x and the line`);
   impOk(r.impD10) && /d10/.test(r.impD10.formula ?? "")
     ? ok(`the TYPED formula is what gets rolled (${r.impD10.formula}), not the 1d4 the field starts on`)
     : fail(`impD10: ${JSON.stringify(r.impD10)}`);
@@ -1844,11 +1621,11 @@ try {
     ? ok(`...while typed text still reaches the weapon key ("${r.impTgtTyped.line}") — the contrast is what proves the ternary picks an arm rather than one arm always winning`)
     : fail(`impTgtTyped: expected "${r.expect?.tgtWeapon}", read "${r.impTgtTyped?.line}"`);
 
-  impOk(r.impMonster) && noX(r.impMonster.formula) && !r.impMonster.maneuverBtn
-    ? ok(`a MONSTER's improvised attack never explodes (${r.impMonster.formula}) and offers nothing — the PC gate is at the roll site, not merely on the button`)
+  impOk(r.impMonster) && noX(r.impMonster.formula) && !r.impMonster.maneuverLine && !r.impMonster.datum
+    ? ok(`a MONSTER's unarmed attack never explodes (${r.impMonster.formula}) and carries no line — the PC gate is at the roll site`)
     : fail(`impMonster: ${JSON.stringify(r.impMonster)}`);
-  impOk(r.impAutoExplode) && hasX(r.impAutoExplode.formula)
-    ? ok(`...while a PC's d6 with maneuver OFF auto-explodes (${r.impAutoExplode.formula}), exactly as a weapon would`)
+  impOk(r.impAutoExplode) && hasX(r.impAutoExplode.formula) && !r.impAutoExplode.maneuverLine
+    ? ok(`...while a PC's d6 with maneuver OFF explodes (${r.impAutoExplode.formula}) with no line, exactly as a weapon would`)
     : fail(`impAutoExplode: ${JSON.stringify(r.impAutoExplode)}`);
 
   impOk(r.impPanicked) && r.impPanicked.shape?.hasDescription
@@ -1862,10 +1639,10 @@ try {
   r.gateShadowLifted
     ? ok(`...and the isOwner shadow was lifted, leaving the live actor as it was`)
     : fail(`the isOwner shadow is STILL on the actor — a probe that leaves one poisons every later run`);
-  impOk(r.impPanicked) && /d4/.test(r.impPanicked.formula ?? "") && noX(r.impPanicked.formula)
-    && r.impPanicked.explodeBtn && r.impPanicked.maneuverBtn
-    ? ok(`...and a typed d10 still rolls ${r.impPanicked.formula} — the override is at the roll site — and that 1d4 offers both buttons like any other die`)
-    : fail(`panicked roll: ${JSON.stringify(r.impPanicked)} — want a plain 1d4 with both buttons`);
+  impOk(r.impPanicked) && /^1?d4x/.test(r.impPanicked.formula ?? "")
+    && r.impPanicked.maneuverLine && !r.impPanicked.buttons
+    ? ok(`...and a typed d10 still rolls ${r.impPanicked.formula} — the override is at the roll site — and that 1d4 explodes and carries the line like any other die`)
+    : fail(`panicked roll: ${JSON.stringify(r.impPanicked)} — want 1d4x with the line`);
 
   // NOTHING TO DROP: the old "past a full pack" claim, measured where it is
   // still true. A character whose every slot is Fatigue has nothing the picker
