@@ -45,7 +45,7 @@ manifest. Descends architecturally from a private fork of
   submitted by `npm run publish:foundry` and is what the package page
   advertises to everyone browsing, so it is read by people who will never open
   this file.
-- Latest release **0.1.23** (2026-09-15). `system.json`'s `version` is bumped by
+- Latest release **0.1.24** (2026-10-04). `system.json`'s `version` is bumped by
   `npm run release` in the release commit on `master` (CI substitutes the same
   tag into the manifest URLs), so on `dev` it lags until the post-release sync
   — read the tag, not the file. This line said 0.1.12 through five releases
