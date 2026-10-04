@@ -6,11 +6,11 @@ as of 2026-10-03, measured against the last release (`0.1.23`).
 
 | | |
 | --- | --- |
-| English interface keys | 1188 |
+| English interface keys | 1190 |
 | translated in `lang/es.json` | 686 (58%) |
 | **changed under your translation** | **29** ← Part 1 |
 | **content you translated, now unreachable** | **270** ← Part 2 |
-| new interface keys, untranslated | 502 ← Part 3 |
+| new interface keys, untranslated | 504 ← Part 3 |
 | new content strings, untranslated | 2072 ← Part 4 |
 
 Only two files are yours, and only you should edit them: `lang/es.json`
@@ -557,7 +557,7 @@ to do — they are listed so the work is accounted for rather than vanishing.
 
 ---
 
-## Part 3 — new interface keys, untranslated (502)
+## Part 3 — new interface keys, untranslated (504)
 
 Ordinary outstanding work: these have no Spanish at all, so a Spanish client
 falls back to English for them. Nothing here is urgent — a missing key is visibly
@@ -942,11 +942,13 @@ untranslated, which is the honest failure.
 | --- | --- |
 | `CAIRN.Party.Folder` | Party |
 
-### Pile (15)
+### Pile (17)
 
 | key | English |
 | --- | --- |
 | `CAIRN.Pile.ConfirmDrop` | Drop {name}? It goes to the party's Dropped Item Pile, and the Warden hands it back. |
+| `CAIRN.Pile.DeleteWarning` | The pile still holds {n} items the party dropped, and they will be deleted too. |
+| `CAIRN.Pile.DeleteWarning_one` | The pile still holds {n} item the party dropped, and it will be deleted too. |
 | `CAIRN.Pile.DropTip` | Drop this into the party's Dropped Item Pile, where the Warden can hand it back. |
 | `CAIRN.Pile.FatigueConfirm` | Drop it and take the Fatigue |
 | `CAIRN.Pile.FatigueDropCard` | Dropped {item} to make room for a Fatigue. |

@@ -523,6 +523,36 @@ try {
       out.pileTags = pile ? await readTags(pile, 2) : null;
       out.charTags = await readTags(noteActor, 1);
       out.noteKeptFlag = kept.system?.droppedAt ?? null;
+
+      // DELETING THE PILE SAYS WHAT GOES WITH IT (2026-10-04). Read off core's
+      // real confirm, opened through the same `deleteDialog` the directory's
+      // Delete entry calls, and answered NO — this leg must never delete what
+      // it reads. The control is the note character, which holds an item and is
+      // not the pile: core's dialog, one paragraph, nothing added.
+      const readDeleteDialog = async (actor) => {
+        const before = new Set(foundry.applications.instances.keys());
+        const pending = actor.deleteDialog();
+        let dlg = null;
+        for (let i = 0; i < 40 && !dlg; i++) {
+          await sleep(100);
+          dlg = [...foundry.applications.instances.values()]
+            .find((a) => !before.has(a.id) && a instanceof foundry.applications.api.DialogV2) ?? null;
+        }
+        const paras = dlg
+          ? [...dlg.element.querySelectorAll(".window-content p")].map((p) => p.textContent.trim())
+          : null;
+        dlg?.element.querySelector('[data-action="no"]')?.click();
+        await Promise.race([pending, sleep(3000)]);
+        await sleep(300);
+        return { paras, survived: !!game.actors.get(actor.id) };
+      };
+      const { formatCount } = await import("/systems/air-bladder/module/utils.js");
+      out.pileDelete = pile
+        ? { ...(await readDeleteDialog(pile)), count: pile.items.size,
+          expect: formatCount("CAIRN.Pile.DeleteWarning", pile.items.size) }
+        : null;
+      out.charDelete = await readDeleteDialog(noteActor);
+      out.pileDeleteOne = formatCount("CAIRN.Pile.DeleteWarning", 1);
     }
     out.critAfterFatigue = pc._source.system.critical === true;
     out.afterFatigue = state(pc);
@@ -1452,6 +1482,18 @@ try {
     ? ok(`a drop RENDERS where it was left ("${r.pileTags["ZZ Note Rope"]}") on the pile's row — counted as rendered elements, because the partial's `
       + "`../` gate fails silently and leaves flag-set-zero-elements")
     : fail(`drop note tag: ${JSON.stringify(r.pileTags)} (derived: ${JSON.stringify(r.noteDerived)})`);
+  r.pileDelete?.count > 0 && r.pileDelete.paras?.length === 2 && r.pileDelete.paras[1] === r.pileDelete.expect
+    ? ok(`deleting the pile names what goes with it: "${r.pileDelete.expect}"`)
+    : fail(`pile delete confirm: ${JSON.stringify(r.pileDelete)}`);
+  r.charDelete?.paras?.length === 1
+    ? ok("control: another actor's delete confirm is core's own, with nothing added")
+    : fail(`control delete confirm: ${JSON.stringify(r.charDelete)}`);
+  r.pileDelete?.survived && r.charDelete?.survived
+    ? ok("answering No deleted nothing")
+    : fail(`a delete confirm answered No still deleted: pile=${r.pileDelete?.survived} control=${r.charDelete?.survived}`);
+  /\b1 item\b/.test(r.pileDeleteOne ?? "") && !/\bitems\b/.test(r.pileDeleteOne ?? "")
+    ? ok(`one item reads in the singular: "${r.pileDeleteOne}"`)
+    : fail(`singular pile warning: ${JSON.stringify(r.pileDeleteOne)}`);
   r.pileTags?.["ZZ Note Sack"] === null && r.noteDerived?.blank === ""
     ? ok("...and a blank one leaves the row with no tag at all — optional, because a forced field mostly yields \"x\"")
     : fail(`blank note: tag=${JSON.stringify(r.pileTags?.["ZZ Note Sack"])} derived=${JSON.stringify(r.noteDerived?.blank)}`);

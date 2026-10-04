@@ -268,6 +268,8 @@
   "CAIRN.Pile.DropTip": "Drop this into the party's Dropped Item Pile, where the Warden can hand it back.",
   "CAIRN.Pile.ConfirmDrop": "Drop {name}? It goes to the party's Dropped Item Pile, and the Warden hands it back.",
   "CAIRN.Pile.NoWarden": "No Warden is connected, so nothing can be dropped into the pile right now.",
+  "CAIRN.Pile.DeleteWarning": "The pile still holds {n} items the party dropped, and they will be deleted too.",
+  "CAIRN.Pile.DeleteWarning_one": "The pile still holds {n} item the party dropped, and it will be deleted too.",
   "CAIRN.Pile.FatigueTitle": "Fatigue takes a slot",
   "CAIRN.Pile.FatiguePrompt": "You are already overburdened. Choose something to drop to make room for this Fatigue.",
   "CAIRN.Pile.FatigueConfirm": "Drop it and take the Fatigue",

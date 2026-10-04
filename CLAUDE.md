@@ -644,6 +644,17 @@ companion record of who authored what.
     emit of the broker's own payload naming an actor she does not own is turned
     away. A probe that only ever runs as a GM cannot see an ownership wall at
     all.
+  - **DELETING THE PILE SAYS HOW MANY ITEMS GO WITH IT (2026-10-04, user
+    ask: "what happens if the warden accidentally deletes the party's Dropped
+    Item Pile?").** Everything in it goes and nothing brings it back —
+    Foundry's undo is canvas-only — and the next drop simply makes a fresh,
+    empty pile, because nothing finds it by id. So `CairnActor#deleteDialog`
+    keeps core's sentence and adds "The pile still holds {n} items the party
+    dropped, and they will be deleted too." (`formatCount`, a `_one` form),
+    only when it holds something. It REBUILDS core's sentence from core's own
+    keys because core composes it only when no content is passed; `i18n:source`
+    lists the two core keys as supplied. The Party folder's Delete All does not
+    pass through it, and core's warning there already says the contents go.
   - **PILE FIRST, THEN THE SHEET, and never the other way round.** If the create
     lands and the delete fails the player has two of something, which a Warden
     can see and fix; if the delete lands and the create fails the item is gone,

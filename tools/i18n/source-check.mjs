@@ -116,9 +116,14 @@ const CORE_RESOLVED = [/^TYPES\./];
  * kept as core's own words so that dialog added no string to translate; both
  * verified present in core's en.json. The gate was red on them from the
  * commit that introduced them (a5e3f58e) until this line.
+ * `COMMON.AreYouSure` / `SIDEBAR.DeleteWarning` (2026-10-04) are core's own
+ * delete-confirm sentence, rebuilt by `CairnActor#deleteDialog` for the
+ * Dropped Item Pile because core composes it only when no content is passed;
+ * both read by core's client (client-document.mjs:904-905) and present in its
+ * en.json.
  */
 const CORE_SUPPLIED = new Set(["COMBATANT.Ping", "COMBATANT.PanTo", "COMBAT.InitiativeRoll",
-  "COMMON.Yes", "COMMON.No"]);
+  "COMMON.Yes", "COMMON.No", "COMMON.AreYouSure", "SIDEBAR.DeleteWarning"]);
 
 /** Literal keys, plus the PREFIXES of keys built by interpolation. */
 const collectKeys = () => {

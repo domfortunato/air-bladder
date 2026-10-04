@@ -428,6 +428,37 @@ export class CairnActor extends Actor {
   }
 
   /**
+   * DELETING THE DROPPED ITEM PILE SAYS WHAT GOES WITH IT (2026-10-04, user
+   * ask, after asking what happens if a Warden deletes it by accident). Its
+   * items go with it and nothing brings them back — Foundry's undo covers the
+   * canvas only — while core's confirm reads the same for an empty crate. So
+   * the pile's confirm keeps core's sentence and adds the count, and only when
+   * there is something to lose.
+   *
+   * Core's own sentence is REBUILT here, from core's own keys, because
+   * `deleteDialog` composes its default content only when none is passed
+   * (client-document.mjs:901-907) — the same shape core's folder Delete entries
+   * use. Every other actor, and a pile that holds nothing, gets core's dialog
+   * untouched. The Party folder's Delete All does not come through here: it
+   * deletes contents without asking each one, and core's own warning there
+   * already says everything inside goes.
+   * @override
+   */
+  async deleteDialog(options = {}, operation = {}) {
+    if (!isDroppedPile(this) || !this.items.size || options.content) {
+      return super.deleteDialog(options, operation);
+    }
+    const type = game.i18n.localize(this.constructor.metadata.label);
+    const question = game.i18n.localize("COMMON.AreYouSure");
+    const warning = game.i18n.format("SIDEBAR.DeleteWarning", { type });
+    const lost = formatCount("CAIRN.Pile.DeleteWarning", this.items.size);
+    return super.deleteDialog({
+      ...options,
+      content: `<p><strong>${question}</strong> ${warning}</p><p>${lost}</p>`,
+    }, operation);
+  }
+
+  /**
    * The shared Mount / Transport / Container workflow: one name+Type dialog,
    * pre-filtered to the role's kinds plus "Other…", minting an UNCONNECTED npc
    * of that role. For mounts the select also carries a named clone group —
