@@ -9,6 +9,18 @@ anything is written. The procedure is in [RELEASE.md](RELEASE.md).
 Releases before 0.1.23 have their notes on the
 [releases page](https://github.com/domfortunato/air-bladder/releases) only.
 
+## 0.1.24
+
+**Requires Foundry VTT 14.365 or higher.**
+
+- Three optional combat rules for player characters, each off by default under Configure Hacks: **Exploding damage dice**, **Fatigue instead of Critical Damage**, and **Maneuver on max damage**
+- An **Improvised Attack** row at the top of every inventory rolls damage with nothing in hand: say what you attack with and type the dice (panic still forces 1d4)
+- A **Drop** control beside the trash puts an item in the party's **Dropped Item Pile**, with an optional note of where it was left; the Warden hands it back with Give. New player characters are created in a **Party** folder
+- Resting costs a ration: a player character with no rations cannot rest
+- The Warden chooses a player character's generation dice: ability dice, gold dice and a Hit Protection formula, which can be a flat number
+- A weapon row's dice show what it rolls, and each trait's die shows its table's die
+- Fixed: changing the custom portrait folder just after loading the world could cache the old folder's portraits
+
 ## 0.1.23
 
 **Requires Foundry VTT 14.365 or higher.**
