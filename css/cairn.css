@@ -119,6 +119,13 @@
        washes out on a tile that is parchment in both themes. */
     --ab-fatigue-chat: #12a3b4;
 
+    /* The maneuver line on a damage card glows in that SAME teal (user ask,
+       2026-10-04: "should glow teal"). An alias rather than a second literal,
+       so the two cannot drift apart by accident; give it its own value only if
+       the two are ever meant to differ. Pinned by inheritance, for the same
+       parchment-in-both-themes reason. */
+    --ab-maneuver-chat: var(--ab-fatigue-chat);
+
     /* What the Fatigue pair wears once the choice is spent: no colour, no glow,
        just a quiet frame. PINNED for the same reason as its neighbours and not
        --ab-line, which is `black` in light and #7a7266 in dark — a divergence
@@ -1435,23 +1442,33 @@
 }
 
 /* "A d6 exploded!", one line per explosion on a damage card (module/cairn.js
-   nameExplodedDice). Deliberately .dmg-quality's treatment above -- bold, its
-   own full-width line, NO colour -- so a three-step chain stacks up without
-   competing with the card it sits on (user ruling 2026-10-02; the red scar-banner
-   glow and an amber "ran hot" were both offered and declined). */
+   nameExplodedDice). Bold, its own full-width line, and since 2026-10-04 a RED
+   GLOW (user ask: "The die exploded line needs to glow red") -- Mark Critical
+   Damage's exact error red and 8px text glow, the colour the Explode the Die
+   button wore for the day it existed. It was deliberately uncoloured before
+   (ruling 2026-10-02, when a red glow was offered and declined); the lines are
+   now the only place either option speaks on the card, so they carry the
+   colour the buttons did. The ink stays core's, as on the buttons: only the
+   glow is coloured, which keeps the text readable on the parchment tile. */
 .chat-message .dmg-exploded {
     flex-basis: 100%;
     font-weight: 700;
+    text-shadow: 0 0 8px var(--color-level-error, #ce0707);
 }
 
 /* "Maximum damage! You may also attempt a maneuver." (the maneuver option,
    module/cairn.js nameManeuverAvailable). Under the explosion lines and dressed
    like them: information about the roll, not a control. It was a pair of
    buttons for a day, and a maneuver forwent the damage; since the night of
-   2026-10-03 the damage stands and this line is all there is. */
+   2026-10-03 the damage stands and this line is all there is. Glows TEAL
+   (user ask, 2026-10-04) -- --ab-maneuver-chat, an alias of the Fatigue teal,
+   never --ab-accent, which re-points for a .chat-message in dark mode while
+   the tile is parchment in both. (The Use a Maneuver! button itself was
+   amber; the user asked for teal for the line.) */
 .chat-message .dmg-maneuver-line {
     flex-basis: 100%;
     font-weight: 700;
+    text-shadow: 0 0 8px var(--ab-maneuver-chat);
 }
 
 /* "Got a scar!" on a damage card. A scar is a rules event with lasting

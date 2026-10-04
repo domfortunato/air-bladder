@@ -338,14 +338,53 @@ try {
       game.configureUI(cfg);
       await sleep(600);
     };
+    // THE TWO DAMAGE-CARD LINES GLOW (user ask, 2026-10-04): the explosion
+    // line in Mark Critical Damage's red, the maneuver line in the Fatigue
+    // teal. Read HERE, inside this one scheme switch, off a fixture card that
+    // carries both, because a SECOND configureUI round trip late in the run --
+    // after Dice So Nice had been rendering for minutes -- was followed both
+    // times it was tried (2026-10-04) by the headless GPU process dying three
+    // minutes later and taking the page with it, with nothing else changed. The fixture is the template's own markup with the
+    // maneuver datum and a pinned max-then-low `1d6x`.
+    let lineCard = null;
+    {
+      const origRU = CONFIG.Dice.randomUniform;
+      const seq = [0.0001, 0.5];
+      let k = 0;
+      CONFIG.Dice.randomUniform = () => seq[Math.min(k++, seq.length - 1)];
+      try {
+        const roll = await new Roll("1d6x").evaluate();
+        lineCard = await roll.toMessage({
+          speaker: ChatMessage.getSpeaker({ actor: pc }),
+          flavor: await foundry.applications.handlebars.renderTemplate(
+            "systems/air-bladder/templates/chat/dmg-roll-card.html",
+            { label: "ZZ glow fixture", weapon: "ZZ Blade", panic: false, maneuver: true }),
+        });
+        out.made2.push(lineCard.id);
+      } finally {
+        CONFIG.Dice.randomUniform = origRU;
+      }
+      await sleep(400);
+    }
+    const glowIn = (el) => (el
+      ? (getComputedStyle(el).textShadow.match(/rgba?\([^)]*\)/) ?? ["none"])[0] : null);
+    const readLines = () => {
+      const card = lineCard && rowOf(lineCard);
+      return {
+        exploded: glowIn(card?.querySelector(".dmg-exploded")),
+        maneuver: glowIn(card?.querySelector(".dmg-maneuver-line")),
+      };
+    };
     await setScheme("light");
     out.btnLight = readBtns();
+    out.linesLight = readLines();
     // ...and again under a DARK interface, through core's own configureUI (the
     // Applications theme lands on <body>, the INTERFACE theme on #interface, so
     // a body-only flip never reaches chat). The pinned token must not move.
     try {
       await setScheme("dark");
       out.btnDark = readBtns();
+      out.linesDark = readLines();
     } finally {
       // Nothing was WRITTEN: configureUI takes the config as an argument, so the
       // world's own stored setting was never touched.
@@ -1520,6 +1559,17 @@ try {
   lineOk(r.mvBoth) && /^1?d10x/.test(r.mvBoth.formula ?? "") && r.mvBoth.datum && r.mvBoth.exploded >= 1
     ? ok(`both options on, d10 at its max: the die EXPLODED at roll time (${r.mvBoth.formula}, ${r.mvBoth.exploded} line(s)), the card says a maneuver is possible, and Apply is there — the damage stands`)
     : fail(`mvBoth: ${JSON.stringify(r.mvBoth)} — want 1d10x, the line, Apply, and no buttons`);
+  // The glows: compared with what the LIVE Mark Critical Damage button and the
+  // pinned teal paint in the same scheme, never with a literal of core's red.
+  r.linesLight?.exploded && r.linesLight.exploded === r.btnLight?.critGlow
+    ? ok(`the explosion line glows Mark Critical Damage's own red (${r.linesLight.exploded}), the colour Explode the Die wore`)
+    : fail(`explosion line glow (light): ${r.linesLight?.exploded}, want ${r.btnLight?.critGlow} — "none" means no glow at all`);
+  r.linesLight?.maneuver === TEAL
+    ? ok(`...and the maneuver line glows the Fatigue teal (${TEAL})`)
+    : fail(`maneuver line glow (light): ${r.linesLight?.maneuver}, want ${TEAL}`);
+  r.linesDark?.exploded === r.btnDark?.critGlow && r.linesDark?.maneuver === TEAL
+    ? ok(`...both UNCHANGED under a dark interface — the teal is the pinned chat token, never --ab-accent (rgb(53, 200, 218) here)`)
+    : fail(`line glows (dark): ${JSON.stringify(r.linesDark)}, want red ${r.btnDark?.critGlow} and teal ${TEAL}`);
   lineOk(r.mvRanged) && hasX(r.mvRanged.formula) && r.mvRanged.datum
     ? ok(`a RANGED weapon earns the line too (${r.mvRanged.formula}) — the Ranged box withholds nothing any more`)
     : fail(`mvRanged: ${JSON.stringify(r.mvRanged)} — want x, the datum and the line; no line means the melee-only rule survived`);

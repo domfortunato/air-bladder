@@ -2160,6 +2160,15 @@ companion record of who authored what.
     in-place rewrite is silent unless `showForRoll(…, synchronize: true)` is
     called — and without `synchronize` the dice land on the roller's client
     alone, which a Warden testing solo cannot tell from working.
+    **THE TWO LINES CARRY THE BUTTONS' COLOURS (2026-10-04, user ask: "The die
+    exploded line needs to glow red", the maneuver line "should glow teal").**
+    The explosion line glows Mark Critical Damage's error red, reversing the
+    2026-10-02 ruling that left it uncoloured; the maneuver line glows the
+    Fatigue teal through `--ab-maneuver-chat`, an ALIAS of `--ab-fatigue-chat`
+    (the old Use a Maneuver! button was amber; the user asked for teal). Ink
+    stays core's, only the 8px glow is coloured, as on the buttons.
+    `dev:combat-options` reads both glows in both interface schemes off a
+    fixture card INSIDE its one existing `configureUI` switch.
   - **THE FATIGUE PAIR IS GATED `isAuthor || isGM`, NOT on the actor**, because
     its spend writes to the MESSAGE and a ChatMessage makes its AUTHOR the
     owner (`common/documents/chat-message.mjs` `getUserLevel`; `update` defaults
