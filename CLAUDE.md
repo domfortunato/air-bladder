@@ -3519,3 +3519,18 @@ save it — a number in prose is a copy whether or not it apologises for itself.
   fires; a kill from outside is invisible to it. **When a probe times out or
   a write lands twice, `Get-Process chrome-headless-shell` before reading a
   line of code**; orphans older than the run are parked sessions.
+  **A SIXTH (2026-10-04): A PROBE'S CLEANUP MUST RUN FROM ITS CATCH, AND A
+  LEG READS ITS OWN DROP BY ID DIFFERENCE.** `dev:combat-options`'s cleanup
+  sat inline at the end of its `try`, so the red-first run of review #33's
+  legs — the OLD build's takeover deleted Alice's character mid-section and
+  her `unsetFlag` threw — skipped it and left the pile behind with eleven
+  fixtures in it. The green run found that pile at its start, dropped into
+  it, and read the FIRST "ZZ Tome" by name: five legs red ("holds 14 items",
+  a second rope, an unlinked pile, "last week", three torches) with the code
+  right, and only the 14 gave it away. The cleanup is a function the catch
+  calls too (`window.__coOut` carries the fixture ids out of a GM section
+  that threw), every fixture is stamped `probeFixture` so a crashed run's
+  are swept by flag, and each pile leg snapshots the pile's ids before its
+  drop and reads only what arrived. The fourth rule from the other side: the
+  stale document was not a leftover wearing the fixture's name, it was the
+  fixture's own destination.

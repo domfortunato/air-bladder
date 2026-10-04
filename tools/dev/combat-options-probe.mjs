@@ -57,13 +57,67 @@ const fail = (m) => { console.error(`  FAIL  ${m}`); failed = true; };
 const ok = (m) => console.log(`  ok    ${m}`);
 const KEYS_ALL = ["exploding-damage-dice", "fatigue-for-critical-damage", "maneuver-on-max-damage"];
 
+let r;
+// THE CLEANUP IS A FUNCTION SO THE CATCH CAN RUN IT TOO (2026-10-04). It sat
+// inline at the end of the try, so any throw past the fixtures skipped it: the
+// red-first run of review #33's legs (the OLD build's takeover deleted Alice's
+// character mid-section, and her `unsetFlag` threw) left the pile and twenty
+// fixtures in the world, and the next run read the OLD pile — "holds 14 items",
+// a second rope, an unlinked pile, "last week" — five legs red on stale state
+// with the code right. A crashed run must leave the world as it found it.
+//
+// It deletes the actors and the cards this probe minted — INCLUDING the pile
+// and the Party folder, which a run creates on demand the way a table would. A
+// probe that leaves them behind makes the next run's "made on demand" leg pass
+// for the wrong reason.
+const cleanup = async () => {
+  await page.evaluate(async ({ ids, msgs, pileId, pileIdsAtStart, sceneId }) => {
+    for (const id of msgs ?? []) { try { await game.messages.get(id)?.delete(); } catch { /* gone */ } }
+    // The scene the targeted legs placed a foe on, and its token with it.
+    if (sceneId) { try { await game.scenes.get(sceneId)?.delete(); } catch { /* gone */ } }
+    for (const m of game.messages.filter((x) => x.getFlag("air-bladder", "pileDrop"))) {
+      try { await m.delete(); } catch { /* gone */ }
+    }
+    // EVERY pile this run did not find at its start — by ID DIFFERENCE, the
+    // rule for planted documents. The split-world leg's planted pile may have
+    // become the floor (see pileIdsAtStart), in which case `pileId` is already
+    // gone and the planted one is what would otherwise survive. A pile that
+    // WAS there at the start is the Warden's and stays; only this probe's own
+    // drops are taken back out of it.
+    const keep = new Set(pileIdsAtStart ?? []);
+    const found = game.actors.get(pileId) ?? null;
+    const folder = found?.folder ?? null;
+    for (const p of game.actors.filter((a) => a.getFlag("air-bladder", "droppedItemPile"))) {
+      if (!keep.has(p.id)) { try { await p.delete(); } catch { /* gone */ } continue; }
+      const stray = p.items.filter((i) => i.name.startsWith("ZZ "));
+      if (stray.length) { try { await p.deleteEmbeddedDocuments("Item", stray.map((i) => i.id)); } catch { /* gone */ } }
+    }
+    for (const id of ids ?? []) { try { await game.actors.get(id)?.delete(); } catch { /* gone */ } }
+    // BY FLAG AS WELL AS BY ID: `mk` and the Alice seeds stamp every fixture,
+    // so a run that crashed before this point — its id list lost with it —
+    // still leaves nothing for the next run to read.
+    for (const a of game.actors.filter((x) => x.getFlag("air-bladder", "probeFixture") === "combat-options")) {
+      try { await a.delete(); } catch { /* gone */ }
+    }
+    // The folder goes only if the probe emptied it — a Warden's own party must
+    // survive a probe run, and `deleteSubfolders` is never passed.
+    if (folder?.getFlag("air-bladder", "partyFolder") && !folder.contents.length) {
+      try { await folder.delete(); } catch { /* gone */ }
+    }
+  }, { ids: r?.made, msgs: [...(r?.madeMsgs ?? []), ...(r?.made2 ?? [])],
+    pileId: r?.pileId ?? null, pileIdsAtStart: r?.pileIdsAtStart ?? [], sceneId: r?.sceneId ?? null });
+};
+
 try {
   await joinAsGM(page);
 
-  const r = await withSettings(page, () => page.evaluate(async () => {
+  r = await withSettings(page, () => page.evaluate(async () => {
     const NS = "air-bladder";
     const KEYS = ["exploding-damage-dice", "fatigue-for-critical-damage", "maneuver-on-max-damage"];
     const out = { made: [], made2: [] };
+    // Reachable from Node after a throw, so the cleanup still knows what this
+    // section made (see `cleanup`).
+    window.__coOut = out;
     const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
     const utils = await import("/systems/air-bladder/module/utils.js");
     const mod = await import("/systems/air-bladder/module/settings.js");
@@ -163,7 +217,10 @@ try {
 
     /* ---- fixtures -------------------------------------------------------- */
     const mk = async (data) => {
-      const a = await Actor.create(data);
+      // STAMPED AS THIS PROBE'S (2026-10-04), so the cleanup can find a fixture
+      // whose id list died with a crashed run; see `cleanup`.
+      const a = await Actor.create(foundry.utils.mergeObject(data,
+        { flags: { [NS]: { probeFixture: "combat-options" } } }, { inplace: false }));
       out.made.push(a.id);
       return a;
     };
@@ -557,9 +614,18 @@ try {
       /* ---- review #33: the pile under ordinary and adversarial use -------- */
       const pp = await import("/systems/air-bladder/module/party-pile.js");
       const utilsMod = await import("/systems/air-bladder/module/utils.js");
+      // BY ID DIFFERENCE, NEVER BY NAME (2026-10-04): a crashed run leaves its
+      // pile behind, fixtures and all, and the first "ZZ Tome" by name was then
+      // the OLD copy — equipped, wearing "last week", one of three torches — so
+      // four legs redded on stale state with the code right. Each leg snapshots
+      // the pile's ids before its drop and reads only what arrived.
+      const pileIds = () => new Set(pile.items.map((i) => i.id));
+      const arrived = (before, test) => pile.items.filter((i) => !before.has(i.id) && test(i));
 
-      // (18) LINKED, stated in the create data: one pile, one sheet.
-      out.pileLinked = pile?.prototypeToken?.actorLink === true;
+      // (18) LINKED, stated in the create data: one pile, one sheet. Only a
+      // pile THIS run made can answer: one found at the start is the Warden's
+      // or an earlier run's, and its create data is not this run's to read.
+      out.pileLinked = pileIdsAtStart.includes(pile.id) ? "pre-existing" : pile.prototypeToken?.actorLink === true;
 
       // (2) SHARED IDS. Core's drag keeps an item's id across actors, so two
       // characters routinely hold the same id; the old "id is the claim" read
@@ -571,11 +637,12 @@ try {
         await twin.createEmbeddedDocuments("Item",
           [{ _id: sharedId, name: "ZZ Twin Torch", type: "item" }], { keepId: true });
       }
+      const beforeTwins = pileIds();
       const twinResults = [await pp.dropItemToPile(twinA, sharedId, {}), await pp.dropItemToPile(twinB, sharedId, {})];
       await sleep(400);
       out.sharedId = {
         results: twinResults,
-        inPile: pile.items.filter((i) => i.name === "ZZ Twin Torch").length,
+        inPile: arrived(beforeTwins, (i) => i.name === "ZZ Twin Torch").length,
         leftBehind: [twinA, twinB].filter((a) => a.items.get(sharedId)).length,
       };
 
@@ -589,23 +656,26 @@ try {
         { name: "ZZ Page One", type: "spellbook", system: { bound: true, boundTo: "zz-tome-key" } },
         { name: "ZZ Page Two", type: "spellbook", system: { bound: true, boundTo: "zz-tome-key" } },
       ]);
+      const beforeBook = pileIds();
       const bookLanded = await pp.dropItemToPile(mage, book.id, {});
       await sleep(400);
+      const tome = arrived(beforeBook, (i) => i.name === "ZZ Tome")[0];
       out.grimoireDrop = {
         landed: bookLanded,
-        bookInPile: !!pile.items.find((i) => i.name === "ZZ Tome"),
-        pagesInPile: pile.items.filter((i) => i.name.startsWith("ZZ Page")).length,
+        bookInPile: !!tome,
+        pagesInPile: arrived(beforeBook, (i) => i.name.startsWith("ZZ Page")).length,
         pagesLeft: mage.items.filter((i) => i.name.startsWith("ZZ Page")).length,
         bookLeft: !!mage.items.get(book.id),
-        stowed: pile.items.find((i) => i.name === "ZZ Tome")?.system?.equipped === false,
+        stowed: tome?.system?.equipped === false,
       };
 
       // (14) A BLANK NOTE REMOVES THE OLD ONE rather than leaving it.
       const [stale] = await noteActor.createEmbeddedDocuments("Item",
         [{ name: "ZZ Note Stale", type: "item", flags: { [NS]: { droppedAt: "last week" } } }]);
+      const beforeStale = pileIds();
       await pp.dropItemToPile(noteActor, stale.id, {});
       await sleep(400);
-      out.staleNote = pile.items.find((i) => i.name === "ZZ Note Stale")?.getFlag(NS, "droppedAt") ?? null;
+      out.staleNote = arrived(beforeStale, (i) => i.name === "ZZ Note Stale")[0]?.getFlag(NS, "droppedAt") ?? null;
 
       // (4) RECONCILE LOSES NOTHING: an extra pile shaped like a sidebar
       // Duplicate — ids the canonical already holds, plus one it does not —
@@ -1629,9 +1699,11 @@ try {
     ? ok(`one item reads in the singular: "${r.pileDeleteOne}"`)
     : fail(`singular pile warning: ${JSON.stringify(r.pileDeleteOne)}`);
   // ---- review #33 ---------------------------------------------------------
-  r.pileLinked
+  r.pileLinked === true
     ? ok("the pile is LINKED (stated in its create data; a thing falls through to unlinked), so a placed token and the world pile are one sheet")
-    : fail(`pile actorLink: ${JSON.stringify(r.pileLinked)}`);
+    : r.pileLinked === "pre-existing"
+      ? console.log(`  note  the pile was in the world before this run started (${(r.pileIdsAtStart ?? []).join(", ")}), so its create data is not this run's to read — the linked leg was not measured`)
+      : fail(`pile actorLink: ${JSON.stringify(r.pileLinked)}`);
   r.sharedId?.results?.every(Boolean) && r.sharedId.inPile === 2 && r.sharedId.leftBehind === 0
     ? ok("two actors holding the SAME item id both drop it: the claim is a fresh id per gesture, not the item's own")
     : fail(`shared-id drops: ${JSON.stringify(r.sharedId)}`);
@@ -2005,13 +2077,14 @@ try {
       const alice = game.users.find((u) => u.name === "Alice");
       if (!alice) return { error: "no Alice user in this world" };
       const L = CONST.DOCUMENT_OWNERSHIP_LEVELS;
+      const fixture = { flags: { "air-bladder": { probeFixture: "combat-options" } } };
       const mine = await Cls.create({
         name: "ZZ Pile Alice PC", type: "character",
-        ownership: { default: L.NONE, [alice.id]: L.OWNER },
+        ownership: { default: L.NONE, [alice.id]: L.OWNER }, ...fixture,
       });
       // A second character Alice does NOT own: the decoy the broker must refuse.
       const theirs = await Cls.create({
-        name: "ZZ Pile Foreign PC", type: "character", ownership: { default: L.NONE },
+        name: "ZZ Pile Foreign PC", type: "character", ownership: { default: L.NONE }, ...fixture,
       });
       const item = { name: "ZZ Alice Rope", type: "item" };
       await mine.createEmbeddedDocuments("Item", [item]);
@@ -2047,6 +2120,11 @@ try {
         out.pileOwner = pile?.isOwner ?? null;
         out.directWriteRefused = false;
         out.pileId = pile?.id ?? null;
+        // Her drops are read BY ID DIFFERENCE against this snapshot (2026-10-04):
+        // a pile left by a crashed run held an earlier "ZZ Alice Rope", and the
+        // copy count below read two copies of one drop.
+        const pileIdsBefore = new Set(pile?.items?.map((i) => i.id) ?? []);
+        const hers = (name) => pile?.items?.filter((i) => i.name === name && !pileIdsBefore.has(i.id)) ?? [];
         if (pile) {
           try {
             await pile.createEmbeddedDocuments("Item", [{ name: "ZZ Should Not Land", type: "item" }]);
@@ -2088,10 +2166,9 @@ try {
         for (let i = 0; i < 60 && mine.items.get(rope.id); i++) await sleep(200);
         await sleep(600);
         out.goneFromHer = !mine.items.get(rope.id);
-        out.inPile = !!pile?.items?.find((i) => i.name === "ZZ Alice Rope");
+        out.inPile = hers("ZZ Alice Rope").length > 0;
         // The note she typed, carried across the broker and surfaced on the copy.
-        out.brokeredNote = pile?.items?.find((i) => i.name === "ZZ Alice Rope")
-          ?.system?.droppedAt ?? null;
+        out.brokeredNote = hers("ZZ Alice Rope")[0]?.system?.droppedAt ?? null;
         await mine.sheet.close();
 
         // THE NOTE IS CLAMPED WHERE THE WRITE HAPPENS, not where it is typed.
@@ -2106,7 +2183,7 @@ try {
           await dropItemToPile(mine, big.id, { place: long });
           for (let i = 0; i < 60 && mine.items.get(big.id); i++) await sleep(200);
           await sleep(1200);
-          const landed = pile?.items?.find((i) => i.name === "ZZ Alice Chest");
+          const landed = hers("ZZ Alice Chest")[0];
           out.clamped = landed?.system?.droppedAt?.length ?? null;
         }
 
@@ -2125,7 +2202,7 @@ try {
         out.decoyAnswer = decoyAnswer;
         await sleep(800);
         out.foreignStillThere = !!theirs?.items?.get(foreignItemId);
-        out.foreignNotInPile = !pile?.items?.find((i) => i.name === "ZZ Foreign Rope");
+        out.foreignNotInPile = hers("ZZ Foreign Rope").length === 0;
 
         // THE PLANT (review #33, observed before the fix): she stamps the pile's
         // own flag on her character — an OWNER may write any flag — and drops.
@@ -2147,8 +2224,8 @@ try {
           realPileExists: !!realPile,
           mineStillExists: !!game.actors.get(mine.id),
           baitOnMine: !!mine.items.get(bait.id),
-          baitInRealPile: !!realPile?.items.find((i) => i.name === "ZZ Alice Bait"),
-          ropeStillInRealPile: !!realPile?.items.find((i) => i.name === "ZZ Alice Rope"),
+          baitInRealPile: !!realPile && hers("ZZ Alice Bait").length > 0,
+          ropeStillInRealPile: !!realPile && hers("ZZ Alice Rope").length > 0,
         };
         // Tolerant, because on the unfixed build the plant's OTHER branch ran:
         // her character sorted higher and the Warden's client DELETED it, and
@@ -2161,11 +2238,11 @@ try {
         // delete that threw. `movePileItem` keeps the item's id so the embedded
         // collection's own uniqueness elects one winner. Counted here, because
         // "is it in the pile" passes with any number of them.
-        out.copiesInPile = pile?.items?.filter((i) => i.name === "ZZ Alice Rope").length ?? null;
+        out.copiesInPile = pile ? hers("ZZ Alice Rope").length : null;
         // Carried so a failure names WHERE the copies are: two in one pile is a
         // different defect from one in each of two piles.
         out.pileShape = game.actors.filter((a) => a.getFlag("air-bladder", "droppedItemPile"))
-          .map((p) => ({ pile: p.id, ropes: p.items.filter((i) => i.name === "ZZ Alice Rope").map((i) => i.id) }));
+          .map((p) => ({ pile: p.id, ropes: p.items.filter((i) => i.name === "ZZ Alice Rope" && !pileIdsBefore.has(i.id)).map((i) => i.id) }));
         out.droppedItemId = rope.id;
         return out;
       }, seed);
@@ -2286,6 +2363,10 @@ try {
           ? ok("a SECOND Warden session also answers the broker (activeGM === game.user in both) — and the user list still counts one Warden, so nothing in the data model shows it")
           : fail("the second session does not consider itself the active GM; this leg proves nothing");
 
+        // By id difference against the piles as they stand, the stale-pile rule.
+        const lampBefore = await page.evaluate(() => game.actors
+          .filter((a) => a.getFlag("air-bladder", "droppedItemPile"))
+          .flatMap((p) => p.items.map((i) => i.id)));
         const second = await alicePage.evaluate(async ({ mineUuid }) => {
           const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
           const mine = await fromUuid(mineUuid);
@@ -2299,12 +2380,13 @@ try {
         }, seed);
         // Read on the FIRST Warden's client, and after a beat: the second
         // session's writes have to have arrived for the count to mean anything.
-        const shape = await page.evaluate(async ({ name }) => {
+        const shape = await page.evaluate(async ({ name, before }) => {
           await new Promise((r) => setTimeout(r, 1200));
+          const was = new Set(before);
           const piles = game.actors.filter((a) => a.getFlag("air-bladder", "droppedItemPile"));
           return { piles: piles.length,
-            copies: piles.map((p) => p.items.filter((i) => i.name === name).length) };
-        }, { name: "ZZ Alice Lamp" });
+            copies: piles.map((p) => p.items.filter((i) => i.name === name && !was.has(i.id)).length) };
+        }, { name: "ZZ Alice Lamp", before: lampBefore });
 
         second.goneFromHer && shape.copies.reduce((a, b) => a + b, 0) === 1
           ? ok(`...yet the drop lands EXACTLY ONCE (${JSON.stringify(shape.copies)}): the item keeps its id, and an embedded collection is the one place Foundry refuses a duplicate, so the create IS the election`)
@@ -2328,7 +2410,7 @@ try {
             name: "ZZ Second Floor", type: "npc",
             system: { role: "container" },
             ownership: { default: L.OBSERVER },
-            flags: { "air-bladder": { droppedItemPile: true } },
+            flags: { "air-bladder": { droppedItemPile: true, probeFixture: "combat-options" } },
           });
           const [stranded] = await extra.createEmbeddedDocuments(
             "Item", [{ name: "ZZ Stranded Sack", type: "item" }]);
@@ -2396,37 +2478,18 @@ try {
       }, seed);
     }
   }
-  // Cleanup: the actors and the cards this probe minted — INCLUDING the pile and
-  // the Party folder, which this run creates on demand the way a table would. A
-  // probe that leaves them behind makes the next run's "made on demand" leg pass
-  // for the wrong reason.
-  await page.evaluate(async ({ ids, msgs, pileId, pileIdsAtStart, sceneId }) => {
-    for (const id of msgs ?? []) { try { await game.messages.get(id)?.delete(); } catch { /* gone */ } }
-    // The scene the targeted legs placed a foe on, and its token with it.
-    if (sceneId) { try { await game.scenes.get(sceneId)?.delete(); } catch { /* gone */ } }
-    for (const m of game.messages.filter((x) => x.getFlag("air-bladder", "pileDrop"))) {
-      try { await m.delete(); } catch { /* gone */ }
-    }
-    const folder = game.actors.get(pileId)?.folder ?? null;
-    try { await game.actors.get(pileId)?.delete(); } catch { /* gone */ }
-    // EVERY pile this run did not find at its start — by ID DIFFERENCE, the
-    // rule for planted documents. The split-world leg's planted pile may have
-    // become the floor (see pileIdsAtStart), in which case `pileId` is already
-    // gone and the planted one is what would otherwise survive.
-    const keep = new Set(pileIdsAtStart ?? []);
-    for (const p of game.actors.filter((a) => a.getFlag("air-bladder", "droppedItemPile") && !keep.has(a.id))) {
-      try { await p.delete(); } catch { /* gone */ }
-    }
-    for (const id of ids ?? []) { try { await game.actors.get(id)?.delete(); } catch { /* gone */ } }
-    // The folder goes only if the probe emptied it — a Warden's own party must
-    // survive a probe run, and `deleteSubfolders` is never passed.
-    if (folder?.getFlag("air-bladder", "partyFolder") && !folder.contents.length) {
-      try { await folder.delete(); } catch { /* gone */ }
-    }
-  }, { ids: r.made, msgs: [...(r.madeMsgs ?? []), ...(r.made2 ?? [])],
-    pileId: r.pileId ?? null, pileIdsAtStart: r.pileIdsAtStart ?? [], sceneId: r.sceneId ?? null });
+  await cleanup();
 } catch (e) {
   fail(`${e.name}: ${e.message}`);
+  // The run threw past its cleanup: run it anyway, off whatever the GM section
+  // managed to record (see `cleanup`). A second failure here is reported, never
+  // allowed to mask the first.
+  try {
+    r ??= (await page.evaluate(() => window.__coOut).catch(() => null)) ?? {};
+    await cleanup();
+  } catch (e2) {
+    fail(`cleanup after the crash: ${e2.message}`);
+  }
 } finally {
   if (errors.length) { console.error("\nconsole errors:"); errors.slice(0, 10).forEach((e) => console.error("  " + e)); failed = true; }
   await browser.close();
