@@ -309,7 +309,7 @@ const pct = Math.round((translated / enCount) * 100);
 const COVERAGE_SITES = LANG === "es" ? [
   ["README.md", /\((\d+)% of the current strings, by /],
   ["README.es.md", /\(el (\d+) % de las cadenas actuales, por /],
-  ["site/index.html", /\((\d+)% of the interface and all the game content, by /],
+  ["site/index.html", /\((\d+)% of the interface and nearly all the game content, by /],
 ] : [];
 /* ---- the INHERITED languages' published figure -----------------------------
  * The five interface files Air Bladder inherited from the original Cairn system
