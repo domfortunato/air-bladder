@@ -28,7 +28,7 @@ is an independent system with its own `id`, content and history — **not** a gi
 - **`verified` = the newest build actually proven green** (14.368, via `dev:upgrade`
   on `foundry/app-14368`), never whatever Foundry has released since. It is
   submitted by `npm run publish:foundry` and shown on the Marketplace listing.
-- Latest release **0.1.24**. `system.json`'s `version` is bumped by `npm run
+- Latest release **0.1.25**. `system.json`'s `version` is bumped by `npm run
   release` on `master` only, so on `dev` it lags — read the tag, not the file.
   Update this line in the post-release master→dev sync, however that sync lands
   (merge or fast-forward).
