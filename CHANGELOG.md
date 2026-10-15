@@ -9,6 +9,13 @@ anything is written. The procedure is in [RELEASE.md](RELEASE.md).
 Releases before 0.1.23 have their notes on the
 [releases page](https://github.com/domfortunato/air-bladder/releases) only.
 
+## 0.1.25
+
+**Requires Foundry VTT 14.365 or higher.**
+
+- Spanish, by [Malecho](https://github.com/fsmalecho): the interface is 98% translated, and the content translation now covers monsters and their gear, table results and the journals
+- Fixed: in Spanish, a journal's name at the top of its pages and the page names in its contents list stayed in English
+
 ## 0.1.24
 
 **Requires Foundry VTT 14.365 or higher.**
