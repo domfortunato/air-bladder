@@ -1,3551 +1,602 @@
 # Air Bladder — a Cairn 2e game system for Foundry VTT
 
+> Slimmed working notes. The full narrative — every reversal, date, review and
+> measurement — lives in this file's git history and in `git log`. Nothing is lost.
+
 **Tracked, and this repo is public** — so read it as candid working notes, not as
-documentation. It records deliberate deviations, things that turned out wrong, and
-what each mistake cost, because that is what stops the same ground being re-argued.
-Anything a *user* needs belongs in `README.md`; anything a contributor needs to
-follow a process belongs in `docs/` or `CONTRIBUTING.md`.
+documentation. It records deliberate deviations and what each mistake cost, so the
+same ground is not re-argued. Anything a *user* needs belongs in `README.md`;
+anything a contributor needs to follow a process belongs in `docs/` or
+`CONTRIBUTING.md`.
 
-It was untracked until 2026-07-29, on the reasoning that candid notes should not be
-published. Tracking it wins on two counts: it was backed up nowhere, and a
-contributor could not see the decisions their PR would run into.
-
-A Foundry VTT **game system** (not a module) implementing Cairn 2e, an OSR TTRPG
-by Yochai Gal. Published at `domfortunato/air-bladder`, installed from the release
+A Foundry VTT **game system** (not a module) implementing Cairn 2e, an OSR TTRPG by
+Yochai Gal. Published at `domfortunato/air-bladder`, installed from the release
 manifest. Descends architecturally from a private fork of
-`yochaigal/Cairn-FoundryVTT` (still on this machine at
-`c:\Users\domin\code\Cairn-FoundryVTT`), but is an independent system with its own
-`id`, content and history — **not** a fork in git terms.
+`yochaigal/Cairn-FoundryVTT` (still at `c:\Users\domin\code\Cairn-FoundryVTT`), but
+is an independent system with its own `id`, content and history — **not** a git fork.
 
 ## Version reality
 
-- **The MINIMUM is Foundry 14.365; `verified` is 14.368 since 2026-10-01.**
-  `system.json` declares
-  `compatibility: {minimum: "14.365", verified: "14.368"}`. The minimum was
-  raised from 13 on 2026-07-29 and pinned to the build on 2026-08-04 (user
-  ruling — docs and manifest say "v14.365 or higher" everywhere): the AppV2
-  sheets use `_getFrameButtons`, `_canDetach` and `_onDetach`/`_onAttach`, all
-  confirmed against the shipped 14.365 client and none of them verifiable on
-  anything older from this machine. A minimum nobody has ever tested is a
-  claim, not a fact. The same statement lives in `README.md`, `README.es.md`,
-  `CONTRIBUTING.md`, `site/index.html` and `docs/testing-dev-branch.md` —
-  change one, change all six (the sixth was written after this list said
-  "five" and nobody added it; review #19).
-  **`verified` MOVED and `minimum` DID NOT, so those five sentences all stayed
-  true and were deliberately left alone** — they state the floor, not the
-  ceiling, and every one of them reads "or higher". Checked rather than
-  assumed, because the change-all-six rule above reads like it fires on any
-  compatibility edit and does not.
-  **14.368 is the build `dev:upgrade` was proven green on** (2026-09-19, via
-  the second app install at `foundry/app-14368`), and `verified` means the most
-  recent version during which the package has been VERIFIED to work — so it is
-  that number and not whatever Foundry has released since. The same rule that
-  pinned the minimum pins this: a version nobody has run is a claim.
-  **It matters more since the Marketplace listing (2026-10-01):** `verified` is
-  submitted by `npm run publish:foundry` and is what the package page
-  advertises to everyone browsing, so it is read by people who will never open
-  this file.
-- Latest release **0.1.24** (2026-10-04). `system.json`'s `version` is bumped by
-  `npm run release` in the release commit on `master` (CI substitutes the same
-  tag into the manifest URLs), so on `dev` it lags until the post-release sync
-  — read the tag, not the file. This line said 0.1.12 through five releases
-  (flagged open in review #15, fixed in #18), then went stale a THIRD time the
-  very release after that rule was written (0.1.19, caught in review #23):
-  a version in prose is a copy that drifts, so update it in the post-release
-  master→dev SYNC — which is usually a merge, but when `dev` has nothing of
-  its own it FAST-FORWARDS, no merge commit, and a rule hung on "the merge"
-  never fires. The sync is the trigger, however it lands.
+- **Minimum Foundry 14.365, `verified` 14.368.** `system.json`:
+  `compatibility: {minimum: "14.365", verified: "14.368"}`. The AppV2 sheets use
+  `_getFrameButtons`, `_canDetach`, `_onDetach`/`_onAttach`, confirmed only against
+  14.365. A minimum nobody has tested is a claim, not a fact.
+- **The minimum is stated in six places** — `README.md`, `README.es.md`,
+  `CONTRIBUTING.md`, `site/index.html`, `docs/testing-dev-branch.md` and here.
+  Change the minimum, change all six. Moving `verified` alone does NOT touch them
+  (they state the floor, "or higher").
+- **`verified` = the newest build actually proven green** (14.368, via `dev:upgrade`
+  on `foundry/app-14368`), never whatever Foundry has released since. It is
+  submitted by `npm run publish:foundry` and shown on the Marketplace listing.
+- Latest release **0.1.24**. `system.json`'s `version` is bumped by `npm run
+  release` on `master` only, so on `dev` it lags — read the tag, not the file.
+  Update this line in the post-release master→dev sync, however that sync lands
+  (merge or fast-forward).
 - Node 24.x. `npm run release X.Y.Z` is the whole release — see `RELEASE.md`.
-- **THE `id` IS `air-bladder` AND IS NOT CHANGING — measured 2026-09-29 and
-  CLOSED.** Asked as "how much trouble will it be to change the id to
-  `air-bladder-cairn2e`". The answer is that it is not a rename, it is
-  publishing a DIFFERENT SYSTEM: Foundry updates a package by id, so every
-  existing install would have to install fresh, and an official listing would
-  be a new package with a new install base. **Do not re-raise it, and do not
-  re-derive the cost** — it is below.
-  The repo half is the cheap half and misleads about the scale: the string is
-  in 1,141 of 1,142 pack YAML files, but nearly all of that is
-  `_stats.systemId` and `Compendium.air-bladder.<pack>` uuids the importers
-  regenerate, so it is about half a day with the gates re-run. `check:package`
-  would have accepted the new name too — its portable-directory-name rule
-  matches it — so validity was never the obstacle.
-  **FOUR NAMESPACES ARE THE id, and all four are already written into every
-  world that exists.**
-  - **`world.json` declares `"system": "air-bladder"`.** Foundry refuses to
-    launch a world whose system is missing, and it refuses BEFORE any system
-    code runs, so no migration of ours can ever reach it. Every world needs a
-    hand edit to that file, outside the application, by whoever owns it.
-  - **Settings, and this is the DESTRUCTIVE one.** `SETTINGS_NS` is the id
-    (`settings.js`), so a new id orphans every setting including every
-    migration marker — and `migrateHirelingSplit` converts every actor whose
-    stored role is `"npc"` into a hireling. After that migration has run, a
-    GENUINE NPC is exactly what stores `"npc"`. Lose the marker and the next
-    GM load turns every NPC in the world into a hireling, one batch, no
-    prompt. The marker is the only guard, which the hireling-split bullet
-    below already says in as many words.
-  - **Flags.** `getFlagScopes()` returns `["core", "world", game.system.id,
-    ...active modules]` (`client/data/client-backend.mjs:646-653`), so the flag
-    scope IS the id. Every `grantSource` tag goes invisible — and untagged is
-    how a Warden's own gift is recognised, so every piece of generated gear in
-    every world would silently become the Warden's and survive every re-roll.
-    The festival, Warden-event and weather-log finders lose the flag they are
-    found by.
-  - **Stored paths.** `systems/air-bladder/art/…` is copied onto a document at
-    creation and never re-read, so every hand-picked portrait breaks; so does
-    every stored `Compendium.air-bladder.…` uuid and every
-    `_stats.compendiumSource` the take-over doors adopt by. This one is the
-    least bad — `migrateArtPaths` rewrites by prefix and would need a new
-    generation rather than new machinery.
-  **What the question almost always wants is the TITLE, which is free**, and
-  which already reads `Air Bladder — Cairn 2e`. A title, a description and the
-  website are what anyone searches and reads; the id is plumbing visible only
-  as a folder name. A future sibling system needs nothing here either —
-  `mythic` is its own package with its own id.
+- **THE `id` IS `air-bladder` AND IS NOT CHANGING (CLOSED). Do not re-raise it or
+  re-derive the cost.** Changing it publishes a different system: `world.json`'s
+  `"system"`, the settings namespace (`SETTINGS_NS` — losing the `hireling-split`
+  marker would convert every NPC into a hireling), flag scopes (every `grantSource`
+  tag) and stored paths/uuids are all keyed on it in every existing world. What the
+  question usually wants is the TITLE, which is free.
 
 ## Git: two branches, one direction
 
-**`master` is the released state. `dev` is everything in progress.** All work —
-features, fixes, docs, typos — goes on `dev`. `master` only ever receives a merge
-from `dev` plus the release commit. `dev` is permanent: never renamed, never
-deleted. Full model in `docs/git-flow.md`; contributor-facing summary in
-`CONTRIBUTING.md`.
+**`master` is the released state. `dev` is everything in progress.** All work goes
+on `dev`. `master` only receives a merge from `dev` plus the release commit. `dev`
+is permanent. Full model in `docs/git-flow.md`; summary in `CONTRIBUTING.md`.
 
-- **No hotfixes, by policy.** A released version is never patched; fixes ride the
-  next release. That deletes this model's classic failure — a fix on `master` that
-  never gets merged back.
-  **AND WHEN AN URGENT FIX IS ASKED FOR, CHECK `git log master..dev` BEFORE
-  DESIGNING ANYTHING** — 0.1.22 (2026-09-13, the watch clock unreadable under a
-  light interface) was asked for as a hotfix and needed no hotfix machinery at
-  all: `dev` held the fix and one documentation line, so the ORDINARY release
-  shipped exactly it. The policy above is about a fix that lands on `master`
-  alone; a `dev` that happens to contain only the fix has none of that risk, and
-  the Gitea→GitHub mirror is no obstacle either, since `npm run release` tags on
-  `origin` the way it always does. An urgent release is only a real problem when
-  `dev` is carrying work that must NOT ship — measure that first rather than
-  assuming it.
-- **Topic branches off `dev`** are for work that outlasts the release cadence *and*
-  is broken in the middle — otherwise it holds every release hostage. Lowercase-kebab,
-  merge `dev` in regularly, merge back at each releasable milestone, delete when done.
-  Note CodeQL does not scan them.
-- **Merge `master` into `dev` after every release.** The release commit bumps
-  `system.json` on `master` only, so `dev` is behind by that line every time and the
-  next merge conflicts on it. This is the only master→dev sync there is.
-- **`npm run release` refuses to run off `master`** and prints the commits it is
-  about to ship.
-- **CodeQL scans `dev`** (`codeql-analysis.yml` triggers on both branches), so
-  findings arrive while the code is still unreleased. *Pages* is master-only, so a
-  site change on `dev` has no preview until the merge. To see what is queued:
-  `/compare/master...dev`.
+- **No hotfixes, by policy.** Fixes ride the next release. When an urgent fix is
+  asked for, **check `git log master..dev` first** — if `dev` holds only the fix,
+  the ordinary release ships it. It is only hard when `dev` carries work that must
+  NOT ship.
+- **Topic branches off `dev`** only for work that outlasts the release cadence AND
+  is broken in the middle. Lowercase-kebab, merge `dev` in regularly. CodeQL does
+  not scan them.
+- **Merge `master` into `dev` after every release** (the release commit bumps
+  `system.json` on `master` only). This is the only master→dev sync.
+- **`npm run release` refuses to run off `master`** and prints what it ships.
+- CodeQL scans `dev`; Pages is master-only. Queue: `/compare/master...dev`.
 - **Never tag or release on GitHub.** `origin` (Gitea) push-mirrors to GitHub and
-  force-syncs, so a GitHub-only ref is pruned and its release silently becomes a
-  draft. Tag on `origin`. Same reason PRs are merged locally, never with GitHub's
-  button — see `docs/i18n-maintainer.md`.
-- **The release notes ride in the TAG (2026-09-15, user ask: notes written on
-  the Gitea side before the tag, landing on GitHub the moment the release
-  does).** `CHANGELOG.md` holds a `## X.Y.Z` section per release; `npm run
-  release` REFUSES without one (0.1.22 was published with an empty body because
-  the notes were a step nobody's checklist held), writes it as the annotated
-  tag's body, and `main.yml` reads the body back and creates the release with
-  it. The mirror carries the tag OBJECT — every tag on GitHub lists a peeled
-  `^{}` entry — which is what makes the tag a carrier; a Gitea RELEASE would
-  not work, since its notes live in Gitea's database and the mirror moves git
-  refs only. `--cleanup=verbatim` on the tag is load-bearing: git's default
-  strips every `#` line as a comment, headline included, in silence, and
-  `whitespace` — the mode for a day — still stripped a Markdown hard break's
-  two trailing spaces and collapsed blank lines, which made RELEASE.md's
-  "verbatim" false (review #32; proven in a throwaway clone, all three modes).
-  **The user signs off on every edit to `CHANGELOG.md` personally** — draft
-  the section in chat, land it on their word, never as part of some other
-  commit. `npm run release X.Y.Z -- --dry-run` prints the exact body and runs
-  on `dev` — **the `--` is NPM's**: without it npm keeps `--dry-run` as its
-  own `dry-run` config and forwards nothing, so the form every doc gave for a
-  day was a REAL release on `master` and a refusal on `dev` (review #32,
-  measured on npm 11); the script honours `npm_config_dry_run` too now, so
-  either spelling is dry, and the docs show the one npm itself documents.
-- Why bother: docs and the website track `master` while users install the tag, so
-  work on `master` would publish documentation for features nobody can install. And
-  `dev` mirrors to GitHub in seconds, so people can clone it and test unreleased
-  code.
-- **TWO ADDRESSES, ON PURPOSE, and this is CLOSED (user ruling 2026-09-12).**
-  `https://domfortunato.github.io/air-bladder/` is CANONICAL — it is what
-  `system.json`'s `url` and both READMEs say, and what Foundry shows as the
-  package's Website link. **`airbladder.xyz` REDIRECTS to it**, and exists so
-  nobody has to type the long one: that is why it, and not the canonical URL,
-  is what the printed sheet footer (`CAIRN.PrintCreditGenerated`) and the
-  age-formula hint say — those are the two surfaces a person reads on paper or
-  copies by hand. Nothing in the repo publishes the short domain, so a review
-  reading only the tree sees two unexplained addresses and calls it drift;
-  review #28 did. **It is not drift, there is nothing to reconcile, and it is
-  not to be raised again.**
+  force-syncs; a GitHub-only ref is pruned. Tag on `origin`. Merge PRs locally,
+  never with GitHub's button (`docs/i18n-maintainer.md`).
+- **Release notes ride in the TAG.** `CHANGELOG.md` holds a `## X.Y.Z` section;
+  `npm run release` refuses without one, writes it as the annotated tag body
+  (`--cleanup=verbatim` is load-bearing), and `main.yml` creates the release from it.
+  A Gitea release would not work — the mirror moves git refs only.
+- **The user signs off every edit to `CHANGELOG.md` personally** — draft it in chat,
+  land it on their word, never inside another commit.
+- `npm run release X.Y.Z -- --dry-run` prints the body and runs on `dev`. **The `--`
+  is npm's**; without it npm eats `--dry-run`. (`npm_config_dry_run` is honoured too.)
+- **TWO ADDRESSES, ON PURPOSE (CLOSED).** `https://domfortunato.github.io/air-bladder/`
+  is canonical (`system.json` `url`, READMEs). `airbladder.xyz` redirects to it and
+  is used only where a person types it by hand (printed sheet footer
+  `CAIRN.PrintCreditGenerated`, the age-formula hint). Not drift; do not raise.
 
 ## Architecture
 
-Entry point `module/cairn.js`, registering document classes and sheets on `init`.
-~13,100 lines of hand-written JS across `module/` — about 31,000 physical, but 57% of
-that is comment prose. This line said "~7,500" for weeks and was measuring
-nothing anybody had counted, then "~13,600" from a looser count than the
-string-aware one behind the figure now; `wc -l` is not the number, and the
-difference matters to anyone estimating how much there is to learn. Everything
-else is content. **`docs/architecture.md` is the map** (written 2026-09-11):
-the import graph in NINE tiers, the six spine files nothing else works without,
-the THIRTEEN leaf features that only the boot file or a sheet imports, and the
-five places where "explain it" is a real test. **It names functions, never line
-numbers** — a line in prose is a copy that drifts, and this file records
-several stale-number cases of exactly that. `docs/provenance.md` is the
-companion record of who authored what.
-
-- `CairnActor` (`module/actor/actor.js`) — types `character`, `npc`, `hireling`.
-  `hireling` is an ALIAS of npc (same model, same sheet), kept because a type is
-  immutable and retiring it would recreate every hireling with a new id. **It is
-  HIDDEN from the Create Actor dialog since 2026-08-01** — today by
-  `CairnActor.createDialog`, which replaces core's picker with the role
-  switchboard so no type list renders at all (the `abHideHirelingType` DOM hook
-  that first did this is GONE since 2026-08-02; the comment at its old site in
-  `cairn.js` records why, and this line named the dead hook as the live
-  mechanism for a month — review #22) — a registered subtype is otherwise
-  always offered, and
-  the `container` type proved what happens when a retired one stays on the menu.
-  The matching `hireling` ROLE went the same day and **CAME BACK on 2026-08-20**
-  (user ask). `NPC_ROLES` is SIX entries — `npc`, `hireling`, `monster`,
-  `companion`, `transport`, `container` — because the split finally gave the two
-  people something to differ about: a hireling has a **Career** off the 2e
-  careers catalogue with a day rate, an NPC a **Background** off the Warden's
-  Guide table plus Quirk / Goal / Virtue / Vice off that book's NPC tables
-  (already shipped in `warden-npcs`; only `Name` and `Faction` had a reader
-  before). Two fields, never one relabelled: `profession` and `background`.
-  **A generated NPC's statblock is ROLLED — 3d6 and 1d6 HP (2026-08-20, user
-  ask, the day after the split).** The plan had it out of scope on the reasoning
-  that the Warden's Guide gives NPCs no stats so none should be invented; a
-  generator left at the schema's 10/10/10 and 6 has not declined to invent
-  numbers, it has invented three identical ones. `Cairn.npcGenerator.ability` /
-  `.hitProtection`, beside the Barebones pair they copy.
-  **And it arrives CARRYING something (2026-08-20, user ask):**
-  `Cairn.npcGenerator.backgroundGear` maps each d20 Background to its nearest
-  BAREBONES background — the only background list here whose entries hold gear —
-  and `buildNpcItems` resolves it through the shared `resolveStartingGear`, NOT
-  `resolveRefs`: nine Barebones backgrounds write a row as an INSTRUCTION
-  ("Random Additional Gear") that a plain lookup drops in silence, which left a
-  generated Peddler holding a Sack and nothing else. **Lord and Politician map to
-  nothing on purpose** — all 100 Barebones backgrounds are occupations, so rank
-  and office have no counterpart, which is the same reason those two words are
-  on a Warden's table and not in character creation. **And since 2026-08-21
-  they GENERATE with no items at all, kit included** (user ruling, reversing
-  "the kit does not care what you do for a living"). This was GENERATION-scoped
-  for a few hours — "a new station does not unpack the bag" — and the user
-  REVERSED that the same day: the Background die or picker landing Lord or
-  Politician on an existing NPC now WIPES the granted items, kit included
-  (`applyNpcBackground`), so after any swap an NPC holds what GENERATING the
-  new Background grants. The Warden's own untagged items always stay. **Containers are NOT
-  granted** (the Merchant's Wagon, the Peddler's Cart): a transport is a second
-  Actor the directory always lists, and a hireling's career grants none either.
-  **A KIT rides alongside — the WHOLE Barebones equipment procedure since
-  2026-08-21** (user ruling; it was Rations, Torch and one Additional Gear roll
-  for a day): rations, torch, a rolled weapon and armor both equipped, and the
-  Additional Gear roll(s) with the no-armor compensation roll, via the same
-  `rollBarebonesEquipment` the Barebones character generator runs — one routine,
-  not a copy — because a Background alone left an NPC on three items where a
-  hireling arrives with six. Consequence accepted with eyes open: a generated
-  NPC can land ENCUMBERED (derived HP 0), the same overflow-is-owed rule a
-  generated PC lives under — probes reading a generated NPC's HP must read
-  `_source`, never derived. It is tagged **`npc-kit`, deliberately not `background`**: two
-  sources, two lifetimes — the Background die replaces only `background` (and
-  REPACKS a kit when none survives, so a Politician swapped to Peddler matches
-  a generated Peddler — presence is the test, never the old Background's name),
-  a full regenerate replaces both, and `grantSourceLabel` maps an unknown source to ""
-  so rations never wear a "Background" chip. **Everything a generator gives an
-  NPC must be tagged**, mundane items included: untagged is how a Warden's own
-  gift is recognised, so an untagged grant survives every re-roll and piles up.
-  **PRONOUNS ARE NEVER ROLLED (2026-08-20, user ruling), on BOTH person
-  generators.** They were a uniform pick of he/him, she/her, they/them from
-  2026-08-01, justified in a comment as "a generated stranger needs an answer
-  on arrival". They do not: there is no table for pronouns and no die should
-  decide them. Stated `pronouns: ""` rather than omitted, so a full re-roll —
-  a whole new person — clears the last one's. Note the asymmetry with the
-  statblock above: numbers are a starting point a Warden edits, a person's
-  pronouns are not something to be given a placeholder.
-  Three things about this that WILL bite if forgotten:
-  - **`migrateData` no longer converts stored "hireling"** — the key is in the
-    enum again. Putting that conversion back would undo every write
-    `migrateHirelingSplit` makes, on the next read, silently.
-  - **That migration SELECTS, and its siblings cannot.** Nothing rewrites a
-    stored "npc", so `_source` reads it honestly — and selecting is the safety
-    property, because a real NPC stores "npc" once the migration has run. Its
-    marker (`hireling-split`) is the only thing preventing a second pass from
-    converting every genuine NPC in the world.
-  - **The schema initial is `hireling`.** A document that states no role
-    predates the split, and every one of those is a hireling by the same ruling.
-    Consequence for probes: a planted document is born already migrated, so the
-    migration can only be tested through a raw-socket plant (`dev:role-migration`
-    does exactly that).
-  `PERSON_ROLES` is the list to reach for when the question is "is this
-  somebody" — the biography block, the connection line, the auto-portrait. Ask
-  for a role by name only where the two genuinely differ, which is two places:
-  which job field shows, and whether the day-rate mechanic is offered at
-  all — the For Hire box AND the rate row, which are one question and must be
-  asked with one gate (`showForHire`). The box read `isNpcPerson` for a day
-  after the split, so an NPC was offered a checkbox whose only effect is a row
-  its role never shows.
-  **Three player-facing rulings landed 2026-08-21.** (1) A generated NPC stamps
-  `ownership.default` LIMITED explicitly — though `CairnActor._preCreate` has
-  defaulted every unconnected person-npc there since 2026-08-01, hirelings
-  included — and the npc sheet gained a LIMITED VIEW: portrait, name,
-  description, nothing else, and NO Print button (print's "shows nothing the
-  sheet does not" claim went false the day the sheet started withholding).
-  That rendering is what the ruling actually added: LIMITED used to open the
-  full sheet, so the level was a label with no wall behind it. (2) **The randomization surface on npc-type sheets is the
-  Warden's alone** — `_mayRandomize` refuses any player on type npc/hireling
-  regardless of `allow-player-randomization`, which now governs player
-  CHARACTERS only. (3) **Pickers** (pick-list button, `fa-list-ul` since
-  2026-09-02 — it was a magnifier) beside Career, Background
-  and Faction — they landed that morning deliberately OUTSIDE the
-  `generationEnabled` template gate ("available when Randomization is off" was
-  the ask), and the user REVERSED that the same evening: `canPickGeneration`
-  is now `generationEnabled` narrowed to person roles, so pickers and dice
-  ride ONE toggle, which is where the PC sheet's pickers always sat. They
-  share one apply with the dice (`applyHirelingCareer` / `applyNpcBackground`),
-  so a picked career and a rolled one are the same event, and both re-arrange
-  the whole inventory (`reorderInventory`) so a swap reads like a fresh person.
-  (4, 2026-08-21 pm) **A fresh person-role sheet OPENS on Items**, the PC's
-  default, while the nav still leads with Description (the 2026-08-01 order
-  ruling stands) — `initialTabId` in `actor-sheet.js`, role-aware because a
-  list-head initial cannot say two different things for one type. **The
-  CONTAINER joined Items on 2026-08-31** (user ask — a container is opened
-  for its contents, and Description-first buried the only list anyone came
-  for); monsters and transports still open on Description. The set is
-  `ITEMS_FIRST_ROLES`, a named list rather than a person-predicate-plus-one,
-  because a role predicate that quietly grows is this split's
-  thrice-repeated bug.
-  The biography sentence is **second person for a character, third for both npc
-  roles** (2026-08-20) — one `_wording` call inside `_buildTraitSentence`, which
-  the printed page shares. A Spanish client keeps its translated "Eres…" until a
-  translator adds the `CAIRN.Bio.*Npc` keys; that is the point of
-  `has(key, false)` and must not be "fixed".
-  **`container` was a fourth type and is GONE (2026-07-31)** — a container is an
-  npc with `role: container`, and leaving the retired model registered meant the
-  Create Actor dialog went on offering it (Foundry lists every registered
-  subtype; there is no manifest flag to hide one), so a Warden could still mint a
-  document against it, with the retired sheet and no Connections tab
-- `CairnItem` (`module/item/item.js`) — types `item`, `weapon`, `armor`,
-  `spellbook`, `object`, `background`, `transport`
-- `module/actor/actor-sheet.js` is the largest file
-- `module/damage.js` holds Cairn's damage flow. **TWO SHIPPED TABLES ARE NAMED
-  SCARS, AND THEY ARE NOT THE SAME LIST (review #30, 2026-09-13).** The flow
-  rolls `air-bladder.utils` Scars — the SRD's prose per HP of damage, resolved
-  world-first — while the character sheet's checklist is built from
-  `air-bladder.tables-2e` Scars: twelve short labels ("3 HP - Walloped") with
-  the prose in a flag. Not one row text in common. `auto-record-scars` wrote
-  the utils prose into `system.scars` from the day it shipped (`ccc880ad`,
-  "can check itself on the PC's sheet"), so no box ever matched and the next
-  `.scar-check` tick replaced the array and dropped it — and the probe
-  asserted the prose and never read a box. The flow records the CHECKLIST's
-  row for the same damage value now, the sheet reads the utils prose for a
-  row as that row SELECTED (a pre-fix world heals one tick at a time, the box
-  writing its label in the prose's place), and the tick handler KEEPS any
-  stored string no box owns instead of rewriting the array from the boxes.
-  The flow also selects its row by range itself, asking neither `draw()` nor
-  `roll()`: the roll is a constant, `roll()` skips rows a hand draw marked
-  `drawn`, and a constant cannot escape one — core rerolled the damage number
-  10,000 times and gave no scar.
-  **AND THE COPY BUTTON HAD COPIED THE WRONG ONE (review #31, 2026-09-15).**
-  The Cairn 2e door's "eleven tables" named `Scars` off `tables-2e`, so its
-  copy was a world `Scars` holding the twelve checklist labels — which the
-  damage flow, world-first by name, found first: every scar card in a world
-  that pressed the button printed "1 HP - Lasting Scar" instead of the prose,
-  and the checklist, pack-only, gained nothing. The door copies UTILS' Scars
-  now (`CAIRN_2E_TABLES` in take-over.js is a list of `pack;Name`
-  declarations), the table `docs/customizing-bonds.md` already said a world
-  `Scars` overrides; the tables-2e one wears its own banner saying it is the
-  sheet's checkbox list, read from the pack only, because the generic "import
-  it and keep its name" sentence on it was an invitation to the same hijack by
-  hand.
-- **IMPROVISED ATTACK, a permanent row at the top of the inventory (2026-10-02,
-  user ask).** A damage roll with NO item behind it — every other one in the
-  system hangs off an inventory row and reads `item.system.damageFormula`, so a
-  character who grabbed a chair leg had nothing to press, though Cairn has such
-  attacks ("Unarmed attacks always do d4 damage"). It asks what you are
-  attacking with and what it rolls, then posts the ORDINARY damage card, which
-  is what brings targeting, Apply, scars and every optional combat rule
-  along without one of them knowing there is a new caller. **No setting of any
-  kind** (user ruling): it is simply there, and the formula is typed each time
-  from a `1d4` start.
-  **IT HAS HAD THREE NAMES IN THREE DAYS.** It shipped as the Improvised Attack
-  on 2026-10-02, became the **Unarmed Attack** that afternoon, and is the
-  **Improvised Attack** again since 2026-10-04 (user: "Now that we have moved
-  Unarmed Attack to the inventory sheet we can rename it Improvised Attack
-  everywhere it is referenced by its old name"). Labels, i18n keys and code
-  identifiers all moved (`canImprovise`, `improvisedAttack`,
-  `IMPROVISED_FORMULA`, `.improvised-row`). **`data-unarmed` did NOT**: it is
-  stored on every such card already in a chat log, the `crawlerChoiceTaken`
-  precedent. Quotes of the RULE ("Unarmed attacks always do d4 damage") keep
-  Cairn's word, since that is the Player's Guide's. **Monsters, NPCs, hirelings
-  and companions have had the row all along** (asked the same day and
-  confirmed, not changed): the gate is `isOwner && !isThing` on every actor
-  type, so the Warden sees it on all of them and only containers and transports
-  lack it.
-  **IT SHIPPED AS A FOURTH BUTTON IN THE SHEET'S STACK AND WAS MOVED THE SAME
-  DAY** (user ruling, having seen it: "I don't like that placement after all").
-  A row pressed with the same roll control every equipped weapon carries reads
-  as "the weapon you always have" and needs no new gesture. Eight things that
-  will bite:
-  - **IT IS NOT AN ITEM DOCUMENT, and that is what makes it unremovable and
-    slotless BY CONSTRUCTION** rather than by a rule somebody has to maintain
-    (user ask: "should not be removeable and should not consume a slot"). There
-    is nothing to delete, nothing to equip, nothing to give, nothing to drag,
-    nothing for a grant sweep to find, and `slotsUsed` counts documents on the
-    actor — of which this is none. `dev:combat-options` measures the ROW, not
-    the template: an `<a>` inside `.improvised-row` with no trash can and no Drop
-    control beside it.
-  - **`canImprovise` IS ONE PREDICATE, `isOwner && !isThing`.** The
-    crate-and-wagon exclusion used to be the `{{#unless system.isThing}}` block
-    the button sat inside, and the row is not in that block — so the gate had to
-    move INTO the flag rather than be spelled a second time in the partial. A
-    role predicate spelled twice is this codebase's thrice-repeated bug.
-    `dev:roles` asserts the row present on a person and absent on a crate FROM
-    THE SAME TAB, because "not visible" on a hidden tab would pass for free.
-  - **IT LEFT THE `_onRender` RE-ENABLE LOOP, and that is a fix and not an
-    omission.** `DocumentSheetV2._onRender` runs `_toggleDisabled(true)` over
-    every FORM element of a non-editable sheet, which is why Die of Fate needed
-    re-enabling by hand (review #18). An `<a>` is not a form element — which is
-    exactly why every weapon row's roll control has always worked on a locked
-    pack — so an exemption here would be inert, and a comment claiming it was
-    load-bearing would be false. `dev:review-batch2` asserts the TAG as well as
-    the state, so a return to `<button>` without the exemption reds.
-  - **THE SHEET CONTEXT HAS NEVER CARRIED `isOwner`.** The first cut gated the
-    template on `{{#if isOwner}}`, which is simply undefined there — the control
-    would have rendered for nobody, silently, with every probe still green.
-    `context.canImprovise` is a NAMED flag for that reason and because it says
-    why. Check a context flag exists before gating on it.
-  - **`isOwner` IS THE GATE, AND `owned()` WOULD BE WRONG TWICE.** A player
-    attacks for a character they control and the Warden anywhere, which
-    `isOwner` says in one test because a GM owns every actor. `owned()` is
-    documented as being for MUTATING actions, and it tests `isEditable`, which
-    ALSO refuses a locked compendium — the bug review #18 fixed. The template
-    hides the row as the affordance and the handler refuses as the wall; both
-    halves are probe-covered by shadowing `isOwner` on the instance in-page.
-  - **THE DESCRIPTION RIDES AS THE CARD'S WEAPON.** `data-weapon` exists to
-    carry "the thing this attack was made with" as a datum, verbatim and never
-    re-localized, so the sentences rebuild per viewer from it; a typed
-    description is the same kind of value as an item's name. "a chair leg"
-    yields `CAIRN.AttacksTargetWeapon`. Free text is safe on that path by
-    construction: Handlebars escapes `data-weapon="{{weapon}}"`, and both
-    rebuilds write through `textContent`.
-    **The field label has to elicit a NOUN PHRASE** ("What are you attacking
-    with?"), or the card reads "attacks the Goblin with swings wildly".
-    **A BLANK FIELD NEEDED A THIRD PAIR OF KEYS, and this bullet claimed
-    otherwise for a day** — "a blank one falls through to `CAIRN.AttacksTarget`,
-    which is what makes it optional for free". Only the TARGETED rebuild fell
-    through; `relabelWeaponLine` returned on the empty weapon, so an untargeted
-    blank attack rendered an EMPTY `.dmg-label` — a damage roll with no sentence
-    at all, which the probe passed because its leg asserted only
-    `!/with\s*$/.test(line)` and `""` satisfies that. Measured before it was
-    fixed: three such cards in the dev world's log, `data-weapon=""` with empty
-    text. **THE PHRASE CAN NEVER BE THE WEAPON**, which is why the fix is a KIND
-    (`data-unarmed="1"`) and three whole-sentence keys rather than storing "an
-    improvised attack" in `data-weapon`: that attribute is copied into a POSSESSIVE
-    frame one card along (`CAIRN.DamageFromWeapon`, "from {attacker}'s
-    {weapon}"), which would read "from Adobe's an improvised attack" — and an
-    article and a preposition belong to the translator together. The attribute
-    is written whenever the roll came from this route, not only when the field
-    was blank, because it states the card's PROVENANCE and that does not go
-    stale; its absence means "posted before it existed", the `data-panic` rule
-    again, so an older blank card stays blank rather than being named
-    retroactively.
-    **THE TYPED PHRASE REACHED THE POSSESSIVE FRAME ANYWAY (review #33):**
-    `data-weapon` is copied into the damage-source flag on Apply and
-    `nameDamageSource` formatted "from {attacker}'s {weapon}" with it — "from
-    Adobe's a chair leg", three such cards in the dev log. The KIND travels in
-    the flag now (`unarmed`) and the typed case has its own frame,
-    `CAIRN.DamageFromImprovisedWith` "from {attacker} with {weapon}"; a blank
-    one still reads "from {attacker}".
-  - **PANIC OVERRIDES THE TYPED FORMULA; IT DOES NOT TAKE THE FIELD AWAY** (user
-    ruling, reversing what shipped that morning: "I still want people to be able
-    to enter a dice formula other than 1d4 — but if the character is panicked I
-    want that formula overridden to 1d4 and to state why"). The field is always
-    rendered and always editable, a note under it says the override is coming,
-    and `#onImprovisedAttack` substitutes `IMPROVISED_FORMULA` at ROLL time. The
-    substitution is deliberately NOT made in the dialog: the one place that
-    decides what gets rolled is the one that stamps the panic badge, so the two
-    cannot disagree. The probe types a **d10** and asserts `1d4` — a leg merely
-    reading "1d4" could not tell this from the field having been removed and
-    defaulted. **AND THE OVERRIDE IS APPLIED BEFORE THE FORMULA IS JUDGED
-    (review #33):** the handler validated the TYPED formula first, so a
-    panicked player who cleared the field was refused with "not a damage roll"
-    — the one case the dialog's note had just promised could not fail. What is
-    rolled is what is validated; the probe now clears the field under panic
-    and asserts the 1d4. `IMPROVISED_FORMULA` and `IMPAIRED_FORMULA` are DELIBERATELY two
-    constants that agree: one is the Player's Guide's unarmed damage, the other
-    is what Impaired substitutes, and if either moves it moves alone.
-  - **THE QUALITY BUTTONS ARE GONE and the badge survives anyway.** Standard /
-    Impaired / Enhanced and the dice builder were removed the same day (user
-    ruling: the dialog is two fields and two buttons). A quality that
-    substitutes a fixed die is meaningless where the die is typed — Impaired IS
-    typing `1d4` — so the card now carries a quality badge ONLY when panicked,
-    passing `"impaired"` with `{panicked: true}` to get the `BadgePanic` label
-    and the `panic` kind the per-viewer rebuild already knows. No new keys, no
-    new kind, no new branch. The dialog's ABSENCES are asserted by the probe,
-    because a stale template would restore either in silence.
-  **THE DICE BUILDER IS BACK TO ONE CONSUMER.** It was extracted into `utils.js`
-  (`buildDiceBuilder` / `wireDiceBuilder`) that morning when this dialog became a
-  second one, and lost it again that afternoon. It STAYS in `utils.js` — moving
-  it back is churn — but three docblocks claiming two consumers had to be
-  corrected, which is the correct-sounding-comment trap this file keeps
-  recording. `dev:hazard` is the regression witness for the Warden's dialog.
-  Two traps paid for in the probe and worth keeping though the code that hit
-  them is gone: **`DialogV2` puts a button's label in a `<span>`**
-  (`dialog.mjs:243-250`), not a bare text node, so the live relabel of "Standard
-  (1d4)" found nothing and the dialog went on advertising the die it opened
-  with; and **a damage card must be claimed as a ROLL message**, because
-  `actor.update()` posts a change-log ledger card spoken by the SAME actor which
-  lands after the snapshot — the panicked leg duly read "Changed by Warden —
-  Panicked marked" and reported no roll. Same shape as the CT 123 speaker race:
-  claim a card by what it IS, never by being new.
-- **A DAMAGE ROW'S DICE SAY WHAT IT ROLLS (2026-10-02, user ask).** Every roll
-  control in the inventory wore `fa-dice-d20` regardless of its formula, so a
-  Dagger and a Greatsword were indistinguishable until you read the tag beside
-  them. **THE TRAIT DICE JOINED THE RULE ON 2026-10-03** (user: the 2e trait
-  tables are d10 and the die said d20): `dieIconOrGeneric(table.formula)` per
-  `traitRows` entry in `_prepareBiographyContext`, off the SAME resolved table
-  the dropdown reads, so the eight 2e rows wear a d10, the NPC sheet's four
-  (`warden-npcs`, 1d20) wear a d20 through the same partial, and a Warden's
-  own d12 Physique a d12 — never a second literal, which a flat d10 in the
-  template would have been and would have lied on every NPC row.
-  `dev:tooltip-picker` computes each row's expectation in-page through the
-  same resolver and helper, plants a world `Physique` on `1d12` as the
-  world-first control, and reads the NPC sheet's ten rows as the second
-  surface. **The same day the trait grid lost its dead space**: `.trait-label`
-  reserved `min-width: 96px` so the selects lined up, which left ~66px of
-  nothing beside "Skin"; the grid is six tracks now (label, die, select per
-  half) with each `.trait-row` a SUBGRID, so a half's label column fits its
-  longest label in any language, labels right-aligned (the user's pick of
-  three previews), and with Character Creation Mode off the select spans the
-  empty die track (`:not(:has(.trait-roll))`) so one gap follows the label.
-  The probe measures the label's TEXT extent through a Range, because under
-  the old build the label ELEMENT reached the select and the hole sat inside
-  it — an element-edge check passed on the very build it was written for.
-  `damageDiceIcons` (`utils.js`) returns one Font Awesome class per die —
-  measured against the 408 shipped damage formulas, that is one glyph for the
-  221 bare dice, two for the 110 `NdXk` keep-highest weapons, three for the lone
-  `3d6k` and two for the lone `d6+d6`. `items-list.html` is the ONE partial every
-  role's sheet renders, so PC, NPC, monster, hireling and companion all got it
-  from one change. Four things:
-  - **ALL THE GLYPHS LIVE IN ONE ANCHOR**, never one anchor per die (user ask:
-    "they both do the same thing — roll the d6 + d6 attack"). `2d6k` is a single
-    roll of two dice, so two controls would be two click targets and two
-    tooltips for one action. The template loops inside the control, which is
-    that requirement expressed in the markup rather than promised in a comment.
-  - **ALL OR NOTHING ON RECOGNITION.** A formula whose terms are not all bare
-    dice of a size Font Awesome ships — `1d6 + 2`, a flat `3`, `1d7` — gets the
-    single generic `fa-dice-d20` every row wore before this. `dieIcon` returns
-    `""` there by an earlier ruling, which is right for a DIALOG BUTTON (core
-    does `if (icon)` and omits the `<i>`) and wrong for a row, where the glyph is
-    the control's only content and "" would leave nothing to click.
-  - **FOUR GLYPHS IS THE CAP** (user ruling: "render up to four"). Nothing
-    shipped comes near it, but homebrew `10d6` would push the edit and delete
-    controls off the end of the row. **AND THE CAP IS APPLIED INSIDE A TERM
-    (review #33):** the loop pushed one entry per die of the count and sliced
-    afterwards, so `100000000d6` on an equipped weapon — a string any owner may
-    type — pushed 1e8 entries on every render of every sheet listing it, the
-    Warden's included. The probe counts pushes, because the OUTPUT was already
-    four.
-  - **`.cairn-item-controls a` IS PINNED TO `width: 18px`**, a single-glyph
-    width that clips everything past the first. The roll control takes
-    `width: auto` with `min-width: 18px`, so a one-die control still lines up
-    with its neighbours.
-- **THE PARTY FOLDER AND THE DROPPED ITEM PILE (`module/party-pile.js`,
-  2026-10-02, user ask).** Deleting something off a character sheet destroyed
-  it, so a player clearing a slot in a hurry had no way back and the Warden had
-  no record of what the party shed. The pile is the floor: things put down are
-  still somewhere. A **Party** folder in the Actor directory is where player
-  characters are created by default, and the pile lives inside it.
-  **NEITHER DOCUMENT IS A NEW TYPE.** The pile is an ordinary npc with
-  `role: container` — the directory lists it, the sheet shows an inventory, it
-  takes drops, and the Give control already ships on it. All of this is
-  find-or-create plus one brokered move. Nine things that will bite:
-  - **NOTHING IS CREATED ON LOAD**, which is the `weather-log` rule applied: an
-    update must never start minting documents in somebody's world by itself.
-    The folder appears when the first player character is made through a Create
-    button, the pile when something is first dropped. Both are deliberate
-    gestures by a person.
-  - **FOUND BY FLAG, NEVER BY NAME.** A Warden may rename either and nothing
-    stops working — the folder-naming rule the take-over doors' folders already
-    follow. The names are a starting label and nothing reads them.
-    **AND A FLAG ALONE IS NOT IDENTITY (review #33, 2026-10-04) — the pile
-    must also have NO PLAYER OWNER.** Any OWNER may set any flag on their own
-    actor, `findDroppedPile` takes the lowest id, and `reconcilePiles` runs
-    with the Warden's rights: a player who stamped the flag on their own
-    character had the real pile DELETED, its contents copied onto that
-    character and every later drop landing there — observed with planted
-    fixtures before the guard existed; with a higher id the same plant got the
-    Warden's client to delete it, which let a player get any actor they owned
-    deleted. This is review #27's journal lesson ("a player's journal flagged
-    like ours and sorting first captured every line") repeated on a document
-    players can always write. `isDroppedPile` asks `!hasPlayerOwner`, which
-    the real pile (default OBSERVER) passes and no plant can; consequence
-    stated: a Warden who hands a player OWNER of the pile un-piles it, and the
-    next drop makes a fresh one. The Drop confirm names the pile by its
-    CURRENT name (`pileDisplayName`), review #31's folder rule.
-  - **DROP SITS BESIDE THE TRASH, NOT INSTEAD OF IT** (user ruling, offered the
-    alternative). The trash still destroys. This system already answered the
-    same question for connected actors — Unlink sits beside Delete because
-    "destroy this cart" and "drop this cart here" are different intentions — and
-    a trash can that silently stopped destroying would leave a Warden correcting
-    a typo with no way to make anything go away. Fatigue is not a thing you are
-    carrying and a bound grimoire page is the book's, not the carrier's, so
-    neither is offered; `withDrop` is off on the pile itself.
-  - **IT CONFIRMS, though it is not destructive.** Recovery is not the player's:
-    the pile is OBSERVER for them, so getting something back means asking the
-    Warden. An action only another person can undo is worth one question.
-    **AND THE CONFIRM NOW ASKS WHERE (2026-10-02, user ask), which turned it from
-    a `confirm` into a `wait` with a field** — the four `wait` traps this file
-    already records, every one of them: state `position: {width: 400}` (only
-    `confirm` and `prompt` merge it), no attribute on the content element so the
-    class goes on a wrapper inside the bare div, Drop first because Enter fires
-    the FIRST submit button, and the answer tested by SHAPE because Cancel
-    resolves to its action STRING and a dismissal to `null`. The buttons keep
-    core's own `COMMON.Yes` / `COMMON.No`, which is what `confirm` put there
-    before, so the change adds **no new user-facing wording** and needs no
-    translation; Drop is the default rather than Cancel, against the review #30
-    convention and deliberately — this is a form with an optional field, not a
-    destructive guard, so Enter with nothing typed must still drop exactly as it
-    did yesterday.
-  - **THE NOTE IS 25 CHARACTERS, OPTIONAL, AND BOTH ROUTES ASK** (user ask: "can
-    we ask them where they dropped it... somewhere readable from the dropped item
-    pile"). One key and one builder (`buildWhereField`) for the Drop control and
-    the Fatigue drop both, because they land in the same pile and a
-    half-annotated list is worse than either all or none — two wordings would
-    read as two questions. Blank leaves the row with no chip; it is not editable
-    afterwards, and dropping the same thing again overwrites it.
-    `flags.air-bladder.droppedAt` → `system.droppedAt`, derived the `grantLabel`
-    way and as a **TOTAL** assignment, because `prepareData()` does not reset
-    `system` from `_source`. **THE CLAMP IS ON THE GM'S SIDE**, in the broker's
-    handler where the write happens: `maxlength` binds the field and not the
-    wire, and `senderId` is the only field the server authenticates — the
-    marketplace's greyed-rows-plus-refusal pairing again. The chip renders on the
-    **pile's** sheet only (`../withDropNote` off `context.isPile`), which is what
-    leaves the hand-back flow untouched: a returned item keeps the flag
-    harmlessly and simply stops advertising where it used to be. Never
-    localized — it is what the player typed, the same kind of value as a card's
-    `data-weapon` — and rendered with an ordinary `{{ }}`, never a triple-stash.
-    The Fatigue card picks between **two whole-sentence keys** rather than one
-    with an empty `{place}`, the `CAIRN.AttacksTarget` rule.
-  - **DROP NO LONGER WEARS THE GIVE CONTROL'S HAND** (user: "we are already using
-    the hand for offer item to another player!!"). `items-list.html` rendered
-    `fas fa-hand-holding` for Give and again for Drop, byte-identical, two
-    controls on one row — with a third hand beside them for equip. Drop is
-    `fa-down-to-line` now, at **two** sites: the row AND the Fatigue dialog's
-    confirm button (`party-pile.js`), which is the one a grep of the template
-    misses — changing only the row moves the collision rather than ending it.
-    `item-offer.js` KEEPS the hand, so after this the hand means exactly one
-    thing system-wide: it goes to a PERSON.
-    **`fa-arrow-down-to-line` IS ABSENT FROM THIS BUILD** and so is
-    `fa-location-dot` (the note chip uses `fa-map-marker-alt`): Foundry bundles
-    FA5-era names, and `all.min.css` names glyphs whether or not the font carries
-    them. Both were verified by parsing the shipped `fa-solid-900.woff2`'s own
-    character map. The probe asserts the RULE rather than the instance — no two
-    controls on one row share a mark — because nothing caught the duplicated hand
-    for the simple reason that nothing ever asked.
-  - **A PARTIAL'S PARAMETER IS INVISIBLE INSIDE `{{#each}}` WITHOUT `../`, and
-    it fails SILENTLY.** The hash parameter lands on the partial's root context
-    and `{{#each}}` makes each ITEM the context; Handlebars does not walk up for
-    a bare identifier, so `{{#if withDrop}}` on a row resolved against the item,
-    found nothing, and rendered no control at all while `canDrop` was true on
-    the sheet the whole time. Measured on a live sheet: `canDrop: true`, zero
-    controls. `{{#if ../withDrop}}` fixes it. Every other parameter
-    `items-list.html` reads — `withFatigue`, `withShop`, `withImprovised` — is used
-    OUTSIDE the loop, which is why none of them ever had to discover this.
-    **The neighbouring `{{#unless container}}` has the same shape and nothing
-    passes `container` at either call site**, so the equip toggle renders on
-    every row including a container's, which its own comment says it should not.
-    Left alone as a pre-existing question rather than changed in passing, but
-    it is the second instance of this bug in one file.
-  - **THE MOVE RUNS ON THE ACTIVE GM'S CLIENT.** Ownership is OBSERVER for
-    players by ruling — the table sees what was dropped, the Warden hands things
-    back — and a player cannot write to an actor they only observe, so the
-    server would refuse their create. The broker is the `ownershipSync` shape:
-    the player emits, the active GM answers, and **`senderId` is the only field
-    trusted**, because it is the only one the server authenticates. The GM
-    checks the SENDER owns the source actor; without that test any client could
-    emit another player's actor uuid and strip their sheet one item at a time.
-    **With no Warden connected a player's Drop refuses and says so** — a control
-    that does nothing without explanation is the worst of the three outcomes.
-    **THE BROKER IS MEASURED FROM A SECOND BROWSER CONTEXT**, because every
-    other leg in `dev:combat-options` runs as the Warden, who owns everything —
-    so the one path the broker exists for had never executed. As Alice it proves
-    the PREMISE (she sees the pile, does not own it, and her own write to it is
-    refused by the server), then the GESTURE, then the AUTHORIZATION: a crafted
-    emit of the broker's own payload naming an actor she does not own is turned
-    away. A probe that only ever runs as a GM cannot see an ownership wall at
-    all.
-  - **DELETING THE PILE SAYS HOW MANY ITEMS GO WITH IT (2026-10-04, user
-    ask: "what happens if the warden accidentally deletes the party's Dropped
-    Item Pile?").** Everything in it goes and nothing brings it back —
-    Foundry's undo is canvas-only — and the next drop simply makes a fresh,
-    empty pile, because nothing finds it by id. So `CairnActor#deleteDialog`
-    keeps core's sentence and adds "The pile still holds {n} items the party
-    dropped, and they will be deleted too." (`formatCount`, a `_one` form),
-    only when it holds something. It REBUILDS core's sentence from core's own
-    keys because core composes it only when no content is passed; `i18n:source`
-    lists the two core keys as supplied. The Party folder's Delete All does not
-    pass through it, and core's warning there already says the contents go.
-  - **PILE FIRST, THEN THE SHEET, and never the other way round.** If the create
-    lands and the delete fails the player has two of something, which a Warden
-    can see and fix; if the delete lands and the create fails the item is gone,
-    which nobody can. Both halves run on ONE client for the same reason.
-  - **THE CLAIM IS A FRESH ID PER GESTURE, NOT THE ITEM'S OWN (review #33).**
-    The race between a Warden's several sessions is still settled by the
-    embedded collection refusing a duplicate `_id`, but the id used to be the
-    item's, on the reasoning that "nothing ships `keepId` for an actor's
-    items". False: core's own `ActorSheetV2#_onDropItem` keeps a dragged
-    item's id (`keepId: !this.actor.items.has(item.id)`, actor-sheet.mjs:347)
-    and ours delegates to it, unlinked tokens carry their base actor's item
-    ids, and Duplicate keeps embedded ids — so two players who each dragged a
-    Torch from the compendium held the same id and the second Drop was refused
-    with a raw server toast while the loser's client had already answered
-    `true`. The REQUESTING client mints `claimId` (`randomID`) once, every
-    Warden session copies under that id, and a collision can again mean only
-    one thing.
-  - **THE BROKER REPLIES (review #33): `User#query`, not a socket emit.**
-    `CONFIG.queries["air-bladder.pileDrop"]` is core's request-and-reply
-    channel (players hold `QUERY_USER` by default; the handler receives the
-    server-authenticated `user`), so `dropItemToPile` returns what the Warden's
-    client DID. The emit it replaced returned an optimistic `true` to
-    everything, and the Fatigue bargain paid out on it with no Warden online
-    or a refusal on the Warden's side. A `false` from a sibling session that
-    lost the claim is not a refusal: the pile is OBSERVER, so the asking client
-    checks whether `claimId` landed, and that is the last word. The crafted
-    decoy the probe sends is a crafted QUERY now.
-  - **PAGES TRAVEL WITH THE BOOK, and the copy is STOWED (review #33).**
-    Dropping a Grimoire moved the book alone; its bound pages stayed keyed to a
-    book no longer there, and nothing could follow it (dragging a bound page is
-    refused, its Drop control is hidden, Give refuses both). `movePileItem`
-    bundles `pagesOfGrimoire` in the same create and clears `equipped`, the
-    drag path's own normalisation for a thing.
-  - **RECONCILE COPIES ONLY WHAT THE CANONICAL PILE LACKS, and deletes the
-    extra only once every one of its ids is there (review #33).** It copied the
-    whole lot in one batch and read any throw as "already there" — but the
-    server refuses a batch on its FIRST duplicate id, inside `Promise.all`,
-    before any write, so a mixed batch created nothing and the delete took the
-    extra's new items with it. The docblock's own example did it: a sidebar
-    Duplicate shares every id, and anything added to the copy was gone at the
-    next drop.
-  - **NO DROP ON A COMPENDIUM ACTOR (review #33):** `canDrop` asks
-    `!actor.pack`, the line `canReceiveOffer` already drew — `owned()` tests
-    only `isEditable`, which an unlocked world pack passes, and the move would
-    have walked pack items into the party's world pile.
-  - **THE PILE IS LINKED, stated in its create data (review #33):** `_preCreate`
-    links persons only, so a thing falls through to unlinked, and a placed
-    token's Give would have removed one copy while the world pile kept the
-    other.
-  - **UNLIMITED IS ONE LINE IN `calcCurrentMaxSlots`, returning Infinity.**
-    `slotsMax` is assigned from there, `isEncumbered` compares against it, and
-    `capacityVerdict`, the drop handler and the marketplace all read one or the
-    other — so that single answer makes every path accept, with no second rule
-    to keep in step. A very large NUMBER was the alternative and is worse: the
-    sheet would read "47 / 9999", which is not what unlimited means. The npc
-    sheet prints `slotsMaxLabel`, because a template renders Infinity as the
-    word.
-  - **`party-pile.js` DECLARES `FLAG_SCOPE` RATHER THAN IMPORTING IT**, and that
-    is the one piece of duplication in the file. `actor.js` must call
-    `isDroppedPile` from `calcCurrentMaxSlots`, so this module sits BELOW it in
-    the graph; `FLAG_SCOPE`'s usual home is `character-generator.js`, which
-    imports `actor.js` at its first line, so importing it would close a real
-    cycle around a string. A cycle whose only uses are inside function bodies
-    very probably works, and "very probably works" is not a reason to add one.
-    Safe to restate because the id is frozen and that decision is CLOSED.
-    `createActorInteractive` reaches this module through a DYNAMIC import, the
-    pattern it already uses for `monster-generator.js`.
-  - **AN EXPLICIT FOLDER WINS.** A Warden who presses Create Actor inside a
-    folder of their own gets it there; only a caller that named none is defaulted
-    to Party. Characters only — an NPC, a hireling and a monster are not the
-    party.
-  - **THERE IS NO `FOLDER_CREATE` PERMISSION, and the first cut guarded on one.**
-    `CONST.USER_PERMISSIONS` carries `ACTOR_CREATE`, `ITEM_CREATE`,
-    `JOURNAL_CREATE` and six more, and nothing for folders — so
-    `game.user.can("FOLDER_CREATE")` was false for EVERYONE, the Warden
-    included, and the folder was silently never made while the pile landed at
-    the root of the directory. `Folder.canUserCreate(game.user)` is the real
-    test (`common/abstract/document.mjs:346`, which resolves the document's own
-    `metadata.permissions.create`). `dev:combat-options` caught it on the first
-    run — pile present, `in Party folder=false` — which is the whole argument
-    for asserting WHERE a document landed and not merely that it exists.
-    **Verify a permission by grepping the client for the constant, never by
-    inventing the name the pattern suggests** — the same rule this file already
-    records for core i18n keys and for `_stats.createdBy`.
-  **TAKING A FATIGUE INSTEAD OF CRITICAL DAMAGE NOW DROPS SOMETHING FIRST**
-  (user ask), gated by the option that already exists rather than a new setting.
-  The button opens a picker of what the character is carrying; choosing one
-  drops it and THEN the Fatigue lands. Required, but WHICH item is always the
-  player's, never the system's — the line the no-automation deviation draws.
-  **"REQUIRED" LASTED ONE DAY: SINCE 2026-10-03 THE DROP IS ASKED ONLY WHEN
-  THE FATIGUE WOULD NOT FIT** (user, testing on CT 123: a character at 8 of 10
-  slots with no Fatigue "chose 'take a fatigue instead' and was prompted to
-  drop an item! that isn't right is it?"; offered only-when-it-would-not-fit /
-  always / never, they chose the first). **AND THAT LASTED HOURS: SINCE THE
-  NIGHT OF 2026-10-03 THE DROP IS ASKED ONLY WHEN THE CHARACTER IS ALREADY
-  OVERBURDENED** (user: the would-not-fit test "creates an undesired
-  situation ... it only prompts a character to drop something and requires
-  them to do so if the player is already overburdened"). `mustDropForFatigue`
-  (gear.js) is `isEncumbered()` — no free slot, 10 of 10 counts, the one
-  predicate HP 0 reads — and the handler in `cairn.js` answers "drop nothing"
-  without a dialog for anyone else, so a character at 9 of 10 takes the
-  Fatigue silently and lands overburdened, at 0 Hit Protection; the ruling
-  accepts that. (In between it was `fatigueFits` = `capacityVerdict(actor,
-  1)`, and for a few hours a `nextFatigueCost` off the free first Fatigue.)
-  Nothing-to-drop-and-already-overburdened still applies the Critical Damage
-  with no dialog. `dev:combat-options`'s every picker fixture is padded to TEN
-  slots (`overburdened`); the `room` leg holds 2 of 10, the `edge` leg 9 of 10
-  (no picker — the red-first witness against the would-not-fit build), and
-  `firstFull` 10 of 10 with no Fatigue (asked).
-  **The drop is recorded in chat** (user ask) from a flag carrying the
-  item's NAME and rebuilt per viewer — the move runs on whichever client
-  answered it, so a stored sentence would freeze in that client's language, the
-  rule four other cards here have been fixed under. An ordinary Drop posts
-  nothing: the pile is the record, and a card per tidy-up would be noise.
-  **THE BARGAIN WAS REVERSED THREE WAYS LATER THE SAME DAY (user rulings), and
-  every one of them overturns something this bullet used to state.** The
-  paragraph that stood here said "**Cancel backs out of the whole thing**:
-  nothing spent, nothing sealed, no Fatigue, both buttons still live", and that
-  "a character with nothing droppable answers "" and the choice proceeds: they
-  have already paid everything it could ask". Both are now false. The Fatigue is
-  BOUGHT with an item, and:
-  - **REFUSING APPLIES THE CRITICAL DAMAGE.** The second button reads "No — take
-    the Critical Damage" and marks them. It is `type: "button"` with NO callback,
-    so it resolves to its own action STRING — which is how "refused" is told
-    apart from "dismissed" with no new state anywhere (dialog.mjs:273).
-  - **ESCAPE IS NOT A REFUSAL**, and that is what PRESERVES the old ruling's
-    protection rather than discarding it: only the named button refuses, so the
-    one way to refuse is to read a sentence saying what refusing costs. Escape
-    and the window's × leave the card exactly as it was.
-  - **NOTHING TO PAY WITH IS A REFUSAL TOO, with NO DIALOG** (user ruling,
-    offered the alternative): the price is an item that frees a slot, so a
-    character with none has the Critical Damage applied the instant the button is
-    pressed. Stated because it is the argument against — somebody stripped bare,
-    often the one who has been paying all fight, loses the alternative exactly
-    when they need it. **E2's check mark is load-bearing because of this**, not
-    decorative: it is the only thing telling a player who pressed "take a Fatigue
-    instead" that they got the opposite.
-  - **THE DROP MUST HAVE HAPPENED (review #33).** The route discarded
-    `dropItemToPile`'s result, so with no Warden connected — or a refusal on
-    the Warden's side — the Fatigue landed and the card sealed over a bargain
-    nobody had paid. The drop now answers truthfully (the broker replies), and
-    a `false` stops with the card live, nothing taken, and a toast saying so.
-    The order is drop → record the choice → Fatigue. A blank "Where?" REMOVES
-    the note the item already wore rather than leaving last week's place on
-    it, which also closes the clamp bypass of a player-written `droppedAt`.
-  **THE PICKER OFFERS ONLY WHAT FREES A SLOT** (`slotFreeingItems`, deliberately
-  NOT a narrowing of `droppableItems`, which still means "everything that may be
-  dropped" for the ordinary Drop control). Petty is excluded
-  **unconditionally**: a petty drop frees nothing, so it cannot pay for a
-  Fatigue, and if petty is ever on the menu the
-  sensible play is always to shed the cheapest trinket, which makes a forced
-  drop cost nothing. Fatigue is excluded **as Fatigue**: dropping one to make
-  room for another is no trade. Rows say what they free
-  as a NUMBER, never the word "bulky", and show uses where there are any —
-  **no `x3` anywhere** (user ruling: a quantity chip beside a uses chip is two
-  numbers meaning different things on one row). The slot arithmetic is
-  `itemSlotCost` in utils.js, ONE copy shared with `calcSlotsUsed`, because a
-  picker that disagreed with the slot count would price the trade wrongly.
-  **THE OLD "past a full pack" CLAIM IS GONE, not moved.** It survived one
-  revision as "what happens to a character with nothing to give up"; that case
-  now takes the Critical Damage instead, so the Fatigue-for-critical route does
-  not reach `ignoreCapacity` at all. The flag itself stays — casting and the Add
-  Fatigue control still use it. `dev:combat-options`'s all-Fatigue leg was rewritten to
-  assert the Critical Damage, and it still runs LAST because it strips an
-  inventory every earlier leg needs. The probe's cleanup deletes the pile, the
-  drop cards and the Party folder — but only if the probe emptied the folder,
-  since a Warden's own party must survive a run.
-  **THE PAIR SITS SIDE BY SIDE AND WEARS A CHECK** (user rulings). They had no
-  CSS at all, which is why two block-level buttons stacked; `.dmg-choice-row`
-  now shares the maneuver pair's flex rule. Three things were needed, not one:
-  `display: flex` on the wrapper is necessary and NOT sufficient, because core
-  sizes a chat button to its container's full width and `min-width: auto` forbids
-  a flex item shrinking below its own content — so the buttons also take
-  `flex: 1 1 0`, `min-width: 0` and `white-space: normal`, which lets a label
-  wrap to two lines at the 272px sidebar width (the take-over doors' "ok if that
-  button spans two lines as long as it's all readable" applied again). The flag
-  stores the KIND (`"fatigue"` / `"critical"`) so the tick knows which control to
-  mark; `spent()` is unchanged, being a truthiness test. A card already in a log
-  carries `true` and is LEFT ALONE — sealed, no tick — because a default would
-  silently mislabel history, the `data-panic` rule. `markChoiceTaken` is at
-  module scope, drawn per viewer, shared by both pairs.
-- **A token's name follows its actor's on rename — only where it still matched
-  the OLD name** (2026-08-23, user ruling after a player's rename left their
-  token stale on every map: "preserve custom token names"). Core copies the
-  name onto a token once, at placement, and never again
-  (common/documents/actor.mjs:96,155 seed only an EMPTY prototype name). The
-  rule is core's own prototype-token convention applied to placed tokens on
-  EVERY scene: `CairnActor._preUpdate` stashes the former name and rewrites the
-  prototype in the same write, `_onUpdate` batches one Token update per scene
-  from the writer's client (a token's permission level is its actor's, so a
-  player needs no relay). An UNLINKED token renamed through its own sheet
-  takes the SAME path: the backend runs the pre-update phase on the synthetic
-  Actor first and only then rewrites the request into an ActorDelta operation
-  (client-backend.mjs `_updateDocuments` → `#adjustActorDeltaRequest`), so the
-  stash travels and the synthetic actor's `_onUpdate` renames its one token —
-  a `preUpdateActorDelta` hook, the obvious shape, never fires for it and was
-  the first attempt. The three re-roll paths that used to rename the ACTIVE
-  scene's tokens by hand, unconditionally, ride this instead. Gate:
-  `npm run dev:token-names`.
-- **Token LINKING is decided by role at creation: a PERSON is linked, a monster
-  is not.** `_preCreate` stamps `actorLink: true` for `character` and for any
-  npc in `PERSON_ROLES` — including a role-less one, which the schema initial
-  makes a hireling — while monster, companion, transport and container fall
-  through to Foundry's own `false`. **RULED 2026-09-10 and the default is NOT
-  changing**, after a player reported a session of enemies sharing one HP bar:
-  linked is what a Warden's Guide NPC and a hireling both want (unlinked people
-  were twice fixed here as defects, HP typed on a token never reaching the
-  sheet), Mythic Bastionland links its own npc type too, and the crowd case
-  already has the Monster route plus the bestiary's `Bandit` and `Brigand`. The
-  fix was SIGNPOSTING, not behaviour: a hint under the Create Actor dropdown
-  (`CAIRN.CreateActorHint`) and `docs/tokens-and-sheets.md`, the roster guide
-  that explains both routes and where **Link Actor Data** lives.
-  **The signposting reached the DIRECTORY's own two person buttons on
-  2026-09-12** (user ask), which had carried none: `BLANK_KINDS` grew an
-  optional `note`, and the Create NPC and Create Hireling dialogs render
-  `CAIRN.Blank.LinkedPerson` as a second hint — one key for both, and OUTSIDE
-  the `offerBlank` gate, because unlike the hint above it the sentence is true
-  whether or not the empty-sheet box is offered. **Asked as "a control or a
-  reminder?" and RULED a reminder**: this dialog asks one question, the
-  empty-sheet feature's licence was that it added no wizard, and a control
-  would help only at the creation moment while Foundry's own helps for every
-  actor already in the world. A control later is not blocked by it.
-  One thing this file and the code BOTH used to overclaim, corrected the same
-  day: `#applyNpcTokenDefaults` cannot tell a DELIBERATE `false` from the
-  default `false`, so a monster the Warden unlinked by hand IS re-linked when
-  it is promoted to a person. Only disposition can carry that distinction. Core's
-  **Prototype Token Overrides** setting cannot express this and was tested:
-  its schema carries sight, ring, turn marker, display name, display bars,
-  disposition and lock rotation, and DROPS `actorLink` on construction — it
-  also tabs by TYPE, so an override aimed at NPCs lands on every monster too.
-  Gates: `npm run dev:token-defaults` for the defaults, `dev:dialogs` for the
-  hint.
-- **The Warden's Dashboard** (`module/warden-dashboard.js`, 2026-09-10, user
-  ask after the Mythic Bastionland fork's Gamemaster Dashboard) — a GM-only
-  ApplicationV2 on the Token controls beside the damage tool, putting all 45
-  Warden tables on a button, six tabs, resizable and detachable. A LAUNCHER:
-  everything on it is reachable another way and it owns no rules.
-  **THE RULE, and it is not cosmetic: a single-table draw posts CORE'S OWN
-  table card, always.** `encounters.js` grows its Add-to-scene button by
-  reading `flags.core.RollTable` and the message's roll, which only
-  `RollTable#toMessage` stamps, and hangs it inside `.table-draw`, which only
-  core's markup has. A card of our own kills that button on nine tables in
-  silence. Only the four COMBINED draws build a card, none of them touch an
-  encounter table, and every drawn value in one is ESCAPED (review #24's class
-  of per-viewer card rebuilds; this would be the fifth). Posting takes TWO
-  calls — `draw({displayChat:false})` then `toMessage` — because `draw`
-  forwards only `messageOptions` and never `messageData`, which is the defect
-  that made a monster's Scar post under the attacking player's name.
-  Button labels are UI KEYS, not the tables' names, per the ruling already at
-  `actor-sheet.js`'s trait rows: "Warden: NPC - Quirk" is a name a Warden
-  browses by and a terrible label. The Your Tables tab is the exception, since
-  those names are the Warden's content and go through the overlay's
-  `table.name` namespace. The generators and the damage tool on it are SECOND
-  call sites into the Actor Directory's own functions, never copies — and the
-  damage tool KEEPS its Token-controls button, because its targets come from
-  the aiming gesture and that is a token-layer operation. One more trap worth
-  the line: an AppV2 part must render exactly ONE root element, so the whole
-  window lives inside one wrapper div. Gate: `npm run dev:warden-dashboard`.
-  **The single-table draw card is REBUILT PER VIEWER too (2026-09-12, review
-  #27).** Core's card, still — but its sender and flavor were composed on the
-  Warden's client and STORED, so a Spanish player read "Path Difficulty" over
-  Spanish rows on all 45 buttons; review #26 had fixed this window's other two
-  cards and missed its most-used one. `postTableDraw` stamps
-  `flags.air-bladder.dashboardDraw` with the table's BARE uuid (the reveal
-  card's shape), and `localizeDashboardCard` relabels `.message-sender` and
-  `.flavor-text` through `labelForTable` on each client. `toMessage` merges
-  that over its own `flags.core.RollTable`, so the encounter button's flag
-  survives beside it.
-  **SHOWING a table to the players (2026-09-10, user ask the same day).** Every
-  table button is a PAIR — the name rolls, an eye SHOWS — and Foundry cannot do
-  this itself: `Journal.show` and `_showEntry` both return early for anything
-  that is not a JournalEntry or JournalEntryPage. So it is a broadcast on the
-  system socket plus a popup plus a chat card. **The payload is a BARE UUID and
-  nothing renderable ever crosses the wire** — every client resolves it and
-  renders from the real document, which is what keeps this out of review #24's
-  argument entirely; a crafted emit can at worst name a table that exists.
-  `senderId` is the guard (the one field the server authenticates) and its
-  removal is probe-covered. It works on a player's client only because pack
-  ownership `PLAYER: NONE` is sidebar concealment and not a read wall. The card
-  is PUBLIC regardless of the visibility dropdown, by ruling: a reveal that
-  whispers to the Warden is nonsense. Two traps: an AppV2 element id is stamped
-  at CONSTRUCTION from `options.id` with `{id}` filled from `uniqueId`
-  (`application.mjs:40`), so a `get id()` override is ignored and the window
-  renders as `app-59` where nothing can find it — override
-  `_initializeApplicationOptions` instead; and `labelForTable` maps a table's
-  browse name to its button's UI key on EACH client, so the popup, the card and
-  the roll card's speaker all read "Path Difficulty" rather than "Warden:
-  Travel - Path Difficulty" without any label travelling.
-- **Keeping time** (`module/game-time.js`, `module/watch-clock.js`, 2026-09-10,
-  user ask) — **THIS SYSTEM'S FIRST USE OF `game.time`.** Two things live here
-  and they are NOT the same thing, which is the whole shape of the feature.
-  **WATCHES ARE CORE CAIRN 2e AND ARE NEVER GATED**: the Player's Guide
-  procedures say a day is three watches (morning, afternoon, night) of eight
-  hours each, the shipped travel tables already price a journey in them, and
-  gating a 2e unit behind a setting-specific switch would be a category error.
-  **THE VALD CALENDAR IS A HACK**, behind `enable-vald-calendar`. The user's
-  ruling split it exactly there.
-  Foundry 14 ships a real calendar (`client/data/calendar.mjs`), so Vald is a
-  CONFIGURATION rather than a clock we wrote, and world time is server-synced
-  and persisted in `core.time` for free. **Everything reads the LIVE
-  `game.time.calendar`, never our own config literal**, so the watch maths stays
-  right under Foundry's default, under Vald, and under a calendar module we have
-  never heard of.
-  **The hack CONVERTS NOTHING, and that is the contrast with `enable-glog-magic`
-  worth keeping.** `core.time` is a fixed count of seconds that a calendar merely
-  READS, so switching REINTERPRETS the clock rather than rewriting it and
-  switching back restores the old reading exactly — no marker, no sweep, no
-  onChange. The visible date DOES jump, which is why it `requiresReload` (one
-  consistent state on every client at one moment) and why the hint says to set
-  the date afterwards.
-  Six things that will bite if forgotten:
-  - **A BUG IN THE SHIPPED CLIENT.** `CalendarData#_decomposeTimeYears`
-    (`calendar.mjs:391-403`) runs its remainder-years walk in BOTH branches, so
-    the days a leap year has on top of a standard one decompose as day 0 of the
-    following year — for Vald that is the entire six-day Reclamation week, and
-    on core's own Gregorian it is the 31st of December. `ValdCalendar` overrides
-    the method core's own docstring nominates for exactly this ("factored out so
-    calendars which require advanced leap year handling can override"). Found by
-    an offline replica of core's arithmetic; the witness is a
-    `timeToComponents → componentsToTime` round trip, and `dev:vald-time` runs
-    2000 of them.
-  - **`leapStart` MUST be 0.** Core's two leap paths disagree for any other
-    value: `_decomposeTimeYears` measures the pre-leap run as
-    `Math.max(leapStart - 1, 0)` while `isLeapYear` compares against `leapStart`.
-  - **Seasons are DAY-OF-YEAR, not month.** Vald's boundaries are mid-month and
-    core tries `dayStart`/`dayEnd` FIRST, matching them against day of year
-    (`calendar.mjs:275-289`). A **Reclamation season entry is listed first** and
-    is load-bearing: without it the leap days match nothing, `components.season`
-    comes back one past the end, and core does not guard the lookup.
-  - **`yearZero: 7728` is read as an OFFSET** and core reads that field nowhere,
-    so the meaning was ours to pick. **7728 is therefore itself a Reclamation
-    year — OUR invention, the SRD gives no anchor, and it is FROZEN**: changing
-    it re-dates every world that has run on it.
-  - **TWO UPSTREAM ERRATA, RECORDED NOT FIXED.** The Warden's Guide says every
-    season lasts 72 days while its own "season begins" rows give Wet 69 and
-    Harvest 75; and it puts "the end of the Dead season" nineteen days before
-    Dry begins. We encode the dated rows. `docs/keeping-time.md` says so where a
-    Warden reads it, before somebody reports the arithmetic as our bug.
-  - **`#ui-left-column-1` is STATIC markup** in core's `templates/views/game.hbs`.
-    The scene controls and the player list replace their own `<template>`
-    placeholders once and thereafter rewrite only their own innerHTML, so a
-    sibling there survives both re-rendering and needs NO re-attach hook — which
-    is the answer to "is there a hook for this?", the question these notes
-    already record as the wrong one to ask first. The clock goes in BEFORE
-    `#players` with `margin-top: auto`, because the column is
-    `justify-content: space-between` with exactly two children and a third would
-    push the player list into the middle of the screen.
-  The DASHBOARD band is a SECOND AppV2 part so it can redraw alone.
-  `parts: ["time"]` is load-bearing, not an optimisation: `_syncPartState`
-  restores no field VALUES, so a bare `render()` silently resets the Warden's
-  visibility dropdown to Public on every tick — measured, and probe-covered. Two
-  parts also means two children of `.window-content`, so the restored
-  `> * { flex: 1 }` would give the band half the window; the pin needs a
-  selector that BEATS that rule's specificity, and the probe measures the height
-  rather than trusting the rule to apply.
-  **There is no Make Camp button, by ruling.** Make Camp is a Wilderness Action
-  the PLAYERS choose, and the no-automation deviation protects player-facing
-  rules; the Warden moves the calendar and the party decides whether they
-  camped. "To Next Morning" is the same jump without the claim, and nothing is
-  posted to chat. **Vald's weather REPLACES Cairn's on the Dashboard —
-  Weather Difficulty included** (user ruling 2026-09-11, REVERSING the previous
-  day's "alongside, never replacing", which this file argued at length and
-  `VALD_WEATHER_GROUP` still records). The old reasoning was that Cairn's are a
-  severity ladder feeding `Warden: Weather - Difficulty` while Vald's are
-  descriptive, so a Vald table wants both. What it missed is what a Warden does
-  with two sets of weather buttons on one tab: rolls both, and gets answers that
-  contradict each other on the same day — the user's own example, "Cold and
-  clear" arriving as Vald Dead 1 and as Weather Difficulty 5. All nine tables
-  still SHIP; only the buttons swap, so a severity roll is still in the
-  compendium browser. `weatherTableForToday` had already made exactly this
-  choice for the band's own button; the tabs now agree with it. The clock is also the
-  first surface here that is Foundry CHROME rather than a sheet, so it is the
-  one place that reads core's colour variables instead of the `--ab-*` palette
-  (`docs/theming.md`; `dev:theme` measures it).
-  **AND IT SHIPPED UNREADABLE IN 0.1.21 UNDER A LIGHT INTERFACE, because
-  "reads core's variables" is not one thing.** A palette CONSTANT
-  (`--color-cool-5-75`, `--color-cool-4`) is declared once on `body` and never
-  switches; a semantic TOKEN (`--color-text-secondary`) is repointed by
-  `body.theme-light` and `.themed.theme-light`. The clock pinned its GROUND to
-  the constants and let its INK follow the token, so a light interface painted
-  `#333` on a near-black slab at **1.26:1** — reported from CT 119 off a
-  screenshot. `#players` does not have this bug because it declares its own
-  `--background-color` per theme; the clock now copies core's values for both.
-  **TWO DROPDOWNS, TWO ELEMENTS:** `configureUI` (`client/game.mjs:1852-1875`)
-  sends Applications to `<body>` and INTERFACE to `#interface`, so the selector
-  pairs must let the interface theme win, as core's own `#players` rules do.
-  **`dev:theme` PASSED THROUGHOUT, twice over**, and that is the more expensive
-  half: it flipped the theme on `<body>` only, which never reaches interface
-  chrome, so its light pass measured the DARK clock; and its verdict rule
-  exempts every light-mode finding as "baseline", a rule written for the AppV1
-  sheet port where the chrome is core's. The clock is a `strict` surface now —
-  a finding in EITHER scheme fails — and the switch goes through
-  `game.configureUI`. **Check any chrome change in BOTH interface schemes.**
-  Gate: `npm run dev:vald-time`.
-  **A SEVENTH, FROM THE LIVE SERVER (2026-09-13): TIME BEFORE YEAR ZERO HAS
-  NEGATIVE WEEKDAYS.** The Dashboard on CT 119 headed itself ", the 22nd of
-  Sunset, 7727" — no weekday — because a Warden had set the date a year
-  before Vald's frozen 7728, which nothing forbids, and core computes
-  `dayOfWeek = totalWeekdays % days.length` (`calendar.mjs:265`) with
-  JavaScript's sign-keeping `%`: for a negative time the index is negative,
-  `days.values[-1]` is undefined, and every reader that names the day prints
-  nothing. The month grid was worse off — `new Array(negative)` throws, so
-  the calendar window could not build any month back there.
-  `ValdCalendar#timeToComponents` normalises the weekday at the source
-  (`((d % n) + n) % n`, the cycle continuing backwards so the eve of year zero
-  is the week's last day), which is what keeps `game.time.components`, the
-  headline, the day panel and the grid agreeing. The 2000-sample round trip
-  never saw it because it sampled `[0, 40y)` and `componentsToTime` ignores
-  the weekday anyway; `dev:vald-time` now samples 500 negative times and
-  builds Sunset 7727. **A probe's random range is a claim about the input
-  space** — the Warden's input space included the years before the anchor.
-  **AND A DATE CHANGE IS GUARDED (same day, user ruling: "accidentally
-  changing it seems like a major pitfall").** Three routes move the clock and
-  they are not equally dangerous, so they got three different answers. The
-  watch and day buttons are the routine gesture and stay one click — a
-  mis-click costs a watch. **Set the Date… is already a dialog and got a
-  PREVIEW, not a second prompt**: a line under the fields reading the
-  destination and its distance from today, live (`describeDateAt`,
-  `describeShift` in `game-time.js`, off `componentsForDate` — `setDate`'s
-  arithmetic with the write left out, ONE copy). ALWAYS in days: "1 year"
-  hides a three-day slip, "291 days" does not, and the whole point is that a
-  year off by one reads as "288 days earlier than today" before Set. Its
-  number fields drop focus on a wheel, because a wheel over a focused number
-  input nudges it in Chromium — the likeliest way 7727 got typed by nobody.
-  **The calendar's Set-to-this-day ASKS FIRST**, naming the day and the
-  distance: it is the one route to an ARBITRARY date that is a single click
-  with no dialog, and a Warden browsing another month is one mis-click from
-  moving the whole table there. The dialog's `render` callback is where the
-  preview binds — DialogV2 serialises its content element, so a listener
-  attached before render is dead (`foundry-dialogv2-cleanhtml-attrs`).
-  Gate: six legs in `dev:vald-time`; red-first with both guards disabled
-  fails four (no question, the first click moves the world, an empty
-  preview, focus kept under the wheel) and passes the two that should.
-  **TWO DEFECTS IN THAT DAY'S BATCH, found by review #30 the same evening.**
-  The confirm passed `yes: {default: true}` — and core's `confirm` keeps
-  `default: true` on `no` through the merge (dialog.mjs:349-352), so BOTH
-  buttons were autofocus candidates and the first in document order, Yes,
-  took the focus: a guard against an accidental date change that a stray
-  Enter confirmed. Cancel is the default now, core's own convention and the
-  rule `actor-sheet.js` already recorded for its confirms. And the calendar's
-  `#selected` is STALE after paging (set by `reset()` and a click; Prev/Next
-  move `#view` alone), which `_prepareContext` had always filtered for
-  display while **Set to this day and Add an event… read it raw**: page
-  forward, click no day, press Add an event…, and the page landed on TODAY
-  under a panel headline naming the 1st of the month on screen, with no new
-  mark because the browsed month gained none. `#selectionInView` is the ONE
-  derivation for the panel, the grid highlight and both buttons. Three more
-  `dev:vald-time` legs, each red first.
-  **THE CALENDAR ON THE WALL** (`module/vald-calendar.js`, 2026-09-10, user
-  ask: "a calendar where they can see the current day as well as the rest of
-  the days in the month, like a calendar you would put on your refrigerator").
-  VALD ONLY, by ruling — a grid needs month names, and under Foundry's own
-  calendar those are January and a year like 0, which would contradict the
-  clock's deliberately honest "Day 12". The clock is the DOOR: with Vald on its
-  panel is a button, and anyone may open the window. Browsing can never move
-  the world — the Warden sets the date from a button INSIDE the day panel and
-  never by clicking a day.
-  **A LICENCE BOUNDARY DECIDED THE ARCHITECTURE, not a technical one.**
-  `LICENSE.txt` declares `module/ templates/ css/ tools/ lang/` to be MIT "and
-  only these", while every word of Cairn's text is CC BY-SA and lives in
-  `packs/`. So the Warden's Guide's 24 festival descriptions may NOT go in
-  `lang/en.json` — that would make the inventory's own sentence false, and
-  `check:licence` compares README against LICENSE.txt so nothing would catch
-  it. They ship as a second JournalEntry generated by `tools/import/vald.mjs`,
-  which means one copy of the text, still upstream's, with the content overlay
-  and the existing credit for free. **Ask this question of any new content
-  before choosing where to put it.**
-  Four more things that will bite:
-  - **THE IMPORTER'S PARSE CHECKS ITSELF.** Every holiday row NAMES its
-    weekday, so the importer recomputes the weekday for the day number it
-    parsed and throws on a mismatch — and for a span, the last day too. A
-    misread day cannot pass. Proven by control: swapping two entries in
-    `WEEKDAYS` reds it on Sunrise 14.
-  - **The calendar finds its festivals by FLAGS, never by name.** An entry or
-    page name goes through the content overlay, so a name lookup finds nothing
-    on a Spanish client — the exact failure the overlay's own rule exists to
-    prevent.
-  - **Browsing state lives on the INSTANCE and is never re-derived.**
-    `updateWorldTime` re-renders every open calendar, so a `_prepareContext`
-    that started from today would snap a Warden reading next month back to this
-    one the moment anybody advanced a watch. It looks right until the clock
-    moves.
-  - **`JOURNAL_BLOCKS` and `localizeJournalBlocks` MOVED to `i18n-content.js`**
-    (out of `cairn.js`), because the journal sheet and the calendar are now two
-    readers of journal prose and the "must stay identical to the extractor"
-    contract needs ONE home. `dev:journal-i18n` still gates it.
-  **A WEATHER LOG AND THE WARDEN'S OWN DAYS** (`module/weather-log.js`,
-  `module/calendar-events.js`, 2026-09-11, both asked as "is it possible…").
-  The log writes one journal line every time the weather is rolled or set —
-  date, watch, season, whatever the calendar marks, the weather — one page per
-  month, readable by the whole table (user ruling), behind `weather-log`,
-  default off. The Warden's events are JOURNAL PAGES carrying the same
-  `flags.air-bladder` a festival does plus `valdYear`, `valdWatch` and
-  `wardenEvent`, so one reader serves both and editing an event is editing a
-  page. Five things that will bite:
-  - **NEITHER JOURNAL IS FOUND BY A STORED ID, and that is not a style
-    choice.** Awaiting `game.settings.set` does NOT guarantee the next
-    `game.settings.get` returns the new value — measured, intermittently — so
-    an identity that must be written and read back is missing for a few hundred
-    milliseconds, and the calendar renders inside that window. Both are found
-    by their own FLAG. Two internal settings were designed, built, and deleted
-    again over exactly this.
-    **AND A FLAG ALONE IS NOT IDENTITY (2026-09-12, review #27).** A flag sits
-    on a document any TRUSTED player may create (`JOURNAL_CREATE` defaults to
-    that role, and the creator lands OWNER), so a player's journal flagged like
-    ours and sorting first captured every line the Warden wrote — the weather
-    log's pages, the next "Add an event…" — into a document the player edits,
-    and its pages flagged `wardenEvent` drew on the Warden's own calendar. Both
-    finders now also require `lastWrittenByWarden` (`calendar-events.js`):
-    `_stats.lastModifiedBy` is stamped by the SERVER from the requesting user
-    and a client cannot forge it, the same field `syncPendingOwnership` leans
-    on. A journal nobody can vouch for is not ours, and the module makes its
-    own. **LAST writer, because 14.365 HAS NO `_stats.createdBy`** — the
-    review named that field, the first cut of the fix trusted it unmeasured,
-    and a guard on an absent field was false for every journal including ours:
-    a fresh log on every write, twelve `dev:vald-time` legs red in the green
-    phase of the red-first batch, which is the batch earning its keep. Measure
-    a field before trusting a reviewer's name for it.
-    **AND A DANGLING ID IS "UNKNOWN", NOT "A PLAYER" (2026-09-12, review
-    #28).** `lastModifiedBy` is a bare user id that nothing sweeps when the
-    User is deleted, so `game.users.get()` missed and the guard answered FALSE
-    for a journal that genuinely is ours: delete the GM account that last
-    wrote the Calendar Events journal — an ordinary way to hand a world over
-    or reset a lost login — and every Warden event vanished from the grid
-    while the entry sat in the sidebar full of pages, with the next "Add an
-    event…" starting a SECOND one. Demoting that account did it too, and the
-    weather log had the same shape. Renamed `isWardenJournal`, because
-    `lastWrittenByWarden` described only its first line: an unresolvable
-    writer now falls back to the property this docblock already leaned on,
-    asked of the DOCUMENT — ours admit no player's write, so a decoy is still
-    refused (a TRUSTED player who makes a journal lands OWNER by an explicit
-    entry) while ours survive the account that wrote them. `dev:vald-time`
-    holds the whole truth table, and its control is the old one-liner.
-    **THAT FIX DID NOT WORK, AND THE PROBE SAID IT DID — review #29, and it is
-    the most expensive shape there is.** "Ours name nobody" is FALSE: the
-    SERVER stamps the requesting user as an explicit OWNER entry on any
-    document with an ownership field, GM included and with no role test
-    (`this.ownership && i && !(i.id in this.ownership) && this.updateSource(
-    {[\`ownership.${i.id}\`]: OWNER})` — `dist/database/backend/
-    server-document.mjs`, `ServerDocumentMixin#_preCreate`), supplying your own
-    `ownership` in the create data does not suppress it, and nothing sweeps it
-    when the account goes (`User._onDelete` deletes that user's Settings and
-    nothing else). So every journal we make carries the creating Warden's id at
-    OWNER, and the fallback hit that dangling entry, read `!undefined?.isGM` as
-    "a player owns this", and returned false for the exact document it exists
-    to recognise. **The leg was green because its FIXTURE was a hand-built
-    object naming nobody — a shape no world contains.** Verified against the
-    live world's own journal DB, which stores `{"default":0,"<gmId>":3}`. The
-    loop now treats an unresolvable id as unknown, and the truth table gained
-    the real shape plus a decoy naming a LIVE player, which is what proves the
-    widening did not gut the guard.
-    **DEMOTION IS STILL NOT COVERED, and the record now says so rather than
-    claiming otherwise.** A demoted account RESOLVES, so `isGM` is simply false
-    and the first line answers before the fallback — and the fallback would
-    refuse it too, since the ex-Warden's own OWNER entry now resolves to a
-    non-GM. That is byte-identical to a player's decoy: same explicit OWNER
-    entry, same resolvable non-GM. Ownership cannot separate them, so covering
-    it needs a different mechanism — ranking candidates instead of filtering
-    them, or dropping the server's creator stamp at creation so ours really do
-    name nobody — and not a wider test. Handing a world over by DELETING the
-    old account works; by demoting it does not. `dev:vald-time`'s `livePlayer`
-    row IS that shape, and its comment says so, so nobody "fixes" it by
-    accident.
-    Two smaller things from the same review: a page's visibility is its
-    ENTRY's ownership, so the calendar's refresh list carries
-    `updateJournalEntry` — raising the hidden journal through core's ownership
-    dialog fires on the entry and on no page, and a player's open calendar
-    gained nothing until the next tick — and every button on the calendar and
-    the time band carries a STABLE id, because core restores keyboard focus
-    across a part replacement only to an element it can name by `#id` or
-    `[name]` (handlebars-application.mjs `_preSyncPartState`); without one,
-    Enter three times on Advance Watch advanced one watch and stranded the
-    focus on `<body>`, which made the template's "reachable from the keyboard"
-    line a lie.
-    **THAT FIX REACHED FIVE BUTTONS OF 101, and the template said otherwise
-    for a day (review #28, measured on the running world).** `_whileDisabled`
-    restored focus only `if (button.id)`, and only the five clock buttons had
-    one — so Enter on any of the other ninety-six fired once and dropped focus
-    to `<body>`. Two different reasons, and both are fixed: the six controls
-    BELOW the clock in the time band (calendar, the weather pair, set weather,
-    the event pair) needed ids, because their part really is replaced under
-    them; the body's ninety-odd needed none, because nothing re-renders and
-    the node in hand is still live — the `&& button.id` term was what
-    suppressed them. It asks `button.isConnected` first now and falls back to
-    the id.
-    **AND IT READS THE BUTTON'S OWN DOCUMENT (review #29).** `hadFocus` was
-    `document.activeElement === button` against the bare global, and this
-    window offers **Pop Out** — core's detach opens a REAL second browser
-    window and reads `this.element.ownerDocument.defaultView` throughout
-    (`application.mjs:533-537,954-966`). So in a popped-out Dashboard the
-    comparison was never true, `hadFocus` stayed false, and the whole restore
-    never ran: the bug this helper exists for survived detachment on all 101
-    buttons, in a window whose own frame button is how you get there. Any
-    `document.` in an AppV2 that can detach is a bug waiting for someone to
-    press that control; `this.element` is already document-correct, which is
-    why the id fallback needed no change.
-  - **A PROBE THAT SHADOWS `game.settings.get` MUST FORWARD EVERY ARGUMENT.**
-    `#setWorld` asks `this.get(ns, key, {document: true})` for the Setting
-    DOCUMENT (client-settings.mjs:294); a two-argument shadow hands it a plain
-    value, `current?._id` is undefined, and core CREATES A SECOND Setting
-    document instead of updating the first. The write then silently does
-    nothing and the duplicate outlives the probe. The dev world had **131** of
-    them, across `core.time`, `custom-portrait-list` and more, from probes that
-    have shadowed this way for weeks. **This line then said "every shadow in
-    `tools/dev` forwards `...rest` now" for a day while EIGHTEEN of them, in
-    eight probes, still called `origGet.call(this, ns, key)`** — and a
-    nineteenth (`portrait-probe`) forwarded the argument but answered the
-    document request with `[]`, which is the same trap in a second shape.
-    Four more duplicates of `custom-portrait-list` accumulated in a day, one
-    per sweep, every one from the portrait-folder scan writing its cache while
-    one of those shadows was installed (2026-09-12). Every function-form
-    shadow now forwards AND passes any `{document: true}` request straight to
-    `ClientSettings.prototype.get`, and `check:probes` refuses a shadow that
-    does either half wrong — a claim about probe hygiene is a copy that
-    drifts unless a gate holds it.
-  - **DialogV2 REFUSES a content element with ANY attribute** — "config.content
-    element must have no attributes" (dialog.mjs:189), thrown from the
-    constructor, so the dialog never opens and the button does nothing. A
-    single `class` is enough. THREE dialogs here had one and shipped broken on
-    `dev`: Set the Date…, Set the Weather… and the new Add an event…. The class
-    goes on a wrapper INSIDE the bare `<div>`.
-  - **"Hidden" is CONCEALMENT, not a secret.** A JournalEntry with
-    `ownership.default: NONE` is still SENT to every player — it resolves on
-    their client, pages and text included. NONE buys `visible: false` and a
-    failing permission test, which keeps it off their sidebar and their
-    calendar. Same family as `foundry-pack-ownership-none`; the claim was
-    written as a wall first, measured second, and corrected. `docs/keeping-time.md`
-    tells a Warden the truth.
-  - **The log is written from the `cairnWeatherChanged` hook, by the ACTIVE GM
-    alone.** That hook fires on every client, so without the guard a table with
-    two Wardens logs every line twice. And the line is stored in the writing
-    GM's language, deliberately: it is a record, not a rendered surface, so the
-    content overlay does not apply.
-  **The Dashboard's readability pass rode the same batch** (user: "very crowded
-  and difficult to read"). CENTRED TEXT WAS THE DEFECT, not the gap size: a
-  glyph column with a LEFT-ALIGNED label makes every label start at the same x,
-  so the eye runs down the column instead of reading each of 45 buttons. A
-  table entry gained a third member, the glyph, so `PANELS` stays the one
-  description of a button. Vald's four weather buttons READ `SEASON_ICONS`
-  rather than restating it (user ask: "the same buttons used in the calendar
-  display"), and Today's Weather wears the glyph of the season it will actually
-  roll. A MISSPELLED FA CLASS RENDERS AN EMPTY BOX WITH NO ERROR, so the
-  probe reads `getComputedStyle(el, "::before").content`, never the class list.
-  **THE PALETTE IS FONT AWESOME 7 PRO, not Free** — measured 2026-09-11, after
-  this file and the code had both claimed Free for a day and narrowed the
-  choice for nothing. Foundry 14.365 BUNDLES the Pro fonts
-  (`app/public/fonts/fontawesome/`, Pro LICENSE.txt, solid/light/thin/duotone/
-  sharp) and the client loads "Font Awesome 7 Pro" at four weights, so
-  `fa-sunrise`, `fa-sun-dust` and the rest resolve. Verify a glyph by RENDERING
-  it, never by finding the class in `all.min.css` — that file names glyphs
-  whether or not the font carries them.
-  **A GLYPH MEANS ONE THING PER WINDOW** (user ask 2026-09-11, "suggestions on
-  avoiding duplicate icons"). A season's mark belongs to the season and nothing
-  else may wear it; `fa-sun` was Dry AND To Next Morning, one row apart, so for
-  seventy-two days a year the band showed one mark for two things. Dry is
-  `fa-sun-dust` now and that button is `fa-sunrise`. THREE repeats are
-  deliberate and declared rather than discovered: the eye is always "show to
-  the players", the pen is always "type a value", and Today's Weather wears its
-  season's glyph on purpose. `dev:vald-time` gates the rule in the band.
-  **A SECOND PASS RODE 2026-09-11, off a screenshot.** The Dead season wears a
-  SKULL now, not a snowflake, and one edit to `SEASON_ICONS` moved five
-  surfaces because every one of them reads that map. **"Roll the lot" is gone
-  as a phrase** (user: "I do not like that phrase, let's remove it wherever we
-  can"), and the heading was deleted rather than renamed: each tab's combined
-  draw joined the grid at the top of its tab, wearing the tooltip the heading
-  used to be. **The two EVENT tables moved into the time band**, which renders
-  on every tab — and that exposed a defect worth the line: `labelForTable`
-  walked `PANELS` only, so anything declared elsewhere showed a PLAYER its
-  browse name. The Vald weather four had never been in `PANELS`, so a reveal
-  had always put "Warden: Vald - Weather (Dead)" on their screens. It walks
-  every declaration now. **Who sees the result opens PRIVATE** (`gm`, not
-  core's Public) and moved ABOVE the tab strip, where its scope is visible —
-  sitting under the strip made a window-wide control read as Travel's own. The
-  eye and Roll Today's Weather still post publicly by their own earlier
-  rulings. Type: the band's date and the calendar's day statement are both
-  22px, the clock 14/18px, all MEASURED by probe because a rule that stops
-  applying leaves no other trace. **And a third pass the same day, from a
-  screenshot of both windows open: THE BAND STACKS LIKE THE CALENDAR'S DAY
-  PANEL** (user: "the top three lines of the Warden's dashboard should look
-  like the lines in the calendar") — the long date as a headline, then the
-  watch, the season and the weather as quiet glyph-led lines, no middle dots
-  and no tooltip, because every word it carried is now on screen. The WATCH
-  gets a line of its own by ruling, which is why the band has four where the
-  panel has three: this is the surface where the clock is moved. The band and
-  the panel now show the SAME STRING for a day (`describeTime().dateLong`),
-  and the probe compares the two surfaces rather than measuring each.
-- **THE MARKETPLACE IS WORLD FIRST** (`module/marketplace.js` `marketTables`,
-  2026-09-13, from the user asking how any *Warden* changes a price or adds an
-  item) — a world RollTable named `Market: Gear` REPLACES that aisle, and one
-  carrying the prefix under a name nothing ships ADDS an aisle after the four.
-  **Why it had to exist at all:** Foundry's installer deletes a package's WHOLE
-  directory before extracting an update (`dist/packages/installer.mjs`,
-  `await fs.promises.rm(target, {force: true, recursive: true})`; the `storage/`
-  exemption needs `persistentStorage`, which this system does not declare), so a
-  price or a dragged-in row a Warden puts in OUR compendium cannot survive —
-  core says as much in the dialog that unlocking one raises. Its advice there,
-  duplicate the pack into your world, bought nothing: the shop resolved
-  `air-bladder.marketplace` by id and read NOTHING world-side, so there was no
-  durable route at all.
-  **REPLACE, not merge (user ruling):** a Warden must be able to take a shipped
-  item OFF the shelves, and Import-then-edit already hands them all 49 Gear rows
-  to start from. This is deliberately the `Bonds` / `Omens` rule — ONE rule a
-  Warden learns once, and the reason `docs/customizing-the-marketplace.md` ends
-  by pointing at `customizing-bonds.md`.
-  Two things that will bite. A price still rides the ITEM and a row still
-  resolves by uuid, so keeping a PRICE means pointing a row at a world item —
-  overriding the table alone does not rescue an edit made to a shipped item. And
-  the shop never DRAWS: it reads `table.results` directly, so the drawn-marking
-  trap that keeps the NPC Faction die on the `roll()` path (`module/config.js`)
-  does not reach it — a world table here is safe to read forever.
-  Gate: `npm run dev:marketplace`, whose control is the pack-only lookup it
-  replaced, run in-page over the same planted tables. It measures a **PLAYER's**
-  client too, which was the one thing no amount of reading settled: a world table
-  the Warden resolves and a player does not would have the two of them shopping
-  different catalogues, and nothing else in the suite would notice. It does
-  resolve for a player (measured 2026-09-13).
-  **A DROP RE-SORTS A WORLD MARKET TABLE (same day, user ask: "it is added
-  to the bottom of the list").** Core's table sheet appends a dropped row at
-  `maxRoll + 1` (`roll-table-sheet.mjs` `_createResult`) and both the sheet
-  and the shop order rows by `range[0]`, so the shipped aisles are alphabetical
-  only because the importer wrote them so, and a Warden's first drop broke it.
-  `resortTableByName` (`resortMarketTable` until 2026-09-15, when the spell
-  tables joined), run from table-banner.js `onReadTableRowsChanged` on the
-  `createTableResult` hook (the one row hook for every world table Air
-  Bladder reads, since the same evening — see the banner bullet below),
-  re-ranges every row `[i, i]` by stored name and keeps the formula at `1dN`
-  — on the CREATING client only (every other client receives the row and
-  would race the same write) and for WORLD tables only, because helping a
-  Warden edit the shipped pack copy would say that is a route. Sibling
-  updates fire no create hook, so it cannot recurse. Renaming a row does NOT
-  re-sort; only a drop does. Its leg
-  plants rows OUT of order in the table's create data, which is inert (rows
-  created with their parent fire no `createTableResult`), then drops through
-  the same `createEmbeddedDocuments` call core's sheet makes; the control is an
-  identical table without the prefix, whose dropped row stays at the bottom.
-  **IT COMPARES THE STORED FORMULA, NOT THE DERIVED ONE (review #30, same
-  day).** `RollTable#prepareDerivedData` fills `formula` with `1d<total
-  weight>` whenever the stored value is blank (roll-table.mjs:349-353), and a
-  table built the way the guide says — Create Roll Table, then drag — never
-  submits the sheet form and so stores NONE. Compared against the derived
-  value the write was always skipped, `_source.formula` stayed empty, and
-  the first `roll()` on that table (its sheet's Roll button, its Your Tables
-  button) normalized AND SAVED (roll-table.mjs:270-274), re-ranging every row
-  in drag order and undoing the sort until the next drop. The probe's fixture
-  carried a formula, which is why it was green; a drag-built one reds it.
-- **COPY TO YOUR WORLD (`module/take-over.js`, 2026-09-14, user ask: "could a
-  script not be created that would import the marketplace tables, import the
-  items, and repoint the tables?").** FOUR Warden-only doors, **one button one
-  job, ALL FOUR at the top of the Rollable Tables sidebar** — **Create a
-  Custom Spell Table…**, **Create a Custom Marketplace…**, **Create Custom
-  Barebones Creation Tables…** and, fourth, **Create Custom 2e Backgrounds
-  and Tables…** — **and that fourth one ALSO at the top of the Compendium
-  tab**, where its 27 copies land. Three user rulings in one afternoon
-  (2026-09-15), each while final-testing the dev build: the door had sat on
-  the Compendium sidebar "each on the tab where its output lands" and moved
-  to Rollable Tables ("should be a fourth button at the top … with the
-  others"); its label gained the edition ("2e Custom" for an hour, then
-  "Custom 2e" to match the folder names); then, looking at the Compendium
-  tab, "what are the implications of having it in both?" — none but a
-  second `renderCompendiumDirectory` registration, so it is in both.
-  `KINDS.cairn2e.tab` stays "tables" (the banner names ONE sidebar); the
-  per-root guard keeps each directory to one button; `dev:take-over` reads
-  four doors in order on Rollable Tables, one on Compendium, both popouts,
-  both named hooks off, nothing clipped (a long label WRAPS by the door
-  rule's `white-space: normal; text-wrap: balance` — "ok if that button
-  spans two lines as long as it's all readable").
-  **THE WORLD COMPENDIUM IS "Custom 2e Backgrounds" (same afternoon), and
-  two facts about a pack label shaped that rename.** Core LOCALIZES every
-  pack's label at construction (compendium-collection.mjs:46) — world packs
-  included, which is how a system pack's key label renders — so
-  `ensureCustomBackgroundPack` stores the KEY now and the sidebar follows
-  the language and any future rename; this file's own docblock claimed
-  "Foundry has no i18n for world-compendium labels" and stored the English
-  for a year. And core offers NO rename for a world compendium (the sidebar
-  menu is ownership, lock, duplicate, delete), so a world that made its pack
-  under the old name keeps it — every sentence that names the pack reads
-  the label the pack actually wears (`customBackgroundsPackLabel`, the
-  folder rule of review #31 applied to the pack), and `dev:take-over`
-  plants a pack under a literal old label and reads it back in the confirm.
-  The four `CAIRN.BgAuthor.Duplicate*` strings and `NoCustomBackgrounds`
-  say the new name as LITERAL English: Malecho's es.json translates four of
-  them without a placeholder, and `i18n:check` errors on placeholder parity
-  for a translated key, so `{pack}` there would red the gate or mean
-  editing his file. **THE LABELS SAY THE
-  OUTCOME, NOT THE MECHANISM (user ruling, the evening of 2026-09-14):** for a
-  day they read "Copy the Marketplace to this world…" and so on, and the user's
-  objection was exact — "why else would you copy tables from the compendium
-  to your world?" The confirms are in the user's voice from the same evening
-  (they rewrote the Marketplace one and the other three were matched to it:
-  "Foundry overwrites the compendium every time it updates the system",
-  "Clicking Copy below copies…", the shared header "Here is an easy fix"); the
-  pitch headline inside each dialog repeats the window title, which is
-  ordinary. By hand the shop was about 158
-  operations (four tables, 70 items and 7 mounts from SEVEN packs, `tools` and
-  `trinkets` two of them, then 77 rows re-pointed); Barebones creation is 121
-  document rows; the backgrounds were Duplicate → rename → eye → switch, 27
-  times. The custom-backgrounds SETTING is deliberately not a trigger: it means
-  "offer the seven extra", and a settings save must never mint documents.
-  **ROUND TWO REVERSED TWO THINGS ROUND ONE HAD SETTLED, both from the user
-  testing it.** (1) One dialog with two checkboxes became three single-purpose
-  buttons: they copied both halves from the Rollable Tables door and could not
-  find the backgrounds, which land in a world COMPENDIUM on another tab — "that
-  is confusing". A result window with **Open** buttons is the answer to
-  "where did it go", not which tab the button sits on; the buttons are one per
-  kind because a checklist makes the Warden the router. **And since the
-  evening of 2026-09-15 each button says WHAT it opens** (user: "more
-  exposition *on the button* about what it is that the button opens"): "Show
-  the Custom Marketplace folder in Items", the folder by its document's name,
-  one button per row so the sentence fits; "Show" for a folder and "Open" for
-  the compendium because that is what each does; and an Actors button the
-  seven mounts never had. A nothing-new re-run offers them all, as it always
-  did — `runTableTakeOver` fills each folder from the flagged one at its
-  end, which the first cut of this change "fixed" a second time after reading
-  half the function; the red run's own output (old build: tables, items,
-  close) is what caught the claim. (2) "Bonds, Omens and
-  every other generator table need nothing — text rows, one Import" was TRUE
-  and was still the wrong place to stop: the user asked "why can't the character
-  background copy bring those over too?", and it is right, because a Warden
-  does not think in document-rows-versus-text-rows. The Cairn 2e button copies
-  the ELEVEN tables a 2e character rolls on (Bonds, Omens, Scars and the eight
-  trait tables) beside the backgrounds. The twelfth, `Spells — Canon (1d100)`,
-  has a door of its own (below): its rows bring a hundred spellbooks into the
-  Items sidebar with them, a different kind of copy from eleven tables of text.
-  **The framing is the user's and belongs in every confirm and guide: the
-  shipped compendiums are TEMPLATES** — the starting point you copy and make
-  your own, never the place you edit. Nine things that will bite:
-  - **PLAN, THEN RUN, and the plan is the only protection.** v14's
-    `DocumentCollection#importDocument` keeps compendium ids (`keepId ??=
-    true`) and on a collision with no dialog silently REPLACES
-    (document-collection.mjs:360-405); the server refuses a duplicate id only
-    in EMBEDDED collections, so a `createDocuments({keepId: true})` over an
-    existing world id is not refused either. `plan*` decides membership with
-    pure reads, `run*` creates exactly what the plan listed; nothing calls
-    `importDocument`/`importFromCompendium`. A re-run therefore keeps every
-    edit, and the probe's red-first witness blinds the PLAN, never the run —
-    a blinded run is a real overwrite.
-  - **Identity: items, mounts and background copies keep the SHIPPED ID;
-    tables go by NAME, and ONLY by name** (a world table is found by its name —
-    the shop's `marketTables`, `findDeclaredTable` — so a second `Market: Gear`
-    would be ambiguous, and adopting a RENAMED copy through
-    `compendiumSource` would skip creating the one thing that is actually read.
-    A hand-imported table is kept as it is and the result window says so when
-    its rows still point at the pack). An ITEM the Warden made earlier under a
-    NEW id is ADOPTED through `_stats.compendiumSource`, never twinned — and
-    the dev world proved the point on the first run: its own `Air Bladder` item
-    at cost 50 was adopted, so the shop reads 50 there. Design, not defect.
-    **AND A TABLE COPY TAKES THE SHIPPED ID ONLY WHILE IT IS FREE (review #31,
-    2026-09-15).** "The plan is the only protection" was true of items and
-    actors, whose membership is by id, and false of tables one level down: a
-    copy the Warden RENAMED still holds the shipped id, the plan (by name)
-    lists that table as missing, and `createDocuments({keepId: true})` over it
-    was the silent replace the paragraph above warns about — observed, a
-    parked `Omens` with an edited row gone and a fresh one at its id.
-    `tableIdFor` hands a copy the shipped id when no world table holds it and
-    a fresh one otherwise, asked at plan time and again at run time (the
-    confirm sits between); the Barebones Weapon rows follow whichever id each
-    tier copy takes. Nothing reads a table's id, so the shipped one is a
-    convenience, never a claim.
-  - **Tables LAST, rows inline.** An EMPTY world `Market:` table deletes its
-    aisle (`getMarketplaceCatalog` skips a category with no resolved rows),
-    and rows created with their parent fire no `createTableResult`, so
-    table-banner.js `onReadTableRowsChanged` cannot re-sort mid-write.
-    `formula` is written explicitly (`_source.formula` is what the re-sort
-    compares).
-    `fromCompendium` keeps the PACK's folder id (`clearFolder` defaults
-    false), so the folder is overwritten on every copy.
-  - **A background copy STANDS IN by id.** `build2ePool` de-dups by document
-    id (documented in `docs/sharing-custom-backgrounds.md`), so a world-pack
-    copy under the shipped id replaces the original in the pool by itself and
-    deleting the copy brings the original back — the tables' undo story, and
-    why NOTHING is written into `disabled-backgrounds`. Both planning agents
-    proposed the eye-toggle route (27 uuids, a batch helper); rejected for
-    that reason. The pool's `customIds` now EXCLUDES any id present in the
-    canon pack's index, so a stand-in for one of the twenty keeps its
-    archetype group instead of turning the Player's Guide list into a
-    "Custom" heap — by id, which is provenance too, so the 2026-08-04 "never
-    by a field on the document" ruling stands.
-    **AND THE EYE FOLLOWS THE ID TOO (review #31).** `disabled-backgrounds`
-    stores UUIDS, and a uuid names a location: the stand-in under the shipped
-    id sits at another one, so `off.has(copy.uuid)` missed and a Fieldwarden
-    the Warden had switched off was offered to players again the moment the
-    copy landed. `disabledBackgroundIds` / `isBackgroundDisabled` ask by id
-    in the pool, the picker and the toggle; switching ON clears every stored
-    uuid sharing the id (the shipped one's and the stand-in's), so deleting a
-    copy later cannot resurrect a stale disable. The setting's shape is
-    unchanged.
-  - **Enter never copies.** Every button on both windows is `type: "button"`,
-    and Cancel / Close is the default (focused). A locked Custom Backgrounds
-    compendium is refused, not unlocked — but only when there is something to
-    write, and the refusal is a line in the result window, not a toast —
-    **and, since review #31, a line in the CONFIRM too**, which then counts
-    no backgrounds rather than promising 27 the run will refuse. Four more
-    from that review: `running` goes up BEFORE the plan's first await, because
-    a double-click landed in the plan-and-confirm gap and opened two confirms
-    (both answered: two runs, a second flagged folder) — **and since review
-    #32 the four doors are DISABLED while a job runs** (`setDoorsBusy`; a
-    directory rendered mid-job reads the flag at injection), because `running`
-    alone SWALLOWED a second door's click in silence: the Marketplace plan
-    spends seconds in `getDocuments` with nothing on screen, the Warden presses
-    the 2e door one row below, and the MARKETPLACE confirm opens under someone
-    who believes they pressed the backgrounds door; the custom source is
-    switched on INSIDE the write, so a run that added nothing changes nothing,
-    which is what both dialogs promise; both windows carry
-    `cairn-take-over-dialog` so their content can SCROLL — a `wait` dialog at
-    height auto is clamped to the viewport with the overflow hidden, and at
-    650px the Copy button sat below the bottom edge; and every name the
-    sentences quote comes from the document or the key it was made with
-    (`namesFor`: the world pack's label from `CAIRN.CustomBackgroundsPack`,
-    the folder by the Folder document's own name), where five keys carried the
-    English literal and the result window named the key's default after a
-    Warden had renamed the folder.
-  - **A BAREBONES ROW POINTING AT A WORLD ITEM WINS, and without that the
-    copy would have been theatre.** `resolveBarebonesResult` resolves an
-    ordinary Item row BY NAME against the shipped gear packs — deliberate, "one
-    canonical Dagger, whichever pack a table points at", and true of 116 of the
-    124 shipped rows — so re-pointing a row at the Warden's own copy changed
-    NOTHING a character received. The reader now asks `!doc.pack` first (the
-    same question the shop asks of a `Market:` row) and hands that document
-    over; a pack row keeps the by-name lookup and its documented reason. The
-    payload is built by `itemDataFromDocument` (gear.js), factored out of
-    `resolveGearItem` so a row's item and a named grant of the same thing
-    arrive in the same shape, scroll rule included.
-  - **The Dashboard's Your Tables tab lists the copied tables afterwards**, as
-    it already did for a hand import. Left alone — the user chose four more
-    buttons over a `Market:` filter, explicitly.
-  - **ITEMS LAND IN A SUBFOLDER PER SOURCE COMPENDIUM (2026-09-14, user, on
-    the shop's seventy items in one folder: "should those items not have gone
-    into folders like Armor, Gear, Market Goods, Tools, Weapons, Trinkets?").**
-    One flagged parent per kind was the quickest thing that gave the result
-    window an Open target and a re-run one flag to find; it was a dump, and
-    the user called it sloppy. Now `sourceFolders` files each copy under a
-    child named with its compendium's label — core localises `metadata.label`
-    at construction — flagged with the kind AND `takeOverPack`, so a re-run
-    reuses the child it made. **No subfolder when the kind draws from ONE
-    compendium for that document type** (the mounts, the spellbooks): one
-    child holding everything is the same dump one level down. That is decided
-    over every row's source, kept copies included, so it is a property of the
-    shipped tables; the folders themselves are made only for the packs a run
-    adds from. Kept copies are never moved. The lesson recorded with it: walk
-    the Warden's view of the result before calling a feature done — the
-    sidebar they open, not the probe that passed.
-    **AND THE FOLDERS ARE PREFIXED "CUSTOM" (2026-09-15, user, off a
-    screenshot of the sidebar: "don't you think that this folder should be
-    called Custom…?").** `Custom Marketplace`, `Custom Spells`, `Custom
-    Barebones Character Creation`, `Custom 2e Character Creation` (the last
-    two the user's own names; it was `Cairn 2e Tables`). This is NOT the
-    table-name ruling reversed: a table's name is its identity and a prefix
-    there would be a second rule for every reader, while nothing reads a
-    folder's name — the copy finds its folders by FLAG, so the rename cost
-    four strings, and a Warden renaming one by hand breaks nothing. The
-    folder is the one place the sidebar can say these are yours, and the
-    buttons already promise the outcome in that word. No released world
-    holds the old names.
-    **THE FULL-WIDTH BUTTON RULE CAUGHT THE ACTOR DIRECTORY'S NINE (review
-    #31).** The four doors share `header.character-generator.directory-header`
-    with the Actor Directory's own creation row, and the selector that put
-    each door on a row of its own was `> button` — so Create PC, NPC,
-    Hireling, Monster, Companion, Transport, Container, Faction and Import
-    stacked nine rows deep for a day. User ruling: fix it, but "I want all of
-    the buttons to be fully legible, and that means that some of them span the
-    whole width — that is fine." So the door rule is scoped to
-    `.cairn-take-over`, and the nine get `min-width: fit-content` on a wrapping
-    row: never clipped, never an ellipsis, a long label takes the width it
-    needs and the rest share what is left. Measured in both interface schemes.
-    **`fit-content`, not `max-content` (review #32):** at max-content a label
-    wider than the whole sidebar — Import from Kettlewright at core's larger
-    Font Size steps, 336px against a 284px header at the 32px step — was
-    pinned past the sidebar's fixed 300px and cut off mid-word, the ellipsis
-    being exactly what the rule refuses; at fit-content it WRAPS, the door
-    rule's own shape, and `dev:take-over` measures the nine at a 32px root
-    font as well as at the default. A probe's one font size is a claim about
-    the input space, and core offers ten.
-  - **The `only` list is a list of DECLARATIONS and the folder key a string
-    id.** `planTableTakeOver(spec)` is one function for all three sets; an
-    `only` entry is a name in the spec's pack or a `"pack;Name"` declaration
-    (review #31, for utils' Scars), and `kindOfTable` answers per pack off the
-    same pairs; a spec with no document rows (the 2e eleven) creates no Items
-    or Actors folder, and the result window names only the directories a
-    folder actually landed in.
-  - **THE SPELL TABLES DOOR REPLACED "RESEED A SPELL TABLE" (same day, user,
-    the second time in one afternoon: "WHY can't the reseed spell table be
-    renamed to Copy Spell Tables to this world and have that button work
-    exactly the same way that the other two buttons on this page work").**
-    The first pass had rebuilt Reseed in the Copy buttons' SHAPE — headed
-    paragraphs, a result window, Cancel focused, `default: true` off the
-    destructive button (a real defect: one Enter replaced every row of
-    whichever table the select showed), a spell-only picker with a translatable
-    match list, a dialog that always opened — and every one of those was polish
-    on the wrong mechanism. Reseed refilled a world table from a compendium's
-    index; the other two buttons COPY a shipped table and what its rows point
-    at. A Warden reading the sidebar saw three buttons and two rules. So Reseed
-    is GONE — `spell-tables.js`, twenty `CAIRN.Reseed*` keys, the handoff note,
-    `dev:spell-tables` — and **Create a Custom Spell Table…** (labelled "Copy
-    the Spell Tables to this world…" for its first hours) is a fourth `KINDS`
-    entry, copying `Spells — Canon (1d100)` and its 100
-    spellbooks into two **Custom Spells** folders through `planTableTakeOver`
-    unchanged. What a Warden loses is "refill a table from any Item compendium
-    in one click"; what they get is the one rule they already know, and
-    dragging a spellbook onto the copy is the shop's own story. Its `spec` and
-    `extra` are FUNCTIONS read at click time, because the GLOG hack swaps the
-    pool wholesale (canon excluded, ruling 2026-08-05): with the hack on it
-    copies `Spells — GLOG` and the 100 GLOG spellscrolls instead. **The
-    confirm warns a canon world that switching the hack on later means coming
-    back for the GLOG table** (user ask) — and says NOTHING about switching it
-    off, because the hack is a one-way campaign decision (user: "once you
-    enable the glog hack you can't go back"; `docs/glog-magic.md` has said so
-    since it shipped). A first draft carried the reverse warning too.
-    **The lesson worth the line: when the user asks for consistency with X,
-    make it X.** Two rounds of making Reseed LOOK like the Copy buttons while
-    keeping its own mechanism, each defended with a reason the user never asked
-    for ("a snapshot goes stale"), cost a day and the user's patience. The
-    Enter-safety notes that dialog's probe earned survive in
-    `docs/release-testing.md`'s `dev:take-over` row, because they are about
-    Enter-safety legs and not about that dialog.
-  - **A TABLE EXPLAINS ITSELF (2026-09-15, user, on a copied `Market: Armor`:
-    "nothing readily identifies it as being used for customizing the
-    marketplace other than its location; nothing tells me how to add an item
-    or even drag and drop items onto it").** `module/table-banner.js` puts a
-    banner at the top of the RollTable sheet: a world copy says what reads it
-    and how a row is added — drag from the Items sidebar onto the WINDOW, the
-    whole `.window-content` being core's drop target, or press + above the
-    list — and a shipped pack table says it is a template and names the
-    button. Decided by NAME, the identity every reader uses:
-    `kindOfTable` in take-over.js asks the same `KINDS` that decide what each
-    button copies (`specs` names both pool tables, `tab` the sidebar), then
-    the `Market:` prefix, then any shipped name → generic. So a hand-made
-    `Market: Potions` wears it and a renamed copy loses it, which is exactly
-    when Air Bladder stops reading it — the banner going missing IS the
-    diagnostic. Warden only. Re-injected on every render, for free: any
-    TableResult write replaces the parts and a mode change wipes the content.
-    WHY NOT THE DESCRIPTION: every shipped Market table has said "Drag an
-    item in to stock it" there since it was written and no Warden ever saw it
-    — view.hbs emits it unwrapped and a root part keeps element children
-    only. A NOTE, NO "Add an item…" BUTTON (user ruling, on the
-    recommendation: drag and drop is the gesture every Foundry sheet composes
-    by, and no system puts a picker on the stock table sheet); a button is a
-    small follow-up if the note proves not enough. WITH IT, A DEFECT: core's
-    drop appends at `maxRoll + 1` and never touches the formula, so on the
-    copied `Spells — Canon (1d100)` a dragged 101st spellbook sat at 101
-    under `1d100`, unreachable, while this file sold "drag a spellbook onto
-    the copy" as the story. `keptAlphabetical` (marketplace.js) covers the
-    two spell-pool tables beside the aisles now — `resortTableByName`,
-    renamed from `resortMarketTable` because a function called market that
-    sorts spell tables is the correct-sounding lie — and it is the ONE
-    predicate the hook and the banner's "rows stay in alphabetical order"
-    sentence rest on. **AND THE FORMULA FOLLOWS THE ROWS ON EVERY OTHER READ
-    TABLE (same evening, user: "What if I add bonds to the world copy of the
-    bond table. Is its draw formula automatically updated?" — it was not,
-    and the banner's answer was "press the scales button").** The row hook
-    MOVED into table-banner.js as `onReadTableRowsChanged`, registered on
-    `createTableResult` AND `deleteTableResult`, gated by `tableRole` — the
-    same predicate as the banner, so the sentence and the behaviour cannot
-    drift — and it does one of two things: the alphabetical tables re-sort,
-    everything else gets `fitFormula`, which writes `1d<highest range end>`
-    on a table whose STORED formula is a flat die or blank (a drag-built
-    table stores none, review #30's shape) and touches the order never.
-    FLAT DICE ONLY, and the count was measured: 66 shipped tables roll `1dN`;
-    eight do not (`Warden: NPC - Reactions` 2d6, the SRD's own; `Warden:
-    Encounters - Lake` 2d4 and the five regional encounter tables `1d6 +
-    1d10`, user-authored with rows from 2; `GLOG Magic: Mishaps` 2d12, a
-    LOOKUP by the cast's sum that is never rolled — the user asked how one
-    rolls a 1 on it, and the answer is that nobody does). A curve is the
-    Warden's, so those keep it and their banner tail names the formula and
-    the Summary tab (`CAIRN.TableRole.CustomDice`); a flat table's tail says
-    "a new row lands at the bottom and is rolled with the rest"
-    (`CAIRN.TableRole.NewRow`). Delete is covered so the last row's removal
-    shrinks the die back; `updateTableResult` deliberately is NOT — a Warden
-    editing ranges by hand is editing the dice on purpose. Once a row lands
-    on a curve the Warden sets the formula themselves, which is what the
-    tail says. The importer's "To make it yours, press Create a Custom Spell Table…"
-    sentence is GONE from the spell tables' description, because the copy
-    inherited it verbatim. Accepted edge: a hand-imported `Barebones: Weapon
-    Tier` table nobody's Weapon row points at wears the Barebones banner
-    though it is reached by uuid. Trap: the sheet MODE is sticky
-    session-wide (`#DEFAULT_MODE`), so any probe that opens a table puts it
-    back to view. **AND THAT DEFAULT IS VIEW, WHERE THE SENTENCE WAS FALSE
-    (review #31).** A table with rows opens in view mode, where core binds no
-    drop (`drop: () => this.isEditMode`, so `ondrop` is null on the window)
-    and shows no + — the banner promised both to a Warden who had just said
-    nothing told them how to drag, in the mode they read it in. A world
-    table's banner ends with one more sentence in view mode naming core's own
-    Edit button (`TABLE.ACTIONS.ChangeMode.Edit`; `CAIRN.TableRole.ViewMode`),
-    gone in edit mode; templates never get it. The tails name core's labels
-    too now — `TABLE.TABS.summary`, `COMPENDIUM.ImportEntry` — instead of
-    English literals, and the three `refreshTableBanners` hooks are NAMED
-    (`abTableBannerOnCreate` and siblings) so the duplicate-line legs can
-    switch each off. **TWO WORLD TABLES OF ONE NAME WARN (same day, user ask,
-    after wondering whether copies should be prefixed "Custom" — no: the
-    name IS the identity, a prefix would be a second rule for every reader,
-    and the backgrounds are no precedent, "Custom Backgrounds" being the
-    compendium's name while its copies keep theirs).** It is the one ambiguity
-    the identity rule leaves, and the readers do not even agree which wins
-    (`getName` the first, `marketTables` the last), so the sheet says so; the
-    line follows the OTHER table's create/rename/delete on an open sheet
-    through `refreshTableBanners`, which re-injects DOM and never re-renders,
-    because a re-render drops an edit-mode sheet's unsaved edits.
-    **THE TABLES TAB IS NAMED BY `DOCUMENT.RollTables`, NEVER `SIDEBAR.TabTables`
-    (review #32).** Core's sidebar declares the tables tab with NO tooltip and
-    falls back to the RollTable document's `labelPlural` (sidebar.mjs
-    `_prepareTabContext`); `SIDEBAR.TabTables` sits in core's en.json and is
-    read by nothing in 14.365, and a language module has no reason to keep a
-    dead key in step with the live one, so a banner on it could name the tab by
-    a word the tab never wears. `sidebarLabel` reads
-    `CONFIG.RollTable.documentClass.metadata.labelPlural`, the tab's own
-    source, and the probe reads the tab's rendered `aria-label`, never a key.
-    **Verify a core key by grepping the CLIENT for a reader, not en.json for
-    the string** — en.json carries keys core has stopped using.
-    Gate: `npm run dev:table-banner`.
-  Gate: `npm run dev:take-over` — two clients, each run through its REAL
-  confirm, every product claim red-first in-page (`withHookOff` on the named
-  hooks, the plan blinded, the canon index shadowed, the Barebones reader
-  measured against the same one-row table pointed at the pack instead).
-  **Its entry sweep deletes copies a HUMAN made with these buttons in the dev
-  world**, because a copy the button made and a copy the button made are the
-  same document; the world is left with none.
-- **AND SO IS EVERY TABLE A GENERATOR DECLARES** (same day, user ruling "do it
-  all in one batch" after the survey the marketplace change prompted). The
-  survey found that the same table answered TWO WAYS depending on the button:
-  the Warden's Dashboard resolved all 45 of its tables world-first through
-  `findTableByName`, while the generators read the pack copy behind the
-  `"pack;Name"` prefix in `module/config.js` — so a Warden's own `Warden: NPC -
-  Quirk` came up on the Dashboard button and never in a generated NPC.
-  Twenty-two tables, plus Scars hardcoded in `damage.js` and the Barebones
-  creation tables found by a pack scan. `compendium.js` `findDeclaredTable` is
-  the ONE resolver now: world by name, then the declared pack, and a bare name
-  hunts every RollTable pack. The prefix is the FALLBACK — where the shipped
-  copy lives, precisely — never a lock, which is why declarations keep it
-  rather than going bare the way `Warden: NPC - Faction` did.
-  **The conversion was not one line because of a WRITE.** `RollTable#draw`
-  marks the rows it lands on `drawn: true` on any table that is neither
-  `replacement` nor in a pack (`client/documents/roll-table.mjs:109`). Thirteen
-  readers — the eight 2e biography tables, NPC Background and its four traits —
-  went through `draw()`, and that was safe only because every table they could
-  reach lived in a pack; the moment a declaration can resolve to a world table
-  it is a write into the table the Warden browses by hand. Every reader is on
-  `roll()` now (`compendium.js` `rollTable` / `rollTableText`, which REPLACED
-  `drawTable` / `drawTableText` / `drawTableItem` — renamed because a function
-  called draw that rolls is the correct-sounding lie this file keeps finding),
-  and the monster generator's private copy of the same reader is gone. The
-  two PICK-LISTS that read the pack directly — NPC Background, and the name
-  list — resolve through the same function, or a Warden's table would roll and
-  not be pickable. **THAT RULE MISSED THE TWELVE TRAIT DROPDOWNS (review #31,
-  2026-09-15):** `_prepareBiographyContext` filled the eight 2e trait selects
-  and the NPC four from `cachedPackDocuments` while the die beside each rolled
-  world-first, so a Warden's own `Physique` fed the die and never the list —
-  and the confirm and the banner had just started promising the copies were
-  read. They resolve in `findDeclaredTable`'s ORDER now — a world table of
-  the name, then the declared pack — through `declaredTableCached`, which
-  reads the pack half off the sheet's existing document cache
-  (`dev:world-tables` leg 3b). NOT `findDeclaredTable` itself: the first cut
-  called it, and `dev:smoke` stopped seeing a character sheet inside its
-  three seconds, because that resolver pays an index round trip and a
-  document fetch per table, twelve lists deep on a fresh client. The Scars
-  checklist beside them stays on the pack on purpose, as the damage bullet
-  above records.
-  **THE RANDOM-SPELL POOL WAS THE ONE THIS MISSED, and it was a gap and not a
-  ruling (2026-09-14, user: "I don't understand why we can't make the spellbooks
-  table work exactly the same way as marketplace, bonds, omens. There should be
-  consistency here").** The survey's net was DECLARED tables plus two known pack
-  scans; a random spellbook was neither, because it was an index scan over
-  spellbook ITEMS (`randomSpellbookDoc`) with no table in it anywhere. So a
-  Warden's own `Spells — Canon (1d100)` came up when they rolled it by hand and
-  never in a generated character — the exact split this whole conversion
-  existed to end, hiding one level down.
-  **It is a DECLARED table now, the Bonds shape byte for byte:** two
-  declarations in `config.js` (`characterGenerator2e.spells.canon` and `.glog`,
-  the hack swapping the pool wholesale), resolved through `findDeclaredTable`,
-  rolled with `roll()`, the row's document type-filtered — an unlocked pack
-  accepts any item and a Dagger is not a spell, so a bad row is re-rolled and a
-  table yielding nothing in twenty rolls warns and deals nothing. `Spells —
-  GLOG` SHIPS for it, in `tables-glog`, written by the same importer as the
-  canon table and spared by stable id when `glog-content.mjs` wipes that pack.
-  **AND THE MORE SPELLBOOKS PACK IS GONE (same day, user: "including it was a
-  mistake").** Building that table exposed what the 2026-08-05 "GLOG wordings
-  plus the custom set" ruling had actually shipped: 217 spells from
-  cairnrpg.com's extended list, NONE with a `glog` flag, a `[dice]` or a
-  `[sum]`, making two thirds of a pool whose whole point is scaling with
-  Magic Dice — a scroll that costs dice and Mishap risk to cast and does
-  exactly what it says regardless. The user's first answer was to take it out
-  of the pool and the second, minutes later, to remove the pack from the repo:
-  `src/packs/more-spellbooks`, its manifest entry, its label, its translation
-  sheet, and every reader. The one document of OURS it held, the class
-  backgrounds' Shield (BECMI), moved to `background-items` under the same id,
-  and `SPELL_PACKS` / `GLOG_SPELL_PACKS` name that pack in its place — with the
-  spell branch of `resolveGearItem` now filtering the index by TYPE, so a
-  background-items item sharing a spell's name can never answer a spellbook
-  grant. 0.1.22 was the last release to ship the pack; a world that imported
-  from it keeps its copies and only the compendium disappears — the release
-  notes must say so. `tools/packs.mjs` prunes the orphaned build directory
-  itself.
-  **THE FIRST FIX KEPT THE INDEX SCAN AS THE FALLBACK, AND THE USER THREW IT
-  OUT THE SAME DAY.** The argument: everywhere else the shipped pack copy IS
-  the content, while a spell table is a derived SNAPSHOT of a compendium that
-  is the content, so falling back to the shipped table would freeze generation
-  at whatever the table last recorded, and the compendium fallback kept the
-  default live. True, and it bought a second rule for one table, which is the
-  exact thing the user had just objected to — and the "goes stale" it guarded
-  against is what the Copy button plus a drag onto the copy already answers
-  for the shop. The fallback is the shipped table. Gate: `npm run
-  dev:spell-pool` — both shipped tables resolve and every row of each is a
-  spellbook (the count held to the packs), both pool modes world-first with
-  the same rows under a different NAME as the control, and the tables pack
-  blinded in-page deals NOTHING, which is what tells a table fallback from a
-  scan.
-  **Two Kettlewright readers are LEFT on the pack, deliberately:** its Bonds
-  matcher and `resolveVirtueVice` classify text that CAME FROM the official 2e
-  tables, so the shipped copy is the right thing to match against whatever a
-  Warden has overridden. Not an oversight; do not "fix" them.
-  Gate: `npm run dev:world-tables` — the declarations read IN-PAGE off
-  `CONFIG.Cairn`, the pack-only lookup as the control, the real generators and
-  the scar roll end to end, the pick-list read off the live dialog, and the
-  drawn-state invariant with one bare `draw()` as ITS control. Its first run
-  redded the scar leg against a fixture that only a roll of 1 could hit; the
-  scar roll IS the damage, which is the kind of thing a probe's author has to
-  know about the code under test.
-  **TWO THINGS `roll()` STILL DOES, recorded after this file said "writes
-  nothing" for a day (review #30).** It READS the drawn state: rows a
-  Warden's own hand draw marked on a no-replacement world table are skipped,
-  so such a table narrows generation until `TABLE.NoAvailableResults` — core's
-  own semantics for the choice the Warden made, left alone. And a world table
-  whose STORED formula is blank is normalized and SAVED on the first roll
-  (roll-table.mjs:270-274) — harmless on a generator's table, and the reason
-  the marketplace re-sort writes `1dN` itself. The scar roll takes neither
-  path (see `damage.js` above). **And the monster generator reads PLAIN
-  text** (`rollTablePlainText`): the shared `rollTableText` returns chat text,
-  which renders a DOCUMENT row as `@UUID[...]{name}` — right in a 2e trait
-  string, wrong in a monster's name, where a Warden's dragged-in row printed
-  the literal and matched nothing in `ARMORED_FEATURES`. The comment that
-  called the two readers "identical but for the lookup" was wrong for a day.
-- **GLOG'S TWO SHEET FLAGS ARE HACK CONTROLS AND RENDER ONLY WHILE THE HACK IS
-  ON** (2026-09-13, user ruling after an Air Bladder in a GLOG-off world
-  offered a **Grimoire** checkbox — "why does an item like an Air Bladder have
-  an option to make a grimoire?"). A Grimoire is a FLAG on an ordinary bulky
-  `item`, not a type (the 2026-08-10 E1 ruling: a type can never be
-  un-become), so the checkbox lived on every plain item's sheet with no gate,
-  while every other piece of the hack — Cast, scroll conversion, transmute —
-  sat behind `enable-glog-magic`. The one branch of a hack outside its switch,
-  and not harmless: a mis-tick made a rope the character's one permitted book.
-  Now `showGrimoire` = hack on AND the item already IS a Grimoire — **even with
-  GLOG on, no ordinary item offers to become one** (user ruling: a Grimoire is
-  found, made or taken; `docs/glog-magic.md` sends a Warden to the Reliquary,
-  never to a checkbox) — and the `.plain-item` grid variant that reserves the
-  boxes' sixth counter row is applied on the same condition, or a sheet without
-  them carries an empty row above the tabs. The spellbook sheet's **GLOG** box
-  (the wording flag, `system.glog`) renders on every spellbook while the hack
-  is on and never while it is off; **Scroll** is 2e's and always shows. Scrolls
-  and spellbooks do NOT carry the Grimoire flag: `grimoire` and
-  `grimoirePages` are `ItemData` only, and a spellbook's GLOG-side fields are
-  `glog`, `bound`, `boundTo` and `grimoireKey`, of which only `glog` is a
-  sheet control. Gate: `npm run dev:glog-flags`, both switch states shadowed
-  in-page.
-  **Two things the gating cost, found by review #30 the same evening.** An
-  ITEM sheet read a no-reload setting live for the first time, and the
-  setting's onChange fanned re-renders over ACTOR sheets only
-  (`rerenderActorSheets`, the review #13 rule) — so an open Grimoire sheet
-  kept a live, submittable Grimoire box on a hack that had just been switched
-  off. `rerenderItemSheets` rides the same onChange now. And the spellbook
-  grid declared three counter rows for the five or six counters it was laid
-  out for; with the GLOG counter gone a plain book has FOUR, and the third
-  row sat empty above the tabs on every shipped spellbook in a default world
-  — `spellbookCompact` (no scroll, no GLOG) selects a two-row variant, the
-  `.plain-item` shape. The probe MEASURES the room above the tabs now: a
-  counter row nothing fills is invisible to a count of counters.
-- Data models in `module/data-models.js` (TypeDataModel; `template.json` is gone,
-  sub-types are declared in `system.json` `documentTypes`); 29 compendium packs
-  (`more-spellbooks` REMOVED 2026-09-14, and 29 on `master` too since 0.1.23 shipped on 2026-09-15 — this line moved in that release's post-release sync, as its previous wording demanded; before that, 30 on `master` since 0.1.18 shipped `journals-vald`, the Warden's Guide
-  setting chapter as one nine-page book, on 2026-08-23 — and since 2026-09-10 a
-  SECOND entry in the same pack, "Festivals of Vald", 24 pages the calendar
-  window reads by their `flags.air-bladder` and never by name; this count went stale
-  TWICE in one day, both times by the hand that had just corrected it, and its
-  "N on master" parenthetical went stale a THIRD way by surviving two releases
-  — a new pack's commit must carry this line, and so must the release that
-  moves the master count, which is what this post-release merge is doing)
-- 34 Warden-facing settings in `module/settings.js` (44 `register` calls + 4 `registerMenu` menus from ONE call site,
-  ALL `config: false` since 2026-08-22 — see the submenu paragraph below; `roles-restamped`,
-  `companion-restamped`, `hireling-split`, `grimoire-keys-stamped`,
-  `connections-migrated`, `art-migration-generation` (2026-08-21, review #17 —
-  the art sweep's generation marker), `custom-portrait-list`,
-  `disabled-backgrounds` and
-  `connections-ui-enabled` and `vald-weather-today` are internal, `config: false`;
-  counts have gone stale three times — `allow-player-randomization` outdated them
-  (review #13's catch, its third "record claiming what the code does not say"),
-  then `enable-glog-magic` rode a topic branch whose cherry-picks never carried
-  this line, caught only when the branch merged — so each settings change updates
-  them in its own commit, this one dated 2026-10-03 for the OPTIONAL COMBAT RULES
-  (`exploding-damage-dice`, `fatigue-for-critical-damage`,
-  `maneuver-on-max-damage` — `-melee` until that night, when ranged attacks
-  joined it — Hacks: three standalone keys since the user removed
-  their `crawler-combat-mode` master that day, the keys losing their `crawler-`
-  prefix with it; see the paragraph below) and the same
-  day for the PC DICE TRIO
-  (`pc-ability-dice`, `pc-hp-formula`, `pc-gold-dice`, Character Generation —
-  see the paragraph below) and before it 2026-09-11 for `weather-log` (General,
-  default OFF — switching it on makes this system CREATE a document in
-  somebody's world, which an update must never start doing by itself; see the
-  Keeping time paragraph) and before it 2026-09-10 for the TIME pair plus the
-  internal `vald-weather-today` (the day's weather, `{day, text}` keyed on the
-  ABSOLUTE day so yesterday's goes stale by itself — and the ONE setting here
-  that NEEDS an `onChange`, because three surfaces are already on screen when
-  it changes and a world setting reaches other clients through its own handler
-  or not at all) —
-  `show-watch-clock` (General, world-scoped on show-omens' reasoning: whether
-  the table tracks watches at all is the Warden's call) and
-  `enable-vald-calendar` (Hacks; see the Keeping time paragraph below for why
-  it must be ONE key and why it needs a reload). The update before that was
-  2026-09-07 for `show-traits` (rolled
-  traits + age hidden from every person sheet AND print, one switch both
-  surfaces per the show-omens ruling; pronouns stay; General, beside
-  show-omens). The previous update was 2026-08-21 for `age-formula`, which
-  REPLACED `min-age` and `max-age` two days after the ceiling landed: Malecho's
-  cap-of-30 test came out all 30s, because clamping 2d20+10 piles ~57% of rolls
-  onto that bound — the cap worked as coded and the DESIGN was the defect, so
-  the Warden edits the dice now. The default is RAW `2d20 + 10` (user ruling,
-  same day): a `{2d20 + 10, 21}kh` default briefly preserved the retired
-  min-age's 21 floor and was REVERSED within hours — rules as written win,
-  the floor was an override, and ages 12–20 are possible again out of the
-  box; the pool form survives as the hint's example and the user's own
-  preference. `docs/dice-formulas.md` (roster guide, site card, both
-  READMEs) explains the notation, and the hint names it BY TITLE — renaming
-  the journal entry breaks a pointer no gate checks. The Kettlewright
-  importer's clamp on PARSED ages retired too, an imported age lands
-  verbatim) —
-  **AND THE OTHER THREE GENERATION DICE JOINED IT ON 2026-10-02 (user ask), so
-  every die in character generation is now the Warden's.** `pc-ability-dice`
-  and `pc-gold-dice` are independent dropdowns over ONE shared tier map
-  (`Cairn.pcDiceTiers` — Default `3d6`, Adventurer `4d6kh3`, Crawler
-  `2d6 + 3`), `pc-hp-formula` is free text on the `age-formula` shape because
-  the ask was "1d6 or a set value that the warden provides". DROPDOWNS for two
-  of the three on purpose: a closed set of project-authored constants has
-  nothing to validate and cannot throw at roll time, the accepted cost being
-  that a fourth tier needs a code change. A renamed label
-  takes its KEY with it — a key that disagrees with its label is the
-  correct-sounding lie this file keeps finding — so the first tier is
-  **Default** (`default`) since 2026-10-03 (user ruling), when Crawler also
-  became `2d6 + 3` (5..15; it was 8..18). A world still holding the old key
-  reads 3d6 through `pcTierFormula`'s fallback, which `dev:pc-dice` asserts
-  is a real formula and not merely equal to the map's entry. PLAYER CHARACTERS ONLY, and structurally so: an NPC
-  reads `npcGenerator.*`, a hireling takes its statblock off its career, a
-  monster uses weighted picks, so nothing had to be gated to achieve it. Four
-  config keys went with the change (`barebonesGenerator.ability`/`.gold`/
-  `.hitProtection`, `characterGenerator2e.gold`), leaving that object holding
-  only `name`.
-  Four things here that will bite if forgotten:
-  - **EACH VALUE HAS A THIRD FORMULA SITE, AND IT BYPASSES THE ROLLER.**
-    Abilities, gold and HP are each rolled in three places, and the third is
-    `_applyRerollParts` — the sheet's **Roll Character checklist** — which
-    calls `evaluateFormula` DIRECTLY rather than through `rollAbilities` /
-    `rollGold` / `rollHitProtection`. A setting wired into the rollers alone
-    would have been silently half-done, with generation obeying the Warden and
-    the control a player uses most often (re-roll one STR) still on the old
-    literal. The answer is the `effectiveAgeFormula` answer applied three more
-    times: one exported helper per value that every site reads. **Count the
-    call sites before wiring a setting into a roll.**
-  - **THE CHECKLIST NAMES ITS DICE NOW, AND ONLY IN A TOOLTIP** (same day, user
-    ask: "like we do for the Age die and make it symmetric"). `Rolls {formula}`
-    on six rows — STR, DEX, WIL, Hit Protection, Gold and **Age, which had
-    carried no tooltip since the checklist shipped** — with the VISIBLE labels
-    untouched, which is what keeps `dev:reroll-dialog`'s exact-label assertions
-    green. The rule is **a tooltip if and only if the row rolls a dice
-    FORMULA**; the other eleven rows roll a table or scan a folder, and a rule
-    beats the subset somebody picked. Three traps paid for: it is the FIRST
-    `data-tooltip` inside a DialogV2 here and **a typo in the attribute NAME
-    fails silently by either of two mechanisms** — measured against
-    `foundry.utils.cleanHTML`, since the obvious half is only half true:
-    anything outside core's `ALLOWED_HTML_ATTRIBUTES` is DROPPED
-    (`dat-tooltip`, `tooltip`, `wibble` all vanish), but **`data-*` is
-    whitelisted WHOLESALE**, so a typo in the suffix SURVIVES the sanitizer and
-    lands in the DOM (`data-toolip="x"` arrives as `dataset.toolip`) where
-    TooltipManager never reads it. Neither logs anything, so the markup can look
-    right, pass sanitization and still produce no tooltip — which is why the
-    probe reads `dataset.tooltip` off the rendered dialog rather than trusting
-    the markup, proven by a control that misspells it; the attribute goes on BOTH the
-    `<label>` and its `<span>`, because `TooltipManager` reads
-    `event.target.dataset` with no `closest()` walk
-    (`tooltip-manager.mjs:133-143`) and either one alone leaves part of the row
-    dead; and there is deliberately **NO `aria-label`**, unlike the age die —
-    that control is an icon with no text so `aria-label` is its only accessible
-    name, while these spans hold "STR (Strength)" and an `aria-label` would
-    REPLACE it. Do not "fix" that asymmetry to match.
-  - **`registerSettings()` RUNS ON `init`, BEFORE `i18nInit`** (`cairn.js`), so
-    **`game.i18n` is unusable at registration** — a `choices` label cannot be
-    composed from a config map there and must be a bare key core localizes at
-    render. That is why the three tier labels carry their dice as a LITERAL
-    ("Default (3d6)"), duplicating `Cairn.pcDiceTiers`: precisely the review
-    #18 shape, not removable, so GATED instead — `dev:pc-dice` asserts each
-    rendered option label contains the map's formula. Reusable well beyond this
-    change: a config read at registration is fine, an i18n call is not.
-  - **A BARE NUMBER WAS ALWAYS VALID AND NOTHING SAID SO.** Asked of the
-    Warden's Damage field the same day; the answer is that `Roll.validate("3")`
-    is true, `evaluateFormula` leaves a `+`-less string alone, and `"3"` is
-    already that probe's own main input (`e2e-warden-damage.mjs`) — the feature
-    existed and only the surface was silent, while the one visible signal (the
-    dice-builder buttons greying out) suggested the opposite. One sentence
-    appended to `CAIRN.WardenDamage.Hint`, in the same construction as the HP
-    hint so two fields teach it the same way, and `docs/dice-formulas.md` now
-    states the flat-value rule once for all of them. **Additive, never a
-    reword:** `lang/es.json` carries a full translation of that hint with no
-    drift-baseline entry, so `classifyDrift` files it as *unverified* and a
-    reword would have made it wrong with no gate saying so.
-  Gate: `npm run dev:pc-dice`.
-  **THE OPTIONAL COMBAT RULES (2026-10-02, user ask; standalone since
-  2026-10-03).** Three settings in the Hacks group beside GLOG Magic —
-  **Exploding damage dice** (`exploding-damage-dice`), **Fatigue instead of
-  Critical Damage** (`fatigue-for-critical-damage`) and **Maneuver on max
-  damage** (`maneuver-on-max-damage`) — each OFF by default and never greyed,
-  each read at roll or card-build time so none needs a reload, and **PLAYER
-  CHARACTERS ONLY throughout** (`type === "character"`, the `auto-record-scars`
-  gate — not `livesByPlayerRules`, which is broader). `combatOption(key)`
-  (utils.js) is the one read. Guide `docs/optional-combat-rules.md`; gate
-  `npm run dev:combat-options`.
-  **FOR ONE DAY THEY SAT UNDER A MASTER, "CRAWLER COMBAT MODE", AND EVERY RULE
-  THE MASTER CARRIED OF ITS OWN WAS REVERSED (2026-10-03, user).** The master
-  greyed the three while off (`crawlerOption` ANDed it in) and itself (1) made
-  an overburdened PC Deprived — reversed once the user was reminded what
-  Deprived is: "attempting to try to use deprived in this way was a mistake";
-  (2) made PCs with a flat 6 Hit Protection — "Crawl mode should no longer set
-  Player HP to 6", so HP follows `pc-hp-formula` again; and (3) made a Rest
-  ROLL `1d{max}` and keep it only if it beat current HP, on a per-viewer roll
-  card — "it should just restore to max HP. it still costs a ration". With
-  nothing left for it to do: "there is no need for Crawler Combat Mode to exist
-  at all or act as a gate". So the keys lost their `crawler-` prefix (nothing
-  had shipped), the guide became **Optional Combat Rules** (a new journal id,
-  hashed from the file name; nothing linked to the old one), the probe became
-  `dev:combat-options`, and `crawlerDamageFormula` became
-  `combatDamageFormula`. **Two things keep the old word on purpose**: the
-  `CAIRN.Crawler.*` string keys (a namespace nobody reads) and the
-  `crawlerChoiceTaken` card flag (stored on every decided card already in a
-  log). The **Crawler (2d6 + 3)** ability-dice tier is a separate thing and
-  keeps its name. Do NOT rebuild a master, the HP rule or the Rest roll from
-  the history in this bullet.
-  Five things that will bite:
-  - **`2d6kx` IS the rule, natively, and MODIFIER ORDER IS LOAD-BEARING.**
-    Measured in the shipped client: modifiers apply in WRITTEN order
-    (`DiceTerm#_evaluateModifiers`), `keep` flags the loser `active: false`
-    (`_keepOrDrop`), and `explode` skips it (`if (!r.active) continue;`). So
-    `2d6kx` keeps the highest and explodes only that one — `6(drop) 6! 2` = 8,
-    two sixes being ONE six, which is the rule as asked for. **`2d6xk` is the
-    trap**: it explodes both and then `keep` compares raw FACES, so it can never
-    exceed the die. The probe pins both, the second as the control.
-    **AND THE CHAIN IS CAPPED AT HALF THE FACES LESS ONE (2026-10-04, user
-    ask): d4 once, d6 twice, d8 three, d10 four, d12 five.** Written as
-    core's own `x{max}={faces}` — `d6x2=6`, `2d6kx2=6`, `1d4x1=4` — and the
-    spelling is load-bearing: **`x2` alone is a TARGET** ("explode on a 2";
-    `Die#explode` moves a lone number into the target), so a cap is only a
-    cap beside a comparison. Measured: the counter decrements per explosion
-    and the loop breaks BEFORE marking the next result, so the maximum that
-    stops a chain is not flagged `exploded` — the one-line-per-explosion
-    count stays true and the maneuver line, reading an ACTIVE maximum, still
-    fires. Per TERM, not per die: a keep form is per chain, a formula that
-    ADDS two dice shares one cap (user ruling; nothing shipped). A typed
-    `1d6x` is left as typed, uncapped. `explosionCap` in utils.js; the
-    probe's witness pins four sixes then a 2: the transform's `1d6x2=6` stops
-    at 18 with two flags where raw `1d6x` — the old output — runs to 26 with
-    four.
-  - **APPENDING `x` TO A CAIRN `+` FORMULA INVERTS IT, and that is measured, not
-    feared.** `evaluateFormula` rewrites `a + b` to `{a,b}kh` only when every
-    term matches a bare die, so `d6x + d6x` falls through to arithmetic: pinned
-    identically, `d6 + d6` keeps highest for **6**, `d6x + d6x` SUMS two chains
-    for **16**, and the correct `2d6kx` gives **8**. The naive append would have
-    doubled every Cairn keep-highest weapon in the game.
-    `explodingDamageFormula` (utils.js) therefore REWRITES that shape to
-    `2d6kx`, leaving no `+` behind. **Mixed sizes (`d6 + d8`) are left
-    un-exploded on purpose** — the semantic has no native spelling there and the
-    alternative changes the odds; no shipped weapon hits it, and the guide says
-    so. **AND A `+` POOL IS JUDGED ONLY WHILE `use-cairn-dice-notation` IS ON
-    (review #33):** with the setting off `d6 + d6` is a SUM to
-    `evaluateFormula`, and `judgedDie` rewriting it to `2d6k` regardless turned
-    the shipped Twin daggers from 2–12 into a 1–6 keep-highest for every PC the
-    moment either option was switched on in a notation-off world. `judgedDie`
-    returns null for a `+` pool there; a single die is judged as before.
-  - **THE GATE IS AT THE CALL SITE.** `evaluateFormula` gets `(formula, data)`
-    and `getRollData()` carries no document, so it cannot know who rolled. The
-    two PC damage sites are `actor-sheet.js` `#onRollDamage` and `macros.js`
-    `rollItemMacro`; `warden-damage.js` is deliberately NOT one (a trap has no
-    actor). The transform runs AFTER `damageFormulaFor` — so an ENHANCED roll
-    (`1d12`) explodes and an IMPAIRED one is judged on the `1d4` it actually
-    rolls — and after the quality dialog so its buttons still advertise the
-    plain formula.
-    **THIS SENTENCE SAID "Impaired and Enhanced explode too", WAS REVISED ON
-    2026-10-02 TO "a die smaller than d6 never explodes", AND WAS REVERSED
-    AGAIN ON 2026-10-03 — so impaired and enhanced explode, and so do a d4
-    weapon and an improvised attack's d4** (user: "available to ALL attack rolls
-    made by PCs, including impaired attacks, improvised attack, and attacks
-    with dice smaller than a d6"). Each time, every site that stated the rule
-    had to move together (here, the call-site comments, the setting hint,
-    the guide, the probe), the correct-sounding-comment trap
-    this file already records. `MIN_EXPLODING_FACES` is GONE; `judgedDie` in
-    `utils.js` is the one recogniser, with no size test in it. **The transform
-    table in `combat-options-probe.mjs` KEEPS its five sub-d6 rows** — they now
-    assert the reversal — because a table without them is how the first ruling
-    shipped unexamined: a table of twelve shapes is a claim about the input
-    space that left out the case which fires on every weapon in the game.
-  - **DEPRIVED WAS DERIVED FOR A DAY, AND THE LESSON OUTLIVES THE RULE.** The
-    reversed rule derived `system.deprived` as `stored || encumbered`, and two
-    things about HOW were paid for and stay true of any derived boolean here:
-    a hand-ticked field with NO PROVENANCE must be derived, never written (a
-    writer could not tell its own value from the player's and stomped theirs
-    on clearing — measured by a control that wrote to source); and the
-    derivation must assign BOTH halves outside the branch, because
-    **`Document#prepareData` does not reset `system` from `_source`** — only a
-    re-initialize does — so a one-sided `if (x) flag = true` leaves a stale
-    true behind. The rule itself, `deprivedLocked` and the two Crawler
-    strings are GONE (2026-10-03); do not rebuild them from this bullet.
-  - **`subOptions` IS A LIST**, widened from one object on 2026-10-02 for the
-    master's second declaration and KEPT when the master went: normalized with
-    `[spec].flat()`, so a group may declare either shape. Only Barebones'
-    declaration remains (its master lives in another submenu, read from the
-    stored value at render); the live-follow branch is plain code with no live
-    caller, and the Barebones row is the regression witness for the list form.
-  **ROUND TWO THE SAME DAY (2026-10-02): the Fatigue button's colour, exploding
-  dice announced in chat, a d6 FLOOR that revises round one, and a THIRD option,
-  MANEUVER ON MAX DAMAGE** (melee-only, and a choice on the card, until the night
-  of 2026-10-03 — see the reversal below). What survives of it:
-  - **THE EXPLOSIONS ARE ALREADY STORED, so announcing them cost no flag, no
-    template field and no edit to either producer.** `Die#explode` stamps
-    `r.exploded = true` on each result that explodes (`dice/terms/die.mjs`),
-    `DiceTerm.SERIALIZE_ATTRIBUTES` includes `results` and `RollTerm#toJSON`
-    copies every serialize attribute wholesale, so the flag rides in the
-    message's roll JSON for good; `Roll#dice` flattens, pushing each term's own
-    `dice` (covering a PoolTerm's inner rolls) and each DiceTerm itself, so one
-    walk catches every die. `nameExplodedDice` therefore reads the MESSAGE, which
-    buys three things at once: both producers covered without touching either,
-    language-neutrality by construction (there is no stored sentence to freeze,
-    so it cannot join review #24's class), and RETROACTIVITY — every exploded
-    card already in the log gains its lines the moment it loads. **ONE LINE PER
-    EXPLOSION, repeated** (user ruling, re-confirmed when the consolidated
-    "exploded: 6, 6, 3" form was offered and declined), and that count is a
-    SECOND, INDEPENDENT WITNESS of modifier order: under the correct `2d6kx` the
-    dropped die is inactive and `explode` skips it, so two sixes print ONE line
-    where `2d6xk` would print two.
-  - **THE DIE-SIZE FLOOR CAME AND WENT INSIDE TWO DAYS, and "parallel" is the
-    rule that replaced it (2026-10-03, user).** Round two added a d6 floor
-    serving the exploding option AND the maneuver gate (an impaired `1d4` did
-    neither); the next day the user reversed both halves — "maneuvers needs to
-    be allowed on all PC attack rolls where the result is max damage on the
-    die", "maneuvers should parallel exploding dice" — and then held ONE
-    difference: "I don't want maneuvers to be available on ranged attack
-    rolls" — which held for one more day (below). So: `judgedDie(formula)` in
-    `utils.js` is the ONE recogniser both options read, with no size test, and
-    `combatDamageFormula(base, {pc})` is the ONE gate the three PC damage sites
-    call (the sheet's roll control, the improvised row, the hotbar macro — it had
-    been spelled three times and the floor had to come out of all three in one
-    afternoon). Its `melee` argument went with the melee-only rule. **The case that fires is
-    IMPAIRED, not a d4 weapon**: of the eighteen shipped weapons the only
-    sub-d6 one is the Sling, which is ranged, while `IMPAIRED_FORMULA` is `1d4`
-    and every weapon in the game can be impaired — so a max on an impaired
-    attack (one roll in four) earns the maneuver line.
-    **A same-size `+` pool joined the maneuver rule with the reversal**: the
-    recogniser hands back the KEEP form (`d6 + d6` → `2d6k`), and with the
-    maneuver option on and exploding off the roll is MADE as that form (with
-    exploding on it is `2d6kx`, already one term), one Die term whose
-    `active` flags say which member was kept — a PoolTerm's losing member may
-    also have rolled its maximum, and nothing can tell kept from dropped
-    without walking `PoolTerm#results`. Mixed sizes (`d6 + d8`) stay out of
-    both halves, the stated limit.
-  - **`ranged` IS THE FIRST FIELD THIS SYSTEM HAS INVENTED ABOUT A WEAPON**, and
-    only because Cairn 2e distinguishes melee from ranged nowhere, so there was
-    no datum to read. Default FALSE (every weapon is melee; Bow, Crossbow and
-    Sling arrive ticked), NOT on `ArmorData` though it carries `withDamage` too,
-    and deliberately a FIELD rather than a name match: a keyword regex fails on
-    a Warden's homebrew and fails again on a Spanish client, where the content
-    overlay has already translated the name. It is the weapon sheet's TENTH
-    counter — the base grid holds ten and armor already proves it there, but see
-    the note above `.object.item-sheet-grid`, where a ninth counter once
-    auto-placed BELOW the tabs and pushed Cost off the bottom of the window.
-    **AND NOTHING READS IT since the night of 2026-10-03**, when ranged attacks
-    joined the maneuver rule (user, asked whether to drop it: "Yes, ranged too;
-    keep the field"). The schema field, the checkbox and the three ticked pack
-    weapons stay — removing a field is a migration, keeping one costs nothing —
-    and `CAIRN.RangedTip` says it does nothing at the moment, so a Warden is not
-    left guessing at a box with no effect.
-  - **THE CHOICE ON THE CARD LASTED ONE DAY, AND IT WAS THE WRONG RULE (the
-    night of 2026-10-03, user: "They get the damage AND they are offered a
-    maneuver").** It shipped to `dev` as a pair, **Explode the Die** / **Use a
-    Maneuver!**, on a melee maximum: with both options on the die rolled PLAIN
-    so the explosion could be the player's to choose, Maneuver FORWENT the
-    damage (Apply greyed and refused in `damage.js`), Explode re-rolled the
-    chain into the stored roll, and Apply was withheld until one was pressed.
-    All of it is gone — the buttons, `MANEUVER_CHOICE_FLAG`, the Apply refusal,
-    the withholding, `--ab-maneuver-chat` and the explode/maneuver colours. Now
-    the damage always stands, exploding (when on) happens AT ROLL TIME for every
-    PC damage roll, and a maximum adds ONE line — `nameManeuverAvailable`
-    (`cairn.js`), modelled line for line on `nameExplodedDice`:
-    `isContentVisible` FIRST (the line discloses the face, so a blind roll must
-    not show it; `dev:chat-privacy` holds that with a public control), the
-    card's `[data-maneuver]` datum as the trigger (the option was on when the
-    die was thrown — the one thing the hook cannot derive), idempotent on its
-    own class, and eligible when an ACTIVE result equals the face count. **An
-    exploded maximum is still active**, so `!r.exploded` must NOT be in that
-    test: the old pair had it, because a finished chain was meant to offer
-    nothing again, and copying it would withhold the line from every card the
-    exploding option touched. No author gate — it is information, like the
-    explosion lines. The setting's key followed its label
-    (`maneuver-on-max-melee` → `-damage`; nothing had shipped), so a dev world
-    reads it OFF until re-ticked, and a dev card already decided as a maneuver
-    shows the line and a live Apply — accepted, stated. **Two lessons outlive
-    the code**, both in memory (`foundry-mutating-a-stored-roll`): rewriting a
-    stored roll needs `roll._total = roll._evaluateTotal()` before
-    `message.update`, because `Roll.fromData` TRUSTS the stored total; and Dice
-    So Nice 6.2.9 animates an update only when the roll COUNT grows, so an
-    in-place rewrite is silent unless `showForRoll(…, synchronize: true)` is
-    called — and without `synchronize` the dice land on the roller's client
-    alone, which a Warden testing solo cannot tell from working.
-    **THE TWO LINES CARRY THE BUTTONS' COLOURS (2026-10-04, user ask: "The die
-    exploded line needs to glow red", the maneuver line "should glow teal").**
-    The explosion line glows Mark Critical Damage's error red, reversing the
-    2026-10-02 ruling that left it uncoloured; the maneuver line glows the
-    Fatigue teal through `--ab-maneuver-chat`, an ALIAS of `--ab-fatigue-chat`
-    (the old Use a Maneuver! button was amber; the user asked for teal). Ink
-    stays core's, only the 8px glow is coloured, as on the buttons.
-    `dev:combat-options` reads both glows in both interface schemes off a
-    fixture card INSIDE its one existing `configureUI` switch.
-  - **THE FATIGUE PAIR IS GATED `isAuthor || isGM`, NOT on the actor**, because
-    its spend writes to the MESSAGE and a ChatMessage makes its AUTHOR the
-    owner (`common/documents/chat-message.mjs` `getUserLevel`; `update` defaults
-    to OWNER). Found the day the maneuver pair was given that gate: the Fatigue
-    button was gated on actor ownership while its spend is `message.setFlag`,
-    so a second player co-owning the character but not authoring the save got
-    the Fatigue created, the flag refused, neither button sealed, and could then
-    ALSO mark Critical Damage — the exact exclusivity the option promises.
-    Fixed with `mayChoose`, SCOPED to the cards that have a choice to spend: an
-    ordinary Critical Damage card writes no flag, so requiring authorship there
-    would have withdrawn a working button from a co-owner.
-    **THAT GATE HID BOTH BUTTONS FROM THE OWNER WHENEVER THE WARDEN HAD ROLLED
-    THE SAVE (review #33, a defect in the reasoning above).** The Roll STR save
-    button is bound for the owner OR the Warden, so a Warden-rolled save is the
-    WARDEN's card, and the player whose choice it is saw neither button while
-    the Warden made it. The answer is a ROUTE, not a gate: `spend` writes the
-    flag itself where it may and asks the Warden's client otherwise
-    (`CONFIG.queries["air-bladder.choiceTaken"]`, which checks that the asker
-    OWNS the card's actor), both buttons are gated on `mayAnswer` alone, and
-    the choice is recorded BEFORE the Fatigue or the status lands, so a choice
-    that could not be recorded costs nothing.
-  - **Knave 2e's maneuver list is NOT shipped and NOT reworded.** The option is
-    borrowed from Knave 2e by Ben Milton and the guide credits it and points at
-    that book; the strings state the MECHANIC in this project's own words.
-    Rewording someone's list is copying it, so no eighth licensing regime was
-    added and `check:licence` is untouched. The `--ab-fatigue-chat`-not-
-    `--ab-accent` trap is recorded at that token's own declaration in
-    `css/cairn.css`.
-  **ROUND THREE, the same day, was about the CARD the pairs sit on**, and since
-  the maneuver pair went only the Fatigue pair's half applies: the two buttons
-  sit SIDE BY SIDE (they had no CSS at all, which is why two block-level buttons
-  stacked; a row says "either of these", a column reads as steps in order), and
-  ONCE DECIDED NEITHER GLOWS AND THE ONE TAKEN WEARS A CHECK (user ruling) —
-  drawn from the flag per viewer by `markChoiceTaken`, nothing stored, so it
-  reads correctly in every language and on every client that loads the card
-  later.
-  **Since 2026-08-22 the 25 live behind FOUR `registerMenu` SUBMENUS** (user
-  ruling, "one submenu per group" — General, Character Generation, Inventory
-  & Encumbrance, and GLOG & Other Hacks, the fourth asked for the same day to
-  hold the GLOG toggle and the Barebones failed career): every one is
-  registered `config: false`, the main Configure Settings window shows four
-  buttons under Air Bladder and no loose rows, and each button opens a small
-  ApplicationV2
-  (`module/settings-menus.js`, modelled on core's own `DiceConfig`) that
-  renders its group's rows with core's `formGroup` helper and saves the way
-  `SettingsConfig` does — `reloadConfirm` included, with one departure and one
-  addition (review #18): values switched ON are written before values switched
-  OFF, so the content-source floor's `onChange` never fires on a mid-save state
-  the Warden did not ask for; and each app carries its own Reset Defaults,
-  because core's skips `config: false` settings, which is every one of ours
-  now. `SETTING_GROUPS` in
-  `settings.js` is the ONE declaration (id, title, button — the text ON the
-  button names what it opens, "Configure Inventory" not a shared "Configure",
-  user ruling 2026-08-22 after Dice So Nice's per-menu buttons — hint, icon,
-  keys, and the
-  per-group decorations: the Barebones sub-option disable — whose master
-  checkbox lives in ANOTHER app, so Hacks greys it from the STORED value at
-  render, not live — and the bolded product names), consumed by the menu
-  registration and by `dev:settings`,
-  `dev:ui-parity` and `dev:age-override`. Consequences: **registration ORDER
-  is no longer load-bearing** — until this it was, because the grouping was
-  positional `<h3>` headers inserted into the flat list, gated since review
-  #16 with its own order leg, and that whole apparatus (headers, a
-  MutationObserver following core's search, compact rows, hint tooltips)
-  went with it; the gate is MEMBERSHIP now (every Warden-facing key in
-  exactly one group, `INTERNAL_SETTING_KEYS` the only exemption). **Hints
-  render beneath every row that registers one**, natively — the compact-row
-  CSS had hidden every air-bladder hint from the first commit until
-  2026-08-21, when the Age formula's hint was the first to need reading; the
-  submenus end the tooltip workaround that bridged the day. And `hint` is
-  OPTIONAL: the same day, ten hints that merely restated their label were
-  dropped (user ruling) — a label that says it all needs no hint, and
-  `dev:settings` asserts hint-per-REGISTRATION, never hint-per-row. The
-  search trade-off is dissolved
-  rather than accepted: core's settings search matches `[data-searchable]`
-  text inside a row (category-browser.mjs:228-232), so the one remaining
-  `renderSettingsConfig` hook stamps each button row with its settings'
-  labels and hints, and typing a setting's name still surfaces its button —
-  probed with an in-page control that strips the index. Two went on
-  2026-07-31, both because the thing they toggled stopped existing:
-  `show-containers-tab` (the Connections tab was structural then — see the
-  2026-08-09 parking below — and a display toggle that hides a graph which goes
-  on existing behind it is not a setting worth having) and `show-gold-not-cost`
-  (it swapped the container sheet's Cost
-  box for Gold; that sheet went with the type, and the npc sheet has no Cost box).
-  A third went on 2026-08-02 by ruling rather than by obsolescence:
-  `show-container-actors` hid plain/worn containers from the Actor Directory, and
-  the ruling is that they are ALWAYS listed — a behavior that must never be off is
-  not a setting, so the directory hide rule went with it (the grayscale-thumbnail
-  rule beside it survives; it never depended on the setting).
-  **Three more went on 2026-08-09, all by user ruling:** `show-omens-barebones`
-  and `show-bonds-barebones` (the 2e-lending they toggled was removed with them —
-  Barebones sheets never show Omen, Barebones generation never mints a bond; a
-  legacy lent bond survives as data and keeps displaying) and
-  `show-features-section` (the whole Features UI went; the `features` schema
-  field STAYS on both actor models so anything recorded survives invisibly, the
-  orphaned-`description` precedent).
-  **And `enable-inventory-reorder` went on 2026-08-22** (user ruling:
-  drag-to-reorder "should not be optional and just be an always-on setting")
-  — it gated whether the sheet read each item's `sort` and honoured a
-  same-actor drop as a reorder; both are unconditional now, and `dev:ui-parity`
-  asserts it unregistered like its two predecessors.
-  **`show-omens` (2026-08-17) is NOT that first removal coming back** — the
-  lending setting offered 2e's Omen field TO Barebones; this one withdraws it
-  from 2e, for a table that does not use the youngest-member rule. New key, so
-  no world's orphaned `show-omens-barebones` row can be mistaken for a value.
-  One switch covers BOTH surfaces by ruling — the sheet's row and the printed
-  page's section — deliberately not the `show-grant-tags` / `-print` split,
-  because a grant tag is an annotation both surfaces legitimately show while
-  this says the rule is not in play. Stored omen text is never cleared.
-  **The Connections UI is PARKED since 2026-08-09** (`connections-ui-enabled`,
-  internal, default false — deliberately NOT a Warden-visible setting, or it
-  would re-litigate the `show-containers-tab` removal above): the tab, the NPC
-  header attach/detach line and drag-to-connect are hidden for everyone while
-  everything underneath keeps working — marketplace transports mint connected,
-  generation grants land connected, connected capacity counts, the ownership
-  automation and socket brokers run, `flattenConnections` migrates. One flag
-  flip restores the UI; probes exercise the enabled state by shadowing the
-  settings READ in-page, never by a world write.
+Entry point `module/cairn.js` (registers document classes and sheets on `init`).
+~13,100 lines of hand-written JS in `module/`. **`docs/architecture.md` is the map**
+(import graph in nine tiers, spine files, leaf features). It names functions, never
+line numbers — a number or line in prose is a copy that drifts; that lesson applies
+to every count in this file. `docs/provenance.md` records who authored what.
 
 **One system, two generators.** Cairn 2e and Barebones differ ONLY in how a
-character is MADE. Every rule after a character exists — damage, slots, saves,
-scars, the sheets — is identical by design. So `content-source-2e` gates
-generation and nothing else: **a branch on the content source outside character
-generation is a bug**, not a feature, and Barebones content goes into the same
-editable type packs 2e uses rather than a parallel set. Three code sites cite
-this rule (`module/settings.js`, `module/actor/actor-sheet.js`,
-`tools/import/barebones.mjs`); they cited this file for it before it said so.
+character is MADE. `content-source-2e` gates generation and nothing else: **a branch
+on the content source outside character generation is a bug.** Barebones content
+goes into the same type packs 2e uses.
 
-**AN EMPTY SHEET IS A THIRD ROUTE (2026-09-11, user ask relaying a Warden's).**
-Every creation route — Create PC, NPC, Hireling, Monster, and the Create Actor
-switchboard — opens one dialog carrying a ticked **"Use random generation."**
-Clear it and the actor arrives with nothing rolled, for a table that deals
-characters on paper and wants to transcribe one.
-**IT IS NOT THE CHARACTER BUILDER THIS PROJECT DECLINED**, and the difference is
-the reason it was allowed: no build flow, no wizard, not one new picker. It lets
-an existing sheet start empty and leans on pickers that already ship, whose
-documented purpose is already "recreate a character you rolled with the book,
-paper and dice". `docs/generating-characters.md` still opens with "not built —
-dealt", and now says outright that if you have no character, you roll one.
-Six things that will bite:
-- **THE PROMPT LIVES IN ONE WRAPPER, `createActorInteractive`, and the four
-  generators underneath stay NON-INTERACTIVE.** `createCharacter`, `createNpc`,
-  `createHireling` and `createMonster` open no dialog at all. Twenty probe call
-  sites across eleven files call them directly, and putting the prompt inside
-  them left every one waiting on a modal nobody would answer — found by running
-  them, not by reading. `createMonster` therefore STOPPED prompting for a tier:
-  it takes one, and `promptMonsterCreation` asks.
-- **HP is 3, abilities keep the schema's 10/10/10** (user ruling). ZEROS were
-  asked for first and REVERSED on measurement: the sheet derives Dead from STR
-  0, Paralyzed from DEX 0 and Delirious from WIL 0, so an empty character would
-  have opened wearing three status banners — the state `_computeStatContext`
-  already documents for a crate.
-- **Character Creation Mode arrives ON**, against the 2026-08-02 "a sheet opens
-  quiet" default, which was about a GENERATED character. The mode is the only
-  thing that renders the pickers, and a bond and a question answer are
-  read-only prose, so a picker is the ONLY hand-entry path to either.
-- **The background die and picker had to be added to the NO-BACKGROUND branch**
-  of `character-sheet.html`. They hung off the generated branch alone, so a
-  character with no background stored had a text box and no way to reach the
-  table. Invisible while every character arrived generated.
-- **A HAND-BUILT SHEET IS HANDED NOTHING** (user ruling, same day, reversing
-  this feature's first cut — which granted gear on a picked background and was
-  documented as doing so). `HAND_BUILT_FLAG` is stamped by `createBlankActor`,
-  and while it is set a **background, a question answer, a bond and the
-  Barebones failed career** all record the choice and grant no items, no
-  containers and no coins. The empty sheet exists to transcribe a character
-  already rolled on paper: its owner knows what it carries, and granting means
-  deleting a pack's worth of gear nobody asked for.
-  **IT COVERS ALL FOUR KINDS SINCE REVIEW #26, and for a fortnight it did
-  not.** The flag was stamped by `createBlankActor` on character, npc, hireling
-  and monster from the first commit and READ only on the character paths, so a
-  blank NPC's Background picker — the feature's whole point — handed over the
-  background gear AND the entire `npc-kit`, enough to land it encumbered at
-  derived HP 0. `applyNpcBackground` and `applyHirelingCareer` ask now. **A
-  CAREER ALSO SUPPRESSES ITS STATBLOCK**, which the character-side ruling never
-  had to say because a background carries none: adopting one used to overwrite
-  the STR/DEX/WIL and HP the Warden had just typed off the paper sheet, and
-  those numbers are the transcription, not defaults to re-derive. **The way out
-  exists on every kind too** — `regenerateNpc`, `regenerateHireling` and
-  `regenerateMonster` clear the mark, where before nothing on the npc side ever
-  did and a fully re-rolled blank NPC claimed to be hand-built for the life of
-  the document.
-  **DURABLE, not "while the sheet is still empty"** — the ruling chose between
-  exactly those two, because an emptiness test changes behaviour the moment the
-  first item is typed and nothing on screen says why.
-  **The way out is Roll Character with Background checked** (the checklist's own
-  default). It clears the mark AFTER `changeBackground` returns true, passing
-  `ignoreHandBuilt` so the re-deal is not suppressed by a mark about to stop
-  being true — clearing FIRST was the obvious order and shipped for a
-  fortnight, and it broke on that function's own two refusals, both of which
-  fire before any write: an aborted gesture left a character that had silently
-  stopped being hand-built (review #26). **Ticking Starting gear is a second
-  way out** and must be, since it asks for the loadout in as many words; it
-  used to grant while LEAVING the mark set, which is worse than either
-  alternative, because the next background pick then deleted the lot and
-  granted nothing back. A bare background die does NOT clear it — pressing that
-  die is still choosing a background.
-  **THERE ARE FOUR FAILED-CAREER WRITERS AND THE SHEET'S IS NOT THE ONE THAT
-  MATTERS:** `replaceFailedCareerKeepsake` is called from inside
-  `changeBackground` itself, so the same call that had just suppressed every
-  grant ended by creating a keepsake. Only the sheet's `_grantFailedCareerItem`
-  had the term. **And that helper now takes `handBuilt` FROM its caller
-  (review #27)** rather than re-reading the flag: `changeBackground` computes
-  it as `isHandBuilt && !ignoreHandBuilt`, and the way-out gesture clears the
-  mark only after the call returns, so a helper reading the flag itself saw a
-  sheet still hand-built and, on the one branch where it runs — a fresh
-  Barebones background colliding with the stored failed career — deleted the
-  keepsake and granted none. Same shape as the finding it was fixing.
-  **The hireling's `critical: false` rides INSIDE the hand-built gate too
-  (review #27):** it is the statblock-reset half of a new career, and a
-  hand-built hireling in Critical Damage had the one status the sheet wears as
-  a banner wiped by picking a Career, under `abNoStatusCard` so no card said so.
-  **THERE ARE THREE BOND-GRANTING PATHS AND THE OBVIOUS ONE IS NOT ENOUGH:**
-  `_applyBond`, the sheet's Add-a-bond handler (which creates items DIRECTLY,
-  not through the applier) and `rerollAllBonds`. Suppressing only the first
-  looked like a landed fix; the probe leg that clicks the real Add-a-bond
-  control is what found the gap, and a witness reds that leg alone.
-  A question row's stored `gold` is zeroed too, not merely withheld: a later
-  swap REFUNDS each row's recorded gold, so a row remembering a grant that never
-  happened would pay out coins the character never had.
-- **THE BOX IS WITHHELD FROM ANYONE IT WOULD STRAND** (review #26).
-  `createBlankActor` sets `generationEnabled` because the mode is the only
-  thing that renders the pickers — but the SHEET derives that as the actor's
-  flag AND `_mayRandomize`, which for a non-GM reads
-  `allow-player-randomization` on a character and is flatly false on every npc
-  type. With generation allowed and randomization off, a supported
-  combination, a player who cleared the box got a character with no background,
-  no gear and no control on the sheet that could enter either, recoverable only
-  by the Warden deleting the actor. `blankIsFillableBy` answers on the CLICKING
-  client, the relay included. **The callback must ask it too**: with the
-  control absent `!undefined?.checked` is TRUE, so a missing checkbox read as a
-  cleared one and delivered the very sheet the gate exists to prevent.
-  **And the BROKER asks it too (review #27)** — withholding the box is the
-  affordance, the answering GM client is the enforcement, and it coerced
-  `blank` for type only, so a crafted or stale client emitting `blank: true`
-  past the withheld box got exactly the stranded sheet. The broker's own
-  comment already said a player's request must be refused THERE; now it is.
-- **THE WARDEN IS ASKED NOW**, reversing 2026-08-08's "the Warden's own button
-  keeps rolling instantly". That ruling was about an accidental click, which
-  only ever threatened a player; this dialog is where the choice is MADE. One
-  extra click on the most frequent action, accepted with eyes open.
-- **The choice crosses the relay wire** (`blank`, coerced `=== true` on the
-  receiving side). Get it wrong and a player who cleared the box is handed a
-  rolled character by a client that never saw it. Gate: `npm run dev:blank-actor`,
-  plus the relay leg in `dev:playergen`.
+### Documents and roles
 
-**THE BUTTONS SAY "CREATE", NOT "GENERATE" (2026-09-12, user ruling), AND A
-FACTION ASKS FIRST TOO.** Create PC / NPC / Hireling / Monster / Faction, and
-the dialog titles with them — a button that opens a dialog whose question is
-roll-or-not cannot be called Generate. `lang/es.json` had said "Crear" from
-the start and was not touched; the drift baselines for es/da/de/fr/pt-BR were
-advanced BY HAND for exactly those keys (their translations already meant
-"create"), and **pl was LEFT DRIFTED on purpose**: "Losuj postać" means "roll
-a character" and is genuinely wrong after the rename, so the translator must
-see it — never `--force`, which re-seeds everything.
-**The faction is the one route whose cleared box does not open an empty
-sheet, because a JournalEntry has none.** So the pick-lists live IN THE
-DIALOG: six `<select>`s (Type, Agent, both Traits, Agenda, Obstacle), each in
-TABLE ORDER behind a Random row, plus the Advantage table as a tick-list
-capped at the SRD's four (`buildFactionPicks` in `faction-generator.js`).
-**And a NAME field since 2026-09-12** (user ask): typed, it is the entry's
-name and its page's, verbatim; empty, `buildFaction` drafts "The ⟨Trait⟩
-⟨Type⟩" exactly as before, so ONE decision names a rolled faction and a
-picked one. It sits FIRST and inside the pick section, so the rolled route is
-unchanged — and "name it, roll the rest" is just the cleared box with every
-list left on Random. A text field also makes Enter reachable for the first
-time on this dialog, which is why the probe asserts it fires CREATE: Cancel
-is `type: "button"` precisely so implicit submission cannot hit it.
-This is the one exception to the empty-sheet feature's "not one new picker",
-and it is the exception that proves the rule: there was nowhere for these
-pickers to already be. `promptCreation` grew `hint` and `manual` options for
-it and NOTHING ELSE changed for the four actor kinds — their answer keeps its
-shape, and `dev:blank-actor` is the regression witness. Three things that
-will bite:
-- **`generateFaction(picks = {})` STAYS NON-INTERACTIVE**; the dialog lives in
-  `createFactionInteractive`, the wrapper both buttons call (the review #26
-  lesson: a generator that prompts hangs every probe that calls it).
-- **The lists read the WORLD-FIRST tables the roll reads**, so a Warden's own
-  canon faction names appear as Types once the loop-closing workflow has
-  added them — and a probe's sentinel table shows up as the list's only row.
-  Values are the TRANSLATED text, `promptNpcFaction`'s split: a faction is
-  world content in the session's language.
-- **An `<input>`'s `.value` is NOT an attribute** (an `<option>`'s is), and
-  DialogV2 serializes content through innerHTML, so the tick-list's boxes carry
-  `setAttribute("value")` or every ticked advantage reads as "on".
-- **An AppV2 window at `height: "auto"` GROWS DOWNWARD from where it opened.**
-  The dialog opens centred at 187px and un-hiding the lists made it 660px,
-  which on a 1000px viewport put Create and Cancel below the bottom of the
-  screen — the probe's reflow leg measured it, first run. `_updatePosition`
-  (application.mjs) clamps `top` into `[0, clientHeight − height]` on every
-  `setPosition`, so the change handler calls `setPosition({height: "auto"})`
-  after toggling the section and the window slides up only when it must.
-- **`DialogV2.wait` does NOT get core's 400px width; `confirm` and `prompt`
-  DO.** Both of those merge `position: {width: 400}` over the config
-  (dialog.mjs:353,374) and `wait` merges nothing, so a dialog built with it
-  inherits ApplicationV2's `width: "auto"` — and an auto-width window is as
-  wide as its LONGEST UNWRAPPED LINE. The NPC linking note rendered the
-  creation dialog at **777px**, nearly twice the Create Actor switchboard
-  beside it, which uses `prompt`. `promptCreation` states 400 now and a long
-  hint wraps. Reach for `wait` whenever a dialog needs two named buttons, and
-  state the width in the same breath.
-  **THAT WAS ONE SITE OF FIVE, and review #28 measured the other four**: Set
-  the Weather (`vald-calendar.js`), Set the Date (`warden-dashboard.js`), Add
-  an event (`calendar-events.js`) and the monster tier prompt
-  (`monster-generator.js`). Set the Date opened at **589px beside the 640px
-  window that launched it** off a 92-character hint, and the two 131-character
-  ones were wider still. All five state 400 now; the remaining three `wait`
-  dialogs carry no line long enough to stretch, which is luck rather than
-  design — state the width anyway on the next one.
-- **A hint that NAMES A CONTROL emphasises it, which means the key carries
-  `<strong>` and the paragraph is set with `innerHTML`.** "Clear Link Actor
-  Data on the Prototype Token" is a sentence a Warden has to pick a label out
-  of before they can go and find it. Sixteen keys here already carry markup
-  (`CAIRN.DeprivedTip`, `CAIRN.DamageCardLine`, the dossier lines) and
-  `combat.js` sets a flavor line the same way, so this is the established
-  route and not a new one — but `textContent` on such a key prints the angle
-  brackets on screen with nothing thrown, which is why `dev:dialogs` asserts a
-  real `<strong>` element and reads the emphasised words OFF it rather than
-  pinning an English literal.
+- `CairnActor` (`module/actor/actor.js`) — types `character`, `npc`, `hireling`.
+  `hireling` is an ALIAS of npc (same model and sheet), hidden from Create Actor by
+  `CairnActor.createDialog` (the role switchboard). `container` as a TYPE is gone —
+  a container is an npc with `role: container`.
+- `CairnItem` (`module/item/item.js`) — `item`, `weapon`, `armor`, `spellbook`,
+  `object`, `background`, `transport`.
+- Data models in `module/data-models.js` (TypeDataModel; sub-types declared in
+  `system.json` `documentTypes`). 29 compendium packs — a new pack's commit updates
+  this count.
+- `module/actor/actor-sheet.js` is the largest file.
+- **`NPC_ROLES`**: `npc`, `hireling`, `monster`, `companion`, `transport`,
+  `container`. Hireling has a **Career** (`profession`, day rate); NPC has a
+  **Background** (`background`) plus Quirk/Goal/Virtue/Vice. Two fields, never one
+  relabelled.
+- **`PERSON_ROLES`** answers "is this somebody". Ask for a role by name only where
+  hireling and NPC differ: which job field shows, and `showForHire` (box AND rate
+  row, one gate). `ITEMS_FIRST_ROLES` (persons + container) open on Items via
+  `initialTabId`. A role predicate that quietly grows is this codebase's
+  thrice-repeated bug — use a named list.
+- Hireling-split traps: `migrateData` must NOT convert stored "hireling"; the
+  `migrateHirelingSplit` migration SELECTS and its `hireling-split` marker is the
+  only thing stopping it converting every genuine NPC; the schema initial is
+  `hireling`. Test via raw-socket plant (`dev:role-migration`).
+- Generated NPC: statblock ROLLED (`Cairn.npcGenerator.ability`/`.hitProtection`);
+  `Cairn.npcGenerator.backgroundGear` maps to a Barebones background resolved via
+  `resolveStartingGear` (not `resolveRefs`); Lord and Politician grant nothing, kit
+  included, and swapping to them wipes granted items (`applyNpcBackground`);
+  containers are never granted; kit = `rollBarebonesEquipment`, tagged `npc-kit`.
+  May land encumbered — probes read `_source` HP. **Everything a generator gives is
+  tagged** (untagged = the Warden's own gift, survives every re-roll).
+- **Pronouns are never rolled** on either person generator; stated `pronouns: ""`.
+- Generated NPC stamps `ownership.default` LIMITED; npc sheet has a LIMITED view
+  (portrait, name, description, no Print). `_mayRandomize` refuses players on
+  npc/hireling regardless of `allow-player-randomization`. Pickers
+  (`canPickGeneration` = `generationEnabled` narrowed to person roles) share one
+  apply with the dice (`applyHirelingCareer` / `applyNpcBackground`) and call
+  `reorderInventory`.
+- Biography sentence: second person for a character, third for npc roles, via
+  `_wording` in `_buildTraitSentence`; `has(key, false)` fallback is deliberate.
+- **Token linking by role at creation**: `_preCreate` links `character` and
+  `PERSON_ROLES` (incl. role-less); monster/companion/transport/container unlinked.
+  CLOSED — the fix for crowds is signposting (`CAIRN.CreateActorHint`,
+  `CAIRN.Blank.LinkedPerson`, `docs/tokens-and-sheets.md`). Prototype Token
+  Overrides cannot express `actorLink`.
+- **Token rename follows the actor** only where the token still matched the OLD
+  name: `CairnActor._preUpdate` stashes, `_onUpdate` batches per scene. Unlinked
+  tokens ride the same path (`preUpdateActorDelta` never fires). Gate
+  `dev:token-names`.
+- **Containers and transports are Actors** linked by `connectedTo` on the child; the
+  keeper's list is DERIVED. Graph is flat (a character keeps, ten max).
+  `module/connections.js`: connection drives ownership on transitions only; a
+  player's change sets `ownershipSyncPending` and the active GM answers.
+  **Connections UI is parked** (`connections-ui-enabled`, internal, default false);
+  probes enable it by shadowing the settings read in-page, never a world write.
 
-**A generated loadout arrives ARRANGED (2026-08-21, user ask).** Six bands, top
-to bottom: weapons, armor, **spellbooks and spellscrolls together** (one band
-because they are one TYPE — a scroll is a flag), everything else in the order
-it was granted, light sources with each one's fuel directly beneath it,
-Rations. `orderGrantedItems` (`module/gear.js`) writes it as each item's `sort`
-at all four generators plus `regenerateNpc` — the one full regenerate that
-keeps items — and a career/Background swap (die or picker) re-arranges the
-whole inventory too, or its replacement gear would append in career-list order
-with Rations on top. Four things that will bite:
+### Damage, attacks, dice
 
-- **`sort` is ALWAYS read (since 2026-08-22).** It used to be read only while
-  `enable-inventory-reorder` was on — with it off `_sortItemsForDisplay` sorted
-  equipped-first alphabetical and the arrangement was invisible, correctly for
-  a Warden who had asked for an automatic order. That toggle was retired by
-  user ruling ("should not be optional"), so manual order is the only order.
-- **It is a one-time state, not a standing rule** (user ruling). A later
-  acquisition APPENDS — `CairnItem.#appendSort` gives any sort-less item on an
-  actor `max + DENSITY`. That is a fix in its own right, not just support:
-  core gives a new embedded item `sort: 0`, which is ABOVE every numbered row,
-  so buying one thing put it at the top of the pack over the sword. Already true
-  before any of this, since the first drag renormalises every sibling to
-  positive values. Every partial re-roll and the marketplace ride that seam and
-  needed no change of their own.
-- **A BOUND GRIMOIRE PAGE is deliberately left at 0.** `groupPagesUnderBooks`
-  lifts every page out of the flat list and re-files it under its book, so a
-  page's own position is never used and only its order among SIBLING pages
-  survives — alphabetical, via the display-name tie-break. Numbering pages
-  changed that to transmute order, which `dev:print` caught and nobody asked
-  for.
-- **"Light source" is a NAME, not a field**, and the two halves are asymmetric
-  on purpose: sources are a keyword regex (right for the Wisp Lantern and the
-  Torch Fungus too), fuel is an exact map, because `\boil\b` would swallow Fire
-  Oil and Miracle Oil. `isMundaneGear` asks the same classification
-  rather than keeping its own overlapping copy, which leaves a granted
-  Candle without a Background chip — intended, and what that rule always said
-  it meant. **Since 2026-09-02 mundane grants are TAGGED
-  `background-mundane`** (user ruling, review #21 finding 2 — reversing
-  "left untagged on purpose"): the chip stays off via `grantSourceLabel`'s
-  unknown→"" (the npc-kit precedent), but the tag gives the re-deal sweep
-  identity — the untagged name-matcher ate a player's BOUGHT Rations on the
-  second re-deal and let an instruction row's resolved item pile up. The
-  name-matcher survives for LEGACY pre-tagging characters only, skipping any
-  ref a tagged claim already satisfies; `BG_GRANT_SOURCES` is the pair every
-  background-gear sweep must ask for.
+- `module/damage.js`. **Two Scars tables, different lists**: the flow rolls
+  `air-bladder.utils` Scars (prose); the sheet checklist is `tables-2e` Scars (12
+  labels). The flow records the CHECKLIST row for the damage value and selects by
+  range itself (no `draw()`/`roll()`); the tick handler keeps stored strings no box
+  owns. The take-over door copies UTILS' Scars (`CAIRN_2E_TABLES`).
+- **Improvised Attack** — permanent row atop the inventory, NOT an item document
+  (so unremovable and slotless by construction). Gate `canImprovise` =
+  `isOwner && !isThing` (one predicate; not `owned()`). Context flags must exist
+  before gating on them — the sheet context has no `isOwner`. It is an `<a>`, so no
+  `_onRender` re-enable. Description rides as `data-weapon`; kind is
+  `data-unarmed="1"` (name kept — stored on cards). Blank field uses whole-sentence
+  keys; possessive frame `CAIRN.DamageFromImprovisedWith`. Panic overrides the typed
+  formula to `IMPROVISED_FORMULA` at ROLL time, before validation.
+  `IMPROVISED_FORMULA` and `IMPAIRED_FORMULA` are deliberately two constants. No
+  quality buttons. Claim a damage card as a ROLL message, never by being new.
+- **Damage row dice** — `damageDiceIcons` (`utils.js`): one FA class per die, all
+  glyphs in ONE anchor, all-or-nothing recognition (else generic `fa-dice-d20`),
+  cap four glyphs applied INSIDE the term loop. Trait dice use
+  `dieIconOrGeneric(table.formula)` off the resolved table.
+- **Dice notation**: see Rules encoded. `evaluateFormula` rewrites `a + b` to
+  `{a,b}kh` only when every term is a bare die.
+- **Optional combat rules** (Hacks submenu): `exploding-damage-dice`,
+  `fatigue-for-critical-damage`, `maneuver-on-max-damage`. Off by default, never
+  greyed, read at roll time, **PCs only** (`type === "character"`). Read through
+  `combatOption(key)`; the three PC damage sites call `combatDamageFormula`; guide
+  `docs/optional-combat-rules.md`; gate `dev:combat-options`.
+  - **`2d6kx` is right, `2d6xk` is the trap** — modifiers apply in written order.
+  - **Explosion cap = half the faces less one**, written `x{cap}={faces}`
+    (`explosionCap`). **`x2` alone is a TARGET**, not a cap. Per term.
+  - `explodingDamageFormula` rewrites `d6 + d6` to `2d6kx` (appending `x` to a `+`
+    pool inverts it). Mixed sizes are left un-exploded.
+  - **A `+` pool is judged only while `use-cairn-dice-notation` is on**
+    (`judgedDie` returns null otherwise). `judgedDie` is the one recogniser, no
+    size floor: every die explodes, impaired and enhanced included.
+  - Gate at the call site (`#onRollDamage`, `rollItemMacro`, improvised row);
+    `warden-damage.js` is not one. Transform runs after `damageFormulaFor`.
+  - Explosions announced by `nameExplodedDice` reading the message (one line per
+    explosion); maximum adds one line via `nameManeuverAvailable` — damage always
+    stands, melee AND ranged, `isContentVisible` first, `[data-maneuver]` trigger,
+    no `!r.exploded` test. Lines glow red / teal (`--ab-maneuver-chat` aliases
+    `--ab-fatigue-chat`).
+  - `ranged` weapon field exists but nothing reads it; keep the field.
+  - Fatigue choice pair: `mayAnswer`; `spend` writes the flag where it may and
+    otherwise asks the GM via `CONFIG.queries["air-bladder.choiceTaken"]`. Record
+    the choice BEFORE the Fatigue/status lands. `markChoiceTaken` draws the check
+    per viewer. A card carrying `true` is left sealed, unmarked.
+  - Knave 2e's maneuver list is NOT shipped or reworded.
+  - **Do not rebuild**: the Crawler Combat Mode master, its Deprived/6 HP/Rest-roll
+    rules, the Explode/Maneuver choice buttons, the d6 floor. `CAIRN.Crawler.*` keys
+    and the `crawlerChoiceTaken` flag keep the old word on purpose; the Crawler
+    ability tier is separate.
+
+### Party folder and Dropped Item Pile (`module/party-pile.js`)
+
+- Neither is a new type: the pile is an npc `role: container`. **Nothing is created
+  on load** — folder on first Create of a PC, pile on first drop.
+- **Found by flag, never by name — AND the pile must have no player owner**
+  (`isDroppedPile` asks `!hasPlayerOwner`). A flag alone is not identity.
+  `pileDisplayName` names it by its current name.
+- **Drop sits beside the trash**, never instead of it. Not offered for Fatigue or a
+  bound grimoire page; `withDrop` off on the pile.
+- Confirm is a `DialogV2.wait` with a 25-char optional "where" note
+  (`buildWhereField`, shared with the Fatigue drop); state `width: 400`; Drop is the
+  default. Note stored `flags.air-bladder.droppedAt` → `system.droppedAt` (TOTAL
+  assignment), clamped on the GM side, rendered only on the pile's sheet. Blank
+  removes an old note.
+- Drop icon `fa-down-to-line`; the hand means only "give to a person". Verify FA
+  glyphs against the font — FA5-era names (`fa-map-marker-alt`).
+- **The move runs on the active GM** via `User#query`
+  (`CONFIG.queries["air-bladder.pileDrop"]`); trust only the server-authenticated
+  user; GM checks the sender owns the source. No GM → refuse and say so.
+- **Claim id is a fresh `randomID` per gesture** (`claimId`), never the item's id.
+  Pile first, then delete from the sheet. A sibling-session `false` → check whether
+  `claimId` landed.
+- Pages travel with the book (`pagesOfGrimoire`), copy stowed. `reconcilePiles`
+  copies only what the canonical pile lacks and deletes the extra only when all its
+  ids are there. No drop from a compendium actor (`!actor.pack`). Pile is LINKED.
+- Unlimited capacity is `calcCurrentMaxSlots` returning Infinity; sheet prints
+  `slotsMaxLabel`. `party-pile.js` declares its own `FLAG_SCOPE` to avoid a cycle.
+- Explicit folder wins; only characters default to Party. **There is no
+  `FOLDER_CREATE` permission** — use `Folder.canUserCreate(game.user)`. Verify a
+  permission or key by grepping the client, never by guessing the name.
+- Deleting the pile: `CairnActor#deleteDialog` adds the item count.
+- **Fatigue instead of Critical Damage**: asks for a drop only when already
+  overburdened (`mustDropForFatigue` = `isEncumbered()`). Picker offers only
+  `slotFreeingItems` (no petty, no Fatigue), sizes via `itemSlotCost`. Refusing
+  ("No — take the Critical Damage", button with no callback) applies the Critical
+  Damage; Escape is not a refusal; nothing to pay with = Critical Damage with no
+  dialog. **The drop must have happened** before Fatigue lands. Drop is recorded in
+  chat from a flag carrying the item name, rebuilt per viewer.
+
+### Warden's Dashboard, time, calendar
+
+- `module/warden-dashboard.js` — GM-only launcher; owns no rules. **A single-table
+  draw posts CORE's own card** (`draw({displayChat:false})` then `toMessage`), or the
+  encounter Add-to-scene button dies. Combined draws build their own, escaped.
+  Button labels are UI keys; `labelForTable` walks every declaration. Draw cards
+  carry `flags.air-bladder.dashboardDraw` and are relabelled per viewer
+  (`localizeDashboardCard`). Showing a table: bare uuid over the socket, `senderId`
+  guard, public card. AppV2 id: override `_initializeApplicationOptions`, not
+  `get id()`. One root element per part. Gate `dev:warden-dashboard`.
+- **Watches are core Cairn 2e and never gated; the Vald calendar is a hack**
+  (`enable-vald-calendar`, `requiresReload`, converts nothing). Read the live
+  `game.time.calendar`, never our literal. `ValdCalendar` overrides
+  `_decomposeTimeYears` (core bug) and normalises negative weekdays in
+  `timeToComponents`. `leapStart` must be 0; Reclamation season entry first;
+  `yearZero: 7728` is FROZEN. Two upstream errata recorded in
+  `docs/keeping-time.md`, not fixed.
+- Clock goes before `#players` in `#ui-left-column-1` with `margin-top: auto`; no
+  re-attach hook needed. It is chrome: copy core's per-theme values for both ground
+  and ink. **Check chrome in BOTH interface schemes** via `game.configureUI`
+  (`dev:theme`, strict surface). Dashboard time band is its own part
+  (`parts: ["time"]`). No Make Camp button. Vald weather REPLACES Cairn's on the
+  Dashboard.
+- Date guards: Set the Date shows a live preview in DAYS (`describeDateAt`,
+  `describeShift`, `componentsForDate`); calendar's Set-to-this-day confirms with
+  Cancel default; `#selectionInView` is the one selection derivation. Number fields
+  drop focus on wheel.
+- `module/vald-calendar.js` (Vald only). **Festival text is CC BY-SA content and
+  ships as a JournalEntry from `tools/import/vald.mjs`, not in `lang/`** — ask the
+  licence question of any new content before choosing where it lives. Importer
+  self-checks weekdays. Festivals found by FLAGS. Browsing state on the instance.
+  `JOURNAL_BLOCKS`/`localizeJournalBlocks` live in `i18n-content.js`.
+- `module/weather-log.js`, `module/calendar-events.js`: journals found by FLAG plus
+  `isWardenJournal` (last writer a GM; unresolvable writer = unknown, fall back to
+  document ownership). Demotion of the writing GM is NOT covered (stated). Never by
+  a stored id (settings read-after-write is not guaranteed). Log written by the
+  ACTIVE GM from `cairnWeatherChanged`, in the writer's language. "Hidden" journals
+  are concealment, not secrets. Refresh on `updateJournalEntry`.
+- Buttons that re-render need stable ids for focus restore; `_whileDisabled` checks
+  `isConnected` then id, and reads `this.element`'s own document (Pop Out windows).
+  **Any bare `document.` in a detachable AppV2 is a bug.**
+- Dashboard layout: left-aligned labels in a glyph column; a glyph means one thing
+  per window (`SEASON_ICONS` is the one map). **Font Awesome 7 Pro is bundled** —
+  verify a glyph by rendering it (`::before` content), never by `all.min.css`.
+
+### World-first tables, marketplace, take-over doors
+
+- **Every table a generator declares resolves world-first** via
+  `compendium.js` `findDeclaredTable` (world by name, then the declared pack). The
+  `"pack;Name"` prefix is the FALLBACK, never a lock. **Read with `roll()`, never
+  `draw()`** (`draw` marks world rows drawn): `rollTable` / `rollTableText` /
+  `rollTablePlainText` (monster names). Pick-lists resolve the same way; trait
+  dropdowns via `declaredTableCached` (not `findDeclaredTable` — too slow). Scars
+  checklist stays pack-only. Kettlewright's Bonds matcher and `resolveVirtueVice`
+  stay on the pack deliberately. `roll()` still skips drawn rows and saves a blank
+  formula. Gate `dev:world-tables`.
+- Random spells are a declared table (`characterGenerator2e.spells.canon` / `.glog`),
+  rows type-filtered. **`more-spellbooks` is removed — do not restore it.**
+  `SPELL_PACKS` names `background-items`. Gate `dev:spell-pool`.
+- **Marketplace is world first** (`module/marketplace.js` `marketTables`): a world
+  `Market: X` REPLACES that aisle, an unknown prefix ADDS one (the Bonds/Omens rule).
+  The installer wipes the package directory, so edits to our compendium never
+  survive. Price rides the item. Shop never draws. Gate `dev:marketplace`.
+- `resortTableByName` / `fitFormula` via table-banner.js `onReadTableRowsChanged`
+  on `createTableResult` + `deleteTableResult`, creating client only, world tables
+  only, gated by `tableRole`. `keptAlphabetical` = aisles + the two spell-pool
+  tables. Compare the STORED formula. Flat `1dN` tables only; curves are the
+  Warden's.
+- **Take-over doors** (`module/take-over.js`): Create a Custom Spell Table…,
+  Marketplace…, Barebones Creation Tables…, 2e Backgrounds and Tables…; all at the
+  top of Rollable Tables, the 2e one also on Compendium. Labels say the OUTCOME.
+  The shipped compendiums are TEMPLATES.
+  - **Plan, then run** — `importDocument` silently replaces on id collision;
+    nothing calls it. Membership: items/mounts/background copies by shipped id
+    (adopt via `_stats.compendiumSource`); tables by NAME only; `tableIdFor` uses
+    the shipped id only while free.
+  - Tables last, rows inline, `formula` explicit. Items into "Custom …" folders,
+    a subfolder per source compendium (`sourceFolders`), found by flag.
+  - Background copy stands in by id (`build2ePool` dedups by id); nothing written
+    to `disabled-backgrounds`; `disabledBackgroundIds` / `isBackgroundDisabled` ask
+    by id. World pack label stores the KEY (`customBackgroundsPackLabel`).
+  - Enter never copies (all `type: "button"`, Cancel default). `running` set before
+    the first await; doors disabled while a job runs (`setDoorsBusy`). Locked pack
+    refused in confirm and result. Names come from documents (`namesFor`).
+  - `resolveBarebonesResult` asks `!doc.pack` first so a world row wins.
+  - Spell door replaced "Reseed a Spell Table" — **do not bring Reseed back**.
+    Spec read at click time (GLOG swaps the pool). "Consistent with X" means X's
+    mechanism.
+  - Door CSS scoped to `.cairn-take-over`; Actor Directory buttons
+    `min-width: fit-content` (labels wrap, never clip).
+  - Gate `dev:take-over` (its entry sweep deletes copies made by hand in dev).
+- **Table banner** (`module/table-banner.js`) — decided by NAME via `kindOfTable`;
+  Warden only; names core's labels (`TABLE.ACTIONS.ChangeMode.Edit`,
+  `TABLE.TABS.summary`, `COMPENDIUM.ImportEntry`); view-mode sentence; warns on two
+  world tables of one name; `refreshTableBanners` re-injects DOM, never re-renders.
+  Tables tab name from `RollTable` `labelPlural`, not `SIDEBAR.TabTables`. **Verify
+  a core key by grepping the client for a reader, not en.json.** Gate
+  `dev:table-banner`.
+
+### Item sheets, GLOG
+
+- GLOG sheet flags render only while `enable-glog-magic` is on: `showGrimoire` =
+  hack on AND already a Grimoire (no item offers to become one). Spellbook GLOG box
+  only while on; Scroll always. `rerenderItemSheets` rides the onChange.
+  `spellbookCompact` / `.plain-item` grid variants. Gate `dev:glog-flags`.
+- The GLOG hack is one-way for a campaign.
+
+### Creation routes
+
+- **Empty sheet ("Use random generation." cleared)**: one wrapper,
+  `createActorInteractive`; `createCharacter`/`createNpc`/`createHireling`/
+  `createMonster` stay NON-INTERACTIVE (probes call them). HP 3, abilities 10/10/10,
+  Character Creation Mode on. **`HAND_BUILT_FLAG`: a hand-built sheet is handed
+  NOTHING** (background, question, bond — all three bond paths — failed career, NPC
+  background, hireling career incl. statblock and `critical`). Durable, not "while
+  empty". Ways out: Roll Character with Background (clear AFTER
+  `changeBackground` returns true, `ignoreHandBuilt`), ticking Starting gear,
+  regenerate. `replaceFailedCareerKeepsake` takes `handBuilt` from its caller.
+  Question-row gold zeroed. `blankIsFillableBy` withholds the box and the callback
+  AND the broker ask it. `blank` coerced `=== true` over the relay. Gate
+  `dev:blank-actor`.
+- **Buttons say "Create"**, not "Generate". Faction dialog has pick-lists and a name
+  field (`buildFactionPicks`, `createFactionInteractive`); `generateFaction(picks)`
+  stays non-interactive. pl translation left drifted on purpose.
+- Generated loadout arranged by `orderGrantedItems` (`module/gear.js`); `sort` is
+  always read; later items append via `CairnItem.#appendSort`; bound grimoire pages
+  stay at 0. Light sources by regex, fuel by exact map. Mundane grants tagged
+  `background-mundane`; `BG_GRANT_SOURCES` is the pair sweeps ask for.
+
+### Item offers (`module/item-offer.js`)
+
+- A PC may offer to anything they can SEE; **no role list** (`canReceiveOffer`).
+  Excluded: `.pack` and `.isToken` targets. `capacityVerdict` (gear.js) returns
+  `overburden` only for a person; `full` refuses on every route. `_canDragDrop` must
+  bind on npc sheets.
+- Giving: `canGive`/`canOfferItem` use `isOwner`. One-click settle only when
+  nobody ELSE could answer (`answerersFor`, which folds `ownership.default`).
+  Unlinked tokens can give; missing giver reads `CAIRN.Offer.HiddenGiver`, never
+  `speaker.alias`. Picker's checked radio follows its filter.
+
+### Settings
+
+- **Four `registerMenu` submenus** (`module/settings-menus.js`), every setting
+  `config: false`. `SETTING_GROUPS` in `settings.js` is the one declaration;
+  `INTERNAL_SETTING_KEYS` the only exemption. Values switched ON are written before
+  OFF; each app has its own Reset Defaults. Search via `[data-searchable]` stamping.
+  `hint` is optional. Update counts in the same commit as any settings change.
+- **`registerSettings()` runs on `init`, before i18n** — `choices` labels must be
+  bare keys (tier labels carry dice as literals, gated by `dev:pc-dice`).
+- `subOptions` is a list (`[spec].flat()`).
+- PC dice: `pc-ability-dice`, `pc-gold-dice` (tiers in `Cairn.pcDiceTiers`: Default
+  3d6, Adventurer 4d6kh3, Crawler 2d6 + 3; `pcTierFormula` falls back),
+  `pc-hp-formula`, `age-formula` (default RAW `2d20 + 10`; no clamp). **Count the
+  call sites before wiring a setting into a roll** — `_applyRerollParts` calls
+  `evaluateFormula` directly; one exported helper per value. Checklist tooltips:
+  `data-tooltip` on label AND span, no `aria-label`. A bare number is a valid
+  formula (`docs/dice-formulas.md`).
+- `show-omens` hides 2e's Omen on sheet and print; `show-traits` likewise;
+  `weather-log` default OFF (an update must never start creating documents).
+- Removed settings stay removed (`show-containers-tab`, `show-gold-not-cost`,
+  `show-container-actors`, `show-omens-barebones`, `show-bonds-barebones`,
+  `show-features-section`, `enable-inventory-reorder`).
+
+## Content translation and chat cards
+
+- **Content translation is a display-only overlay** keyed on the ENGLISH source
+  string (`lang/content/<lang>.json`, `module/i18n-content.js`). **Editing an
+  English description orphans its translation.**
+- Every list of names a user reads goes through it (`localizeDirectoryNames`,
+  `worldDisplayName`, `wrapCompendiumDocumentSearch`, `_prepareTurnContext`,
+  `localizeSpeakerName`). Rewriting names breaks SEARCH — apply
+  `wrapTranslatedSearch`. PCs are never localized. Gate `dev:directory-i18n`.
+- **A stored chat card is rebuilt per viewer from a flag carrying a KIND or an
+  English source string, never text.** Examples: `damageCard`
+  (`localizeDamageCard`, values sanitized, runs before `nameDamageSource`),
+  `localizeD20Card`, `localizeStatusCard`, `localizeEncounterQty`,
+  `localizeChangeLogCard`, `ROLL_FLAVOR_KEYS`. `localize()` returns unknown keys
+  verbatim — whitelist kinds. Write `data-panic` as `"0"` or `"1"`; absence means
+  "older than the attribute", leave alone.
+- **Every rebuild in `renderChatMessageHTML` must ask `message.isContentVisible`
+  first** — the hook fires for whispered rolls on clients that may not read them.
+  Gate `dev:chat-privacy`. A sweep in this class covers every rebuild, and a claim
+  that a sweep is finished is a copy that drifts.
 
 ## Deliberate deviations from Foundry practice
 
-Listed so a review does not re-litigate them. If you disagree with one, argue
-against the reason, not against the fact.
+Listed so a review does not re-litigate them. Argue against the reason, not the fact.
 
-- ~~**Sheets are AppV1**~~ — **NO LONGER TRUE as of 2026-07-29.** Both sheets are
-  ApplicationV2 (`HandlebarsApplicationMixin(ItemSheetV2 / ActorSheetV2)`), merged to
-  `dev`; there is no AppV1 left in `module/`. **And since 2026-07-30, no jQuery
-  either** — the last call (`damage.js:55`, the chat Apply-damage button) was
-  converted only after `dev:enc-damage` grew a section that clicks the real button,
-  because this file had claimed "no jQuery left" once before while it was never
-  true; this time the claim is grep-verified and probe-covered. This was the ONLY
-  deviation with an externally-set expiry (AppV1 removal in **v16**, per the shipped
-  client `appv1/api/application-v1.mjs:59-64` — not v15, which this file used to say), and
-  it is now closed. Kept here only so nobody re-plans it.
-  **Three things the port established that still govern the code:**
-  - **Dark mode. The sheets follow the viewer's colour scheme** (settled 2026-07-28), and
-    `css/cairn.css` opens with a light+dark token palette rather than literal colours
-    assuming parchment. Gated by `npm run dev:theme`. Read **`docs/theming.md`** before
-    touching a colour.
-  - **AppV2 supplies neither `.window-content` scrolling nor AppV1's 8px padding nor
-    `.window-content > * { flex: 1 }`**, and every sheet grid here was laid out against
-    all three. They are restored explicitly at the top of `css/cairn.css` — do not
-    "simplify" that block away. `npm run dev:sheet-layout` is the gate; it exists because
-    losing them made the HP/Gold counters render on top of STR and Armor while the sheet
-    still rendered, persisted every field, and logged zero console errors.
-  - **`submitOnChange` must be declared and `submitOnClose` no longer exists.** AppV1's
-    sheets set both; `DocumentSheetV2` defaults `submitOnChange: false`
-    (`applications/api/document-sheet.mjs:65-68`) and has no `submitOnClose` at all. So
-    "edit a field and it saves" is asked for explicitly, and closing a sheet no longer
-    commits an un-blurred edit. The pack cache at the top of `actor-sheet.js` exists
-    because `submitOnChange` re-runs `_prepareContext` on every committed keystroke.
-  Traps, and what each cost: memory `air-bladder-appv2-migration`.
-- **Containers and transports are Actors, not Items**, linked to their keeper by
-  a single `uuid` field on the CHILD called `connectedTo`. Against Foundry's
-  grain. The reason is capacity: "+8 slots" cannot live on an Item — nothing
-  reads `system.slots` on one. Expect bugs to cluster here.
-  The link used to be TWO writes — a `keeper` uuid on the child (named to dodge a
-  Foundry collision on `owner`) plus a `containers` array on the keeper — and
-  nearly every container bug came from one half landing without the other. Both
-  the array and `keeper` were retired with the `container` type on 2026-07-31;
-  the keeper's list is DERIVED from the children. If you find either name in a
-  comment, it is history.
-  **Since 2026-08-01 the graph is FLAT (only a character keeps, ten at most) and
-  connection DRIVES OWNERSHIP** (`module/connections.js`): connected = the
-  keeper's players own it, broken = default LIMITED — transitions only, never a
-  re-enforcement sweep, monsters never touched. A player's connect/break cannot
-  write ownership (server wall), so it sets `ownershipSyncPending` and the
-  active GM's client answers; the flag, not the message, is the authorization.
-- **No automation of mechanical text.** "Restores 1 STR" stays prose. Trust
-  players; no macros, no buttons. House style, and it dissolves the hardest
-  content cases (a background granting a statted homunculus is text, not a spawned
-  Actor). **Scoped 2026-08-09 by the encounter tables' Add-to-scene button:**
-  the deviation protects PLAYER-FACING rules prose — what a rule costs a player
-  stays theirs to apply. Automating the Warden's LOGISTICS (rolling a quantity
-  and minting the tokens a table row names) does not touch that reasoning, so
-  it is allowed; a button that applied "Restores 1 STR" still is not.
-- **Content translation is a display-only overlay** keyed on the ENGLISH SOURCE
-  STRING (`lang/content/<lang>.json`, `module/i18n-content.js`), not on ids.
-  Consequence that bites: **editing an English description orphans its
-  translation.** Weigh that before "fixing" pack prose.
-  **Every list of names a user reads must go through it, or the same token wears
-  two names on one screen** (2026-08-14 ruling, review #14 finding 14). For six
-  rounds exactly ONE `.entry-name` sweep existed — the compendium browser — so a
-  Goblin dragged into the world had an English sidebar row, a Spanish sheet
-  header, an English tracker row and a Spanish damage card. World directories,
-  the combat tracker and the compendium SIDEBAR's document search are covered
-  now (`localizeDirectoryNames` / `worldDisplayName` /
-  `wrapCompendiumDocumentSearch` in `cairn.js`, `_prepareTurnContext` in
-  `combat.js`) — and since 2026-08-23 (review #19) the CHAT CARD HEADER:
-  core prints the raw speaker alias in `.message-sender` while the attack
-  line beneath it was translated, so a Mule's card read "Mule" over a sheet
-  reading "Mula". `localizeSpeakerName` in `cairn.js` follows the token's
-  name where the message was spoken as one (a Warden's "Goblin A" stays)
-  and the world actor's otherwise (a PC never localizes); a speaker nothing
-  resolves — a compendium sheet's roll — keeps core's text. The GLOG cast
-  flavor resolves the same name per viewer, so it agrees with the header
-  above it. The sidebar one (2026-08-19, review #16) had to WRAP the app
-  rather than sweep a render: its rows are rebuilt inside `_onSearchFilter` on
-  every keystroke, so no render hook is ever near them, and both halves needed
-  covering — the match (typing the translation found nothing) and the row text
-  (which read the stored English). "Is there a hook for this?" is the wrong
-  first question about a new surface. Two rules travel with any new surface:
-  **rewriting names breaks SEARCH** —
-  core matches the query against the COLLECTION, never the DOM, so typing the
-  Spanish empties the list unless `wrapTranslatedSearch` is applied too — and a
-  WORLD list needs a per-DOCUMENT namespace, not a per-collection one, because
-  its Actor list holds player characters (**never localized**, the 2026-08-04
-  gate) and its Item list mixes backgrounds with gear. Gate:
-  `npm run dev:directory-i18n`.
-  **A STORED CHAT LINE composed on one client is rebuilt per viewer from a
-  flag that carries a KIND or an ENGLISH source string, never text (rule
-  restated 2026-09-12, review #27, after four more surfaces turned up).** The
-  status bar (`postStatusCard` stores a kind; `localizeStatusCard` rebuilds
-  the line, `hasOwn`-guarded so a crafted kind finds no spec), the encounter
-  quantity roll (the English monster label; `localizeEncounterQty`), the scar
-  card (its own flag; the flavor rebuilt from the key inside
-  `localizeTableResults`), and core's OWN draw flavor, which stamps the
-  table's raw browse name and which `localizeTableResults` now rebuilds
-  through the `table.name` namespace from the message's table — resolved by
-  core's id flag, never parsed out of the stored sentence. Every one had a
-  translated row under a composer-language line. Review #26 had fixed the
-  Dashboard's cards under this rule and the older cards sat beside them
-  unnoticed; the sweep after a fix in this class should grep every
-  `flavor:` and every `content:` a card stores.
-  **THAT SWEEP WAS OWED AND WAS NOT DONE, AND REVIEW #28 FOUND WHAT IT WOULD
-  HAVE — the DAMAGE FLOW, the most-used cards in the system.** `_showDetails`
-  and `_showAbilityDetails` composed the whole detail card from `localize`
-  calls and stored it, and Apply-damage is Warden-only (bound under `isGM`,
-  and REMOVED from a player's copy), so every detail card that has ever
-  existed was in the Warden's language — under an attribution line that WAS
-  rebuilt per viewer, so a Spanish player read a Spanish attacker over English
-  "Damage:" and "HP:" lines with an English Roll STR save button on their own
-  character. They carry `damageCard` now: NUMBERS and two booleans, rebuilt by
-  `damageCardBody` through `localizeDamageCard`, with every value coerced
-  (`sanitizeDamageParts`) and `pool` checked against a set rather than
-  localized blind — `localize()` returns an unknown key VERBATIM, so a crafted
-  string would otherwise reach `innerHTML`. **ORDER IS LOAD-BEARING:** it runs
-  BEFORE `nameDamageSource`, which prepends to the same element, and before
-  the STR-save and Critical Damage bindings, which bind to what it replaces.
-  Three more in the same batch. The **d20 save card** — the damage flow's STR
-  save and the sheet's ability roll, both PUBLIC, both storing
-  "Success"/"Fail" and the Critical Damage button in the roller's language —
-  share ONE builder in `utils.js` (`d20CardBody`/`d20CardFlavor`, rebuilt by
-  `localizeD20Card`) that lives there because `actor-sheet.js` does not import
-  `damage.js` and adding that edge for a string is a cycle risk; the ABILITY
-  KEY travels, never `dataset.label`, which is a sentence already localized.
-  The **quality badge** now carries `data-quality` beside the label's
-  `data-weapon` and is rebuilt from the kind — it sat one line under an attack
-  sentence the hook had already translated. And the **weapon sentence on an
-  UNTARGETED card**: `nameDamageTargets` returned early when there was nobody
-  to name, so a card `offerUntargetedApply` deliberately builds without
-  `data-targets` stayed frozen in the roller's language for good, since
-  applying the damage later never adds the attribute.
-  **AND A REBUILD MUST ASK `message.isContentVisible` FIRST — review #29, and
-  this one is a LEAK, not a language.** `ChatMessage#visible` returns true for
-  a whispered message when `isRoll` (`chat-message.mjs:101-104` — the caveat
-  `concealmentWhisper`'s own docblock already recorded, for the opposite
-  reason), so `renderChatMessageHTML` FIRES on clients that may not read the
-  result: core has already thrown the stored card away and written "rolled
-  privately" into `.message-content` and `.flavor-text` (`#renderRollContent`,
-  `:475-481`), which are exactly the two elements a rebuild replaces. So
-  `localizeD20Card` handed every player the die, the Success/Fail and the
-  Critical Damage button of a **Private GM Roll**, and showed a **Blind GM
-  Roll** back to the roller it was blind to — both producers post through
-  `Roll#toMessage`, which applies the chat-controls dropdown
-  (`roll.mjs:932,948`), so it needs no crafted anything. The DETAIL cards are
-  safe by construction (plain `ChatMessage.create`, no roll, so `visible` is
-  false for non-recipients and the hook never runs) and `localizeTableResults`
-  is safe by ordering (it returns on `.table-results li` being absent, which is
-  what core's substitution leaves) — but neither is a reason to omit the guard
-  on the next one. `combat.js` had already met this from the other side, forcing
-  `messageMode: "public"` on initiative saves.
-  **The sweep found two more, and the rule's own instruction is what found
-  them (review #29).** The **Apply-damage tooltip** is composed by
-  `dmg-roll-card.html` with a `localize` call and stored in the flavor — one
-  line under the two sentences #28 rebuilt on that very element — and the
-  button is REMOVED from a player's copy, so its reader is always the Warden
-  reading the roller's language; only the TARGETED card is relabelled, since
-  `offerUntargetedApply` builds its own anchor per viewer with a deliberately
-  different tooltip, and it must run BEFORE `showDamageApplied` so a spent card
-  keeps saying so. And **Die of Fate**, the last stored card in `module/` that
-  was neither rebuilt nor read by exactly one person: `rollFlavor` carries a
-  KIND and `ROLL_FLAVOR_KEYS` maps it, the smallest shape in the class.
-  **`data-panic` is now written on EVERY card, `"0"` as well as `"1"`.** It is
-  not a style choice: `data-weapon` shipped in `f23962cb` and `data-panic` in
-  `fb5db539`, so on every card already in a log absence was indistinguishable
-  from "not panicked", and the new rebuild rewrote those with the non-panic key
-  — silently dropping the "(Panic)" their own stored content still held, on
-  exactly the untargeted cards nothing ever repairs. Absence now means "older
-  than the attribute" and `relabelWeaponLine` leaves such a card alone.
-  **`TABLE.DrawFlavor` moved OUT from behind the overlay gate** in the same
-  pass. It is core INTERFACE chrome every language module translates, so
-  gating it on `contentLocalized()` — true only where an overlay file exists,
-  and `lang/content/` holds `es.json` alone against seven declared languages —
-  left every other locale reading the Warden's sentence; and its
-  `if (es === undefined) return` meant a Warden's own world table fell through
-  even on `es`. It rebuilds through `t()` now, whose miss is the English
-  source verbatim, which is the guarantee the whole overlay rests on.
-  **REVIEW #29'S `isContentVisible` GATE REACHED ONE REBUILD OF FOUR, and
-  review #30 measured the other three LIVE on a player's client (2026-09-13).**
-  `markInitiativeOutcome` wrote a HIDDEN combatant's name, d20 total, DEX and
-  outcome over core's "rolled privately" — the one card `rollInitiative`
-  whispers by design; `localizeDashboardCard` named the table on the
-  Dashboard's default-PRIVATE draw, all 45 buttons; `localizeEncounterQty`
-  named the creature under the Warden's Private dropdown, which its docblock
-  had called "a PUBLIC card". All three ask `isContentVisible` FIRST now, and
-  `dev:chat-privacy` reads Alice's rendered log for each with a public
-  control beside it. **The sweep the class demands is over every rebuild in
-  `renderChatMessageHTML`, not over every stored `flavor:`** — #29 grepped
-  the producers and gated the one rebuild it was fixing. And the sweep's
-  closing claim in `utils.js` ("the last stored card … read by more than one
-  person") was false the day it was written: the change-log ledger is
-  whispered to the owners AND every Warden and stored the composer's
-  language. It carries a `changeLog` flag now — a KIND per line and the
-  values, paths whitelisted against the audit tables, numbers finite-gated,
-  names through the overlay — and `localizeChangeLogCard` renders it per
-  viewer. A claim that a sweep is finished is a copy that drifts.
+- **Sheets are AppV2, no jQuery.** AppV2 lacks `.window-content` scrolling, 8px
+  padding and `> * { flex: 1 }` — restored at the top of `css/cairn.css`; do not
+  simplify away (`dev:sheet-layout`). `submitOnChange` is declared; `submitOnClose`
+  no longer exists. Sheets follow the viewer's colour scheme — read
+  `docs/theming.md` before touching a colour (`dev:theme`).
+- **Containers and transports are Actors, not Items** — "+8 slots" cannot live on an
+  Item. Expect bugs to cluster here.
+- **No automation of mechanical text.** "Restores 1 STR" stays prose. Scoped to
+  PLAYER-FACING rules; automating Warden logistics (e.g. encounter Add-to-scene) is
+  allowed.
+- **Content translation is a display-only overlay** keyed on English (above).
 - **Pack YAML in `src/packs/` is the source of truth**; `packs/` is generated
   LevelDB, gitignored. Never edit `packs/`. `npm run build:packs` fails while
-  Foundry has the world open (LevelDB EPERM) — stop the server first.
-  **EXTRACT BEFORE YOU BUILD, ALWAYS.** "Generated output" is true only until a
-  Warden edits a compendium inside Foundry; from that moment `packs/` holds the
-  ONLY copy of that work, and `build` rmSyncs each pack and recompiles it from
-  YAML. On **2026-08-04 that destroyed roughly five hours** of monster art
-  assignment plus a description fix, with no recovery: `packs/` is gitignored,
-  LevelDB keeps no history, Foundry writes no automatic backups, and the newest
-  Volume Shadow Copy was two days stale. `tools/packs.mjs` now REFUSES a build
-  when `packs/` has changed since the last build or extract.
-  - **The guard compares against a SYNC MARKER** (`.pack-sync.json`, gitignored),
-    not against `src/packs`. Two earlier designs were wrong and both looked
-    right: **mtime** fires on every clean tree, because LevelDB rewrites
-    `CURRENT`/`MANIFEST`/`.log` merely because Foundry opened the world — and a
-    guard that always fires just teaches you to reach for `--force`.
-    **Comparing `packs/` to `src/packs` directly** has no DIRECTION: editing YAML
-    then building is the normal workflow and differs exactly as much as a
-    compendium edit does, so it would block ordinary content work.
-  - **The v14 schema fold-in is DONE — do not re-plan it.** The committed YAML
-    was written by Foundry 12, and every extract re-derived the v14 shape
-    (`flags.core.sourceId` → `_stats.compendiumSource`, the
-    `turnMarker`/`hexagonalShape` token fields), which made a ~950-file diff sit
-    permanently in front of every build. It was accepted on 2026-08-04 in
-    `b2eda4a`, classified line by line first: every change schema normalization
-    or an extractor rename, zero Warden content. **This file went on calling it
-    a pending decision for two days afterwards**, which is how it kept getting
-    raised — a stale to-do reads exactly like a live one.
-    **The guard COMPARES MEANING, NOT BYTES (2026-08-13).** It used to hash the
-    extracted YAML text, and Foundry rewrites a compendium document merely by
-    loading the world — decoding HTML entities (`&#39;` → `'`) and filling schema
-    defaults — so the hash moved without a Warden touching anything. It fired on
-    five packs twice in one day with nothing but normalization inside them, and a
-    guard that cries wolf teaches the `--force` reflex that destroys the work.
-    `canonicalDoc` in `tools/packs.mjs` now drops `_stats`/`_key`, drops empty
-    containers, decodes entities on both sides, and sorts keys; `.pack-sync.json`
-    carries `__format`, and a marker written by an older shape is treated as no
-    marker (back up, build, re-stamp) rather than compared. **Bump
-    `MARKER_FORMAT` on any change to `canonicalDoc`** — changing one without the
-    other reports every pack as drifted, which is the very false alarm it exists
-    to end.
-    Verified end to end, and the control is the point: a world session alone
-    builds clean, while a document created in a pack AND a journal page edited in
-    the world make it refuse, naming both packs. Re-run that control if you touch
-    the normalization — decoding entities is exactly the sort of change that
-    could blind it to a real text edit.
-    **WHEN IT CRIES WOLF, THE FIX IS THE DATA (2026-09-14).** `canonicalDoc`
-    drops `_stats`, `_key` and empty values but NOT a schema default, so any
-    probe that updates a pack document IN PLACE — even update-and-revert —
-    leaves Foundry's filled defaults behind and the next build refuses. It
-    happened on `mounts-transports`, twice, from `dev:transports` and
-    `dev:bg-containers` touching Mule and Rivertooth. That pack was the only
-    one of the thirty whose YAML lacked the `prototypeToken` defaults
-    (`monsters`, 205 documents, has carried them since the v14 fold-in), so the
-    defaults were folded into its seventeen actors once. Widening
-    `FOUNDRY_FILLED` is the wrong lever — it is the list of fields the SERVER
-    invents, and every name added to it is a field the guard stops watching.
-    So drift that survives normalization is a REAL write. Classify it rather than
-    assuming churn — and do NOT reach for `extract` when `src/packs` is newer
-    than `packs/`, because extract runs packs → src and reverts your own work
-    (it did, on the live server, 2026-08-13). Extract to a scratch directory and
-    diff instead.
-  - **`extract` RENAMES files to `<Name>_<id>.yml`.** Committed files whose name
-    lacks the id suffix (`marketplace/Market_Armor.yml`) are deleted and rewritten
-    under the new name, so an extract you want to undo needs BOTH halves, in this
-    order: `git checkout -- src/packs` to bring the originals back, THEN
-    `git clean -fd src/packs` to drop the new ones. Doing it the other way round
-    removes the replacement while the original is still gone — 62 table files
-    vanished that way on 2026-08-04, which showed up as `check:refs` reporting
-    **0 of 198 compendium references**. That gate's own message is what caught
-    it: "if content did not shrink, it has stopped looking." Content HAD shrunk.
-    Always finish with `git status src/packs` showing nothing.
-- **`npm run backup` snapshots `packs/` AND both worlds** to
-  `foundry/backups/<stamp>/`, pruned to 24 (`tools/dev/backup.mjs`, `--list`).
-  It skips files it cannot read rather than aborting — Foundry holds an
-  exclusive handle on each pack's zero-byte `LOCK`, and `fs.cpSync` over the
-  tree dies with EPIPE on the first one, which would mean backups only worked
-  while the server was stopped. Run it before anything that writes packs or
+  Foundry has the world open.
+  - **EXTRACT BEFORE YOU BUILD.** Once a Warden edits a compendium in Foundry,
+    `packs/` holds the only copy; build rmSyncs it (5 hours of work lost once).
+    `tools/packs.mjs` refuses a build when `packs/` changed since the last sync.
+  - The guard compares against `.pack-sync.json` using `canonicalDoc` (meaning, not
+    bytes). **Bump `MARKER_FORMAT` on any change to `canonicalDoc`.**
+  - Drift that survives normalization is a REAL write — classify it before
+    `--force`. A probe updating a pack doc in place leaves schema defaults; fix the
+    data, do not widen `FOUNDRY_FILLED`.
+  - **Never `extract` when `src/packs` is newer than `packs/`** — it reverts your
+    work. Extract to a scratch directory and diff.
+  - `extract` renames to `<Name>_<id>.yml`. To undo: `git checkout -- src/packs`
+    THEN `git clean -fd src/packs`. Finish with `git status src/packs` clean.
+  - The v14 schema fold-in is DONE; do not re-plan it.
+- **`npm run backup`** snapshots `packs/` and both worlds to
+  `foundry/backups/<stamp>/` (24 kept). Run it before anything that writes packs or
   world documents.
-- **A negative control must never be a real write.** Proving the `art/` path
-  migration's control was load-bearing by giving it an over-broad prefix rule
-  ran that migration against the dev world and mis-pathed **149 real documents**
-  the same day. Defeat a fix IN-PAGE against planted documents, the way
-  `dev:relic-tab` and `dev:art-picker` do — never by editing the source of
-  something that mutates a world on load.
+- **A negative control must never be a real write.** Defeat a fix IN-PAGE against
+  planted documents, never by editing code that mutates a world on load.
 
 ## Foundry sources, in order of authority
 
-- **The shipped client, `C:\Users\domin\foundry\app\client\**`, outranks
-  everything.** It is the only source that states deprecation and removal
-  versions: `logCompatibilityWarning` calls carry literal `{since, until}`.
-  The web API pages carry NO version boundaries at all, which is how this file
-  once claimed AppV1 dies in v15 (it is v16, `appv1/api/application-v1.mjs:59-63`).
-  Cite file and line the way you would cite a URL.
-- **Docs**: `foundryvtt.com/api/` and `foundryvtt.com/article/`.
-  `foundryvtt.com/releases/` is the only version-aware doc — use it for when a
-  replacement API landed, not for when the old one dies.
-- **`github.com/foundryvtt/foundryvtt` is the ISSUE TRACKER, not source and not
-  documentation** — Foundry is closed-source and that repo holds no code. Cite an
-  issue to establish "this is a known core bug"; never as evidence of how an API
-  is meant to behave. Its `releases/` folder stops at 11.308 — three majors stale.
-- **`github.com/foundryvtt/foundryvtt-cli`** — `@foundryvtt/foundryvtt-cli` is a
-  real devDependency; `tools/packs.mjs` uses its `compilePack`/`extractPack`.
-
-**Target is v14 and nothing older.** No compatibility shims for v13 and below —
-if you find one, deleting it is in scope, not a separate decision.
+- **The shipped client `C:\Users\domin\foundry\app\client\**` outranks everything**;
+  it alone states removal versions (`logCompatibilityWarning {since, until}`). Cite
+  file and line.
+- Docs: `foundryvtt.com/api/`, `foundryvtt.com/article/`; `foundryvtt.com/releases/`
+  for when an API landed.
+- `github.com/foundryvtt/foundryvtt` is the ISSUE TRACKER — cite for known core
+  bugs, never for intended API behaviour.
+- `@foundryvtt/foundryvtt-cli` (`compilePack`/`extractPack`) is a devDependency.
+- **Target is v14 and nothing older.** Deleting a v13 shim is in scope.
+- Measure a field or key before trusting a reviewer's name for it (14.365 has no
+  `_stats.createdBy`; the server stamps the creator as OWNER).
 
 ## Rules encoded — these are the game, not bugs
 
-- Damage minus armor hits HP; overflow spills into STR, then forces a STR save.
-  STR at 0 is death.
+- Damage minus armor hits HP; overflow spills into STR, then forces a STR save. STR
+  0 is death.
 - Armor is hard-capped at 3.
-- Slot inventory: bulky = 2, weightless = 0, times quantity.
-- **EVERY FATIGUE FILLS A SLOT, as Cairn has it. A free first Fatigue was a
-  house rule for ONE DAY (2026-10-02) and is WITHDRAWN** (2026-10-03, user:
-  "remove the rule about making the Fatigue petty if the PC is only carrying
-  one"). For that day `calcSlotsUsed` subtracted one when any Fatigue was
-  carried, the row wore a Petty chip off a derived `system.freeFatigueId`,
-  clearing took a "costed" Fatigue first (`fatigueToClear`), and the Fatigue
-  bargain read a `nextFatigueCost` off it — all four are gone; the − control
-  clears the first Fatigue and the trash can the row it is on. It had been
-  chosen so a forced drop would net to zero; the bargain now asks for a drop
-  only of a character already overburdened, and nets to zero for every Fatigue.
-  Nothing shipped with the free rule, so removing it re-encumbers no released
-  character. Gate: `npm run dev:enc-damage` (9 items + 1 Fatigue is 10 and
-  overburdened; no chip; the pressed row is the row deleted).
-- **RESTING COSTS A RATION, and this one is a HOUSE RULE too (2026-10-03,
-  user ask: "the Rest button should inform the players that they must consume
-  a ration to rest for 10 minutes and recover their hit protection. If they
-  don't have rations on their sheet, they are not allowed to rest").** Every
-  table, PLAYER CHARACTERS ONLY (user ruling, asked: "the ration rule is for
-  every table, not just Crawlers"); an NPC's Rest is untouched. Cairn as
-  written has no ration cost on a rest, so it sits here as a deviation. A Rest
-  restores Hit Protection to its MAXIMUM, always. Five things:
-  - **A ration is a USE, found by `RATIONS_RE`** (`gear.js`), the classifier
-    generation already bands and tags rations with, so a Warden's "Iron
-    Rations" counts and no second notion of "ration" exists. The count is
-    `uses.value + (quantity − 1) × uses.max` summed over matching items; an
-    item with no uses counter, or none left, is not food the system can see
-    (review of the design, accepted: a quantity-only arithmetic would be a
-    second rule for one word). The confirm shows the count, so the state is
-    never a surprise twice.
-    **THE REGEX IS ENGLISH, AND SINCE THE REST IT DECIDES A RULE (review
-    #33).** The shipped Rations item still counts on a Spanish table, because
-    its STORED name is English and the overlay only displays "Raciones" — but
-    a Warden's own "Raciones" never matched and a character holding only it
-    was told they had none. `isRationName` also accepts a stored name equal to
-    the overlay's own translation of "Rations", the one translation this
-    system knows; a Warden's "Comida" still does not, and that limit is stated
-    in the guide. The same week `ranged` was made a field rather than a name
-    match on exactly this ground.
-  - **`CairnItem#spendUse()` is the row's − arithmetic, ONE copy, and it now
-    RETURNS a diff rather than writing it**: decrement; at 0 with a unit to
-    spare, roll over and refill. `#onItemRemoveUse` writes what it returns;
-    the Rest folds it into its own write. (A stack hand-edited to 0 uses with
-    units to spare opens a unit and spends one from it, which the − control
-    never produced and the old arithmetic got wrong by one.)
-  - **ONE WRITE, ONE LEDGER CARD, and that was MEASURED before it was built.**
-    The ledger already logs an item's `uses.value` write as its own whispered
-    card, so "spend, then heal" would be two cards for one press — the exact
-    defect the − control's own comment records being merged away. A parent
-    `actor.update` carrying the ration's diff in `items: [{_id, …}]` fires
-    ONLY `preUpdateActor`/`updateActor` (with `changed.items`) — no
-    `preUpdateItem`, no `updateItem`, no descendant callbacks — and the
-    embedded source still changes. So the Rest is one actor write with the
-    HP change and the ration inside it, `#postChangeLog` reads
-    `changed.items` for the two audited fields (quantity, uses) off a stash
-    `_preUpdate` takes, and the card reads "Rest — Hit Protection 1 → 6,
-    Rations 3 → 2 uses". At full Hit Protection the HP write is a
-    no-op, the write carries the ration alone, and the card still records it
-    under Rest.
-  - **The confirm is `_confirmAction` with extra lines, not a copy**: it owns
-    the `.cairn-confirm` markup a probe reads. No rations → a one-button
-    `DialogV2.prompt`. **AND SINCE LATER THE SAME DAY THE PC CONFIRM CARRIES
-    NO TIP AT ALL** (user, having read the dialog: Cairn's "few moments and a
-    drink of water" paragraph sat above the ration line and said nothing the
-    ration line did not) — `_confirmAction` takes a null `tipKey`, the PC
-    Rest passes it, and the dialog opens on the ration line. `CAIRN.RestTip`
-    (Cairn's own prose) is NOT edited: it still heads the NPC confirm and is
-    the NPC sheet's tooltip, byte for byte. **The PC sheet's tooltip is
-    `RestRationTip` ALONE** — the dialog's ration sentence plus Cairn's
-    bandages sentence (user: "update the tooltip but keep the part about
-    bandages"), one key so a translator gets one string; it was RestTip plus a
-    "House rule:" sentence for a few hours. Cost accepted: a Spanish client's
-    PC tooltip reads English until the key is translated. `dev:rest` holds
-    the PC confirm WITHOUT the prose and the NPC confirm WITH it, which is
-    what proves the omission is PC-scoped; `dev:ui-parity` holds the tooltip.
-  - Gates: `npm run dev:rest` (the whole gesture; for a day it also drove the
-    master's Rest roll, gone with the master), `dev:change-log` (the one-card
-    shape, with a Rations item planted because the refusal prompt's only
-    button is `ok`).
-- **Being encumbered sets HP to 0 outright. So does panic.** Intentional.
-  **Encumbered means NO FREE SLOT** — `actor.js` computes `slotsUsed >=
-  slotsMax`, so a pack filled to exactly its limit counts, and it clears only by
-  dropping or giving something away. **RULED 2026-08-05 and CLOSED: the
-  threshold is not changing, do not raise it again.**
-  **A character may go OVER the limit, but only where the rules owe it to them**
-  — two cases, and the boundary is the whole point:
-  - **What generation and a background grant hand them.** Random gear plus
-    background gear can add up to more than ten items and the character is owed
-    all of it, so they are given everything and land encumbered. The player then
-    decides what to keep, hand to someone else, or abandon. This reads like a
-    generation bug and is reported as one (issue #5); the answer is that the
-    choice is the game. No code enforces this — those paths write with
-    `createEmbeddedDocuments` and never reach the guard.
-  - **Fatigue, always.** Casting fills a slot whether or not one is free, so
-    refusing it does not protect the player, it cancels a cost — and makes
-    casting cheapest exactly when the character is most loaded. `createOwnedItem`
-    takes `{ ignoreCapacity: true }` for this and for accepted gifts (below),
-    nothing else.
-  - **An accepted GIFT (2026-09-06, user ask).** The player-to-player hand-off
-    (`module/item-offer.js`) creates the recipient's half past a full pack —
-    but only after the recipient's own click on a confirm that names the cost
-    (HP 0 until a slot frees). An informed yes is the player deciding what to
-    carry, the same choice the generation case protects; refusing it would
-    cancel a gift, not protect anyone. The OFFER flow is also what a drop on
-    an unowned character sheet becomes — before this, that drop silently died
-    on core's owner wall.
-    **WIDENED 2026-09-10 (user ask) past character-to-character: a PC may now
-    offer to anything they can SEE** — a Limited innkeeper, a crate, a mule, a
-    companion. **Expressed as NO ROLE LIST**, deliberately (`canReceiveOffer`):
-    the three walls that decide who really can are already generic — the picker
-    shows only what this user can see, the card offers Accept only to an OWNER
-    or the Warden, and delivery runs on a client that owns the target — and a
-    role predicate that quietly grows is this codebase's thrice-repeated bug.
-    That is also the entire answer for MONSTERS: ownership NONE keeps them out
-    of a player's picker, and a Warden who wants one offerable raises it to
-    Limited. The probe's control is two-sided (raise it, it appears; drop it, it
-    goes), which is the only thing that tells this design apart from a hardcoded
-    monster exclusion. Two exclusions are about the DOCUMENT, not the role:
-    `.pack` (an index entry has no permission API) and **`.isToken`** — a
-    synthetic actor's uuid resolves only while its token exists, and the card is
-    a permanent message rebuilt per viewer FROM that uuid, so a token deleted
-    after the fight turns every past card into "? offers ? to ?".
-    **AND THE OVERFLOW RULE DOES NOT TRAVEL WITH IT.** `capacityVerdict`
-    (`module/gear.js`, one test now where three spellings used to live) returns
-    `overburden` only for a PERSON; a thing, a companion or a monster gets
-    `full`, which NOBODY may buy on EITHER route. "Overflow is owed" is a rule
-    about a person being handed what the rules give them — a crate has no Hit
-    Protection to pay the cost with, so there is nothing to consent to. It is
-    also the only answer that stops an offer disagreeing with the drop
-    handler's own `ContainerFull`, which it did: `deliverItem` passed
-    `ignoreCapacity: true` unconditionally and would have ended a 2-slot crate
-    at 4/2 while the identical drag was refused.
-    Three more things worth the lines. **`_canDragDrop` was a THIRD gate nobody
-    had counted** (`actor-sheet.js`): while it read `type === "character"`,
-    drag-drop never BOUND on an unowned npc or container sheet, so `_onDropItem`
-    was never reached and the type test inside `offerFromDrop` was dead code for
-    exactly the targets this change was about. **The card's waiting line is
-    DERIVED, never stored** — "waiting for {target}'s player" is false when
-    nobody owns the target, and a stored "the Warden answers this" marker would
-    be review #24's class exactly, since the flag is written by the giver's own
-    client; live `Actor#ownership` is server-walled and is read instead. And
-    **giving to something you already own settles in ONE click**
-    (`settleOwnOffer`), through the ordinary accept rather than a second
-    transfer path, because waiting for yourself to press Accept is theatre and
-    the Connections UI is parked.
-    **AND THE GIVER SIDE REVERSED ON 2026-09-10** (user ask: "whoever owns the
-    NPC should be able to open it and give items without having to drag"). This
-    section stated the opposite asymmetry in as many words — "giving FROM an NPC
-    is the Warden's own drag and needs no card" — and that is now history.
-    `canGive` and `canOfferItem` both swap `type === "character"` for `isOwner`,
-    and NOTHING ELSE CHANGES, because `templates/parts/items-list.html` is one
-    partial every role's sheet renders: the button appears on npc, monster,
-    container, transport and companion sheets the moment the gate says yes, and
-    the picker, the card, the capacity verdict and delivery are untouched. A
-    player who owns a hireling or a connected mule gets it too, which is the ask
-    read literally.
-    **THE ONE-CLICK SHORTCUT HAD TO TIGHTEN IN THE SAME BREATH, and this is the
-    trap worth remembering: a shortcut written for a player is not safe the day
-    a GM inherits it.** `settleOwnOffer` fired on `target.isOwner`, which was
-    exactly right while only a character could give — a player owning both ends
-    really was the only person with a say. A GM owns EVERY actor, so the moment
-    the Warden could give, that same line delivered straight into a player's
-    pack with no card and no confirm, past the very over-burden dialog that
-    exists to make them consent to Hit Protection 0. The user ruled the player
-    answers. The trigger is now `ownersOf(target).some(u => u !== game.user)` —
-    "nobody ELSE could answer" — so a player stowing a rope in their own crate
-    is still one click and the Warden handing one to Alice's character is not.
-    Probe-covered with a control that lands the item early.
-    **AND `ownersOf` HAD TO WIDEN, because it answered that question with the
-    wrong test (2026-09-12, review #28).** It asked `testUserPermission` AND
-    an explicit `ownership[userId] >= OWNER` entry — "explicitly own" — which
-    silently excluded ownership granted through `ownership.default`, the first
-    row of core's own ownership dialog and the quickest way a Warden shares a
-    party mule or hireling with the whole table. `getUserLevel` folds
-    `default` (document.mjs:389) while the raw map never materialises per-user
-    entries (fields.mjs), so the two disagreed; it is also the shape
-    `toCompendium` leaves behind, since it strips per-user keys and keeps
-    `default`. For exactly those actors the helper answered "nobody", and
-    `settleOwnOffer` then found nobody else to wait for and delivered with no
-    card and no confirm — the very bypass the ruling above exists to prevent,
-    arriving by a second route. It is `answerersFor` now, ONE notion behind
-    the gate, the waiting line and the picker's label, because two spellings
-    of one test is this file's own thrice-repeated bug. Consequence accepted:
-    a `default: OWNER` actor's picker row names every player instead of
-    reading "Warden only", which is what is true. The probe's control is the
-    old predicate, and it reproduces the delivery live.
-    **An unlinked token CAN give**, deliberately: monsters are unlinked by
-    ruling, so "open the dead goblin and hand the sword to Alice" is the
-    commonest case there is, and excluding token actors the way they are
-    excluded as TARGETS would make the feature miss its main use. The reason
-    for that exclusion still stands — a synthetic actor's uuid resolves only
-    while its token exists and the card is permanent — so a card whose GIVER no
-    longer resolves reads `CAIRN.Offer.HiddenGiver` ("Someone"): its OWN key
-    since review #27, not the hidden target's `HiddenTarget` ("someone") it
-    reused for a day, because this word opens the sentence and that one sits
-    in the middle of it, and one string id cannot be capitalised in one slot
-    and not the other in any language. Deliberately NOT
-    `message.speaker.alias`, which would be friendlier and is a stored name
-    written by the giver's own client: review #24's class exactly.
-    **THE PICKER'S CHECK FOLLOWS ITS FILTER (review #27).** Row one is
-    pre-checked so the radio group is never indeterminate, and the search box
-    hid rows by class and never moved the check — so typing "Car" showed only
-    Carol's row while Offer, which reads the checked radio and nothing else,
-    sent the item to Alice. The checked radio is now a VISIBLE one or none,
-    Offer is disabled when none is, and Enter in the field is guarded the way
-    the marketplace's and the art picker's already were: every DialogV2 button
-    is `type="submit"` and implicit submission fires the FIRST one.
-
-  **Ordinary acquisition still refuses**, and that is deliberate, not a gap: a
-  drop onto a full character (`_onDropItem`), the manual Create Item dialog, and
-  **the marketplace** all turn it away. Overflow is owed, never merely allowed.
-  The shop was the last holdout — it created the item and warned afterwards,
-  which made buying the one way a player could walk past their own limit — and
-  was closed the same day (2026-08-05, user ruling). It greys the rows it will
-  refuse AND refuses in `acquire`: **the greying is the affordance, the refusal
-  is the enforcement**, because a dialog left open while the pack filled must
-  not be a way through. Two carve-outs, both because they cost the buyer no
-  slot: **petty** items, and **transports** — a transport is a connected Actor,
-  and buying a mule is how you FIX being full, so refusing it at the till would
-  be perverse.
-  Two things this cost, worth not repeating. Add Fatigue refused in **two**
-  places — its own guard and `createOwnedItem`'s behind it — so removing either
-  alone changed nothing a user could see while looking like a landed fix; that is
-  why `dev:enc-damage` clicks the real button rather than calling either layer.
-  And `_onDropItem` carried a comment stating the opposite of the line beneath it
-  for months. **A correct-sounding comment on contradicting code reads as
-  verification**, which is how the disagreement survived two reviews.
-- **Coins consume slots** (2e p.9): `ceil(gold/N) - 1` where N is the
-  "coins per slot" setting. ONE rule for every actor type.
-- **Dice notation overloads `+`.** `2d8` = add (2..16). `d8 + d8` = keep highest
-  (1..8). `2d20 + 10` = arithmetic. The keep-highest rewrite applies only when
-  every `+`-separated term is a bare die.
+- Slot inventory: bulky = 2, weightless = 0, times quantity (`itemSlotCost`, one copy
+  shared with `calcSlotsUsed`).
+- **Every Fatigue fills a slot.** Do not rebuild the free-first-Fatigue rule
+  (`freeFatigueId`, `fatigueToClear`, `nextFatigueCost`). Gate `dev:enc-damage`.
+- **Resting costs a ration — a HOUSE RULE, every table, PCs only.** Rest restores HP
+  to MAX. Rations found by `RATIONS_RE` / `isRationName` (also accepts the overlay's
+  translation of "Rations"), counted by uses. `CairnItem#spendUse()` returns a diff;
+  the Rest is ONE actor write (HP + `items: [...]`) so ONE ledger card. No rations →
+  a one-button prompt. PC confirm has no tip; PC tooltip is `RestRationTip`;
+  `CAIRN.RestTip` stays for NPCs. Gates `dev:rest`, `dev:change-log`.
+- **Encumbered = no free slot** (`slotsUsed >= slotsMax`) → HP 0. So does panic.
+  **CLOSED: the threshold is not changing.**
+- **Overflow is owed, never merely allowed.** A character may exceed the limit only
+  for: generation and background grants; Fatigue (`ignoreCapacity: true`); an
+  accepted gift after the recipient's informed confirm. A thing/companion/monster
+  never overflows. Ordinary acquisition refuses (drop, Create Item, marketplace —
+  greying is the affordance, `acquire` refusal is the enforcement). Marketplace
+  carve-outs: petty items and transports.
+- **Coins consume slots** (2e p.9): `ceil(gold/N) - 1`, N = coins-per-slot setting.
+  One rule for every actor type.
+- **Dice notation overloads `+`.** `2d8` = add. `d8 + d8` = keep highest.
+  `2d20 + 10` = arithmetic. Keep-highest only when every term is a bare die.
+- **A correct-sounding comment on contradicting code reads as verification.** Fix
+  the comment with the code.
 
 ## Where intent is recorded
 
-Commit messages. They are long and they explain *why* — treat `git log` as the
-design record. `docs/` holds the durable plans (i18n, custom backgrounds,
-translating). `README.md` carries credits and licensing.
+Commit messages — long, explaining *why*; treat `git log` as the design record.
+`docs/` holds durable plans; `README.md` carries credits and licensing.
 
-**`docs/*.md` is CANONICAL for documentation — edit there, never in a journal
-(user ruling 2026-08-10).** The Warden-facing guides mirror into the "System
-Docs" journal pack (`journals-docs`), generated by
-`tools/import/system-docs.mjs` from the markdown: after editing a mirrored
-guide, rerun that importer and rebuild packs, or the two copies drift and the
-in-game one — the one a Warden actually reads — is the stale one. The
-importer's ROSTER names which docs mirror; contributor documents (plans,
-design-of-record files, release-testing, theming, i18n process) stay
-repo-side on purpose.
+- **`docs/*.md` is canonical for documentation — never edit a journal.** Guides
+  mirror into `journals-docs` via `tools/import/system-docs.mjs` (ROSTER names which);
+  after editing a mirrored guide, rerun the importer and rebuild packs. Hints that
+  name a journal by title break if it is renamed.
+- **Journals are translatable only if player-facing**: `journals-2e`,
+  `journals-glog`; not `journals-docs`. List: `TRANSLATABLE_JOURNAL_PACKS` in
+  `tools/i18n/content-strings.mjs` (a new journal pack must be added). Split at
+  paragraph level; blocks with `@UUID` are not translatable; `BLOCK_TAGS` and
+  `JOURNAL_BLOCKS` must stay identical. Gate `dev:journal-i18n`.
+- Interface keys with markup (`<strong>`) are set with `innerHTML`; `dev:dialogs`
+  asserts the element.
 
-**Journals are TRANSLATABLE, but only the player-facing ones** (user ruling
-2026-08-14). `journals-2e` and `journals-glog` reach the content overlay;
-`journals-docs` deliberately does not, because its pages are REGENERATED from
-`docs/*.md` by the importer above — a translation keyed to that English would
-be orphaned by the routine step this very section tells you to take, which is
-worse than offering none. The list is `TRANSLATABLE_JOURNAL_PACKS` in
-`tools/i18n/content-strings.mjs`; a new journal pack must be added there or it
-silently reaches no translator. Split at PARAGRAPH level, not page level: a
-page is one `text.content` string of up to 14,000 characters, so a page-level
-key would hand a translator a rulebook page in one spreadsheet cell and orphan
-all of it on any English edit. Two consequences worth knowing before you touch
-journal prose — **a block containing an `@UUID` link is NOT translatable at
-all** (Foundry enriches it into `<a class="content-link">` before it reaches
-the DOM, so its key can never match; the extractor skips it rather than
-promising a row that cannot land), and **`BLOCK_TAGS` in the extractor and
-`JOURNAL_BLOCKS` in `module/cairn.js` must stay identical** — a tag in one and
-not the other is a key nothing ever asks for. `npm run dev:journal-i18n` is
-what holds all of this honest: it imports the real extractor from Node, renders
-the real journals in Chromium, and asserts the two agree key for key.
+## Licensing
 
-## Licensing — seven regimes, and the traps
+**The inventory lives in `README.md` (canonical) and `LICENSE.txt`; `check:licence`
+holds them in step.** Do not copy the list here.
 
-**The inventory lives in `README.md` (canonical) and `LICENSE.txt`, and
-`check:licence` holds them in step.** It is not repeated here any more. This section
-used to carry a third copy under the heading "Four licences, not one", listing five
-regimes while six shipped — the OFL fonts were missing, and their clause 2 requires
-the notice travel with every copy. Nothing checked it, because the gate compares the
-two files that matter and had no reason to know about a list in the working notes.
-**A third copy of a list is a third thing to drift**; if something here needs a
-regime named, name the file that holds it.
+- **Cairn's game text is ALWAYS CC BY-SA 4.0, wherever it sits (CLOSED).** The Code
+  clause's path list says where this project's own code lives; it does not relicense
+  Cairn text inside it. No per-file exception lists; do not raise "file X under a
+  code path holds game text".
+- **The Air Bladder logo is NOT Creative Commons** — all rights reserved, Lydia
+  Comer, bespoke grant. Not the manifest cover (`media` absent on purpose).
+- **Lydia Comer's galleries are CC BY-NC-SA 4.0.** She writes
+  `art/lydia-comer/license.txt` — amend it BEFORE code that depends on it, never to
+  match code. NC means the system cannot be sold while her galleries ship.
+  `CREDITS.md` and `module/lydia-manifest.json` are GENERATED by
+  `tools/import/lydia-comer.mjs`. Do not state counts in prose
+  (`LYDIA_COUNT_SITES` gates the ones that exist). Format/size only, never
+  cropping — house practice.
+- **Moving art needs a migration** — image paths are copied onto documents.
+  `migrateArtPaths` rewrites by prefix; `LYDIA_MOVED_MONSTERS` pins by filename.
+  `dev` mirrors publicly, so "it never shipped" is only true of tags. `icons/` stays
+  put.
+- `icons/CREDITS.md` stays in step with `ICONS` in `tools/import/icons.mjs`; run the
+  importer, never hand-add an SVG.
+- **Character portraits are confirmed human-made** — keep the credit.
+- **`lang/` is split by provenance**: inherited interface files MIT; Malecho's
+  `lang/es.json` and `lang/content/es.json` CC BY-SA. **Those files are Malecho's —
+  never edit them.** Placeholder parity is gated by `i18n:check`. Drift baselines
+  are advanced by hand, never `--force`.
 
-What belongs here is what those two files do not say:
+## No generated text a player or a Warden reads (ABSOLUTE)
 
-- **CAIRN'S GAME TEXT IS ALWAYS CC BY-SA 4.0, WHEREVER IT SITS — user ruling,
-  2026-09-12, and it CLOSES this question.** The Code clause's path list
-  (`module/ templates/ css/ tools/ lang/ …` "and only these") says where this
-  project's own code and writing live; it is not a container that changes what
-  is inside it. Cairn's words in a file under one of those paths are CC BY-SA,
-  the MIT grant cannot reach them, and no carve-out has to be written for them
-  first. **Do not re-derive this, do not propose a per-file exception list, and
-  do not raise "file X under a code path holds game text" as a finding** — the
-  documents already answer it in general.
-  It took two rounds to learn that. Review #27 found
-  `module/npc-careers-2e.json` (the SRD's twelve example hirelings, read by the
-  hireling generator at runtime) and answered it by carving out that one file;
-  review #28 found the same question one directory over — five rules tooltips
-  in `lang/en.json` whose wording is 2e's own, byte-identical to the Player's
-  Guide journal this repo ships and itself declares CC BY-SA. **A list of
-  carve-outs loses to the next file; a rule about the text does not.** Both are
-  still NAMED in both clauses and both READMEs, but as homes worth finding
-  rather than as the exceptions that make the licensing true.
-  `check:licence` pins the rule's sentence at four sites (LICENSE.txt twice,
-  both READMEs) — what regresses is not text being added, which the rule covers
-  by construction, but somebody tidying the sentence away while the path list
-  stays, which is the shape LICENSE.txt was already found in once. Its control
-  is narrowing the wording back to "under `module/`". `site/index.html` is
-  deliberately NOT pinned: its Code entry claims no paths, so it cannot
-  contradict this. The importer's own path stays OUT of LICENSE.txt —
-  `check:licence`'s check 3 treats every path there as a pointer that must
-  ship, and `tools/` does not.
-- **The Air Bladder logo is NOT Creative Commons.** All rights reserved, Lydia Comer,
-  by bespoke grant. Do not treat it as CC, and do not reach for it as the manifest's
-  cover image — that is the reason `media` is deliberately absent from `system.json`.
-  **Her GALLERIES are a different regime: CC BY-NC-SA 4.0 since 2026-09-07**,
-  the artist's own relicence of everything non-logo, so one folder holds two
-  regimes and `art/lydia-comer/license.txt` states both — SHE writes that
-  file, and it changed FIRST, before any code (the standing order of
-  operations). Her word has moved three times and the latest governs:
-  2026-09-05 CC BY for a few hours, BY-SA the same evening, then NC added
-  2026-09-07 with ShareAlike kept on her explicit say. Copies taken in each
-  window keep that window's licence, irrevocably — the BY/BY-SA exposure was
-  dev-mirror-only, since NO TAG has ever shipped the galleries under CC (the
-  17 monsters shipped in releases under the old bespoke grant); the first
-  release carrying CC Lydia art ships BY-NC-SA. NC consequence, eyes open:
-  the system as a WHOLE cannot be sold or go premium while her galleries
-  ship in it (aggregation stays fine — each work keeps its own licence; a
-  BY-NC-SA work cannot be REMIXED with BY-SA material at all, the SA
-  clauses conflict). `art/lydia-comer/CREDITS.md` and
-  `module/lydia-manifest.json` are GENERATED — the licence lines live in
-  `tools/import/lydia-comer.mjs`, and a hand edit to either output is
-  reverted by the next no-src rerun. TWO SETS: her
-  MONSTERS under `art/lydia-comer/portraits-monsters|tokens-monsters/`
-  (offered on Monster sheets; they lived in the plain folders from 2026-08-04
-  until the character batch arrived) and her CHARACTERS under
-  `art/lydia-comer/portraits|tokens/` (femme and non-binary faces, offered on
-  PC, NPC and Hireling sheets — picker-only, user ruling: generation pools
-  unchanged). Both are growing sets, so do not state a count here; the
-  `LYDIA_COUNT_SITES` regexes in `tools/dev/licence-check.mjs` name every
-  prose site that DOES state the two counts, and gate them.
-  They ship as WebP q95, tokens sized for the canvas (400×400, user ruling
-  2026-08-04 — a map token draws at ~100px; portraits keep the artist's full
-  1000×1000 because they are sheet art). **The grant went through two versions
-  in one day (2026-08-04), then the CC relicence superseded both for the
-  galleries** — the first extended "may not be modified" just far enough to
-  permit format conversion, the second bounded USE instead, and the logo alone
-  still sits under that use-bounded grant. So `tools/import/lydia-comer.mjs`
-  touching only the format and the token size — never cropping, recolouring or
-  redrawing — is HOUSE PRACTICE, not a licence term. Keep it; just do not cite
-  the licence as the reason.
-  **The licence text is the artist's to write, not this project's** — she is
-  reachable and she rewrites it herself, so amend `art/lydia-comer/license.txt`
-  BEFORE any code that depends on what it says, and never edit it to match code
-  that already shipped.
-  The 17-monster move out of the plain folders is `LYDIA_MOVED_MONSTERS` in
-  `cairn.js`, generation 2 of the art migration, and its rules are pinned to
-  the 17 FILENAMES — never the folder prefix, because the vacated folders
-  refilled with character art in the same change and a player can pick a
-  character portrait before the first post-update GM load runs the sweep.
-- **All four picker galleries live under `art/`** (moved 2026-08-04):
-  `art/jon-aspeheim/portraits|tokens/` (was the split `character_portraits/` +
-  `character_tokens/`), `art/lydia-comer/`, `art/tlomdev/`, `art/game-icons/`.
-  **`icons/` did NOT move** — it is class art stamped onto documents, not a
-  gallery anyone browses. **Moving art is never cosmetic**: an image path is
-  COPIED onto a document at creation and never re-read from the system, so every
-  existing world points at the old location. `migrateArtPaths` in `cairn.js`
-  rewrites by PREFIX, which is what carries hand-picked art across too. It was
-  written without the `lydia-comer/` prefix on the reasoning that the gallery had
-  never shipped in a release — `dev:smoke` then found a dev-world token still on
-  it. **`dev` mirrors to GitHub in seconds so people can test unreleased code, so
-  "it never shipped" is only ever true of tags.**
-- **`icons/CREDITS.md` must stay in step with the `ICONS` table in
-  `tools/import/icons.mjs`** — add a row to one, add a row to the other. Hand-adding
-  an SVG instead of running the importer is how `stack.svg` shipped with no intrinsic
-  size, rasterising at 150×150.
-- **The character portraits are confirmed human-made** (no AI). That is what makes the
-  system eligible under Foundry's content policy, so keep the credit if the art ships.
-- **`lang/` is split between two regimes by PROVENANCE, not by content** (settled
-  2026-07-30): the five inherited interface files travel under upstream's MIT, while
-  Malecho's `lang/es.json` and `lang/content/es.json` are CC BY-SA as derivatives of
-  the game text. So two files of the same kind sit under different licences on
-  purpose. `check:licence` now also asserts every directory the release zip ships is
-  named by some clause — `lang/` had been named by none, which the "these and only
-  these" wording makes an exclusion rather than an oversight.
-
-## No generated text a player or a Warden reads (user ruling 2026-09-23)
-
-**The art rule now has a text twin, and it is absolute.** `README.md` has always
-said generative-AI art will never appear here; the same is now true of
-**player- and Warden-facing TEXT**. Table rows, flavour prose, anything a die
-deals to somebody at the table — none of it is model-written. It is Cairn's,
-somebody else's under a licence that permits it, or the maintainer's own.
-
-This is not the same statement as "the code is written with AI assistance",
-which `README.md` and `docs/provenance.md` both say plainly and which stands.
-The line is what a PLAYER or a WARDEN reads as the game: content, not
-machinery. Interface strings and the `docs/` guides sit on the machinery side
-of it and always have — provenance bucket 4 already records them — but **content
-is content whichever file it lives in**, so a table row does not become
-acceptable by being written into `lang/en.json` or a `tools/` importer instead
-of a pack.
-
-**What it cost when it was nearly missed.** A "Stranger" generator built that
-day — a person rolled off a real 2e background rather than the Warden's Guide
-d20 word — was designed with two new tables beside it, twenty quirks and twenty
-motivations, to be written for this project. Forty sentences were drafted (in
-chat, never to disk) and REJECTED on this ruling. The answer was not to write
-better ones: it was that Cairn already ships the table, `Warden: NPC - Quirk`
-and `Warden: NPC - Goal` off the Warden's Guide, and a stranger rolls those like
-every other person. The feature got smaller, the gate count did not move, and
-`check:warden` still reports 560 rows across 37 tables. **Reach for the
-official table before reaching for a new one** — and if there is genuinely no
-table, that is a conversation, not a drafting exercise.
-
-**The generator itself was rolled back on 2026-10-01, by user ask, and the
-RULING is not** — which is why this section outlives the feature that
-occasioned it. Nothing of that work is in the tree; the record of what it was
-and why it is gone sits in the memory note for the cairn-table review. Do not
-rebuild it on the strength of this paragraph.
-
-A second trap the same afternoon, worth the line because it nearly shipped: the
-first draft of those forty was, on inspection, the upstream author's own forty
-reworded — the same forty situations in other words. That is a derivative of
-his CC BY-SA text with the attribution stripped, and it would have passed every
-gate here. **Rewording somebody's list is copying it.**
+No model-written table rows, flavour prose, or anything a die deals at the table —
+in any file, `lang/` and `tools/` included. It is Cairn's, licensed from someone
+else, or the maintainer's own. AI-assisted code is a separate, stated fact.
+**Reach for the official Cairn table first**; if none exists, that is a
+conversation, not a drafting exercise. **Rewording someone's list is copying it.**
+The Stranger/Oddments generator was rolled back — do not rebuild it.
 
 ## Testing
 
-**`docs/release-testing.md` is the full list — what each probe covers, and what to
-run before tagging vs after publishing. Keep it in step with `package.json`; a
-probe not listed there runs only when someone remembers it.** For the COUNT run
-`npm run check:probes`, which computes it. A figure used to sit in this
-sentence; it said 106 against a real 109 (review #26), the fourth number in this
-file to drift, and the parenthetical naming the gate as the authority did not
-save it — a number in prose is a copy whether or not it apologises for itself.
+**`docs/release-testing.md` is the full list** — keep it in step with
+`package.json`. For the probe count run `npm run check:probes`.
 
-- **THE RELEASE ARTIFACT AND THE UPDATE GESTURE ARE NOW GATED (2026-09-19),
-  after a report that turned out to be PROTON DRIVE and not this system.** A
-  user's "Update All" in Game Systems broke their install and left quarantined
-  copies behind: `Invalid system "air-bladder" detected in directory
-  "air-bladder (# Name clash 2026-09-13 w5v86oC #)"`, twice, on the two days
-  they updated. That sentence is Foundry's own — `Package.fromManifestPath`
-  compares `path.basename(path.dirname(...))` against the manifest `id` and
-  REFUSES the package when they differ — so **an install directory's name is
-  identity, not decoration**, and a quarantined sibling is a second copy that
-  errors on every boot.
-  **What was measured, and what it rules out.** The published 0.1.23 zip is
-  clean on every axis: files at the root, `system.json` at the root, 29 pack
-  directories matching the 29 declared, no case collisions, no
-  Windows-illegal or reserved names, no trailing dots, no symlinks, nothing
-  read-only, longest extracted path 125 of 260 characters. Both manifest URLs
-  serve 0.1.23. The `id` has been `air-bladder` under the `id` key at every
-  tag from 0.1.0 to 0.1.23. **And the phrase "Name clash" appears NOWHERE in
-  Foundry 14.365** — not the server bundle, the client bundle, `public/lang/`,
-  or its `node_modules` (the only "clash" is Acorn's "Argument name clash") —
-  so the build this repo pins CANNOT have written that directory.
-  **CAUSE FOUND, AND IT IS PROTON DRIVE.** `(# Name clash YYYY-MM-DD
-  <random> #)` is the **Proton Drive Windows client's** conflict-rename
-  convention, documented by Proton and common enough that a
-  `protondrive-nameclash-cleaner` script exists for it. The reporter was
-  syncing their Foundry data folder with **Proton Drive AND OneDrive at the
-  same time**. Foundry's updater deletes the whole system directory and writes
-  a new one (`dist/packages/installer.mjs`, `fs.promises.rm(target, {force:
-  true, recursive: true})`, no `maxRetries`), which for this system is 3,233
-  files removed and 3,233 written in one burst; a sync client racing that
-  restores what it thinks was deleted, two folders then want one name, and
-  Proton renames the loser. Foundry's own troubleshooting page already says
-  Dropbox/Google Drive/OneDrive are not compatible with a live data folder.
-  **Nothing in this repo is at fault and no code fix is owed** — the remedy is
-  the reporter's: stop syncing the live `Data` folder, sync a backup ARCHIVE
-  instead, and delete the name-clash directories. Being large makes this
-  system hit it sooner than a small package, which is why it surfaced here.
-  **Verified on the build users actually run: `dev:upgrade` is GREEN on
-  14.368** (a second app install at `foundry/app-14368`, updated in place
-  through Foundry's own Update Software; `foundry/app` stays 14.365 for the
-  dev server and `foundry/app-14.365` is a frozen reference copy). So the
-  14.366 installer rewrite is NOT implicated either. (This sentence said the
-  update check "now reads the website package repository, where this system is
-  not listed"; the system has been listed since 2026-10-01, and review #33
-  measured the check in 14.368: it reads the INSTALLED copy's own manifest URL
-  and consults the index only when it lists something newer than both the
-  installed and the remote copy. The listing is for people browsing; every
-  install sees a release the moment the GitHub release exists.)
-  Two gates came out of it, and neither reproduces the report:
-  - `npm run check:package` — the artifact's shape, offline, over the files
-    the workflow zips AND again over the finished archive in CI. It reads the
-    shipped list out of `main.yml`'s own `zip -r` line rather than keeping a
-    copy. 16-case negative control in `--self-test`, **in two halves on
-    purpose**: the path checks run over a SYNTHETIC entry list because a case
-    collision cannot be planted on Windows or macOS, which is the whole reason
-    that check exists, and read-only and symlink need privileges a gate must
-    not assume. The first draft planted them in a real tree and reported "a
-    case collision fails" as PASSING on a filesystem that had silently
-    overwritten one file with the other.
-  - `npm run dev:upgrade` — installs the previous release and then presses
-    UPDATE, which every release leg here had skipped by installing fresh into
-    an empty folder. **It refuses port 30000 outright**: that server's
-    `systems/air-bladder` is a SYMLINK to this working tree, and an installer
-    run there would hand the repository to `rm -rf`. Control: plant an
-    `air-bladder (# Name clash … #)` directory and it reds, naming it. One
-    thing it does NOT prove, measured rather than assumed: `packageWarnings`
-    comes from the server's BOOT scan, so a quarantine created during the leg
-    reds on disk and never appears there.
-- `npm run dev:smoke` — headless Chromium against the local dev world on :30000,
-  which loads this working tree via a directory junction. Asserts the system
-  loads, SHIPPED packs are non-empty (world packs are excluded — one of them is
-  legitimately empty), a sheet renders, zero console errors.
-- Offline, no Foundry: `check:refs`, `check:fields`, `check:traits`, `i18n:check`.
-- **`system.json` `documentTypes.<Doc>.<subtype>.htmlFields` is a SECURITY control,
-  not metadata.** The Foundry server never loads `module/data-models.js`, so an
-  `HTMLField` missing from the manifest is never sanitized and a player can XSS the
-  GM through their own character's notes. `check:fields` cross-checks the two, and
-  `npm run dev:sanitize` proves it takes effect — the server reads `system.json`
-  only at STARTUP, so an un-restarted edit looks exactly like no edit.
-- **`check:fields` also holds shipped pack PROVENANCE clean, and it checks all
-  three fields together on purpose.** `toCompendium`'s `clearSource` clears
-  `_stats.compendiumSource`, `duplicateSource` AND `exportSource` in one go
-  (`client-document.mjs:1117`) under a docstring reading "Remove any features of
-  the data which are world-specific" — but `compilePack` builds straight from
-  YAML and never runs it, so the YAML has to be clean itself. The gate originally
-  checked only `compendiumSource`, and a spellbook consequently shipped for
-  months stamped `exportSource: {worldId: cairn, coreVersion: 0.7.5}` — someone
-  else's world, on a Foundry six majors dead, and the last `coreVersion` in this
-  repo's content that was not 14.365 (fixed 2026-08-06). **Checking one member of
-  a set the framework clears atomically is how the other members ship.**
-  The gate covers **`ownership`** for the same reason: `clearOwnership` strips it
-  in the same breath, and 586 documents shipped a per-user key naming a User id
-  from the fork-era worlds they were authored in (stripped 2026-08-06; only
-  `default` is allowed now). **"Unreadable" was briefly argued as a reason to
-  LEAVE them, and that is backwards.** They are unreadable —
-  `getUserLevel` short-circuits on `if (this.pack)` before ownership is
-  consulted (`common/abstract/document.mjs:388`, docstring: "Compendium content
-  ignores the ownership field in favor of User role-based ownership"), and
-  `fromCompendium` clears it again on the way out. That makes removing them a
-  zero-behaviour edit, which is what makes it SAFE — not what makes it
-  unnecessary. Data nothing will ever surface is data nothing will ever correct.
-- **Three rules paid for the hard way.** A new test must be confirmed to FAIL with
-  its fix removed. A test's precondition must not be satisfiable by stale world
-  state — several assertions here once passed by reading an actor a previous
-  aborted run had left behind. And a probe that fails once then passes on re-run is
-  a **race, not a flake**; do not re-run and call it green.
-  **A fourth, and it is the second rule wearing a different face: SELECT A
-  PLANTED DOCUMENT BY ID DIFFERENCE, NEVER BY NAME.** `dev:directory-buttons`
-  read its mount clone with `getName("Heavy Destrier")`, and the 2026-09-12
-  sweep found a leftover of that name in the world: the leg read ITS statblock
-  (identical — same pack document), reported its missing `compendiumSource` as
-  the product's, deleted it, and left the clone it had just minted for the
-  next run to trip on. One red in 112, and the probe was wrong, not the code.
-  Snapshot the ids before the click; find the one that is new.
-  **A FIFTH (2026-10-03): A PROBE KILLED FROM OUTSIDE LEAVES ITS BROWSER, AND
-  A PARKED WARDEN SESSION LOOKS LIKE TWO DIFFERENT DEFECTS.** `dev:enc-damage`
-  was diagnosed for a day as "over its 420s watchdog" (a chat sweep of 3,974
-  messages did nothing) and then as doubling every status card. Both were six
-  `chrome-headless-shell` processes from a probe stopped with TaskStop at
-  05:07, each holding a live Warden session: the brokers and `_onUpdate`
-  cards act once per SESSION, and three extra Foundry clients halved the
-  server's speed. With them killed the same probe passed 163/163 in 280s
-  against its 420s budget. The `lib.mjs` watchdog closes browsers when IT
-  fires; a kill from outside is invisible to it. **When a probe times out or
-  a write lands twice, `Get-Process chrome-headless-shell` before reading a
-  line of code**; orphans older than the run are parked sessions.
-  **A SIXTH (2026-10-04): A PROBE'S CLEANUP MUST RUN FROM ITS CATCH, AND A
-  LEG READS ITS OWN DROP BY ID DIFFERENCE.** `dev:combat-options`'s cleanup
-  sat inline at the end of its `try`, so the red-first run of review #33's
-  legs — the OLD build's takeover deleted Alice's character mid-section and
-  her `unsetFlag` threw — skipped it and left the pile behind with eleven
-  fixtures in it. The green run found that pile at its start, dropped into
-  it, and read the FIRST "ZZ Tome" by name: five legs red ("holds 14 items",
-  a second rope, an unlinked pile, "last week", three torches) with the code
-  right, and only the 14 gave it away. The cleanup is a function the catch
-  calls too (`window.__coOut` carries the fixture ids out of a GM section
-  that threw), every fixture is stamped `probeFixture` so a crashed run's
-  are swept by flag, and each pile leg snapshots the pile's ids before its
-  drop and reads only what arrived. The fourth rule from the other side: the
-  stale document was not a leftover wearing the fixture's name, it was the
-  fixture's own destination.
+- `npm run dev:smoke` — headless Chromium against the dev world; packs non-empty,
+  a sheet renders, zero console errors.
+- Offline: `check:refs`, `check:fields`, `check:traits`, `i18n:check`,
+  `check:package` (artifact shape, with `--self-test`).
+- `npm run dev:upgrade` installs the previous release and presses Update; it
+  refuses port 30000 (that install is a symlink to this tree).
+- **`system.json` `htmlFields` is a SECURITY control** — an `HTMLField` missing
+  there is never sanitized. `check:fields` cross-checks; `dev:sanitize` proves it;
+  the server reads `system.json` only at startup.
+- `check:fields` holds pack provenance clean: `_stats.compendiumSource`,
+  `duplicateSource`, `exportSource` together, and `ownership` only `default`.
+  Check every member of a set the framework clears atomically.
+- A probe that shadows `game.settings.get` must forward every argument and pass
+  `{document: true}` to `ClientSettings.prototype.get` (`check:probes` enforces).
+- **Probe rules, paid for:**
+  1. A new test must FAIL with its fix removed.
+  2. A precondition must not be satisfiable by stale world state.
+  3. Fails once then passes = a **race**, not a flake.
+  4. **Select a planted document by id difference, never by name.**
+  5. On a timeout or a doubled write, check for orphaned `chrome-headless-shell`
+     processes first — a kill from outside leaves Warden sessions parked.
+  6. **A probe's cleanup runs from its catch**; stamp fixtures (`probeFixture`) and
+     read a leg's own result by id difference.
+- A probe's random range or single font size is a claim about the input space.
+- Walk the Warden's view of a result; a passing probe is not that check.
+
+## CLOSED — do not raise
+
+- The `id` rename (`air-bladder` stays).
+- Two site addresses (github.io canonical, `airbladder.xyz` redirect).
+- Encumbrance threshold (no free slot = encumbered).
+- Token linking default (persons linked, monsters not).
+- Cairn game text is CC BY-SA wherever it sits.
+- The v14 schema fold-in in pack YAML (done).
+- Removed settings and the retired `container` type stay gone.
+- Do not rebuild: Crawler Combat Mode master and its rules, maneuver choice buttons,
+  free first Fatigue, Reseed a Spell Table, `more-spellbooks`, the Stranger
+  generator.
