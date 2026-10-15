@@ -738,7 +738,11 @@ Hooks.on("renderJournalEntryPageSheet", (app, element) => {
   const heading = element?.querySelector?.(".journal-page-header :is(h1,h2,h3,h4,h5,h6)");
   if (heading) {
     const en = heading.textContent.trim();
-    const es = en && !en.includes("<") ? translationOf("journal.pageName", en) : undefined;
+    // A page named like its entry reads the entry's translation (see the TOC).
+    const entry = app.document?.parent?.name;
+    const es = en && !en.includes("<")
+      ? translationOf("journal.pageName", en) ?? (en === entry ? translationOf("journal.name", en) : undefined)
+      : undefined;
     if (es !== undefined && es !== en && !es.includes("<")) heading.textContent = es;
   }
 });
@@ -770,6 +774,14 @@ Hooks.on("renderJournalEntrySheet", (app, element) => {
   if (esName !== undefined) {
     const title = element.querySelector(".window-title");
     if (title) title.textContent = esName;
+    // The name again, as the big field atop the pages (templates/journal/
+    // pages.hbs) — an <input name="name"> on EVERY sheet, read-only or not. Only
+    // where it cannot be edited: the sheet is submitOnChange
+    // (journal-entry-sheet.mjs:72), so a Spanish value in an editable field
+    // rides the next change into a save of `name`. A Warden editing a world
+    // copy sees the stored English, the same read/edit split as the page hook.
+    const field = element.querySelector(".journal-header input.title");
+    if (field && !app.isEditable && field.value === app.document?.name) field.value = esName;
   }
 
   // Headings, which are the bulk of every shipped entry.
@@ -783,10 +795,12 @@ Hooks.on("renderJournalEntrySheet", (app, element) => {
   // The page rows they sit under. The tooltip on the index bubble is the same
   // string a second time — leaving it behind gives the row an English name on
   // hover and a Spanish one on screen, which is the same tell one element wide.
+  // A page named exactly like its entry is not extracted as a page name
+  // (content-strings.mjs) — it reads the entry's own translation instead.
   for (const title of element.querySelectorAll("nav.toc .page-title")) {
     const en = title.textContent.trim();
     if (!en || en.includes("<")) continue;
-    const es = translationOf("journal.pageName", en);
+    const es = translationOf("journal.pageName", en) ?? (en === app.document?.name ? esName : undefined);
     if (es === undefined || es === en || es.includes("<")) continue;
     title.textContent = es;
     const tip = title.closest(".page-heading")?.querySelector("[data-tooltip-text]");

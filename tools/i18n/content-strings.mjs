@@ -172,10 +172,13 @@ export function* stringsFromDoc(doc, pack) {
     if (!TRANSLATABLE_JOURNAL_PACKS.has(pack)) return;
     if (doc.name) yield* emit({ ns: "journal.name", en: doc.name, context: "journal" });
     for (const p of doc.pages ?? []) {
-      // A page name is only a heading when the page asks to show its title —
-      // `title.show: false` (which both 2e rules pages set) renders nothing, so
-      // there would be no surface for the translation to appear on.
-      if (p.name && p.title?.show !== false) {
+      // Every page name has a surface: the contents list down the left of the
+      // entry sheet shows it whether or not `title.show` puts a heading on the
+      // page (the 2e rules pages set it false and their TOC rows stayed English
+      // until PR #23's live walk). A page named exactly like its journal is the
+      // exception — the TOC hook reads the journal.name translation for it, so
+      // emitting it here would ask the translator for the same string twice.
+      if (p.name && p.name !== doc.name) {
         yield* emit({ ns: "journal.pageName", en: p.name, context: `${name} · page` });
       }
       for (const block of blocksOf(p.text?.content)) {

@@ -85,7 +85,7 @@ await dismissChrome(page);
 
 const domKeys = await page.evaluate(async (packs) => {
   const BLOCKS = "p, h1, h2, h3, h4, h5, h6, li, td, th, blockquote, figcaption";
-  const out = { blocks: [], entries: [], rendered: 0 };
+  const out = { blocks: [], entries: [], tocPages: [], rendered: 0 };
   for (const short of packs) {
     const pack = game.packs.get(`air-bladder.${short}`);
     if (!pack) continue;
@@ -97,6 +97,12 @@ const domKeys = await page.evaluate(async (packs) => {
         await new Promise((r) => setTimeout(r, 200));
       }
       await new Promise((r) => setTimeout(r, 400));
+      // The contents list's PAGE rows, which show every page name whatever its
+      // `title.show` says — the extractor once skipped hidden-title pages, and
+      // GLOG's "Magical Mishaps" row was never asked of the translator.
+      for (const row of doc.sheet.element?.querySelectorAll("nav.toc .page-title") ?? []) {
+        out.tocPages.push({ entry: doc.name, page: row.textContent.trim() });
+      }
       // EVERY page, not just the one the sheet opened on: single-page view
       // holds one page's content in the DOM at a time, and the multi-page
       // Vald book would otherwise contribute only its Introduction — with
@@ -151,6 +157,14 @@ enriched.length === 2
 domKeys.entries.every((n) => emitted.name.has(n))
   ? ok("and every entry name is emitted", domKeys.entries.join(" | "))
   : fail("and every entry name is emitted", domKeys.entries.filter((n) => !emitted.name.has(n)).join(", "));
+// A page row named like its entry reads journal.name (cairn.js), so it is
+// askable when the ENTRY name is emitted; every other row needs its own key.
+const unaskableRows = domKeys.tocPages.filter(({ entry, page }) =>
+  !emitted.pageName.has(page) && !(page === entry && emitted.name.has(entry)));
+domKeys.tocPages.length > 0 && unaskableRows.length === 0
+  ? ok("and every page row in the contents list is askable", `${domKeys.tocPages.length} row(s)`)
+  : fail("and every page row in the contents list is askable",
+      domKeys.tocPages.length ? unaskableRows.map((r) => `${r.entry} › ${r.page}`).join(", ") : "no rows read — vacuous");
 
 /* --- 2/3/4. display, edit mode, and the control ---------------------------- */
 
@@ -202,6 +216,11 @@ const shown = await page.evaluate(async (fx) => {
     pageTitle: [...(el?.querySelectorAll("nav.toc .page-title") ?? [])].some((n) => n.textContent.trim() === fx.PAGE_ES),
     pageTip: [...(el?.querySelectorAll("nav.toc .page-index") ?? [])].some((n) => n.dataset.tooltipText === fx.PAGE_ES),
     title: el?.querySelector(".window-title")?.textContent?.trim() ?? null,
+    // The entry name a second time, as the big <input name="name"> atop the
+    // pages. A FORM FIELD on a submitOnChange sheet, so it is only translated
+    // where it cannot be edited.
+    field: el?.querySelector(".journal-header input.title")?.value ?? null,
+    pageRow: el?.querySelector("nav.toc .page-title")?.textContent?.trim() ?? null,
   });
   try {
     out.pageName = doc.pages.contents[0]?.name ?? null;
@@ -221,7 +240,33 @@ const shown = await page.evaluate(async (fx) => {
     if (!i18n.contentLocalized()) return { error: "overlay did not install" };
 
     out.on = readBack(await open());
+    out.onEditable = doc.sheet.isEditable;
     await doc.sheet.close();
+
+    // An EDITABLE sheet keeps the stored English in the name field: its next
+    // change event submits the whole form, name included. `isEditable` is
+    // shadowed on this one instance (a locked pack cannot be made editable
+    // without a world write); no change event is fired, so nothing submits.
+    Object.defineProperty(doc.sheet, "isEditable", { configurable: true, get: () => true });
+    try {
+      out.editable = readBack(await open());
+      out.editableShadowHeld = doc.sheet.isEditable === true;
+      await doc.sheet.close();
+    } finally {
+      delete doc.sheet.isEditable;
+    }
+
+    // A page named like its entry, with NO journal.pageName key — the shape of
+    // both 2e rules pages, which the extractor no longer emits as page names.
+    // Its contents-list row must read the entry's translation instead.
+    i18n._setOverlay({ "journal.name": { "Core Rules for Players": fx.NAME_ES } });
+    out.fallback = readBack(await open());
+    await doc.sheet.close();
+    i18n._setOverlay({
+      "journal.block": { [fx.subjectBlock]: fx.BLOCK_ES, [fx.HEADING_EN]: fx.HEADING_ES },
+      "journal.name": { "Core Rules for Players": fx.NAME_ES },
+      "journal.pageName": { [out.pageName]: fx.PAGE_ES, [out.valdPageName]: fx.VALD_PAGE_ES },
+    });
 
     // The IN-PAGE title header, on the Vald fixture: the first translatable
     // pack whose pages SHOW their titles, so no rules-journal page can stand
@@ -340,6 +385,23 @@ else {
     : fail("and the contents list beside it agrees", "the TOC stayed English");
   shown.on?.title === NAME_ES ? ok("the window title carries the entry name", NAME_ES)
     : fail("the window title carries the entry name", `title read "${shown.on?.title}"`);
+  shown.onEditable === false
+    ? ok("precondition: the shipped entry is read-only", "a locked pack")
+    : fail("precondition: the shipped entry is read-only", "the leg below would be testing an editable sheet");
+  shown.on?.field === NAME_ES ? ok("the name field atop the pages carries it too", NAME_ES)
+    : fail("the name field atop the pages carries it too", `field read "${shown.on?.field}"`);
+  shown.editableShadowHeld
+    ? ok("precondition: the shadowed sheet reports editable", "")
+    : fail("precondition: the shadowed sheet reports editable", "the leg below proves nothing");
+  shown.editable?.field === "Core Rules for Players"
+    ? ok("but an EDITABLE sheet's name field keeps the stored English", "its next change would save the field")
+    : fail("but an EDITABLE sheet's name field keeps the stored English", `field read "${shown.editable?.field}"`);
+  shown.pageName === "Core Rules for Players"
+    ? ok("precondition: the page is named like its entry", `"${shown.pageName}"`)
+    : fail("precondition: the page is named like its entry", `"${shown.pageName}" — the fallback leg is vacuous`);
+  shown.fallback?.pageRow === NAME_ES
+    ? ok("with no page-name key, its row reads the entry's translation", NAME_ES)
+    : fail("with no page-name key, its row reads the entry's translation", `row read "${shown.fallback?.pageRow}"`);
   shown.pageName
     ? ok("precondition: the entry has a named page to key on", `"${shown.pageName}"`)
     : fail("precondition: the entry has a named page to key on", "no page name — the two legs below are vacuous");
@@ -388,6 +450,7 @@ else {
     ? ok("and the hook came back", "later runs are not testing a disabled system")
     : fail("and the hook came back", "the hook was left off");
   shown.entryOff?.pageTitle === false && shown.entryOff?.pageTip === false && shown.entryOff?.toc === false
+    && shown.entryOff?.field === "Core Rules for Players"
     ? ok("with the ENTRY hook off, the whole contents list is English", "the TOC legs measure that hook, not the page one")
     : fail("with the ENTRY hook off, the whole contents list is English", JSON.stringify(shown.entryOff));
   shown.entryHooksRestored
