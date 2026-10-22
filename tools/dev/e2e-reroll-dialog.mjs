@@ -47,7 +47,10 @@
  *      BEFORE the scalar update's render and an items-only run still renders
  *      after it (asserted on the WRITE ORDER, not the DOM — the async render
  *      pipeline makes a DOM read a race); an EMPTY world Omens table wipes
- *      nothing; and the unmatched-Kettlewright shape (backgroundUuid "",
+ *      nothing (a Warden's own "Omens" — the 2e take-over door makes one — is
+ *      set aside in-page for the run, or it answers instead of the planted
+ *      empty one, which is how this leg redded on the fleet 2026-10-22); and
+ *      the unmatched-Kettlewright shape (backgroundUuid "",
  *      armorOverride set) refuses the whole gesture with a warning instead of
  *      half-applying it.
  *   8. REVIEW #21 finding 2 (user ruling 2026-09-02: mundane grants are
@@ -72,7 +75,7 @@
  */
 
 import { chromium } from "playwright";
-import { VIEWPORT, joinAsGM, watchErrors } from "./lib.mjs";
+import { VIEWPORT, joinAsGM, watchErrors, holdAsideWorldTables } from "./lib.mjs";
 
 const browser = await chromium.launch();
 const page = await browser.newContext({ viewport: VIEWPORT }).then((c) => c.newPage());
@@ -83,6 +86,9 @@ const ok = (m) => console.log(`  ok    ${m}`);
 
 try {
   await joinAsGM(page);
+
+  const held = await holdAsideWorldTables(page, ["Omens"]);
+  if (held.length) console.log(`  note  set aside the world's own "Omens" for this run (${held.map((t) => t.id).join(", ")})`);
 
   const r = await page.evaluate(async () => {
     const gen = await import("/systems/air-bladder/module/character-generator.js");
@@ -512,6 +518,7 @@ try {
       // (roll-table.mjs:281-284), and resultText(undefined) is "".
       await actor.update({ "system.omen": "ZZ PROBE OMEN KEEP" });
       emptyOmens = await RollTable.create({ name: "Omens", formula: "1d6", results: [] });
+      out.omenPlantedResolves = (await gen.findOmensTable())?.id === emptyOmens.id;
       dlg = await openDialog(sheet);
       if (dlg) {
         const all = Object.fromEntries(Object.keys(dialogState(dlg)).map((k) => [k, false]));
@@ -815,6 +822,9 @@ try {
       ? ok("bonds-only: something still renders after the arrangement pass")
       : fail(`bonds write order: ${JSON.stringify(r.bondsSeq)}`);
 
+    r.omenPlantedResolves
+      ? ok('precondition: "Omens" resolves to the empty table this leg planted')
+      : fail('precondition: "Omens" does not resolve to the planted empty table — another world table answers, so the two legs below read it');
     r.omenChecklistKept === "ZZ PROBE OMEN KEEP"
       ? ok("an empty world Omens table wipes nothing through the checklist")
       : fail(`omen after empty-table checklist run: ${JSON.stringify(r.omenChecklistKept)}`);

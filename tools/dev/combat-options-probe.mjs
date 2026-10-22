@@ -77,6 +77,9 @@ const cleanup = async () => {
     for (const id of msgs ?? []) { try { await game.messages.get(id)?.delete(); } catch { /* gone */ } }
     // The scene the targeted legs placed a foe on, and its token with it.
     if (sceneId) { try { await game.scenes.get(sceneId)?.delete(); } catch { /* gone */ } }
+    for (const s of game.scenes.filter((x) => x.getFlag("air-bladder", "probeFixture") === "combat-options")) {
+      try { await s.delete(); } catch { /* gone */ }
+    }
     for (const m of game.messages.filter((x) => x.getFlag("air-bladder", "pileDrop"))) {
       try { await m.delete(); } catch { /* gone */ }
     }
@@ -1485,7 +1488,12 @@ try {
         name: "ZZ Improvised Foe", type: "npc",
         system: { role: "monster", hp: { value: 9, max: 9 }, armor: 0 },
       });
-      const scene = await Scene.create({ name: "ZZ Improvised Scene", width: 1000, height: 1000 });
+      // STAMPED like every other fixture, so the cleanup's flag sweep finds it
+      // even when the run died before `out.sceneId` reached Node. Unstamped, a
+      // killed run stranded one in the dev world (2026-10-04), and dev:companions
+      // — which counted every "ZZ " scene — went red on it in every fleet run.
+      const scene = await Scene.create({ name: "ZZ Improvised Scene", width: 1000, height: 1000,
+        flags: { "air-bladder": { probeFixture: "combat-options" } } });
       out.sceneId = scene.id;
       const [tok] = await scene.createEmbeddedDocuments(
         "Token", [await foe.getTokenDocument({ x: 100, y: 100 })]);

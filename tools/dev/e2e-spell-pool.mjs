@@ -53,9 +53,16 @@
  * request straight to ClientSettings.prototype.get (review #27; check:probes
  * gates it). Nothing here is a real write except the planted tables, deleted
  * in a finally and selected by the ids the plant returned.
+ *
+ * A Warden's own world copy of either spell table — the Create a Custom Spell
+ * Table… door makes one, and the dev world has held "Spells — Canon (1d100)"
+ * since 2026-10-04 — is SET ASIDE in-page for the whole run
+ * (`holdAsideWorldTables`), never renamed or deleted. Without that, legs 1, 4
+ * and 5 read the Warden's copy: it is world-first by design, which is the very
+ * thing leg 4 proves with a table of its own.
  */
 import { chromium } from "playwright";
-import { VIEWPORT, joinAsGM, watchErrors, watchdog } from "./lib.mjs";
+import { VIEWPORT, joinAsGM, watchErrors, watchdog, holdAsideWorldTables } from "./lib.mjs";
 
 const browser = await chromium.launch();
 watchdog(180000, "spell-pool probe");
@@ -71,6 +78,14 @@ const GLOG_PACKS = ["air-bladder.spellbooks-glog"];
 
 try {
   await joinAsGM(page);
+
+  const spellTableNames = await page.evaluate(async () => {
+    const cpd = await import("/systems/air-bladder/module/compendium.js");
+    return Object.values(CONFIG.Cairn.characterGenerator2e.spells)
+      .map((decl) => cpd.compendiumInfoFromString(decl)[1]);
+  });
+  const held = await holdAsideWorldTables(page, spellTableNames);
+  if (held.length) console.log(`  note  set aside the world's own ${held.map((t) => `"${t.name}" (${t.id})`).join(", ")} for this run`);
 
   /* --- 1. the shipped tables ---------------------------------------------- */
   console.log("\n1. the shipped tables");
@@ -228,7 +243,7 @@ try {
 
   /* --- 4. a WORLD spell table is the pool --------------------------------- */
   console.log("\n4. world-first, both modes");
-  const wf = await page.evaluate(async ({ CANON }) => {
+  const wf = await page.evaluate(async ({ CANON, heldIds }) => {
     const CG = await import("/systems/air-bladder/module/character-generator.js");
     const cpd = await import("/systems/air-bladder/module/compendium.js");
     const GLOG_POOL = "air-bladder.spellbooks-glog";
@@ -252,8 +267,9 @@ try {
       for (const [mode, glog, pool] of [["canon", false, CANON], ["glog", true, GLOG_POOL]]) {
         shadowGlog(glog);
         const name = cpd.compendiumInfoFromString(decls[mode])[1];
-        // Never plant over a table the world already holds.
-        out.pre[mode] = !game.tables.some((t) => t.name === name);
+        // Never plant over a table the world already holds — beyond the
+        // Warden's copy set aside above, which no resolver can see.
+        out.pre[mode] = !game.tables.some((t) => t.name === name && !heldIds.includes(t.id));
         const one = (await game.packs.get(pool).getIndex()).find((e) => e.type === "spellbook");
         const dagger = (await game.packs.get("air-bladder.weapons").getIndex()).find((e) => e.name === "Dagger");
         const before = await drawMany();
@@ -297,11 +313,11 @@ try {
       for (const id of planted) await game.tables.get(id)?.delete();
     }
     return out;
-  }, { CANON });
+  }, { CANON, heldIds: held.map((t) => t.id) });
 
   for (const mode of ["canon", "glog"]) {
     const m = wf[mode];
-    check(wf.pre[mode], `precondition: no world "${m.name}" before planting — the transition below is real`);
+    check(wf.pre[mode], `precondition: no visible world "${m.name}" before planting — the transition below is real`);
     check(m.resolvedToWorld, `${mode}: the declaration resolves to the planted WORLD table`);
     check(m.during.length === 1 && m.during[0] === m.spell,
       `${mode}: a world spell table IS the pool — 12 draws, all "${m.spell}", decoy rows re-rolled`, JSON.stringify(m.during));

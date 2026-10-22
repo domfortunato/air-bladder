@@ -609,10 +609,12 @@ const cleaned = await page.evaluate(async ({ ids, grantIds, ravenId, rerollIds, 
   }
   const witch = game.actors.getName("ZZ Witch");
   await witch?.delete();
-  // Asserted, not assumed: this run is the first to plant a SCENE, and a scene
-  // left behind is clutter in someone's real world rather than a stray actor
-  // the next run overwrites.
-  return { scenesLeft: game.scenes.filter((s) => s.name.startsWith("ZZ ")).length };
+  // Asserted, not assumed: a scene left behind is clutter in someone's real
+  // world rather than a stray actor the next run overwrites. THIS run's scene,
+  // by the id it was planted with — counting every "ZZ " scene read another
+  // probe's litter as this one's (dev:combat-options' "ZZ Improvised Scene",
+  // stranded in the dev world 2026-10-04, redded this leg on every fleet run).
+  return { sceneLeft: !!game.scenes.get(sceneId) };
 }, {
   ids: role.ids, grantIds: grant.ids, ravenId: alice.ravenId ?? null,
   sceneId: legacy.sceneId,
@@ -624,8 +626,8 @@ const cleaned = await page.evaluate(async ({ ids, grantIds, ravenId, rerollIds, 
   ],
 });
 
-check("the fixture scene is gone again", cleaned.scenesLeft === 0,
-  `${cleaned.scenesLeft} ZZ scene(s) still in the world`);
+check("the fixture scene is gone again", !!legacy.sceneId && !cleaned.sceneLeft,
+  legacy.sceneId ? `scene ${legacy.sceneId} still in the world` : "no scene id came back from the plant");
 
 const errs = errors.filter((e) => !/ZZ /.test(e));
 check("zero console errors", errs.length === 0, errs.join(" | "));

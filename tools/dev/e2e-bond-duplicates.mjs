@@ -38,9 +38,11 @@
  *      payload flags honored; a named-table typo falls back to the same world
  *      default; deleting the world table restores the shipped rows. A 1d1
  *      table, so no seeding. A PRE-EXISTING world "Bonds" table is never
- *      touched (only probe litter, recognised by its ZZ row text, is swept) —
- *      the leg reports it and fails instead, because in the dev world its
- *      existence is itself news
+ *      touched: only probe litter, recognised by its ZZ row text, is swept,
+ *      and a Warden's own copy is SET ASIDE in-page for the whole run
+ *      (`holdAsideWorldTables`). This leg used to fail on finding one,
+ *      calling its existence news in the dev world — until the 2e take-over
+ *      door put one there on 2026-10-04, as it does in any world that uses it
  *
  * Dice are shadowed in-page (`CONFIG.Dice.randomUniform`, restored in finally) for
  * legs 1-3 and 6. The mapping is INVERTED — a face is `ceil((1 - u) * faces)` — so
@@ -60,7 +62,7 @@
  * Usage: npm run dev:bond-dupes
  */
 import { chromium } from "playwright";
-import { VIEWPORT, joinAsGM, watchErrors, dismissChrome, watchdog } from "./lib.mjs";
+import { VIEWPORT, joinAsGM, watchErrors, dismissChrome, watchdog, holdAsideWorldTables } from "./lib.mjs";
 
 let failed = false;
 const ok = (m) => console.log(`  ok    ${m}`);
@@ -92,6 +94,12 @@ try {
 
   const swept = await sweep();
   if (swept.length) console.log(`  note  swept ${swept.length} leftover(s): ${swept.join(", ")}`);
+
+  // Before leg 1, not just leg 7: `drawBond()` with no table name takes the
+  // default path, so a Warden's "Bonds" would answer legs 1-3 too, and they
+  // read their expected rows from the SHIPPED table.
+  const held = await holdAsideWorldTables(page, ["Bonds"]);
+  if (held.length) console.log(`  note  set aside the world's own "Bonds" for this run (${held.map((t) => t.id).join(", ")})`);
 
   /* ---------------------------------------------- 1-3. drawBond, seeded --- */
   stage("drawBond, with the dice pinned");
@@ -328,18 +336,16 @@ try {
   /* --------------------------- 7. the world-first default ("Bonds") ------- */
   stage('a world RollTable named "Bonds" overrides the default');
 
-  const override = await page.evaluate(async () => {
+  const override = await page.evaluate(async (heldIds) => {
     const gen = await import(`/systems/${game.system.id}/module/character-generator.js`);
     // The leg must create a world table named exactly "Bonds". A real one the
-    // Warden made is never deleted — only litter from a killed prior run,
-    // recognised by its ZZ row text — and finding a real one is reported as a
-    // failure rather than worked around, because nothing else in the dev world
-    // should be using that name.
-    for (const t of game.tables.filter((t) => t.name === "Bonds")) {
+    // Warden made is never deleted — it was set aside above — and only litter
+    // from a killed prior run, recognised by its ZZ row text, is swept.
+    for (const t of game.tables.filter((t) => t.name === "Bonds" && !heldIds.includes(t.id))) {
       const first = t.results.contents[0];
       const txt = (first?.type === "text" ? first.description : first?.name) ?? "";
       if (txt.startsWith("ZZ ")) await t.delete();
-      else return { skip: `a real world table named "Bonds" already exists (${t.id})` };
+      else return { skip: `a world table named "Bonds" appeared after the set-aside (${t.id})` };
     }
     const out = {};
     const world = await getDocumentClass("RollTable").create({
@@ -347,6 +353,9 @@ try {
       results: [{ type: "text", description: "ZZ world bond", range: [1, 1], flags: { "air-bladder": { gold: 7 } } }],
     });
     try {
+      // Precondition: the set-aside worked, so the transition below is real.
+      const cpd = await import(`/systems/${game.system.id}/module/compendium.js`);
+      out.resolvesToPlanted = (await cpd.findTableByName("Bonds"))?.id === world.id;
       // The default path — what every canon background takes.
       const drawn = await gen.drawBond();
       out.text = drawn?.description ?? null;
@@ -360,11 +369,14 @@ try {
     const restored = await gen.drawBond();
     out.restoredText = restored?.description ?? null;
     return out;
-  });
+  }, held.map((t) => t.id));
 
   if (override.skip) {
     fail(`world-override leg skipped: ${override.skip}`);
   } else {
+    if (override.resolvesToPlanted) ok('precondition: "Bonds" resolves to the table this leg planted');
+    else fail('precondition: "Bonds" does not resolve to the planted table — another world table answers, so the legs below read it');
+
     if (override.text === "ZZ world bond") ok("the default draw uses the world table — canon backgrounds follow");
     else fail(`the default draw ignored the world "Bonds" table — drew ${JSON.stringify(override.text)}`);
 

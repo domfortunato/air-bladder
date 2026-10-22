@@ -465,6 +465,12 @@ const planted = await page.evaluate(async () => {
   // meaningless outside the folder it sorts within; `default: OBSERVER` because
   // it is a value no freshly created item ever has by accident — core stamps
   // only the creating user at OWNER — so the assertion cannot pass on a default.
+  // Every world item that exists BEFORE the plant is the Warden's. The
+  // migration's output is read, and cleaned up, by id difference against this
+  // list — never by name: the Create a Custom Spell Table… door files a world
+  // spellbook named "Adhere" (the dev world has held one since 2026-10-04), and
+  // a name match read it as a second conversion and DELETED it.
+  const worldBefore = game.items.map((i) => i.id);
   const folder = await getDocumentClass("Folder").create({ name: "ZZ Scroll Folder", type: "Item" });
   const worldItem = await getDocumentClass("Item").create({
     ...legacy("Spellscroll — Adhere"),
@@ -489,6 +495,7 @@ const planted = await page.evaluate(async () => {
   await token.actor.createEmbeddedDocuments("Item", [legacy("Spellscroll — Charm")]);
 
   return {
+    worldBefore,
     worldItemId: worldItem.id,
     folderId: folder.id,
     filed: worldItem.folder?.id === folder.id,
@@ -550,8 +557,12 @@ const after = await page.evaluate(async (p) => {
   const a = game.actors.get(p.actorId);
   const ta = game.actors.get(p.tokenActorId);
   const t = game.scenes.get(p.sceneId)?.tokens.get(p.tokenId);
+  // Everything in the sidebar that was not there before the plant: the planted
+  // scroll (if the migration missed it) and whatever replaced it — nothing else.
+  const before = new Set(p.worldBefore);
+  const made = [...game.items].filter((i) => !before.has(i.id));
   const out = {
-    world: [...game.items].filter((i) => i.name === "Adhere" || i.name.startsWith("Spellscroll")).map(shape),
+    world: made.map(shape),
     owned: [...(a?.items ?? [])].map(shape),
     token: [...(t?.actor?.items ?? [])].map(shape),
     baseStillEmpty: (ta?.items.size ?? -1) === 0,
@@ -560,7 +571,7 @@ const after = await page.evaluate(async (p) => {
   try { await t?.delete(); } catch { /* leave it */ }
   try { await a?.delete(); } catch { /* leave it */ }
   try { await ta?.delete(); } catch { /* leave it */ }
-  for (const i of [...game.items].filter((i) => i.name === "Adhere" || i.name.startsWith("Spellscroll"))) {
+  for (const i of made) {
     try { await i.delete(); } catch { /* leave it */ }
   }
   try { await game.folders.get(p.folderId)?.delete(); } catch { /* leave it */ }

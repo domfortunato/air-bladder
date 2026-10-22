@@ -220,6 +220,44 @@ export async function withHookOff(page, hook, fnName, fn) {
 }
 
 /**
+ * Set the world's OWN RollTables of these names aside, in-page, for the rest of
+ * the page's life — so a probe that plants a table of a declared name gets the
+ * one it planted.
+ *
+ * Every world-first resolver takes the FIRST world table of the name
+ * (`game.tables.find` in compendium.js `findTableByName`/`findDeclaredTable`
+ * and actor-sheet.js), so a Warden's copy made by a take-over door — "Bonds",
+ * "Omens", "Spells — Canon (1d100)" in the dev world since 2026-10-04 — beats
+ * anything a probe creates after it. Three probes went red on exactly that on
+ * the fleet (2026-10-22): `dev:bond-dupes` refused, `dev:spell-pool` resolved
+ * the Warden's copy, `dev:reroll-dialog` rolled the real Omens over a planted
+ * empty one. A dev world a Warden actually uses holds such copies, so the
+ * probe must not need them gone.
+ *
+ * NOTHING IS WRITTEN. The Warden's tables are neither renamed nor deleted — a
+ * rename restored in a `finally` is still a write that a killed run strands.
+ * `find` is shadowed on the collection INSTANCE to skip the held ids, which a
+ * closed page discards, and the system's own code runs unchanged. Held by ID,
+ * fixed at the call: a table the probe plants afterwards is visible as usual.
+ *
+ * @param {import("playwright").Page} page
+ * @param {string[]} names
+ * @returns {Promise<{id: string, name: string}[]>} what was set aside, for a note
+ */
+export async function holdAsideWorldTables(page, names) {
+  return page.evaluate((names) => {
+    const held = game.tables.filter((t) => names.includes(t.name));
+    if (!held.length) return [];
+    const ids = new Set(held.map((t) => t.id));
+    const base = game.tables.find;
+    game.tables.find = function (condition, ...rest) {
+      return base.call(this, (t, ...a) => !ids.has(t.id) && condition(t, ...a), ...rest);
+    };
+    return held.map((t) => ({ id: t.id, name: t.name }));
+  }, names);
+}
+
+/**
  * Collect real console errors. Two known-irrelevant messages are filtered:
  * the viewport warning (an artifact of the headless window size) and the
  * hardware-acceleration warning (headless Chromium has no GPU).

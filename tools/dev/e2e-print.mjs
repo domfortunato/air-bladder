@@ -1236,11 +1236,23 @@ check("black on white, whatever the theme", r.bodyColor === "rgb(0, 0, 0)"
  * pushed over by the running frame's own furniture. A4 (1123px) never showed
  * it, which is why it read as intermittent.
  *
- * The fixture is that character's shape — nine items, two questions, one bond,
- * no notes, no description, no omen, no scars — because the defect lives in a
- * ~70px band near the page bottom and a fixture outside it proves nothing. The
- * control says so out loud: restoring the body's print padding in-page must
- * bring the blank page BACK, or this leg is not looking at the right document.
+ * The defect lives in a ~70px band near the page bottom, and a fixture outside
+ * it proves nothing. The fixture used to be placed in that band by hand — that
+ * character's exact shape, nine items and two questions — which is a claim about
+ * ONE font stack: on the probe fleet's Linux Chromium the same sheet ran more
+ * than 64px shorter, the control below printed one page, and the leg redded on
+ * every run (2026-10-22) while passing on the Windows workstation.
+ *
+ * So the band is FOUND, on whatever renderer runs the probe. The fixture is a
+ * shorter cousin of that character (one question, six items), short enough to
+ * fit even WITH the old body padding; a spacer at the end of the frame's body
+ * cell grows it, and a bisection over the spacer — each step a real Letter PDF,
+ * the padding restored in-page — finds where the PADDED sheet first spills onto
+ * page 2. The legs then print 32px past that point: the padded sheet must spill
+ * (the control: the fixture sits in the band), and the shipped sheet, 64px
+ * shorter, must fit with 32px to spare. The calibration reads the padded build
+ * and the assertion the shipped one, so the leg cannot pass by construction:
+ * put the padding back in the template and the shipped sheet spills with it.
  * ------------------------------------------------------------------------- */
 console.log("\npagination, rendered to paper");
 const ZERO_MARGIN = { top: "0", bottom: "0", left: "0", right: "0" };
@@ -1262,64 +1274,89 @@ const pagerId = await page.evaluate(async () => {
       questions: [
         { question: "What did you last hunt?", gold: 0,
           answer: "A silver marsh crawler that killed someone close to you. You now carry its Tooth (petty) on a chain around your neck as a warning to others of its kind. The tooth hums softly when something is stalking you." },
-        { question: "What tool is always in your pack?", gold: 0,
-          answer: "Spike and Cord: For traversing difficult terrain or for creating makeshift traps and structures." },
       ],
       omenEnabled: false, scars: [], description: "", notes: "",
     },
   });
   await actor.createEmbeddedDocuments("Item", [
     { name: "ZZ Single Gem", type: "item", system: { description: "You inherited a Single Gem (500gp, cold and brittle) from a long-dead relative. It arrived with a warning: squander your newfound riches, and a debt long thought forgotten would be called." } },
-    { name: "ZZ Rations", type: "item", system: { description: "Preserved trail food.", uses: { value: 3, max: 3 } } },
     { name: "ZZ Torch", type: "item", system: { description: "A pitch-soaked brand.", uses: { value: 3, max: 3 } } },
-    { name: "ZZ Tarp", type: "item", system: { description: "A large waterproof sheet for shelter, cover, or hauling a load." } },
     { name: "ZZ Boiled Leather", type: "armor", system: { description: "Hardened leather armor.", armor: 1, equipped: true } },
     { name: "ZZ Short sword", type: "weapon", system: { description: "A plain, reliable blade.", damageFormula: "d6", equipped: true } },
     { name: "ZZ Spring-Loaded Trap", type: "item", system: { description: "4 STR damage" } },
     { name: "ZZ Tooth", type: "item", system: { description: "The Tooth of a Silver Marsh Crawler, carried as a warning to others of its kind. Hums softly when something is stalking you.", weightless: true } },
-    { name: "ZZ Spike and Cord", type: "item", system: { description: "For traversing difficult terrain or for creating makeshift traps and structures." } },
   ], { render: false });
   await actor.sheet.render(true);
   return actor.id;
 });
 await page.waitForSelector('[data-action="printSheet"]', { state: "visible", timeout: 15000 });
 
-const renderPaper = async (restorePadding) => {
-  const popped = page.waitForEvent("popup", { timeout: 20000 });
-  await page.click('[data-action="printSheet"]');
-  const pop = await popped;
-  await pop.waitForLoadState("domcontentloaded").catch(() => null);
-  await new Promise((res) => setTimeout(res, 1500));
-  if (restorePadding) {
-    await pop.evaluate(() => {
-      const s = document.createElement("style");
-      s.textContent = "@media print{body{padding-top:2rem!important;padding-bottom:2rem!important}}";
-      document.head.appendChild(s);
-    });
-  }
-  const out = {
-    letter: pdfPages(await pop.pdf({ format: "Letter", printBackground: true, margin: ZERO_MARGIN })),
-    a4: pdfPages(await pop.pdf({ format: "A4", printBackground: true, margin: ZERO_MARGIN })),
-  };
-  await pop.emulateMedia({ media: "print" });
-  const roof = await pop.evaluate(() => {
-    const th = document.querySelector(".page-frame thead");
-    const rect = th?.getBoundingClientRect();
-    return rect ? { top: Math.round(rect.top + window.scrollY), h: Math.round(rect.height) } : null;
-  });
-  await pop.close();
-  return { ...out, roof };
+// ONE popup, re-printed as its spacer and padding change: `pop.pdf` prints the
+// DOM as it stands, so nothing is re-rendered from the sheet between steps.
+const popped = page.waitForEvent("popup", { timeout: 20000 });
+await page.click('[data-action="printSheet"]');
+const pop = await popped;
+await pop.waitForLoadState("domcontentloaded").catch(() => null);
+await new Promise((res) => setTimeout(res, 1500));
+const spacerPlaced = await pop.evaluate(() => {
+  const cell = document.querySelector("table.page-frame > tbody > tr > td");
+  if (!cell) return false;
+  const spacer = document.createElement("div");
+  spacer.id = "zz-probe-spacer";
+  cell.appendChild(spacer);
+  const padding = document.createElement("style");
+  padding.id = "zz-probe-padding";
+  document.head.appendChild(padding);
+  return true;
+});
+// The old body padding is the template's former print rule, restored verbatim.
+const PADDING = "@media print{body{padding-top:2rem!important;padding-bottom:2rem!important}}";
+const printAt = async (spacer, padded, format = "Letter") => {
+  await pop.evaluate(([h, css]) => {
+    document.getElementById("zz-probe-spacer").style.height = `${h}px`;
+    document.getElementById("zz-probe-padding").textContent = css;
+  }, [spacer, padded ? PADDING : ""]);
+  return pdfPages(await pop.pdf({ format, printBackground: true, margin: ZERO_MARGIN }));
 };
 
-const paper = await renderPaper(false);
-const paperControl = await renderPaper(true);
+// Bracket, then bisect to 2px: `spill` is the smallest spacer at which the
+// PADDED sheet prints two Letter pages, on this renderer.
+const CEILING = 600;
+const padded0 = spacerPlaced ? await printAt(0, true) : null;
+const paddedTop = spacerPlaced ? await printAt(CEILING, true) : null;
+let spill = null;
+if (padded0 === 1 && paddedTop === 2) {
+  let lo = 0, hi = CEILING;
+  while (hi - lo > 2) {
+    const mid = Math.round((lo + hi) / 2);
+    if ((await printAt(mid, true)) === 1) lo = mid; else hi = mid;
+  }
+  spill = hi;
+}
+const BAND_HALF = 32;
+const at = spill === null ? null : spill + BAND_HALF;
+const paper = at === null ? {} : { letter: await printAt(at, false), a4: await printAt(at, false, "A4") };
+const paperControl = at === null ? {} : { letter: await printAt(at, true) };
+if (at !== null) await printAt(at, false);
+await pop.emulateMedia({ media: "print" });
+paper.roof = await pop.evaluate(() => {
+  const th = document.querySelector(".page-frame thead");
+  const rect = th?.getBoundingClientRect();
+  return rect ? { top: Math.round(rect.top + window.scrollY), h: Math.round(rect.height) } : null;
+});
+await pop.close();
 await page.evaluate(async (id) => { await game.actors.get(id)?.sheet.close(); }, pagerId);
 
+check("precondition: the fixture fits on Letter even WITH the old padding, and a spacer can push it over",
+  padded0 === 1 && paddedTop === 2,
+  `padded at +0px: ${padded0} page(s), at +${CEILING}px: ${paddedTop} — `
+  + (spacerPlaced ? "the bisection needs 1 then 2" : "no frame body cell to hold the spacer"));
+console.log(`  note  the padded sheet spills at +${spill}px on this renderer; printing at +${at}px`);
 check("a character that FITS prints on ONE page", paper.letter === 1 && paper.a4 === 1,
-  `Letter=${paper.letter} A4=${paper.a4} — no page holding nothing but the frame's furniture`);
+  `Letter=${paper.letter} A4=${paper.a4} at +${at}px, ${BAND_HALF}px inside the spill — no page holding nothing but the frame's furniture`);
 check("control: the body's print padding brings the blank page back", paperControl.letter === 2,
-  `Letter=${paperControl.letter} A4=${paperControl.a4} — if this is 1, the fixture drifted out of the `
-  + "~70px band where the defect lives and the leg above proves nothing");
+  `Letter=${paperControl.letter} at +${at}px — the padded sheet must spill ${BAND_HALF}px past where it first does, `
+  + "or the fixture is not in the band where the defect lives and the leg above proves nothing");
 check("the 9mm roof still lands on page 1", paper.roof?.top === 0 && paper.roof?.h > 30,
   `${JSON.stringify(paper.roof)} — the frame's thead is what replaced the body padding, so it must be `
   + "the first thing on the paper, not merely present on continuation pages");
