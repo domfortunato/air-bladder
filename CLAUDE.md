@@ -560,7 +560,8 @@ The Stranger/Oddments generator was rolled back — do not rebuild it.
 ## Testing
 
 **`docs/release-testing.md` is the full list** — keep it in step with
-`package.json`. For the probe count run `npm run check:probes`.
+`package.json`. For the probe count run `npm run check:probes`. **The whole suite
+on the cluster's probe fleet (~4 min) and where it stands: `docs/fleet-probes.md`.**
 
 - `npm run dev:smoke` — headless Chromium against the dev world; packs non-empty,
   a sheet renders, zero console errors.
