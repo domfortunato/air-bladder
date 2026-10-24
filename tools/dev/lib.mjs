@@ -220,6 +220,62 @@ export async function withHookOff(page, hook, fnName, fn) {
 }
 
 /**
+ * Run a write in the page WITHOUT awaiting it across the protocol.
+ *
+ * An evaluate that awaits a document write can be dropped mid-await with
+ * "Execution context was destroyed, most likely because of a navigation" when
+ * nothing navigated, no socket dropped and nothing crashed. The ops fleet calls
+ * it the collected-promise flake and reruns any probe whose log carries the
+ * sentence: Playwright's wording for the inspector's "Promise was collected", a
+ * pending promise held weakly and taken by a garbage collection. DB Mythic met it
+ * six times from 2026-10-07 and contained it with this helper (its
+ * `tools/dev/lib.mjs`, `7b48a54`); the root cause is still unknown, so this is
+ * containment, mirrored mechanism for mechanism. Here it struck
+ * `dev:directory-buttons` on the fleet (2026-10-22), an evaluate awaiting
+ * `game.settings.set("core", "permissions", …)` on the Warden's page while
+ * Alice's page, which logs every navigation, logged none.
+ *
+ * `fn(arg)` is started by one short evaluate that returns at once, its promise
+ * held by the page in `globalThis.__abWrites[token]` where no collection can
+ * reach it, and the result is read back by polling. `fn` is sent as SOURCE and
+ * takes ONE serialisable argument, as `page.evaluate` does — it closes over
+ * nothing from Node. Its resolved value comes back when it is plain data (a
+ * Document resolves to undefined). A throw inside is rethrown here with `label`.
+ *
+ * @param {import("playwright").Page} page
+ * @param {Function} fn
+ * @param {*} arg
+ * @param {{timeout?: number, label?: string}} [options]
+ */
+export async function writeInPage(page, fn, arg, { timeout = 15000, label = "a write in the page" } = {}) {
+  const token = `w${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+  await page.evaluate(({ src, arg, token }) => {
+    const store = (globalThis.__abWrites ??= {});
+    store[token] = { state: "pending" };
+    const run = new Function(`return (${src})`)();
+    Promise.resolve().then(() => run(arg)).then(
+      (value) => {
+        let plain;
+        try { plain = value?.documentName ? undefined : JSON.parse(JSON.stringify(value ?? null)); } catch { plain = undefined; }
+        store[token] = { state: "settled", value: plain };
+      },
+      (error) => { store[token] = { state: "threw", message: error?.message ?? String(error) }; });
+  }, { src: fn.toString(), arg, token });
+  let done = null;
+  for (const deadline = Date.now() + timeout; !done && Date.now() < deadline;) {
+    done = await page.evaluate((token) => {
+      const w = globalThis.__abWrites?.[token];
+      return w && w.state !== "pending" ? w : null;
+    }, token);
+    if (!done) await page.waitForTimeout(100);
+  }
+  await page.evaluate((token) => { delete globalThis.__abWrites?.[token]; }, token).catch(() => {});
+  if (!done) throw new Error(`${label}: still pending after ${timeout} ms`);
+  if (done.state === "threw") throw new Error(`${label}: ${done.message}`);
+  return done.value;
+}
+
+/**
  * Set the world's OWN RollTables of these names aside, in-page, for the rest of
  * the page's life — so a probe that plants a table of a declared name gets the
  * one it planted.

@@ -50,7 +50,7 @@
  * Usage: npm run dev:directory-buttons
  */
 import { chromium } from "playwright";
-import { VIEWPORT, joinAsGM, joinAs, watchErrors, dismissChrome, watchdog } from "./lib.mjs";
+import { VIEWPORT, joinAsGM, joinAs, watchErrors, dismissChrome, watchdog, writeInPage } from "./lib.mjs";
 
 const browser = await chromium.launch();
 const page = await browser.newContext({ viewport: VIEWPORT }).then((c) => c.newPage());
@@ -65,11 +65,12 @@ page.on("framenavigated", (frame) => {
 // AND A CRASH LISTENER, BECAUSE THE NAVIGATION LOG ACQUITTED THE NAVIGATION.
 // The 2026-09-12 sweep threw "Execution context was destroyed, most likely
 // because of a navigation" from a GM-side evaluate and the log above printed
-// NOTHING — only the three join hops at the top. So the page did not move; it
-// died, and Playwright's message named the likelier of its two causes. Alice's
-// page has carried this listener since the day it was written and the Warden's
-// did not, which is the whole reason one death was legible and the other was a
-// guess. A renderer that runs out of memory under a 112-gate sweep now says so.
+// NOTHING — only the three join hops at the top. That was read as a crash, and
+// THIS LISTENER ACQUITTED THE CRASH TOO: the fleet's strike (2026-10-22, the
+// evaluate awaiting the core.permissions write) printed neither a navigation
+// nor a crash. Neither page moved and neither died — the collected-promise
+// flake (lib.mjs `writeInPage`, which every settings write on this page now
+// goes through). Both listeners stay: a repeat that IS one of the two says so.
 page.on("crash", () => console.log("  note  the Warden's page CRASHED (renderer died)"));
 await joinAsGM(page);
 await dismissChrome(page);
@@ -502,13 +503,13 @@ try {
   const priorGen = await page.evaluate(() => game.settings.get("air-bladder", "allow-player-generate"));
   let relayMintedUuid = null;
   try {
-    await page.evaluate(async () => {
+    await writeInPage(page, async () => {
       await game.settings.set("air-bladder", "allow-player-generate", true);
-    });
+    }, null, { label: "switching player generation on" });
     // GRANT first, as dev:monster-gen's Alice leg does and for its reason: the
     // dev world's PLAYER role does not hold ACTOR_CREATE, so without the grant
     // every player leg below is vacuous. Restored in the finally.
-    const granted = await page.evaluate(async () => {
+    const granted = await writeInPage(page, async () => {
       const role = game.users.getName("Alice")?.role;
       if (role == null) return false;
       const perms = foundry.utils.deepClone(game.settings.get("core", "permissions"));
@@ -516,7 +517,7 @@ try {
       if (!perms.ACTOR_CREATE.includes(role)) perms.ACTOR_CREATE.push(role);
       await game.settings.set("core", "permissions", perms);
       return true;
-    });
+    }, null, { label: "granting players ACTOR_CREATE" });
     if (!granted) fail("no Alice user in the world — run `npm run dev:players` first");
     await joinAs(alicePage, "Alice");
     await dismissChrome(alicePage);
@@ -557,11 +558,11 @@ try {
     // injection is render-gated, not revocation-swept. Already-injected
     // buttons lingering until then is the same window core's own UI has, and
     // the server wall refuses the click either way.
-    await page.evaluate(async () => {
+    await writeInPage(page, async () => {
       const perms = foundry.utils.deepClone(game.settings.get("core", "permissions"));
       perms.ACTOR_CREATE = (perms.ACTOR_CREATE ?? []).filter((role) => role >= CONST.USER_ROLES.ASSISTANT);
       await game.settings.set("core", "permissions", perms);
-    });
+    }, null, { label: "taking ACTOR_CREATE back from players" });
     await alicePage.reload({ waitUntil: "networkidle" });
     await alicePage.waitForFunction(() => globalThis.game?.ready === true, null, { timeout: 60000 });
     await dismissChrome(alicePage);
@@ -835,10 +836,12 @@ try {
     // Restore BOTH preconditions from NODE via the GM page, unconditionally and
     // to the values captured at entry — not to "on", which would leave the
     // Warden's switch flipped by a test run.
-    await page.evaluate(async ([perms, gen]) => {
+    // Through `writeInPage` above all: a drop HERE would leave the dev world's
+    // player permissions and generation switch as the run set them.
+    await writeInPage(page, async ([perms, gen]) => {
       await game.settings.set("core", "permissions", perms);
       await game.settings.set("air-bladder", "allow-player-generate", gen);
-    }, [priorPerms, priorGen]);
+    }, [priorPerms, priorGen], { label: "restoring player permissions and generation" });
     // The relay-minted PC has a rolled name, not a ZZ prefix — delete it (and
     // any container its background granted) by the uuid the mint leg kept.
     if (relayMintedUuid) {
