@@ -1,7 +1,7 @@
 # Running the probes on the fleet
 
 The probe fleet runs this repo's whole e2e suite on the homelab cluster, eleven probes at a time:
-78 probes in about four minutes, against an hour or more one by one on CT 123. This page covers
+103 probes in about five minutes, against an hour or more one by one on CT 123. This page covers
 starting a run from here, reading what it found, and where the suite stands.
 
 The fleet's machinery (the probe boxes, their baseline world, the runner) belongs to the ops repo,
@@ -12,18 +12,26 @@ a probe, the dev world or the system is this repo's to fix.
 ## What a run does
 
 - **CT 120** (`fleet@192.168.30.50`) conducts. It starts runs, collects the logs and writes the report.
-- **Eleven probe boxes** (CT 112 to 118, 129 to 131 and 138) each run Foundry 14.368 with this system's
-  world `air-bladder-dev`, served by the PM2 app `foundry-air-bladder` from `/home/foundry/probe-air-bladder`.
-  Nobody plays on them.
+- **Eleven probe boxes** (CT 112 to 118, 129 to 131 and 138) each run Foundry 14.369 (since 2026-10-28)
+  with this system's world `air-bladder-dev`, served by the PM2 app `foundry-air-bladder` from
+  `/home/foundry/probe-air-bladder`. Nobody plays on them.
 - **The browsers run on VM 200's RTX 3060**, one Playwright container per probe. Air Bladder runs only
   there, never on the driver boxes.
 - **A run** rolls every box back to its `pristine` snapshot and deploys the ref under test into the box's
   system folder. It then runs several probes per box in turn, **with no reset between them**.
 - **Which probes run:** every `dev:` script in `package.json` whose command runs a `tools/dev/e2e-*.mjs`
-  file, so a new probe joins the fleet just by being declared there. That is 78 of the 108 `dev:` scripts.
-  `dev:world` is a listing and runs once, last.
-- **`pristine` holds a copy of CT 123's dev world as it stood on 2026-10-21.** Anything that world held
-  then is in every box at the start of every run: your own tables, or a fixture some probe stranded.
+  file, so a new probe joins the fleet just by being declared there. That is 103 of the 108 `dev:` scripts:
+  the ops registry leaves out `dev:upgrade`, and `dev:smoke`, `dev:site`, `dev:actors` and `dev:players`
+  are not probes.
+- **`pristine` holds a copy of CT 123's dev world as it stood on 2026-10-21**, launched once at 14.369 on
+  2026-10-30. Anything that world held then is in every box at the start of every run: your own tables,
+  or a fixture some probe stranded.
+- **After the boxes move to a new Foundry build, this world must be launched by hand on each box** and
+  `pristine` retaken. Foundry never auto-launches a world last saved by an older build, and `--refresh`
+  does not launch it. The symptom is a run that sets up no box: every box's log says
+  `The requested World "air-bladder-dev" is not available to auto-launch`. The ops runbook
+  (`runbooks/foundry-probe-boxes.md`) has the recipe. The 14.369 move on 2026-10-28 launched only DB
+  Mythic's world, and the next Air Bladder run (`20261030T172901Z-air-bladder-dev`) failed exactly so.
 
 ## Starting a run
 
@@ -73,9 +81,22 @@ in a batch. A red on a different box in each run, with the same message every ti
 baseline world. A red that follows one box's queue points at an earlier probe on that box that leaked
 something.
 
-## Where things stand (2026-10-22)
+## Where things stand (2026-10-30)
 
-**78/78 at `dev` `05e28ef5`**, in four minutes (run `20261022T013237Z-air-bladder-05e28ef5`).
+**103/103 on Foundry 14.369 at `review-34` `8be613b5`**, in five minutes, with no re-run (run
+`20261030T205104Z-air-bladder-review-34`).
+
+- **The 25 probes that never ran here now do.** Their files did not match `e2e-*.mjs`. They are renamed
+  after their `dev:` scripts (`e2e-combat-options.mjs`, …), and each has a `watchdog()` (`3301fafc`).
+- **14.369's join form** is a dropdown again, named `userId`, and it disables a user who is already in the
+  world. `chooseJoinUser` in `tools/dev/lib.mjs` handles both (`f98cdae9`).
+- **The first full run on 14.369 went 98/103** (`20261030T202049Z`). All five reds were the probes', not
+  the system's. Three met the baseline world's take-over copies again: the 2e trait tables and Scars,
+  "Omens", and a world Transports & Containers aisle selling a world Mule. Two assumed a random roll
+  that usually comes up: a Mountebank's Cart, and an NPC rolled as a Lord or a Politician, who is handed
+  nothing. `8be613b5` has the account.
+
+**2026-10-22: 78/78 at `dev` `05e28ef5`**, in four minutes (run `20261022T013237Z-air-bladder-05e28ef5`).
 
 The two full runs before it, at `cf4c1616`, both went 72/78 with the same six reds (`bond-dupes`,
 `companions`, `spellscroll`, `spell-pool`, `reroll-dialog`, `print`), each on a different box the second
