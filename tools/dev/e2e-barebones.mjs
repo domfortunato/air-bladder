@@ -127,18 +127,22 @@ try {
     let edit = { skipped: true };
     if (poolWeapon) {
       const wasLocked = wPack.locked;
-      if (wasLocked) await wPack.configure({ locked: false });
       const origDesc = poolWeapon.system.description ?? "";
       const marker = "PROBE-BB-MARKER-5";
-      await poolWeapon.update({ "system.description": marker });
+      // Restored in a finally (review #34): a throw mid-edit would leave the
+      // shipped weapon marked for the next probe on the same fleet box.
+      try {
+        if (wasLocked) await wPack.configure({ locked: false });
+        await poolWeapon.update({ "system.description": marker });
 
-      // Re-resolve directly: regeneration re-rolls the weapon, so asking for this
-      // exact one is the precise test of the reference guarantee.
-      const fresh = await resolveGearItem(poolWeapon.name);
-      edit = { skipped: false, name: poolWeapon.name, flowed: fresh?.system.description === marker };
-
-      await poolWeapon.update({ "system.description": origDesc });
-      if (wasLocked) await wPack.configure({ locked: true });
+        // Re-resolve directly: regeneration re-rolls the weapon, so asking for this
+        // exact one is the precise test of the reference guarantee.
+        const fresh = await resolveGearItem(poolWeapon.name);
+        edit = { skipped: false, name: poolWeapon.name, flowed: fresh?.system.description === marker };
+      } finally {
+        await poolWeapon.update({ "system.description": origDesc });
+        if (wasLocked) await wPack.configure({ locked: true });
+      }
     }
 
     // 4. Regenerate keeps the background, re-rolls the rest.

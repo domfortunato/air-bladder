@@ -110,21 +110,27 @@ try {
     const pack = game.packs.get("air-bladder.weapons");
     const poolDagger = (await pack.getDocuments()).find((d) => d.name === "Dagger");
     const wasLocked = pack.locked;
-    if (wasLocked) await pack.configure({ locked: false });
     const origCost = poolDagger.system.cost;
     const origDesc = poolDagger.system.description ?? "";
     const marker = "PROBE-MKT-MARKER-7";
-    await poolDagger.update({ "system.cost": 99, "system.description": marker });
+    // Restored in a finally (review #34): a leg that throws mid-edit would leave
+    // the shipped Dagger at 99 for the next probe on the same fleet box.
+    let reflect;
+    try {
+      if (wasLocked) await pack.configure({ locked: false });
+      await poolDagger.update({ "system.cost": 99, "system.description": marker });
 
-    const cat2 = await mkt.getMarketplaceCatalog();
-    const dagger2 = find(cat2, "Weapons", "Dagger");
-    const reflect = {
-      cost: dagger2?.system.cost,
-      reflectsCost: dagger2?.system.cost === 99,
-      reflectsDesc: (dagger2?.system.description ?? "").includes(marker),
-    };
-    await poolDagger.update({ "system.cost": origCost, "system.description": origDesc });
-    if (wasLocked) await pack.configure({ locked: true });
+      const cat2 = await mkt.getMarketplaceCatalog();
+      const dagger2 = find(cat2, "Weapons", "Dagger");
+      reflect = {
+        cost: dagger2?.system.cost,
+        reflectsCost: dagger2?.system.cost === 99,
+        reflectsDesc: (dagger2?.system.description ?? "").includes(marker),
+      };
+    } finally {
+      await poolDagger.update({ "system.cost": origCost, "system.description": origDesc });
+      if (wasLocked) await pack.configure({ locked: true });
+    }
 
     // 3. Buy flow with a temp character.
     const actor = await Actor.create({ type: "character", name: "MKT Probe", system: { gold: 100 } });

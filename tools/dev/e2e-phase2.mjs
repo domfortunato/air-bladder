@@ -88,24 +88,29 @@ try {
     // 3. Edit the pool item in place (unlock, bump armor, stamp description).
     const pack = game.packs.get(packKey);
     const wasLocked = pack.locked;
-    if (wasLocked) await pack.configure({ locked: false });
     const newArmor = origArmor + 5;
     const marker = "PROBE-EDIT-MARKER-42";
-    await poolDoc.update({ "system.armor": newArmor, "system.description": marker });
+    // Reverted in a finally (review #34): a leg that throws mid-edit would leave
+    // the shipped armor edited for the next probe on the same fleet box.
+    let gen2;
+    try {
+      if (wasLocked) await pack.configure({ locked: false });
+      await poolDoc.update({ "system.armor": newArmor, "system.description": marker });
 
-    // 4. Regenerate the same actor (same background, by uuid) and re-inspect.
-    await CG.regenerateActor(actor);
-    const e2 = actor.items.find((i) => i.type === "armor" && i.name.toLowerCase() === armorName.toLowerCase());
-    const gen2 = {
-      hasArmor: !!e2,
-      armorValue: e2?.system.armor,
-      reflectsArmorEdit: e2?.system.armor === newArmor,
-      reflectsDescEdit: (e2?.system.description ?? "") === marker,
-    };
-
-    // 5. Revert + cleanup.
-    await poolDoc.update({ "system.armor": origArmor, "system.description": origDesc });
-    if (wasLocked) await pack.configure({ locked: true });
+      // 4. Regenerate the same actor (same background, by uuid) and re-inspect.
+      await CG.regenerateActor(actor);
+      const e2 = actor.items.find((i) => i.type === "armor" && i.name.toLowerCase() === armorName.toLowerCase());
+      gen2 = {
+        hasArmor: !!e2,
+        armorValue: e2?.system.armor,
+        reflectsArmorEdit: e2?.system.armor === newArmor,
+        reflectsDescEdit: (e2?.system.description ?? "") === marker,
+      };
+    } finally {
+      // 5. Revert + cleanup.
+      await poolDoc.update({ "system.armor": origArmor, "system.description": origDesc });
+      if (wasLocked) await pack.configure({ locked: true });
+    }
     await actor.delete();
 
     return { backgroundName: bg.name, armorName, packKey, origArmor, newArmor, gen1, gen2 };

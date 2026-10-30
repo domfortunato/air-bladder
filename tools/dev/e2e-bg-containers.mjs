@@ -232,54 +232,61 @@ try {
     //    the edit is proved through a field the document owns outright.
     const doc = tByName.get("rivertooth");
     const wasLocked = tPack.locked;
-    if (wasLocked) await tPack.configure({ locked: false });
     const origDesc = doc.system.description;
     const marker = "PROBE-BEAST-MARKER-3";
-    await doc.update({ "system.description": marker });
+    // Restored in a finally (review #34): a throw mid-edit would leave the
+    // shipped Rivertooth marked, or the pack starved by the control below, for
+    // the next probe on the same fleet box.
+    let edit, control;
+    try {
+      if (wasLocked) await tPack.configure({ locked: false });
+      await doc.update({ "system.description": marker });
 
-    const [minted] = await gen.grantContainers(actor, [
-      { name: "Rivertooth", slots: 6, grantSource: "question:9" },
-    ]);
-    if (minted) made.push(minted);
-    const edit = {
-      flowed: minted?.system.description === marker,
-      // and the grant's own capacity still wins over the document's
-      capacityFromGrant: minted?.system.slotsMax === 6,
-      // an unknown beast has no document at all and is minted from the spec alone
-      got: minted?.system.description,
-      // THE stat-block assertion, as a LITERAL: Rivertooth's document states
-      // 4 HP and the schema default is 6, so this is the line that goes red
-      // when grants resolve against a pack whose documents carry no hp — the
-      // shipped review-#5 defect (resolving against the legacy Item pack).
-      // Asserting "minted hp equals the doc's hp" instead would pass whenever
-      // BOTH reads miss, which is the assertion sharing the bug's assumption.
-      hpFromDoc: minted?.system.hp.value === 4 && minted?.system.hp.max === 4,
-    };
-    const [bespoke] = await gen.grantContainers(actor, [
-      { name: "PROBE Unknown Beast", slots: 5, grantSource: "question:9" },
-    ]);
-    if (bespoke) made.push(bespoke);
-    edit.fallbackMinted = bespoke?.system.slotsMax === 5 && bespoke?.type === "npc";
+      const [minted] = await gen.grantContainers(actor, [
+        { name: "Rivertooth", slots: 6, grantSource: "question:9" },
+      ]);
+      if (minted) made.push(minted);
+      edit = {
+        flowed: minted?.system.description === marker,
+        // and the grant's own capacity still wins over the document's
+        capacityFromGrant: minted?.system.slotsMax === 6,
+        // an unknown beast has no document at all and is minted from the spec alone
+        got: minted?.system.description,
+        // THE stat-block assertion, as a LITERAL: Rivertooth's document states
+        // 4 HP and the schema default is 6, so this is the line that goes red
+        // when grants resolve against a pack whose documents carry no hp — the
+        // shipped review-#5 defect (resolving against the legacy Item pack).
+        // Asserting "minted hp equals the doc's hp" instead would pass whenever
+        // BOTH reads miss, which is the assertion sharing the bug's assumption.
+        hpFromDoc: minted?.system.hp.value === 4 && minted?.system.hp.max === 4,
+      };
+      const [bespoke] = await gen.grantContainers(actor, [
+        { name: "PROBE Unknown Beast", slots: 5, grantSource: "question:9" },
+      ]);
+      if (bespoke) made.push(bespoke);
+      edit.fallbackMinted = bespoke?.system.slotsMax === 5 && bespoke?.type === "npc";
 
-    // NEGATIVE CONTROL, in-page: starve grantContainers of the Actor pack (an
-    // instance property shadowing CompendiumCollection#getDocuments — the
-    // prototype is untouched and `delete` removes the shadow) and the same
-    // grant must come back out with the phantom 6/6 and no marker, i.e. the
-    // shipped defect reproduced. If it doesn't, hpFromDoc above is not
-    // load-bearing.
-    tPack.getDocuments = async () => [];
-    const [starved] = await gen.grantContainers(actor, [
-      { name: "Rivertooth", slots: 6, grantSource: "question:9" },
-    ]);
-    delete tPack.getDocuments;
-    if (starved) made.push(starved);
-    const control = {
-      reproduced: starved?.system.hp.max === 6 && starved?.system.description !== marker,
-      hp: starved?.system.hp.max,
-    };
-
-    await doc.update({ "system.description": origDesc });
-    if (wasLocked) await tPack.configure({ locked: true });
+      // NEGATIVE CONTROL, in-page: starve grantContainers of the Actor pack (an
+      // instance property shadowing CompendiumCollection#getDocuments — the
+      // prototype is untouched and `delete` removes the shadow) and the same
+      // grant must come back out with the phantom 6/6 and no marker, i.e. the
+      // shipped defect reproduced. If it doesn't, hpFromDoc above is not
+      // load-bearing.
+      tPack.getDocuments = async () => [];
+      const [starved] = await gen.grantContainers(actor, [
+        { name: "Rivertooth", slots: 6, grantSource: "question:9" },
+      ]);
+      delete tPack.getDocuments;
+      if (starved) made.push(starved);
+      control = {
+        reproduced: starved?.system.hp.max === 6 && starved?.system.description !== marker,
+        hp: starved?.system.hp.max,
+      };
+    } finally {
+      delete tPack.getDocuments;
+      await doc.update({ "system.description": origDesc });
+      if (wasLocked) await tPack.configure({ locked: true });
+    }
 
     // 6. The connection ceiling in grantContainers itself (2026-08-01). With
     //    partial headroom the grant CLAMPS — the first specs land, the rest are

@@ -179,27 +179,32 @@ try {
     if (poolDoc) {
       const pack = game.packs.get(poolDoc.pack);
       const wasLocked = pack.locked;
-      if (wasLocked) await pack.configure({ locked: false });
       const origDesc = poolDoc.system.description ?? "";
       const marker = "NPC-PROBE-MARKER-7";
-      await poolDoc.update({ "system.description": marker });
+      // Restored in a finally (review #34): a throw mid-edit would leave the
+      // shipped item marked for the next probe on the same fleet box.
+      try {
+        if (wasLocked) await pack.configure({ locked: false });
+        await poolDoc.update({ "system.description": marker });
 
-      // Re-roll AWAY first -- the actor currently IS this profession, and its gear
-      // was built before the edit, so a loop that stops on "already there" would
-      // compare the stale pre-edit item and always fail. Then cycle back to it
-      // (re-roll avoids the current profession, so it wanders); bounded so a miss
-      // cannot hang the probe.
-      await CG.rerollHirelingCareer(actor);
-      for (let i = 0; i < 200 && actor.system.profession !== book.name; i++) {
+        // Re-roll AWAY first -- the actor currently IS this profession, and its gear
+        // was built before the edit, so a loop that stops on "already there" would
+        // compare the stale pre-edit item and always fail. Then cycle back to it
+        // (re-roll avoids the current profession, so it wanders); bounded so a miss
+        // cannot hang the probe.
         await CG.rerollHirelingCareer(actor);
+        for (let i = 0; i < 200 && actor.system.profession !== book.name; i++) {
+          await CG.rerollHirelingCareer(actor);
+        }
+        if (actor.system.profession === book.name) {
+          const it = actor.items.find((x) => x.name.toLowerCase() === poolDoc.name.toLowerCase());
+          editFlowed = (it?.system.description ?? "") === marker;
+          editTarget = poolDoc.name;
+        }
+      } finally {
+        await poolDoc.update({ "system.description": origDesc });
+        if (wasLocked) await pack.configure({ locked: true });
       }
-      if (actor.system.profession === book.name) {
-        const it = actor.items.find((x) => x.name.toLowerCase() === poolDoc.name.toLowerCase());
-        editFlowed = (it?.system.description ?? "") === marker;
-        editTarget = poolDoc.name;
-      }
-      await poolDoc.update({ "system.description": origDesc });
-      if (wasLocked) await pack.configure({ locked: true });
     }
 
     // 5. A GM-added item must survive a profession re-roll (it carries no
