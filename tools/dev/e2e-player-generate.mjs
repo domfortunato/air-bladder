@@ -316,8 +316,13 @@ try {
   // character there, and a player's Create PC never reaches it — players lack
   // ACTOR_CREATE, so theirs always comes through the relay, which passed no
   // folder. The commonest character in any world landed at the root.
+  // The CHARACTER, not every new actor: a rolled background may grant a Cart
+  // or a mule, an actor of its own that by design stays out of the Party
+  // folder ("only characters default to Party"). Counting it redded this check
+  // on a roll that granted one (fleet run 20261030T202049Z: [true,false], a
+  // Cart beside the character).
   const filed = await gm.evaluate((before) => {
-    const fresh = game.actors.filter((a) => !before.includes(a.id));
+    const fresh = game.actors.filter((a) => !before.includes(a.id) && a.type === "character");
     return fresh.map((a) => a.folder?.getFlag("air-bladder", "partyFolder") === true);
   }, before.actors);
   filed.length && filed.every(Boolean)

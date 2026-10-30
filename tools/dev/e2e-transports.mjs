@@ -322,23 +322,47 @@ try {
 
     // 4. Edit the Mule ACTOR document (the one the shop row references now);
     //    a newly bought one must reflect it -- the reference guarantee.
-    const wasLocked = aPack.locked;
-    if (wasLocked) await aPack.configure({ locked: false });
-    const origSlots = mule.system.slots;
-    await mule.update({ "system.slots": origSlots + 5 });
-    const catalog2 = await mkt.getMarketplaceCatalog();
-    const cat2 = catalog2.categories.find((c) => c.name === "Transports & Containers");
-    await mkt.acquireTransport(buyer, cat2.items.find((i) => i.name === "Mule"), true);
-    const mules = game.actors.filter((a) => a.type === "npc" && a.name === "Mule" && a.system.connectedTo === buyer.uuid);
-    const newMule = mules[mules.length - 1];
-    if (newMule && !made.includes(newMule)) made.push(newMule);
-    const edit = {
-      flowed: newMule?.system.slotsMax === origSlots + 5,
-      got: newMule?.system.slotsMax,
-      expected: origSlots + 5,
-    };
-    await mule.update({ "system.slots": origSlots });
-    if (wasLocked) await aPack.configure({ locked: true });
+    //
+    //    WHICH document that is, is the Warden's: a world RollTable named as the
+    //    shipped aisle REPLACES it (marketplace.js `marketTables`, the last world
+    //    table of the name winning), and the Marketplace take-over door points
+    //    its copy's rows at world copies of the mounts. On the fleet's baseline
+    //    world the shop sold the world's Mule, so an edit to the pack's never
+    //    reached it (run 20261030T202049Z: got 6, expected 11). The row is read
+    //    the way the shop reads it, by `documentUuid`, and restored in a finally.
+    const aisleName = `Market: ${mkt.TRANSPORTS_CATEGORY}`;
+    const aisle = game.tables.filter((t) => t.name === aisleName).at(-1)
+      ?? (await game.packs.get("air-bladder.marketplace").getDocuments()).find((t) => t.name === aisleName);
+    let target = null;
+    for (const x of aisle?.results ?? []) {
+      if (x.type !== CONST.TABLE_RESULT_TYPES.DOCUMENT) continue;
+      const d = await fromUuid(x.documentUuid);
+      if (d?.name === "Mule") { target = d; break; }
+    }
+    // No early return: the cleanup below must still run.
+    let edit = { flowed: false, got: `no Mule row in "${aisleName}"`, expected: "one", source: aisle?.pack ?? (aisle ? "world" : "missing") };
+    const targetPack = target?.pack ? game.packs.get(target.pack) : null;
+    const wasLocked = !!targetPack?.locked;
+    const origSlots = target?.system.slots;
+    if (target) try {
+      if (wasLocked) await targetPack.configure({ locked: false });
+      await target.update({ "system.slots": origSlots + 5 });
+      const catalog2 = await mkt.getMarketplaceCatalog();
+      const cat2 = catalog2.categories.find((c) => c.name === "Transports & Containers");
+      await mkt.acquireTransport(buyer, cat2.items.find((i) => i.name === "Mule"), true);
+      const mules = game.actors.filter((a) => a.type === "npc" && a.name === "Mule" && a.system.connectedTo === buyer.uuid);
+      const newMule = mules[mules.length - 1];
+      if (newMule && !made.includes(newMule)) made.push(newMule);
+      edit = {
+        flowed: newMule?.system.slotsMax === origSlots + 5,
+        got: newMule?.system.slotsMax,
+        expected: origSlots + 5,
+        source: target.pack ?? "world",
+      };
+    } finally {
+      await target.update({ "system.slots": origSlots });
+      if (wasLocked) await targetPack.configure({ locked: true });
+    }
 
     // 5. Affordability: a pauper cannot buy a Wagon.
     const pauper = await CONFIG.Actor.documentClass.create({
@@ -455,7 +479,7 @@ try {
       ? ok("   and the nesting toast leaves a token PC's name alone too")
       : fail(`the nesting toast renamed a token PC: "${r.names.tokToast}"`);
 
-    r.edit.flowed ? ok(`EDIT FLOWS THROUGH: capacity ${r.edit.expected} on the next one bought`) : fail(`document edit did not flow through (got ${r.edit.got}, expected ${r.edit.expected})`);
+    r.edit.flowed ? ok(`EDIT FLOWS THROUGH: capacity ${r.edit.expected} on the next one bought (the ${r.edit.source} Mule)`) : fail(`document edit did not flow through (got ${r.edit.got}, expected ${r.edit.expected}, the ${r.edit.source} Mule)`);
 
     r.afford.refused && r.afford.noActor && r.afford.goldIntact ? ok("an unaffordable transport is refused, mints nothing, spends nothing") : fail("affordability check did not hold");
 

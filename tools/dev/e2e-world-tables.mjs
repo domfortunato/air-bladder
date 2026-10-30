@@ -43,7 +43,7 @@
  */
 
 import { chromium } from "playwright";
-import { VIEWPORT, joinAsGM, watchErrors, watchdog } from "./lib.mjs";
+import { VIEWPORT, joinAsGM, watchErrors, watchdog, holdAsideWorldTables } from "./lib.mjs";
 
 const browser = await chromium.launch();
 // The fleet's hang guard (review #34): without it a hang runs to the runner's
@@ -76,10 +76,9 @@ try {
     ? console.log(`  --    swept leftovers first: ${pre.tables.length} table(s) ${pre.tables.join(", ")}, ${pre.actors} actor(s), ${pre.messages} card(s)`)
     : ok("nothing planted left behind by an earlier run — the legs below start clean");
 
-  /* ---- 1. the resolver, every declaration --------------------------------- */
-  console.log("\nthe resolver, over every declared table");
-  const r = await page.evaluate(async ({ MARK, FLAG }) => {
-    const comp = await import("/systems/air-bladder/module/compendium.js");
+  // Every declaration, read IN-PAGE off CONFIG.Cairn (a probe-side list is a
+  // copy that goes stale).
+  const declList = await page.evaluate(async () => {
     const C = CONFIG.Cairn;
     const decls = new Set([
       ...Object.values(C.characterGenerator2e.biography.items),
@@ -92,6 +91,23 @@ try {
     // The Barebones creation tables are looked up by name inside the generator
     // and declared nowhere in CONFIG, so read the pack's own index for them.
     for (const e of await game.packs.get("air-bladder.tables-barebones").getIndex()) decls.add(`air-bladder.tables-barebones;${e.name}`);
+    return [...decls];
+  });
+  // The baseline says every declaration resolves to the PACK, and every leg
+  // after it needs the planted table to win. A Warden's own copies of the same
+  // names (the 2e door's eight traits and Scars, in the fleet's baseline world,
+  // run 20261030T202049Z) are the first world tables of those names and would
+  // win instead: set them aside in-page, nothing written. Held by id before the
+  // plant, so the planted tables stay visible.
+  const declName = (d) => (d.includes(";") ? d.split(";")[1] : d).trim();
+  const held = await holdAsideWorldTables(page, [...new Set(declList.map(declName))]);
+  if (held.length) console.log(`  --    set aside the world's own ${held.map((t) => t.name).join(", ")}`);
+
+  /* ---- 1. the resolver, every declaration --------------------------------- */
+  console.log("\nthe resolver, over every declared table");
+  const r = await page.evaluate(async ({ MARK, FLAG, declList }) => {
+    const comp = await import("/systems/air-bladder/module/compendium.js");
+    const decls = new Set(declList);
     const nameOf = (d) => (d.includes(";") ? d.split(";")[1] : d).trim();
     const packOf = (d) => (d.includes(";") ? d.split(";")[0] : null);
 
@@ -130,7 +146,7 @@ try {
       if (old?.pack && old.id !== mine?.id) out.control++; else out.controlMiss.push(d);
     }
     return out;
-  }, { MARK, FLAG });
+  }, { MARK, FLAG, declList });
 
   r.baselinePack === r.count && r.baselineMiss.length === 0
     ? ok(`${r.count} declared tables, every one resolving to a PACK document before anything is planted`)

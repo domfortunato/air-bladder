@@ -42,7 +42,7 @@
  */
 
 import { chromium } from "playwright";
-import { VIEWPORT, joinAsGM, watchErrors, watchdog } from "./lib.mjs";
+import { VIEWPORT, joinAsGM, watchErrors, watchdog, holdAsideWorldTables } from "./lib.mjs";
 
 const browser = await chromium.launch();
 // The fleet's hang guard (review #34): without it a hang runs to the runner's
@@ -56,6 +56,12 @@ const ok = (m) => console.log(`  ok    ${m}`);
 
 try {
   await joinAsGM(page);
+  // Leg 6 plants a world "Omens" and needs the die to find IT. A Warden's own
+  // "Omens" (a take-over copy) is the first world table of the name and won
+  // every read on the fleet's baseline world (run 20261030T202049Z): set it
+  // aside in-page, nothing written. The plant comes after, so it stays visible.
+  const heldOmens = await holdAsideWorldTables(page, ["Omens"]);
+  if (heldOmens.length) console.log(`  note  set aside the world's own Omens: ${heldOmens.map((t) => t.id).join(", ")}`);
 
   const r = await page.evaluate(async () => {
     const gen = await import("/systems/air-bladder/module/character-generator.js");
