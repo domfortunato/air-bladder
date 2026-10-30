@@ -4,7 +4,7 @@
  * shop references (not an inlined price list), that buying one mints a
  * keeper-linked container Actor, and that the worn/mount slot distinction holds.
  *
- *   node tools/dev/transport-probe.mjs    (needs Foundry running, world launched)
+ *   node tools/dev/e2e-transports.mjs    (needs Foundry running, world launched)
  *
  * Steps, driven headless as GM:
  *   1. ONE pack: the shop's "Transports & Containers" table references the
@@ -29,9 +29,12 @@
  */
 
 import { chromium } from "playwright";
-import { VIEWPORT, joinAsGM, watchErrors } from "./lib.mjs";
+import { VIEWPORT, joinAsGM, watchErrors, watchdog } from "./lib.mjs";
 
 const browser = await chromium.launch();
+// The fleet's hang guard (review #34): without it a hang runs to the runner's
+// 65-minute cap and skips every restore. A bound on a hang, not a timing claim.
+watchdog(900000, "dev:transports");
 const page = await browser.newContext({ viewport: VIEWPORT }).then((c) => c.newPage());
 const errors = watchErrors(page);
 let failed = false;
@@ -391,7 +394,7 @@ try {
     r.setup.stockedCount === 7 && r.setup.shopCount === 7
       ? ok("7 stocked, and the shop lists all 7")
       : fail(`expected 7 stocked / 7 shop rows, got ${r.setup.stockedCount}/${r.setup.shopCount}`);
-    // Covered in depth by tools/dev/bg-container-probe.mjs; asserted here so a
+    // Covered in depth by tools/dev/e2e-bg-containers.mjs; asserted here so a
     // beast can never leak into the shop unnoticed.
     r.setup.beastCount === 10
       ? ok("10 background-granted beasts share the pack but not the shop", "incl. round 6's Falcon and Raven")

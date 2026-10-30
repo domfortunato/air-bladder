@@ -10,9 +10,12 @@
  * deletes it afterwards.
  */
 import { chromium } from "playwright";
-import { VIEWPORT, joinAsGM, watchErrors, dismissChrome } from "./lib.mjs";
+import { VIEWPORT, joinAsGM, watchErrors, dismissChrome, watchdog } from "./lib.mjs";
 
 const browser = await chromium.launch();
+// The fleet's hang guard (review #34): without it a hang runs to the runner's
+// 65-minute cap and skips every restore. A bound on a hang, not a timing claim.
+watchdog(900000, "dev:ui-parity");
 const page = await browser.newContext({ viewport: VIEWPORT }).then((c) => c.newPage());
 const errors = watchErrors(page);
 let failed = false;
@@ -611,7 +614,7 @@ try {
     // A REST EATS A RATION (2026-10-03): the PC sheet's Rest tooltip is
     // RestRationTip ALONE — the ration sentence plus Cairn's bandages sentence,
     // and NOT Cairn's "few moments" opening (user ruling later that day); the
-    // NPC sheet keeps RestTip alone (npc-probe asserts that half). This
+    // NPC sheet keeps RestTip alone (e2e-npc asserts that half). This
     // fixture is a player character. The opening is RestTip's own first
     // sentence in this client's language, never an English literal.
     out.rationTip = game.i18n.localize("CAIRN.RestRationTip");

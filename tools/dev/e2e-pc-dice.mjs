@@ -69,9 +69,12 @@
  * land ENCUMBERED because overflow is owed, and derived HP is 0 for one.
  */
 import { chromium } from "playwright";
-import { VIEWPORT, joinAsGM, watchErrors, withSettings } from "./lib.mjs";
+import { VIEWPORT, joinAsGM, watchErrors, withSettings, watchdog } from "./lib.mjs";
 
 const browser = await chromium.launch();
+// The fleet's hang guard (review #34): without it a hang runs to the runner's
+// 65-minute cap and skips every restore. A bound on a hang, not a timing claim.
+watchdog(900000, "dev:pc-dice");
 const page = await browser.newContext({ viewport: VIEWPORT }).then((c) => c.newPage());
 const errors = watchErrors(page);
 let failed = false;

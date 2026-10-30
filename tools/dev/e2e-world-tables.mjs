@@ -3,7 +3,7 @@
  * WORLD-FIRST TABLES (2026-09-13): every table a generator declares resolves to
  * a RollTable in the Warden's world of the same name before the shipped pack.
  *
- *   node tools/dev/world-tables-probe.mjs   (needs Foundry running, world launched)
+ *   node tools/dev/e2e-world-tables.mjs   (needs Foundry running, world launched)
  *
  * What it holds, and why each leg is there:
  *   1. THE RESOLVER, over every declaration — read IN-PAGE off CONFIG.Cairn (a
@@ -43,9 +43,12 @@
  */
 
 import { chromium } from "playwright";
-import { VIEWPORT, joinAsGM, watchErrors } from "./lib.mjs";
+import { VIEWPORT, joinAsGM, watchErrors, watchdog } from "./lib.mjs";
 
 const browser = await chromium.launch();
+// The fleet's hang guard (review #34): without it a hang runs to the runner's
+// 65-minute cap and skips every restore. A bound on a hang, not a timing claim.
+watchdog(900000, "dev:world-tables");
 const page = await browser.newContext({ viewport: VIEWPORT }).then((c) => c.newPage());
 const errors = watchErrors(page);
 let failed = false;

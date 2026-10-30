@@ -25,9 +25,12 @@
  *   npm run dev:header-buttons
  */
 import { chromium } from "playwright";
-import { VIEWPORT, joinAsGM, dismissChrome, watchErrors } from "./lib.mjs";
+import { VIEWPORT, joinAsGM, dismissChrome, watchErrors, watchdog } from "./lib.mjs";
 
 const browser = await chromium.launch();
+// The fleet's hang guard (review #34): without it a hang runs to the runner's
+// 65-minute cap and skips every restore. A bound on a hang, not a timing claim.
+watchdog(900000, "dev:header-buttons");
 const page = await browser.newPage({ viewport: VIEWPORT });
 const errors = watchErrors(page);
 let failures = 0;

@@ -3,7 +3,7 @@
  * Phase 1 acceptance probe: every gear item a 2e character (or their hireling)
  * can be granted must resolve to a real, editable pack item.
  *
- *   node tools/dev/gear-probe.mjs        (needs Foundry running, world launched)
+ *   node tools/dev/e2e-gear.mjs        (needs Foundry running, world launched)
  *
  * The name list is harvested from the SHIPPED packs inside the running world —
  * every background's starting gear, every choice-table option's grant, every bond
@@ -17,9 +17,12 @@
  */
 
 import { chromium } from "playwright";
-import { VIEWPORT, joinAsGM, watchErrors } from "./lib.mjs";
+import { VIEWPORT, joinAsGM, watchErrors, watchdog } from "./lib.mjs";
 
 const browser = await chromium.launch();
+// The fleet's hang guard (review #34): without it a hang runs to the runner's
+// 65-minute cap and skips every restore. A bound on a hang, not a timing claim.
+watchdog(900000, "dev:gear");
 const page = await browser.newContext({ viewport: VIEWPORT }).then(c => c.newPage());
 const errors = watchErrors(page);
 let failed = false;

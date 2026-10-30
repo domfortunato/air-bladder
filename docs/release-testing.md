@@ -207,7 +207,7 @@ Two traps worth carrying forward:
   is not `undefined`, it is the first `<input>`. The reversed order hands back an input
   whose `querySelector` matches nothing, and every DOM assertion reads false with no error.
 - **A probe that changes the world must restore it from NODE, not from inside
-  `page.evaluate`.** `age-override-probe` set `min-age` to 99 to test the age floor and
+  `page.evaluate`.** `e2e-age-override` set `min-age` to 99 to test the age floor and
   threw on the next line; its restore sat after the throw, inside the same evaluate, and
   never ran. The dev world kept a floor of 99, so **every character generated afterwards
   was aged 99 and the age re-roll looked broken** — it was flooring to 99 too, so the value
@@ -216,7 +216,7 @@ Two traps worth carrying forward:
   where an in-page one is skipped: use `withSettings(page, fn)` from `lib.mjs`, which
   snapshots every world setting, restores whatever drifted, and prints what it put back.
   **Still unguarded** (top-level scripts, no enclosing try): `e2e-dialogs`,
-  `e2e-directory-buttons`, `e2e-portrait-folder`, `probe-bg-tools`.
+  `e2e-directory-buttons`, `e2e-portrait-folder`, `e2e-bg-tools`.
 - **A probe can pass having exercised nothing.** `age-override` asserted the re-rolled age
   obeyed a floor of 99 — but generation obeys the same floor, so had the click done nothing
   the assertion would still have been true. It now asserts the control *exists* first. When

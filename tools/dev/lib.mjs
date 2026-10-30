@@ -15,7 +15,7 @@ export const VIEWPORT = { width: 1600, height: 1000 };
  *   await withSettings(page, async () => { ...probe body... });
  *
  * Why this exists, and why the restore has to live HERE rather than inside the
- * probe's `page.evaluate`: on 2026-07-29 `age-override-probe` set `min-age` to 99
+ * probe's `page.evaluate`: on 2026-07-29 `e2e-age-override` set `min-age` to 99
  * to test the age floor, then threw on the next line (an AppV2 casualty —
  * `sheet._onRollAge` had stopped existing). Its restore sat *after* the throw,
  * inside the same evaluate, so it never ran. The setting stayed at 99 in the dev

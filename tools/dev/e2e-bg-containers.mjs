@@ -7,7 +7,7 @@
  * items[] — it is minted once the character exists. This probe proves the whole
  * path.
  *
- *   node tools/dev/bg-container-probe.mjs   (needs Foundry running, world launched)
+ *   node tools/dev/e2e-bg-containers.mjs   (needs Foundry running, world launched)
  *
  * Steps, driven headless as GM:
  *   1. Every container name the background pack grants has an editable npc
@@ -27,9 +27,12 @@
  */
 
 import { chromium } from "playwright";
-import { VIEWPORT, joinAsGM, watchErrors } from "./lib.mjs";
+import { VIEWPORT, joinAsGM, watchErrors, watchdog } from "./lib.mjs";
 
 const browser = await chromium.launch();
+// The fleet's hang guard (review #34): without it a hang runs to the runner's
+// 65-minute cap and skips every restore. A bound on a hang, not a timing claim.
+watchdog(900000, "dev:bg-containers");
 const page = await browser.newContext({ viewport: VIEWPORT }).then((c) => c.newPage());
 const errors = watchErrors(page);
 let failed = false;

@@ -8,8 +8,8 @@
  * no such thing — a ported sheet inherits the scheme from <body>. So the port
  * silently hands us a dark mode the stylesheet was never written for.
  *
- *   node tools/dev/probe-theme.mjs            (needs Foundry running)
- *   node tools/dev/probe-theme.mjs --shots    (also write PNGs to tools/dev/out/)
+ *   node tools/dev/e2e-theme.mjs            (needs Foundry running)
+ *   node tools/dev/e2e-theme.mjs --shots    (also write PNGs to tools/dev/out/)
  *
  * Two measurements that cost a wrong answer once each, so do not "simplify" them:
  *
@@ -31,7 +31,7 @@ import { chromium } from "playwright";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { FOUNDRY_URL, VIEWPORT, joinAsGM, watchErrors } from "./lib.mjs";
+import { FOUNDRY_URL, VIEWPORT, joinAsGM, watchErrors, watchdog } from "./lib.mjs";
 
 const outDir = path.join(path.dirname(fileURLToPath(import.meta.url)), "out");
 const WANT_SHOTS = process.argv.includes("--shots");
@@ -83,6 +83,9 @@ const TEXT_MIN = 3.0;
 const BORDER_MIN = 1.35;
 
 const browser = await chromium.launch();
+// The fleet's hang guard (review #34): without it a hang runs to the runner's
+// 65-minute cap and skips every restore. A bound on a hang, not a timing claim.
+watchdog(900000, "dev:theme");
 const ctx = await browser.newContext({ viewport: VIEWPORT });
 const page = await ctx.newPage();
 const errors = watchErrors(page);

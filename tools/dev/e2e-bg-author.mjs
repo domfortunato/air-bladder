@@ -12,7 +12,7 @@
  * no hint of a section. Now a hang names the stage it entered, and watchdog()
  * turns it into an exit 1 instead of a burned harness timeout.
  *
- *   node tools/dev/probe-bg-author.mjs
+ *   node tools/dev/e2e-bg-author.mjs
  */
 import { chromium } from "playwright";
 import { FOUNDRY_URL, VIEWPORT, joinAsGM, watchErrors, watchdog } from "./lib.mjs";

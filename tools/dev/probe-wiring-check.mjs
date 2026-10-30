@@ -8,7 +8,7 @@
  * npm script. Nobody had run them in weeks, and between them they were hiding:
  *
  *   - a real content defect (two hireling gear names resolving to nothing, so
- *     those hirelings generated a piece of gear short) — `gear-probe.mjs` is
+ *     those hirelings generated a piece of gear short) — `e2e-gear.mjs` is
  *     documented in tools/import/README.md as the ONLY thing protecting the
  *     hand-maintained gear pool, and it was not wired;
  *   - four probes rotted by the ApplicationV2 port, each failing in a way that

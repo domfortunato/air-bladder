@@ -5,7 +5,7 @@
  * rule after that is shared. This proves both halves — that generation follows
  * the SRD procedure, and that it does so through the SAME editable pool 2e uses.
  *
- *   node tools/dev/barebones-probe.mjs   (needs Foundry running, world launched)
+ *   node tools/dev/e2e-barebones.mjs   (needs Foundry running, world launched)
  *
  * Steps, driven headless as GM:
  *   1. The packs are installed: 100 background documents (each of the `background`
@@ -29,9 +29,12 @@
  */
 
 import { chromium } from "playwright";
-import { VIEWPORT, joinAsGM, watchErrors } from "./lib.mjs";
+import { VIEWPORT, joinAsGM, watchErrors, watchdog } from "./lib.mjs";
 
 const browser = await chromium.launch();
+// The fleet's hang guard (review #34): without it a hang runs to the runner's
+// 65-minute cap and skips every restore. A bound on a hang, not a timing claim.
+watchdog(900000, "dev:barebones");
 const page = await browser.newContext({ viewport: VIEWPORT }).then((c) => c.newPage());
 const errors = watchErrors(page);
 let failed = false;

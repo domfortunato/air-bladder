@@ -4,12 +4,15 @@
  * resolvable ones, samples the option/gold spread, and that Duplicate lands a
  * source-2e copy in an editable world pack (created on first use).
  *
- *   node tools/dev/probe-bg-tools.mjs
+ *   node tools/dev/e2e-bg-tools.mjs
  */
 import { chromium } from "playwright";
-import { FOUNDRY_URL, VIEWPORT, joinAsGM, watchErrors } from "./lib.mjs";
+import { FOUNDRY_URL, VIEWPORT, joinAsGM, watchErrors, watchdog } from "./lib.mjs";
 
 const browser = await chromium.launch();
+// The fleet's hang guard (review #34): without it a hang runs to the runner's
+// 65-minute cap and skips every restore. A bound on a hang, not a timing claim.
+watchdog(900000, "dev:bg-tools");
 const page = await browser.newPage({ viewport: VIEWPORT });
 const errors = watchErrors(page);
 await joinAsGM(page);

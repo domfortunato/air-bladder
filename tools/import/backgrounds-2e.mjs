@@ -18,7 +18,7 @@
  *   - `_id`, because a character stores its background by uuid; reissuing ids
  *     would orphan every existing character's backgroundUuid.
  *   - every gear REFERENCE, container and bonusGold. Those are proven to resolve
- *     against the pool (tools/dev/gear-probe.mjs asserts 0 misses), and they
+ *     against the pool (tools/dev/e2e-gear.mjs asserts 0 misses), and they
  *     cannot be re-derived from the prose: the SRD bolds the salient noun, not
  *     the item, so "**eye**", "**foot**" and "**arm**" sit in the same markup as
  *     "**Oil Can**". Parsing bold spans would author a pack full of body parts.

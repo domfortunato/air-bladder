@@ -33,7 +33,7 @@ toggle); the **authoring sheet is the remaining build.**
   the fixed **2×6** d6 question tables (prose + bonus gold + item grants by drag →
   snapshot). Generation now resolves a snapshot from its `itemData` (self-contained,
   resolves even when the item is in no pack) — `character-generator.js` `resolveRef`
-  + `resolveStartingGear`. Verified live (`tools/dev/probe-bg-author.mjs`, 13 checks,
+  + `resolveStartingGear`. Verified live (`tools/dev/e2e-bg-author.mjs`, 13 checks,
   zero console errors): editor renders, handlers persist, both drop targets snapshot,
   generation grants the snapshot from starting gear AND a rolled question, and a
   locked shipped background still renders read-only.
@@ -47,7 +47,7 @@ toggle); the **authoring sheet is the remaining build.**
   (`duplicateBackgroundToWorld`) copies a background — available on locked shipped
   ones — into the GM's `world.custom-backgrounds` compendium (created on first use),
   forced to source `2e`, and opens the copy. Verified live
-  (`tools/dev/probe-bg-tools.mjs`, 13 checks, zero console errors).
+  (`tools/dev/e2e-bg-tools.mjs`, 13 checks, zero console errors).
 - **Remaining (nice-to-have, not release-gating):** single-item JSON export / the
   Module-Maker sharing path (§11 step 7) — Foundry already exports a single Item to
   JSON from the sidebar, so this is largely documentation.

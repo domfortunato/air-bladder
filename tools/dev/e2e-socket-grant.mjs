@@ -34,13 +34,16 @@
  */
 
 import { chromium } from "playwright";
-import { VIEWPORT, dismissChrome, joinAsGM, joinAs, watchErrors } from "./lib.mjs";
+import { VIEWPORT, dismissChrome, joinAsGM, joinAs, watchErrors, watchdog } from "./lib.mjs";
 
 const ok = (label, detail = "") => console.log(`  ok    ${label.padEnd(40)} ${detail}`);
 const fail = (label, detail = "") => { console.log(`  FAIL  ${label.padEnd(40)} ${detail}`); failures++; };
 let failures = 0;
 
 const browser = await chromium.launch();
+// The fleet's hang guard (review #34): without it a hang runs to the runner's
+// 65-minute cap and skips every restore. A bound on a hang, not a timing claim.
+watchdog(900000, "dev:socket-grant");
 
 // Separate contexts: Foundry's session cookie is per origin, so two pages in
 // one context would be the same user.

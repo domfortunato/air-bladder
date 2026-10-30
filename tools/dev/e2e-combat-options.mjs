@@ -49,9 +49,12 @@
  * one) and stops on its own, which leg 2b measures against that raw `x`.
  */
 import { chromium } from "playwright";
-import { VIEWPORT, joinAsGM, joinAs, dismissChrome, watchErrors, withSettings } from "./lib.mjs";
+import { VIEWPORT, joinAsGM, joinAs, dismissChrome, watchErrors, withSettings, watchdog } from "./lib.mjs";
 
 const browser = await chromium.launch();
+// The fleet's hang guard (review #34): without it a hang runs to the runner's
+// 65-minute cap and skips every restore. A bound on a hang, not a timing claim.
+watchdog(900000, "dev:combat-options");
 const page = await browser.newContext({ viewport: VIEWPORT }).then((c) => c.newPage());
 const errors = watchErrors(page);
 let failed = false;

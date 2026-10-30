@@ -115,7 +115,7 @@ over that authors a pack full of body parts. The curated references are worth mo
 than the reproducibility would be.
 
 What protects the pool instead is an invariant, checked against a live world:
-`tools/dev/gear-probe.mjs` harvests every name any grant path can hand a character
+`tools/dev/e2e-gear.mjs` harvests every name any grant path can hand a character
 — starting gear, choice-table options, bond payloads, hireling loadouts — straight
 out of the shipped packs, and fails if a single one does not resolve. Add content
 and it is covered immediately; delete an item something references and the probe

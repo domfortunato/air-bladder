@@ -42,7 +42,7 @@ setting the player chose, forever, on the one surface they look at every session
 **Follow the scheme** — style both. More work up front, and the work is bounded and
 measurable, which is the part that decided it.
 
-The measurement, taken before committing to either (`tools/dev/probe-theme.mjs`):
+The measurement, taken before committing to either (`tools/dev/e2e-theme.mjs`):
 
 | | light | dark |
 |---|---|---|

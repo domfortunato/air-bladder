@@ -2,7 +2,7 @@
 /**
  * Character Creation Mode tooltips + the omen/bond/question pickers.
  *
- *   node tools/dev/tooltip-picker-probe.mjs   (needs Foundry running, world launched)
+ *   node tools/dev/e2e-tooltip-picker.mjs   (needs Foundry running, world launched)
  *
  * The 2026-09-01 batch: the mode toggle's tooltip follows its state, the
  * creation dice and pickers ride core's data-tooltip (bare i18n KEY, the
@@ -42,9 +42,12 @@
  */
 
 import { chromium } from "playwright";
-import { VIEWPORT, joinAsGM, watchErrors } from "./lib.mjs";
+import { VIEWPORT, joinAsGM, watchErrors, watchdog } from "./lib.mjs";
 
 const browser = await chromium.launch();
+// The fleet's hang guard (review #34): without it a hang runs to the runner's
+// 65-minute cap and skips every restore. A bound on a hang, not a timing claim.
+watchdog(900000, "dev:tooltip-picker");
 const page = await browser.newContext({ viewport: VIEWPORT }).then((c) => c.newPage());
 const errors = watchErrors(page);
 let failed = false;

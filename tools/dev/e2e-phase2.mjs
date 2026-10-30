@@ -4,7 +4,7 @@
  * COPY of the editable pool item — so editing the pool and regenerating shows the
  * change. This is the capability the whole rebuild exists to restore.
  *
- *   node tools/dev/phase2-probe.mjs        (needs Foundry running, world launched)
+ *   node tools/dev/e2e-phase2.mjs        (needs Foundry running, world launched)
  *
  * Steps, driven headless as GM:
  *   1. Find a background whose FIXED startingGear resolves to an armor item.
@@ -23,9 +23,12 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
-import { VIEWPORT, joinAsGM, watchErrors } from "./lib.mjs";
+import { VIEWPORT, joinAsGM, watchErrors, watchdog } from "./lib.mjs";
 
 const browser = await chromium.launch();
+// The fleet's hang guard (review #34): without it a hang runs to the runner's
+// 65-minute cap and skips every restore. A bound on a hang, not a timing claim.
+watchdog(900000, "dev:phase2");
 const page = await browser.newContext({ viewport: VIEWPORT }).then((c) => c.newPage());
 const errors = watchErrors(page);
 let failed = false;

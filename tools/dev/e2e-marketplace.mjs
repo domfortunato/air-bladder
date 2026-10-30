@@ -3,7 +3,7 @@
  * Phase 3 acceptance probe: the marketplace is a REFERENCE catalog over the
  * editable gear pool, so editing a pool item's cost/description updates the shop.
  *
- *   node tools/dev/marketplace-probe.mjs   (needs Foundry running, world launched,
+ *   node tools/dev/e2e-marketplace.mjs   (needs Foundry running, world launched,
  *                                          and `npm run dev:players` for step 5)
  *
  * Steps, driven headless as GM (after an ENTRY sweep of every world `Market:`
@@ -48,9 +48,12 @@
  */
 
 import { chromium } from "playwright";
-import { VIEWPORT, joinAs, joinAsGM, watchErrors } from "./lib.mjs";
+import { VIEWPORT, joinAs, joinAsGM, watchErrors, watchdog } from "./lib.mjs";
 
 const browser = await chromium.launch();
+// The fleet's hang guard (review #34): without it a hang runs to the runner's
+// 65-minute cap and skips every restore. A bound on a hang, not a timing claim.
+watchdog(900000, "dev:marketplace");
 const page = await browser.newContext({ viewport: VIEWPORT }).then((c) => c.newPage());
 const errors = watchErrors(page);
 let failed = false;
@@ -277,7 +280,7 @@ try {
   // ---- assertions ----
   const L = r.listing;
   // Transports & Containers joined the shop in Phase 4; it is covered in depth by
-  // tools/dev/transport-probe.mjs, so this probe only checks it is in order here.
+  // tools/dev/e2e-transports.mjs, so this probe only checks it is in order here.
   JSON.stringify(L.categories) === JSON.stringify(["Weapons", "Armor", "Gear", "Transports & Containers"])
     ? ok(`shop has 4 categories in order: ${L.categories.join(", ")}`)
     : fail(`unexpected categories: ${JSON.stringify(L.categories)}`);

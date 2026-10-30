@@ -205,7 +205,7 @@
      light   --background: url(ui/parchment.jpg)   -- an IMAGE, not a colour
      dark    --background: rgba(11, 10, 19, 0.9)   -- over the black body
 
-   The image is why `tools/dev/probe-theme.mjs` samples the backdrop instead of
+   The image is why `tools/dev/e2e-theme.mjs` samples the backdrop instead of
    walking ancestors for a background-colour: the walk falls through parchment to
    <body>'s black and reports every dark-on-parchment label as unreadable, in
    BOTH schemes. Identical light and dark output is the tell that it happened.
