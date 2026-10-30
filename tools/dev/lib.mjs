@@ -373,6 +373,20 @@ export function watchErrors(page) {
  * the named user, or for the Warden the first GAMEMASTER (the select's first
  * option, which this used to pick, is the same user on a fresh world).
  *
+ * THE THIRD SHAPE (2026-10-30, review #34). 14.369 — the probe fleet since
+ * 2026-10-28 — brings the dropdown back, named `userId`, so the select is
+ * matched by name without regard to case and one selector serves both
+ * dropdowns. On a dropdown too the Warden is now the role-4 user, never the
+ * first option. And 14.369 DISABLES the option of a user already in the world,
+ * and a disabled option drops out of the form it submits; but a probe may open
+ * a second session of one user on purpose (`dev:combat-options`' second
+ * Warden), or re-join one whose first session the server has not yet let go
+ * (`dev:connections`, `dev:encumbered-damage`). The server accepts both and
+ * 14.368's name box allowed them, so the option is enabled again before it is
+ * picked. Measured by DB Mythic's probes on the same fleet
+ * (its `738a598d`, `1571b3cd`): every box's settle failed on the old selector,
+ * then exactly its four second-session probes failed on the disabled option.
+ *
  * Wait for the CONTROL, not the network — the join form is rendered
  * client-side and is routinely still absent at networkidle. That wait was once
  * missing from `joinAsGM`, and two silent `return`s turned it into a 90-second
@@ -384,36 +398,42 @@ export function watchErrors(page) {
  * @param {String|null} name  a User name, or null for the Warden
  * @return {Promise<String|null>}  the name chosen, or null when there is none
  */
+const JOIN_SELECT = 'select[name="userid" i]';
+
 async function chooseJoinUser(page, name) {
   await page.waitForSelector(
-    'select[name="userid"] option[value]:not([value=""]), #join-game-form input[name="username"]',
+    `${JOIN_SELECT} option[value]:not([value=""]), #join-game-form input[name="username"]`,
     { state: "attached", timeout: 30000 });
-  return page.evaluate((name) => {
-    // 14.365: Foundry v14 hides <select> behind custom elements, so
+  return page.evaluate(({ name, select }) => {
+    const raw = globalThis.game?.users;
+    const users = raw?.contents ?? (Array.isArray(raw) ? raw : []);
+    const GM = globalThis.CONST?.USER_ROLES?.GAMEMASTER ?? 4;
+    const warden = users.find((u) => u.role === GM);
+    // 14.365 and 14.369: Foundry v14 hides <select> behind custom elements, so
     // Playwright's selectOption() sees it as invisible. Drive the element.
-    const s = document.querySelector('select[name="userid"]');
+    const s = document.querySelector(select);
     if (s) {
-      const opt = [...s.options].find((o) => (name ? o.textContent.trim() === name : o.value));
+      const options = [...s.options].filter((o) => o.value);
+      const opt = name ? options.find((o) => o.textContent.trim() === name)
+        : (warden ? options.find((o) => o.value === (warden.id ?? warden._id)) : options[0]);
       if (!opt) return null;
+      opt.disabled = false;
       s.value = opt.value;
       s.dispatchEvent(new Event("change", { bubbles: true }));
       return opt.textContent.trim();
     }
     // 14.368: a typed username and no list.
     const field = document.querySelector('#join-game-form input[name="username"]');
-    const users = globalThis.game?.users?.contents ?? [];
-    const GM = globalThis.CONST?.USER_ROLES?.GAMEMASTER ?? 4;
-    const user = name ? users.find((u) => u.name === name)
-      : (users.find((u) => u.role === GM) ?? users[0]);
+    const user = name ? users.find((u) => u.name === name) : (warden ?? users[0]);
     if (!field || !user) return null;
     field.value = user.name;
     field.dispatchEvent(new Event("input", { bubbles: true }));
     field.dispatchEvent(new Event("change", { bubbles: true }));
     return user.name;
-  }, name);
+  }, { name, select: JOIN_SELECT });
 }
 
-/** Join the world as the first available user (the Gamemaster on a fresh world). */
+/** Join the world as the Warden: the role-4 user, on every form. */
 export async function joinAsGM(page) {
   noteBrowser(page);
   await page.goto(`${FOUNDRY_URL}/join`, { waitUntil: "networkidle", timeout: 60000 });
