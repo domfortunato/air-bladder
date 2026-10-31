@@ -1004,6 +1004,39 @@ try {
     "and came home the same way", JSON.stringify(travel.afterBack));
   check(travel.pageRefused, "a page dragged on its own is refused, and stays");
 
+  /* ------------------- 10a. a page copy that does not land is not deleted -- */
+  // Review #34 finding 177. The book's own create is checked, but the pages'
+  // was not: createEmbeddedDocuments resolves a SHORTER array when a page is
+  // refused (a preCreateItem veto) or fails construction, and every travelling
+  // page was then deleted from the source anyway. A world script or module
+  // veto is planted in-page and removed in a finally; the book is brought home
+  // afterwards so the legs below find the caster as it was.
+  const lostPages = await gm.evaluate(async ({ casterId, pileId }) => {
+    const caster = game.actors.get(casterId);
+    const pile = game.actors.get(pileId);
+    const veto = Hooks.on("preCreateItem", (doc) => (doc.system?.bound ? false : undefined));
+    let out;
+    try {
+      const book = caster.items.find((i) => i.system?.grimoire);
+      await pile.sheet._onDropItem({ preventDefault: () => {}, target: pile.sheet.element }, book);
+      out = {
+        pileBooks: pile.items.filter((i) => i.system?.grimoire).length,
+        pilePages: pile.items.filter((i) => i.system?.bound).length,
+        casterPages: caster.items.filter((i) => i.system?.bound).length,
+      };
+    } finally {
+      Hooks.off("preCreateItem", veto);
+    }
+    const pileBook = pile.items.find((i) => i.system?.grimoire);
+    if (pileBook) await caster.sheet._onDropItem({ preventDefault: () => {}, target: caster.sheet.element }, pileBook);
+    out.home = caster.items.filter((i) => i.system?.grimoire).length === 1
+      && caster.items.filter((i) => i.system?.bound).length === 3;
+    return out;
+  }, { casterId: fx.casterId, pileId: fx.pileId });
+  check(lostPages.pilePages === 0 && lostPages.casterPages === 3,
+    "pages whose copies were refused STAY on the source", JSON.stringify(lostPages));
+  check(lostPages.home, "and the book came home to its pages", JSON.stringify(lostPages));
+
   /* ------------------------------ 10b. two books on one shelf (issue #17) -- */
   // fsmalecho, 2026-08-16: two Grimoires with pages in one container, drag one
   // out, and it took EVERY page in the container — three of them past its own
