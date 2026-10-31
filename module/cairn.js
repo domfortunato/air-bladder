@@ -1153,9 +1153,25 @@ const handleChoiceQuery = async (data, { user } = {}) => {
   // finding 86): the detail card is the Warden's, its owner presses the save.
   const flag = kind === "strSave" ? STR_SAVE_FLAG : CRAWLER_CHOICE_FLAG;
   if (message.getFlag(FLAG_SCOPE, flag)) return false;       // already spent
-  await message.setFlag(FLAG_SCOPE, flag, kind === "strSave" ? true : kind);
+  // CHECK-THEN-SET IS NOT ATOMIC (review #34 finding 132): the flag lands on
+  // this client only when the server replies, so two queries arriving inside
+  // that round trip both read it unset and both said yes. Claimed synchronously,
+  // before the first await, as the Apply-damage card claims its own.
+  const claim = `${message.id}:${flag}`;
+  if (choiceQueryInFlight.has(claim)) return false;
+  choiceQueryInFlight.add(claim);
+  try {
+    await message.setFlag(FLAG_SCOPE, flag, kind === "strSave" ? true : kind);
+  } finally {
+    choiceQueryInFlight.delete(claim);
+  }
   return true;
 };
+/** Choice queries being written on this (the Warden's) client — see above. */
+const choiceQueryInFlight = new Set();
+/** Cards whose Fatigue / Critical choice is mid-write on THIS client (review #34
+ *  finding 132) — the in-flight half of the one-shot, by message id. */
+const choiceInFlight = new Set();
 const CHOICE_QUERY = "air-bladder.choiceTaken";
 
 Hooks.once("init", () => {
@@ -3301,9 +3317,13 @@ const nameManeuverAvailable = (message, html) => {
  * is also what routes a monster's name through the content overlay while leaving
  * a player-authored PC name alone.
  *
- * NOT gated on `nameableTokens`, unlike the TARGETS. The attacker is the speaker
- * of the roll card everybody can already see, so concealing the name here would
- * hide nothing that is not already in the header two cards up.
+ * NOT gated on `nameableTokens`, unlike the TARGETS. On a PUBLIC roll the
+ * attacker is the speaker of a card everybody can already see, so concealing the
+ * name here would hide nothing that is not already in the header two cards up.
+ * That premise is only true of a public roll: a private or blind one shows
+ * players "privately rolled some dice", and the detail card's line asks the roll
+ * card's own `isContentVisible` before calling this (nameDamageSource, review
+ * #34 finding 125).
  *
  * @param {{token?: String, alias?: String}} speaker  a message speaker, or the
  *   damage-source flag, which is deliberately the same shape
@@ -3598,6 +3618,15 @@ const nameDamageTargets = (message, html, scene) => {
 const nameDamageSource = (message, html, scene) => {
   const src = message.getFlag(FLAG_SCOPE, DAMAGE_SOURCE_FLAG);
   if (!src) return;                        // not a detail card, or a legacy one
+  // ONLY TO A VIEWER WHO COULD READ THE ROLL CARD (review #34 finding 125). The
+  // detail card is public for a visible target, and the reasoning below — the
+  // attacker is the speaker of a card everybody can already see — fails for a
+  // private or blind roll, where core shows players "privately rolled some
+  // dice". So the line asks core's own question of the card it came from, for
+  // the attacker and a Warden hazard's typed source alike. A roll card since
+  // deleted cannot be asked, so it is not answered. Cards stamped before the id
+  // travelled carry none and keep their old behaviour.
+  if (src.sourceMessage && !game.messages.get(src.sourceMessage)?.isContentVisible) return;
   const body = html.querySelector(".message-content");
   if (!body || body.querySelector(".dmg-source")) return;   // already injected
 
@@ -3987,8 +4016,13 @@ Hooks.on("renderChatMessageHTML", (message, html, data) => {
     if (critBtn) {
       if (mayAnswer) {
         critBtn.onclick = async () => {
-          if (spent()) return;
-          if (await takeCritical()) markChoiceTaken(critBtn);
+          if (spent() || choiceInFlight.has(message.id)) return;
+          choiceInFlight.add(message.id);
+          try {
+            if (await takeCritical()) markChoiceTaken(critBtn);
+          } finally {
+            choiceInFlight.delete(message.id);
+          }
         };
       } else {
         critBtn.style.display = "none";
@@ -3999,7 +4033,19 @@ Hooks.on("renderChatMessageHTML", (message, html, data) => {
       if (mayAnswer) {
         fatigueBtn.onclick = async (ev) => {
           const b = ev.currentTarget;
-          if (spent()) return;
+          // ONE CHOICE AT A TIME PER CARD (review #34 finding 132). `spent()`
+          // reads the flag, and the flag reaches this client only when the
+          // server replies to the write below, so a double-click inside that
+          // round trip passed the check twice and minted two Fatigues; a press
+          // on Mark Critical Damage in the same window wrote that beside it.
+          // The flag stays the enforcement across clients; this is the lock
+          // within one, claimed before the first await and shared with the
+          // Critical button, as the Apply-damage card claims its own.
+          if (spent() || choiceInFlight.has(message.id)) return;
+          choiceInFlight.add(message.id);
+          try { await takeFatigueChoice(b); } finally { choiceInFlight.delete(message.id); }
+        };
+        const takeFatigueChoice = async (b) => {
           // SOMETHING GOES ON THE FLOOR FIRST — BUT ONLY WHEN THE CHARACTER IS
           // ALREADY OVERBURDENED (user ruling, the night of 2026-10-03, the
           // third shape of this rule in two days: every press, then "when it

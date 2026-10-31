@@ -403,6 +403,12 @@ export class Damage {
                 // the sentence is built per viewer at render — see DAMAGE_SOURCE_FLAG.
                 const label = html.querySelector(".dmg-label");
                 const source = {
+                    // THE ROLL CARD ITSELF (review #34 finding 125), so each
+                    // viewer's rebuild can ask whether THEY could read the card
+                    // that named the attacker — a private or blind roll shows
+                    // players "privately rolled some dice", and the public detail
+                    // card must not then tell them who it was. See nameDamageSource.
+                    sourceMessage: message?.id ?? null,
                     token: message?.speaker?.token ?? null,
                     actor: message?.speaker?.actor ?? null,
                     alias: message?.speaker?.alias ?? "",
