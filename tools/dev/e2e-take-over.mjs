@@ -991,6 +991,50 @@ try {
       "plan: a Dagger copy a PLAYER owns is not adopted, the shop gets its own (review #34 finding 122)",
       JSON.stringify({ owned, add: p5?.addNames }));
 
+    /* ---- 9c. nor one at the SHIPPED id, and the run leaves it as it was (122) */
+    // What a player's own sidebar import leaves: the shipped id (core's Import
+    // keeps it), the stamp, the player as owner. The adopted copy and the
+    // Weapons table go first, so the plan has only that one to consider and
+    // the run must make the shop's Dagger and a Weapons table pointing at it —
+    // and a keepId create at the held id would replace the player's item.
+    console.log("\n9c. a player's copy at the shipped id is not the shop's, and is left alone");
+    const held = await page.evaluate(async ({ adoptedId, shippedId }) => {
+      const aliceId = game.users.getName("Alice")?.id;
+      if (!aliceId) return { skipped: "no Alice" };
+      if (game.items.has(shippedId)) return { skipped: "the shipped id is already held" };
+      await game.items.get(adoptedId)?.delete();
+      await game.tables.find((t) => t.name === "Market: Weapons")?.delete();
+      const pack = game.packs.get("air-bladder.weapons");
+      const it = await game.items.importFromCompendium(pack, shippedId, {}, { keepId: true, renderSheet: false });
+      await it.update({ name: "ZZ Alice Dagger", [`ownership.${aliceId}`]: CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER });
+      return { id: it.id, aliceId, atShipped: it.id === shippedId, playerOwned: it.hasPlayerOwner };
+    }, { adoptedId: adopted.id, shippedId: dagger.shippedId });
+    if (held.skipped) {
+      fail("9c precondition", held.skipped);
+    } else {
+      const p6 = await planOf("marketplace");
+      const run6 = await page.evaluate(async (MOD) => {
+        const mod = await import(MOD);
+        const spec = { key: "marketplace", pack: "air-bladder.marketplace", folder: "CAIRN.TakeOver.Marketplace.Folder" };
+        const r = await mod.runTableTakeOver(await mod.planTableTakeOver(spec));
+        return { added: r.added, kept: r.kept };
+      }, MOD);
+      const after6 = await page.evaluate(async ({ heldId, aliceId }) => {
+        const it = game.items.get(heldId);
+        const weapons = game.tables.find((t) => t.name === "Market: Weapons");
+        const row = weapons?.results.find((r) => r.name === "Dagger");
+        const pointed = row?.documentUuid ? await fromUuid(row.documentUuid).catch(() => null) : null;
+        return { heldName: it?.name ?? null, aliceStillOwns: it?.ownership?.[aliceId] === CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER,
+          rowUuid: row?.documentUuid ?? null, pointedId: pointed?.id ?? null, pointedPlayerOwned: pointed?.hasPlayerOwner ?? null };
+      }, { heldId: held.id, aliceId: held.aliceId });
+      check(held.atShipped && held.playerOwned && p6.addNames.includes("Dagger"),
+        "plan: a player's Dagger at the SHIPPED id is not adopted (review #34 finding 122)", JSON.stringify({ held, add: p6.addNames }));
+      check(after6.heldName === "ZZ Alice Dagger" && after6.aliceStillOwns,
+        "run: the player's Dagger is left as it was — not replaced at its id", JSON.stringify({ run6, after6 }));
+      check(!!after6.pointedId && after6.pointedId !== held.id && after6.pointedPlayerOwned === false,
+        "run: the new Weapons table's Dagger row points at the shop's own copy, under a fresh id", JSON.stringify(after6));
+    }
+
     /* --------------------- 10-pre. an existing pack is named by its own label */
     // The compendium was renamed "Custom 2e Backgrounds" on 2026-09-15, and
     // core cannot rename a world compendium that already exists (the sidebar
