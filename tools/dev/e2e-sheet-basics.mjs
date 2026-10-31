@@ -523,6 +523,47 @@ rows.rendered && !rows.threw && rows.nodes < 20000
   ? ok("gold 1e9 and a 1e7-use item still render a sheet of ordinary size", JSON.stringify(rows))
   : fail("gold 1e9 and a 1e7-use item still render a sheet of ordinary size", JSON.stringify(rows));
 
+console.log("\na 20 always fails a save, a 1 always passes (review #34 finding 50)");
+
+// Cairn's own Saves rule, shipped in journals-2e: "A 1 is always a success,
+// and a 20 is always a failure." Every save read `roll <= ability` and nothing
+// else, so the four shipped monsters with STR 20 could never fail one. The die
+// is pinned in-page (u maps to ceil((1 - u) * faces), so 0.001 is a 20 and
+// 0.06 a 19); the 19 is the control that a STR-20 save still passes.
+const nat = await page.evaluate(async () => {
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const beast = await Actor.create({ name: "ZZ Nat Beast", type: "npc",
+    system: { role: "monster", abilities: { STR: { value: 20, max: 20 } } } });
+  await beast.sheet.render(true);
+  for (let i = 0; i < 40 && !beast.sheet.element?.querySelector('[data-action="rollAbility"][data-ability="STR"]'); i++) await sleep(150);
+  const press = async (u) => {
+    const before = new Set(game.messages.map((m) => m.id));
+    const orig = CONFIG.Dice.randomUniform;
+    CONFIG.Dice.randomUniform = () => u;
+    try {
+      beast.sheet.element.querySelector('[data-action="rollAbility"][data-ability="STR"]').click();
+      let m = null;
+      for (let i = 0; i < 40 && !m; i++) {
+        m = game.messages.contents.find((x) => !before.has(x.id) && x.getFlag("air-bladder", "d20Card"));
+        if (!m) await sleep(150);
+      }
+      const card = m?.getFlag("air-bladder", "d20Card") ?? null;
+      try { await m?.delete(); } catch { /* gone */ }
+      return card ? { rolled: card.rolled, failed: card.failed } : null;
+    } finally { CONFIG.Dice.randomUniform = orig; }
+  };
+  const out = { twenty: await press(0.001), nineteen: await press(0.06) };
+  await beast.sheet.close();
+  await beast.delete();
+  return out;
+});
+nat.twenty?.rolled === 20 && nat.twenty.failed === true
+  ? ok("a natural 20 fails a STR-20 monster's save", JSON.stringify(nat))
+  : fail("a natural 20 fails a STR-20 monster's save", JSON.stringify(nat));
+nat.nineteen?.rolled === 19 && nat.nineteen.failed === false
+  ? ok("...and a 19 still passes it", JSON.stringify(nat))
+  : fail("...and a 19 still passes it", JSON.stringify(nat));
+
 /* ----------------------------------------------------------- teardown ---- */
 await page.evaluate(async (id) => { await game.actors.get(id)?.delete(); }, actorId);
 
