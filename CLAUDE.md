@@ -26,7 +26,8 @@ is an independent system with its own `id`, content and history — **not** a gi
   Change the minimum, change all six. Moving `verified` alone does NOT touch them
   (they state the floor, "or higher").
 - **`verified` = the newest build actually proven green** (14.368, via `dev:upgrade`
-  on `foundry/app-14368`), never whatever Foundry has released since. It is
+  then `dev:smoke` on `foundry/app-14368` — the upgrade leg never leaves Setup, so
+  the world launch is smoke's), never whatever Foundry has released since. It is
   submitted by `npm run publish:foundry` and shown on the Marketplace listing.
 - Latest release **0.1.25**. `system.json`'s `version` is bumped by `npm run
   release` on `master` only, so on `dev` it lags — read the tag, not the file.
