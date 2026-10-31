@@ -29,7 +29,7 @@ import { connectionHeadroom, connectedOwnershipShape, syncPendingOwnership, OWNE
 import { loadContentOverlay, t, translationOf, contentLocalized, tokenDisplayName, actorDisplayName, speakerDisplayName, LOCALIZED_DIRECTORIES, localizeJournalBlocks } from "./i18n-content.js";
 import { injectEncounterButton, localizeEncounterQty, resolveTable } from "./encounters.js";
 import { bindGrimoireFatigueButton, localizeGlogCastCard } from "./grimoire.js";
-import { nameableTokens, DAMAGE_QUALITY_KEYS, localizeD20Card, localizeRollFlavor, damageDiceIcons, windowIdOf } from "./utils.js";
+import { nameableTokens, DAMAGE_QUALITY_KEYS, localizeD20Card, localizeRollFlavor, damageDiceIcons, windowIdOf, relayedLabel } from "./utils.js";
 
 /**
  * The Fatigue instead of Critical Damage option: the save card's choice, once
@@ -1376,6 +1376,9 @@ Hooks.once("init", () => {
           // may make the folder.
           folder: await partyFolderId(),
           blank,
+          // An empty sheet's name in the REQUESTER's language (review #34
+          // finding 244); off the wire, this client composes its own.
+          blankName: relayedLabel(msg.blankName),
           ownership: { [senderId]: CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER },
           // The generation chat card is headed by the ROLLER's name, and the
           // roller is the PLAYER who asked -- this branch runs on the Warden's
@@ -1530,6 +1533,13 @@ Hooks.once("init", () => {
         }
         const outcome = await performKettlewrightImport(json, {
           ownership: { [senderId]: CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER },
+          // The requester's own language for what lands in their character
+          // (review #34 finding 244); anything else on the wire, this
+          // client composes its own.
+          labels: {
+            defaultName: relayedLabel(msg.labels?.defaultName),
+            traitsLabel: relayedLabel(msg.labels?.traitsLabel),
+          },
         });
         if (!outcome.actor) {
           // create() resolved undefined: a validation error core caught and

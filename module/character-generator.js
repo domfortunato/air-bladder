@@ -1649,6 +1649,9 @@ export const requestPcGeneration = async () => {
   ui.notifications.info(game.i18n.localize("CAIRN.Notify.PcGenRequested"));
   game.socket.emit(`system.${game.system.id}`, {
     action: "generatePC", source: answer.choice, blank: answer.blank,
+    // An empty sheet's name in THIS client's language: the Warden's client
+    // mints it (review #34 finding 244, createBlankActor).
+    blankName: answer.blank ? game.i18n.localize(BLANK_KINDS.character.name) : undefined,
   });
 };
 
@@ -2726,11 +2729,13 @@ export const createActorInteractive = async (kind, { folder = null, windowId = n
  * @param {"character"|"npc"|"hireling"|"monster"} kind
  * @returns {Promise<CairnActor|null>}
  */
-export const createBlankActor = async (kind, { folder = null, ownership = null, source = null } = {}) => {
+export const createBlankActor = async (kind, { folder = null, ownership = null, source = null, name = null } = {}) => {
   const spec = BLANK_KINDS[kind];
   if (!spec) return null;
   const data = {
-    name: game.i18n.localize(spec.name),
+    // `name`: composed by a relay's REQUESTER in their language (review #34
+    // finding 244); else this client's.
+    name: name ?? game.i18n.localize(spec.name),
     // `hireling` mints TYPE npc with ROLE hireling, like createHireling: the
     // hireling TYPE is a registered alias kept only so existing documents keep
     // their ids, and nothing new is ever created under it.
@@ -4164,9 +4169,9 @@ export const prewarmGenerationPacks = async () => {
  *   player relay so a Warden's client honours the checkbox the player ticked.
  * @returns {Promise<CairnActor|null>}
  */
-export const createCharacter = async ({ folder = null, ownership = null, source = null, blank = false, roller = null, waitForDice = true } = {}) => {
+export const createCharacter = async ({ folder = null, ownership = null, source = null, blank = false, blankName = null, roller = null, waitForDice = true } = {}) => {
   const chosenSource = source ?? resolveContentSource();
-  if (blank) return createBlankActor("character", { folder, ownership, source: chosenSource });
+  if (blank) return createBlankActor("character", { folder, ownership, source: chosenSource, name: blankName });
   const characterData = await generateCharacter(null, chosenSource);
   const actor = await createActorWithCharacter(characterData, { folder, ownership });
   await postGenerationRolls(actor, characterData, roller, { waitForDice });

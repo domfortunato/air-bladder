@@ -1238,6 +1238,22 @@ export const concealmentWhisper = (token) => {
 };
 
 /**
+ * A label a REQUESTER's client composed in its own language and sent over a
+ * relay, for text the answering Warden's client writes into the requester's
+ * own document (review #34 finding 244): a plain string, whitespace folded,
+ * capped, or null for anything else — the caller then composes its own. The
+ * requester owns the result and could type any name into it anyway, so this
+ * trusts them with nothing new; the cap and the coercion are the wire's wall.
+ * @param {*} v
+ * @returns {string|null}
+ */
+export const relayedLabel = (v) => {
+  if (typeof v !== "string") return null;
+  const s = v.replace(/\s+/g, " ").trim().slice(0, 80);
+  return s || null;
+};
+
+/**
  * The detached window an element sits in, for a dialog it opens (review #34
  * finding 119): a card control in a popped-out chat log, or any control in a
  * popped-out window, must open its dialog THERE, or it opens in a screen the
