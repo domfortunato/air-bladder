@@ -52,7 +52,9 @@
  *      empty one, which is how this leg redded on the fleet 2026-10-22); and
  *      the unmatched-Kettlewright shape (backgroundUuid "",
  *      armorOverride set) refuses the whole gesture with a warning instead of
- *      half-applying it.
+ *      half-applying it. Review #34 finding 237: the background, failed-career
+ *      and Career pickers refuse the same way, so does the keepsake die, and a
+ *      picked Career or NPC Background holds the flag through its writes.
  *   8. REVIEW #21 finding 2 (user ruling 2026-09-02: mundane grants are
  *      TAGGED). Background-granted rations/light gear carries grantSource
  *      "background-mundane" — identity for the re-deal sweep, while
@@ -471,6 +473,93 @@ try {
         out.pickHeldClosed = "no bond pick anchor on the sheet";
       }
 
+      // 7b2. The rest of the house guard (review #34 finding 237). The Career /
+      // NPC-Background picker ran its swap with no `_rerolling` at all, so a
+      // die press beside it overlapped the same delete-then-create; the
+      // background and failed-career pickers asked the flag only AFTER their
+      // list; and the keepsake die never asked it, so pressed inside a
+      // failed-career swap it dealt the OLD career's keepsake to the new one.
+      const closePickers = async () => {
+        for (const el of document.querySelectorAll(".bg-picker")) {
+          await foundry.applications.instances.get(el.closest(".application")?.id)?.close();
+        }
+        await waitFor(() => !document.querySelector(".bg-picker"), 5000);
+      };
+      // Held: the anchor clicked with the flag up must open nothing. Free: the
+      // same click with it down opens the list, so "nothing opened" is not a
+      // dead anchor. Closing a list resolves its picker false, so neither
+      // click applies anything.
+      const heldOpens = async (s, selector) => {
+        await s.render(true);
+        if (!await waitFor(() => rootOf(s)?.querySelector(selector), 10000)) return "no anchor";
+        s._rerolling = true;
+        rootOf(s).querySelector(selector).click();
+        await wait(1200);
+        const held = !!document.querySelector(".bg-picker");
+        await closePickers();
+        s._rerolling = false;
+        rootOf(s)?.querySelector(selector)?.click();
+        const free = !!await waitFor(() => document.querySelector(".bg-picker"), 10000);
+        await closePickers();
+        return { held, free };
+      };
+      // The Career / Background apply must HOLD the flag through every write
+      // it makes, or the die beside it is not refused while it runs. Read at
+      // each write's hook, which fires before the apply's await resumes.
+      const applyHolds = async (person, s, field) => {
+        const seen = [];
+        const hooks = ["updateActor", "createItem", "deleteItem"].map((h) => [h, Hooks.on(h, (doc) => {
+          if ((doc.documentName === "Actor" ? doc : doc.parent)?.id === person.id) seen.push(s._rerolling === true);
+        })]);
+        const before = person.system[field];
+        try {
+          rootOf(s)?.querySelector('a[data-action="pickProfession"]')?.click();
+          const d = await waitFor(() => document.querySelector(".bg-picker"), 10000);
+          if (!d) return "no list";
+          [...d.querySelectorAll('input[name="bg"]')]
+            .find((i) => i.value !== "__random__" && i.value !== before)?.click();
+          d.closest(".application")?.querySelector('button[data-action="choose"]')?.click();
+          await waitFor(() => person.system[field] !== before, 15000);
+          await waitFor(() => s._rerolling !== true, 15000);
+          await wait(500);
+        } finally {
+          for (const [h, id] of hooks) Hooks.off(h, id);
+        }
+        return { changed: person.system[field] !== before, writes: seen.length, held: seen.every(Boolean) };
+      };
+      out.f237 = {};
+      out.f237.background = await heldOpens(sheet, 'a[data-action="pickBackground"]');
+      out.f237.failedCareer = await heldOpens(bsheet, 'a[data-action="pickFailedCareer"]');
+      // The keepsake die mid-swap must deal nothing; with the flag down it
+      // re-deals (a fresh id), so the held result is not a dead die.
+      const keepsakeIds = () => bactor.items
+        .filter((i) => i.getFlag(NS, "grantSource") === "failed-career").map((i) => i.id).sort().join();
+      const keepsakeBefore = keepsakeIds();
+      bsheet._rerolling = true;
+      rootOf(bsheet)?.querySelector('a[data-action="rollFailedCareerItem"]')?.click();
+      await wait(1500);
+      const keepsakeHeld = keepsakeIds();
+      bsheet._rerolling = false;
+      await waitFor(() => !bsheet._grantingFailedCareerItem, 10000);
+      rootOf(bsheet)?.querySelector('a[data-action="rollFailedCareerItem"]')?.click();
+      await waitFor(() => keepsakeIds() !== keepsakeHeld, 10000);
+      out.f237.keepsake = {
+        before: keepsakeBefore, heldKept: keepsakeHeld === keepsakeBefore,
+        freeDeals: !!keepsakeHeld && keepsakeIds() !== keepsakeHeld,
+      };
+      await bsheet.close();
+      const hireling = track(await gen.createHireling());
+      await hireling.update({ "system.generationEnabled": true });
+      out.f237.career = await heldOpens(hireling.sheet, 'a[data-action="pickProfession"]');
+      out.f237.careerApply = await applyHolds(hireling, hireling.sheet, "profession");
+      await hireling.sheet.close();
+      const npc = track(await gen.createNpc());
+      await npc.update({ "system.generationEnabled": true });
+      await npc.sheet.render(true);
+      await waitFor(() => rootOf(npc.sheet)?.querySelector('a[data-action="pickProfession"]'), 10000);
+      out.f237.npcApply = await applyHolds(npc, npc.sheet, "background");
+      await npc.sheet.close();
+
       // 7c + 7d. The one arrangement pass must land BEFORE the last render
       // (finding 5). Asserted on the WRITE ORDER via wrapped seams — the DOM
       // alone races the async render pipeline, and a leg that fails once then
@@ -818,6 +907,29 @@ try {
     r.pickFreeOpens === true
       ? ok("…and the same click with the flag clear opens it (the anchor is live)")
       : fail(`pick control: ${JSON.stringify(r.pickFreeOpens)}`);
+
+    // ---- 7b2. review #34 finding 237 ----
+    for (const [label, v] of [
+      ["the background picker", r.f237?.background],
+      ["the failed-career picker", r.f237?.failedCareer],
+      ["the hireling's Career picker", r.f237?.career],
+    ]) {
+      v?.held === false && v?.free === true
+        ? ok(`${label} opens no list mid-re-roll, and opens it with the flag clear`)
+        : fail(`${label} mid-re-roll: ${JSON.stringify(v)}`);
+    }
+    const ks = r.f237?.keepsake;
+    ks?.before && ks.heldKept && ks.freeDeals
+      ? ok("the keepsake die deals nothing mid-re-roll, and re-deals with the flag clear")
+      : fail(`keepsake die mid-re-roll: ${JSON.stringify(ks)}`);
+    for (const [label, v] of [
+      ["a picked Career", r.f237?.careerApply],
+      ["a picked NPC Background", r.f237?.npcApply],
+    ]) {
+      v?.changed && v.writes > 0 && v.held
+        ? ok(`${label} holds the re-roll flag through all ${v.writes} of its writes`)
+        : fail(`${label} applied without holding the re-roll flag: ${JSON.stringify(v)}`);
+    }
 
     const seqIdx = (seq, pred) => (seq ?? []).findIndex(pred);
     const gearReorder = seqIdx(r.gearSeq, (s) => s === "reorder");
