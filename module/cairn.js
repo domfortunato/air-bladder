@@ -1146,8 +1146,7 @@ const handleChoiceQuery = async (data, { user } = {}) => {
   const kind = ["fatigue", "critical", "strSave"].includes(data?.kind) ? data.kind : null;
   if (!message || !kind) return false;
   const speaker = message.speaker ?? {};
-  const actor = game.scenes.get(speaker.scene)?.tokens.get(speaker.token)?.actor
-    ?? game.actors.get(speaker.actor) ?? null;
+  const actor = speakerActor(speaker, game.scenes.get(speaker.scene)?.tokens.get(speaker.token));
   if (!actor || !actor.testUserPermission(user, "OWNER")) return false;
   // The Roll STR save's one-shot stamp rides the same channel (review #34
   // finding 86): the detail card is the Warden's, its owner presses the save.
@@ -1173,6 +1172,26 @@ const choiceQueryInFlight = new Set();
  *  finding 132) — the in-flight half of the one-shot, by message id. */
 const choiceInFlight = new Set();
 const CHOICE_QUERY = "air-bladder.choiceTaken";
+
+/**
+ * The actor a card's speaker MEANT, for the save card's buttons and the
+ * broker that records their choice — one resolution, so the two cannot
+ * disagree (review #34 finding 240). The token the speaker named, while it is
+ * on its scene; else the world actor by the speaker's id — but only when no
+ * token was named, or the named one spoke FOR that actor (a linked
+ * prototype). An unlinked token's synthetic actor keeps its BASE actor's id,
+ * so falling back regardless marked the world monster, and every token of
+ * it, for one deleted token's failed save. Roll STR save already hides when
+ * its token is gone.
+ * @param {Object} speaker  a ChatMessage's speaker
+ * @param {TokenDocument|undefined} token  that speaker's token, resolved
+ * @returns {Actor|null}
+ */
+const speakerActor = (speaker, token) => {
+  if (token?.actor) return token.actor;
+  const worldActor = game.actors.get(speaker?.actor) ?? null;
+  return !speaker?.token || worldActor?.prototypeToken?.actorLink ? worldActor : null;
+};
 
 Hooks.once("init", () => {
   // The two request-and-reply brokers (review #33): core routes a `User#query`
@@ -3898,7 +3917,13 @@ Hooks.on("renderChatMessageHTML", (message, html, data) => {
   localizeRollFlavor(message, html);
 
   if (token?.actor) {
-    if (token.actor.testUserPermission(game.user, "OWNER") || game.user.isGM) {
+    // A damage detail card is only ever the Warden's (Apply is GM-only), so a
+    // Roll STR save on a card a PLAYER wrote is a forgery naming somebody's
+    // token, and the press rolled a save never owed (review #34 finding 123;
+    // the Critical Damage pair's author test, b9f50324, below). Withheld like
+    // a missing token: hidden.
+    if (message.author?.isGM
+        && (token.actor.testUserPermission(game.user, "OWNER") || game.user.isGM)) {
       const btn = html.querySelector(".roll-str-save");
       // ONE SAVE PER CARD, recorded on the MESSAGE (review #34 finding 86). The
       // button used to be disabled in the presser's own DOM only, so every other
@@ -3954,7 +3979,7 @@ Hooks.on("renderChatMessageHTML", (message, html, data) => {
   const critBtn = html.querySelector(".mark-critical-damage");
   const fatigueBtn = html.querySelector(".take-fatigue-instead");
   if (critBtn || fatigueBtn) {
-    const critActor = token?.actor ?? game.actors.get(message.speaker?.actor);
+    const critActor = speakerActor(message.speaker, token);
     // The card's AUTHOR must own the actor too (review #34 finding 6). The
     // speaker is the author's own choice and the buttons ride the stored
     // content, so a player could post a failed save naming another player's
