@@ -1840,6 +1840,60 @@ try {
       ? ok("...and the whole table can read it")
       : fail("the log did not reach the player", JSON.stringify(aliceReads));
 
+    /* ---- a HIDDEN event stays out of the log (review #34 finding 79) ----- */
+
+    // The log is written on the active Warden's client, where the hidden
+    // events journal's pages pass the permission test — and the log is a
+    // journal the whole table reads. So the guide's own example, an ambush
+    // kept off the party's calendar, was written into it by name. A hidden
+    // event planted on TODAY; the precondition is that the calendar's own
+    // mark lookup sees it, or "it is not in the line" proves nothing.
+    const hiddenMark = await page.evaluate(async () => {
+      const settings = game.settings;
+      const realGet = settings.get.bind(settings);
+      settings.get = (ns, key, ...rest) =>
+        (ns === "air-bladder" && key === "weather-log" ? true : realGet(ns, key, ...rest));
+      const made = { journalId: null, entryId: null, pageId: null };
+      try {
+        const c = game.time.components;
+        const year = (c.year ?? 0) + (game.time.calendar?.years?.yearZero ?? 0);
+        let entry = game.journal.find((j) => j.flags?.["air-bladder"]?.calendarEvents === "hidden");
+        if (!entry) {
+          entry = await JournalEntry.create({ name: "ZZ Hidden Events", ownership: { default: 0 },
+            flags: { "air-bladder": { calendarEvents: "hidden" } } });
+          made.journalId = entry.id;
+        }
+        made.entryId = entry.id;
+        const [pg] = await entry.createEmbeddedDocuments("JournalEntryPage", [{
+          name: "ZZ Ambush On The Fourteenth", type: "text", text: { content: "" },
+          flags: { "air-bladder": { wardenEvent: true, valdMonth: c.month + 1, valdDay: c.dayOfMonth + 1,
+            valdDays: 1, valdYear: year, valdWatch: null } },
+        }]);
+        made.pageId = pg.id;
+        const cal = await import("/systems/air-bladder/module/calendar-events.js");
+        const marks = await cal.marksByDay(year);
+        const seen = (marks.get(`${c.month}/${c.dayOfMonth + 1}`) ?? [])
+          .some((m) => m.name === "ZZ Ambush On The Fourteenth" && m.hidden);
+        const gt = await import("/systems/air-bladder/module/game-time.js");
+        const log = () => game.journal.contents.find((j) => j.flags?.["air-bladder"]?.weatherLog);
+        const text = () => log()?.pages?.contents?.[0]?.text?.content ?? "";
+        await gt.setTodayWeather("Fog, and something waiting in it");
+        for (let i = 0; i < 60 && !/Fog, and something waiting/.test(text()); i++) await new Promise((r) => setTimeout(r, 100));
+        const line = text().split("<li>").at(-1) ?? "";
+        return { seen, wrote: /Fog, and something waiting/.test(line), leaked: /ZZ Ambush/.test(line), line: line.slice(0, 200) };
+      } finally {
+        settings.get = realGet;
+        try {
+          if (made.journalId) await game.journal.get(made.journalId)?.delete();
+          else if (made.pageId) await game.journal.get(made.entryId)?.pages.get(made.pageId)?.delete();
+        } catch { /* gone */ }
+      }
+    });
+
+    hiddenMark.seen && hiddenMark.wrote && !hiddenMark.leaked
+      ? ok("a HIDDEN event on the day is not written into the log the party reads")
+      : fail("a hidden event in the weather log", JSON.stringify(hiddenMark));
+
     /* ---- a player's DECOY is not the log (review #27) -------------------- */
 
     // The log is found by its flag, and a flag sits on a document any TRUSTED
