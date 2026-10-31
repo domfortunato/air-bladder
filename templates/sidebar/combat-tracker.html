@@ -1,7 +1,9 @@
 {{!--
-  The tracker PART, forked from core's templates/sidebar/tabs/combat/tracker.hbs
-  (build 14.365 — the deploy target is pinned, so this copy cannot drift under
-  us). Two changes, both in service of Cairn's turn order, which has buckets and
+  The tracker PART, forked from core's templates/sidebar/tabs/combat/tracker.hbs.
+  NOTHING PINS IT (review #34 finding 15): system.json declares no maximum, so
+  any later core can change tracker.hbs under this copy. It was byte-identical
+  in 14.365 and 14.369 when `verified` moved; DIFF IT AT EVERY VERIFIED BUMP.
+  Two changes, both in service of Cairn's turn order, which has buckets and
   not numbers:
 
   - a thin divider row opens each bucket (Act first / Enemies / Act last),

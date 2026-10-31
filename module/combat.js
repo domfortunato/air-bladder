@@ -243,8 +243,11 @@ const BUCKET_HEADER = {
  * save. Word on every row AND the dividers (user ruling): a row stays readable
  * even when the list renders mid-roll.
  *
- * Safe to fork the template: the deploy target is pinned to build 14.365, so
- * the copy cannot drift under us.
+ * The fork is safe only as long as someone checks it: system.json declares no
+ * `compatibility.maximum`, so a later core can change tracker.hbs under the
+ * copy. Byte-identical in 14.365 and 14.369 at the review #34 verified bump;
+ * diff it at every one (review #34 finding 15; the old "the deploy target is
+ * pinned" was never true of the public install).
  */
 export class CairnCombatTracker extends foundry.applications.sidebar.tabs.CombatTracker {
   /** @override */
