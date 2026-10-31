@@ -985,7 +985,7 @@ try {
       // headline ("Create Custom 2e Backgrounds!") carries the key's words
       // too, so the test anchors on the words that introduce the name.
       const strip = (s) => s.replace(/<[^>]+>/g, "");
-      const [pre] = strip(game.i18n.format("CAIRN.TakeOver.Cairn2e.How", { pack: " " })).split(" ");
+      const [pre] = strip(game.i18n.format("CAIRN.TakeOver.Cairn2e.How", { pack: "\u0000" })).split("\u0000");
       return { skipped: false, label, keyText: game.i18n.localize("CAIRN.CustomBackgroundsPack"), live: game.packs.get(WORLD_BG_PACK)?.metadata.label, lead: pre.slice(-24) };
     }, { WORLD_BG_PACK });
     if (literal.skipped) {
