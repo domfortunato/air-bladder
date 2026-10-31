@@ -1646,7 +1646,12 @@ export class CairnActor extends Actor {
     const override = this.system.slots ?? 0;
     if (["npc", "hireling"].includes(this.type) && override > 0) return override;
     if (game.settings.get(SETTINGS_NS, "character-inventory-limit") && override > 0) return override;
-    return game.settings.get(SETTINGS_NS, "max-equip-slots");
+    // Guarded like `_coinsPerSlot` (review #34 finding 77): a cleared box saves
+    // null and a typed 0 saves 0, and either made `slotsUsed >= slotsMax` true
+    // for every character in the world — encumbered, HP 0, nothing said why.
+    // Anything that is not a positive number reads as the default.
+    const worldMax = Number(game.settings.get(SETTINGS_NS, "max-equip-slots"));
+    return Number.isFinite(worldMax) && worldMax > 0 ? worldMax : 10;
   }
 
   isEncumbered() {

@@ -167,6 +167,33 @@ export const resultText = (result) =>
   (result?.type === "text" ? result.description : result?.name) ?? "";
 
 /**
+ * A row as PLAIN TEXT, for a reader that composes it into a name, a list
+ * entry or a number rather than chat (review #34 finding 92): the faction
+ * generator, the monster generator and the NPC Faction die.
+ *
+ * `resultText` hands back a text row's `description` raw, and the shipped rows
+ * are bare strings — but a row a WARDEN writes is not. Core v14's table editor
+ * has no inline text field: `+` makes an empty row, and its config sheet offers
+ * a Name input and a Description that is a ProseMirror editor, which saves
+ * `<p>…</p>`. So a Warden's faction typed into Name read as "" (never dealt,
+ * missing from the Create Faction list), and one typed into Description
+ * arrived as "The Bold <p>Iron Brotherhood</p>". Here the description's TEXT
+ * is taken (an inert parse — nothing loads or runs), and an empty description
+ * falls back to the row's name. A shipped row, plain already, comes out
+ * byte-identical, so its content-overlay key still matches.
+ * @param {TableResult} result
+ * @returns {String}
+ */
+export const resultPlainText = (result) => {
+  if (result?.type !== "text") return String(result?.name ?? "").trim();
+  const desc = String(result.description ?? "");
+  const text = desc.includes("<")
+    ? (new DOMParser().parseFromString(desc, "text/html").body.textContent ?? "")
+    : desc;
+  return text.trim() || String(result.name ?? "").trim();
+};
+
+/**
  * A rolled result rendered the way it would appear in chat: prose for a text row,
  * a content link for a document row.
  *
@@ -218,7 +245,7 @@ export const rollTableText = async (decl) => {
  */
 export const rollTablePlainText = async (decl) => {
   const rolled = await rollTable(decl);
-  return resultText(rolled?.results?.[0]).trim();
+  return resultPlainText(rolled?.results?.[0]);
 };
 
 /**

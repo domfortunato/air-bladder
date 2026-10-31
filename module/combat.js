@@ -47,6 +47,7 @@
  */
 
 import { t, speakerDisplayName } from "./i18n-content.js";
+import { cairnSavePasses } from "./utils.js";
 
 /**
  * Who makes the DEX save — i.e. who acts with the party (user ruling
@@ -138,7 +139,12 @@ export class CairnCombat extends Combat {
       const dex = combatant.actor?.system?.abilities?.DEX?.value ?? 0;
       const roll = combatant.getInitiativeRoll(formula);
       await roll.evaluate();
-      const pass = roll.total <= dex;
+      // The natural die decides at both ends when the save is a single d20 —
+      // a 1 passes and a 20 fails, whatever the DEX (cairnSavePasses).
+      const die = roll.dice[0];
+      const natural = die?.faces === 20 && roll.dice.length === 1 && die.results.length === 1
+        ? die.results[0].result : null;
+      const pass = cairnSavePasses(natural, roll.total <= dex);
       updates.push({ _id: id, initiative: pass ? 1 : -1 });
 
       const messageData = foundry.utils.mergeObject({

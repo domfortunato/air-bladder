@@ -1179,6 +1179,10 @@ export const registerSettings = () => {
     config: false,
     type: Number,
     default: 10,
+    // A floor the submenu's input carries (review #34 finding 77): 0 or a
+    // negative made every character encumbered at HP 0. The reader guards too
+    // (`calcCurrentMaxSlots`), because a cleared box still saves null.
+    range: { min: 1, step: 1 },
     requiresReload: true,
   });
 

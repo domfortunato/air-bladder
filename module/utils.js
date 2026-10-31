@@ -25,6 +25,24 @@ export const evaluateFormula = async (formula, data) => {
   return roll.evaluate();
 };
 
+/**
+ * Did a Cairn save pass? "Roll a d20 equal to or under the attribute. A 1 is
+ * always a success, and a 20 is always a failure" (the Saves rule, Core Rules
+ * for Players in journals-2e). `passedByTarget` is what the roll says against
+ * the attribute — a `d20cs<=X` total of 1, or `total <= X` — and the natural
+ * die overrides it at both ends.
+ *
+ * ONE copy for every save (review #34 finding 50): the sheet's ability
+ * rolls, the damage flow's STR save and the initiative DEX save each read
+ * `roll ≤ ability` and nothing else, so an ability of 20 (four shipped
+ * monsters have STR 20) could never fail and an ability of 0 never pass.
+ * @param {number} natural         the d20's face
+ * @param {boolean} passedByTarget whether the roll met the attribute
+ * @returns {boolean}
+ */
+export const cairnSavePasses = (natural, passedByTarget) =>
+  natural === 1 ? true : natural === 20 ? false : !!passedByTarget;
+
 /* -------------------------------------------- */
 /*  Dice-formula composer / parser              */
 /* -------------------------------------------- */

@@ -313,10 +313,17 @@ export const watchLineFor = (watch) => (Number.isInteger(watch) && WATCH_KEYS[wa
  *
  * Names go through the overlay the way every other list of names here does.
  * What it is written INTO does not — see `weather-log.js`.
+ *
+ * HIDDEN EVENTS ARE LEFT OUT (review #34 finding 79). The log is written on
+ * the active GM's client, where the hidden journal's pages pass the
+ * permission test, and it is a journal every player reads — so the docs' own
+ * example, an ambush hidden on the fourteenth, was written into it by name.
+ * The log lists what the PARTY's calendar shows that day, and nothing more.
  */
 export const marksOn = async ({ year, month, day }) => {
   const map = await marksByDay(year);
-  return (map.get(`${month}/${day}`) ?? []).map((m) => t("journal.pageName", m.name));
+  return (map.get(`${month}/${day}`) ?? []).filter((m) => !m.hidden)
+    .map((m) => t("journal.pageName", m.name));
 };
 
 /* -------------------------------------------- */

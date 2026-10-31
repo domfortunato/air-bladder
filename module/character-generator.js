@@ -1,5 +1,5 @@
 import { CairnActor } from "./actor/actor.js";
-import { rollTableText, resultText, findTableByName, findDeclaredTable } from "./compendium.js";
+import { rollTableText, resultText, resultPlainText, findTableByName, findDeclaredTable } from "./compendium.js";
 import { Cairn } from "./config.js";
 import { evaluateFormula, formatCount } from "./utils.js";
 import {
@@ -855,7 +855,7 @@ export const rollNameFromTable = async (config, fallback) => {
   const table = config ? await findDeclaredTable(config) : null;
   if (!table) return fallback;
   const { results } = await table.roll();
-  return resultText(results[0]).trim() || fallback;
+  return resultPlainText(results[0]) || fallback;
 };
 
 /* -------------------------------------------------------------------------- */
@@ -4398,7 +4398,7 @@ export const rerollNpcFaction = async (actor) => {
   const table = tableName ? await findTableByName(tableName) : null;
   if (!table) return actor;
   const { results } = await table.roll();
-  const raw = resultText(results[0]).trim();
+  const raw = resultPlainText(results[0]);
   if (raw) await actor.update({ "system.faction": t("table.result", raw) });
   return actor;
 };
@@ -4918,7 +4918,7 @@ export const promptNpcBackground = async (actor, { windowId } = {}) => {
   const table = decl ? await findDeclaredTable(decl) : null;
   if (!table) return actor;
   const current = String(actor.system.background ?? "").trim();
-  const rows = table.results.map((r) => String(resultText(r)).trim()).filter(Boolean)
+  const rows = table.results.map((r) => resultPlainText(r)).filter(Boolean)
     .map((text) => ({ value: text, label: t("table.result", text) }))
     .sort((a, b) => a.label.localeCompare(b.label, game.i18n.lang));
   const choice = await promptFromRows("CAIRN.PickBackground", rows, current, { windowId });
@@ -4938,7 +4938,7 @@ export const promptNpcFaction = async (actor, { windowId } = {}) => {
   const tableName = CONFIG.Cairn?.npcGenerator?.faction;
   const table = tableName ? await findTableByName(tableName) : null;
   if (!table) return actor;
-  const rows = table.results.map((r) => t("table.result", String(resultText(r)).trim())).filter(Boolean)
+  const rows = table.results.map((r) => t("table.result", resultPlainText(r))).filter(Boolean)
     .map((text) => ({ value: text, label: text }))
     .sort((a, b) => a.label.localeCompare(b.label, game.i18n.lang));
   const current = String(actor.system.faction ?? "").trim();
@@ -4971,7 +4971,7 @@ export const promptNpcFaction = async (actor, { windowId } = {}) => {
 export const promptPickOmen = async (current = "", { windowId } = {}) => {
   const table = await findOmensTable();
   if (!table) return null;
-  const rows = table.results.map((r) => String(resultText(r)).trim()).filter(Boolean)
+  const rows = table.results.map((r) => resultPlainText(r)).filter(Boolean)
     .map((text) => ({ value: text, label: t("table.result", text) }));
   const choice = await promptFromRows("CAIRN.PickOmen", rows, String(current ?? "").trim() || null, { windowId });
   if (!choice) return false;
@@ -5002,7 +5002,7 @@ export const promptPickName = async (actor, { windowId } = {}) => {
     // the other.
     const decl = CONFIG.Cairn?.barebonesGenerator?.name ?? "";
     const table = decl ? await findDeclaredTable(decl) : null;
-    rows = (table?.results ?? []).map((r) => String(resultText(r)).trim()).filter(Boolean)
+    rows = (table?.results ?? []).map((r) => resultPlainText(r)).filter(Boolean)
       .map((text) => ({ value: text, label: t("table.result", text) }));
   }
   if (!rows.length) return null;

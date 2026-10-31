@@ -131,6 +131,12 @@ const ownedPayload = (doc) => ({
   documentName: doc.documentName,
   img: doc.img,
   system: doc.system.toObject(),
+  // An ACTOR row carries its embedded items and its token too (review #34
+  // finding 87): what is bought must be the document the compendium ships,
+  // and a statted mount's attacks and worn armour are items, not system data.
+  ...(doc.documentName === "Actor"
+    ? { items: doc.items.map((i) => i.toObject()), prototypeToken: doc.prototypeToken.toObject() }
+    : {}),
 });
 
 /**
@@ -487,12 +493,24 @@ export const acquireTransport = async (actor, doc, pay) => {
   // getDocumentClass, not the global `Actor` — the global is not
   // CONFIG.Actor.documentClass, so it reaches the same _preCreate defaults only
   // by way of `implementation`; naming the configured class says what runs.
+  //
+  // THE WHOLE STAT BLOCK, for an Actor row (review #34 finding 87). This copied
+  // a hand-picked subset — hp, armorOverride, the token's art — so a statted
+  // companion stocked from Mounts & Transports (the Falcon's STR 5 / DEX 16 /
+  // WIL 4, a Warden's warhorse with its attacks) was sold as 10/10/10 with no
+  // armour and no items, contradicting the sentence above. The source's system,
+  // items and token come across, and the fields below are laid OVER them. A
+  // legacy transport ITEM row has an item's schema, so only the subset applies.
+  const fromActor = doc.documentName === "Actor";
   const payload = {
     type: "npc",
     name: doc.name,
     img: art,
-    prototypeToken: { texture: { src: art } },
+    prototypeToken: foundry.utils.mergeObject(fromActor ? (doc.prototypeToken ?? {}) : {},
+      { texture: { src: art } }, { inplace: false }),
+    ...(fromActor ? { items: doc.items ?? [] } : {}),
     system: {
+      ...(fromActor ? s : {}),
       // Connected at CREATION, so there is no window in which it exists
       // unattached -- which, under the container rule, would be a loot pile
       // flickering into the world between two awaits.

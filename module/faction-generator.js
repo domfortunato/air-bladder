@@ -25,7 +25,7 @@
  * what happens when nobody says otherwise, and it is meant to be replaced.
  */
 
-import { findTableByName, resultText } from "./compendium.js";
+import { findTableByName, resultPlainText } from "./compendium.js";
 import { t } from "./i18n-content.js";
 import { promptCreation } from "./character-generator.js";
 
@@ -46,7 +46,7 @@ const rollText = async (tableName) => {
   const table = await findTableByName(tableName);
   if (!table) return "";
   const { results } = await table.roll();
-  const raw = resultText(results[0]).trim();
+  const raw = resultPlainText(results[0]);
   return raw ? t("table.result", raw) : "";
 };
 
@@ -87,7 +87,7 @@ const tableRows = async (tableName) => {
   if (!table) return [];
   const rows = new Set();
   for (const r of table.results) {
-    const raw = String(resultText(r)).trim();
+    const raw = resultPlainText(r);
     if (raw) rows.add(t("table.result", raw));
   }
   return [...rows];
