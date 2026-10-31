@@ -1,5 +1,5 @@
 import { dieIconOrGeneric } from "../utils.js";
-import { canRegenerateContainers, drawBond, bondRecordFrom, withGrantSource, bondEntitlement, resolveRefs, replaceGrantedContainers, promptBackground, changeBackground, promptFailedCareer, rollFailedCareerName, buildFailedCareerItem, getPortraitManifest, pairedTokenFor, randomPortraitInSameFolder, portraitCategoryFor, regenerateNpc, regenerateHireling, rerollNpcBackground, rerollHirelingCareer, rerollNpcName, rerollNpcFaction, promptHirelingCareer, promptNpcBackground, promptNpcFaction, promptPickOmen, promptPickBond, promptPickQuestionOption, promptPickName, findOmensTable, rollNameFromTable, rollAge, rollTextItems, effectiveAgeFormula, effectivePcAbilityFormula, effectivePcGoldFormula, effectivePcHpFormula, rollPcHitProtection, resolveActorBackground, redealBackgroundGear, rerollAllBonds, reorderInventory, postGenerationRolls, isHandBuilt, clearHandBuilt, isBackgroundDisabled, FLAG_SCOPE } from "../character-generator.js";
+import { canRegenerateContainers, drawBond, bondRecordFrom, withGrantSource, bondEntitlement, resolveRefs, replaceGrantedContainers, promptBackground, changeBackground, promptFailedCareer, rollFailedCareerName, buildFailedCareerItem, getPortraitManifest, pairedTokenFor, randomPortraitInSameFolder, portraitCategoryFor, regenerateNpc, regenerateHireling, rerollNpcBackground, rerollHirelingCareer, rerollNpcName, rerollNpcFaction, promptHirelingCareer, promptNpcBackground, promptNpcFaction, promptPickOmen, promptPickBond, promptPickQuestionOption, promptPickName, findOmensTable, rollNameFromTable, rollAge, rollTextItems, effectiveAgeFormula, effectivePcAbilityFormula, effectivePcGoldFormula, effectivePcHpFormula, rollPcHitProtection, resolveActorBackground, redealBackgroundGear, rerollAllBonds, reorderInventory, postGenerationRolls, isHandBuilt, clearHandBuilt, isBackgroundDisabled, equipIfArms, FLAG_SCOPE } from "../character-generator.js";
 import { promptMonsterTier, regenerateMonster } from "../monster-generator.js";
 import { openMarketplace, TRANSPORTS_CATEGORY } from "../marketplace.js";
 import { evaluateFormula, cairnSavePasses, cleanDescription, concealSecrets, holdsProse, bindEditorClickAwaySave, formatCount, sourceLabel, askDamageQuality, damageFormulaFor, damageQualityLabel, damageQualityKind, d20CardBody, d20CardFlavor, D20_CARD_ABILITIES, combatOption, combatDamageFormula, askImprovisedAttack, IMPROVISED_FORMULA } from "../utils.js";
@@ -5157,7 +5157,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     const drawnGold = handBuilt ? 0 : drawn.gold;
     const newItems = handBuilt
       ? []
-      : (drawn.items ?? []).map((it) => withGrantSource(it, `bond:${id}`));
+      : (drawn.items ?? []).map((it) => equipIfArms(withGrantSource(it, `bond:${id}`)));
     await this._replaceGrantedItems(`bond:${id}`, newItems);
     const gold = Math.max(0, (this.actor.system.gold ?? 0) - (bonds[idx].gold ?? 0) + drawnGold);
     bonds[idx] = { id, description: drawn.description, gold: drawnGold };
@@ -5344,7 +5344,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     const handBuilt = isHandBuilt(this.actor);
     const newItems = handBuilt
       ? []
-      : (await resolveRefs(opt.items)).map((it) => withGrantSource(it, `question:${idx}`));
+      : (await resolveRefs(opt.items)).map((it) => equipIfArms(withGrantSource(it, `question:${idx}`)));
     await this._replaceGrantedItems(`question:${idx}`, newItems);
     await replaceGrantedContainers(this.actor, `question:${idx}`, handBuilt ? [] : (opt.containers ?? []));
     const questions = foundry.utils.duplicate(this.actor.system.questions ?? []);

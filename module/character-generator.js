@@ -935,6 +935,21 @@ export const withGrantSource = (item, source) => ({
 });
 
 /**
+ * A weapon or armour a background's QUESTION or a BOND grants arrives
+ * EQUIPPED, as the starting gear does (review #34 finding 224), so Armor derives
+ * to what the prose promises. The pack document's own `equipped` is copied
+ * verbatim by itemDataFromDocument and the shipped data is mixed — every
+ * Fletchwind's question-2 bow is stored unequipped, a Kettlewright's Gambeson
+ * equipped and its Tin Helm not — and nobody chose that per grant. A new
+ * object, never a write into the resolved data it was given.
+ * @param {Object} item  item data
+ * @returns {Object}
+ */
+export const equipIfArms = (item) => (item?.type === "weapon" || item?.type === "armor"
+  ? { ...item, system: { ...(item.system ?? {}), equipped: true } }
+  : item);
+
+/**
  * Mundane background gear that needs no "Background" source chip — light and
  * food whose provenance nobody tracks.
  *
@@ -1111,7 +1126,7 @@ export const bondRecordFrom = (drawn) => {
   const id = foundry.utils.randomID();
   return {
     bond: { id, description: drawn.description ?? "", gold: drawn.gold ?? 0 },
-    items: (drawn.items ?? []).map((it) => withGrantSource(it, `bond:${id}`)),
+    items: (drawn.items ?? []).map((it) => equipIfArms(withGrantSource(it, `bond:${id}`))),
   };
 };
 
@@ -1173,7 +1188,7 @@ export const applyChoiceTables = async (bg) => {
     const roll = await evaluateFormula(`1d${options.length}`);
     const opt = options[roll.total - 1] ?? options[0];
     const gold = opt.bonusGold ?? 0;
-    const items = (await resolveRefs(opt.items)).map((it) => withGrantSource(it, `question:${i}`));
+    const items = (await resolveRefs(opt.items)).map((it) => equipIfArms(withGrantSource(it, `question:${i}`)));
     out.items.push(...items);
     // The option's own prose rides along with the container spec. What the
     // background PROMISED about this beast — "4 HP. +6 slots (only +2 slots if
