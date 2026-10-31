@@ -896,7 +896,13 @@ Hooks.once("init", () => {
       if (!contentLocalized() || !query) return;
       for (const el of html?.querySelectorAll?.("[data-page-id][hidden]") ?? []) {
         const page = this.entry?.pages?.get?.(el.dataset.pageId);
-        const es = translationOf("journal.pageName", page?.name ?? "");
+        const name = page?.name ?? "";
+        // The TOC's own fallback (review #34 finding 9): a page named exactly
+        // like its entry shows the ENTRY's translation, and the extractor emits
+        // no page key for it — so asking journal.pageName alone left a row the
+        // reader can see unmatchable by the words it shows.
+        const es = translationOf("journal.pageName", name)
+          ?? (name === this.entry?.name ? translationOf("journal.name", name) : undefined);
         if (es === undefined) continue;
         if (foundry.applications.ux.SearchFilter.testQuery(rgx, es)) el.hidden = false;
       }
