@@ -401,6 +401,68 @@ const out = await page.evaluate(async () => {
   results.missWarning = warns[0] ?? "(none)";
   ui.notifications.warn = origWarn;
 
+  /* 3d. A hazard pool is honoured only on a Warden's card ------------------- */
+  // Review #34 finding 85. `data-pool` sends a card's damage past armour and HP
+  // into an ability, it is displayed nowhere, and the card's author owns its
+  // flavor — so a PLAYER's dagger card carrying `data-pool="WIL"` made the
+  // Warden's routine Apply drain WIL. Posted here with Alice as its author (a
+  // GM may create on another user's behalf); the control is the same card
+  // authored by the Warden, which must still drain the pool.
+  const aliceU = game.users.find((u) => u.name === "Alice");
+  const v4 = await mkVictim(4);
+  const [t4] = await scene3.createEmbeddedDocuments("Token", [await v4.getTokenDocument({ x: 500, y: 500 })]);
+  const postPoolCard = async (author) => {
+    const roll = await evaluateFormula("2", {});
+    const flavor = await foundry.applications.handlebars.renderTemplate(
+      "systems/air-bladder/templates/chat/dmg-roll-card.html",
+      { label: "probe pool", targets: t4.id, pool: "WIL" },
+    );
+    const msg = await roll.toMessage({ speaker: ChatMessage.getSpeaker(), flavor, author });
+    await until(() => document.querySelector(`[data-message-id="${msg.id}"] .apply-dmg i`));
+    return msg;
+  };
+  const wil = () => v4.toObject().system.abilities.WIL.value;
+  const v4hp = () => v4.toObject().system.hp.value;
+  // The Warden's card first: the control, which must still drain the pool.
+  const wardenPool = await postPoolCard(game.user.id);
+  results.poolPlanted = /data-pool="WIL"/.test(wardenPool.flavor ?? "");
+  const wil0 = wil();
+  document.querySelector(`[data-message-id="${wardenPool.id}"] .apply-dmg i`)?.click();
+  results.wardenPoolLanded = await until(() => wil() === wil0 - 2);
+  const playerPool = await postPoolCard(aliceU?.id);
+  results.playerPoolAuthor = playerPool.author?.id === aliceU?.id;
+  const wil1 = wil(), hp1 = v4hp();
+  document.querySelector(`[data-message-id="${playerPool.id}"] .apply-dmg i`)?.click();
+  await until(() => v4hp() !== hp1 || wil() !== wil1);
+  await new Promise((r) => setTimeout(r, 600));
+  results.playerPool = { wil: `${wil1} -> ${wil()}`, hp: `${hp1} -> ${v4hp()}` };
+  results.playerPoolIgnored = wil() === wil1 && v4hp() === Math.max(0, hp1 - 2);
+
+  /* 3e. Roll STR save is ONE save per card, on every copy ------------------- */
+  // Review #34 finding 86. The button was disabled in the presser's own DOM only,
+  // so a re-render (a reload, a scroll-back, the Warden's copy) put it back live
+  // and the same overflow could be saved twice. Overflow v4: HP to 0 and past.
+  const detailBefore = new Set(game.messages.map((m) => m.id));
+  await Damage.applyToTargets([t4.id], 8, scene3);
+  await until(() => game.messages.contents.some((m) => !detailBefore.has(m.id)
+    && /roll-str-save/.test(String(m.content ?? ""))));
+  const detail = game.messages.contents.find((m) => !detailBefore.has(m.id)
+    && /roll-str-save/.test(String(m.content ?? "")));
+  const saveBtn = () => document.querySelector(`[data-message-id="${detail?.id}"] .roll-str-save`);
+  const saveCards = () => game.messages.contents.filter((m) => !detailBefore.has(m.id)
+    && m.getFlag("air-bladder", "d20Card")?.ability === "STR").length;
+  await until(() => saveBtn() && !saveBtn().disabled);
+  results.strSaveOffered = !!saveBtn() && !saveBtn().disabled;
+  saveBtn()?.click();
+  await until(() => saveCards() === 1);
+  await ui.chat.render({ force: true });
+  await until(() => !!saveBtn());
+  await new Promise((r) => setTimeout(r, 400));
+  results.strSaveSealedAfterRender = saveBtn()?.disabled === true;
+  saveBtn()?.click();
+  await new Promise((r) => setTimeout(r, 1500));
+  results.strSaveCards = saveCards();
+
   /* 4. Fatigue is never refused at a full pack ------------------------------ */
   // Fatigue is a cost the rules impose, not a purchase: a full pack does not stop
   // a spell being cast, so it lands and the character goes over. The CLICK is
@@ -1774,8 +1836,49 @@ try {
     r.hiddenNamesInHeader = hidCards.every((m) => m.speaker?.alias === "ZZ Concealed Foe");
     r.visibleCardCount = visCards.length;
     r.visibleNoneWhispered = visCards.length > 0 && visCards.every((m) => (m.whisper ?? []).length === 0);
-    r.concealIds = { hidden: hidCards.map((m) => m.id), visible: visCards.map((m) => m.id) };
-    r.concealCleanup = { sceneId: scene.id, actorIds: [hid.a.id, vis.a.id] };
+
+    // A LINKED hidden token (review #34 finding 72). The fixtures above are
+    // unlinked monsters, whose actor is synthetic and carries its own `.token`;
+    // a linked token's actor is the WORLD actor, whose `.token` is null — and
+    // persons are linked by default, so a hidden NPC ambusher is this case. Its
+    // Dead bar was concealed by `actor.token` and so went out public.
+    const linkA = await ActorImpl.create({
+      name: "ZZ Concealed Linked", type: "npc",
+      system: { role: "monster", hp: { value: 4, max: 4 }, armor: 0, abilities: { STR: { value: 2, max: 2 } } },
+    });
+    const [linkT] = await scene.createEmbeddedDocuments("Token",
+      [{ name: "ZZ Concealed Linked", actorId: linkA.id, actorLink: true, x: 300, y: 300, hidden: true }]);
+    r.linkedIsLinked = linkT.actorLink === true && linkT.actor?.token == null;
+    const linkCards = await fresh(() => Damage.applyToTargets([linkT.id], 99, scene));
+    r.linkedDeadBar = linkCards.some((m) => /status-dead/.test(String(m.content ?? "")));
+    r.linkedAllWhispered = linkCards.length > 0 && linkCards.every((m) => (m.whisper ?? []).length > 0);
+
+    // A hidden creature's SCAR (review #34 finding 84): exactly 0 HP with no
+    // overflow, the one branch the 99-damage legs never reach. The scar card
+    // goes through `RollTable#toMessage`, which applies the poster's chat mode,
+    // and Public — the default — empties the whisper. Measured on Public, which
+    // is set for the leg and restored.
+    const modeWas = game.settings.get("core", "messageMode");
+    if (modeWas !== "public") await game.settings.set("core", "messageMode", "public");
+    let scarCards = [];
+    try {
+      const scarA = await ActorImpl.create({
+        name: "ZZ Concealed Scarred", type: "npc",
+        system: { role: "monster", hp: { value: 4, max: 4 }, armor: 0, abilities: { STR: { value: 5, max: 5 } } },
+      });
+      const [scarT] = await scene.createEmbeddedDocuments("Token",
+        [{ name: "ZZ Concealed Scarred", actorId: scarA.id, x: 400, y: 400, hidden: true }]);
+      scarCards = await fresh(() => Damage.applyToTargets([scarT.id], 4, scene));
+      r.scarActorId = scarA.id;
+    } finally {
+      if (modeWas !== "public") await game.settings.set("core", "messageMode", modeWas);
+    }
+    r.scarPosted = scarCards.some((m) => m.getFlag("air-bladder", "scarCard"));
+    r.scarAllWhispered = scarCards.length > 0 && scarCards.every((m) => (m.whisper ?? []).length > 0);
+
+    const moreHidden = [...linkCards, ...scarCards].map((m) => m.id);
+    r.concealIds = { hidden: [...hidCards.map((m) => m.id), ...moreHidden], visible: visCards.map((m) => m.id) };
+    r.concealCleanup = { sceneId: scene.id, actorIds: [hid.a.id, vis.a.id, linkA.id, r.scarActorId].filter(Boolean) };
     return r;
   }));
 
@@ -2108,6 +2211,19 @@ check("survivor still damaged", out.mixedSurvivorHit,
   "a mixed batch damages the ids that resolve");
 check("the miss is reported", out.mixedWarned && !/^CAIRN\./.test(out.missWarning),
   `warn: ${out.missWarning}`);
+
+console.log("\na hazard pool, and whose card carries it");
+check("the Warden's pool card drains the pool", out.poolPlanted && out.wardenPoolLanded,
+  "the control: data-pool on a Warden-authored card still lands on WIL");
+check("a PLAYER's card with a planted pool is ordinary damage", out.playerPoolAuthor && out.playerPoolIgnored,
+  `WIL ${out.playerPool?.wil}, HP ${out.playerPool?.hp} (expected WIL unchanged, HP down 2)`);
+
+console.log("\nRoll STR save is one save per card");
+check("the overflow offers Roll STR save", out.strSaveOffered);
+check("re-rendered, the pressed save stays spent", out.strSaveSealedAfterRender,
+  "the stamp is on the MESSAGE, so every copy of the card reads it");
+check("and a second press posts no second save", out.strSaveCards === 1,
+  `${out.strSaveCards} STR save card(s)`);
 
 console.log("\nFatigue is never refused at a full pack");
 check("at the limit first", out.fatEncumberedBefore,
@@ -2476,6 +2592,12 @@ check("a corpse still gets feedback",
 check("a concealed creature's cards are whispered",
   status.hiddenCardCount > 0 && status.hiddenAllWhispered,
   `${status.hiddenCardCount} card(s), all whispered=${status.hiddenAllWhispered}`);
+check("precondition: the linked fixture's actor is the world actor, with no .token",
+  status.linkedIsLinked);
+check("a LINKED hidden token's Dead bar is whispered too", status.linkedDeadBar && status.linkedAllWhispered,
+  `dead bar=${status.linkedDeadBar}, all whispered=${status.linkedAllWhispered}`);
+check("a hidden creature's SCAR card is whispered, on the Public chat mode", status.scarPosted && status.scarAllWhispered,
+  `scar posted=${status.scarPosted}, all whispered=${status.scarAllWhispered}`);
 check("and Alice sees none of them", status.aliceSeesHidden === 0,
   `she can see ${status.aliceSeesHidden} of ${status.hiddenCardCount} — read from HER client, because both concealment`
   + " channels are evaluated against the current user and a GM owns and observes everything");
