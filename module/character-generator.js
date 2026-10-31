@@ -180,15 +180,19 @@ const lydiaSetPortraits = (set) =>
 const IMAGE_RE = /\.(?:webp|png|jpe?g|gif|svg|avif|bmp)$/i;
 
 // How far the custom-portrait scan walks, and how many folders it will visit.
-// Both exist because the scan is one HTTP round trip per folder, run on the
+// Both exist because the scan is one server request per folder, run on the
 // Warden's client while they wait, and the setting is a free-text path — point
 // it at the data root by mistake and an uncapped walk would crawl the whole
 // install. Six levels is deeper than anyone files portraits; 200 folders is far
 // above a portrait collection and far below a Foundry data directory. Hitting
 // either is warned about rather than passed over in silence, because a short
-// list looks exactly like a small collection.
+// list looks exactly like a small collection. A level's folders are asked
+// side by side, `SCAN_PARALLEL` at a time (review #34 finding 208): they do not
+// depend on each other, and a cap keeps a wide level from landing 200
+// requests on the server at once.
 const MAX_SCAN_DEPTH = 6;
 const MAX_SCAN_DIRS = 200;
+const SCAN_PARALLEL = 8;
 
 /**
  * The FilePicker implementation. Named in full, not resolved through a
@@ -223,7 +227,7 @@ export const getCustomPortraitPaths = () => {
  * Reserved by CONVENTION rather than by four more settings, deliberately: it
  * would be four more rows in the Character Generation submenu, a
  * second folder setting is a second folder to scan on every Warden's login
- * (the scan is one HTTP round trip per directory, capped at 200), and the
+ * (the scan is one server request per directory, capped at 200), and the
  * picker already renders subfolders as tiles. Nothing here adds a register()
  * call, so the counts in CLAUDE.md stand.
  *
@@ -435,26 +439,42 @@ export const refreshCustomPortraits = async () => {
     // cost the Warden every other portrait they have. `seen` guards against a
     // directory link that points back up its own tree — the walk is over paths,
     // so a cycle would otherwise never terminate.
+    //
+    // ONE LEVEL AT A TIME, ITS FOLDERS SIDE BY SIDE (review #34 finding 208).
+    // Each folder used to wait for the one before it, so Refresh, the folder
+    // setting's toast and the login scan waited for the sum of every round
+    // trip. A level's replies are merged in the order its folders were listed,
+    // so the list (and which folder the 200th visit cuts off) is the one the
+    // one-at-a-time walk made.
+    const browseOrSkip = async (path) => {
+      try { return await FP.browse("data", path); } catch (e) {
+        console.warn(`Air Bladder | could not scan custom portrait subfolder ${path}:`, e);
+        return null;
+      }
+    };
     const seen = new Set([dir]);
-    const queue = (root?.dirs ?? []).map((path) => ({ path, depth: 1 }));
+    let level = root?.dirs ?? [];
     let scanned = 0;
     let truncated = false;
-    while (queue.length) {
-      const { path, depth } = queue.shift();
-      if (seen.has(path)) continue;
-      seen.add(path);
-      if (++scanned > MAX_SCAN_DIRS) { truncated = true; break; }
-      let res;
-      try {
-        res = await FP.browse("data", path);
-      } catch (e) {
-        console.warn(`Air Bladder | could not scan custom portrait subfolder ${path}:`, e);
-        continue;
+    for (let depth = 1; level.length; depth++) {
+      const batch = [];
+      for (const path of level) {
+        if (seen.has(path)) continue;
+        seen.add(path);
+        if (++scanned > MAX_SCAN_DIRS) { truncated = true; break; }
+        batch.push(path);
       }
-      files.push(...(res?.files ?? []).filter((f) => IMAGE_RE.test(f)));
-      const subs = res?.dirs ?? [];
-      if (depth < MAX_SCAN_DEPTH) queue.push(...subs.map((p) => ({ path: p, depth: depth + 1 })));
-      else if (subs.length) truncated = true;
+      const next = [];
+      for (let i = 0; i < batch.length; i += SCAN_PARALLEL) {
+        for (const res of await Promise.all(batch.slice(i, i + SCAN_PARALLEL).map(browseOrSkip))) {
+          if (!res) continue;
+          files.push(...(res.files ?? []).filter((f) => IMAGE_RE.test(f)));
+          const subs = res.dirs ?? [];
+          if (depth < MAX_SCAN_DEPTH) next.push(...subs);
+          else if (subs.length) truncated = true;
+        }
+      }
+      level = scanned > MAX_SCAN_DIRS ? [] : next;
     }
     if (truncated) {
       console.warn(`Air Bladder | custom portrait scan stopped early in "${dir}" — `
