@@ -482,22 +482,23 @@ try {
   //
   // Both are restored to the values captured here, never to "on": a test run
   // must not leave the Warden's switch flipped.
-  permsPrior = await page.evaluate(async () => {
-    const prior = JSON.stringify(game.settings.get("core", "permissions"));
-    const next = JSON.parse(prior);
-    const role = game.users.getName("Alice")?.role;
-    if (role == null) return null;
-    next.ACTOR_CREATE ??= [];
-    if (!next.ACTOR_CREATE.includes(role)) next.ACTOR_CREATE.push(role);
-    await game.settings.set("core", "permissions", next);
-    return prior;
-  });
+  // Each prior value is read in its OWN evaluate, before the write (review #34
+  // finding 144). Returned from the evaluate that also wrote, a throw — or the
+  // collected-promise flake lib.mjs records — after the write lost the value
+  // the finally needed, and the Warden's switch stayed flipped.
+  const aliceRole = await page.evaluate(() => game.users.getName("Alice")?.role ?? null);
+  if (aliceRole != null) {
+    permsPrior = await page.evaluate(() => JSON.stringify(game.settings.get("core", "permissions")));
+    await page.evaluate(async ({ prior, role }) => {
+      const next = JSON.parse(prior);
+      next.ACTOR_CREATE ??= [];
+      if (!next.ACTOR_CREATE.includes(role)) next.ACTOR_CREATE.push(role);
+      await game.settings.set("core", "permissions", next);
+    }, { prior: permsPrior, role: aliceRole });
+  }
   if (!permsPrior) fail("no Alice user in the world — run `npm run dev:players` first");
-  genPrior = await page.evaluate(async () => {
-    const prior = game.settings.get("air-bladder", "allow-player-generate");
-    if (!prior) await game.settings.set("air-bladder", "allow-player-generate", true);
-    return prior;
-  });
+  genPrior = await page.evaluate(() => game.settings.get("air-bladder", "allow-player-generate"));
+  if (!genPrior) await page.evaluate(() => game.settings.set("air-bladder", "allow-player-generate", true));
 
   console.log("\njoining as Alice (with ACTOR_CREATE)");
   const aliceContext = await browser.newContext({ viewport: VIEWPORT });

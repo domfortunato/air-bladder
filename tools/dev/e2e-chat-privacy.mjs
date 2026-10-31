@@ -68,6 +68,7 @@ const sweep = (extraMessageIds = []) => gm.evaluate(async ({ FLAG, MARK, extraMe
 }, { FLAG, MARK, extraMessageIds });
 
 let posted = {};
+let priorActive = [];
 try {
   await joinAsGM(gm);
   const pre = await sweep();
@@ -76,6 +77,10 @@ try {
     : ok("nothing planted left behind by an earlier run");
   await joinAs(alice, "Alice");
 
+  // The combats ACTIVE before this run, read in their own evaluate BEFORE the
+  // write (review #34 findings 143, 144): activating this run's combat
+  // deactivates every other, the Warden's encounter included.
+  priorActive = await gm.evaluate(() => game.combats.filter((c) => c.active).map((c) => c.id));
   posted = await gm.evaluate(async ({ FLAG, MARK }) => {
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     const out = {};
@@ -326,6 +331,9 @@ try {
   try {
     const ids = [posted.initHidden, posted.initShown, posted.dashPrivate, posted.dashPublic, posted.qtyPrivate, posted.qtyPublic].filter(Boolean);
     const post = await sweep(ids);
+    await gm.evaluate(async (prior) => {
+      for (const id of prior) await game.combats.get(id)?.update({ active: true });
+    }, priorActive);
     console.log(`\n  --    removed ${JSON.stringify(post)}`);
   } catch { /* page gone */ }
   const errors = [...gmErrors, ...aliceErrors];

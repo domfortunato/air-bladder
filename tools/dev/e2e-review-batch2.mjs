@@ -241,6 +241,9 @@ try {
     /* ---- 7. read-only actions on a locked pack ---------------------------- */
     console.log("\nread actions on a locked compendium sheet");
 
+    // The lock state is read and handed to the cleanup BEFORE the re-lock
+    // (review #34 finding 144), so a throw after it still unlocks the pack.
+    cleanup.packWasUnlocked = await page.evaluate(() => game.packs.get("air-bladder.monsters")?.locked === false);
     const packPrep = await page.evaluate(async () => {
       const pack = game.packs.get("air-bladder.monsters");
       if (!pack) return { error: "no air-bladder.monsters pack" };
@@ -419,6 +422,11 @@ try {
     /* ---- 1. grantContainers under a player WITH ACTOR_CREATE --------------- */
     console.log("\ngrantContainers on the ACTOR_CREATE-player path");
 
+    // The snapshot is taken in its OWN evaluate and handed to the cleanup BEFORE
+    // the widen (review #34 finding 144): returned from the evaluate that also
+    // wrote, it was lost on the not-a-PLAYER early return and on any throw
+    // after the write, and the finally then left PLAYER able to create actors.
+    cleanup.permSnap = await page.evaluate(() => JSON.stringify(game.settings.get("core", "permissions")));
     const grantPrep = await page.evaluate(async () => {
       const perms = foundry.utils.deepClone(game.settings.get("core", "permissions"));
       const snap = JSON.stringify(perms);

@@ -36,6 +36,29 @@ await page.goto(FOUNDRY_URL);
 await joinAsGM(page);
 await dismissChrome(page);
 
+// THE PROBE'S OWN FIXTURES, stamped and swept by stamp — at entry, and from the
+// finally at the end (review #34 finding 145). The teardown was straight-line
+// at the file's tail, so a throw or the watchdog left the scene, combat and
+// seven actors behind, and leg 1 picked combatants by NAME: a leftover
+// "ZZ Init Pass" was found first and the next run threw at leg 1, leaking
+// another set. The legacy unstamped leftovers of earlier runs go by this
+// probe's own names once.
+const FIXTURE = "combat-order";
+const sweepFixtures = () => page.evaluate(async (fixture) => {
+  const mine = (d) => d.getFlag("air-bladder", "probeFixture") === fixture;
+  for (const c of game.combats.filter((c) => mine(c) || c.combatants.some((x) => /^ZZ Init /.test(x.name ?? "")))) await c.delete();
+  for (const s of game.scenes.filter((s) => mine(s) || s.name === "ZZ Combat Scene")) await s.delete();
+  for (const a of game.actors.filter((a) => mine(a) || /^ZZ Init /.test(a.name))) await a.delete();
+  for (const m of game.messages.contents.filter((m) => /ZZ Init/.test(m.speaker?.alias ?? ""))) await m.delete();
+}, FIXTURE);
+// Which combats were ACTIVE before this run (review #34 finding 143): its own
+// `combat.activate()` makes the server deactivate every other active combat,
+// the Warden's running encounter included. Put back in the finally.
+let priorActive = [];
+let roll = null;
+await sweepFixtures();
+try {
+
 /* ---------------------------------------------------------------------------
  * 1. The roll: buckets, save cards, and ONE batched write.
  *
@@ -47,12 +70,16 @@ await dismissChrome(page);
  * was one batch plus N awaited per-combatant updates.
  * ------------------------------------------------------------------------- */
 console.log("\nthe DEX save decides the bucket");
-const roll = await page.evaluate(async () => {
+// Read in its own evaluate BEFORE the write (review #34 finding 144).
+priorActive = await page.evaluate(() => game.combats.filter((c) => c.active).map((c) => c.id));
+roll = await page.evaluate(async () => {
   const ActorImpl = CONFIG.Actor.documentClass;
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const r = {};
 
-  const scene = await Scene.create({ name: "ZZ Combat Scene", width: 1400, height: 1000 });
+  const flags = { "air-bladder": { probeFixture: "combat-order" } };
+  const made = new Map();
+  const scene = await Scene.create({ name: "ZZ Combat Scene", width: 1400, height: 1000, flags });
   await scene.view();
   await sleep(400);
 
@@ -61,10 +88,11 @@ const roll = await page.evaluate(async () => {
 
   const mk = async (name, type, system, { disposition = 1, ownership = null } = {}, x) => {
     const a = await ActorImpl.create({
-      name, type, system,
+      name, type, system, flags,
       ...(ownership ? { ownership } : {}),
       prototypeToken: { disposition },
     });
+    made.set(name, a.id);
     const [t] = await scene.createEmbeddedDocuments("Token", [await a.getTokenDocument({ x, y: 100 })]);
     return { a, t };
   };
@@ -81,14 +109,15 @@ const roll = await page.evaluate(async () => {
     { ownership: alice ? { default: 0, [alice.id]: 3 } : null }, 850);
   const unrolled = await mk("ZZ Init Unrolled", "character", DEX(20), {}, 1000);
 
-  const combat = await Combat.create({ scene: scene.id });
+  const combat = await Combat.create({ scene: scene.id, flags });
   await combat.activate();
   const specs = [pass, failC, neutral, hostile, hidden, mine, unrolled].map((v) => ({
     actorId: v.a.id, tokenId: v.t.id, sceneId: scene.id,
   }));
   specs[4].hidden = true; // ZZ Init Hidden
   const combatants = await combat.createEmbeddedDocuments("Combatant", specs);
-  const byName = (n) => combatants.find((c) => c.actorId === game.actors.getName(n)?.id);
+  // By THIS run's actor ids, never by name (probe rule 4, review #34 F145).
+  const byName = (n) => combatants.find((c) => c.actorId === made.get(n));
 
   // Count the WRITES while rolling everyone except the two unrolled.
   let batches = 0;
@@ -571,15 +600,27 @@ check("a second client reads the same order", second.ran && !second.error
   && JSON.stringify(second.first) === JSON.stringify(gmNow),
   second.error ?? `alice=${JSON.stringify(second.first)} gm=${JSON.stringify(gmNow)}`);
 
-/* ----------------------------------------------------------- teardown ---- */
-await page.evaluate(async (ids) => {
-  await game.combats.get(ids.combatId)?.delete();
-  for (const m of game.messages.contents.slice().reverse()) {
-    if (/ZZ Init/.test(m.speaker?.alias ?? "") || ids.msgIds.includes(m.id)) await m.delete();
-  }
-  await game.scenes.get(ids.sceneId)?.delete();
-  for (const id of ids.actorIds) await game.actors.get(id)?.delete();
-}, roll.ids);
+} catch (e) {
+  fail("probe threw", `${e.name}: ${e.message}`);
+} finally {
+  /* --------------------------------------------------------- teardown ---- */
+  // From the finally, by stamp (review #34 finding 145), and the combats that
+  // were active before this run are made active again (finding 143) — core
+  // deactivated them when this run's combat was activated.
+  try {
+    await page.evaluate(async (ids) => {
+      for (const m of game.messages.contents.slice().reverse()) {
+        if ((ids ?? []).includes(m.id)) await m.delete();
+      }
+    }, roll?.ids?.msgIds ?? []);
+  } catch { /* page gone */ }
+  try { await sweepFixtures(); } catch { /* page gone */ }
+  try {
+    await page.evaluate(async (ids) => {
+      for (const id of ids) await game.combats.get(id)?.update({ active: true });
+    }, priorActive);
+  } catch { /* page gone */ }
+}
 
 const errs = errors.filter((e) => !/ZZ /.test(e));
 check("zero console errors", errs.length === 0, errs.join(" | "));
