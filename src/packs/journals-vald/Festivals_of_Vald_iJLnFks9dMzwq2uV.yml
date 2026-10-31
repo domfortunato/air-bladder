@@ -18,6 +18,16 @@ pages:
         valdMonth: 1
         valdDay: 24
         valdDays: 1
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
     _key: '!journal.pages!iJLnFks9dMzwq2uV.bbbFAc7kVMmygl01'
   - _id: QJ7iqMyC6bGneGqx
     name: Dead Solstice
@@ -36,6 +46,16 @@ pages:
         valdMonth: 2
         valdDay: 10
         valdDays: 1
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
     _key: '!journal.pages!iJLnFks9dMzwq2uV.QJ7iqMyC6bGneGqx'
   - _id: u20MlUpFysIYWeAL
     name: Whisper
@@ -54,6 +74,16 @@ pages:
         valdMonth: 2
         valdDay: 11
         valdDays: 1
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
     _key: '!journal.pages!iJLnFks9dMzwq2uV.u20MlUpFysIYWeAL'
   - _id: 62utSJ2d4OKyVAek
     name: Lift the Veil
@@ -72,6 +102,16 @@ pages:
         valdMonth: 3
         valdDay: 9
         valdDays: 1
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
     _key: '!journal.pages!iJLnFks9dMzwq2uV.62utSJ2d4OKyVAek'
   - _id: 2pGR8EPkTE7oQGUD
     name: Veil’s Edge
@@ -90,6 +130,16 @@ pages:
         valdMonth: 3
         valdDay: 17
         valdDays: 1
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
     _key: '!journal.pages!iJLnFks9dMzwq2uV.2pGR8EPkTE7oQGUD'
   - _id: PWScXWIZ44MexyvK
     name: Bartermoot
@@ -108,6 +158,16 @@ pages:
         valdMonth: 4
         valdDay: 14
         valdDays: 1
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
     _key: '!journal.pages!iJLnFks9dMzwq2uV.PWScXWIZ44MexyvK'
   - _id: NTZ8DcsECaDV8IC6
     name: Dustset
@@ -126,6 +186,16 @@ pages:
         valdMonth: 5
         valdDay: 9
         valdDays: 1
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
     _key: '!journal.pages!iJLnFks9dMzwq2uV.NTZ8DcsECaDV8IC6'
   - _id: lBDpuPxrgvo7ze46
     name: Dry Equinox
@@ -144,6 +214,16 @@ pages:
         valdMonth: 5
         valdDay: 10
         valdDays: 1
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
     _key: '!journal.pages!iJLnFks9dMzwq2uV.lBDpuPxrgvo7ze46'
   - _id: SQIdPU929rdNdsin
     name: Boughmeal
@@ -162,6 +242,16 @@ pages:
         valdMonth: 6
         valdDay: 16
         valdDays: 1
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
     _key: '!journal.pages!iJLnFks9dMzwq2uV.SQIdPU929rdNdsin'
   - _id: Oe1wcHv5vlB3qY5v
     name: Parade of Ash
@@ -180,6 +270,16 @@ pages:
         valdMonth: 6
         valdDay: 24
         valdDays: 1
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
     _key: '!journal.pages!iJLnFks9dMzwq2uV.Oe1wcHv5vlB3qY5v'
   - _id: tSlCBEqkXOnYOKfO
     name: Splash Festival
@@ -198,6 +298,16 @@ pages:
         valdMonth: 7
         valdDay: 5
         valdDays: 3
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
     _key: '!journal.pages!iJLnFks9dMzwq2uV.tSlCBEqkXOnYOKfO'
   - _id: 2Z4UYdbmD4FQ3xCX
     name: Float
@@ -216,6 +326,16 @@ pages:
         valdMonth: 7
         valdDay: 14
         valdDays: 1
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
     _key: '!journal.pages!iJLnFks9dMzwq2uV.2Z4UYdbmD4FQ3xCX'
   - _id: ICt9apnMXWBX1RCL
     name: Highwater Fair
@@ -234,6 +354,16 @@ pages:
         valdMonth: 8
         valdDay: 1
         valdDays: 1
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
     _key: '!journal.pages!iJLnFks9dMzwq2uV.ICt9apnMXWBX1RCL'
   - _id: D4legL8sUtGJkAU9
     name: Wet Solstice
@@ -252,6 +382,16 @@ pages:
         valdMonth: 8
         valdDay: 10
         valdDays: 1
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
     _key: '!journal.pages!iJLnFks9dMzwq2uV.D4legL8sUtGJkAU9'
   - _id: uZ9xeDIfY7zOYluj
     name: First Plant
@@ -270,6 +410,16 @@ pages:
         valdMonth: 8
         valdDay: 18
         valdDays: 1
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
     _key: '!journal.pages!iJLnFks9dMzwq2uV.uZ9xeDIfY7zOYluj'
   - _id: PqGJIJ2kxoY1jCrU
     name: Waterwish
@@ -288,6 +438,16 @@ pages:
         valdMonth: 9
         valdDay: 14
         valdDays: 1
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
     _key: '!journal.pages!iJLnFks9dMzwq2uV.PqGJIJ2kxoY1jCrU'
   - _id: fk7XxNC1u5iwf7ME
     name: Storm Dance
@@ -306,6 +466,16 @@ pages:
         valdMonth: 9
         valdDay: 19
         valdDays: 5
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
     _key: '!journal.pages!iJLnFks9dMzwq2uV.fk7XxNC1u5iwf7ME'
   - _id: 2s2Qz0wFjAwQdP4V
     name: Harvest Festival
@@ -324,6 +494,16 @@ pages:
         valdMonth: 10
         valdDay: 4
         valdDays: 1
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
     _key: '!journal.pages!iJLnFks9dMzwq2uV.2s2Qz0wFjAwQdP4V'
   - _id: bCXCJJms2yAs3giy
     name: Gathering Night
@@ -342,6 +522,16 @@ pages:
         valdMonth: 10
         valdDay: 24
         valdDays: 1
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
     _key: '!journal.pages!iJLnFks9dMzwq2uV.bCXCJJms2yAs3giy'
   - _id: dDrolMshGXO20ADJ
     name: Harvest Equinox
@@ -360,6 +550,16 @@ pages:
         valdMonth: 11
         valdDay: 10
         valdDays: 1
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
     _key: '!journal.pages!iJLnFks9dMzwq2uV.dDrolMshGXO20ADJ'
   - _id: JfM7UStTJRAACDo8
     name: The Golden Hind
@@ -378,6 +578,16 @@ pages:
         valdMonth: 11
         valdDay: 12
         valdDays: 1
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
     _key: '!journal.pages!iJLnFks9dMzwq2uV.JfM7UStTJRAACDo8'
   - _id: 4ygXWFdFOhnDG1CB
     name: Firelight
@@ -396,6 +606,16 @@ pages:
         valdMonth: 11
         valdDay: 18
         valdDays: 1
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
     _key: '!journal.pages!iJLnFks9dMzwq2uV.4ygXWFdFOhnDG1CB'
   - _id: Q8owgIzyd1fDZ4op
     name: Ember
@@ -414,6 +634,16 @@ pages:
         valdMonth: 12
         valdDay: 11
         valdDays: 1
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
     _key: '!journal.pages!iJLnFks9dMzwq2uV.Q8owgIzyd1fDZ4op'
   - _id: uk4nh5A60edBN3va
     name: Gloam
@@ -432,6 +662,16 @@ pages:
         valdMonth: 12
         valdDay: 24
         valdDays: 1
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
     _key: '!journal.pages!iJLnFks9dMzwq2uV.uk4nh5A60edBN3va'
 folder: null
 sort: 100

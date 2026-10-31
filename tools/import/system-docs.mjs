@@ -57,6 +57,19 @@ const page = (ownerId, pageId, name, content, sort) => [
   "    ownership:",
   "      default: -1",
   "    flags: {}",
+  // `_stats` on every embedded record, in Foundry's own extract form (review
+  // #34 finding 13): without it the server reads the record as pre-V10 and
+  // migrates it on the first world launch after every install.
+  "    _stats:",
+  "      coreVersion: '14.365'",
+  "      systemId: null",
+  "      systemVersion: null",
+  "      createdTime: null",
+  "      modifiedTime: null",
+  "      lastModifiedBy: null",
+  "      compendiumSource: null",
+  "      duplicateSource: null",
+  "      exportSource: null",
   `    _key: '!journal.pages!${ownerId}.${pageId}'`,
 ].join("\n");
 const journalShell = (id, name, pages) => [

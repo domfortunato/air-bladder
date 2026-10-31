@@ -14,6 +14,16 @@ pages:
     ownership:
       default: -1
     flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
     _key: '!journal.pages!x8L0eXwSKz38Csrt.DwktnIakISLUyUq6'
 folder: null
 sort: 0
