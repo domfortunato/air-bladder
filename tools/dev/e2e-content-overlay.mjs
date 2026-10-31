@@ -1873,6 +1873,63 @@ cssLeg.portrait.outside.height !== "140px" && cssLeg.portrait.inside.height === 
 
 /* -------------------------------------------- */
 
+// A REFUSAL IS A NAMING SURFACE (review #16; review #34 finding 186). The
+// Fatigue-on-a-thing refusal named the cart by its stored English name while
+// the sheet it was dropped on, and its title bar, showed the translated one.
+// Both routes: Fatigue dragged onto the thing's sheet, and the sheet's own
+// Add Fatigue button (reached on a sheet left open across a role change). The
+// overlay is installed in-page and removed in a finally; the thing is planted
+// and deleted.
+console.log("\nthe Fatigue-on-a-thing refusal names the thing in the display language");
+{
+  const fatigueRefusal = await page.evaluate(async () => {
+    const i18n = await import(`/systems/${game.system.id}/module/i18n-content.js`);
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const notes = ui.notifications;
+    const hadOwn = Object.hasOwn(notes, "warn");
+    const origWarn = notes.warn;
+    const seen = [];
+    let cart = null;
+    let pc = null;
+    try {
+      cart = await Actor.create({ name: "ZZ Overlay Cart", type: "npc", system: { role: "transport", slots: 8 } });
+      pc = await Actor.create({ name: "ZZ Overlay Fatigued", type: "character" });
+      const fatigue = (await pc.createEmbeddedDocuments("Item", [{ name: "Fatigue", type: "item" }]))[0];
+      i18n._setOverlay({ "monster.name": { "ZZ Overlay Cart": "ZZ-CARRETA-TRADUCIDA" } });
+      notes.warn = function (msg, ...rest) { seen.push(String(msg)); return origWarn.call(this, msg, ...rest); };
+      await cart.sheet.render(true);
+      for (let i = 0; i < 30 && !cart.sheet.element; i++) await sleep(100);
+      const dt = new DataTransfer();
+      dt.setData("text/plain", JSON.stringify({ type: "Item", uuid: fatigue.uuid }));
+      try { await cart.sheet._onDrop(new DragEvent("drop", { dataTransfer: dt })); } catch { /* refused */ }
+      await sleep(300);
+      const drop = seen.at(-1) ?? null;
+      seen.length = 0;
+      cart.sheet.element?.querySelector('[data-action="addFatigue"]')?.click();
+      await sleep(300);
+      const button = seen.at(-1) ?? null;
+      return { drop, button, title: cart.sheet.title };
+    } finally {
+      if (hadOwn) notes.warn = origWarn; else delete notes.warn;
+      i18n._setOverlay(null);
+      try { await cart?.sheet.close(); } catch { /* gone */ }
+      for (const a of [cart, pc]) { try { await a?.delete(); } catch { /* gone */ } }
+    }
+  });
+  const named = (s) => typeof s === "string" && s.includes("ZZ-CARRETA-TRADUCIDA") && !s.includes("ZZ Overlay Cart");
+  named(fatigueRefusal.drop)
+    ? ok("dragged Fatigue: refusal names it as its sheet does", JSON.stringify(fatigueRefusal.drop))
+    : fail("dragged Fatigue: refusal names it as its sheet does", `${JSON.stringify(fatigueRefusal.drop)} — the title reads ${JSON.stringify(fatigueRefusal.title)}`);
+  // The Add Fatigue control is withheld on a thing's sheet (the affordance);
+  // when it is absent there is no click to make and the drag route above is
+  // the whole surface, so this half asserts only when it was reached.
+  fatigueRefusal.button === null || named(fatigueRefusal.button)
+    ? ok("Add Fatigue: refusal names it as its sheet does", JSON.stringify(fatigueRefusal.button))
+    : fail("Add Fatigue: refusal names it as its sheet does", JSON.stringify(fatigueRefusal.button));
+}
+
+/* -------------------------------------------- */
+
 console.log(`\nconsole errors: ${errors.length}`);
 for (const e of errors.slice(0, 10)) console.log(`  ${e}`);
 if (errors.length) failures++;
