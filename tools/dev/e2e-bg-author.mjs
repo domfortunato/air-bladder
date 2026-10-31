@@ -546,6 +546,75 @@ try {
     return out;
   });
 
+  stage("review #34: four generation faults on a Warden's own content");
+  // FOUR GENERATION FAULTS on a Warden's own content (review #34 findings 63-66).
+  // Each on its own fixtures, swept in finally.
+  result.gen34 = await page.evaluate(async () => {
+    const cg = await import("/systems/air-bladder/module/character-generator.js");
+    const out = {};
+    const made = [];
+    try {
+      // 63 + 64: a custom 2e background with a blank example name beside a real
+      // one, and a "Spellbook" INSTRUCTION row. The blank name failed core's
+      // validation about half the time; the instruction row was dropped by 2e
+      // generation while a swap onto the same background dealt it. Eight
+      // generations make "never blank" a real claim (1/256 to pass by luck).
+      const bg = await getDocumentClass("Item").create({
+        name: "ZZ Probe Gen34 Background", type: "background",
+        system: { source: "2e", names: ["ZZ Ada", ""], startingGear: [{ name: "Spellbook" }], tables: [] },
+      });
+      made.push(bg);
+      const runs = [];
+      for (let i = 0; i < 8; i++) {
+        const data = await cg.generate2eCharacter(bg);
+        runs.push({ name: data?.name ?? null, spellbook: (data?.items ?? []).some((it) => it.type === "spellbook") });
+      }
+      out.names = runs.map((r) => r.name);
+      out.spellbooks = runs.filter((r) => r.spellbook).length;
+
+      // 65: a Warden's NPC Background table whose row is a DOCUMENT. The die read
+      // it as chat text, `@UUID[...]{name}`, which matched no gear and read on
+      // the sheet as the literal link.
+      const doc = await getDocumentClass("Item").create({ name: "ZZ Blacksmith", type: "item" });
+      made.push(doc);
+      const table = await CONFIG.RollTable.documentClass.create({
+        name: "Warden: NPC - Background", formula: "1d1",
+        results: [{ type: "document", documentUuid: doc.uuid, name: doc.name, range: [1, 1], weight: 1 }],
+      });
+      made.push(table);
+      const npc = await cg.generateNpc();
+      out.npcBackground = npc?.background ?? null;
+
+      // 66: the failed-career picker's RANDOM row, with Math.random pinned onto
+      // the character's own background in the picker's sorted list. Every roll
+      // path excludes the real background (ruled 2026-08-08); this one did not.
+      const bbs = await cg.getBarebonesBackgrounds();
+      const sorted = [...bbs].sort((x, y) => x.name.localeCompare(y.name, game.i18n.lang));
+      const mine = sorted[3]?.name ?? null;
+      out.mine = mine;
+      const idx = sorted.findIndex((x) => x.name === mine);
+      const origRandom = Math.random;
+      Math.random = () => (idx + 0.5) / sorted.length;
+      try {
+        const before = new Set(foundry.applications.instances.keys());
+        const p = cg.promptFailedCareer(null, { exclude: mine });
+        let dlg = null;
+        for (let t = 0; t < 40 && !dlg; t++) {
+          dlg = [...foundry.applications.instances.values()]
+            .find((x) => !before.has(x.id) && x.constructor.name === "DialogV2");
+          if (!dlg) await new Promise((r) => setTimeout(r, 150));
+        }
+        dlg?.element.querySelector('[data-action="choose"]')?.click();
+        out.randomPick = (await p)?.name ?? null;
+      } finally {
+        Math.random = origRandom;
+      }
+    } finally {
+      for (const d of made.reverse()) { try { await d.delete(); } catch { /* gone */ } }
+    }
+    return out;
+  });
+
   stage("the credit on a CHARACTER's sheet, not just the printed page");
   result.sheetCredit = await page.evaluate(async () => {
     const sheetRoot = (app) => (app.element instanceof HTMLElement ? app.element : app.element?.[0]);
@@ -646,74 +715,6 @@ try {
   try { await sweepLitter(); } catch (e) { console.error(`  note  litter sweep failed: ${e.message}`); }
   await browser.close();
 }
-
-// FOUR GENERATION FAULTS on a Warden's own content (review #34 findings 63-66).
-// Each on its own fixtures, swept in finally.
-result.gen34 = await page.evaluate(async () => {
-  const cg = await import("/systems/air-bladder/module/character-generator.js");
-  const out = {};
-  const made = [];
-  try {
-    // 63 + 64: a custom 2e background with a blank example name beside a real
-    // one, and a "Spellbook" INSTRUCTION row. The blank name failed core's
-    // validation about half the time; the instruction row was dropped by 2e
-    // generation while a swap onto the same background dealt it. Eight
-    // generations make "never blank" a real claim (1/256 to pass by luck).
-    const bg = await getDocumentClass("Item").create({
-      name: "ZZ Probe Gen34 Background", type: "background",
-      system: { source: "2e", names: ["ZZ Ada", ""], startingGear: [{ name: "Spellbook" }], tables: [] },
-    });
-    made.push(bg);
-    const runs = [];
-    for (let i = 0; i < 8; i++) {
-      const data = await cg.generate2eCharacter(bg);
-      runs.push({ name: data?.name ?? null, spellbook: (data?.items ?? []).some((it) => it.type === "spellbook") });
-    }
-    out.names = runs.map((r) => r.name);
-    out.spellbooks = runs.filter((r) => r.spellbook).length;
-
-    // 65: a Warden's NPC Background table whose row is a DOCUMENT. The die read
-    // it as chat text, `@UUID[...]{name}`, which matched no gear and read on
-    // the sheet as the literal link.
-    const doc = await getDocumentClass("Item").create({ name: "ZZ Blacksmith", type: "item" });
-    made.push(doc);
-    const table = await CONFIG.RollTable.documentClass.create({
-      name: "Warden: NPC - Background", formula: "1d1",
-      results: [{ type: "document", documentUuid: doc.uuid, name: doc.name, range: [1, 1], weight: 1 }],
-    });
-    made.push(table);
-    const npc = await cg.generateNpc();
-    out.npcBackground = npc?.background ?? null;
-
-    // 66: the failed-career picker's RANDOM row, with Math.random pinned onto
-    // the character's own background in the picker's sorted list. Every roll
-    // path excludes the real background (ruled 2026-08-08); this one did not.
-    const bbs = await cg.getBarebonesBackgrounds();
-    const sorted = [...bbs].sort((x, y) => x.name.localeCompare(y.name, game.i18n.lang));
-    const mine = sorted[3]?.name ?? null;
-    out.mine = mine;
-    const idx = sorted.findIndex((x) => x.name === mine);
-    const origRandom = Math.random;
-    Math.random = () => (idx + 0.5) / sorted.length;
-    try {
-      const before = new Set(foundry.applications.instances.keys());
-      const p = cg.promptFailedCareer(null, { exclude: mine });
-      let dlg = null;
-      for (let t = 0; t < 40 && !dlg; t++) {
-        dlg = [...foundry.applications.instances.values()]
-          .find((x) => !before.has(x.id) && x.constructor.name === "DialogV2");
-        if (!dlg) await new Promise((r) => setTimeout(r, 150));
-      }
-      dlg?.element.querySelector('[data-action="choose"]')?.click();
-      out.randomPick = (await p)?.name ?? null;
-    } finally {
-      Math.random = origRandom;
-    }
-  } finally {
-    for (const d of made.reverse()) { try { await d.delete(); } catch { /* gone */ } }
-  }
-  return out;
-});
 
 const checks = [
   ["editor renders", result.hasEditor === true],

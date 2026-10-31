@@ -137,6 +137,53 @@ try {
   result.instructionBgs.length === 0
     ? ok("instruction rows still grant an item (Acolyte, Fence, Cultist full loadouts)")
     : fail(`instruction rows dropped: ${result.instructionBgs.join(", ")}`);
+
+  // THE DROP ASKS THE SHARED CAPACITY TEST (review #34 finding 47). It kept its
+  // own arithmetic: every person was refused once encumbered whatever the item
+  // needed, so a PETTY item dragged onto a full character was refused while
+  // Create Item, the shop and a gift all take it; and only a THING was strict,
+  // so a bulky item dragged onto a companion at 9/10 landed at 11/10, which the
+  // offer route refuses as full. Driven through the sheet's own drop handler.
+  const drops = await page.evaluate(async () => {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const made = [];
+    const drop = async (actor, item) => {
+      await actor.sheet.render(true);
+      for (let i = 0; i < 30 && !actor.sheet.element; i++) await sleep(100);
+      const before = actor.items.size;
+      const dt = new DataTransfer();
+      dt.setData("text/plain", JSON.stringify({ type: "Item", uuid: item.uuid }));
+      try { await actor.sheet._onDrop(new DragEvent("drop", { dataTransfer: dt })); } catch { /* refused */ }
+      await sleep(600);
+      await actor.sheet.close();
+      return actor.items.size - before;
+    };
+    try {
+      const petty = await getDocumentClass("Item").create({ name: "ZZ Gear Petty Charm", type: "item", system: { weightless: true } });
+      const bulky = await getDocumentClass("Item").create({ name: "ZZ Gear Bulky Crate", type: "item", system: { bulky: true } });
+      made.push(petty, bulky);
+      const full = await Actor.create({ name: "ZZ Gear Full PC", type: "character" });
+      made.push(full);
+      await full.createEmbeddedDocuments("Item", Array.from({ length: full.system.slotsMax }, (_, i) => ({ name: `ZZ Gear Rock ${i}`, type: "item" })));
+      const comp = await Actor.create({ name: "ZZ Gear Companion", type: "npc", system: { role: "companion", slots: 10 } });
+      made.push(comp);
+      await comp.createEmbeddedDocuments("Item", Array.from({ length: 9 }, (_, i) => ({ name: `ZZ Gear Load ${i}`, type: "item" })));
+      return {
+        fullEncumbered: full.isEncumbered(),
+        compAt: `${comp.system.slotsUsed}/${comp.system.slotsMax}`,
+        pettyLanded: await drop(full, petty),
+        bulkyLanded: await drop(comp, bulky),
+      };
+    } finally {
+      for (const d of made.reverse()) { try { await d.delete(); } catch { /* gone */ } }
+    }
+  });
+  drops.fullEncumbered && drops.pettyLanded === 1
+    ? ok("a petty item dragged onto a full character lands, as every other route lets it", JSON.stringify(drops))
+    : fail(`a petty drop onto a full character: ${JSON.stringify(drops)}`);
+  drops.compAt === "9/10" && drops.bulkyLanded === 0
+    ? ok("a bulky item dragged onto a companion at 9/10 is refused, as a gift is", JSON.stringify(drops))
+    : fail(`a bulky drop onto a companion at 9/10: ${JSON.stringify(drops)}`);
 } catch (e) {
   fail(`${e.name}: ${e.message}`);
 } finally {
