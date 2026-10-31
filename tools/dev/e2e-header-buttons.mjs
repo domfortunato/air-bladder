@@ -535,6 +535,186 @@ try {
     ? ok("every Dashboard dialog opens in the Dashboard's own window", JSON.stringify(dash))
     : fail("every Dashboard dialog opens in the Dashboard's own window", JSON.stringify(dash));
 
+  /* --- three more windows' dialogs (review #34 finding 119) -------------
+   * A background's item sheet (Test ×10), the chat log's popout (an
+   * untargeted damage card's Apply asks who takes it) and the Vald calendar
+   * (Set to this day; Remove on a Warden's event) opened their dialogs in the
+   * MAIN window. Each is popped out for real — our own Pop Out where the
+   * window has one, else core's ⋮ → Detach, both real clicks — its control
+   * pressed, and the answer is the document the dialog landed in; every
+   * dialog is closed unanswered. The calendar needs the Vald hack: its read is
+   * SHADOWED in-page for the leg, never the world setting (which
+   * requiresReload), and restored from Node's finally. */
+  console.log("\nthree more windows, popped out (review #34 finding 119)");
+  const popOut = async (appId) => {
+    const own = page.locator(`#${appId} .window-header button[data-action="detach"]:not(.cairn-header-hidden)`);
+    const press = async () => {
+      if (await own.count()) return own.first().click();
+      await page.locator(`#${appId} .window-header [data-action="toggleControls"]`).click();
+      await page.locator("#context-menu .context-item:has(.fa-arrow-up-right-from-square)").first().click();
+    };
+    await Promise.all([page.context().waitForEvent("page", { timeout: 20000 }).catch(() => null), press()]);
+    for (let i = 0; i < 40; i++) {
+      if (await page.evaluate((id) => !!foundry.applications.instances.get(id)?.window?.windowId, appId)) return true;
+      await page.waitForTimeout(500);
+    }
+    return false;
+  };
+  const shut = (appId) => page.evaluate(async (id) => {
+    const app = foundry.applications.instances.get(id);
+    try { if (app?.window?.windowId) await app.attachWindow(); } catch { /* gone */ }
+    await app?.close().catch(() => {});
+  }, appId);
+  await page.evaluate(() => {
+    // Press a control inside app `appId`; say where the dialog it opened landed.
+    globalThis.__abHomeOf = async (appId, selector, tries = 40) => {
+      const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+      const app = foundry.applications.instances.get(appId);
+      const control = app?.element?.querySelector(selector);
+      if (!control) return "no control";
+      const before = new Set(foundry.applications.instances.keys());
+      control.click();
+      let dlg = null;
+      for (let n = 0; n < tries && !dlg; n++) {
+        dlg = [...foundry.applications.instances.values()]
+          .find((x) => !before.has(x.id) && x.constructor.name === "DialogV2" && x.element);
+        if (!dlg) await sleep(150);
+      }
+      if (!dlg) return "no dialog";
+      const where = dlg.element.ownerDocument === app.element.ownerDocument ? "own"
+        : dlg.element.ownerDocument === document ? "main" : "elsewhere";
+      await dlg.close();
+      await sleep(400);
+      return where;
+    };
+  });
+  const homes119 = {};
+
+  // (1) a background's item sheet, Test ×10
+  const bg119 = await page.evaluate(async () => {
+    const item = await Item.create({ name: "ZZ Header Bg", type: "background" });
+    await item.sheet.render(true);
+    for (let i = 0; i < 40 && !item.sheet.element; i++) await new Promise((r) => setTimeout(r, 100));
+    await new Promise((r) => setTimeout(r, 500));
+    return { itemId: item.id, sheetId: item.sheet.element?.id ?? null };
+  });
+  try {
+    homes119.test = bg119.sheetId && await popOut(bg119.sheetId)
+      ? await page.evaluate((id) => globalThis.__abHomeOf(id, '[data-action="testBackground"]', 100), bg119.sheetId)
+      : "not detached";
+  } finally {
+    if (bg119.sheetId) await shut(bg119.sheetId);
+    await page.evaluate((id) => game.items.get(id)?.delete().catch(() => {}), bg119.itemId);
+  }
+
+  // (2) the chat log's popout, an untargeted damage card's Apply
+  const chat119 = await page.evaluate(async () => {
+    const { evaluateFormula } = await import("/systems/air-bladder/module/utils.js");
+    const foe = await Actor.create({ name: "ZZ Header Foe", type: "npc", system: { role: "monster" } });
+    const scene = await Scene.create({ name: "ZZ Header Chat Scene", width: 1000, height: 1000 });
+    await scene.createEmbeddedDocuments("Token", [(await foe.getTokenDocument({ x: 300, y: 300 })).toObject()]);
+    const roll = await evaluateFormula("2", {});
+    const flavor = await foundry.applications.handlebars.renderTemplate(
+      "systems/air-bladder/templates/chat/dmg-roll-card.html",
+      { label: "ZZ header damage", weapon: "ZZ Header Club", targets: "" });
+    const msg = await roll.toMessage({ speaker: { scene: scene.id, alias: "ZZ Header Roller" }, flavor });
+    await ui.chat.renderPopout();
+    const pop = ui.chat.popout;
+    const sel = `[data-message-id="${msg.id}"] .apply-dmg`;
+    for (let i = 0; i < 40 && !pop?.element?.querySelector(sel); i++) await new Promise((r) => setTimeout(r, 150));
+    return { msgId: msg.id, sceneId: scene.id, foeId: foe.id, popId: pop?.id ?? null, sel, hasApply: !!pop?.element?.querySelector(sel) };
+  });
+  try {
+    homes119.damageTargets = chat119.popId && chat119.hasApply && await popOut(chat119.popId)
+      ? await page.evaluate(({ id, sel }) => globalThis.__abHomeOf(id, sel), { id: chat119.popId, sel: chat119.sel })
+      : `not detached (popout ${chat119.popId}, Apply ${chat119.hasApply})`;
+  } finally {
+    if (chat119.popId) await shut(chat119.popId);
+    await page.evaluate(async (c) => {
+      await game.messages.get(c.msgId)?.delete().catch(() => {});
+      await game.scenes.get(c.sceneId)?.delete().catch(() => {});
+      await game.actors.get(c.foeId)?.delete().catch(() => {});
+    }, chat119);
+  }
+
+  // (3) the Vald calendar: Set to this day, and Remove on a Warden's event
+  try {
+    const opened = await page.evaluate(async () => {
+      const gt = await import("/systems/air-bladder/module/game-time.js");
+      const settings = game.settings;
+      const realGet = settings.get.bind(settings);
+      const prevConfig = CONFIG.time.worldCalendarConfig;
+      const prevClass = CONFIG.time.worldCalendarClass;
+      settings.get = (ns, key, ...rest) => rest[0]?.document
+        ? foundry.helpers.ClientSettings.prototype.get.call(game.settings, ns, key, ...rest)
+        : (ns === "air-bladder" && key === "enable-vald-calendar" ? true : realGet(ns, key, ...rest));
+      CONFIG.time.worldCalendarConfig = gt.VALD_CALENDAR_CONFIG;
+      CONFIG.time.worldCalendarClass = gt.ValdCalendar;
+      game.time.initializeCalendar();
+      globalThis.__abValdRestore = async () => {
+        settings.get = realGet;
+        CONFIG.time.worldCalendarConfig = prevConfig;
+        CONFIG.time.worldCalendarClass = prevClass;
+        game.time.initializeCalendar();
+        const wc = await import("/systems/air-bladder/module/watch-clock.js");
+        await wc.refreshWatchClock();
+      };
+      globalThis.__abJournalsBefore = game.journal.map((j) => j.id);
+      const vc = await import("/systems/air-bladder/module/vald-calendar.js");
+      await vc.openValdCalendar();
+      const app = foundry.applications.instances.get("cairn-vald-calendar");
+      for (let i = 0; i < 40 && !app?.element; i++) await new Promise((r) => setTimeout(r, 100));
+      return !!app?.element;
+    });
+    if (opened && await popOut("cairn-vald-calendar")) {
+      homes119.setToDay = await page.evaluate(() => globalThis.__abHomeOf("cairn-vald-calendar", "#cairn-vald-calendar-set-to-day"));
+      // A Warden's event on the selected day, made through the calendar's own
+      // Add an event (its dialog is in the popped-out window since finding 161).
+      homes119.eventMade = await page.evaluate(async () => {
+        const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+        const app = foundry.applications.instances.get("cairn-vald-calendar");
+        const before = new Set(foundry.applications.instances.keys());
+        app.element.querySelector('[data-action="addEvent"]')?.click();
+        let dlg = null;
+        for (let n = 0; n < 40 && !dlg; n++) {
+          dlg = [...foundry.applications.instances.values()].find((x) => !before.has(x.id) && x.element);
+          if (!dlg) await sleep(100);
+        }
+        if (!dlg) return false;
+        dlg.element.querySelector("[name=name]").value = "ZZ Header Event";
+        dlg.element.querySelector('button[data-action="add"]').click();
+        for (let n = 0; n < 100 && !app.element.querySelector('[data-action="removeEvent"]'); n++) await sleep(100);
+        return !!app.element.querySelector('[data-action="removeEvent"]');
+      });
+      homes119.removeEvent = homes119.eventMade
+        ? await page.evaluate(() => globalThis.__abHomeOf("cairn-vald-calendar", '[data-action="removeEvent"]'))
+        : "no event";
+    } else {
+      homes119.setToDay = opened ? "not detached" : "calendar did not open";
+    }
+  } finally {
+    await shut("cairn-vald-calendar");
+    await page.evaluate(async () => {
+      for (const j of game.journal.contents) {
+        for (const p of j.pages.filter((x) => x.name === "ZZ Header Event")) await p.delete().catch(() => {});
+      }
+      // A journal the Add made, by id difference.
+      for (const j of game.journal.filter((x) => !(globalThis.__abJournalsBefore ?? []).includes(x.id))) await j.delete().catch(() => {});
+      await globalThis.__abValdRestore?.();
+      delete globalThis.__abValdRestore;
+    });
+  }
+
+  homes119.test === "own"
+    ? ok("a background sheet's Test ×10 opens in the sheet's window (review #34 finding 119)")
+    : fail("a background sheet's Test ×10 opens in the sheet's window", JSON.stringify(homes119));
+  homes119.damageTargets === "own"
+    ? ok("a popped-out chat log's damage card asks who takes it there (review #34 finding 119)")
+    : fail("a popped-out chat log's damage card asks who takes it there", JSON.stringify(homes119));
+  homes119.setToDay === "own" && homes119.removeEvent === "own"
+    ? ok("the calendar's Set to this day and Remove confirm in its window (review #34 finding 119)")
+    : fail("the calendar's Set to this day and Remove confirm in its window", JSON.stringify(homes119));
+
   console.log("\nre-typed under an open sheet — the TITLE is frame state too");
   retype.before === retype.wantBefore
     ? ok("a person's sheet opens naming its role", `"${retype.before}"`)
