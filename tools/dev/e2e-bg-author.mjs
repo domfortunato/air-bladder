@@ -291,6 +291,35 @@ try {
     }
   });
 
+  // A DOUBLE-CLICK ON A ROW'S × (review #34 finding 236). Since finding 73's
+  // queue each Remove runs after the one before it has landed, but it read its
+  // row's POSITION at click time — so the second of two clicks on one × removed
+  // the row that had moved up into that position. Two clicks in one tick on
+  // row 0 of three: one row goes, and it is row 0.
+  result.removeTwice = await page.evaluate(async () => {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const sheetRoot = (app) => (app.element instanceof HTMLElement ? app.element : app.element?.[0]);
+    const bg = await getDocumentClass("Item").create({
+      name: "ZZ Probe Remove Background", type: "background",
+      system: { source: "2e", names: [], startingGear: [{ name: "ZZ A" }, { name: "ZZ B" }, { name: "ZZ C" }], tables: [] },
+    });
+    try {
+      await bg.sheet.render(true);
+      for (let i = 0; i < 30 && !bg.sheet.element; i++) await sleep(100);
+      await bg.sheet.changeTab("details", "primary");
+      await sleep(300);
+      const x = sheetRoot(bg.sheet).querySelector('.bg-gear-remove[data-i="0"]');
+      if (!x) return { error: "no remove control on row 0" };
+      x.click();
+      x.click();
+      await sleep(1500);
+      return { gear: (bg.system.startingGear ?? []).map((g) => g.name) };
+    } finally {
+      await bg.sheet.close();
+      await bg.delete();
+    }
+  });
+
   stage("generation: snapshot gear + default bonds");
   Object.assign(result, await page.evaluate(async ([bgId, SWORD]) => {
     const out = {};
@@ -734,6 +763,8 @@ const checks = [
     !!result.gen34?.mine && !!result.gen34?.randomPick && result.gen34.randomPick !== result.gen34.mine],
   ["a gear name typed just before Add gear survives the Add",
     JSON.stringify(result.race?.gear) === JSON.stringify(["ZZ RACE ROPE", ""]), JSON.stringify(result.race)],
+  ["a double-click on a gear row's × removes that row only",
+    JSON.stringify(result.removeTwice?.gear) === JSON.stringify(["ZZ B", "ZZ C"]), JSON.stringify(result.removeTwice)],
   // Precondition first, or the leg under it passes on a form where nothing ran.
   ["precondition: the first field's edit really commits", result.typing?.firstCommitted === true],
   ["typing in the NEXT field survives that commit",
