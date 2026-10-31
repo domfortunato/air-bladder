@@ -1681,16 +1681,6 @@ Hooks.once("ready", async () => {
 
   await phase("grimoire page keys", migrateGrimoirePages);
 
-  // An UNFINISHED GLOG conversion (review #34 finding 219): the sweep runs from
-  // the setting's onChange, and the hacks menu's reload prompt from the same
-  // Save can cut it off. While GLOG is on and `glog-converted` is unset, the
-  // active Warden resumes it here; the sweep is idempotent, so a world that
-  // was in fact finished writes nothing and gains the marker.
-  await phase("GLOG conversion resume", async () => {
-    const { resumeGlogConversion } = await import("./glog.js");
-    await resumeGlogConversion();
-  });
-
   await phase("grant notes removal", removeGrantNotes);
 
   await phase("connections flatten + ownership migration", flattenConnections);
@@ -1724,6 +1714,20 @@ Hooks.once("ready", async () => {
   await phase("custom portrait folder", async () => {
     await characterGenerator.ensureCustomPortraitFolder();
     await characterGenerator.refreshCustomPortraits();
+  });
+
+  // An UNFINISHED GLOG conversion (review #34 finding 219): the sweep runs from
+  // the setting's onChange, and the hacks menu's reload prompt from the same
+  // Save can cut it off. While GLOG is on and `glog-converted` is unset, the
+  // active Warden resumes it here; the sweep is idempotent, so a world that
+  // was in fact finished writes nothing and gains the marker. LAST, on
+  // purpose: the sweep reads every world actor and every world pack, and as a
+  // middle phase it held the portrait scan behind it for a whole sweep (fleet,
+  // 5493a440: dev:review-batch2's elected GM never wrote its login scan inside
+  // the leg's 60s). Nothing after it waits on it.
+  await phase("GLOG conversion resume", async () => {
+    const { resumeGlogConversion } = await import("./glog.js");
+    await resumeGlogConversion();
   });
 });
 
