@@ -96,6 +96,7 @@
     "dev:grimoire": "node tools/dev/e2e-grimoire.mjs",
     "dev:glog-flags": "node tools/dev/e2e-glog-flags.mjs",
     "dev:chat-privacy": "node tools/dev/e2e-chat-privacy.mjs",
+    "dev:secret-blocks": "node tools/dev/e2e-secret-blocks.mjs",
     "dev:take-over": "node tools/dev/e2e-take-over.mjs",
     "dev:upgrade": "node tools/dev/e2e-upgrade.mjs",
     "dev:table-banner": "node tools/dev/e2e-table-banner.mjs",
