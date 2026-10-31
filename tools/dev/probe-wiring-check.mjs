@@ -71,6 +71,25 @@ const NOT_RELEASE_RUN = new Map([
   ["dev:actors", "operational — lists/deletes world actors to reset a dev world"],
 ]);
 
+// THE FLEET'S OWN RULE (review #34 finding 110). The probe fleet runs every
+// `dev:` script whose command runs a `tools/dev/e2e-*.mjs` (docs/fleet-probes.md)
+// and nothing else, so a probe wired under any other filename passes both
+// checks above and never runs there — how combat-options, 0.1.24's headline
+// rules, stayed out of the 78/78 at 05e28ef5 without anyone deciding it
+// (3301fafc). The off-fleet `dev:` scripts are listed, each with its reason.
+const OFF_FLEET = new Map([
+  ["dev:smoke", "the local dev world's smoke test, run by hand before a push"],
+  ["dev:site", "checks the published GitHub Pages site, not a Foundry world"],
+  ["dev:actors", "operational — lists/deletes world actors to reset a dev world"],
+  ["dev:players", "operational — creates the player users a fleet world already has"],
+]);
+const offFleet = Object.entries(pkg.scripts ?? {})
+  .filter(([name, cmd]) => name.startsWith("dev:") && /tools[/\\]dev[/\\][\w.-]+\.mjs/.test(cmd))
+  .filter(([, cmd]) => !/tools[/\\]dev[/\\]e2e-[\w.-]+\.mjs/.test(cmd))
+  .map(([name]) => name)
+  .filter((name) => !OFF_FLEET.has(name));
+const staleOffFleet = [...OFF_FLEET.keys()].filter((n) => !(n in (pkg.scripts ?? {})));
+
 const runList = fs.readFileSync(RUN_LIST, "utf8");
 const probeScripts = Object.entries(pkg.scripts ?? {})
   .filter(([, cmd]) => /tools[/\\]dev[/\\][\w.-]+\.mjs/.test(cmd))
@@ -105,6 +124,10 @@ undocumented.length === 0
 staleRunExempt.length === 0
   ? ok(`${NOT_RELEASE_RUN.size} operational script(s) exempt from the run list, all present`)
   : fail(`stale run-list exemption(s) for scripts that no longer exist: ${staleRunExempt.join(", ")}`);
+
+offFleet.length === 0 && staleOffFleet.length === 0
+  ? ok(`every dev: probe runs a tools/dev/e2e-*.mjs, so the fleet runs it (${OFF_FLEET.size} off-fleet, each stated)`)
+  : fail(`${offFleet.length ? `dev: script(s) the fleet will never run — rename the file e2e-<name>.mjs or state the reason in OFF_FLEET:\n         ${offFleet.join("\n         ")}` : ""}${staleOffFleet.length ? `\n         stale OFF_FLEET entries: ${staleOffFleet.join(", ")}` : ""}`);
 
 // A `game.settings.get` SHADOW MUST FORWARD EVERY ARGUMENT AND PASS A DOCUMENT
 // REQUEST THROUGH. `ClientSettings#set` → `#setWorld` asks
