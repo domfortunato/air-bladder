@@ -76,8 +76,9 @@ export const clearHandBuilt = async (actor) => {
 /*  Portrait / token art                                                       */
 /* -------------------------------------------------------------------------- */
 
-// The manifest is a list of paired basenames that live in BOTH
-// character_portraits/ and character_tokens/ (see tools/import/portraits.mjs).
+// The manifest is a list of paired basenames that live in BOTH of its own
+// `portraitDir` and `tokenDir` — art/jon-aspeheim/portraits and /tokens (see
+// tools/import/portraits.mjs).
 // Fetched lazily and cached so neither generation nor the gallery needs the
 // FILES_BROWSE permission that listing a server folder would require -- both run
 // player-side.
@@ -171,7 +172,9 @@ const lydiaSetPortraits = (set) =>
 // --- Custom portraits (GM-curated, per-world local pool) --------------------
 // A folder of the GM's own portraits, scanned into a world setting so players
 // (who lack FILES_BROWSE) can still see and pick them. When non-empty it REPLACES
-// the shipped art for auto-assignment; empty, everything falls back to Aspeheim.
+// the shipped art for auto-assignment; empty, everything falls back to the
+// default pool (`defaultPortraitPool`: tlomdev's `humanoid` folder since
+// 2026-08-18).
 // Custom portraits have no paired token file, so each image doubles as its token.
 
 const IMAGE_RE = /\.(?:webp|png|jpe?g|gif|svg|avif|bmp)$/i;

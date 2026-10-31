@@ -278,9 +278,10 @@ const monsterToActorData = (m) => ({
  * Monsters had never touched the custom pool at all before this. It was wired
  * to `randomPortraitPair`, and a monster does not take a portrait pair — so
  * this is the half of the issue that adds a capability rather than re-routing
- * one. `customPoolFor("monster")` is the reserved folder when there is one and
- * the general pool otherwise, so a Warden who keeps unsorted custom art starts
- * seeing it on monsters too, which is the ask.
+ * one. `customPoolFor("monster")` is the Warden's reserved monster folder when
+ * there is one and NOTHING otherwise: monster and companion deliberately do not
+ * inherit the general pool (GENERAL_POOL_CATEGORIES, user ruling d16f4414 —
+ * inheriting it would put a Warden's human faces on every ogre and mule).
  *
  * NEVER `defaultPortraitPool()`: that is 70 drawings of people, and a monster
  * must not roll a librarian's face. This ladder is its own.
