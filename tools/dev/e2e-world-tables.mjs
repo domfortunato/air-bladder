@@ -236,6 +236,38 @@ try {
     ? ok(`a document row reads as its NAME in a generated monster: "${dr.name}"`)
     : fail(`a document row on the feature table produced "${dr.name}" — @UUID: ${dr.hasUuid}, item name: ${dr.hasItem}`);
 
+  /* ---- 2c. a DOCUMENT row on a Warden's trait table (review #34 F131) ------ */
+  // The trait reader is generation's, the Roll Character checklist's and the
+  // per-trait die's (rollTextItems), and it stored a document row as chat
+  // text: the trait sentence printed `@UUID[...]{name}` raw, and the pick-list
+  // beside the die, which lists plain names, could not select it.
+  console.log("\na document row on a world trait table");
+  const tr = await page.evaluate(async ({ MARK, FLAG }) => {
+    const cg = await import("/systems/air-bladder/module/character-generator.js");
+    const [key, decl] = Object.entries(CONFIG.Cairn.characterGenerator2e.biography.items)[0];
+    const name = decl.includes(";") ? decl.split(";")[1] : decl;
+    const item = await CONFIG.Item.documentClass.create({
+      name: `${MARK}Trait Doc`, type: "item", flags: { "air-bladder": { [FLAG]: true } },
+    });
+    const table = game.tables.find((x) => x.name === name && x.getFlag("air-bladder", FLAG));
+    const swap = async (rows) => {
+      await table.deleteEmbeddedDocuments("TableResult", table.results.map((r) => r.id));
+      await table.createEmbeddedDocuments("TableResult", rows);
+    };
+    let value = null;
+    try {
+      await swap([{ type: "document", documentUuid: item.uuid, name: item.name, range: [1, 20], weight: 1 }]);
+      value = (await cg.rollTextItems({ [key]: decl }))[key];
+    } finally {
+      await swap([{ type: "text", description: `${MARK}${name}`, range: [1, 20], weight: 1 }]);   // the later legs read the marker
+      await item.delete();
+    }
+    return { table: name, value, want: `${MARK}Trait Doc` };
+  }, { MARK, FLAG });
+  tr.value === tr.want
+    ? ok(`a document row on the world ${tr.table} table stores as its NAME: "${tr.value}"`)
+    : fail(`a document row on the world ${tr.table} table stored ${JSON.stringify(tr.value)}, not "${tr.want}"`);
+
   /* ---- 3. the picker ------------------------------------------------------- */
   console.log("\nthe NPC Background pick-list");
   const p = await page.evaluate(async ({ MARK, FLAG }) => {
