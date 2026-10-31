@@ -42,6 +42,13 @@ import { nameableTokens, DAMAGE_QUALITY_KEYS, localizeD20Card, localizeRollFlavo
  * rename would leave those cards reading as undecided.
  */
 const CRAWLER_CHOICE_FLAG = "crawlerChoiceTaken";
+/** Set on a damage detail card once its Roll STR save has been rolled — the
+ *  button is one-shot, and `disabled` alone is the counter-example (review #34
+ *  finding 86). Written like the choice flag above: directly where the presser
+ *  may, through the Warden's client otherwise (`handleChoiceQuery`). */
+const STR_SAVE_FLAG = "strSaveRolled";
+/** Detail cards whose Roll STR save is running on this client, by message id. */
+const strSaveInFlight = new Set();
 
 Hooks.once("init", async function () {
   game.cairn = {
@@ -1090,14 +1097,17 @@ async function handleGrantActors(msg, senderId) {
 const handleChoiceQuery = async (data, { user } = {}) => {
   if (!game.user.isGM || !user) return false;
   const message = game.messages.get(String(data?.messageId ?? ""));
-  const kind = data?.kind === "fatigue" || data?.kind === "critical" ? data.kind : null;
+  const kind = ["fatigue", "critical", "strSave"].includes(data?.kind) ? data.kind : null;
   if (!message || !kind) return false;
   const speaker = message.speaker ?? {};
   const actor = game.scenes.get(speaker.scene)?.tokens.get(speaker.token)?.actor
     ?? game.actors.get(speaker.actor) ?? null;
   if (!actor || !actor.testUserPermission(user, "OWNER")) return false;
-  if (message.getFlag(FLAG_SCOPE, CRAWLER_CHOICE_FLAG)) return false;       // already spent
-  await message.setFlag(FLAG_SCOPE, CRAWLER_CHOICE_FLAG, kind);
+  // The Roll STR save's one-shot stamp rides the same channel (review #34
+  // finding 86): the detail card is the Warden's, its owner presses the save.
+  const flag = kind === "strSave" ? STR_SAVE_FLAG : CRAWLER_CHOICE_FLAG;
+  if (message.getFlag(FLAG_SCOPE, flag)) return false;       // already spent
+  await message.setFlag(FLAG_SCOPE, flag, kind === "strSave" ? true : kind);
   return true;
 };
 const CHOICE_QUERY = "air-bladder.choiceTaken";
@@ -3732,8 +3742,37 @@ Hooks.on("renderChatMessageHTML", (message, html, data) => {
   if (token?.actor) {
     if (token.actor.testUserPermission(game.user, "OWNER") || game.user.isGM) {
       const btn = html.querySelector(".roll-str-save");
-      if (btn)
-        btn.onclick = (ev) => Damage._rollStrSave(token, html);
+      // ONE SAVE PER CARD, recorded on the MESSAGE (review #34 finding 86). The
+      // button used to be disabled in the presser's own DOM only, so every other
+      // copy — the Warden's, a co-owner's, the notification pane, the same card
+      // after a reload — stayed live, and the same overflow could be saved
+      // twice with each card offering its own Critical Damage. Recorded BEFORE
+      // the roll, the choice pair's order; where it cannot be recorded (no
+      // Warden connected for an owner who is not the card's author) the save
+      // still rolls, as it always did, sealed only on this screen.
+      if (btn && message.getFlag(FLAG_SCOPE, STR_SAVE_FLAG)) {
+        btn.setAttribute("disabled", "disabled");
+      } else if (btn) {
+        btn.onclick = async () => {
+          if (message.getFlag(FLAG_SCOPE, STR_SAVE_FLAG) || strSaveInFlight.has(message.id)) return;
+          strSaveInFlight.add(message.id);
+          try {
+            if (message.isAuthor || game.user.isGM) {
+              await message.setFlag(FLAG_SCOPE, STR_SAVE_FLAG, true);
+            } else if (game.users.activeGM) {
+              try {
+                await game.users.activeGM.query(CHOICE_QUERY,
+                  { messageId: message.id, kind: "strSave" }, { timeout: 15000 });
+              } catch (err) {
+                console.warn("Air Bladder | the Warden's client did not record the STR save:", err);
+              }
+            }
+            await Damage._rollStrSave(token, html);
+          } finally {
+            strSaveInFlight.delete(message.id);
+          }
+        };
+      }
     } else {
       html.querySelectorAll(".roll-str-save").forEach((btn) => {
         btn.style.display = "none";

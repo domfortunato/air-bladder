@@ -91,6 +91,8 @@ const STATUS_CARDS = {
  *
  * @param {Actor} actor
  * @param {"critical"|"stabilized"|"dead"} kind
+ * @param {TokenDocument|null} [token]  the token the caller acted on, which
+ *   names and conceals the card; defaults to a synthetic actor's own
  */
 const statusBannerLine = (spec) =>
   game.i18n.format("CAIRN.StatusBannerLine", { label: spec.label(), text: game.i18n.localize(spec.text) });
@@ -110,11 +112,11 @@ export const localizeStatusCard = (message, html) => {
   if (span) span.innerHTML = statusBannerLine(STATUS_CARDS[kind]);
 };
 
-export const postStatusCard = async (actor, kind) => {
+export const postStatusCard = async (actor, kind, token = actor?.token ?? null) => {
   const spec = STATUS_CARDS[kind];
   if (!spec || !actor) return;
-  const speaker = actor.token
-    ? ChatMessage.getSpeaker({ token: actor.token })
+  const speaker = token
+    ? ChatMessage.getSpeaker({ token })
     : ChatMessage.getSpeaker({ actor });
   const messageData = {
     speaker,
@@ -137,7 +139,16 @@ export const postStatusCard = async (actor, kind) => {
   // A hidden creature's death is not table news. Only a TOKEN can be concealed --
   // a world actor with no token has nothing to hide behind, and concealmentWhisper
   // returns null for it. See its docblock for why nameableTokens is not reusable.
-  const whisper = concealmentWhisper(actor.token);
+  //
+  // The TOKEN IS THE CALLER'S, not `actor.token` (review #34 finding 72).
+  // `Actor#token` is set only on a SYNTHETIC actor; a LINKED token's actor is
+  // the world actor, whose `.token` is null — so a hidden NPC person (persons
+  // are linked by default) had its Dead bar posted publicly, under its name,
+  // right after the damage card that was correctly withheld. The damage flow
+  // has the TokenDocument in hand and passes it. The sheet route has none: a
+  // linked actor may have several tokens across scenes, some hidden and some
+  // not, and with no single token to ask, its bar stays public.
+  const whisper = concealmentWhisper(token);
   if (whisper) messageData.whisper = whisper;
   return ChatMessage.create(messageData);
 };

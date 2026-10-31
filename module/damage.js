@@ -371,7 +371,13 @@ export class Damage {
                     if (!targetsList.length) return; // dismissed, cancelled, or nothing ticked
                 }
 
-                const dmg = parseInt(html.querySelector(".dice-total").textContent);
+                // `.message-content`, not the first `.dice-total` anywhere: the
+                // flavor renders in the header AHEAD of the content, and its HTML is
+                // the card author's — a hidden `.dice-total` planted there was what
+                // the Warden's Apply read, whatever the card showed (review #34
+                // finding 85).
+                const dmg = parseInt((html.querySelector(".message-content .dice-total")
+                    ?? html.querySelector(".dice-total"))?.textContent);
                 // Where it came from, read off the card that was clicked. Both halves
                 // are already here and neither has to be captured at roll time: the
                 // attacker is the message's own speaker, and the weapon is the datum
@@ -415,8 +421,15 @@ export class Damage {
                 // in the dialog that made it: the Warden may spend this card minutes
                 // later, or on a second creature, and a poison must still be poison.
                 // `||` and not `??` — an empty attribute is not a pool.
+                //
+                // ONLY ON A WARDEN'S CARD (review #34 finding 85). The pool is
+                // displayed nowhere, and the card's author owns its flavor, so a
+                // player could add `data-pool="WIL"` to an ordinary dagger card and
+                // the Warden's routine Apply skipped armour and HP. Only
+                // `openWardenDamage` mints a pool, and it refuses non-GMs.
+                const pool = message?.author?.isGM ? (label?.dataset.pool || "hp") : "hp";
                 const applied = await this.applyToTargets(
-                    targetsList, dmg, scene, source, label?.dataset.pool || "hp");
+                    targetsList, dmg, scene, source, pool);
                 // Only a GM reaches this line (the guard at the top), so the write
                 // needs no socket relay. Token ids, not names: the summary is
                 // rendered per VIEWER so it localizes and so a concealed token is
@@ -484,7 +497,7 @@ export class Damage {
             // problem the missed-target warning exists for. It is a statement of
             // state rather than an announcement, which is why it is posted here
             // and not by the update hook.
-            await postStatusCard(token?.actor, "dead");
+            await postStatusCard(token?.actor, "dead", token);
             return;
         }
 
@@ -579,7 +592,7 @@ export class Damage {
         // AFTER the damage card, and that ordering is the whole reason this is
         // posted here rather than from CairnActor's update hook -- see
         // postStatusCard's docblock.
-        if (died) await postStatusCard(token?.actor, "dead");
+        if (died) await postStatusCard(token?.actor, "dead", token);
     }
 
     /**
@@ -634,7 +647,7 @@ export class Damage {
         // abNoStatusCard on the write: DEX 0 is paralyzed, WIL 0 is delirious,
         // STR 0 is death, and a bar posted from the update hook would land above
         // the card that explains it.
-        if (zeroed) await postStatusCard(token?.actor, POOL_ZERO_STATUS[pool]);
+        if (zeroed) await postStatusCard(token?.actor, POOL_ZERO_STATUS[pool], token);
     }
 
     /**
@@ -715,7 +728,17 @@ export class Damage {
         // Costs the dice sound (`sound: roll ? CONFIG.sounds.dice : null`, :64),
         // which is right -- nothing is rolled visibly here and the damage card that
         // triggered this already made the noise.
-        await table.toMessage(drawn.results, { messageData });
+        //
+        // THE MODE IS STATED (review #34 finding 84). `RollTable#toMessage`
+        // applies the poster's chat dropdown when none is given
+        // (roll-table.mjs `messageOptions.messageMode ??=`), and its default,
+        // Public, EMPTIES the whisper (`ChatMessage.applyMode`) — so a hidden
+        // creature's scar went out to the table under its name after its damage
+        // card had been withheld. "gm" keeps a whisper that is already set;
+        // "public" is what the visible creature's damage card beside it is.
+        await table.toMessage(drawn.results, {
+            messageData, messageOptions: { messageMode: whisper ? "gm" : "public" },
+        });
 
         // Record the drawn scar on the sheet as well, when the Warden turned
         // the switch on ("auto-record-scars", default off — the one automated
@@ -786,12 +809,18 @@ export class Damage {
             fatigue: failed && token.actor?.type === "character"
                 && combatOption("fatigue-for-critical-damage"),
         };
-        roll.toMessage({
+        // A concealed creature's save is concealed like its damage card, and for
+        // the scar card's reason the mode is then STATED: the poster's dropdown
+        // on Public would empty the whisper. A visible creature's save keeps
+        // the dropdown, as it always has.
+        const whisper = concealmentWhisper(token);
+        await roll.toMessage({
             speaker: ChatMessage.getSpeaker({ token: token }),
             flavor: d20CardFlavor(card.kind, card.ability),
             content: d20CardBody(card),
             flags: { [FLAG_SCOPE]: { d20Card: card } },
-        });
-        html.querySelector(".roll-str-save").setAttribute('disabled', 'disabled')
+            ...(whisper ? { whisper } : {}),
+        }, whisper ? { messageMode: "gm" } : {});
+        html.querySelector(".roll-str-save")?.setAttribute('disabled', 'disabled')
     }
 }
