@@ -164,7 +164,8 @@ try {
     while (Date.now() - t0 < 90000) {
       made = await gm.evaluate((before) => {
         const a = game.actors.find((x) => x.type === "character" && !before.actors.includes(x.id));
-        return a ? { id: a.id, name: a.name, ownership: a.ownership, img: a.img } : null;
+        return a ? { id: a.id, name: a.name, ownership: a.ownership, img: a.img,
+          inParty: a.folder?.getFlag("air-bladder", "partyFolder") === true } : null;
       }, before);
       if (made) break;
       await new Promise((r) => setTimeout(r, 500));
@@ -176,6 +177,11 @@ try {
       made.ownership?.[aliceId] === 3
         ? ok("Alice is stamped OWNER in the create data")
         : fail(`Alice is not OWNER of the imported actor (ownership=${JSON.stringify(made.ownership)})`);
+      // THE PARTY FOLDER (review #34 finding 174): Create PC files a player's
+      // character there through this same relay shape; the import did not.
+      made.inParty
+        ? ok("...and filed in the Party folder, as a relayed Create PC is")
+        : fail("the relayed import landed outside the Party folder");
       const gmToast = await awaitNotif(gm, /Kettlewright/i, 10000);
       gmToast ? ok(`the Warden is told: "${gmToast.slice(0, 80)}"`) : fail("no GM-side toast about the player import");
       const summary = await alice.waitForSelector(".kwi-summary", { timeout: 20000 }).then(() => true).catch(() => false);

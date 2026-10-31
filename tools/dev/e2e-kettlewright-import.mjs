@@ -88,6 +88,9 @@ try {
       scars: a?.system?.scars ?? [],
       img: a?.img ?? null,
       token: a?.prototypeToken?.texture?.src ?? null,
+      // THE PARTY FOLDER (review #34 finding 174), where Create PC beside the
+      // import button files a new character.
+      inParty: a?.folder?.getFlag("air-bladder", "partyFolder") === true,
       summaryShown: !!dlg,
       summaryText: dlg?.textContent?.replace(/\s+/g, " ").trim().slice(0, 300) ?? "",
     };
@@ -178,11 +181,12 @@ const portraitReported = mapping.placeholder.portrait === null
 const badUrlSurvives = badUrlCreate.created && badUrlCreate.gone && !badUrlCreate.error;
 const ok = hasButton && optionsDialogFound && out.freshCount === 1 && out.actorCreated && out.itemCount === 3 && out.bgUuidSet && out.armor === 1
   && JSON.stringify(out.scars) === JSON.stringify(["Nicked", "Burned"]) && out.summaryShown
-  && stockMapped && fallbacksKept && portraitReported && badUrlSurvives && errors.length === 0;
+  && stockMapped && fallbacksKept && portraitReported && badUrlSurvives && out.inParty && errors.length === 0;
 if (!hasButton) console.log("FAIL: import button not injected");
 if (!optionsDialogFound) console.log("FAIL: no [data-action=import] options dialog appeared");
 if (out.freshCount !== 1) console.log(`FAIL: expected ONE new "Yorsa E2E" from this run, found ${out.freshCount}`);
 if (!out.summaryShown) console.log("FAIL: the import summary (.kwi-summary) never rendered");
+if (!out.inParty) console.log("FAIL: the imported character landed outside the Party folder (review #34 finding 174)");
 if (!stockMapped) console.log(`FAIL: stock portrait17.webp not mapped to the shipped tlomdev copy (img=${out.img}, token=${out.token})`);
 if (!fallbacksKept) console.log("FAIL: placeholder/unknown/custom portrait fallbacks changed behaviour");
 if (!portraitReported) console.log("FAIL: discarded portrait references are not reported (or a kept one is)");
