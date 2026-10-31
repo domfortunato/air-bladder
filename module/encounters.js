@@ -25,8 +25,10 @@
  * `module/i18n-content.js`), so a Spanish client parses the same English the
  * table stores. The drawn rows are recovered from the MESSAGE document, not
  * the DOM: core stamps `flags.core.RollTable` with the table id and rides the
- * Roll along (roll-table.mjs:60), so `getResultsForRoll(roll.total)` re-derives
- * exactly what was drawn. (The card's `data-result-id` attribute is EMPTY on
+ * Roll along (roll-table.mjs:60), so the roll's total re-derives exactly what
+ * was drawn — selected by RANGE, not through `getResultsForRoll`, whose drawn
+ * filter loses the very row a no-replacement draw just marked (review #34
+ * finding 88). (The card's `data-result-id` attribute is EMPTY on
  * 14.365 — table-result.hbs reads `{{result.id}}` off a `toObject()`, which
  * only carries `_id` — so the DOM could not be the source even if it were the
  * right layer.)
@@ -117,7 +119,15 @@ export const encounterSpecsForMessage = async (message) => {
   if (!tableId || !roll) return [];
   const table = await resolveTable(tableId);
   if (!table) return [];
-  return table.getResultsForRoll(roll.total).map(resultSpec).filter(Boolean);
+  // BY RANGE, without core's drawn filter (review #34 finding 88).
+  // `getResultsForRoll` returns only rows not yet drawn, and a world table set
+  // to draw WITHOUT replacement marks the row it lands on as drawn before the
+  // card renders — so the very row this card shows was filtered out and the
+  // button never appeared. The Scars flow selects the same way
+  // (damage.js), for the same reason.
+  return table.results
+    .filter((r) => Number.between(roll.total, r.range[0], r.range[1]))
+    .map(resultSpec).filter(Boolean);
 };
 
 /* -------------------------------------------- */
@@ -167,12 +177,38 @@ export const injectEncounterButton = async (message, html) => {
 /*  Spawning                                    */
 /* -------------------------------------------- */
 
-/** Ring of grid offsets around the view centre — every token its own cell,
- *  scaled outward when a big roll outruns one ring. */
+/** Ring of grid offsets around the view centre — every token its own cell. */
 const CLUSTER_OFFSETS = [
   [0, 0], [1, 0], [0, 1], [1, 1], [-1, 0], [0, -1], [-1, 1], [1, -1], [-1, -1],
   [2, 0], [0, 2], [2, 1], [1, 2], [-2, 0], [0, -2], [2, 2],
 ];
+
+/**
+ * The cell for the n-th token: the sixteen above first, unchanged, then every
+ * other cell of ring 2, ring 3 and outward, each cell once (review #34 finding
+ * 90). Past sixteen this used to SCALE the same sixteen offsets by a ring
+ * number, which lands ring 2's (0,0), (1,0), (0,1)... exactly on ring 1's
+ * (0,0), (2,0), (0,2)... — the 17th token on top of the 1st, a row of twenty on
+ * sixteen cells.
+ */
+const clusterOffset = (() => {
+  const cells = [...CLUSTER_OFFSETS];
+  const used = new Set(cells.map(([x, y]) => `${x},${y}`));
+  let ring = 2;
+  return (n) => {
+    while (cells.length <= n) {
+      for (let y = -ring; y <= ring; y++) {
+        for (let x = -ring; x <= ring; x++) {
+          if (Math.max(Math.abs(x), Math.abs(y)) !== ring || used.has(`${x},${y}`)) continue;
+          used.add(`${x},${y}`);
+          cells.push([x, y]);
+        }
+      }
+      ring += 1;
+    }
+    return cells[n];
+  };
+})();
 
 /** The world "Encounters" folder, found by FLAG first (survives a rename and a
  *  language switch — the name is only the label it was born with), created on
@@ -249,10 +285,8 @@ const spawnTokens = async (actor, count, start) => {
   const c = canvas.stage.pivot;
   const docs = [];
   for (let i = 0; i < count; i++) {
-    const n = start + i;
-    const [dx, dy] = CLUSTER_OFFSETS[n % CLUSTER_OFFSETS.length];
-    const ring = Math.floor(n / CLUSTER_OFFSETS.length) + 1;
-    const p = canvas.grid.getTopLeftPoint({ x: c.x + dx * gs * ring, y: c.y + dy * gs * ring });
+    const [dx, dy] = clusterOffset(start + i);
+    const p = canvas.grid.getTopLeftPoint({ x: c.x + dx * gs, y: c.y + dy * gs });
     // getTokenDocument, not prototypeToken.toObject() (review): it resolves a
     // wildcard randomImg to an actual file and applies appendNumber /
     // prependAdjective — which a raw toObject() ships literally (a broken
@@ -260,9 +294,18 @@ const spawnTokens = async (actor, count, start) => {
     // data LAST, so the forced NEUTRAL disposition and actorLink:false still win.
     // Latent only because no shipped monster sets those prototype flags; live
     // the moment a Warden does.
+    //
+    // ON THE LEVEL BEING VIEWED (review #34 finding 89). With no `level`, the
+    // token schema files it on the scene's INITIAL level, so on a multi-level
+    // scene viewed at another floor the "Encounter added" toast came with no
+    // tokens in sight. Core's own actor drop sets the level and its base
+    // elevation (token.mjs `_getDropActorPosition`); this does the same.
+    const level = canvas.level ?? null;
     const tokenDoc = await actor.getTokenDocument({
       x: p.x,
       y: p.y,
+      ...(level?.id ? { level: level.id } : {}),
+      ...(Number.isFinite(level?.elevation?.base) ? { elevation: level.elevation.base } : {}),
       actorLink: false,
       disposition: CONST.TOKEN_DISPOSITIONS.NEUTRAL,
     });
