@@ -95,10 +95,11 @@ The text is the SRD's Creating Monsters content (Warden's Guide, CC BY-SA
 4.0, by Yochai Gal). The generator *rolls* these tables rather than
 *drawing* from them, so it never marks your table rows as drawn.
 
-One difference from the [faction generator](generating-factions.md): these
-tables are read **straight from the compendium** — there is no
-world-table-by-name override. You can unlock the pack and edit the rows, but
-a system update ships fresh copies, so treat edits there as temporary.
+**Every one of these tables can be overridden**, just as the
+[faction generator](generating-factions.md)'s can. Make a RollTable in your own
+world with exactly a shipped table's name — `Warden: Monster - Trait (Quirk)`,
+say — and it wins over the shipped copy, so your version survives a system
+update. Edits made inside the shipped compendium do not: an update replaces it.
 
 ## Monsters play by the same rules
 

@@ -204,11 +204,10 @@ The text is the Cairn 2e Warden's Guide NPC tables (CC BY-SA 4.0, by Yochai
 Gal). Everything here *rolls* these tables rather than *drawing* from them, so
 your tables never get marked as drawn.
 
-**Faction is the one you can override.** Make a RollTable in your own world
-named exactly `Warden: NPC - Faction` and it wins over the shipped copy, so your
-campaign's factions survive a system update. The others are read straight from
-the compendium — you can unlock the pack and edit rows, but an update ships
-fresh copies, so treat those edits as temporary.
+**Every one of these tables can be overridden.** Make a RollTable in your own
+world with exactly a shipped table's name — `Warden: NPC - Faction`, say — and
+it wins over the shipped copy, so your version survives a system update. Edits
+made inside the shipped compendium do not: an update replaces it.
 
 The twelve careers are **not** a table. They are a list inside the system, taken
 from the 2e hireling examples, which is why there is no "Careers" compendium to

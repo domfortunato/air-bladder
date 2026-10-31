@@ -88,10 +88,11 @@ never marks your table rows as drawn.
 
 Every roll resolves **by table name, world first**. If a RollTable in your
 world has exactly one of the names above, it silently wins over the shipped
-copy — so you can either edit the compendium tables, or (better) import one
-into the world and rework it there. Your version survives every system update,
-because the generator finds it by name, not by id. The pick-lists in the
-Create Faction window read the same tables, so your rows appear there too.
+copy — so import one into the world and rework it there. Your version survives
+every system update, because the generator finds it by name, not by id. An
+edit made inside the shipped compendium does not: the next update replaces it.
+The pick-lists in the Create Faction window read the same tables, so your rows
+appear there too.
 
 If a table is missing or empty, its line degrades to an em-dash and the dossier
 still mints — mid-edit you get a partial dossier, never an error.
