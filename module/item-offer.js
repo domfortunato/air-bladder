@@ -486,11 +486,13 @@ export const settleOwnOffer = async (message, target) => {
  */
 const offerNames = (message, offer) => {
   const target = foundry.utils.fromUuidSync(offer.targetActorUuid);
-  const targetName = !target
-    ? "?"
-    : (target.visible || game.user.isGM)
-        ? actorDisplayName(target)
-        : game.i18n.localize("CAIRN.Offer.HiddenTarget");
+  // A TARGET THAT NO LONGER RESOLVES reads the target's own mask, as a hidden
+  // one does (review #34 finding 243): a hireling deleted after the gift left
+  // every past card reading "…is now carried by ?.". The giver below got this
+  // fix first, for the same reason.
+  const targetName = (target && (target.visible || game.user.isGM))
+    ? actorDisplayName(target)
+    : game.i18n.localize("CAIRN.Offer.HiddenTarget");
   return {
     // A GIVER THAT NO LONGER RESOLVES reads "someone", the same mask the target
     // uses. Monsters are unlinked by ruling, so "open the dead goblin and hand
@@ -618,7 +620,11 @@ const onAcceptClick = async (message) => {
   const target = foundry.utils.fromUuidSync(offer.targetActorUuid);
   const names = offerNames(message, offer);
   if (!target) {
-    ui.notifications.warn("CAIRN.Notify.OfferTargetGone", { format: { target: names.target } });
+    // The capitalised mask: this slot opens the sentence ("{target} no longer
+    // exists — …"), which is why the giver's mask is its own key (review
+    // #27), and the lowercase target mask would start it "someone".
+    ui.notifications.warn("CAIRN.Notify.OfferTargetGone",
+      { format: { target: game.i18n.localize("CAIRN.Offer.HiddenGiver") } });
     return;
   }
   if (!(game.user.isGM || target.testUserPermission(game.user, "OWNER"))) {

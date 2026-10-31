@@ -337,6 +337,11 @@ export const localizeChangeLogCard = (message, html) => {
   if (!message?.isContentVisible) return false;
   const data = message?.getFlag?.("air-bladder", CHANGE_LOG_FLAG);
   if (!data || typeof data !== "object" || !Array.isArray(data.entries)) return false;
+  // A USER WHO IS GONE keeps the stored body (review #34 finding 243): it was
+  // composed while they existed and names them, where the rebuild could only
+  // print their 16-character id. The composer's language is the price, the
+  // one every card older than the flag already pays.
+  if (!game.users.get(String(data.user ?? ""))) return false;
   const body = html.querySelector(".message-content");
   if (!body?.querySelector(".change-log")) return false;
   body.innerHTML = changeLogBody(data);
