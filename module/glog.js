@@ -247,3 +247,28 @@ export const runGlogConversion = async () => {
     ui.notifications.info(formatCount("CAIRN.Notify.GlogConverted", converted, { count: converted }));
   }
 };
+
+/**
+ * The GLOG world conversion WITH its completion marker (review #34 finding
+ * 219) — the one way the sweep is run. From the setting's onChange (`force`,
+ * since a Warden turning GLOG back on asks for it whatever the marker says)
+ * and from the active Warden's ready hook (only while GLOG is on and
+ * `glog-converted` is unset), so a sweep cut off by the hacks menu's reload
+ * prompt is resumed rather than lost. The marker is set only once the sweep
+ * returns: a failed run must retry, never record itself done — the hireling
+ * split's rule. Failures are caught and surfaced here, for both callers.
+ * @param {{force?: Boolean}} [opts]
+ * @returns {Promise<void>}
+ */
+export const resumeGlogConversion = async ({ force = false } = {}) => {
+  if (game.users.activeGM !== game.user) return;
+  if (!game.settings.get(SETTINGS_NS, "enable-glog-magic")) return;
+  if (!force && game.settings.get(SETTINGS_NS, "glog-converted")) return;
+  try {
+    await runGlogConversion();
+    await game.settings.set(SETTINGS_NS, "glog-converted", true);
+  } catch (err) {
+    console.error("air-bladder | GLOG world conversion failed:", err);
+    ui.notifications.error(game.i18n.localize("CAIRN.Notify.GlogConversionFailed"));
+  }
+};

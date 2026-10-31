@@ -41,8 +41,8 @@ export const SETTING_KEYS = [
   // migration like custom-portrait-list does. It was registered without being
   // listed here (review #9); the completion markers (roles-restamped,
   // companion-restamped, hireling-split and its hireling-split-pending,
-  // grimoire-keys-stamped, connections-migrated, art-migration-generation)
-  // stay unlisted on purpose.
+  // grimoire-keys-stamped, connections-migrated, art-migration-generation,
+  // glog-converted) stay unlisted on purpose.
   // Every one of them dates
   // from AFTER the namespace move, so there is no "cairn.<key>" value for this
   // list to carry across — listing them would iterate keys that cannot exist.
@@ -339,6 +339,21 @@ export const registerSettings = () => {
   // `roles-restamped`, which is long true in every existing world and would
   // skip exactly the population this exists for.
   game.settings.register(SETTINGS_NS, "companion-restamped", {
+    scope: "world",
+    config: false,
+    type: Boolean,
+    default: false,
+  });
+
+  // Completion marker for the GLOG world conversion (review #34 finding 219).
+  // The sweep runs from enable-glog-magic's onChange, which core does not
+  // await, and the GLOG & Other Hacks menu raises its reload prompt from the
+  // same Save whenever the Vald switch changes — so a Warden pressing Yes could
+  // cut the sweep off with nothing to run it again. Set only after the sweep's
+  // writes land; the active Warden's ready hook resumes it while GLOG is on and
+  // this is unset; turning GLOG off clears it. The sweep is idempotent
+  // (glog.js), so a resume over a finished world writes nothing.
+  game.settings.register(SETTINGS_NS, "glog-converted", {
     scope: "world",
     config: false,
     type: Boolean,
@@ -690,21 +705,19 @@ export const registerSettings = () => {
       // Either flip drops the create seam's cached swap map (module/glog.js)
       // — caution, not need: the pack is locked, but a stale cache after an
       // unlock-edit-relock would be a silent wrong text with no error.
-      const { runGlogConversion, clearGlogTextCache } = await import("./glog.js");
+      const { resumeGlogConversion, clearGlogTextCache } = await import("./glog.js");
       clearGlogTextCache();
       // The sweep is a one-way world conversion with no rollback, and the
       // client fires onChange WITHOUT awaiting it (Setting._onUpdate), so a
       // throw out of here is an unhandled rejection naming neither the system
       // nor the operation, with the world left half-converted and no signal
-      // but the ABSENCE of the "converted N" toast. Caught and surfaced, the
-      // way every other async seam in this system is (cairn.js phase/socket).
-      if (value) {
-        try {
-          await runGlogConversion();
-        } catch (err) {
-          console.error("air-bladder | GLOG world conversion failed:", err);
-          ui.notifications.error(game.i18n.localize("CAIRN.Notify.GlogConversionFailed"));
-        }
+      // but the ABSENCE of the "converted N" toast. resumeGlogConversion
+      // catches and surfaces it, and records `glog-converted` only when the
+      // sweep lands (review #34 finding 219), so a reload that cuts this off
+      // is resumed at the next ready rather than lost. Off clears the marker.
+      if (value) await resumeGlogConversion({ force: true });
+      else if (game.users.activeGM === game.user) {
+        await game.settings.set(SETTINGS_NS, "glog-converted", false);
       }
       // The per-scroll Cast control (canCastScroll, actor-sheet.js) is read
       // live in _prepareContext but only takes effect on the NEXT render.

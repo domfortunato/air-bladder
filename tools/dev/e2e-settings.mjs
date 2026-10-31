@@ -90,9 +90,12 @@ try {
     // carry — it goes stale the next day by design.
     // `hireling-split-pending` joined with review #34 finding 3: the split's
     // failed packs and the start time a retry is judged against.
+    // `glog-converted` joined with review #34 finding 219: the GLOG world
+    // conversion's completion marker, set when the sweep lands and resumed at
+    // ready while it is unset.
     const MARKERS = ["roles-restamped", "companion-restamped", "connections-migrated",
       "grimoire-keys-stamped", "hireling-split", "hireling-split-pending",
-      "art-migration-generation", "vald-weather-today"];
+      "art-migration-generation", "vald-weather-today", "glog-converted"];
     out.unlisted = [...game.settings.settings.keys()]
       .filter((k) => k.startsWith(`${mod.SETTINGS_NS}.`))
       .map((k) => k.slice(mod.SETTINGS_NS.length + 1))
