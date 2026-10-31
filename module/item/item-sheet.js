@@ -525,6 +525,39 @@ export class CairnItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
   }
 
   /**
+   * `_serialWrite` for a write that names a ROW by the position this sheet
+   * rendered it at (review #34 finding 236). The queue makes each write read
+   * what the one before it wrote — and a Remove ahead of it moves every row
+   * below up one, so a position read at click time named a different row by
+   * the time its write ran: a double-click on a × removed that row AND the one
+   * below it, and a field committed behind a queued Remove wrote into its
+   * neighbour, or threw on the last row. Each render stamps the row layout it
+   * drew (`_renderedRowEpoch`, `_onRender`); a write that removes a row bumps
+   * the live layout as it runs; a queued write whose layout has moved since
+   * its event is DROPPED, because the row it named is no longer there.
+   * Dropping is the safe failure: the Remove re-renders the form, and the
+   * control is there to press again.
+   * @param {number} epoch  `this._renderedRowEpoch`, read when the event fired
+   * @param {() => Promise<*>} fn
+   * @param {{shifts?: boolean}} [options]  `shifts`: this write removes a row
+   * @returns {Promise<*>}
+   * @private
+   */
+  _serialRowWrite(epoch, fn, { shifts = false } = {}) {
+    return this._serialWrite(async () => {
+      if (epoch !== (this._rowEpoch ?? 0)) return undefined;
+      if (!shifts) return fn();
+      this._rowEpoch = (this._rowEpoch ?? 0) + 1;
+      try {
+        return await fn();
+      } catch (err) {
+        this._rowEpoch -= 1;   // nothing moved; the rendered rows are still true
+        throw err;
+      }
+    });
+  }
+
+  /**
    * A deep clone of the background's tables padded to the fixed 2×6 shape,
    * preserving each option's real items (with their itemData snapshots) and
    * containers. Handlers mutate this and write it back, so editing one field on a
@@ -575,6 +608,8 @@ export class CairnItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
 
   async _onRender(context, options) {
     await super._onRender(context, options);
+    // The row layout these rows were drawn from — see `_serialRowWrite`.
+    this._renderedRowEpoch = this._rowEpoch ?? 0;
     if (!this.isEditable) return;
     const el = this.element;
 
@@ -644,10 +679,11 @@ export class CairnItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     // --- Example names ---------------------------------------------------------
     // Every handler reads the field SYNCHRONOUSLY (`currentTarget` is gone once
     // the event finishes dispatching) and then queues its write behind the
-    // writes before it: `_serialWrite`.
+    // writes before it: `_serialWrite`. A field addressed by a row position a
+    // Remove can shift — names and gear — queues through `_serialRowWrite`.
     on(".bg-name-input", (ev) => {
       const i = Number(ev.currentTarget.dataset.i), value = ev.currentTarget.value;
-      return this._serialWrite(async () => {
+      return this._serialRowWrite(this._renderedRowEpoch, async () => {
         const names = [...(item.system.names ?? [])];
         names[i] = value;
         await commit({ "system.names": names });
@@ -657,7 +693,7 @@ export class CairnItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     // --- Starting gear ---------------------------------------------------------
     on(".bg-gear-name", (ev) => {
       const i = Number(ev.currentTarget.dataset.i), value = ev.currentTarget.value;
-      return this._serialWrite(async () => {
+      return this._serialRowWrite(this._renderedRowEpoch, async () => {
         const gear = foundry.utils.deepClone(item.system.startingGear ?? []);
         gear[i].name = value;
         // Typing a name over a snapshot converts the row back to a by-name pointer.
@@ -673,7 +709,7 @@ export class CairnItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     });
     on(".bg-gear-uses", (ev) => {
       const i = Number(ev.currentTarget.dataset.i), v = parseInt(ev.currentTarget.value, 10);
-      return this._serialWrite(async () => {
+      return this._serialRowWrite(this._renderedRowEpoch, async () => {
         const gear = foundry.utils.deepClone(item.system.startingGear ?? []);
         if (Number.isNaN(v) || v <= 0) delete gear[i].uses;
         else gear[i].uses = v;
@@ -779,11 +815,11 @@ export class CairnItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
   /** @this {CairnItemSheet} */
   static async #onRemoveName(event, target) {
     const i = Number(target.dataset.i);
-    await this._serialWrite(() => {
+    await this._serialRowWrite(this._renderedRowEpoch, () => {
       const names = [...(this.item.system.names ?? [])];
       names.splice(i, 1);
       return this.item.update({ "system.names": names });
-    });
+    }, { shifts: true });
   }
 
   /** @this {CairnItemSheet} */
@@ -795,21 +831,21 @@ export class CairnItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
   /** @this {CairnItemSheet} */
   static async #onRemoveGear(event, target) {
     const i = Number(target.dataset.i);
-    await this._serialWrite(() => {
+    await this._serialRowWrite(this._renderedRowEpoch, () => {
       const gear = foundry.utils.deepClone(this.item.system.startingGear ?? []);
       gear.splice(i, 1);
       return this.item.update({ "system.startingGear": gear });
-    });
+    }, { shifts: true });
   }
 
   /** @this {CairnItemSheet} */
   static async #onRemoveOptionItem(event, target) {
     const { t: ti, o, i } = target.dataset;
-    await this._serialWrite(() => {
+    await this._serialRowWrite(this._renderedRowEpoch, () => {
       const tables = this._normalizedTables();
       tables[Number(ti)].options[Number(o)].items.splice(Number(i), 1);
       return this.item.update({ "system.tables": tables });
-    });
+    }, { shifts: true });
   }
 
   /* -------------------------------------------- */
