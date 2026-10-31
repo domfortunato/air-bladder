@@ -516,6 +516,59 @@ try {
     ? ok("picking sets the item's art", item.img.split("/").pop())
     : fail("picking sets the item's art", JSON.stringify(item.img));
 
+  /* --- 3a'. a refused pick says the PICTURE failed (review #34 F59/F167) -- */
+
+  // A pick whose write is refused (a player's update walled, say) surfaced
+  // CAIRN.Notify.DropFailed: "Couldn't move that item — you may not have
+  // permission to change the receiving sheet." Nothing was being moved. The
+  // pick now has its own toast, wording signed off 2026-10-31. The refusal is
+  // forced IN-PAGE by shadowing this one item's `update` (no real write), and
+  // the error commit() logs on purpose is swallowed so watchErrors does not
+  // count the failure this leg asks for. All three shadows go in a finally.
+  const refused = await page.evaluate(async () => {
+    const it = await Item.create({ name: "ZZ Art Refused", type: "item" });
+    const sheet = it.sheet;
+    const seen = [];
+    const notes = ui.notifications;
+    const hadOwn = Object.hasOwn(notes, "error");
+    const origNote = notes.error;
+    const origConsoleError = console.error;
+    try {
+      notes.error = function (msg, ...rest) { seen.push(String(msg)); return origNote.call(this, msg, ...rest); };
+      console.error = (...a) => {
+        if (String(a[0]).startsWith("Air Bladder | art pick failed")) return;
+        origConsoleError.apply(console, a);
+      };
+      it.update = () => Promise.reject(new Error("probe: the write is refused"));
+      await sheet.render(true);
+      const action = sheet.constructor.DEFAULT_OPTIONS.actions.editImage;
+      await action.call(sheet, new Event("click"), null);
+      const dlg = [...foundry.applications.instances.values()]
+        .find((x) => x.constructor.name === "DialogV2" && x.element?.querySelector(".cairn-portrait-gallery"));
+      const root = dlg?.element;
+      root?.querySelector('.cairn-portrait-tab[data-tab="gameicons"]')?.click();
+      root?.querySelector('.cairn-icon-folder[data-category="tools"]')?.click();
+      root?.querySelector(".cairn-icon-category .cairn-portrait-choice")?.click();
+      await new Promise((r) => setTimeout(r, 600));
+      return {
+        opened: !!dlg,
+        seen,
+        want: game.i18n.localize("CAIRN.Notify.ArtPickFailed"),
+        dropFailed: game.i18n.localize("CAIRN.Notify.DropFailed"),
+      };
+    } finally {
+      if (hadOwn) notes.error = origNote; else delete notes.error;
+      console.error = origConsoleError;
+      delete it.update;
+      await sheet.close();
+      await it.delete();
+    }
+  });
+  refused.opened && refused.seen.length === 1 && refused.seen[0] === refused.want
+    ? ok("a refused pick says the picture failed", JSON.stringify(refused.seen[0]))
+    : fail("a refused pick says the picture failed",
+        `${JSON.stringify(refused.seen)} (wanted ${JSON.stringify(refused.want)}; DropFailed is ${JSON.stringify(refused.dropFailed)})`);
+
   /* --- 3b. the portrait die re-rolls within the current folder ----------- */
 
   const roll = await page.evaluate(async ({ beastFirst }) => {

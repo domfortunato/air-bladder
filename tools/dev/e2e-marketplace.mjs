@@ -588,6 +588,84 @@ try {
     && twin.costs.some((c) => twin.goldAfter === twin.goldBefore - c)
     ? ok("two Buys in one tick buy once and charge once", JSON.stringify(twin))
     : fail(`two Buys in one tick: ${JSON.stringify(twin)}`);
+
+  // THE FAILURE TOASTS SAY WHAT FAILED (review #34 findings 59 and 167). A shop
+  // that failed to open, and a Buy/Take whose write was refused, both surfaced
+  // CAIRN.Notify.DropFailed — "Couldn't move that item — you may not have
+  // permission to change the receiving sheet." — and nothing was being moved in
+  // either. Each now has its own toast (wording signed off 2026-10-31). Both
+  // failures are forced IN-PAGE, never by a real write: the open by making the
+  // shipped Market pack's lookup throw (marketTables reads it first), the Buy
+  // by shadowing this actor's createEmbeddedDocuments. The console.error each
+  // catch logs on purpose is swallowed so watchErrors does not count the
+  // failure the leg asked for; every shadow is undone in a finally.
+  const toasts = await page.evaluate(async () => {
+    const mkt = await import("/systems/air-bladder/module/marketplace.js");
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const poll = async (fn, ms = 8000) => { const t0 = Date.now(); while (Date.now() - t0 < ms) { const v = fn(); if (v) return v; await sleep(100); } return fn(); };
+    const actor = await Actor.create({ type: "character", name: "MKT Toast Probe", system: { gold: 100 } });
+    const notes = ui.notifications;
+    const hadOwn = Object.hasOwn(notes, "error");
+    const origNote = notes.error;
+    const origConsoleError = console.error;
+    const origPacksGet = game.packs.get;
+    const seen = [];
+    const closeShops = async () => {
+      for (const w of [...foundry.applications.instances.values()]) {
+        if (w.element?.querySelector?.(".marketplace")) { try { await w.close(); } catch { /* gone */ } }
+      }
+      await sleep(300);
+    };
+    try {
+      notes.error = function (msg, ...rest) { seen.push(String(msg)); return origNote.call(this, msg, ...rest); };
+      console.error = (...a) => {
+        if (/^Air Bladder \| marketplace (failed to open|acquire failed)/.test(String(a[0]))) return;
+        origConsoleError.apply(console, a);
+      };
+
+      // 1. The shop fails to open, through the sheet's own button.
+      await actor.sheet.render(true);
+      await poll(() => actor.sheet.element?.querySelector('[data-action="itemShop"]'));
+      game.packs.get = function (key, ...rest) {
+        if (key === "air-bladder.marketplace") throw new Error("probe: the Market pack is unreadable");
+        return origPacksGet.call(this, key, ...rest);
+      };
+      actor.sheet.element.querySelector('[data-action="itemShop"]')?.click();
+      await poll(() => seen.length >= 1, 4000);
+      delete game.packs.get;
+      const openSeen = [...seen];
+
+      // 2. A Buy whose write is refused.
+      seen.length = 0;
+      await mkt.openMarketplace(actor);
+      await poll(() => document.querySelector(".marketplace .mkt-row .mkt-buy:not([disabled])"));
+      actor.createEmbeddedDocuments = () => Promise.reject(new Error("probe: the write is refused"));
+      document.querySelector(".marketplace .mkt-row .mkt-buy:not([disabled])")?.click();
+      await poll(() => seen.length >= 1, 4000);
+      const buySeen = [...seen];
+
+      return {
+        openSeen, buySeen,
+        wantOpen: game.i18n.localize("CAIRN.Notify.MarketplaceOpenFailed"),
+        wantBuy: game.i18n.localize("CAIRN.Notify.AcquireFailed"),
+        dropFailed: game.i18n.localize("CAIRN.Notify.DropFailed"),
+      };
+    } finally {
+      if (Object.hasOwn(game.packs, "get")) delete game.packs.get;
+      delete actor.createEmbeddedDocuments;
+      if (hadOwn) notes.error = origNote; else delete notes.error;
+      console.error = origConsoleError;
+      await closeShops();
+      await actor.sheet?.close();
+      await actor.delete();
+    }
+  });
+  toasts.openSeen.length === 1 && toasts.openSeen[0] === toasts.wantOpen
+    ? ok(`a shop that fails to open says so: ${JSON.stringify(toasts.openSeen[0])}`)
+    : fail(`a shop that fails to open: ${JSON.stringify(toasts.openSeen)} (wanted ${JSON.stringify(toasts.wantOpen)}; DropFailed is ${JSON.stringify(toasts.dropFailed)})`);
+  toasts.buySeen.length === 1 && toasts.buySeen[0] === toasts.wantBuy
+    ? ok(`a refused Buy says the item was not added: ${JSON.stringify(toasts.buySeen[0])}`)
+    : fail(`a refused Buy: ${JSON.stringify(toasts.buySeen)} (wanted ${JSON.stringify(toasts.wantBuy)}; DropFailed is ${JSON.stringify(toasts.dropFailed)})`);
 } catch (e) {
   fail(`${e.name}: ${e.message}`);
 } finally {
