@@ -32,7 +32,7 @@
  * dev world does not silently accumulate probe characters and chat spam.
  */
 import { chromium } from "playwright";
-import { VIEWPORT, joinAsGM, watchErrors, withSettings, watchdog } from "./lib.mjs";
+import { VIEWPORT, joinAsGM, watchErrors, withSettings, watchdog, trackCreatedActors, sweepCreatedActors } from "./lib.mjs";
 
 const browser = await chromium.launch();
 
@@ -51,6 +51,7 @@ const ok = (m) => console.log(`  ok    ${m}`);
 
 try {
   await joinAsGM(page);
+  await trackCreatedActors(page);
 
   const r = await withSettings(page, () => page.evaluate(async () => {
     const NS = "air-bladder";
@@ -524,6 +525,9 @@ try {
 } catch (e) {
   fail(`${e.name}: ${e.message}`);
 } finally {
+  // Every actor this run created, generated children included (review #34
+  // findings 150, 256, 259) — whatever a leg threw.
+  await sweepCreatedActors(page);
   // Cleanup from NODE, reading the ids the page stashed as it went, so a throw
   // partway through still cleans up what it had already made.
   try {

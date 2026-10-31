@@ -25,7 +25,7 @@
  *   npm run dev:header-buttons
  */
 import { chromium } from "playwright";
-import { VIEWPORT, joinAsGM, dismissChrome, watchErrors, watchdog } from "./lib.mjs";
+import { VIEWPORT, joinAsGM, dismissChrome, watchErrors, watchdog, trackCreatedActors, sweepCreatedActors } from "./lib.mjs";
 
 const browser = await chromium.launch();
 // The fleet's hang guard (review #34): without it a hang runs to the runner's
@@ -39,6 +39,7 @@ const fail = (l, d = "") => { console.log(`  FAIL  ${l.padEnd(34)} ${d}`); failu
 
 try {
   await joinAsGM(page);
+  await trackCreatedActors(page);
   await dismissChrome(page);
 
   const out = await page.evaluate(async () => {
@@ -552,6 +553,9 @@ try {
 } catch (e) {
   fail("probe threw", `${e.name}: ${e.message}`);
 } finally {
+  // Every actor this run created, generated children included (review #34
+  // findings 150, 256, 259) — whatever a leg threw.
+  await sweepCreatedActors(page);
   console.log(`\nconsole errors: ${errors.length}`);
   for (const e of errors.slice(0, 10)) console.log(`  ${e}`);
   if (errors.length) failures++;

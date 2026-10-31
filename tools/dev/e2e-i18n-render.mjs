@@ -15,7 +15,7 @@
  * emitted the English literal, which no sentinel matches. Restored in a finally.
  */
 import { chromium } from "playwright";
-import { VIEWPORT, joinAsGM, watchErrors, watchdog } from "./lib.mjs";
+import { VIEWPORT, joinAsGM, watchErrors, watchdog, trackCreatedActors, sweepCreatedActors } from "./lib.mjs";
 
 const browser = await chromium.launch();
 
@@ -63,6 +63,7 @@ const S = {
 let out = {};
 try {
   await joinAsGM(page);
+  await trackCreatedActors(page);
 
   out = await page.evaluate(async (S) => {
     const r = { cleanup: {} };
@@ -297,6 +298,9 @@ try {
 } catch (e) {
   fail(`${e.name}: ${e.message}`);
 } finally {
+  // Every actor this run created, generated children included (review #34
+  // findings 150, 256, 259) — whatever a leg threw.
+  await sweepCreatedActors(page);
   await page.evaluate(async (c) => {
     try { await game.actors.get(c?.actorId)?.delete(); } catch { /* gone */ }
     try { await game.items.get(c?.bgItemId)?.delete(); } catch { /* gone */ }

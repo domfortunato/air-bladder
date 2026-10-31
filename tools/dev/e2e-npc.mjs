@@ -54,7 +54,7 @@
  */
 
 import { chromium } from "playwright";
-import { VIEWPORT, joinAsGM, watchErrors, withSettings, watchdog } from "./lib.mjs";
+import { VIEWPORT, joinAsGM, watchErrors, withSettings, watchdog, trackCreatedActors, sweepCreatedActors } from "./lib.mjs";
 
 const browser = await chromium.launch();
 // The fleet's hang guard (review #34): without it a hang runs to the runner's
@@ -68,6 +68,7 @@ const ok = (m) => console.log(`  ok    ${m}`);
 
 try {
   await joinAsGM(page);
+  await trackCreatedActors(page);
 
   const r = await withSettings(page, () => page.evaluate(async () => {
     const CG = game.cairn.characterGenerator;
@@ -701,6 +702,9 @@ try {
 } catch (e) {
   fail(`${e.name}: ${e.message}`);
 } finally {
+  // Every actor this run created, generated children included (review #34
+  // findings 150, 256, 259) — whatever a leg threw.
+  await sweepCreatedActors(page);
   // Sweep the parity legs' actors FROM NODE, so an aborted run cannot leave a
   // "PROBE …" actor behind for the next run to mistake for its own state.
   try {

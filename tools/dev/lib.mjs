@@ -300,6 +300,63 @@ export async function writeInPage(page, fn, arg, { timeout = 15000, label = "a w
  * @param {string[]} names
  * @returns {Promise<{id: string, name: string}[]>} what was set aside, for a note
  */
+/**
+ * Record every Actor THIS page's user creates from here on, so a probe can
+ * sweep what it made from its Node `finally` — whatever a leg threw.
+ *
+ * WHY A RECORDER AND NOT A STAMP (review #34 findings 150, 256, 259, the third
+ * sighting of one class). Sixteen probes generated characters through the
+ * real generators, deleted them only on the success path, and stamped nothing,
+ * so a crashed leg left randomly named fixtures nothing could tell from the
+ * Warden's. And a generated 2e character mints its background's containers as
+ * world actors connected to it — a Mountebank's Cart, an Outrider's horse — and
+ * deleting the character alone turns each into a stray "formerly belonged to"
+ * actor: about one in eight random 2e PCs, so a full suite usually left one.
+ * A stamp cannot reach actors a generator mints on the probe's behalf; a
+ * `createActor` hook sees all of them, children included.
+ *
+ * The hook keys on the USER, not the session, so on a world a human Warden is
+ * using at the same time, an actor that Warden creates during the run is
+ * recorded too. The fleet runs probes alone; on the dev world, run probes
+ * while nobody is creating actors there.
+ * @param {import("playwright").Page} page
+ */
+export async function trackCreatedActors(page) {
+  await page.evaluate(() => {
+    if (window.__abProbeCreated) return;
+    window.__abProbeCreated = [];
+    Hooks.on("createActor", (actor, _options, userId) => {
+      if (userId === game.user.id) window.__abProbeCreated.push(actor.id);
+    });
+  });
+}
+
+/**
+ * Delete every actor `trackCreatedActors` recorded that still exists. Never
+ * throws: it runs from a `finally`, after whatever went wrong.
+ * @param {import("playwright").Page} page
+ * @returns {Promise<number>}  how many were deleted
+ */
+export async function sweepCreatedActors(page) {
+  try {
+    return await page.evaluate(async () => {
+      const ids = [...new Set(window.__abProbeCreated ?? [])].filter((id) => game.actors.has(id));
+      // CHILDREN FIRST: deleting a keeper converts its still-connected
+      // children into "formerly belonged to" actors (CairnActor's delete
+      // operation), which must not race their own deletion in one batch.
+      const children = ids.filter((id) => game.actors.get(id)?.system?.connectedTo);
+      const rest = ids.filter((id) => !children.includes(id));
+      if (children.length) await Actor.deleteDocuments(children);
+      const left = rest.filter((id) => game.actors.has(id));
+      if (left.length) await Actor.deleteDocuments(left);
+      window.__abProbeCreated = [];
+      return ids.length;
+    });
+  } catch {
+    return 0;
+  }
+}
+
 export async function holdAsideWorldTables(page, names) {
   return page.evaluate((names) => {
     const held = game.tables.filter((t) => names.includes(t.name));

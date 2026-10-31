@@ -31,7 +31,7 @@ import { chromium } from "playwright";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { FOUNDRY_URL, VIEWPORT, joinAsGM, watchErrors, watchdog } from "./lib.mjs";
+import { FOUNDRY_URL, VIEWPORT, joinAsGM, watchErrors, watchdog, trackCreatedActors, sweepCreatedActors } from "./lib.mjs";
 
 const outDir = path.join(path.dirname(fileURLToPath(import.meta.url)), "out");
 const WANT_SHOTS = process.argv.includes("--shots");
@@ -94,6 +94,7 @@ const results = [];
 
 try {
   await joinAsGM(page);
+  await trackCreatedActors(page);
 
   await page.evaluate(async ([TEXT_MIN, BORDER_MIN]) => {
     const srgb = (c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
@@ -735,6 +736,9 @@ try {
   console.error(`  FAIL  ${e.name}: ${e.message}`);
   failed = true;
 } finally {
+  // Every actor this run created, generated children included (review #34
+  // findings 150, 256, 259) — whatever a leg threw.
+  await sweepCreatedActors(page);
   if (errors.length) {
     console.error("console errors:");
     errors.slice(0, 15).forEach((e) => console.error("  " + e));

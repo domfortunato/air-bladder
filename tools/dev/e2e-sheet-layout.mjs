@@ -27,7 +27,7 @@
  */
 
 import { chromium } from "playwright";
-import { VIEWPORT, joinAsGM, watchErrors, watchdog } from "./lib.mjs";
+import { VIEWPORT, joinAsGM, watchErrors, watchdog, trackCreatedActors, sweepCreatedActors } from "./lib.mjs";
 
 const SAMPLES = 6;
 
@@ -48,6 +48,7 @@ const fail = (label, detail = "") => { console.log(`  FAIL  ${label.padEnd(42)} 
 
 try {
   await joinAsGM(page);
+  await trackCreatedActors(page);
 
   await page.evaluate(() => {
     /** Rectangles overlap if they intersect on both axes. 1px of tolerance for
@@ -434,6 +435,9 @@ try {
 } catch (e) {
   fail("probe threw", `${e.name}: ${e.message}`);
 } finally {
+  // Every actor this run created, generated children included (review #34
+  // findings 150, 256, 259) — whatever a leg threw.
+  await sweepCreatedActors(page);
   console.log(`\nconsole errors: ${errors.length}`);
   for (const e of errors.slice(0, 10)) console.log(`  ${e}`);
   if (errors.length) failures++;

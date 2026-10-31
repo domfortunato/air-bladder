@@ -51,7 +51,7 @@
  * see the witness list at the bottom of this file.
  */
 import { chromium } from "playwright";
-import { VIEWPORT, joinAsGM, watchErrors, dismissChrome, watchdog } from "./lib.mjs";
+import { VIEWPORT, joinAsGM, watchErrors, dismissChrome, watchdog, trackCreatedActors, sweepCreatedActors } from "./lib.mjs";
 
 let failed = false;
 const ok = (m, extra = "") => console.log(`  ok    ${m}${extra ? `  ${extra}` : ""}`);
@@ -62,6 +62,8 @@ watchdog(240000, "blank actor probe");
 const page = await browser.newContext({ viewport: VIEWPORT }).then((c) => c.newPage());
 const errors = watchErrors(page);
 await joinAsGM(page);
+await trackCreatedActors(page);
+try {
 await dismissChrome(page);
 
 const PREFIX = "ZZ Blank";
@@ -774,6 +776,12 @@ if (errors.length) {
   fail(`${errors.length} console error(s): ${errors.slice(0, 3).join(" | ")}`);
 }
 
+} finally {
+  // Every actor this run created, generated children included (review #34
+  // findings 150, 256, 259) — the body was straight-line, so a throw skipped
+  // every delete in it.
+  await sweepCreatedActors(page);
+}
 await browser.close();
 console.log(failed ? "\nblank actor probe FAILED\n" : "\nblank actor probe passed\n");
 process.exit(failed ? 1 : 0);

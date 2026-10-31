@@ -15,7 +15,7 @@
  */
 
 import { chromium } from "playwright";
-import { FOUNDRY_URL, VIEWPORT, dismissChrome, joinAsGM, watchErrors, watchdog } from "./lib.mjs";
+import { FOUNDRY_URL, VIEWPORT, dismissChrome, joinAsGM, watchErrors, watchdog, trackCreatedActors, sweepCreatedActors } from "./lib.mjs";
 
 const ok = (label, detail = "") => console.log(`  ok    ${label.padEnd(20)} ${detail}`);
 const fail = (label, detail = "") => { console.log(`  FAIL  ${label.padEnd(20)} ${detail}`); failures++; };
@@ -33,6 +33,8 @@ watchdog(600000, "data-model probe", () => browser.close());
 const page = await browser.newPage({ viewport: VIEWPORT });
 const errors = watchErrors(page);
 await joinAsGM(page);
+await trackCreatedActors(page);
+try {
 await dismissChrome(page);
 
 /* -------------------------------------------- */
@@ -390,6 +392,12 @@ else {
 
 /* -------------------------------------------- */
 
+} finally {
+  // Every actor this run created, generated children included (review #34
+  // findings 150, 256, 259) — the body was straight-line, so a throw skipped
+  // every delete in it.
+  await sweepCreatedActors(page);
+}
 await browser.close();
 
 if (errors.length) {

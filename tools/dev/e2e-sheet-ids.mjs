@@ -16,7 +16,7 @@
  */
 
 import { chromium } from "playwright";
-import { VIEWPORT, dismissChrome, joinAsGM, watchErrors, watchdog } from "./lib.mjs";
+import { VIEWPORT, dismissChrome, joinAsGM, watchErrors, watchdog, trackCreatedActors, sweepCreatedActors } from "./lib.mjs";
 
 const ok = (label, detail = "") => console.log(`  ok    ${label.padEnd(30)} ${detail}`);
 const fail = (label, detail = "") => { console.log(`  FAIL  ${label.padEnd(30)} ${detail}`); failures++; };
@@ -34,6 +34,8 @@ watchdog(600000, "sheet-ids probe", () => browser.close());
 const page = await browser.newPage({ viewport: VIEWPORT });
 const errors = watchErrors(page);
 await joinAsGM(page);
+await trackCreatedActors(page);
+try {
 await dismissChrome(page);
 
 /* -------------------------------------------- */
@@ -132,6 +134,12 @@ console.log(`\nconsole errors: ${errors.length}`);
 for (const e of errors.slice(0, 10)) console.log(`  ${e}`);
 if (errors.length) failures++;
 
+} finally {
+  // Every actor this run created, generated children included (review #34
+  // findings 150, 256, 259) — the body was straight-line, so a throw skipped
+  // every delete in it.
+  await sweepCreatedActors(page);
+}
 await browser.close();
 console.log(failures ? `\nFAILED (${failures})` : "\nPASSED");
 process.exit(failures ? 1 : 0);
