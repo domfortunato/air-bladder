@@ -4184,8 +4184,10 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // an actor's role changed to container still has a live button, and the
     // action is reachable by uuid regardless of what was rendered.
     if (this.actor.isThing) {
+      // A refusal is a naming surface (review #16; review #34 finding 186):
+      // the thing's sheet and title read the overlay, so the refusal does too.
       ui.notifications.warn(game.i18n.format("CAIRN.Notify.NoFatigueOnThing", {
-        name: this.actor.name,
+        name: actorDisplayName(this.actor),
       }));
       return;
     }
@@ -5734,8 +5736,9 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // here — it is stored in English (FATIGUE_NAME) precisely so it survives a
     // language change, and `system.isFatigue` is derived from the same test.
     if (this.actor.isThing && originalItem.name === FATIGUE_NAME) {
+      // Named as the sheet it was dropped on names it (review #34 finding 186).
       ui.notifications.warn(game.i18n.format("CAIRN.Notify.NoFatigueOnThing", {
-        name: this.actor.name,
+        name: actorDisplayName(this.actor),
       }));
       return null;
     }
