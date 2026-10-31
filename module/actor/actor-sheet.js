@@ -5860,15 +5860,25 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       // Only when the arrival HAS a key: an unkeyed legacy book leaves its
       // pages unkeyed too, which is what `pagesOfGrimoire`'s one-book fallback
       // still reads.
+      //
+      // A PAGE LEAVES ONLY ONCE ITS COPY HAS LANDED (review #34 finding 177).
+      // The create does not throw for a page a preCreateItem hook refuses or
+      // that fails construction: core skips it and resolves a shorter array.
+      // Deleting every source page after it lost exactly those. Each copy gets
+      // a fresh id (keepId), because a batch returns in no promised order, and
+      // only the sources whose copy came back are deleted.
       const arrivedKey = created?.system?.grimoireKey ?? "";
-      await this.actor.createEmbeddedDocuments("Item",
+      const copyOf = new Map();
+      const landed = await this.actor.createEmbeddedDocuments("Item",
         travellingPages.map((p) => {
           const data = p.toObject();
+          data._id = foundry.utils.randomID();
+          copyOf.set(data._id, p.id);
           if (arrivedKey) data.system.boundTo = arrivedKey;
           return data;
-        }));
-      await originalActor.deleteEmbeddedDocuments("Item",
-        travellingPages.map((p) => p.id));
+        }), { keepId: true });
+      const leave = (landed ?? []).map((d) => copyOf.get(d.id)).filter(Boolean);
+      if (leave.length) await originalActor.deleteEmbeddedDocuments("Item", leave);
     }
     return created;
   }

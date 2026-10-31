@@ -2055,9 +2055,10 @@ const migrateArtPaths = async () => {
  * side by side would find only one of them editable as such.
  *
  * A document's `type` is immutable in Foundry, so this is a create-then-delete, not
- * an update — the trap the hireling merge hit. Create first so a failure can never
- * lose a scroll; the transient duplicate costs nothing, since a scroll is petty at
- * both ends and no slot count moves.
+ * an update — the trap the hireling merge hit. Create first, and delete only the
+ * scrolls whose replacement came back, so a failure can never lose a scroll (a
+ * refused create does not throw — review #34 finding 177); the transient duplicate
+ * costs nothing, since a scroll is petty at both ends and no slot count moves.
  *
  * Carried across: the name (with the prefix stripped, since the inventory row adds
  * it back at display time), the spell text, cost, quantity, whether the use was
@@ -2128,19 +2129,34 @@ const migrateScrollsToSpellbooks = async () => {
   const convert = async (parent, items) => {
     const legacy = items.filter(isLegacyScroll);
     if (!legacy.length) return;
-    const payload = legacy.map(asFlaggedScroll);
-    const ids = legacy.map((i) => i.id);
+    // ONLY A SCROLL WHOSE REPLACEMENT LANDED IS DELETED (review #34 finding
+    // 177). Creating first protects only against a create that THROWS; core
+    // skips a document a preCreateItem hook refuses, or one that fails
+    // construction, and resolves a shorter array. Every legacy id used to be
+    // deleted regardless. Each replacement gets a fresh id (keepId) — a batch
+    // returns in no promised order — and maps back to the scroll it replaces.
+    // A refused one stays in its old shape and is tried again next load.
+    const copyOf = new Map();
+    const payload = legacy.map((old) => {
+      const data = asFlaggedScroll(old);
+      data._id = foundry.utils.randomID();
+      copyOf.set(data._id, old.id);
+      return data;
+    });
+    let landed;
     if (parent) {
       // abNoStatusCard: this is a MIGRATION — without it, a world upgrading
       // through it would greet the Warden with one change-log card per actor
       // that ever owned a scroll.
-      await parent.createEmbeddedDocuments("Item", payload, { abNoStatusCard: true });
-      await parent.deleteEmbeddedDocuments("Item", ids, { abNoStatusCard: true });
+      landed = await parent.createEmbeddedDocuments("Item", payload, { abNoStatusCard: true, keepId: true });
     } else {
-      await ItemCls.createDocuments(payload);
-      await ItemCls.deleteDocuments(ids);
+      landed = await ItemCls.createDocuments(payload, { keepId: true });
     }
-    count += legacy.length;
+    const ids = (landed ?? []).map((d) => copyOf.get(d.id)).filter(Boolean);
+    if (!ids.length) return;
+    if (parent) await parent.deleteEmbeddedDocuments("Item", ids, { abNoStatusCard: true });
+    else await ItemCls.deleteDocuments(ids);
+    count += ids.length;
   };
 
   await convert(null, [...game.items]);
