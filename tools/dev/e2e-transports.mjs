@@ -493,6 +493,46 @@ try {
       ? ok("the carrier's thumbnail is greyed", "matches its sheet")
       : fail("the carrier's thumbnail is greyed", "directory reads colour where the sheet reads grey");
   }
+
+  // A STATTED companion bought from the shop is the document the compendium
+  // ships (review #34 finding 87). acquireTransport copied a hand-picked subset
+  // (hp, armorOverride, the token's art), so the shipped Falcon — STR 5 /
+  // DEX 16 / WIL 4 — stocked from Mounts & Transports was sold as 10/10/10. A
+  // world Market table naming it is the Warden's own documented flow; the
+  // shipped Transports rows carry no stat block, which is why nothing saw it.
+  const statted = await page.evaluate(async () => {
+    const mkt = await import("/systems/air-bladder/module/marketplace.js");
+    const aPack = game.packs.get("air-bladder.mounts-transports");
+    const falcon = (await aPack.getDocuments()).find((d) => d.name === "Falcon");
+    if (!falcon) return { error: "no Falcon in mounts-transports" };
+    const made = [];
+    try {
+      const table = await CONFIG.RollTable.documentClass.create({
+        name: "Market: ZZ Statted", formula: "1d1",
+        results: [{ type: "document", documentUuid: falcon.uuid, name: falcon.name, range: [1, 1], weight: 1 }],
+      });
+      made.push(table);
+      const buyer = await Actor.create({ name: "ZZ Statted Buyer", type: "character" });
+      made.push(buyer);
+      const catalog = await mkt.getMarketplaceCatalog();
+      const row = (catalog.categories ?? []).find((c) => c.name === "ZZ Statted")?.items.find((i) => i.name === "Falcon");
+      if (!row) return { error: "the world aisle did not stock the Falcon" };
+      await mkt.acquireTransport(buyer, row, false);
+      const bought = game.actors.find((a) => a.name === "Falcon" && a.system.connectedTo === buyer.uuid);
+      if (bought) made.push(bought);
+      const abil = (a) => ["STR", "DEX", "WIL"].map((k) => a?.system.abilities?.[k]?.value).join("/");
+      return {
+        source: abil(falcon), bought: abil(bought),
+        sourceItems: falcon.items.size, boughtItems: bought?.items.size ?? null,
+        connected: bought?.system.connectedTo === buyer.uuid,
+      };
+    } finally {
+      for (const d of made.reverse()) { try { await d.delete(); } catch { /* gone */ } }
+    }
+  });
+  !statted.error && statted.connected && statted.bought === statted.source && statted.boughtItems === statted.sourceItems
+    ? ok("a statted companion bought from a world aisle keeps its stat block and items", JSON.stringify(statted))
+    : fail(`a statted companion bought from the shop: ${JSON.stringify(statted)}`);
 } catch (e) {
   fail(`${e.name}: ${e.message}`);
 } finally {

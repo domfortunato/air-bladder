@@ -267,6 +267,36 @@ try {
     }
   }
 
+  /* --- 3b. a row the WARDEN wrote, the way core's editor writes it ------- */
+  // Review #34 finding 92. Core v14's table editor has no inline text field:
+  // `+` makes an empty row and its config sheet offers a Name input and a
+  // ProseMirror Description, which saves `<p>…</p>`. The shipped rows are bare
+  // strings, and so is every row this probe plants elsewhere — so a Warden's
+  // faction typed into Name was missing from the list, and one typed into
+  // Description arrived as literal tags.
+  {
+    await page.evaluate(async (name) => {
+      await CONFIG.RollTable.documentClass.create({
+        name, formula: "1d2",
+        results: [
+          { type: "text", name: "ZZ-NAME-ONLY", description: "", range: [1, 1], weight: 1 },
+          { type: "text", description: "<p>ZZ-PARA-ROW</p>", range: [2, 2], weight: 1 },
+        ],
+      });
+    }, AGENDA_TABLE);
+    const id = await openDialog();
+    await clickIn(id, 'input[name="roll"]');
+    const agenda = await page.evaluate((id) => {
+      const sel = document.getElementById(id)?.querySelector('select[name="faction-agenda"]');
+      return sel ? [...sel.options].slice(1).map((o) => o.value) : null;
+    }, id);
+    await clickIn(id, 'button[data-action="cancel"]');
+    await sweepTables();
+    JSON.stringify(agenda) === JSON.stringify(["ZZ-NAME-ONLY", "ZZ-PARA-ROW"])
+      ? ok("a Warden's rows read as plain text: a Name-only row is listed, a <p> row loses its tags", agenda.join(", "))
+      : fail("a Warden's rows read as plain text", JSON.stringify(agenda));
+  }
+
   /* --- 4. the MANUAL path: clear the box, pick from the lists ------------ */
   {
     await plantTables([[AGENDA_TABLE, SENTINEL]]);

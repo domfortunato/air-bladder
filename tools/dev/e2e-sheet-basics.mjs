@@ -564,6 +564,38 @@ nat.nineteen?.rolled === 19 && nat.nineteen.failed === false
   ? ok("...and a 19 still passes it", JSON.stringify(nat))
   : fail("...and a 19 still passes it", JSON.stringify(nat));
 
+console.log("\na blank or zero slot limit is not a limit of zero (review #34 finding 77)");
+
+// `max-equip-slots` had no floor and its reader no guard, so a Warden who
+// cleared the box (null) or typed 0 made every character encumbered at HP 0.
+// SHADOWED in-page, both values, never written: the real setting is the
+// Warden's.
+const slots = await page.evaluate(async () => {
+  const pc = await Actor.create({ name: "ZZ Slots PC", type: "character" });
+  const origGet = game.settings.get;
+  const ns = game.system.id;
+  const read = (v) => {
+    game.settings.get = function (scope, key, ...rest) {
+      // A DOCUMENT request is never shadowed (review #27): core's #setWorld asks
+      // get(ns, key, {document: true}) for the Setting document it updates by id,
+      // and any value handed back makes it CREATE a duplicate. check:probes gates this.
+      if (rest[0]?.document) return foundry.helpers.ClientSettings.prototype.get.call(this, scope, key, ...rest);
+      if (scope === ns && key === "max-equip-slots") return v;
+      return origGet.call(this, scope, key, ...rest);
+    };
+    try { return pc.calcCurrentMaxSlots(); } finally { game.settings.get = origGet; }
+  };
+  const out = { blank: read(null), zero: read(0), negative: read(-3), eight: read(8) };
+  await pc.delete();
+  return out;
+});
+slots.blank === 10 && slots.zero === 10 && slots.negative === 10
+  ? ok("a cleared, 0 or negative slot limit reads as the default ten", JSON.stringify(slots))
+  : fail("a cleared, 0 or negative slot limit reads as the default ten", JSON.stringify(slots));
+slots.eight === 8
+  ? ok("...and a real limit of eight still reads eight", JSON.stringify(slots))
+  : fail("...and a real limit of eight still reads eight", JSON.stringify(slots));
+
 /* ----------------------------------------------------------- teardown ---- */
 await page.evaluate(async (id) => { await game.actors.get(id)?.delete(); }, actorId);
 
