@@ -24,6 +24,9 @@
  *   7. an img already under art/ in the OLD FORMAT (the re-encode rule, which
  *      the prefix table structurally cannot reach) — ONE PER RE-ENCODED
  *      GALLERY, since they are separate rules and one entry proves only itself
+ *   8. a world RollTable's own img, a token (texture and delta) in a LOCKED
+ *      world Scene compendium, and an Actor inside a LOCKED world Adventure
+ *      (review #34 finding 158: none was ever swept; generation 3)
  *
  * NEGATIVE CONTROL, in-page and in both directions. `icons/` deliberately did
  * NOT move, and an external URL must never be touched: both are planted too and
@@ -116,6 +119,11 @@ const UNTOUCHED = [
   "https://example.invalid/some/portrait.png",
   "systems/air-bladder/art/lydia-comer/portraits/Femme00.webp",
 ];
+
+// cairn.js's ART_MIGRATION_GENERATION, written out by hand like every other
+// expectation here (cairn.js is the entry point and cannot be imported into a
+// page that already ran it). 3 since review #34 finding 158 added surfaces.
+const ART_GENERATION = 3;
 
 let failed = false;
 const ok = (m, d = "") => console.log(`  ok    ${m.padEnd(52)} ${d}`);
@@ -219,7 +227,35 @@ try {
     // is one of the five shims that go in v15 (see dev:table-results), and v13
     // split `TableResult#text` into two differently-named halves — this probe
     // cares about `img` alone, so it touches neither and cannot rot on either.
-    const table = await RollTable.create({ name: "zz-art-path-table" });
+    // ...and the table's OWN icon, which the world pass never read while the
+    // pack pass did (review #34 finding 158).
+    const table = await RollTable.create({ name: "zz-art-path-table", img: old[0] });
+
+    // A world SCENE compendium and a world ADVENTURE compendium, both LOCKED
+    // (review #34 finding 158): neither type was ever swept, and both are
+    // copy-at-creation — a placed token copies its texture, an Adventure holds
+    // its actors as plain data — so a scene filed away before the move came
+    // back out of the compendium pointing at nothing. Swept first by label.
+    const CC = foundry.documents.collections.CompendiumCollection;
+    for (const p of game.packs.filter((p) => ["zz-art-path-scenes", "zz-art-path-adventures"].includes(p.metadata.label))) {
+      await p.configure({ locked: false }).catch(() => {});
+      await p.deleteCompendium().catch(() => {});
+    }
+    const scenePack = await CC.createCompendium({ label: "zz-art-path-scenes", type: "Scene" });
+    const packScene = await Scene.create({
+      name: "zz-art-path-pack-scene", width: 1000, height: 1000,
+      tokens: [{ name: "zz-art-path-pack-token", x: 100, y: 100, actorId: actor.id, actorLink: false,
+        texture: { src: old[4] }, delta: { img: old[0] } }],
+    }, { pack: scenePack.collection });
+    const packToken = packScene?.tokens.contents[0];
+    await scenePack.configure({ locked: true });
+    const advPack = await CC.createCompendium({ label: "zz-art-path-adventures", type: "Adventure" });
+    const advActorId = foundry.utils.randomID();
+    const adventure = await getDocumentClass("Adventure").create({
+      name: "zz-art-path-adventure",
+      actors: [{ _id: advActorId, name: "zz-art-path-adv-actor", type: "npc", system: { role: "monster" }, img: old[0] }],
+    }, { pack: advPack.collection });
+    await advPack.configure({ locked: true });
     const [result] = await table.createEmbeddedDocuments("TableResult", [
       { img: old[0], range: [1, 1] },
     ]);
@@ -244,6 +280,12 @@ try {
       packActorId: packActor?.id ?? null,
       tableId: table.id,
       resultId: result.id,
+      scenePackId: scenePack.collection,
+      packSceneId: packScene?.id ?? null,
+      packTokenId: packToken?.id ?? null,
+      advPackId: advPack.collection,
+      adventureId: adventure?.id ?? null,
+      advActorId,
       controlIds: controls,
       // What actually landed — Foundry can reject or normalise an img on create,
       // and a planted value that never stuck would make every later leg vacuous.
@@ -261,6 +303,12 @@ try {
         packActor: packActor?.img,
         packLocked: pack.locked,
         result: result.img,
+        tableImg: table.img,
+        packToken: packToken?.texture?.src,
+        packTokenDelta: packToken?.delta?.img,
+        advActor: adventure?.actors.find((a) => a._id === advActorId)?.img,
+        scenePackLocked: scenePack.locked,
+        advPackLocked: advPack.locked,
         controls: controls.map((id) => game.items.get(id)?.img),
       },
     };
@@ -270,6 +318,7 @@ try {
     item: MOVES[3][0], actor: MOVES[0][0], proto: MOVES[1][0],
     owned: MOVES[2][0], token: MOVES[4][0], result: MOVES[0][0],
     deltaImg: MOVES[0][0], deltaItem: MOVES[2][0], packActor: MOVES[0][0],
+    tableImg: MOVES[0][0], packToken: MOVES[4][0], packTokenDelta: MOVES[0][0], advActor: MOVES[0][0],
   };
   // Seven KINDS of surface, more documents than that — the re-encode kind is
   // planted once per gallery, the moved-monster kind once per folder half.
@@ -310,10 +359,20 @@ try {
   // two others that each make server round trips. A fixed wait here is a race
   // with a comfortable margin, which is what the icons probe learned the hard way.
   let waited = 0;
-  const read = () => page.evaluate((p) => {
+  const read = () => page.evaluate(async (p) => {
     const a = game.actors.get(p.actorId);
     const scene = game.scenes.get(p.sceneId);
     const table = game.tables.get(p.tableId);
+    // The Scene and Adventure packs hold their art inside each document, not on
+    // the index, so the document is read — fresh, off the server, every poll.
+    const fresh = async (packId, id) => {
+      const pk = game.packs.get(packId);
+      if (!pk || !id) return null;
+      pk.clear();
+      return pk.getDocument(id);
+    };
+    const packToken = (await fresh(p.scenePackId, p.packSceneId))?.tokens.get(p.packTokenId);
+    const adventure = await fresh(p.advPackId, p.adventureId);
     return {
       item: game.items.get(p.itemId)?.img ?? null,
       reencs: p.reencIds.map((id) => game.items.get(id)?.img ?? null),
@@ -330,6 +389,12 @@ try {
       packActor: game.packs.get(p.packId)?.index.get(p.packActorId)?.img ?? null,
       packLocked: game.packs.get(p.packId)?.locked ?? null,
       result: table?.results.get(p.resultId)?.img ?? null,
+      tableImg: table?.img ?? null,
+      packToken: packToken?.texture?.src ?? null,
+      packTokenDelta: packToken?.delta?.img ?? null,
+      advActor: adventure?.actors.find((x) => x._id === p.advActorId)?.img ?? null,
+      scenePackLocked: game.packs.get(p.scenePackId)?.locked ?? null,
+      advPackLocked: game.packs.get(p.advPackId)?.locked ?? null,
       controls: p.controlIds.map((id) => game.items.get(id)?.img ?? null),
       // The generation marker: re-stamped only after the sweep's last write,
       // so it is the one "done" signal that cannot be read too early.
@@ -368,7 +433,8 @@ try {
   // finally AFTER its last document write, as a settings round-trip. A poll
   // that stops when the PATHS are right reads the lock inside that window and
   // reports the re-lock missing — this probe's own trap, third appearance.
-  const done = (s) => s.packLocked === true && s.generation >= 2 && Object.values(s).flat()
+  const done = (s) => s.packLocked === true && s.scenePackLocked === true && s.advPackLocked === true
+    && s.generation >= ART_GENERATION && Object.values(s).flat()
     .every((v) => v === null || v === true
       || (!STALE_PREFIX.test(String(v)) && !STALE_FORMAT.test(String(v))
         && !STALE_SPACED.test(String(v)) && !STALE_MONSTER.test(String(v))));
@@ -389,6 +455,10 @@ try {
     ["a delta-only Item on that token", "deltaItem", MOVES[2][1]],
     ["an Actor in a LOCKED world compendium", "packActor", MOVES[0][1]],
     ["a RollTable result's img snapshot", "result", MOVES[0][1]],
+    ["a world RollTable's own icon", "tableImg", MOVES[0][1]],
+    ["a token in a LOCKED world Scene compendium", "packToken", MOVES[4][1]],
+    ["that pack token's DELTA portrait", "packTokenDelta", MOVES[0][1]],
+    ["an Actor inside a LOCKED world Adventure", "advActor", MOVES[0][1]],
   ]) {
     after[key] === want
       ? ok(`migrated: ${label}`, want.replace("systems/air-bladder/art/", ""))
@@ -429,10 +499,14 @@ try {
   after.packLocked === true
     ? ok("the world pack's LOCK was restored", "locked again after the write")
     : fail("the world pack's LOCK was restored", `locked=${after.packLocked}`);
+  after.scenePackLocked === true && after.advPackLocked === true
+    ? ok("the Scene and Adventure packs' LOCKS were restored", "locked again after the write")
+    : fail("the Scene and Adventure packs' LOCKS were restored",
+      `scenes locked=${after.scenePackLocked}, adventures locked=${after.advPackLocked}`);
   // The gate, re-closed by the sweep itself: the marker is back at the current
-  // generation (the value it held before this probe re-opened it, or 2 on a
-  // world that had never stamped one), so the world ends where it began.
-  after.generation >= 2 && (gen.before === 0 || after.generation === gen.before)
+  // generation — the value it held before this probe re-opened it, or the
+  // current one when the world held an older stamp, as any GM load would leave it.
+  after.generation >= ART_GENERATION && after.generation >= gen.before
     ? ok("the generation marker is re-stamped after the sweep", `was ${gen.before}, re-opened to 0, now ${after.generation}`)
     : fail("the generation marker is re-stamped after the sweep", `was ${gen.before}, now ${after.generation}`);
 
@@ -463,13 +537,15 @@ try {
         for (const id of p.reencIds) await drop(() => game.items.get(id)?.delete());
         for (const id of p.renamedIds) await drop(() => game.items.get(id)?.delete());
         for (const id of p.movedMonIds) await drop(() => game.items.get(id)?.delete());
-        // The world pack: unlock first or the delete is refused.
-        await drop(async () => {
-          const pk = game.packs.get(p.packId);
-          if (!pk) return;
-          if (pk.locked) await pk.configure({ locked: false });
-          await pk.deleteCompendium();
-        });
+        // The world packs: unlock first or the delete is refused.
+        for (const id of [p.packId, p.scenePackId, p.advPackId]) {
+          await drop(async () => {
+            const pk = game.packs.get(id);
+            if (!pk) return;
+            if (pk.locked) await pk.configure({ locked: false });
+            await pk.deleteCompendium();
+          });
+        }
         await drop(() => game.actors.get(p.actorId)?.delete());
         await drop(() => game.scenes.get(p.sceneId)?.delete());
         await drop(() => game.tables.get(p.tableId)?.delete());
