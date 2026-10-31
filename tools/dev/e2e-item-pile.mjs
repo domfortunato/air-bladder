@@ -22,9 +22,17 @@
  *   npm run dev:item-pile      (needs Alice — npm run dev:players)
  */
 import { chromium } from "playwright";
-import { VIEWPORT, joinAsGM, joinAs, dismissChrome, watchErrors } from "./lib.mjs";
+import { VIEWPORT, joinAsGM, joinAs, dismissChrome, watchErrors, watchdog } from "./lib.mjs";
 
 const browser = await chromium.launch();
+
+// The fleet's hang guard (review #34 finding 25): without it a hang runs to
+
+// the runner's 65-minute cap, skips every restore, and the box is never
+
+// marked suspect. A bound on a hang, not a timing claim.
+
+watchdog(600000, "item-pile probe", () => browser.close());
 const gmPage = await browser.newPage({ viewport: VIEWPORT });
 const errors = watchErrors(gmPage);
 let failures = 0;

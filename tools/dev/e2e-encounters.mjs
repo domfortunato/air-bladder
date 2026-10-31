@@ -186,7 +186,7 @@ try {
     : fail("the same card on Alice's client has no button", JSON.stringify(aliceView));
 
   /* -------------------------------------------------- 2. the goblin click -- */
-  const spawn1 = await gm.evaluate(async ({ msgId, GOBLIN_UUID }) => {
+  const spawn1 = await gm.evaluate(async ({ msgId, GOBLIN_UUID, goblinsBefore }) => {
     document.querySelector(`[data-message-id="${msgId}"] .encounter-spawn`)?.click();
     for (let i = 0; i < 50 && !game.messages.get(msgId)?.getFlag(game.system.id, "encounterSpawned"); i++) {
       await new Promise((r) => setTimeout(r, 200));
@@ -205,10 +205,14 @@ try {
       clustered: toks.every((t) => Math.abs(t.x - c.x) <= 4 * gs && Math.abs(t.y - c.y) <= 4 * gs),
       stacked: new Set(toks.map((t) => `${t.x},${t.y}`)).size === toks.length,
       goblinActors: goblins.map((a) => a.id),
-      goblinInFolder: goblins.every((a) => !a.folder || a.folder.id === folder?.id),
+      // The NEW goblin, in THE folder (review #34 finding 28): this accepted
+      // any goblin with no folder at all, over every goblin in the world, so an
+      // import that dropped `{folder}` stayed green. Read by id difference.
+      goblinInFolder: goblins.filter((a) => !goblinsBefore.includes(a.id)).length > 0
+        && goblins.filter((a) => !goblinsBefore.includes(a.id)).every((a) => !!folder && a.folder?.id === folder.id),
       folderId: folder?.id ?? null,
     };
-  }, { msgId: goblinMsg, GOBLIN_UUID });
+  }, { msgId: goblinMsg, GOBLIN_UUID, goblinsBefore: fx.goblinsBefore });
   cleanup.folderId = spawn1.folderId;
   const newGoblins = spawn1.goblinActors.filter((id) => !fx.goblinsBefore.includes(id));
   cleanup.actorIds.push(...newGoblins);

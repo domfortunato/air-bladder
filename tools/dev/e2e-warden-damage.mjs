@@ -376,8 +376,9 @@ const builder = await page.evaluate(async () => {
   // Forwards every argument: a two-argument shadow makes `settings.set` create
   // a duplicate Setting document instead of updating the real one, because
   // `#setWorld` asks this for the DOCUMENT and gets a bare value.
-  settings.get = (ns, key, ...rest) =>
-    (key === "use-cairn-dice-notation" ? false : origGet(ns, key, ...rest));
+  settings.get = (ns, key, ...rest) => rest[0]?.document
+    ? foundry.helpers.ClientSettings.prototype.get.call(game.settings, ns, key, ...rest)   // review #34 finding 29
+    : (key === "use-cairn-dice-notation" ? false : origGet(ns, key, ...rest));
   f = await open();
   q(".wd-clear")?.click();
   q(".wd-die[data-die='6']")?.click();

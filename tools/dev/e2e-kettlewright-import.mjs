@@ -1,7 +1,7 @@
 import { chromium } from "playwright";
 import fs from "node:fs";
 import path from "node:path";
-import { FOUNDRY_URL, VIEWPORT, joinAsGM, watchErrors } from "./lib.mjs";
+import { FOUNDRY_URL, VIEWPORT, joinAsGM, watchErrors, watchdog } from "./lib.mjs";
 
 // Self-contained sample KW export written to a temp file for the file chooser.
 const tmp = path.join(process.env.TEMP || ".", "kw_sample_e2e.json");
@@ -23,6 +23,14 @@ fs.writeFileSync(tmp, JSON.stringify({
 }));
 
 const browser = await chromium.launch();
+
+// The fleet's hang guard (review #34 finding 25): without it a hang runs to
+
+// the runner's 65-minute cap, skips every restore, and the box is never
+
+// marked suspect. A bound on a hang, not a timing claim.
+
+watchdog(600000, "kettlewright-import probe", () => browser.close());
 const page = await browser.newPage({ viewport: VIEWPORT });
 const errors = watchErrors(page);
 await joinAsGM(page);

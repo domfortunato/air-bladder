@@ -76,8 +76,9 @@ const shadowSources = (page, mode) => page.evaluate((mode) => {
   // SECOND Setting document for that key rather than updating the first. Every
   // world-setting write in the shadow's window then silently does nothing, and
   // the duplicate document outlives the probe.
-  game.settings.get = (ns, key, ...rest) =>
-    (ns === NS && key in FORCED ? FORCED[key] : game.settings._probeOrigGet(ns, key, ...rest));
+  game.settings.get = (ns, key, ...rest) => rest[0]?.document
+    ? foundry.helpers.ClientSettings.prototype.get.call(game.settings, ns, key, ...rest)   // review #34 finding 29
+    : (ns === NS && key in FORCED ? FORCED[key] : game.settings._probeOrigGet(ns, key, ...rest));
 }, mode);
 
 const unshadowSources = (page) => page.evaluate(() => {

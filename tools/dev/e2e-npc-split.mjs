@@ -29,7 +29,7 @@
  * leg at the end proves.
  */
 import { chromium } from "playwright";
-import { VIEWPORT, joinAsGM, dismissChrome, watchErrors, withSettings } from "./lib.mjs";
+import { VIEWPORT, joinAsGM, dismissChrome, watchErrors, withSettings, watchdog } from "./lib.mjs";
 
 let failures = 0;
 const ok = (label, detail = "") => console.log(`  ok    ${label.padEnd(46)} ${detail}`);
@@ -37,6 +37,14 @@ const fail = (label, detail = "") => { console.log(`  FAIL  ${label.padEnd(46)} 
 const check = (cond, label, detail) => (cond ? ok(label, detail) : fail(label, detail));
 
 const browser = await chromium.launch();
+
+// The fleet's hang guard (review #34 finding 25): without it a hang runs to
+
+// the runner's 65-minute cap, skips every restore, and the box is never
+
+// marked suspect. A bound on a hang, not a timing claim.
+
+watchdog(600000, "npc-split probe", () => browser.close());
 const page = await browser.newPage({ viewport: VIEWPORT });
 const errors = watchErrors(page);
 await joinAsGM(page);

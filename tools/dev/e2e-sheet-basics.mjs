@@ -32,7 +32,7 @@
  * hold for both. The probe should survive the migration it exists to guard.
  */
 import { chromium } from "playwright";
-import { FOUNDRY_URL, VIEWPORT, dismissChrome, joinAsGM, watchErrors } from "./lib.mjs";
+import { FOUNDRY_URL, VIEWPORT, dismissChrome, joinAsGM, watchErrors, watchdog } from "./lib.mjs";
 
 let failures = 0;
 const ok = (l, d = "") => console.log(`  ok    ${l.padEnd(36)} ${d}`);
@@ -41,6 +41,14 @@ const fail = (l, d = "") => { console.log(`  FAIL  ${l.padEnd(36)} ${d}`); failu
 const SHEET = ".cairn.sheet.actor";
 
 const browser = await chromium.launch();
+
+// The fleet's hang guard (review #34 finding 25): without it a hang runs to
+
+// the runner's 65-minute cap, skips every restore, and the box is never
+
+// marked suspect. A bound on a hang, not a timing claim.
+
+watchdog(600000, "sheet-basics probe", () => browser.close());
 const page = await browser.newPage({ viewport: VIEWPORT });
 const errors = watchErrors(page);
 await page.goto(FOUNDRY_URL);

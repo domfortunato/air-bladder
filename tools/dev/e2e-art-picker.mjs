@@ -74,7 +74,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
-import { VIEWPORT, joinAsGM, dismissChrome, watchErrors } from "./lib.mjs";
+import { VIEWPORT, joinAsGM, dismissChrome, watchErrors, watchdog } from "./lib.mjs";
 
 // The gallery's shape comes from the shipped manifest, not from a literal:
 // this file said "23" long after Birds became the 24th category (7044e91), and
@@ -97,6 +97,14 @@ const LY_MON_COUNT = LY_MON.pairs.length;
 const LY_MON_FIRST = LY_MON.pairs[0];
 
 const browser = await chromium.launch();
+
+// The fleet's hang guard (review #34 finding 25): without it a hang runs to
+
+// the runner's 65-minute cap, skips every restore, and the box is never
+
+// marked suspect. A bound on a hang, not a timing claim.
+
+watchdog(600000, "art-picker probe", () => browser.close());
 const page = await browser.newPage({ viewport: VIEWPORT });
 const errors = watchErrors(page);
 let failures = 0;

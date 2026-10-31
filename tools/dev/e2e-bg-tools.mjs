@@ -56,26 +56,15 @@ const result = await page.evaluate(async () => {
   await bg.delete();
 
   // --- Duplicate into my backgrounds -----------------------------------------
-  // Clean slate: if a prior run left the pack, remove it first - once the
-  // login pre-warm is done reading it. cairn.js fires prewarmGenerationPacks
-  // 3s after ready on a GM client, serial over GENERATION_PACKS.documents,
-  // and world.custom-backgrounds is on that list; a deleteCompendium landing
-  // while its getDocuments is in flight has the server dereference
-  // packs.get(pack).packData on the pack it just removed - a console error
-  // through the socket layer beside the pre-warm's own caught warning, and a
-  // red on this probe's zero-console-errors gate. Seen in the 0.1.23 sweep,
-  // the first where the pack was already present at login (dev:take-over ran
-  // ahead and its cleanup keeps the pack, emptied). The wait is
-  // dev:playergen's warm predicate: every listed pack holds as many loaded
-  // documents as its index lists.
-  const pre = game.packs.get("world.custom-backgrounds");
-  if (pre) {
-    const gen = await import("/systems/air-bladder/module/character-generator.js");
-    const listed = (gen.GENERATION_PACKS?.documents ?? []).map((k) => game.packs.get(k)).filter(Boolean);
-    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-    for (const t0 = Date.now(); Date.now() - t0 < 25000 && listed.some((p) => p.size < p.index.size);) await sleep(250);
-    await pre.deleteCompendium();
-  }
+  // THE WARDEN'S PACK IS NEVER DELETED (review #34 finding 22).
+  // `world.custom-backgrounds` is "the only place user backgrounds survive"
+  // (character-generator.js), and the 2e take-over door fills it too; this probe
+  // used to delete it whole at entry and again at exit, wiping every
+  // hand-authored and door-copied background in whatever world it ran on. A
+  // pack that is already there is the Warden's: the probe adds its one copy,
+  // reads it, and removes that copy by id. Only a pack this run created goes.
+  const prePack = game.packs.get("world.custom-backgrounds");
+  const packPreexisted = !!prePack;
 
   const shipped = (await game.packs.get("air-bladder.backgrounds-2e").getDocuments())[0];
   const copy = await CG.duplicateBackgroundToWorld(shipped);
@@ -90,15 +79,25 @@ const result = await page.evaluate(async () => {
   // confirm the freshly-duplicated copy is discovered by id.
   const NS = "air-bladder";
   const priorCustom = game.settings.get(NS, "content-source-custom");
-  await game.settings.set(NS, "content-source-custom", true);
-  const pool = await CG.getBackgroundsFor("2e");
-  out.worldPackDiscovered = pool.some((b) => b.id === copy?.id);
-  await game.settings.set(NS, "content-source-custom", priorCustom);
+  try {
+    await game.settings.set(NS, "content-source-custom", true);
+    const pool = await CG.getBackgroundsFor("2e");
+    out.worldPackDiscovered = pool.some((b) => b.id === copy?.id);
+  } finally {
+    await game.settings.set(NS, "content-source-custom", priorCustom);
+  }
 
-  // Cleanup: drop the whole world pack we created.
-  const created = game.packs.get("world.custom-backgrounds");
-  if (created) await created.deleteCompendium();
-  out.packRemoved = !game.packs.get("world.custom-backgrounds");
+  // Cleanup: this run's copy only, from a pack that was already there; the
+  // whole pack only when this run created it.
+  const pack = game.packs.get("world.custom-backgrounds");
+  if (packPreexisted) {
+    if (copy?.id) await (await pack?.getDocument(copy.id))?.delete();
+    out.packRemoved = !!game.packs.get("world.custom-backgrounds") && !pack?.index.has(copy?.id);
+  } else {
+    if (pack) await pack.deleteCompendium();
+    out.packRemoved = !game.packs.get("world.custom-backgrounds");
+  }
+  out.packPreexisted = packPreexisted;
 
   return out;
 });

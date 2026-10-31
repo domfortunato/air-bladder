@@ -27,11 +27,19 @@
  */
 
 import { chromium } from "playwright";
-import { VIEWPORT, joinAsGM, watchErrors } from "./lib.mjs";
+import { VIEWPORT, joinAsGM, watchErrors, watchdog } from "./lib.mjs";
 
 const SAMPLES = 6;
 
 const browser = await chromium.launch();
+
+// The fleet's hang guard (review #34 finding 25): without it a hang runs to
+
+// the runner's 65-minute cap, skips every restore, and the box is never
+
+// marked suspect. A bound on a hang, not a timing claim.
+
+watchdog(600000, "sheet-layout probe", () => browser.close());
 const page = await browser.newPage({ viewport: VIEWPORT });
 const errors = watchErrors(page);
 let failures = 0;

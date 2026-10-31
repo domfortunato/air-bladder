@@ -468,6 +468,7 @@ try {
     window.__abRealGet2 = settings.get.bind(settings);
     window.__abPrevCal2 = [CONFIG.time.worldCalendarConfig, CONFIG.time.worldCalendarClass];
     settings.get = (ns, key, ...rest) => {
+      if (rest[0]?.document) return foundry.helpers.ClientSettings.prototype.get.call(game.settings, ns, key, ...rest);   // review #34 finding 29
       if (ns !== "air-bladder") return window.__abRealGet2(ns, key, ...rest);
       if (key === "enable-vald-calendar") return true;
       if (key === "vald-weather-today") return { day: gt.dayCount(), text: "Thunderstorms" };
@@ -531,8 +532,9 @@ try {
     const settings = game.settings;
     window.__abRealGet = settings.get.bind(settings);
     window.__abPrevCal = [CONFIG.time.worldCalendarConfig, CONFIG.time.worldCalendarClass];
-    settings.get = (ns, key, ...rest) =>
-      (ns === "air-bladder" && key === "enable-vald-calendar" ? true : window.__abRealGet(ns, key, ...rest));
+    settings.get = (ns, key, ...rest) => rest[0]?.document
+      ? foundry.helpers.ClientSettings.prototype.get.call(game.settings, ns, key, ...rest)   // review #34 finding 29
+      : (ns === "air-bladder" && key === "enable-vald-calendar" ? true : window.__abRealGet(ns, key, ...rest));
     CONFIG.time.worldCalendarConfig = gt.VALD_CALENDAR_CONFIG;
     CONFIG.time.worldCalendarClass = gt.ValdCalendar;
     game.time.initializeCalendar();

@@ -75,9 +75,17 @@
  */
 
 import { chromium } from "playwright";
-import { VIEWPORT, joinAsGM, watchErrors, holdAsideWorldTables } from "./lib.mjs";
+import { VIEWPORT, joinAsGM, watchErrors, holdAsideWorldTables, watchdog } from "./lib.mjs";
 
 const browser = await chromium.launch();
+
+// The fleet's hang guard (review #34 finding 25): without it a hang runs to
+
+// the runner's 65-minute cap, skips every restore, and the box is never
+
+// marked suspect. A bound on a hang, not a timing claim.
+
+watchdog(600000, "reroll-dialog probe", () => browser.close());
 const page = await browser.newContext({ viewport: VIEWPORT }).then((c) => c.newPage());
 const errors = watchErrors(page);
 let failed = false;

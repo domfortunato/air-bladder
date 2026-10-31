@@ -28,7 +28,7 @@
  * Usage: npm run dev:icon-canvas
  */
 import { chromium } from "playwright";
-import { VIEWPORT, joinAsGM, watchErrors, dismissChrome } from "./lib.mjs";
+import { VIEWPORT, joinAsGM, watchErrors, dismissChrome, watchdog } from "./lib.mjs";
 
 const OLD = "systems/air-bladder/icons/generic-item.png";   // deleted in 0.1.7
 const GOOD = "systems/air-bladder/icons/generic-item.svg";  // its replacement
@@ -41,6 +41,14 @@ const fail = (m) => { console.error(`  FAIL  ${m}`); failed = true; };
 const note = (m) => console.log(`  --    ${m}`);
 
 const browser = await chromium.launch();
+
+// The fleet's hang guard (review #34 finding 25): without it a hang runs to
+
+// the runner's 65-minute cap, skips every restore, and the box is never
+
+// marked suspect. A bound on a hang, not a timing claim.
+
+watchdog(600000, "icon-migration-canvas probe", () => browser.close());
 const page = await browser.newContext({ viewport: VIEWPORT }).then((c) => c.newPage());
 const errors = watchErrors(page);
 

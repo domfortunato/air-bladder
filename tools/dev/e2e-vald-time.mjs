@@ -34,9 +34,17 @@
  * Creates nothing. Restores everything it touches.
  */
 import { chromium } from "playwright";
-import { VIEWPORT, joinAsGM, joinAs, watchErrors, dismissChrome } from "./lib.mjs";
+import { VIEWPORT, joinAsGM, joinAs, watchErrors, dismissChrome, watchdog } from "./lib.mjs";
 
 const browser = await chromium.launch();
+
+// The fleet's hang guard (review #34 finding 25): without it a hang runs to
+
+// the runner's 65-minute cap, skips every restore, and the box is never
+
+// marked suspect. A bound on a hang, not a timing claim.
+
+watchdog(600000, "vald-time probe", () => browser.close());
 const page = await browser.newContext({ viewport: VIEWPORT }).then((c) => c.newPage());
 const errors = watchErrors(page);
 let failed = false;
@@ -85,8 +93,9 @@ const withValdOn = (p, body, arg = null) => p.evaluate(async ({ body: src, arg: 
   const realGet = settings.get.bind(settings);
   const prevConfig = CONFIG.time.worldCalendarConfig;
   const prevClass = CONFIG.time.worldCalendarClass;
-  settings.get = (ns, key, ...rest) =>
-    (ns === "air-bladder" && key === "enable-vald-calendar" ? true : realGet(ns, key, ...rest));
+  settings.get = (ns, key, ...rest) => rest[0]?.document
+    ? foundry.helpers.ClientSettings.prototype.get.call(game.settings, ns, key, ...rest)   // review #34 finding 29
+    : (ns === "air-bladder" && key === "enable-vald-calendar" ? true : realGet(ns, key, ...rest));
   CONFIG.time.worldCalendarConfig = gt.VALD_CALENDAR_CONFIG;
   CONFIG.time.worldCalendarClass = gt.ValdCalendar;
   game.time.initializeCalendar();
@@ -423,8 +432,9 @@ try {
   const readDash = () => page.evaluate(async () => {
     const settings = game.settings;
     const realGet = settings.get.bind(settings);
-    settings.get = (ns, key, ...rest) =>
-      (ns === "air-bladder" && key === "enable-vald-calendar" ? false : realGet(ns, key, ...rest));
+    settings.get = (ns, key, ...rest) => rest[0]?.document
+      ? foundry.helpers.ClientSettings.prototype.get.call(game.settings, ns, key, ...rest)   // review #34 finding 29
+      : (ns === "air-bladder" && key === "enable-vald-calendar" ? false : realGet(ns, key, ...rest));
     const prevConfig = CONFIG.time.worldCalendarConfig;
     const prevClass = CONFIG.time.worldCalendarClass;
     // `earthCalendarConfig` IS the Simplified Gregorian and nothing here ever
@@ -563,6 +573,7 @@ try {
     // the point: inheriting whatever the world happened to have called is how
     // a leg ends up asserting three lines one run and four the next.
     settings.get = (ns, key, ...rest) => {
+      if (rest[0]?.document) return foundry.helpers.ClientSettings.prototype.get.call(game.settings, ns, key, ...rest);   // review #34 finding 29
       if (ns !== "air-bladder") return realGet(ns, key, ...rest);
       if (key === "enable-vald-calendar") return true;
       if (key === "vald-weather-today") return { day: gt.dayCount(), text: "Sleet" };
@@ -780,8 +791,9 @@ try {
     // gone by now. Restored in the finally below, like every other Vald leg.
     const settings = game.settings;
     const realGet = settings.get.bind(settings);
-    settings.get = (ns, key, ...rest) =>
-      (ns === "air-bladder" && key === "enable-vald-calendar" ? true : realGet(ns, key, ...rest));
+    settings.get = (ns, key, ...rest) => rest[0]?.document
+      ? foundry.helpers.ClientSettings.prototype.get.call(game.settings, ns, key, ...rest)   // review #34 finding 29
+      : (ns === "air-bladder" && key === "enable-vald-calendar" ? true : realGet(ns, key, ...rest));
     try {
       const app = foundry.applications.instances.get("cairn-warden-dashboard");
       await app?.render();
@@ -851,8 +863,9 @@ try {
   const doorOff = await page.evaluate(async () => {
     const settings = game.settings;
     const realGet = settings.get.bind(settings);
-    settings.get = (ns, key, ...rest) =>
-      (ns === "air-bladder" && key === "enable-vald-calendar" ? false : realGet(ns, key, ...rest));
+    settings.get = (ns, key, ...rest) => rest[0]?.document
+      ? foundry.helpers.ClientSettings.prototype.get.call(game.settings, ns, key, ...rest)   // review #34 finding 29
+      : (ns === "air-bladder" && key === "enable-vald-calendar" ? false : realGet(ns, key, ...rest));
     try {
       const wc = await import("/systems/air-bladder/module/watch-clock.js");
       await wc.refreshWatchClock();
@@ -1433,8 +1446,9 @@ try {
         const gt = await import("/systems/air-bladder/module/game-time.js");
         const settings = game.settings;
         const realGet = settings.get.bind(settings);
-        settings.get = (ns, key, ...rest) =>
-          (ns === "air-bladder" && key === "enable-vald-calendar" ? true : realGet(ns, key, ...rest));
+        settings.get = (ns, key, ...rest) => rest[0]?.document
+          ? foundry.helpers.ClientSettings.prototype.get.call(game.settings, ns, key, ...rest)   // review #34 finding 29
+          : (ns === "air-bladder" && key === "enable-vald-calendar" ? true : realGet(ns, key, ...rest));
         const prevConfig = CONFIG.time.worldCalendarConfig;
         const prevClass = CONFIG.time.worldCalendarClass;
         CONFIG.time.worldCalendarConfig = gt.VALD_CALENDAR_CONFIG;
@@ -1843,8 +1857,9 @@ try {
     const logged = await page.evaluate(async () => {
       const settings = game.settings;
       const realGet = settings.get.bind(settings);
-      settings.get = (ns, key, ...rest) =>
-        (ns === "air-bladder" && key === "weather-log" ? true : realGet(ns, key, ...rest));
+      settings.get = (ns, key, ...rest) => rest[0]?.document
+        ? foundry.helpers.ClientSettings.prototype.get.call(game.settings, ns, key, ...rest)   // review #34 finding 29
+        : (ns === "air-bladder" && key === "weather-log" ? true : realGet(ns, key, ...rest));
       try {
         const gt = await import("/systems/air-bladder/module/game-time.js");
         // POLL FOR THE JOURNAL, by its flag rather than its name or the stored
@@ -1929,8 +1944,9 @@ try {
     const hiddenMark = await page.evaluate(async () => {
       const settings = game.settings;
       const realGet = settings.get.bind(settings);
-      settings.get = (ns, key, ...rest) =>
-        (ns === "air-bladder" && key === "weather-log" ? true : realGet(ns, key, ...rest));
+      settings.get = (ns, key, ...rest) => rest[0]?.document
+        ? foundry.helpers.ClientSettings.prototype.get.call(game.settings, ns, key, ...rest)   // review #34 finding 29
+        : (ns === "air-bladder" && key === "weather-log" ? true : realGet(ns, key, ...rest));
       const made = { journalId: null, entryId: null, pageId: null };
       try {
         const c = game.time.components;
@@ -2020,8 +2036,9 @@ try {
       const result = await page.evaluate(async (decoyId) => {
         const settings = game.settings;
         const realGet = settings.get.bind(settings);
-        settings.get = (ns, key, ...rest) =>
-          (ns === "air-bladder" && key === "weather-log" ? true : realGet(ns, key, ...rest));
+        settings.get = (ns, key, ...rest) => rest[0]?.document
+          ? foundry.helpers.ClientSettings.prototype.get.call(game.settings, ns, key, ...rest)   // review #34 finding 29
+          : (ns === "air-bladder" && key === "weather-log" ? true : realGet(ns, key, ...rest));
         try {
           const wl = await import("/systems/air-bladder/module/weather-log.js");
           const logs = () => game.journal.filter((j) => j.flags?.["air-bladder"]?.weatherLog);
@@ -2164,8 +2181,9 @@ try {
       // value, `current?._id` is undefined, and core CREATES A SECOND Setting
       // document instead of updating the first — 131 of those were swept out of
       // this world once already.
-      settings.get = (ns, key, ...rest) =>
-        (ns === "air-bladder" && key === "weather-log" ? true : realGet(ns, key, ...rest));
+      settings.get = (ns, key, ...rest) => rest[0]?.document
+        ? foundry.helpers.ClientSettings.prototype.get.call(game.settings, ns, key, ...rest)   // review #34 finding 29
+        : (ns === "air-bladder" && key === "weather-log" ? true : realGet(ns, key, ...rest));
       try {
         const wl = await import("/systems/air-bladder/module/weather-log.js");
         const logs = () => game.journal.contents

@@ -60,7 +60,7 @@
  * Usage: npm run dev:roles   (establishes Alice itself if dev:players has not run)
  */
 import { chromium } from "playwright";
-import { VIEWPORT, joinAsGM, joinAs, watchErrors, dismissChrome, watchdog } from "./lib.mjs";
+import { VIEWPORT, joinAsGM, joinAs, watchErrors, dismissChrome, watchdog, holdAsideWorldTables } from "./lib.mjs";
 
 let failed = false;
 const ok = (m, d = "") => console.log(`  ok    ${m.padEnd(44)} ${d}`);
@@ -326,10 +326,16 @@ try {
 
   /* ---- the Faction die: the Warden's world table first, stock second ----- */
   console.log("\nthe Faction die rolls the Warden's own table first");
-  // Sweep any leftover world copy FIRST — a prior aborted run's table would
-  // shadow the shipped one and corrupt the differential below.
+  // A Warden's own "Warden: NPC - Faction" is SET ASIDE in-page, never deleted
+  // (review #34 finding 31): this used to delete every world table of that
+  // name, at entry and again at exit — the Warden's documented override of the
+  // shipped table included. `holdAsideWorldTables` hides them from this page's
+  // lookups for the run; the probe's own plant carries a flag, and only that
+  // is ever deleted.
+  const heldAside = await holdAsideWorldTables(page, ["Warden: NPC - Faction"]);
+  if (heldAside.length) console.log(`  note  set aside ${heldAside.length} world "Warden: NPC - Faction" table(s), untouched`);
   await page.evaluate(async () => {
-    for (const t of game.tables.filter((x) => x.name === "Warden: NPC - Faction")) await t.delete();
+    for (const t of game.tables.filter((x) => x.getFlag("air-bladder", "probeFixture") === "roles")) await t.delete();
   });
   const die = await page.evaluate(async () => {
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -346,6 +352,7 @@ try {
       name: "Warden: NPC - Faction",
       formula: "1d1",
       results: [{ type: "text", description: "ZZ-FACTION-SENTINEL", range: [1, 1], weight: 1 }],
+      flags: { "air-bladder": { probeFixture: "roles" } },
     });
     // generationEnabled seeded true — the default is OFF now, and the die is
     // exactly what the flag hides.
@@ -386,7 +393,7 @@ try {
   // Node-side sweep even on success — an aborted evaluate above must not
   // leave a sentinel table shadowing the Warden's real rolls.
   await page.evaluate(async () => {
-    for (const t of game.tables.filter((x) => x.name === "Warden: NPC - Faction")) await t.delete();
+    for (const t of game.tables.filter((x) => x.getFlag("air-bladder", "probeFixture") === "roles")) await t.delete();
     for (const x of game.actors.filter((x) => x.name === "ZZ Roles Faction")) await x.delete();
   });
 

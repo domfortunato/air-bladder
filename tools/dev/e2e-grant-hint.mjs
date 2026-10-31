@@ -52,9 +52,16 @@ try {
       };
     };
 
-    out.on = await readHint(true);
-    out.off = await readHint(false);
-    await game.settings.set(NS, "show-grant-tags", true); // restore default
+    // RESTORE WHAT WAS THERE, never a hardcoded value (review #34 finding 27):
+    // this wrote `true` back whatever the world held, so a Warden who keeps
+    // grant tags off had them switched on by every run.
+    const prior = game.settings.get(NS, "show-grant-tags");
+    try {
+      out.on = await readHint(true);
+      out.off = await readHint(false);
+    } finally {
+      await game.settings.set(NS, "show-grant-tags", prior);
+    }
     return out;
   });
 

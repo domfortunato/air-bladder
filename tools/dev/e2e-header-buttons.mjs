@@ -293,6 +293,8 @@ try {
   const lockOut = await page.evaluate(async () => {
     const Cls = CONFIG.Actor.documentClass;
     let a = null;
+    // Restored to the value FOUND, not to `true` (review #34 finding 27).
+    const prior = game.settings.get("air-bladder", "show-generate-header");
     try {
       await game.settings.set("air-bladder", "show-generate-header", false);
       a = await Cls.create({ name: "ZZ Header Lock", type: "character" });
@@ -305,7 +307,7 @@ try {
         toggleExists: !!header?.querySelector('button[data-action="toggleGeneration"]'),
       };
     } finally {
-      await game.settings.set("air-bladder", "show-generate-header", true);
+      await game.settings.set("air-bladder", "show-generate-header", prior);
       await a?.sheet?.close();
       await a?.delete();
     }

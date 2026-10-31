@@ -32,7 +32,7 @@
  * every actor this creates ARE restored, and the restore is asserted.
  */
 import { chromium } from "playwright";
-import { VIEWPORT, joinAsGM, dismissChrome, watchErrors, withSettings } from "./lib.mjs";
+import { VIEWPORT, joinAsGM, dismissChrome, watchErrors, withSettings, watchdog } from "./lib.mjs";
 
 let failures = 0;
 const ok = (label, detail = "") => console.log(`  ok    ${label.padEnd(44)} ${detail}`);
@@ -47,6 +47,14 @@ const MON = "zz-pcat-mon";
 const FLAT = "zz-pcat-flat";
 
 const browser = await chromium.launch();
+
+// The fleet's hang guard (review #34 finding 25): without it a hang runs to
+
+// the runner's 65-minute cap, skips every restore, and the box is never
+
+// marked suspect. A bound on a hang, not a timing claim.
+
+watchdog(600000, "portrait-categories probe", () => browser.close());
 const page = await browser.newPage({ viewport: VIEWPORT });
 const errors = watchErrors(page);
 await joinAsGM(page);

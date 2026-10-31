@@ -26,7 +26,7 @@
  */
 
 import { chromium } from "playwright";
-import { VIEWPORT, dismissChrome, joinAsGM, joinAs, watchErrors } from "./lib.mjs";
+import { VIEWPORT, dismissChrome, joinAsGM, joinAs, watchErrors, watchdog } from "./lib.mjs";
 
 const ok = (label, detail = "") => console.log(`  ok    ${label.padEnd(38)} ${detail}`);
 const fail = (label, detail = "") => { console.log(`  FAIL  ${label.padEnd(38)} ${detail}`); failures++; };
@@ -40,6 +40,14 @@ const PAYLOAD =
   '<a href="javascript:alert(1)">j</a><em>keep me</em>';
 
 const browser = await chromium.launch();
+
+// The fleet's hang guard (review #34 finding 25): without it a hang runs to
+
+// the runner's 65-minute cap, skips every restore, and the box is never
+
+// marked suspect. A bound on a hang, not a timing claim.
+
+watchdog(600000, "sanitize probe", () => browser.close());
 
 const gmPage = await (await browser.newContext({ viewport: VIEWPORT })).newPage();
 const gmErrors = watchErrors(gmPage);

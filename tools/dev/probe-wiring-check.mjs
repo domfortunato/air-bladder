@@ -124,20 +124,23 @@ const shadowProblems = [];
 for (const f of files) {
   const lines = fs.readFileSync(path.join(dir, f), "utf8").split(/\r?\n/);
   lines.forEach((line, i) => {
-    const m = line.match(/settings\.get = function \(([^)]*)\)/);
+    // Function form AND arrow form (review #34 finding 29): the gate used to
+    // see only `function (`, and sixteen arrow shadows answered a
+    // {document: true} request for their own forced key with the forced value.
+    const m = line.match(/settings\.get = (?:function )?\(([^)]*)\)/);
     if (!m) return;
     if (!/\.\.\.\w+/.test(m[1])) {
       shadowProblems.push(`${f}:${i + 1} shadows settings.get without a rest parameter — the {document: true} call is dropped`);
       return;
     }
-    const window = lines.slice(i + 1, i + 8).join("\n");
-    if (!/rest\[0\]\?\.document\)\s*return\s+foundry\.helpers\.ClientSettings\.prototype\.get\.call\(/.test(window)) {
+    const window = lines.slice(i, i + 8).join("\n");
+    if (!/rest\[0\]\?\.document\)?\s*(?:return|\?)\s+foundry\.helpers\.ClientSettings\.prototype\.get\.call\(/.test(window)) {
       shadowProblems.push(`${f}:${i + 1} shadows settings.get without passing a {document: true} request to ClientSettings.prototype.get`);
     }
   });
 }
 shadowProblems.length === 0
-  ? ok("every function-form settings.get shadow forwards its arguments and passes document requests through")
+  ? ok("every settings.get shadow, function or arrow form, forwards its arguments and passes document requests through")
   : fail(`${shadowProblems.length} settings.get shadow(s) that would make a world-setting write create a duplicate document:\n         ${shadowProblems.join("\n         ")}`);
 
 console.log(failed ? "\nPROBE WIRING CHECK FAILED\n" : "\nprobe wiring check passed\n");

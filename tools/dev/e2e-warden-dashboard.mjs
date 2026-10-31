@@ -27,9 +27,17 @@
  * Creates chat messages and one actor, and deletes exactly the ids it added.
  */
 import { chromium } from "playwright";
-import { VIEWPORT, joinAsGM, joinAs, watchErrors, dismissChrome } from "./lib.mjs";
+import { VIEWPORT, joinAsGM, joinAs, watchErrors, dismissChrome, watchdog } from "./lib.mjs";
 
 const browser = await chromium.launch();
+
+// The fleet's hang guard (review #34 finding 25): without it a hang runs to
+
+// the runner's 65-minute cap, skips every restore, and the box is never
+
+// marked suspect. A bound on a hang, not a timing claim.
+
+watchdog(600000, "warden-dashboard probe", () => browser.close());
 const page = await browser.newContext({ viewport: VIEWPORT }).then((c) => c.newPage());
 const errors = watchErrors(page);
 let failed = false;
@@ -66,8 +74,9 @@ try {
     const settings = game.settings;
     window.__abRealGet = settings.get.bind(settings);
     window.__abPrevCalendar = [CONFIG.time.worldCalendarConfig, CONFIG.time.worldCalendarClass];
-    settings.get = (ns, key, ...rest) =>
-      (ns === "air-bladder" && key === "enable-vald-calendar" ? false : window.__abRealGet(ns, key, ...rest));
+    settings.get = (ns, key, ...rest) => rest[0]?.document
+      ? foundry.helpers.ClientSettings.prototype.get.call(game.settings, ns, key, ...rest)   // review #34 finding 29
+      : (ns === "air-bladder" && key === "enable-vald-calendar" ? false : window.__abRealGet(ns, key, ...rest));
     // `earthCalendarConfig` IS core's Simplified Gregorian and nothing here
     // ever touches it, so it is the one handle on core's own calendar that
     // survives a world which already installed Vald.
@@ -607,8 +616,9 @@ try {
     const gt = await import("/systems/air-bladder/module/game-time.js");
     const settings = game.settings;
     const realGet = settings.get.bind(settings);
-    settings.get = (ns, key, ...rest) =>
-      (ns === "air-bladder" && key === "enable-vald-calendar" ? true : realGet(ns, key, ...rest));
+    settings.get = (ns, key, ...rest) => rest[0]?.document
+      ? foundry.helpers.ClientSettings.prototype.get.call(game.settings, ns, key, ...rest)   // review #34 finding 29
+      : (ns === "air-bladder" && key === "enable-vald-calendar" ? true : realGet(ns, key, ...rest));
     try {
       const app = foundry.applications.instances.get("cairn-warden-dashboard");
       await app.render();

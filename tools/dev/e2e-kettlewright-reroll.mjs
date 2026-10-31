@@ -11,10 +11,14 @@
  */
 import { chromium } from "playwright";
 import path from "node:path";
-import { VIEWPORT, joinAsGM, watchErrors, confirmImportOptions } from "./lib.mjs";
+import { VIEWPORT, joinAsGM, watchErrors, confirmImportOptions, watchdog } from "./lib.mjs";
 
 const fixture = path.resolve("tools/dev/fixtures/kettlewright-solene.json");
 const browser = await chromium.launch();
+// The fleet's hang guard (review #34 finding 25): without it a hang runs to
+// the runner's 65-minute cap, skips every restore, and the box is never
+// marked suspect. A bound on a hang, not a timing claim.
+watchdog(600000, "kettlewright-reroll probe", () => browser.close());
 const page = await browser.newPage({ viewport: VIEWPORT });
 const errors = watchErrors(page);
 await joinAsGM(page);
@@ -109,8 +113,14 @@ console.log(`Surgeon's Soap grant source after import: ${out.tagged}`);
 if (out.tagged !== "question:1") { bad++; console.log("  FAIL  expected question:1 — a re-roll can't replace an `imported` item"); }
 else console.log("  ok    tagged to its question, so a re-roll owns it");
 
+// NEITHER ABSENCE IS A PASS (review #34 finding 33). The re-roll is this
+// gate's subject: a missing control, or twelve presses that never changed the
+// answer (a refusal that only toasts, a stuck guard, a rewired handler — twelve
+// identical honest d6 outcomes is about one in 2.2 billion), used to print SKIP
+// and exit 0, so the gate stayed green with no re-roll having happened.
 if (!out.foundButton) {
-  console.log("  SKIP  re-roll control not found; tag check above is the meaningful assertion");
+  bad++;
+  console.log("  FAIL  re-roll control not found — the leg's subject is missing");
 } else {
   const rerolled = out.answerBefore !== out.answerAfter;
   console.log(`\nanswer before: ${out.answerBefore.slice(0, 50)}`);
@@ -118,9 +128,8 @@ if (!out.foundButton) {
   console.log(`items before: ${out.total.before}   after: ${out.total.after}`);
   console.log(`inventory after: ${out.after.join(", ")}`);
   if (!rerolled) {
-    // A d6 can legitimately land on the option it already had. That tells us
-    // nothing either way, so don't score it as a pass or a failure.
-    console.log("  SKIP  the re-roll produced the same option — inconclusive, re-run");
+    bad++;
+    console.log("  FAIL  twelve re-rolls never changed the answer — the re-roll did not happen");
   } else if (out.soapStillThere) {
     bad++;
     console.log("  FAIL  the original granted item survived the re-roll (duplicate)");
