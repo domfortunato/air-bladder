@@ -45,6 +45,9 @@
  *      synthetic actor): that one token is written DIRECTLY — ActorDelta
  *      declares no prototypeToken field, so the linked-actor write shape
  *      cannot carry it — and the sibling and base actor keep theirs.
+ *   9. A Type chosen on an unlinked transport token's OWN sheet (review #34
+ *      finding 162): the Kind's stock art lands on that token as on its
+ *      sheet, and the base actor keeps its own.
  *
  * Two throwaway scenes and two throwaway actors, swept first and deleted in a
  * Node finally, so an aborted run leaves nothing for the next one to pass on.
@@ -387,6 +390,49 @@ try {
   tokens8.B?.some((t) => !t.linked && t.src === ART.monster) && r8.baseProto === ART.monster && r8.baseImg !== ART.delta
     ? ok("its sibling on Scene B and the base actor keep theirs")
     : fail(`sibling/base after a token-sheet pick: B=${JSON.stringify(tokens8.B?.map((t) => t.src))}, baseProto="${r8.baseProto}", baseImg="${r8.baseImg}"`);
+
+  /* ---- 9. a Type chosen on an unlinked token's OWN sheet ----------------- */
+  // Review #34 finding 162. Choosing a Kind restamps stock art in
+  // CairnActor._preUpdate as `img` AND `prototypeToken.texture.src`; on a
+  // synthetic actor the delta drops the second, so the sheet changed and the
+  // placed token — the one picture there is — did not. The Type select is not
+  // one of the art setters that write such a token directly.
+  stage("9. a Type chosen on one unlinked transport token's own sheet");
+  const r9 = await page.evaluate(async ({ P, cart }) => {
+    const A = game.scenes.filter((s) => s.name.startsWith(P)).sort((a, b) => a.name.localeCompare(b.name))[0];
+    const base = await getDocumentClass("Actor").create({
+      name: cart, type: "npc", system: { role: "transport", containerClass: "cart" },
+      prototypeToken: { actorLink: false },
+    });
+    const [token] = await A.createEmbeddedDocuments("Token",
+      [(await base.getTokenDocument({ x: 900, y: 100 })).toObject()]);
+    const before = { img: token.actor.img, src: token.texture.src };
+    const sheet = token.actor.sheet;
+    await sheet.render(true);
+    for (let i = 0; i < 40 && !sheet.element; i++) await new Promise((r) => setTimeout(r, 100));
+    await new Promise((r) => setTimeout(r, 300));
+    const select = sheet.element?.querySelector(".kind-select");
+    if (!select) { await sheet.close(); return { noSelect: true, before }; }
+    select.value = "wagon";
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+    for (let i = 0; i < 40 && token.actor.system.containerClass !== "wagon"; i++) {
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    await sheet.close();
+    return { tokenId: token.id, synthetic: token.actor.isToken, before, img: token.actor.img,
+      baseImg: base.img, baseProto: base.prototypeToken.texture.src };
+  }, { P: PREFIX, cart: `${PREFIX} Cart` });
+  const t9 = r9.noSelect ? null : await until(page, (arg) => {
+    const A = game.scenes.filter((s) => s.name.startsWith(arg.P)).sort((a, b) => a.name.localeCompare(b.name))[0];
+    return A.tokens.get(arg.tokenId)?.texture?.src === arg.img ? true : null;
+  }, { P: PREFIX, tokenId: r9.tokenId, img: r9.img });
+  if (r9.noSelect) fail("no .kind-select on the transport token's sheet — the leg proves nothing");
+  r9.synthetic && r9.before?.src === r9.before?.img && /wagon/.test(r9.img ?? "") && t9
+    ? ok(`the token whose own sheet chose Wagon wears the Wagon art ("${r9.img}")`)
+    : fail(`token art after a Type change on its sheet: ${JSON.stringify({ ...r9, followed: !!t9 })}`);
+  r9.baseImg === r9.before?.img && r9.baseProto === r9.before?.src
+    ? ok("...and the base actor keeps its own")
+    : fail(`base actor after a token-sheet Type change: ${JSON.stringify(r9)}`);
 
   /* ---- console errors ---------------------------------------------------- */
   const errs = [...errors, ...(aliceErrors ?? [])];
