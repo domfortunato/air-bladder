@@ -3547,6 +3547,14 @@ export const changeBackground = async (actor, newBg = null, { ignoreHandBuilt = 
   // Write bonds only when the clamp bit — preservation stays the default, and
   // an untouched array is not re-written wholesale for nothing.
   if (bonds.length !== (actor.system.bonds ?? []).length) update["system.bonds"] = bonds;
+  // A SWAP ARRANGES THE WHOLE INVENTORY, at every door (review #34 finding
+  // 173). Only the Roll Character checklist re-arranged after this; the die,
+  // the picker and a background drop stopped here, and the new loadout rode
+  // the append seam in background-list order — a sword below the rations.
+  // HERE, so all four doors share it, as applyHirelingCareer and
+  // applyNpcBackground do on the NPC side; and BEFORE the rendering update
+  // below, which is what shows it (review #21).
+  await reorderInventory(actor);
   await actor.update(update, { abNoStatusCard: true });
 
   // A background change may not land ON the failed career (ruled 2026-08-08).
