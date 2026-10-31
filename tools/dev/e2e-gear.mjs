@@ -437,6 +437,40 @@ try {
     ? ok("an item Dropped to the pile lands UNTAGGED")
     : fail(`the pile's copy kept its grant tag: ${JSON.stringify(piled)}`);
 
+  // DROP, DROP ON ONE ROW (review #34 finding 136). The claim id is minted
+  // fresh per gesture (review #33), which stopped two actors' items colliding
+  // and also stopped refusing a SECOND gesture on the same item: two Drops
+  // inside the round trip before the delete lands each passed the existence
+  // check and filed a copy. Both started in one tick, as the Warden's client
+  // meets two brokered asks.
+  const twice = await page.evaluate(async () => {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const pp = await import("/systems/air-bladder/module/party-pile.js");
+    const pc = await getDocumentClass("Actor").create({ name: "ZZ Gear Twice Dropper", type: "character" });
+    const pileBefore = pp.findDroppedPile();
+    const before = new Set(pileBefore?.items.map((i) => i.id) ?? []);
+    const mine = () => (pp.findDroppedPile()?.items ?? [])
+      .filter((i) => !before.has(i.id) && i.name === "ZZ Gear Twice Lamp");
+    try {
+      const [lamp] = await pc.createEmbeddedDocuments("Item", [{ name: "ZZ Gear Twice Lamp", type: "item" }]);
+      const settled = await Promise.allSettled([pp.dropItemToPile(pc, lamp.id), pp.dropItemToPile(pc, lamp.id)]);
+      await sleep(800);
+      return {
+        results: settled.map((s) => (s.status === "fulfilled" ? s.value : `threw: ${s.reason?.message}`)),
+        copies: mine().length,
+        sourceGone: !pc.items.get(lamp.id),
+      };
+    } finally {
+      try { await pc.delete(); } catch { /* gone */ }
+      const pile = pp.findDroppedPile();
+      if (pile && !pileBefore) { try { await pile.delete(); } catch { /* gone */ } }
+      else if (pile) { try { await pile.deleteEmbeddedDocuments("Item", mine().map((i) => i.id)); } catch { /* gone */ } }
+    }
+  });
+  twice.copies === 1 && twice.sourceGone
+    ? ok("two Drops of one row in one tick file ONE copy", JSON.stringify(twice))
+    : fail(`two Drops of one row filed ${twice.copies} copies: ${JSON.stringify(twice)}`);
+
   // A BROKERED DROP'S LEDGER (review #34 finding 245). A player's Drop runs on
   // the active Warden's client (CONFIG.queries["air-bladder.pileDrop"]), so its
   // ledger cards were the Warden's writes: the dropper's read "Changed by
