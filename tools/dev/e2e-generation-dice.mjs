@@ -201,6 +201,39 @@ try {
     }
     out.clickedActions = clicked;
     out.legs.fieldRerolls = describe(await newSince(before, { expect: 0 }));
+
+    /* --- 5b. a TRAIT die is a roll, so it is not a manual change ----------- */
+    // Review #34 finding 57. `system.traits.*` is an audited path, and the die
+    // wrote it without `abNoStatusCard`, so with the change log on (the default)
+    // every press whispered a "manual change" ledger card. The setting's hint
+    // promises rolled generation is never logged. The log is switched ON for the
+    // leg (withSettings restores it), so the silence is not the setting's.
+    await game.settings.set(NS, "change-log", true);
+    actor.sheet.element?.querySelector('[data-action="toggleTraits"]')?.click();
+    for (let i = 0; i < 30 && !actor.sheet.element?.querySelector('[data-action="rollTrait"]'); i++) await sleep(150);
+    const traitDie = actor.sheet.element?.querySelector('[data-action="rollTrait"]');
+    out.traitDie = !!traitDie;
+    before = snapshot();
+    traitDie?.click();
+    await sleep(1500);
+    out.legs.traitRoll = describe(await newSince(before, { expect: 0 }));
+
+    /* --- 5c. a double-click on the Background die swaps ONCE --------------- */
+    // Review #34 finding 58. The die ran changeBackground's delete-then-create
+    // with no `_rerolling` guard, so a second click inside the first's awaits
+    // dealt a second loadout or threw on an id the first had deleted. Counted
+    // as background WRITES on this actor: one swap is one write.
+    let bgWrites = 0;
+    const hookId = Hooks.on("updateActor", (a, changes) => {
+      const sys = changes?.system ?? {};
+      if (a.id === actor.id && ("background" in sys || "backgroundUuid" in sys || "questions" in sys)) bgWrites++;
+    });
+    const bgDie = actor.sheet.element?.querySelector('[data-action="rollBackground"]');
+    bgDie?.click();
+    bgDie?.click();
+    await sleep(4000);
+    Hooks.off("updateActor", hookId);
+    out.bgDoubleWrites = bgDie ? bgWrites : null;
     await actor.sheet.close();
 
     return out;
@@ -290,6 +323,12 @@ try {
   r.legs.fieldRerolls.length === 0
     ? ok("name / portrait / background re-rolls posted nothing to chat")
     : fail(`field re-rolls posted ${r.legs.fieldRerolls.length} message(s) [${r.legs.fieldRerolls.map((m) => m.id).join(", ")}]`);
+  r.traitDie && r.legs.traitRoll.length === 0
+    ? ok("a trait die posts nothing either, with the change log ON — a roll is not a manual change")
+    : fail(`trait die (present=${r.traitDie}) posted ${r.legs.traitRoll?.length} message(s) [${(r.legs.traitRoll ?? []).map((m) => m.id).join(", ")}]`);
+  r.bgDoubleWrites === 1
+    ? ok("a double-click on the Background die swaps once")
+    : fail(`a double-click on the Background die wrote the background ${r.bgDoubleWrites} time(s)`);
 
   // ---- Leg 6: two seconds of dice, then the sheet --------------------------
   // ChatMessage.create resolves when the document saves; Dice So Nice keeps

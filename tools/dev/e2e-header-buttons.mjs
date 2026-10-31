@@ -406,6 +406,7 @@ try {
     const actor = game.actors.get(i.actorId);
     await actor.createEmbeddedDocuments("Item", [{ name: "ZZ Header Rope", type: "item" }]);
     for (let n = 0; n < 40 && !app.element.querySelector('[data-action="itemDelete"]'); n++) await sleep(150);
+    const titles = {};
     const homeOf = async (selector) => {
       const control = app.element.querySelector(selector);
       if (!control) return "no control";
@@ -420,6 +421,7 @@ try {
       if (!dlg) return "no dialog";
       const where = dlg.element.ownerDocument === app.element.ownerDocument ? "sheet"
         : dlg.element.ownerDocument === document ? "main" : "elsewhere";
+      titles[selector] = dlg.title;
       await dlg.close();
       await sleep(300);
       return where;
@@ -429,6 +431,7 @@ try {
       trash: await homeOf('[data-action="itemDelete"]'),
       create: await homeOf('[data-action="itemCreate"]'),
       roll: await homeOf('.window-header [data-action="rollActor"]'),
+      trashTitle: titles['[data-action="itemDelete"]'] ?? null,
     };
   }, info);
   homes.sheetDetached && homes.trash === "sheet"
@@ -440,6 +443,11 @@ try {
   homes.roll === "sheet"
     ? ok("...and the (modal) Roll Character checklist")
     : fail("...and the (modal) Roll Character checklist", JSON.stringify(homes));
+  // A TITLE on the trash confirm (review #34 finding 60): ApplicationV2's
+  // default is "", and this modal opened with a blank bar.
+  homes.trashTitle
+    ? ok("the trash can's confirm has a title", `"${homes.trashTitle}"`)
+    : fail("the trash can's confirm has a title", JSON.stringify(homes.trashTitle));
 
   const reattached = await page.evaluate(async (i) => {
     const app = foundry.applications.instances.get(i.sheetId);
