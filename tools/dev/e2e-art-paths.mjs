@@ -163,26 +163,30 @@ try {
     // finding 158) and this probe would plant nothing stale. `noHook` skips the
     // preCreate hooks and only them: the document classes' own `_preCreate`
     // still run, and nothing is written but the fixtures themselves.
-    const STALE = { noHook: true };
+    // A FUNCTION, not one shared object: core writes into the options it is
+    // handed (parent, pack, timestamps), and a reused object carried one
+    // create's parent into the next ("actors is not a valid embedded
+    // Document within the ActorDelta Document").
+    const STALE = () => ({ noHook: true });
 
-    const item = await ItemCls.create({ name: "zz-art-path-item", type: "item", img: old[3] }, STALE);
+    const item = await ItemCls.create({ name: "zz-art-path-item", type: "item", img: old[3] }, STALE());
 
     // The surfaces the PREFIX table cannot reach: already under art/, wrong
     // FORMAT. A world made between the restructure and the WebP conversion
     // looks exactly like this. One document per re-encoded gallery.
     const reencs = [];
     for (const [i, [from]] of REENCODED.entries()) {
-      reencs.push(await ItemCls.create({ name: `zz-art-path-reenc-${i}`, type: "item", img: from }, STALE));
+      reencs.push(await ItemCls.create({ name: `zz-art-path-reenc-${i}`, type: "item", img: from }, STALE()));
     }
     const renamed = [];
     for (const [i, [from]] of RENAMED.entries()) {
-      renamed.push(await ItemCls.create({ name: `zz-art-path-renamed-${i}`, type: "item", img: from }, STALE));
+      renamed.push(await ItemCls.create({ name: `zz-art-path-renamed-${i}`, type: "item", img: from }, STALE()));
     }
     // The generation-2 surfaces: art/-era, right format, wrong FOLDER — only
     // the filename-pinned monster moves can touch these.
     const movedMon = [];
     for (const [i, [from]] of MOVED_MONSTERS.entries()) {
-      movedMon.push(await ItemCls.create({ name: `zz-art-path-monster-${i}`, type: "item", img: from }, STALE));
+      movedMon.push(await ItemCls.create({ name: `zz-art-path-monster-${i}`, type: "item", img: from }, STALE()));
     }
 
     const actor = await ActorCls.create({
@@ -192,17 +196,17 @@ try {
       img: old[0],
       prototypeToken: { texture: { src: old[1] } },
       items: [{ name: "zz-art-path-owned", type: "item", img: old[2] }],
-    }, STALE);
+    }, STALE());
     const owned = actor.items.find((i) => i.name === "zz-art-path-owned");
 
     // A scene of our own, so no existing map is touched and the token is ours to
     // delete. actorLink false: an unlinked token carries its own texture, which
     // is the whole reason this surface needs covering separately.
-    const scene = await Scene.create({ name: "zz-art-path-scene", width: 1000, height: 1000 }, STALE);
+    const scene = await Scene.create({ name: "zz-art-path-scene", width: 1000, height: 1000 }, STALE());
     const [token] = await scene.createEmbeddedDocuments("Token", [{
       name: "zz-art-path-token", x: 100, y: 100, actorId: actor.id, actorLink: false,
       texture: { src: old[4] },
-    }], STALE);
+    }], STALE());
 
     // The token's ActorDELTA — a second copy of the art the scene-token loop
     // cannot reach (review 2026-08-04). Writing through the synthetic actor
@@ -211,7 +215,7 @@ try {
     await token.actor.update({ img: old[0] });
     const [deltaItem] = await token.actor.createEmbeddedDocuments("Item", [
       { name: "zz-art-path-delta-item", type: "item", img: old[2] },
-    ], STALE);
+    ], STALE());
 
     // A WORLD compendium pack, LOCKED — a Warden's curated compendium is the
     // copy-at-creation case with no second chance, and the lock must be
@@ -227,7 +231,7 @@ try {
     });
     const packActor = await ActorCls.create(
       { name: "zz-art-path-pack-actor", type: "npc", system: { role: "monster" }, img: old[0] },
-      { pack: pack.collection, ...STALE },
+      { pack: pack.collection, ...STALE() },
     );
     await pack.configure({ locked: true });
 
@@ -237,7 +241,7 @@ try {
     // cares about `img` alone, so it touches neither and cannot rot on either.
     // ...and the table's OWN icon, which the world pass never read while the
     // pack pass did (review #34 finding 158).
-    const table = await RollTable.create({ name: "zz-art-path-table", img: old[0] }, STALE);
+    const table = await RollTable.create({ name: "zz-art-path-table", img: old[0] }, STALE());
 
     // A world SCENE compendium and a world ADVENTURE compendium, both LOCKED
     // (review #34 finding 158): neither type was ever swept, and both are
@@ -254,7 +258,7 @@ try {
       name: "zz-art-path-pack-scene", width: 1000, height: 1000,
       tokens: [{ name: "zz-art-path-pack-token", x: 100, y: 100, actorId: actor.id, actorLink: false,
         texture: { src: old[4] }, delta: { img: old[0] } }],
-    }, { pack: scenePack.collection, ...STALE });
+    }, { pack: scenePack.collection, ...STALE() });
     const packToken = packScene?.tokens.contents[0];
     await scenePack.configure({ locked: true });
     const advPack = await CC.createCompendium({ label: "zz-art-path-adventures", type: "Adventure" });
@@ -262,16 +266,16 @@ try {
     const adventure = await getDocumentClass("Adventure").create({
       name: "zz-art-path-adventure",
       actors: [{ _id: advActorId, name: "zz-art-path-adv-actor", type: "npc", system: { role: "monster" }, img: old[0] }],
-    }, { pack: advPack.collection, ...STALE });
+    }, { pack: advPack.collection, ...STALE() });
     await advPack.configure({ locked: true });
     const [result] = await table.createEmbeddedDocuments("TableResult", [
       { img: old[0], range: [1, 1] },
-    ], STALE);
+    ], STALE());
 
     // The control documents, planted the same way so they take the same path.
     const controls = [];
     for (const [i, src] of UNTOUCHED.entries()) {
-      controls.push((await ItemCls.create({ name: `zz-art-path-control-${i}`, type: "item", img: src }, STALE)).id);
+      controls.push((await ItemCls.create({ name: `zz-art-path-control-${i}`, type: "item", img: src }, STALE())).id);
     }
 
     return {
