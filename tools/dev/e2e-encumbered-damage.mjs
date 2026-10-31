@@ -19,6 +19,10 @@
  * actor.system.hp.value here would report 0 in both the fixed and broken cases and
  * pass for the wrong reason.
  *
+ * Since review #34 (finding 46, user ruling 2026-10-31) a hit on such an actor is
+ * JUDGED against the 0 it shows: the damage goes to STR and the stored HP is not
+ * written at all. Leg 1 asserts exactly that — stored 4 kept, STR 10 -> 9.
+ *
  *   2b-2d. Encumbrance follows the ROLE (2026-08-01, `livesByPlayerRules`): a
  *      loaded MOUNT keeps its HP and its input submits; a role-npc PERSON at
  *      capacity reads 0 with the stored value intact and the submit stripped —
@@ -114,7 +118,8 @@ const out = await page.evaluate(async () => {
   const prev = canvas.scene;
   if (canvas.scene?.id !== scene.id) await scene.view();
 
-  // Damage 1 against armor 0 — a real hit, so HP must drop by 1 from the STORED 4.
+  // Damage 1 against armor 0 — a real hit on the displayed 0, so it lands on STR
+  // and the STORED 4 is left alone (review #34 finding 46).
   await Damage.applyToTarget(tokenDoc.id, 1);
   results.sourceAfterHit = pc.toObject().system.hp.value;
   results.strAfterHit = pc.toObject().system.abilities.STR.value;
@@ -2143,10 +2148,17 @@ check("derived HP is 0", out.derivedIsZero, "data prep zeroed the derived value"
 check("source HP is 4", out.sourceBefore === 4, `source=${out.sourceBefore}`);
 
 console.log("\ndamage while encumbered");
-check("stored HP survives", out.sourceAfterHit === 3,
-  `source=${out.sourceAfterHit} (expected 3: stored 4 minus 1 damage)`);
-check("STR untouched", out.strAfterHit === 10,
-  `STR=${out.strAfterHit} (a 1-point hit must not overflow past stored HP)`);
+// JUDGED AGAINST THE 0 EVERYONE SEES (review #34 finding 46, user ruling
+// 2026-10-31, reversing the answer these two legs pinned since review #1). An
+// encumbered or panicked character reads 0 HP, and a hit on 0 HP goes to STR —
+// so the 1 point lands on STR and the STORED 4, which nobody can see, is not
+// written at all: it comes back intact when the load lifts. Review #1's real
+// bug (the derived 0 persisted over the stored value) stays fixed by the same
+// rule, more strongly: HP is not written while the rule zeroes it.
+check("stored HP untouched", out.sourceAfterHit === 4,
+  `source=${out.sourceAfterHit} (expected 4: a hit on the displayed 0 does not touch the hidden HP)`);
+check("the hit lands on STR", out.strAfterHit === 9,
+  `STR=${out.strAfterHit} (expected 9: 1 damage on 0 HP, armor 0)`);
 
 console.log("\nhireling sheet submit");
 check("guard strips HP", !out.submitKeepsHp, "system.hp.value removed from submit data");
