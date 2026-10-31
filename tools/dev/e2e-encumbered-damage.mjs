@@ -1457,6 +1457,32 @@ const untargeted = await page.evaluate(async () => {
   r.cancelGaveNothing = Array.isArray(r.cancelResult) ? r.cancelResult.length === 0 : r.cancelResult === "cancel";
   await dialogGone();
 
+  /* A second click while the first's picker is open says nothing (review #34
+   * finding 184). The in-flight refusal read "This card's damage has already
+   * been applied" while nothing had landed, and a cancelled picker then
+   * applied nothing at all. Cancelled here, so the end-to-end leg below opens
+   * the card fresh. */
+  {
+    const warns = [];
+    const origWarn = ui.notifications.warn;
+    ui.notifications.warn = function (m, ...rest) { warns.push(String(m)); return origWarn.call(this, m, ...rest); };
+    try {
+      anchor?.click();
+      const open = await dialogEl();
+      r.busyPickerOpened = !!open;
+      anchor?.click();
+      await sleep(400);
+      r.busyWarned = warns.includes(game.i18n.localize("CAIRN.Notify.DamageAlreadyApplied"));
+      open?.querySelector('button[data-action="cancel"]')?.click();
+      await dialogGone();
+      await sleep(400);
+      r.busyCancelledClean = !msg.getFlag("air-bladder", "damageApplied")
+        && foeTok.actor.toObject().system.hp.value === 9 && pcTok.actor.toObject().system.hp.value === 9;
+    } finally {
+      ui.notifications.warn = origWarn;
+    }
+  }
+
   /* End to end, through the REAL anchor on the REAL card. */
   const hpFoe = () => foeTok.actor.toObject().system.hp.value;
   const hpPc = () => pcTok.actor.toObject().system.hp.value;
@@ -2693,6 +2719,10 @@ check("the picker proposes nobody",
   + `and ${JSON.stringify(untargeted.targeted)} targeted — a wrong default is worse than no default`);
 check("Cancel applies nothing", untargeted.cancelGaveNothing,
   `resolved to ${JSON.stringify(untargeted.cancelResult)} — a ✕ is an instruction, not a default`);
+check("precondition: the first click's picker opened", untargeted.busyPickerOpened === true, "");
+check("a second click while it is open does not say 'already applied' (F184)", untargeted.busyWarned === false,
+  "nothing has landed while the first click's picker is open");
+check("...and the cancelled picker applied nothing", untargeted.busyCancelledClean === true, "");
 check("clicking the real anchor asks", untargeted.clickOpenedPicker,
   "driven through the button rather than the helper, so neither layer alone can look like a landed fix");
 check("both ticked take the FULL roll",
