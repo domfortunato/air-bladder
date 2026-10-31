@@ -18,9 +18,20 @@ const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<
  * Spanish opens the question with "¿", which concatenating a trailing "?" cannot
  * produce — the sentence has to be the translator's to write, whole.
  */
-const confirmDelete = (name) =>
+const confirmDelete = (name, { windowId, type = "Item" } = {}) =>
   foundry.applications.api.DialogV2.confirm({
+    // A TITLE (review #34 finding 60): ApplicationV2's default is "", so this
+    // modal opened with a blank bar. Core's own delete confirms' title, keys and
+    // all (`DOCUMENT.Delete` with the document's label — tokens.mjs,
+    // placeables-layer.mjs), so a translator has nothing new to write.
+    window: { title: game.i18n.format("DOCUMENT.Delete", {
+      type: game.i18n.localize(getDocumentClass(type).metadata.label) }) },
     content: game.i18n.format("CAIRN.Notify.ConfirmDeleteNamed", { name: esc(name) }),
+    // The launching sheet's own window when it is popped out — MODAL, so in
+    // the main window it locked a screen the player was not looking at
+    // (review #34 finding 1; the reasoning is at `_confirmAction` in
+    // actor-sheet.js). The Actor has no window; the sheet passes its own.
+    renderOptions: { window: { windowId } },
     rejectClose: false,
     modal: true,
   });
@@ -1220,7 +1231,7 @@ export class CairnActor extends Actor {
      rollback to get wrong. */
 
   /** No longer an override as deleteOwnedItem is deprecated on type Actor */
-  async deleteOwnedItem(itemId) {
+  async deleteOwnedItem(itemId, { windowId } = {}) {
     const item = this.items.get(itemId);
     if (item) {
       // Ask about the name on the row (review #9): the inventory renders the
@@ -1230,7 +1241,7 @@ export class CairnActor extends Actor {
       const shown = item.name === FATIGUE_NAME
         ? game.i18n.localize("CAIRN.Fatigue")
         : t(ns, item.name);
-      const proceed = await confirmDelete(shown);
+      const proceed = await confirmDelete(shown, { windowId });
       if (!proceed) return;
       await item.delete();
       // Same as createOwnedItem: the owner's row shows slotsUsed — ungated,
@@ -1254,10 +1265,10 @@ export class CairnActor extends Actor {
    * The two operations are now separate and both are honest about what they do.
    * @param {String} itemId uuid of the connected actor
    */
-  async deleteOwnedContainer(itemId) {
+  async deleteOwnedContainer(itemId, { windowId } = {}) {
     const container = this.getOwnedContainer(itemId);
     if (!container) return;
-    const proceed = await confirmDelete(actorDisplayName(container));
+    const proceed = await confirmDelete(actorDisplayName(container), { windowId, type: "Actor" });
     if (!proceed) return;
     const actor = game.actors.find((a) => a.uuid == itemId);
     await actor?.delete();
@@ -1276,7 +1287,7 @@ export class CairnActor extends Actor {
    * interesting.
    * @param {String} itemId uuid of the connected actor
    */
-  async unlinkOwnedContainer(itemId) {
+  async unlinkOwnedContainer(itemId, { windowId } = {}) {
     const container = this.getOwnedContainer(itemId);
     if (!container) return;
     const actor = game.actors.find((a) => a.uuid == itemId);
@@ -1293,6 +1304,7 @@ export class CairnActor extends Actor {
     }
     const proceed = await foundry.applications.api.DialogV2.confirm({
       window: { title: game.i18n.localize("CAIRN.UnlinkContainerTitle") },
+      renderOptions: { window: { windowId } },   // see confirmDelete
       content: `<div class="cairn-confirm"><p class="cairn-confirm-q">${
         game.i18n.format("CAIRN.UnlinkContainerQ", {
           name: foundry.utils.escapeHTML(actorDisplayName(container)),

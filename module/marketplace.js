@@ -686,7 +686,9 @@ export const openMarketplace = async (actor, opts = {}) => {
     });
   };
 
-  dialog.render(true).then(() => {
+  // The launching sheet's own window when it is popped out (review #34
+  // finding 1; the reasoning is at `_confirmAction` in actor-sheet.js).
+  dialog.render({ force: true, window: { windowId: opts.windowId } }).then(() => {
     const root = dialog.element;
     const list = root.querySelector(".mkt-list");
 

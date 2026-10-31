@@ -121,9 +121,13 @@ const CORE_RESOLVED = [/^TYPES\./];
  * Dropped Item Pile because core composes it only when no content is passed;
  * both read by core's client (client-document.mjs:904-905) and present in its
  * en.json.
+ * `DOCUMENT.Delete` (review #34 finding 60) is core's own delete-confirm
+ * title ("Delete {type}"), which the inventory's trash confirm now wears the
+ * way core's token and placeable deletes do (tokens.mjs, placeables-layer.mjs);
+ * present in core's en.json.
  */
 const CORE_SUPPLIED = new Set(["COMBATANT.Ping", "COMBATANT.PanTo", "COMBAT.InitiativeRoll",
-  "COMMON.Yes", "COMMON.No", "COMMON.AreYouSure", "SIDEBAR.DeleteWarning"]);
+  "COMMON.Yes", "COMMON.No", "COMMON.AreYouSure", "SIDEBAR.DeleteWarning", "DOCUMENT.Delete"]);
 
 /** Literal keys, plus the PREFIXES of keys built by interpolation. */
 const collectKeys = () => {

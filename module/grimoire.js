@@ -397,7 +397,7 @@ const reportCast = async (actor, spell, dice) => {
  * @param {CairnActor} actor
  * @returns {Promise<ChatMessage|null>}
  */
-export const castFromGrimoire = async (actor) => {
+export const castFromGrimoire = async (actor, { windowId } = {}) => {
   if (actor?.type !== "character") return null;
   const book = grimoiresOn(actor)[0];
   if (!book) return null;
@@ -427,6 +427,9 @@ export const castFromGrimoire = async (actor) => {
   const powerOptions = Array.from({ length: maxDice }, (_, i) =>
     `<option value="${i + 1}">${i + 1}</option>`).join("");
   const picked = await foundry.applications.api.DialogV2.wait({
+    // The launching sheet's own window when it is popped out (review #34
+    // finding 1; the reasoning is at `_confirmAction` in actor-sheet.js).
+    renderOptions: { window: { windowId } },
     window: {
       title: game.i18n.format("CAIRN.GrimoireCastFrom", { book: t("item.name", book.name) }),
       icon: "fas fa-hand-sparkles",
@@ -486,7 +489,7 @@ export const castFromGrimoire = async (actor) => {
  * @param {CairnItem} scroll
  * @returns {Promise<ChatMessage|null>}
  */
-export const castScroll = async (actor, scroll) => {
+export const castScroll = async (actor, scroll, { windowId } = {}) => {
   if (actor?.type !== "character") return null;
   if (!game.settings.get(SETTINGS_NS, "enable-glog-magic")) return null;
   if (scroll?.type !== "spellbook" || !scroll.system.scroll || scroll.system.bound) return null;
@@ -504,6 +507,7 @@ export const castScroll = async (actor, scroll) => {
   const powerOptions = Array.from({ length: maxDice }, (_, i) =>
     `<option value="${i + 1}">${i + 1}</option>`).join("");
   const picked = await foundry.applications.api.DialogV2.wait({
+    renderOptions: { window: { windowId } },   // see castFromGrimoire
     window: {
       title: game.i18n.format("CAIRN.GrimoireCastTitle", { spell: t("item.name", scroll.name) }),
       icon: "fas fa-hand-sparkles",

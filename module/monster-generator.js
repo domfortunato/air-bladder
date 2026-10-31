@@ -84,15 +84,18 @@ const pickWeighted = (pairs) => {
 
 /**
  * The tier picker — and, on a re-roll, the CONFIRMATION. It is dismissible
- * (✕ resolves null, nothing is created or touched — same rule as
- * promptContentSource) and its regenerate wording says what will be replaced,
+ * (✕ resolves null, nothing is created or touched) and its regenerate wording
+ * says what will be replaced,
  * so destructive work only ever follows an explicit button press. That is why
  * #onRollActor does not stack a DialogV2.confirm in front of this.
  * @param {{regenerate?: Boolean}} [options]
  * @returns {Promise<"standard"|"hardier"|"serious"|"random"|null>}
  */
-export const promptMonsterTier = async ({ regenerate = false } = {}) => {
+export const promptMonsterTier = async ({ regenerate = false, windowId } = {}) => {
   const chosen = await foundry.applications.api.DialogV2.wait({
+    // The launching sheet's own window when it is popped out (review #34
+    // finding 1; the reasoning is at `_confirmAction` in actor-sheet.js).
+    renderOptions: { window: { windowId } },
     window: {
       title: game.i18n.localize(regenerate ? "CAIRN.MonsterGen.RegenerateTitle" : "CAIRN.MonsterGen.TierTitle"),
       icon: "fas fa-dragon",

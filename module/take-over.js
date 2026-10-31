@@ -807,14 +807,25 @@ let running = false;
  *  answered, was two runs and a second flagged folder). */
 export const isTakeOverRunning = () => running;
 
-/** The four doors, in every directory that renders them (docked and popped
- *  out share one document), greyed while a job is in flight and back when it
- *  ends. `running` alone was a silent swallow (review #32): a second door
- *  pressed during the first's multi-second plan did nothing, and the FIRST
- *  door's confirm then opened under a Warden who believed they had pressed
- *  the second. A directory rendered mid-job reads `running` at injection. */
+/** The four doors, in every directory that renders them, greyed while a job
+ *  is in flight and back when it ends. `running` alone was a silent swallow
+ *  (review #32): a second door pressed during the first's multi-second plan
+ *  did nothing, and the FIRST door's confirm then opened under a Warden who
+ *  believed they had pressed the second. A directory rendered mid-job reads
+ *  `running` at injection.
+ *
+ *  Each directory's OWN element, never the bare `document` (review #34
+ *  finding 2): a popped-out directory can be DETACHED into its own browser
+ *  window, whose doors live in that window's document — the main one never
+ *  reaches them. The docked tab and its popout are both asked. */
 const setDoorsBusy = (busy) => {
-  for (const b of document.querySelectorAll("button.cairn-take-over")) b.disabled = busy;
+  const roots = [ui.tables, ui.tables?.popout, ui.compendium, ui.compendium?.popout]
+    // Duck-typed, not `instanceof HTMLElement`: an element moved into another
+    // window may carry THAT window's prototype.
+    .map((app) => app?.element).filter((el) => typeof el?.querySelectorAll === "function");
+  for (const root of roots) {
+    for (const b of root.querySelectorAll("button.cairn-take-over")) b.disabled = busy;
+  }
 };
 
 /** A kind with its click-time members resolved to plain values. */

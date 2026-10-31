@@ -2410,6 +2410,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // the GM's client.
     const bgName = foundry.utils.escapeHTML(t("bg.name", bg.name));
     const ok = await foundry.applications.api.DialogV2.confirm({
+      renderOptions: { window: { windowId: this.window?.windowId } },   // see _confirmAction
       window: { title: game.i18n.localize("CAIRN.ChangeBackgroundTitle") },
       content:
         `<div class="cairn-confirm">${game.i18n.localize("CAIRN.ChangeBackgroundTip")}` +
@@ -3092,7 +3093,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       // wording is monster-specific — so the Gorilla-into-Alchemist path above is
       // closed without stacking two dialogs in front of one button.
       if (this.actor.npcRole === "monster") {
-        const tier = await promptMonsterTier({ regenerate: true });
+        const tier = await promptMonsterTier({ regenerate: true, windowId: this.window?.windowId });
         if (!tier) return;
         await regenerateMonster(this.actor, tier);
         return;
@@ -3129,6 +3130,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       // DialogV2.confirm already makes "No" the default button, so V1's
       // defaultYes: false has no equivalent to carry over.
       const confirm = await foundry.applications.api.DialogV2.confirm({
+        renderOptions: { window: { windowId: this.window?.windowId } },   // see _confirmAction
         window: { title: game.i18n.localize(titleKey) },
         content: `<p>${game.i18n.localize(confirmKey)}</p>`,
         rejectClose: false,
@@ -3331,7 +3333,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       dialog.close = (...a) => { finish(null); return origClose(...a); };
       // Listeners attached AFTER render — attributes in DialogV2 content are
       // sanitized dead, so the gating rides real addEventListener calls.
-      dialog.render(true).then(() => {
+      dialog.render({ force: true, window: { windowId: this.window?.windowId } }).then(() => {   // see _confirmAction
         const root = dialog.element;
         const sync = () => {
           for (const parent of ["background", "failedCareer"]) {
@@ -3652,7 +3654,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
   static async #onPickName(event) {
     event.preventDefault();
     if (["hireling", "npc"].includes(this.actor.type)) return;
-    const picked = await promptPickName(this.actor);
+    const picked = await promptPickName(this.actor, { windowId: this.window?.windowId });
     if (!picked) return;                      // cancelled, or no source at all
     if (picked.random) return CairnActorSheet.#onRollName.call(this, event);
     if (!picked.name || picked.name === this.actor.name) return;
@@ -3698,15 +3700,15 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    */
   static async #onPickProfession(event) {
     event.preventDefault();
-    if (this.actor.npcRole === "npc") await promptNpcBackground(this.actor);
-    else await promptHirelingCareer(this.actor);
+    if (this.actor.npcRole === "npc") await promptNpcBackground(this.actor, { windowId: this.window?.windowId });
+    else await promptHirelingCareer(this.actor, { windowId: this.window?.windowId });
   }
 
   /** Faction picker: the same world-first table the Faction die rolls.
    *  @this {CairnActorSheet} */
   static async #onPickFaction(event) {
     event.preventDefault();
-    await promptNpcFaction(this.actor);
+    await promptNpcFaction(this.actor, { windowId: this.window?.windowId });
   }
 
   /* -------------------------------------------- */
@@ -3723,6 +3725,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     const content = await foundry.applications.handlebars.renderTemplate(template);
 
     await foundry.applications.api.DialogV2.prompt({
+      renderOptions: { window: { windowId: this.window?.windowId } },   // see _confirmAction
       window: { title: game.i18n.localize("CAIRN.CreateItem") },
       content,
       ok: {
@@ -3763,7 +3766,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       ui.notifications.warn(eligible.reason, { localize: true });
       return;
     }
-    const to = await promptOfferTarget(this.actor, item);
+    const to = await promptOfferTarget(this.actor, item, { windowId: this.window?.windowId });
     if (!to) return;
     const message = await createItemOffer(this.actor, item, to);
     // Giving to something you already own AND NOBODY ELSE COULD ANSWER FOR —
@@ -3796,7 +3799,10 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // .catch, because a rejection out of an un-awaited openMarketplace was
     // dropped whole — the button appeared to do nothing, the failure mode
     // the shop's own header comment records having shipped once (review #9).
-    const opts = this.actor.canKeepConnected ? undefined : { exclude: TRANSPORTS_CATEGORY };
+    const opts = {
+      windowId: this.window?.windowId,   // see _confirmAction
+      ...(this.actor.canKeepConnected ? {} : { exclude: TRANSPORTS_CATEGORY }),
+    };
     openMarketplace(this.actor, opts).catch((err) => {
       console.error("Air Bladder | marketplace failed to open:", err);
       ui.notifications.error(game.i18n.localize("CAIRN.Notify.DropFailed"));
@@ -3825,7 +3831,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // all. On success the delete re-renders this sheet
     // — descendant deletes render the parent (client-document.mjs:691-694) — and
     // the row goes with it.
-    if (row.dataset.isContainer) return void this.actor.deleteOwnedContainer(row.dataset.itemId);
+    if (row.dataset.isContainer) return void this.actor.deleteOwnedContainer(row.dataset.itemId, { windowId: this.window?.windowId });
     // The pressed row is the row deleted, Fatigue included. For a day a Fatigue
     // row redirected to a "costed" one first, to keep the free first Fatigue's
     // Petty chip in place; the free Fatigue went on 2026-10-03 (user ruling)
@@ -3843,7 +3849,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // The symptom in Foundry is that the system module never loads at all: ZERO
     // settings registered, every probe failing on something unrelated. Read
     // `game.settings.settings.size` or run dev:smoke after editing a big class.
-    this.actor.deleteOwnedItem(row.dataset.itemId);
+    this.actor.deleteOwnedItem(row.dataset.itemId, { windowId: this.window?.windowId });
   }
 
   /**
@@ -3957,7 +3963,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // Not slid up: unlinking leaves the actor in the world, and the row simply
     // stops matching on the next render. Animating it away would suggest the
     // thing itself had gone.
-    this.actor.unlinkOwnedContainer(row.dataset.itemId).then(() => this.render(false));
+    this.actor.unlinkOwnedContainer(row.dataset.itemId, { windowId: this.window?.windowId }).then(() => this.render(false));
   }
 
   /** @this {CairnActorSheet} */
@@ -4003,6 +4009,10 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // first would hand it entity-mangled text that can never match.
     const esc = foundry.utils.escapeHTML;
     const proceed = await foundry.applications.api.DialogV2.confirm({
+      renderOptions: { window: { windowId: this.window?.windowId } },   // see _confirmAction
+      // A TITLE (review #34 finding 60; the Drop confirm's, review #33): the
+      // row control's own label, so the window names the gesture that opened it.
+      window: { title: game.i18n.localize("CAIRN.GrimoireTransmute") },
       content: game.i18n.format(
         item.system.scroll ? "CAIRN.GrimoireTransmuteScrollQ" : "CAIRN.GrimoireTransmuteQ",
         { spell: esc(t("item.name", item.name)), book: esc(t("item.name", grimoire.name)) }),
@@ -4028,7 +4038,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    */
   static async #onGrimoireCast(event) {
     event.preventDefault();
-    await castFromGrimoire(this.actor);
+    await castFromGrimoire(this.actor, { windowId: this.window?.windowId });
   }
 
   /**
@@ -4041,7 +4051,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     event.preventDefault();
     const row = CairnActorSheet.#row(target);
     const item = this.actor.getOwnedItem(row?.dataset.itemId);
-    if (item) await castScroll(this.actor, item);
+    if (item) await castScroll(this.actor, item, { windowId: this.window?.windowId });
   }
 
   /** Not exactly quantity, this is about uses. @this {CairnActorSheet} */
@@ -4129,7 +4139,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
   static #onRemoveFatigue(event) {
     event.preventDefault();
     const id = this.actor.items.find((i) => i.system?.isFatigue)?.id;
-    if (id) this.actor.deleteOwnedItem(id);
+    if (id) this.actor.deleteOwnedItem(id, { windowId: this.window?.windowId });
   }
 
   /**
@@ -4166,7 +4176,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       // The item's name goes to the dialog's title. `dataset.label` is stamped by
       // items-list.html as data-label="{{item.name}}", so it is already the
       // display name — a control with none falls back to the plain title.
-      quality = await askDamageQuality(dataset.roll, dataset.label ?? "");
+      quality = await askDamageQuality(dataset.roll, dataset.label ?? "", { windowId: this.window?.windowId });
       if (quality === null) return; // dismissed: roll nothing
     }
     // THE OPTIONAL COMBAT RULES, through the ONE gate (`combatDamageFormula`,
@@ -4288,6 +4298,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
         <select name="connectionTarget">${options}</select>
       </div>`;
     await foundry.applications.api.DialogV2.prompt({
+      renderOptions: { window: { windowId: this.window?.windowId } },   // see _confirmAction
       // ONE verb (2026-08-01): both ends' dialogs read CAIRN.Connect. The
       // handlers stay separate — this one picks a child for a keeper, the
       // attach one picks a keeper for a child — but the word is the word.
@@ -4364,6 +4375,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
         <select name="keeperTarget">${options}</select>
       </div>`;
     await foundry.applications.api.DialogV2.prompt({
+      renderOptions: { window: { windowId: this.window?.windowId } },   // see _confirmAction
       // The same ONE verb as Add Connection's dialog — see the note there.
       window: { title: game.i18n.localize("CAIRN.Connect") },
       content,
@@ -4404,7 +4416,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
         ui.notifications.warn(game.i18n.localize("CAIRN.Notify.ConnectionOwnBothEnds"));
         return;
       }
-      await keeper.unlinkOwnedContainer(child.uuid);
+      await keeper.unlinkOwnedContainer(child.uuid, { windowId: this.window?.windowId });
       return;
     }
     // A DANGLING keeper: the uuid resolves to nothing, so there IS no other
@@ -4416,6 +4428,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       return;
     }
     const proceed = await foundry.applications.api.DialogV2.confirm({
+      renderOptions: { window: { windowId: this.window?.windowId } },   // see _confirmAction
       window: { title: game.i18n.localize("CAIRN.UnlinkContainerTitle") },
       content: `<div class="cairn-confirm"><p class="cairn-confirm-q">${
         game.i18n.format("CAIRN.UnlinkContainerQ", {
@@ -4769,6 +4782,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     if (!game.settings.get(SETTINGS_NS, "character-inventory-limit")) return;
     event.preventDefault();
     await foundry.applications.api.DialogV2.prompt({
+      renderOptions: { window: { windowId: this.window?.windowId } },   // see _confirmAction
       window: { title: game.i18n.localize("CAIRN.Settings.MaxEquipSlots.label") },
       position: { width: 150 },
       content: `<input name="slots" type="number" autofocus value="${this.actor.calcCurrentMaxSlots()}">`,
@@ -4839,7 +4853,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
   static async #onPickOmen(event) {
     event.preventDefault();
     if (!this.actor.system.omenEnabled) return;
-    const picked = await promptPickOmen(this.actor.system.omen);
+    const picked = await promptPickOmen(this.actor.system.omen, { windowId: this.window?.windowId });
     if (picked === null) {
       // No Omens table anywhere — the die's warning, verbatim.
       ui.notifications.warn(game.i18n.localize("CAIRN.OmenTableMissing"));
@@ -4925,10 +4939,17 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     if (!this._mayChangeBackground()) return;   // don't offer a list we can't act on
     const result = await promptBackground(
       this.actor.system.contentSource || "2e",
-      this.actor.system.backgroundUuid
+      this.actor.system.backgroundUuid,
+      { windowId: this.window?.windowId },
     );
     if (!result) return;                    // cancelled
-    await changeBackground(this.actor, result.bg);
+    if (this._rerolling) return;   // guard the double-click delete/create race (review #34 finding 58)
+    this._rerolling = true;
+    try {
+      await changeBackground(this.actor, result.bg);
+    } finally {
+      this._rerolling = false;
+    }
   }
 
   /** Dice on the "Failed career" line: roll a random one, avoiding the
@@ -4949,10 +4970,16 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    *  other gear to reconcile. @this {CairnActorSheet} */
   static async #onPickFailedCareer(event) {
     event.preventDefault();
-    const result = await promptFailedCareer(this.actor.system.failedCareer);
+    const result = await promptFailedCareer(this.actor.system.failedCareer, { windowId: this.window?.windowId });
     if (!result) return;                    // cancelled
-    await this.actor.update({ "system.failedCareer": result.name });
-    await this._grantFailedCareerItem(result.name);
+    if (this._rerolling) return;   // guard the double-click delete/create race (review #34 finding 58)
+    this._rerolling = true;
+    try {
+      await this.actor.update({ "system.failedCareer": result.name });
+      await this._grantFailedCareerItem(result.name);
+    } finally {
+      this._rerolling = false;
+    }
   }
 
   /** Dice on the "Failed career item" line: re-roll WHICH of the current failed
@@ -5011,7 +5038,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     if (this._rerolling) return;
     const id = target.dataset.bondId;
     const current = this._effectiveBonds().find((b) => b.id === id)?.description ?? "";
-    const picked = await promptPickBond(await this._bondsTableName(), current);
+    const picked = await promptPickBond(await this._bondsTableName(), current, { windowId: this.window?.windowId });
     if (!picked) return;                     // cancelled, or no Bonds table anywhere (the die is silent too)
     if (picked.random) return CairnActorSheet.#onRerollBond.call(this, event, target);
     if (this._rerolling) return;
@@ -5191,7 +5218,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       ? await fromUuid(this.actor.system.backgroundUuid)
       : null;
     const picked = await promptPickQuestionOption(
-      bg, idx, this.actor.system.questions?.[idx]?.answer ?? "");
+      bg, idx, this.actor.system.questions?.[idx]?.answer ?? "", { windowId: this.window?.windowId });
     if (picked === null) {
       // No background, or a background with no options — the die's warning.
       ui.notifications.warn(game.i18n.localize("CAIRN.RerollQuestionUnavailable"));
@@ -5493,7 +5520,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // deliberately — nothing below (the background intercept included) may
     // write on a sheet the dropper does not own.
     if (!this.actor.isOwner) {
-      return offerFromDrop(this.actor, originalItem);
+      return offerFromDrop(this.actor, originalItem, { windowId: this.window?.windowId });
     }
 
     // A background ARRIVING here is not inventory. Dropping one CHANGES the

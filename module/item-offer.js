@@ -272,7 +272,7 @@ const wireOfferFilter = (root) => {
  * @param {CairnItem} item
  * @returns {Promise<CairnActor|null>}
  */
-export const promptOfferTarget = async (giver, item) => {
+export const promptOfferTarget = async (giver, item, { windowId } = {}) => {
   const targets = game.actors
     .filter((a) => canReceiveOffer(a, giver) && a.visible)
     .sort((a, b) => actorDisplayName(a).localeCompare(actorDisplayName(b), game.i18n.lang));
@@ -369,7 +369,9 @@ export const promptOfferTarget = async (giver, item) => {
     // is why it also survives a re-render. The two working sites in this
     // repo (actor.js, warden-damage.js) both go through prompt/wait.
     dialog.addEventListener("render", () => wireOfferFilter(dialog.element));
-    dialog.render(true);
+    // The launching sheet's own window when it is popped out (review #34
+    // finding 1; the reasoning is at `_confirmAction` in actor-sheet.js).
+    dialog.render({ force: true, window: { windowId } });
   });
 };
 
@@ -908,7 +910,7 @@ export const handleOfferSocket = async (msg, senderId) => {
  * @param {CairnActor} targetActor  the unowned sheet's actor
  * @param {CairnItem} item          the dragged item
  */
-export const offerFromDrop = async (targetActor, item) => {
+export const offerFromDrop = async (targetActor, item, { windowId } = {}) => {
   const giver = item?.actor;
   // ONE question, asked here and in the picker and again at delivery, so the
   // three routes cannot drift — see canReceiveOffer for what it refuses and
@@ -938,6 +940,9 @@ export const offerFromDrop = async (targetActor, item) => {
   };
   const yes = await foundry.applications.api.DialogV2.confirm({
     window: { title: game.i18n.format("CAIRN.Offer.DragTitle", { item: names.item }) },
+    // The receiving sheet's own window when it is popped out (review #34
+    // finding 1; the reasoning is at `_confirmAction` in actor-sheet.js).
+    renderOptions: { window: { windowId } },
     content: `<p>${esc(game.i18n.format("CAIRN.Offer.DragBody", names))}</p>`,
     rejectClose: false,
   });

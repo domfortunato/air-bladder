@@ -3035,7 +3035,7 @@ const BG_RANDOM = "__random__";
  * @param {String|null} currentUuid  pre-checked, so the dialog opens on the current pick
  * @returns {Promise<{bg: CairnItem|null}|false>}  bg null = random; false = cancelled
  */
-export const promptBackground = async (source, currentUuid = null) => {
+export const promptBackground = async (source, currentUuid = null, { windowId } = {}) => {
   const groups = await getBackgroundsByArchetype(source);
   const all = groups.flatMap((g) => g.backgrounds);
   if (!all.length) return false;
@@ -3116,7 +3116,9 @@ export const promptBackground = async (source, currentUuid = null) => {
     });
     const origClose = dialog.close.bind(dialog);
     dialog.close = (...a) => { finish(false); return origClose(...a); };
-    dialog.render(true).then(() => {
+    // The launching sheet's own window when it is popped out (review #34
+    // finding 1; the reasoning is at `_confirmAction` in actor-sheet.js).
+    dialog.render({ force: true, window: { windowId } }).then(() => {
       // DialogV2 serializes content to innerHTML, so listeners go on the LIVE
       // nodes here, after render — never on the built string's nodes.
       // The eye toggles (Warden only). The row is a <label>, so the click must
@@ -3174,7 +3176,7 @@ export const promptBackground = async (source, currentUuid = null) => {
  * @param {String|null} [currentName]
  * @returns {Promise<{name: String}|false>}  false when cancelled
  */
-export const promptFailedCareer = async (currentName = null) => {
+export const promptFailedCareer = async (currentName = null, { windowId } = {}) => {
   const backgrounds = await getBarebonesBackgrounds();
   if (!backgrounds.length) return false;
   // Same display-name sort as promptBackground's groups (review #9).
@@ -3217,7 +3219,9 @@ export const promptFailedCareer = async (currentName = null) => {
     });
     const origClose = dialog.close.bind(dialog);
     dialog.close = (...a) => { finish(false); return origClose(...a); };
-    dialog.render(true);
+    // The launching sheet's own window when it is popped out (review #34
+    // finding 1; the reasoning is at `_confirmAction` in actor-sheet.js).
+    dialog.render({ force: true, window: { windowId } });
   }).then((choice) => {
     if (!choice) return false;
     if (choice === BG_RANDOM) return { name: sorted[Math.floor(Math.random() * sorted.length)].name };
@@ -4830,7 +4834,7 @@ const applyNpcBackground = async (actor, rolled) => {
 
 /** One radio-list picker dialog. `rows` are {value, label, tag?}; resolves the
  *  chosen value, BG_RANDOM for the Random row, or false. @private */
-const promptFromRows = (titleKey, rows, current = null) => {
+const promptFromRows = (titleKey, rows, current = null, { windowId } = {}) => {
   // Random takes the check when `current` sits on no row — the
   // :indeterminate rule at promptBackground's list. The NAME picker hits
   // this routinely: a hand-edited name is rarely a bare row value.
@@ -4863,7 +4867,9 @@ const promptFromRows = (titleKey, rows, current = null) => {
     });
     const origClose = dialog.close.bind(dialog);
     dialog.close = (...a) => { finish(false); return origClose(...a); };
-    dialog.render(true);
+    // The launching sheet's own window when it is popped out (review #34
+    // finding 1; the reasoning is at `_confirmAction` in actor-sheet.js).
+    dialog.render({ force: true, window: { windowId } });
   });
 };
 
@@ -4872,7 +4878,7 @@ const promptFromRows = (titleKey, rows, current = null) => {
  * path so "random" means the same thing both ways). Applies on choice.
  * @param {CairnActor} actor @returns {Promise<CairnActor>}
  */
-export const promptHirelingCareer = async (actor) => {
+export const promptHirelingCareer = async (actor, { windowId } = {}) => {
   const careers = await getNpcCareers2e();
   if (!careers.length) return actor;
   const current = String(actor.system.profession ?? "").trim();
@@ -4885,7 +4891,7 @@ export const promptHirelingCareer = async (actor) => {
       tag: bgEsc(`${c.rate ?? 0} ${game.i18n.localize("CAIRN.DayRateSuffix")} · `
         + (c.gear ?? []).map((g) => t("item.name", g.name ?? g)).join(", ")),
     }));
-  const choice = await promptFromRows("CAIRN.PickCareer", rows, current);
+  const choice = await promptFromRows("CAIRN.PickCareer", rows, current, { windowId });
   if (!choice) return actor;
   if (choice === BG_RANDOM) return rerollHirelingCareer(actor);
   return pickHirelingCareer(actor, choice);
@@ -4898,7 +4904,7 @@ export const promptHirelingCareer = async (actor) => {
  * translation, exactly the read/stored split the sheet input already does.
  * @param {CairnActor} actor @returns {Promise<CairnActor>}
  */
-export const promptNpcBackground = async (actor) => {
+export const promptNpcBackground = async (actor, { windowId } = {}) => {
   // The SAME resolution the die uses — world first — or the list would show the
   // shipped rows while the die rolled the Warden's own table.
   const decl = CONFIG.Cairn?.npcGenerator?.background ?? "";
@@ -4908,7 +4914,7 @@ export const promptNpcBackground = async (actor) => {
   const rows = table.results.map((r) => String(resultText(r)).trim()).filter(Boolean)
     .map((text) => ({ value: text, label: t("table.result", text) }))
     .sort((a, b) => a.label.localeCompare(b.label, game.i18n.lang));
-  const choice = await promptFromRows("CAIRN.PickBackground", rows, current);
+  const choice = await promptFromRows("CAIRN.PickBackground", rows, current, { windowId });
   if (!choice) return actor;
   if (choice === BG_RANDOM) return rerollNpcBackground(actor);
   return pickNpcBackground(actor, choice);
@@ -4921,7 +4927,7 @@ export const promptNpcBackground = async (actor) => {
  * career it is a match key for nothing. Random defers to the die.
  * @param {CairnActor} actor @returns {Promise<CairnActor>}
  */
-export const promptNpcFaction = async (actor) => {
+export const promptNpcFaction = async (actor, { windowId } = {}) => {
   const tableName = CONFIG.Cairn?.npcGenerator?.faction;
   const table = tableName ? await findTableByName(tableName) : null;
   if (!table) return actor;
@@ -4929,7 +4935,7 @@ export const promptNpcFaction = async (actor) => {
     .map((text) => ({ value: text, label: text }))
     .sort((a, b) => a.label.localeCompare(b.label, game.i18n.lang));
   const current = String(actor.system.faction ?? "").trim();
-  const choice = await promptFromRows("CAIRN.PickFaction", rows, current);
+  const choice = await promptFromRows("CAIRN.PickFaction", rows, current, { windowId });
   if (!choice) return actor;
   if (choice === BG_RANDOM) return rerollNpcFaction(actor);
   await actor.update({ "system.faction": choice });
@@ -4955,12 +4961,12 @@ export const promptNpcFaction = async (actor) => {
  * @param {String} [current]  the actor's stored omen (English)
  * @returns {Promise<{text:String}|{random:true}|false|null>} null = no table
  */
-export const promptPickOmen = async (current = "") => {
+export const promptPickOmen = async (current = "", { windowId } = {}) => {
   const table = await findOmensTable();
   if (!table) return null;
   const rows = table.results.map((r) => String(resultText(r)).trim()).filter(Boolean)
     .map((text) => ({ value: text, label: t("table.result", text) }));
-  const choice = await promptFromRows("CAIRN.PickOmen", rows, String(current ?? "").trim() || null);
+  const choice = await promptFromRows("CAIRN.PickOmen", rows, String(current ?? "").trim() || null, { windowId });
   if (!choice) return false;
   if (choice === BG_RANDOM) return { random: true };
   return { text: choice };
@@ -4977,7 +4983,7 @@ export const promptPickOmen = async (current = "") => {
  * @param {CairnActor} actor
  * @returns {Promise<{name:String}|{random:true}|false|null>} null = no source
  */
-export const promptPickName = async (actor) => {
+export const promptPickName = async (actor, { windowId } = {}) => {
   let rows = [];
   if (actor.system.contentSource === "2e" && actor.system.backgroundUuid) {
     const bg = await fromUuid(actor.system.backgroundUuid);
@@ -4994,7 +5000,7 @@ export const promptPickName = async (actor) => {
   }
   if (!rows.length) return null;
   const current = String(actor.name ?? "").trim();
-  const choice = await promptFromRows("CAIRN.PickName", rows, current || null);
+  const choice = await promptFromRows("CAIRN.PickName", rows, current || null, { windowId });
   if (!choice) return false;
   if (choice === BG_RANDOM) return { random: true };
   return { name: choice };
@@ -5012,14 +5018,14 @@ export const promptPickName = async (actor) => {
  * @param {String} [current]  the bond's stored description (English)
  * @returns {Promise<{description:String, gold:Number, items:Object[]}|{random:true}|false|null>}
  */
-export const promptPickBond = async (tableName, current = "") => {
+export const promptPickBond = async (tableName, current = "", { windowId } = {}) => {
   const table = await resolveBondsTable(tableName);
   if (!table) return null;
   const rows = table.results
     .map((result) => ({ result, value: String(resultText(result)).trim() }))
     .filter((row) => row.value)
     .map((row) => ({ ...row, label: t("table.result", row.value) }));
-  const choice = await promptFromRows("CAIRN.PickBond", rows, String(current ?? "").trim() || null);
+  const choice = await promptFromRows("CAIRN.PickBond", rows, String(current ?? "").trim() || null, { windowId });
   if (!choice) return false;
   if (choice === BG_RANDOM) return { random: true };
   const row = rows.find((r) => r.value === choice);
@@ -5041,7 +5047,7 @@ export const promptPickBond = async (tableName, current = "") => {
  * @param {String} [currentAnswer]  the stored answer (English), pre-checks its row
  * @returns {Promise<{option:Object, question:String}|{random:true}|false|null>} null = no options
  */
-export const promptPickQuestionOption = async (bg, idx, currentAnswer = "") => {
+export const promptPickQuestionOption = async (bg, idx, currentAnswer = "", { windowId } = {}) => {
   const table = bg?.system?.tables?.[idx];
   const options = table?.options ?? [];
   if (!options.length) return null;
@@ -5050,7 +5056,7 @@ export const promptPickQuestionOption = async (bg, idx, currentAnswer = "") => {
     label: t("bg.optionDesc", opt.description ?? ""),
   }));
   const cur = options.findIndex((o) => (o.description ?? "") === currentAnswer);
-  const choice = await promptFromRows("CAIRN.PickQuestion", rows, cur >= 0 ? String(cur) : null);
+  const choice = await promptFromRows("CAIRN.PickQuestion", rows, cur >= 0 ? String(cur) : null, { windowId });
   if (!choice) return false;
   if (choice === BG_RANDOM) return { random: true };
   const option = options[Number(choice)];

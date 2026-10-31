@@ -1057,13 +1057,16 @@ export const damageDiceIcons = (formula) => {
  * @return {Promise<"impaired"|"standard"|"enhanced"|null>} null = dismissed, and
  *   a dismissal must roll NOTHING — a ✕ is an instruction, not a default.
  */
-export const askDamageQuality = async (standardFormula, weaponName = "") => {
+export const askDamageQuality = async (standardFormula, weaponName = "", { windowId } = {}) => {
   const opt = (action, key, formula) => ({
     action,
     label: game.i18n.format(key, { formula }),
     icon: dieIcon(formula),
   });
   const chosen = await foundry.applications.api.DialogV2.wait({
+    // The launching sheet's own window when it is popped out (review #34
+    // finding 1; the reasoning is at `_confirmAction` in actor-sheet.js).
+    renderOptions: { window: { windowId } },
     // Scopes the stacking and default-cue rules. `classes` CONCATENATES with
     // ApplicationV2's own (application.mjs:477) rather than replacing them, so
     // `dialog.dialog` still matches — worth knowing before adding one, since a
