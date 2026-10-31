@@ -4128,10 +4128,25 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // The page names ITS book (issue #17). The key is minted here if the book
     // predates the field, so a legacy Grimoire acquires an identity the first
     // time a page needs to name it rather than waiting for the migration.
-    await item.update({
-      "system.bound": true,
-      "system.boundTo": await ensureGrimoireKey(grimoire),
-    });
+    const boundTo = await ensureGrimoireKey(grimoire);
+    // ONE copy binds, not the row (review #34 finding 213). Scrolls stack
+    // (findMatchingStack) and the confirm offers one scroll for one
+    // conversion's cost, but a ×2 row became one page carrying quantity 2 —
+    // counted as one page, the other copy no longer castable. The stack
+    // shrinks and one copy splits off as the page, the way castScroll splits
+    // a cast scroll off its stack; the item seam pins the arriving page.
+    const quantity = Math.max(1, Number(item.system.quantity) || 1);
+    if (quantity > 1) {
+      await item.update({ "system.quantity": quantity - 1 });
+      const page = item.toObject();
+      delete page._id;
+      page.system.quantity = 1;
+      page.system.bound = true;
+      page.system.boundTo = boundTo;
+      await this.actor.createEmbeddedDocuments("Item", [page]);
+    } else {
+      await item.update({ "system.bound": true, "system.boundTo": boundTo });
+    }
   }
 
   /**
