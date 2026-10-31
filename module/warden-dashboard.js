@@ -260,9 +260,10 @@ const VALD_WEATHER_GROUP = {
   // written into this array is a second declaration that will drift, and
   // `dev:vald-time` reds the moment one appears.
   //
-  // Cairn's own four seasons above take DIFFERENT glyphs on purpose. Both
-  // groups sit on the Travel tab, and a snowflake in each would collapse two
-  // lists that answer different questions into one.
+  // Cairn's own four seasons take DIFFERENT glyphs on purpose. The two groups
+  // never share the Travel tab (this one REPLACES Cairn's, above), but a
+  // season's mark belongs to its season and nothing else may wear it — the
+  // rule `SEASON_ICONS` records — so Vald's seasons and Cairn's keep their own.
   tables: [
     ["CAIRN.Dashboard.Travel.ValdDead", "Warden: Vald - Weather (Dead)", SEASON_ICONS["CAIRN.Vald.Season.Dead"]],
     ["CAIRN.Dashboard.Travel.ValdDry", "Warden: Vald - Weather (Dry)", SEASON_ICONS["CAIRN.Vald.Season.Dry"]],
@@ -676,15 +677,6 @@ class ShownTableView extends foundry.applications.api.ApplicationV2 {
 }
 
 /**
- * Open the popup for a table on THIS client.
- *
- * Exported because the socket handler in `cairn.js` calls it, and because the
- * Warden's own client calls it directly rather than listening to its own
- * broadcast (a socket emit is not delivered back to its sender).
- *
- * @param {string} uuid  a RollTable uuid — world or compendium
- */
-/**
  * Rebuild the Dashboard's two hand-built chat cards in THIS viewer's language.
  *
  * Both are composed HTML rather than core's table card, so the stored content
@@ -786,6 +778,15 @@ export const localizeDashboardCard = (message, html) => {
   })().catch((err) => console.error("Air Bladder | shown-table card rebuild failed", err));
 };
 
+/**
+ * Open the popup for a table on THIS client.
+ *
+ * Exported because the socket handler in `cairn.js` calls it, and because the
+ * Warden's own client calls it directly rather than listening to its own
+ * broadcast (a socket emit is not delivered back to its sender).
+ *
+ * @param {string} uuid  a RollTable uuid — world or compendium
+ */
 export const openShownTable = async (uuid) => {
   // Resolve on the RECEIVING client, always. Nothing renderable travels in the
   // message, so a crafted emit can at worst name a table that already exists.

@@ -51,9 +51,9 @@ const playerMarketClosed = () =>
  */
 
 /** The catalog category holding packs, mounts and vehicles. Exported because the
- *  sheet scopes the shop by it from both directions: the Containers tab shows
- *  ONLY this category, and a container's own shop EXCLUDES it (no buying a cart
- *  to put inside a cart). */
+ *  sheet scopes the shop by it: an actor that cannot keep a connection (a
+ *  container among them) shops EXCLUDING it — no buying a cart to put inside a
+ *  cart — and the table banner names the aisle by it. */
 export const TRANSPORTS_CATEGORY = "Transports & Containers";
 
 // Shopper-facing category order; a table whose stripped name isn't listed falls
@@ -63,6 +63,9 @@ const CATEGORY_ORDER = ["Weapons", "Armor", "Gear", TRANSPORTS_CATEGORY];
  *  name is always English here — the content overlay translates for display and
  *  never for storage, which is the same reason `CATEGORY_ORDER` is English. */
 const MARKET_PREFIX = /^Market:\s*/i;
+
+const stripPrefix = (name) => String(name).replace(MARKET_PREFIX, "").trim();
+const displayName = (fullName) => t("table.name", fullName).replace(/^[^:]+:\s*/, "").trim();
 
 /**
  * An aisle's two names: `name` is the ENGLISH identity the catalog filters and
@@ -77,8 +80,6 @@ const MARKET_PREFIX = /^Market:\s*/i;
  * @param {string} name  a table's stored name
  * @returns {{name: string, label: string}|null}  null when the name is not an aisle
  */
-const stripPrefix = (name) => String(name).replace(MARKET_PREFIX, "").trim();
-const displayName = (fullName) => t("table.name", fullName).replace(/^[^:]+:\s*/, "").trim();
 export const marketAisle = (name) =>
   (MARKET_PREFIX.test(name ?? "") ? { name: stripPrefix(name), label: displayName(name) } : null);
 
