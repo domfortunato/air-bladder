@@ -69,7 +69,7 @@ in the usual Foundry way if you ever want to hand one to the table.
 
 ## The eight tables behind it
 
-All of them ship as RollTables in the **Warden: NPCs** compendium:
+All of them ship as RollTables in the **Warden — NPCs** compendium:
 
 - `Warden: NPC - Faction` — the Type column (shared with the sheet die, below)
 - `Warden: Faction - Agent`

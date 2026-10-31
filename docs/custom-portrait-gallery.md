@@ -66,7 +66,7 @@ the pool for that kind of thing alone:
 | `pc` (or `pcs`) | player characters, and a Kettlewright import with no portrait | everything else in the custom folder, then the shipped tlomdev `humanoid` art |
 | `npc` (or `npcs`) | generated NPCs and hirelings, and an NPC person you make by hand | the same |
 | `monster` (or `monsters`) | generated monsters | the shipped game-icons creature glyphs — **not** your other portraits |
-| `companion` (or `companions`) | a granted beast the Mounts & Transports pack does not carry | its class icon — **not** your other portraits |
+| `companion` (or `companions`) | a granted beast the Companions & Transports pack does not carry | its class icon — **not** your other portraits |
 
 Matching is case-insensitive, and anything **nested inside** a reserved folder
 counts toward it, so `monster/undead/lich.webp` is monster art. `Kindred/monster`
@@ -133,7 +133,7 @@ reserved tiles are captioned "Player Characters", "NPCs", "Monsters" and
   goes through `randomMonsterIcon` (`monster-generator.js`), which now tries
   `customPoolFor("monster")` before the game-icons creature glyphs. A granted
   beast goes through `grantContainers`, which tries `customPoolFor("companion")`
-  only when the Mounts & Transports pack has no document for it — a resolved
+  only when the Companions & Transports pack has no document for it — a resolved
   document's own art always wins, so a granted Rivertooth keeps its illustration.
 - **Picker** (`_onEditPortrait`, shared by PC + NPC sheets): a
   `[ Jon Aspeheim ] [ Custom ]` tab toggle. The Custom tab shows when there are

@@ -146,8 +146,8 @@ a mount or a cart is in the folder of the same name under Actors), set its
 
 By hand, one item at a time:
 
-1. Find the item in its compendium — **Market Goods**, **Expeditionary Gear**,
-   **Tools**, **Trinkets**, **Weapons**, **Armor**, or **Mounts & Transports**
+1. Find the item in its compendium — **Market Goods**, **Gear**,
+   **Tools**, **Trinkets**, **Weapons**, **Armor**, or **Companions & Transports**
    for a mount or a cart.
 2. Right-click it → **Import**. It lands in your **Items** sidebar (a mount or a
    cart lands in **Actors**).
