@@ -758,7 +758,9 @@ export const openMarketplace = async (actor, opts = {}) => {
     // the pre-purchase actor, and the second's gold write could overwrite the
     // first's payment or take the balance negative. Every Buy and Take greys
     // until the one in flight is done; `refresh()` re-derives them after, and
-    // holds them grey while one is in flight (it also runs on actor updates).
+    // holds them grey while one is in flight. It runs on first render and after
+    // each purchase, and on nothing else: no hook re-runs it on an actor update
+    // (review #34 finding 192 — this line once said it did).
     list.addEventListener("click", async (ev) => {
       const btn = ev.target.closest(".mkt-buy, .mkt-take");
       if (btn) {
