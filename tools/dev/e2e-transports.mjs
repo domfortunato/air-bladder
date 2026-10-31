@@ -21,7 +21,10 @@
  *   3b. Buy a VEHICLE (Cart): role transport and hp 0/0 cross the till from the
  *      document -- the review-#5 stat-block guarantee.
  *   4. Edit the Mule ACTOR document's capacity in the pack, buy another, and
- *      assert the new NPC reflects the edit -- the reference guarantee.
+ *      assert the new NPC reflects the edit -- the reference guarantee. The
+ *      Warden's own `Market: Transports & Containers` aisle, if any, is held
+ *      aside in-page at entry, so the shop sells the PACK documents every leg
+ *      compares against, and this edit never touches a world document.
  *   5. Buying refuses when the buyer cannot afford it.
  *   6. Everything bought is an npc now, so all of it is directory-visible.
  *   7. Revert the document and delete every actor the probe made.
@@ -29,7 +32,7 @@
  */
 
 import { chromium } from "playwright";
-import { VIEWPORT, joinAsGM, watchErrors, watchdog } from "./lib.mjs";
+import { VIEWPORT, hideTablesInPage, joinAsGM, watchErrors, watchdog } from "./lib.mjs";
 
 const browser = await chromium.launch();
 // The fleet's hang guard (review #34): without it a hang runs to the runner's
@@ -43,6 +46,18 @@ const ok = (m) => console.log(`  ok    ${m}`);
 
 try {
   await joinAsGM(page);
+
+  // HELD ASIDE AT ENTRY, NEVER WRITTEN (review #34 finding 111), by
+  // dev:marketplace's mechanism: the shop is world first, so a Warden's own
+  // aisle (the Marketplace door's copy, pointing at WORLD mounts) made leg 4
+  // edit the Warden's Mule and left every other leg comparing the shop
+  // against pack documents it no longer sold.
+  const heldAisles = await page.evaluate(async () => {
+    const { TRANSPORTS_CATEGORY } = await import("/systems/air-bladder/module/marketplace.js");
+    return game.tables.filter((t) => t.name === `Market: ${TRANSPORTS_CATEGORY}`).map((t) => t.id);
+  });
+  await hideTablesInPage(page, heldAisles);
+  if (heldAisles.length) console.log(`  --    held aside ${heldAisles.length} world Transports & Containers aisle(s) in-page, nothing written`);
 
   const r = await page.evaluate(async () => {
     const mkt = await import("/systems/air-bladder/module/marketplace.js");
@@ -323,13 +338,15 @@ try {
     // 4. Edit the Mule ACTOR document (the one the shop row references now);
     //    a newly bought one must reflect it -- the reference guarantee.
     //
-    //    WHICH document that is, is the Warden's: a world RollTable named as the
-    //    shipped aisle REPLACES it (marketplace.js `marketTables`, the last world
-    //    table of the name winning), and the Marketplace take-over door points
-    //    its copy's rows at world copies of the mounts. On the fleet's baseline
-    //    world the shop sold the world's Mule, so an edit to the pack's never
-    //    reached it (run 20261030T202049Z: got 6, expected 11). The row is read
-    //    the way the shop reads it, by `documentUuid`, and restored in a finally.
+    //    A world RollTable named as the shipped aisle REPLACES it
+    //    (marketplace.js `marketTables`, the last world table of the name
+    //    winning), and the Marketplace take-over door points its copy's rows at
+    //    world copies of the mounts. On the fleet's baseline world the shop sold
+    //    the world's Mule (run 20261030T202049Z: got 6, expected 11). Any such
+    //    aisle is held aside at entry, so the row resolves to the PACK's Mule;
+    //    it is still read the way the shop reads it, by `documentUuid`, and the
+    //    edit is restored in a finally. The node side FAILs if it ever lands on
+    //    a world document.
     const aisleName = `Market: ${mkt.TRANSPORTS_CATEGORY}`;
     const aisle = game.tables.filter((t) => t.name === aisleName).at(-1)
       ?? (await game.packs.get("air-bladder.marketplace").getDocuments()).find((t) => t.name === aisleName);

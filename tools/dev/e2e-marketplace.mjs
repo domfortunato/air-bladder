@@ -48,7 +48,7 @@
  */
 
 import { chromium } from "playwright";
-import { VIEWPORT, joinAs, joinAsGM, watchErrors, watchdog } from "./lib.mjs";
+import { VIEWPORT, hideTablesInPage, joinAs, joinAsGM, watchErrors, watchdog } from "./lib.mjs";
 
 const browser = await chromium.launch();
 // The fleet's hang guard (review #34): without it a hang runs to the runner's
@@ -83,21 +83,7 @@ try {
   // Warden's aisles were back (fleet 20261031T133723Z: a player's Gear aisle
   // read the Warden's 49 rows). It hides exactly the ids held here, so tables
   // this probe plants later stay visible on both pages.
-  holdAsideMarket = (pg) => pg.evaluate((heldIds) => {
-    if (!heldIds.length) return;
-    const ids = new Set(heldIds);
-    const tables = game.tables;
-    const baseIter = tables[Symbol.iterator];
-    tables[Symbol.iterator] = function* () { for (const t of baseIter.call(this)) if (!ids.has(t.id)) yield t; };
-    const baseFind = tables.find;
-    tables.find = function (condition, ...rest) {
-      return baseFind.call(this, (t, ...a) => !ids.has(t.id) && condition(t, ...a), ...rest);
-    };
-    const baseFilter = tables.filter;
-    tables.filter = function (condition, ...rest) {
-      return baseFilter.call(this, (t, ...a) => !ids.has(t.id) && condition(t, ...a), ...rest);
-    };
-  }, heldAtEntry.map((t) => t.id));
+  holdAsideMarket = (pg) => hideTablesInPage(pg, heldAtEntry.map((t) => t.id));
   await holdAsideMarket(page);
   if (heldAtEntry.length) console.log(`  --    held aside ${heldAtEntry.length} world Market: table(s) in-page, nothing written: ${heldAtEntry.map((t) => t.name).join(", ")}`);
   else ok("no world Market: tables at entry — the shop reads the shipped aisles");

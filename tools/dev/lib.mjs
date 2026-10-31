@@ -357,6 +357,33 @@ export async function sweepCreatedActors(page) {
   }
 }
 
+/**
+ * Hide world RollTables by id on one page, from EVERY read the shop makes:
+ * iteration (marketplace.js `marketTables` walks `game.tables`), `find` and
+ * `filter`. In-page only: nothing is written, the shadow dies with the page,
+ * and a table planted later is a new id and stays visible. Call it once per
+ * page that reads the tables (review #34 findings 153 and 111).
+ * @param {import("playwright").Page} page
+ * @param {string[]} heldIds
+ */
+export async function hideTablesInPage(page, heldIds) {
+  await page.evaluate((heldIds) => {
+    if (!heldIds.length) return;
+    const ids = new Set(heldIds);
+    const tables = game.tables;
+    const baseIter = tables[Symbol.iterator];
+    tables[Symbol.iterator] = function* () { for (const t of baseIter.call(this)) if (!ids.has(t.id)) yield t; };
+    const baseFind = tables.find;
+    tables.find = function (condition, ...rest) {
+      return baseFind.call(this, (t, ...a) => !ids.has(t.id) && condition(t, ...a), ...rest);
+    };
+    const baseFilter = tables.filter;
+    tables.filter = function (condition, ...rest) {
+      return baseFilter.call(this, (t, ...a) => !ids.has(t.id) && condition(t, ...a), ...rest);
+    };
+  }, heldIds);
+}
+
 export async function holdAsideWorldTables(page, names) {
   return page.evaluate((names) => {
     const held = game.tables.filter((t) => names.includes(t.name));
