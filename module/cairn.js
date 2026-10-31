@@ -692,7 +692,10 @@ const localizeTableResults = (message, root) => {
   if (flavor && message?.getFlag?.("air-bladder", "scarCard") === true) {
     flavor.textContent = game.i18n.localize("CAIRN.ScarFlavor");
   }
-  const cells = root?.querySelectorAll?.(".table-results li");
+  // The RESULT rows only (review #34 finding 12): a row whose description
+  // holds a list adds its nested <li> to `.table-results li`, and a single
+  // draw read "Draws 3 results".
+  const cells = root?.querySelectorAll?.(".table-results > li");
   if (!cells?.length) return;
   // BEFORE the overlay gate, for the reason the scar card above is: this
   // sentence is core's own INTERFACE string (`TABLE.DrawFlavor`), which every

@@ -767,7 +767,7 @@ export const localizeDashboardCard = (message, html) => {
       const sender = html.querySelector(".message-sender");
       if (sender) sender.textContent = label;
       const flavor = html.querySelector(".flavor-text");
-      const n = html.querySelectorAll(".table-results li").length || 1;
+      const n = html.querySelectorAll(".table-results > li").length || 1;   // result rows only (review #34 finding 12)
       if (flavor) {
         flavor.textContent = game.i18n.format(`TABLE.DrawFlavor${n > 1 ? "Plural" : ""}`, { number: n, name: label });
       }
