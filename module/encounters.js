@@ -248,16 +248,25 @@ export const localizeEncounterQty = (message, html) => {
   });
 };
 
-const encounterFolder = async () => {
+const encounterFolder = () => {
   const existing = game.folders.find(
     (f) => f.type === "Actor" && f.getFlag(game.system.id, "encounters"));
-  if (existing) return existing;
-  return Folder.create({
+  if (existing) return Promise.resolve(existing);
+  // ONE create in flight (review #34 finding 137): two cards pressed inside
+  // one round trip each missed the find above and made a folder apiece.
+  folderInFlight ??= Folder.create({
     name: game.i18n.localize("CAIRN.Encounter.Folder"),
     type: "Actor",
     flags: { [game.system.id]: { encounters: true } },
-  });
+  }).finally(() => { folderInFlight = null; });
+  return folderInFlight;
 };
+
+/** encounterFolder's create while it runs — see there. */
+let folderInFlight = null;
+
+/** resolveWorldActor's import per pack uuid while it runs — see there. */
+const importsInFlight = new Map();
 
 /**
  * ONE world actor for a parsed uuid. A world Actor link is the actor. A
@@ -265,16 +274,39 @@ const encounterFolder = async () => {
  * (`_stats.compendiumSource` holds the full pack uuid) and imports into the
  * Encounters folder only when no copy exists — N tokens share it; never one
  * actor per token.
+ *
+ * A COPY NO PLAYER OWNS (review #34 finding 122). `_stats.compendiumSource` is
+ * not a server-managed field: an owner can write it on their own actor, and a
+ * sidebar Duplicate keeps it. Reused as-is, a player's character wearing a
+ * goblin's source was the goblin, and every token placed from it was theirs to
+ * move. The pile's rule (`isDroppedPile`): a flag-like identity is not
+ * identity while a player owns the document. And the import that follows
+ * keeps the SHIPPED ID only while no world actor holds it: core's import
+ * REPLACES the actor at a taken id (document-collection.mjs `importDocument`),
+ * and the player's copy passed over above holds that id whenever its owner
+ * imported it from the sidebar — the replace would have overwritten their
+ * actor and taken it from them.
+ *
+ * ONE IMPORT PER UUID AT A TIME (review #34 finding 137): two cards for one
+ * un-imported monster pressed together each missed the find and imported it
+ * twice — a second write over the first's id, or, once that id is taken, a
+ * twin under a fresh one. The second waits for the first and takes its copy.
  */
 const resolveWorldActor = async (uuid) => {
   const doc = await fromUuid(uuid).catch(() => null);
   if (!doc || doc.documentName !== "Actor") return null;
   if (!doc.pack) return doc;
-  const existing = game.actors.find((a) => a._stats?.compendiumSource === uuid);
+  const existing = game.actors.find((a) => a._stats?.compendiumSource === uuid && !a.hasPlayerOwner);
   if (existing) return existing;
-  const folder = await encounterFolder();
-  const pack = game.packs.get(doc.pack);
-  return game.actors.importFromCompendium(pack, doc.id, { folder: folder.id });
+  if (!importsInFlight.has(uuid)) {
+    importsInFlight.set(uuid, (async () => {
+      const folder = await encounterFolder();
+      const pack = game.packs.get(doc.pack);
+      return game.actors.importFromCompendium(pack, doc.id, { folder: folder.id },
+        { keepId: !game.actors.has(doc.id) });
+    })().finally(() => importsInFlight.delete(uuid)));
+  }
+  return importsInFlight.get(uuid);
 };
 
 /** Place `count` unlinked NEUTRAL copies of the actor's prototype token in the
@@ -354,6 +386,12 @@ export const spawnEncounterFromMessage = async (message) => {
 
     const placedNames = [];
     let placed = 0;
+    // THE CARD'S OWN VISIBILITY (review #34 finding 127). With no mode the
+    // quantity roll took the Warden's chat dropdown, so an encounter drawn
+    // privately — the Dashboard's default — was followed by a public
+    // "Encounter: …" naming what was coming. The roll is heard by whoever
+    // heard the draw.
+    const messageMode = message.blind ? "blind" : message.whisper?.length ? "gm" : "public";
     for (const spec of specs) {
       const roll = await new Roll(spec.qty).evaluate();
       const name = qtyWhat({ npc: !!spec.npc, label: spec.label || "" });
@@ -365,7 +403,7 @@ export const spawnEncounterFromMessage = async (message) => {
         // the line in each viewer's language (review #27). English, never the
         // translated name: the overlay is keyed on the source string.
         flags: { "air-bladder": { encounterQty: { npc: !!spec.npc, label: spec.npc ? "" : String(spec.label || "") } } },
-      });
+      }, { messageMode });
       const count = Math.max(0, Math.floor(roll.total));
       if (!count) continue;
 

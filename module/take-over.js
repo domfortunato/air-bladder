@@ -60,7 +60,8 @@
  * That split is what makes a re-run keep every edit the Warden made.
  *
  * IDENTITY. Items, actors and background copies keep the SHIPPED ID (one
- * `keepId: true` per batch), so a copy is found again by id — and a background
+ * `keepId: true` per batch; an item or actor only while no world document
+ * holds it, `worldCopy`), so a copy is found again by id — and a background
  * copy with the shipped id stands in for the original in the 2e pool by that
  * pool's own de-dup-by-id rule (character-generator.js build2ePool), which is
  * why the backgrounds half writes nothing into `disabled-backgrounds`: delete
@@ -340,9 +341,17 @@ export const planTableTakeOver = async (spec) => {
       const collection = type === "Actor" ? game.actors : game.items;
       const bucket = type === "Actor" ? plan.actors : plan.items;
       // The shipped id first (v14's own Import keeps it); else a copy made
-      // under a new id, which `fromCompendium` stamped with its source.
-      const world = collection.get(id)
-        ?? collection.find((d) => d._stats?.compendiumSource === uuid)
+      // under a new id, which `fromCompendium` stamped with its source — and
+      // either way only one NO PLAYER OWNS (review #34 finding 122): a player's
+      // item or mule adopted here became the shop's row, its price and stats
+      // theirs to edit. The stamp is not a server-managed field (an owner can
+      // write it, a sidebar Duplicate keeps it), and the shipped id is no
+      // better: a player allowed to create imports from the sidebar with it.
+      // A copy passed over still holds its id, so the run's create takes a
+      // fresh one there (`worldCopy`).
+      const atId = collection.get(id);
+      const world = (atId && !atId.hasPlayerOwner ? atId : null)
+        ?? collection.find((d) => d._stats?.compendiumSource === uuid && !d.hasPlayerOwner)
         ?? null;
       (world ? bucket.kept : bucket.add).push(world ?? doc);
       plan.targets.set(uuid, { type, doc, world });
@@ -425,11 +434,15 @@ const sourceFolders = async (type, spec, parent, targets, adding) => {
   return byPack;
 };
 
-/** `fromCompendium` with the id kept and the folder set. `clearFolder`
+/** `fromCompendium` with the folder set, keeping the shipped id only while no
+ *  world document holds it — the `tableIdFor` rule, for the copy whose plan
+ *  passed over a player's document at that id (planTableTakeOver), which a
+ *  keepId create would have replaced in silence. Asked at RUN time. A copy
+ *  under a fresh id is found again by its source stamp. `clearFolder`
  *  defaults false, so without the override a copy would carry the PACK's
  *  folder id, which no world folder answers to. */
 const worldCopy = (collection, doc, folder) => {
-  const data = collection.fromCompendium(doc, { keepId: true });
+  const data = collection.fromCompendium(doc, { keepId: !collection.has(doc.id) });
   data.folder = folder.id;
   return data;
 };
@@ -460,11 +473,14 @@ export const runTableTakeOver = async (plan) => {
   const folders = { Item: null, Actor: null, RollTable: null };
 
   let added = 0;
+  // Each copy just made, by the shipped uuid its source stamp carries.
+  const madeFor = new Map();
   if (plan.items.add.length) {
     folders.Item = await takeOverFolder("Item", spec);
     const into = await sourceFolders("Item", spec, folders.Item, plan.targets.values(), plan.items.add);
     const made = await Item.implementation.createDocuments(
       plan.items.add.map((d) => worldCopy(game.items, d, into.get(d.pack) ?? folders.Item)), { keepId: true });
+    for (const d of made) madeFor.set(d._stats?.compendiumSource, d.uuid);
     added += made.length;
   }
   if (plan.actors.add.length) {
@@ -472,14 +488,18 @@ export const runTableTakeOver = async (plan) => {
     const into = await sourceFolders("Actor", spec, folders.Actor, plan.targets.values(), plan.actors.add);
     const made = await Actor.implementation.createDocuments(
       plan.actors.add.map((d) => worldCopy(game.actors, d, into.get(d.pack) ?? folders.Actor)), { keepId: true });
+    for (const d of made) madeFor.set(d._stats?.compendiumSource, d.uuid);
     added += made.length;
   }
 
-  // Where each shipped row now points: an adopted copy's own uuid, the relative
-  // uuid of the document just created under the shipped id, or — for a row
-  // naming another of these tables — what the plan already worked out.
+  // Where each shipped row now points: an adopted copy's own uuid, the copy
+  // just created (under the shipped id, or a fresh one where that was held),
+  // or — for a row naming another of these tables — what the plan already
+  // worked out.
   const worldFor = new Map();
-  for (const [uuid, tgt] of plan.targets) worldFor.set(uuid, tgt.world ? tgt.world.uuid : `${tgt.type}.${tgt.doc.id}`);
+  for (const [uuid, tgt] of plan.targets) {
+    worldFor.set(uuid, tgt.world ? tgt.world.uuid : madeFor.get(tgt.doc.uuid) ?? `${tgt.type}.${tgt.doc.id}`);
+  }
   for (const [uuid, to] of plan.tableTargets) worldFor.set(uuid, to);
 
   if (plan.tables.add.length) {
