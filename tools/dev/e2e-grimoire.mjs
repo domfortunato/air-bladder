@@ -1353,7 +1353,7 @@ try {
     } finally {
       ui.notifications.warn = origWarn;
     }
-    const [pc, pile, keyed] = made;
+    const [pc, keyed, pile] = made;   // creation order
     const books = (a) => a?.items.filter((i) => i.type === "item" && i.system?.grimoire) ?? [];
     const pileKeys = books(pile).map((b) => b.system.grimoireKey);
     return {
