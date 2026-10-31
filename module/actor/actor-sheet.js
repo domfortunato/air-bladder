@@ -2,7 +2,7 @@ import { dieIconOrGeneric } from "../utils.js";
 import { canRegenerateContainers, drawBond, bondRecordFrom, withGrantSource, bondEntitlement, resolveRefs, replaceGrantedContainers, promptBackground, changeBackground, promptFailedCareer, rollFailedCareerName, buildFailedCareerItem, getPortraitManifest, pairedTokenFor, randomPortraitInSameFolder, portraitCategoryFor, regenerateNpc, regenerateHireling, rerollNpcBackground, rerollHirelingCareer, rerollNpcName, rerollNpcFaction, promptHirelingCareer, promptNpcBackground, promptNpcFaction, promptPickOmen, promptPickBond, promptPickQuestionOption, promptPickName, findOmensTable, rollNameFromTable, rollAge, rollTextItems, effectiveAgeFormula, effectivePcAbilityFormula, effectivePcGoldFormula, effectivePcHpFormula, rollPcHitProtection, resolveActorBackground, redealBackgroundGear, rerollAllBonds, reorderInventory, postGenerationRolls, isHandBuilt, clearHandBuilt, isBackgroundDisabled, FLAG_SCOPE } from "../character-generator.js";
 import { promptMonsterTier, regenerateMonster } from "../monster-generator.js";
 import { openMarketplace, TRANSPORTS_CATEGORY } from "../marketplace.js";
-import { evaluateFormula, cairnSavePasses, cleanDescription, holdsProse, bindEditorClickAwaySave, formatCount, sourceLabel, askDamageQuality, damageFormulaFor, damageQualityLabel, damageQualityKind, d20CardBody, d20CardFlavor, D20_CARD_ABILITIES, combatOption, combatDamageFormula, askImprovisedAttack, IMPROVISED_FORMULA } from "../utils.js";
+import { evaluateFormula, cairnSavePasses, cleanDescription, concealSecrets, holdsProse, bindEditorClickAwaySave, formatCount, sourceLabel, askDamageQuality, damageFormulaFor, damageQualityLabel, damageQualityKind, d20CardBody, d20CardFlavor, D20_CARD_ABILITIES, combatOption, combatDamageFormula, askImprovisedAttack, IMPROVISED_FORMULA } from "../utils.js";
 import { resultText, compendiumInfoFromString } from "../compendium.js";
 import { SETTINGS_NS } from "../settings.js";
 import { CONTAINER_ART_CHOICES, CONTAINER_CLASSES } from "../icons.js";
@@ -2281,7 +2281,11 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // criticalDamage is not translated because it is not EXTRACTED: no shipped
     // item carries any, so there is nothing for a translator to have filled.
     const desc = t(this._itemNamespaces().descNs, item.system.description);
-    div.innerHTML = `${cleanDescription(desc)}${crit}${recharge}`;
+    // Secret blocks off for a viewer who does not own the item (review #34
+    // finding 126): an OBSERVER of a teammate's sheet, a loot container or
+    // the Dropped Item Pile expands rows too, and cleanDescription keeps
+    // `section.secret`. Core's rule: secrets for the owner only.
+    div.innerHTML = `${cleanDescription(concealSecrets(desc, item.isOwner))}${crit}${recharge}`;
     return div;
   }
 

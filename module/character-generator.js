@@ -1,7 +1,7 @@
 import { CairnActor } from "./actor/actor.js";
 import { rollTableText, rollTablePlainText, resultText, resultPlainText, findTableByName, findDeclaredTable } from "./compendium.js";
 import { Cairn } from "./config.js";
-import { evaluateFormula, formatCount } from "./utils.js";
+import { evaluateFormula, formatCount, concealSecrets } from "./utils.js";
 import {
   resolveGearItem, itemDataFromDocument, GEAR_ALIASES, spellScrollItem,
   orderGrantedItems, isLightGear, RATIONS_RE,
@@ -3112,7 +3112,9 @@ export const promptBackground = async (source, currentUuid = null, { windowId } 
     for (const bg of g.backgrounds) {
       // Display-only, exactly as the sheet renders the same two fields — the radio
       // VALUE stays the uuid, so what gets chosen is unaffected by language.
-      descs[bg.uuid] = t("bg.desc", bg.system.description ?? "");
+      // Secret blocks off for a viewer who does not own the background (review
+      // #34 finding 126) — a player choosing, from a Warden's world pack.
+      descs[bg.uuid] = concealSecrets(t("bg.desc", bg.system.description ?? ""), bg.isOwner);
       // A disabled row cannot be checked — including the pre-check on the
       // character's current background, which Random takes instead (above).
       const isOff = off.has(bg.id);

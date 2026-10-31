@@ -16,7 +16,7 @@
 import { FATIGUE_NAME } from "./item/item.js";
 import { findTableByName } from "./compendium.js";
 import { t, speakerDisplayName } from "./i18n-content.js";
-import { cleanDescription, formatCount } from "./utils.js";
+import { cleanDescription, concealSecrets, formatCount } from "./utils.js";
 import { SETTINGS_NS } from "./settings.js";
 
 /** The shipped Mishaps table's stored English name (tables-glog). */
@@ -649,8 +649,15 @@ export const localizeGlogCastCard = (message, html) => {
   if (!f) return;
   const card = html.querySelector(".grimoire-cast-card");
   if (card) {
+    // Core's own secrets rule for chat content (chat-message.mjs: `secrets:
+    // speakerActor?.isOwner ?? game.user.isGM`). Core had already removed the
+    // spell's Secret blocks for everyone not owning the caster, and this
+    // rebuild from the flag put them back for the whole table (review #34
+    // finding 126).
+    const speakerActor = ChatMessage.implementation.getSpeakerActor(message.speaker);
+    const owner = speakerActor?.isOwner ?? game.user.isGM;
     card.outerHTML = glogCastBody(
-      t("item.name", f.name), t("item.desc", f.desc), f.dice, f.sum);
+      t("item.name", f.name), concealSecrets(t("item.desc", f.desc), owner), f.dice, f.sum);
   }
   // The flavor is the message HEADER, outside `.message-content`
   // (`templates/sidebar/chat-message.hbs:23-25`), so it is not reached by the

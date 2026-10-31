@@ -3,7 +3,7 @@ import { Cairn } from "./config.js";
 import { iconForTransport, TRANSPORT_KINDS } from "./icons.js";
 import { atConnectionLimit, maxConnections, connectedOwnershipShape, OWNERSHIP_SYNC_FLAG } from "./connections.js";
 import { actorDisplayName, localizeNameDesc, t } from "./i18n-content.js";
-import { formatCount } from "./utils.js";
+import { formatCount, concealSecrets } from "./utils.js";
 import { capacityVerdict } from "./gear.js";
 import { SETTINGS_NS } from "./settings.js";
 
@@ -126,6 +126,9 @@ export const keptAlphabetical = (table) =>
  * compendium document's own object BY REFERENCE, and the shop then writes the
  * buyer's quantity into the pack.
  */
+/** Shop payload -> does the viewer own its source document (see the catalog). */
+const PAYLOAD_OWNED = new WeakMap();
+
 const ownedPayload = (doc) => ({
   name: doc.name,
   type: doc.type,
@@ -277,7 +280,14 @@ export const getMarketplaceCatalog = async () => {
           + `"${table.name}" — a shop can stock Items and npc Actors.`);
         return false;
       })
-      .map(ownedPayload);
+      .map((doc) => {
+        // Whether THIS viewer owns the row's source, for its Secret blocks
+        // (review #34 finding 126). Beside the payload, not in it: the payload
+        // is what Buy creates, and a field here would ride into the purchase.
+        const payload = ownedPayload(doc);
+        PAYLOAD_OWNED.set(payload, doc.isOwner === true);
+        return payload;
+      });
     if (items.length) categories.push({ name: stripPrefix(table.name), label: displayName(table.name), items });
   }
   return { categories };
@@ -606,11 +616,14 @@ export const openMarketplace = async (actor, opts = {}) => {
   // the same noun the background tagline already formats this way, so the two
   // surfaces cannot disagree; the retired MarketplaceSlot/MarketplaceSlots
   // keys left en.json and es.json with this change.
-  const descHtmlOf = (text) => {
+  const descHtmlOf = (text, owner) => {
     // Descriptions may be ProseMirror HTML; pull out plain text (tags stripped,
     // entities decoded) via DOMParser — which runs no scripts and loads no
     // resources — then re-escape for safe insertion into the dialog markup.
-    const plain = new DOMParser().parseFromString(String(text ?? ""), "text/html").body.textContent ?? "";
+    // Secret blocks go FIRST, for a viewer who does not own the source (review
+    // #34 finding 126): textContent flattened a Warden's note into every
+    // player's shop row.
+    const plain = new DOMParser().parseFromString(concealSecrets(text, owner), "text/html").body.textContent ?? "";
     const d = plain.trim();
     return d ? esc(d) : `<em class="mkt-nodesc">${game.i18n.localize("CAIRN.NoDescription")}</em>`;
   };
@@ -636,13 +649,13 @@ export const openMarketplace = async (actor, opts = {}) => {
         const cap = data.system.slots ?? 0;
         const tags = transportChips(data).map((c) => `<span class="mkt-chip">${esc(c)}</span>`).join("");
         const metaHtml = `<span class="mkt-slots mkt-capacity" title="${game.i18n.localize("CAIRN.TransportCapacity")}">+${esc(formatCount("CAIRN.NSlot", cap))}</span>`;
-        return rowHtml({ idx, cost: data.system.cost ?? 0, name: d.name, tagsHtml: tags, metaHtml, descHtml: descHtmlOf(d.system.description) });
+        return rowHtml({ idx, cost: data.system.cost ?? 0, name: d.name, tagsHtml: tags, metaHtml, descHtml: descHtmlOf(d.system.description, PAYLOAD_OWNED.get(data) === true) });
       }
       const idx = built.push(data) - 1;
       const slots = slotCost(data.system);
       const tags = chips(data).map((c) => `<span class="mkt-chip">${esc(c)}</span>`).join("");
       const metaHtml = `<span class="mkt-slots">${esc(formatCount("CAIRN.NSlot", slots))}</span>`;
-      return rowHtml({ idx, cost: data.system.cost ?? 0, name: d.name, tagsHtml: tags, metaHtml, descHtml: descHtmlOf(d.system.description) });
+      return rowHtml({ idx, cost: data.system.cost ?? 0, name: d.name, tagsHtml: tags, metaHtml, descHtml: descHtmlOf(d.system.description, PAYLOAD_OWNED.get(data) === true) });
     }).join("");
     return `<div class="mkt-cat"><div class="mkt-cat-name">${esc(cat.label ?? cat.name)}</div>${rows}</div>`;
   }).join("");

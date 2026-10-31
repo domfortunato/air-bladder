@@ -1617,6 +1617,31 @@ export const cleanDescription = (text) => {
 };
 
 /**
+ * A description as a viewer may see it: with every unrevealed ProseMirror
+ * Secret block (`<section class="secret">`) removed unless that viewer owns
+ * the document. Core's rule, exactly — its sheets enrich with
+ * `secrets: document.isOwner` (base-sheet.mjs) and enrichHTML's only removal
+ * step is this selector (text-editor.mjs) — for the surfaces that put a
+ * description on screen WITHOUT enrichHTML: the Marketplace rows, an inventory
+ * row's panel, the GLOG cast card's rebuild and the background picker (review
+ * #34 finding 126). cleanHTML keeps `section` and `class`, so cleaning alone
+ * printed a Warden's notes to the table. Concealment, not protection: the raw
+ * description is on every client that holds the document, as core's is.
+ * Parsed in an inert <template>, as cleanDescription is.
+ *
+ * @param {String} [html]
+ * @param {Boolean} owner  does the VIEWER own the document the text belongs to
+ * @return {String}
+ */
+export const concealSecrets = (html, owner) => {
+  if (owner || !html) return String(html ?? "");
+  const tpl = document.createElement("template");
+  tpl.innerHTML = String(html);
+  tpl.content.querySelectorAll("section.secret:not(.revealed)").forEach((s) => s.remove());
+  return tpl.innerHTML;
+};
+
+/**
  * Whether a stored rich-text field holds anything a reader would see: text, or
  * an image or other embedded element. Not the same question as "is it a
  * non-empty string" — a ProseMirror editor its user emptied saves the one empty
