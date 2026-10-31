@@ -3,6 +3,7 @@ import {
   currentWatch, setDate, timeForDate, describeDateAt, describeShift, todayWeather, setTodayWeather, weatherTableForToday, WEATHER_MAX,
 } from "./game-time.js";
 import { t, localizeJournalBlocks } from "./i18n-content.js";
+import { resultPlainText } from "./compendium.js";
 import {
   marksByDay, watchLineFor, promptAddEvent, openEvent, removeEvent, _resetFestivals,
 } from "./calendar-events.js";
@@ -85,7 +86,7 @@ export const promptSetWeather = async () => {
   // (see `postSetDraw` in warden-dashboard.js). Tags are stripped because a datalist option
   // is plain text, and the Cairn tables bold their keyword.
   const suggestions = (table?.results ?? [])
-    .map((r) => String(r.type === "text" ? r.description : r.name))
+    .map((r) => resultPlainText(r))
     .map((v) => v.replace(/<[^>]*>/g, "").trim()).filter(Boolean);
 
   // A BARE <div> WITH NO ATTRIBUTES. DialogV2's constructor throws

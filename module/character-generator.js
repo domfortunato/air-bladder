@@ -1103,11 +1103,11 @@ export const drawBond = async (tableName, { avoid = [] } = {}) => {
     const { results } = await table.roll();
     result = results[0] ?? null;
     if (!result) return null;
-    if (!taken.has(bondKey(resultText(result)))) break;
+    if (!taken.has(bondKey(resultPlainText(result)))) break;
   }
   if (!result) return null;
   return {
-    description: resultText(result),
+    description: resultPlainText(result),
     gold: result.getFlag(FLAG_SCOPE, "gold") ?? 0,
     // Items are unflagged here; bondRecordFrom tags them with the bond's id.
     items: await resolveRefs(result.getFlag(FLAG_SCOPE, "items") ?? []),
@@ -2013,7 +2013,7 @@ export const randomScrollItem = async () => {
  */
 const resolveBarebonesResult = async (result) => {
   if (!result) return null;
-  const name = resultText(result).trim();
+  const name = resultPlainText(result);
   const doc = result.type === CONST.TABLE_RESULT_TYPES.DOCUMENT
     ? await fromUuid(result.documentUuid)
     : null;
@@ -5113,7 +5113,7 @@ export const promptPickBond = async (tableName, current = "", { windowId } = {})
   const table = await resolveBondsTable(tableName);
   if (!table) return null;
   const rows = table.results
-    .map((result) => ({ result, value: String(resultText(result)).trim() }))
+    .map((result) => ({ result, value: resultPlainText(result) }))
     .filter((row) => row.value)
     .map((row) => ({ ...row, label: t("table.result", row.value) }));
   const choice = await promptFromRows("CAIRN.PickBond", rows, String(current ?? "").trim() || null, { windowId });

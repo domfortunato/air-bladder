@@ -3,7 +3,7 @@ import { canRegenerateContainers, drawBond, bondRecordFrom, withGrantSource, bon
 import { promptMonsterTier, regenerateMonster } from "../monster-generator.js";
 import { openMarketplace, TRANSPORTS_CATEGORY } from "../marketplace.js";
 import { evaluateFormula, cairnSavePasses, cleanDescription, concealSecrets, holdsProse, bindEditorClickAwaySave, formatCount, sourceLabel, askDamageQuality, damageFormulaFor, damageQualityLabel, damageQualityKind, d20CardBody, d20CardFlavor, D20_CARD_ABILITIES, combatOption, combatDamageFormula, askImprovisedAttack, IMPROVISED_FORMULA } from "../utils.js";
-import { resultText, compendiumInfoFromString } from "../compendium.js";
+import { resultText, resultPlainText, compendiumInfoFromString } from "../compendium.js";
 import { SETTINGS_NS } from "../settings.js";
 import { CONTAINER_ART_CHOICES, CONTAINER_CLASSES } from "../icons.js";
 import { NPC_ROLES, PERSON_ROLES } from "../data-models.js";
@@ -1525,7 +1525,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       const [, tableName] = ref.split(";");
       const table = tables[key];
       const value = this.actor.system.traits?.[key] ?? "";
-      const texts = table ? table.results.map(resultText).sort() : [];
+      const texts = table ? table.results.map(resultPlainText).sort() : [];
       // A tables-2e trait's label IS its table name (Physique, Skin…), so it
       // localizes through the same table.name namespace as the compendium
       // list. The four NPC tables cannot: they are named "Warden: NPC -
@@ -3575,7 +3575,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       const omenTable = await findOmensTable();
       if (omenTable) {
         const { results } = await omenTable.roll();
-        const text = resultText(results?.[0]);
+        const text = resultPlainText(results?.[0]);
         // An empty or exhausted table returns {results: []} with core's own
         // toast (roll-table.mjs:281-284) — bail rather than wiping the stored
         // omen with "" (review #21). The die takes the same bail.
@@ -4893,7 +4893,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       return;
     }
     const { results } = await omenTable.roll();
-    const text = resultText(results?.[0]);
+    const text = resultPlainText(results?.[0]);
     // An empty or exhausted table returns {results: []} with core's own toast
     // (roll-table.mjs:281-284) — bail rather than wiping the stored omen with
     // "" (review #21). Reachable since the world-first lookup: a Warden's own

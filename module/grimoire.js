@@ -14,7 +14,7 @@
  * precedent, so a Warden customizes it by importing a world copy.
  */
 import { FATIGUE_NAME } from "./item/item.js";
-import { findTableByName } from "./compendium.js";
+import { findTableByName, resultText } from "./compendium.js";
 import { t, speakerDisplayName } from "./i18n-content.js";
 import { cleanDescription, concealSecrets, formatCount } from "./utils.js";
 import { SETTINGS_NS } from "./settings.js";
@@ -360,7 +360,7 @@ const reportCast = async (actor, spell, dice) => {
       // marks a world table's rows, and a mishap belongs in this whisper.
       const results = table.getResultsForRoll(sum);
       for (const r of results) {
-        lines.push(`<div class="grimoire-mishap-text">${t("table.result", r.description ?? "")}</div>`);
+        lines.push(`<div class="grimoire-mishap-text">${t("table.result", resultText(r))}</div>`);
       }
     } else {
       lines.push(`<p>${game.i18n.format("CAIRN.GrimoireMishapNoTable",

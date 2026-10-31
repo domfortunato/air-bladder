@@ -164,7 +164,11 @@ export const rollTable = async (decl, { roll } = {}) => {
  * @returns {String}
  */
 export const resultText = (result) =>
-  (result?.type === "text" ? result.description : result?.name) ?? "";
+  // A text row typed into NAME, the description left empty, reads as its name
+  // (review #34 finding 225) — core v14's table editor offers a Name input and
+  // a Description editor, and a Warden may fill either. Where the text is
+  // STORED or shown escaped, read resultPlainText below instead.
+  (result?.type === "text" ? (result.description || result.name) : result?.name) ?? "";
 
 /**
  * A row as PLAIN TEXT, for a reader that composes it into a name, a list
@@ -214,7 +218,7 @@ export const resultPlainText = (result) => {
 export const resultChatText = (result) =>
   (result?.type === CONST.TABLE_RESULT_TYPES.DOCUMENT
     ? `@UUID[${result.documentUuid}]{${result.name}}`
-    : result?.description) ?? "";
+    : (result?.description || result?.name)) ?? "";   // a Name-only row: review #34 finding 225
 
 /**
  * One rolled result's chat text off a declared table.
@@ -224,7 +228,12 @@ export const resultChatText = (result) =>
  */
 export const rollTableText = async (decl) => {
   const rolled = await rollTable(decl);
-  return resultChatText(rolled?.results?.[0]);
+  const r = rolled?.results?.[0];
+  // Its one caller stores the value as a trait STRING, shown escaped — so a
+  // text row reads as its plain text (review #34 finding 225: a row written in
+  // the Description editor stored a literal "<p>…</p>"). A document row keeps
+  // its content link, as before.
+  return r?.type === CONST.TABLE_RESULT_TYPES.DOCUMENT ? resultChatText(r) : resultPlainText(r);
 };
 
 /**

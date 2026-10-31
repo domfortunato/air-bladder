@@ -26,7 +26,7 @@
  * owns a Foundry surface, the scene-controls palette.
  */
 
-import { findTableByName } from "./compendium.js";
+import { findTableByName, resultText, resultPlainText } from "./compendium.js";
 import { cleanDescription } from "./utils.js";
 import { t } from "./i18n-content.js";
 import { openWardenDamage } from "./warden-damage.js";
@@ -600,7 +600,7 @@ const renderTableRows = async (table) => {
     // THROUGH THE OVERLAY — see the same line in `postSetDraw`. This popup is
     // rendered per client, so it is the one surface here that CAN read in the
     // viewer's own language, and it was the one throwing English at them.
-    const raw = t("table.result", r.type === "text" ? r.description : r.name);
+    const raw = t("table.result", resultText(r));
     rows.push(`<div class="cairn-show-row"><span class="cairn-show-range">${esc(range)}</span>`
       + `<span class="cairn-show-text">${await enrich(raw, { relativeTo: r, secrets: false })}</span></div>`);
   }
@@ -1278,7 +1278,7 @@ class WardenDashboard extends foundry.applications.api.HandlebarsApplicationMixi
   static async _onRollWeather(event, target) {
     await this._whileDisabled(target, async () => {
       const drawn = await postTableDraw(target.dataset.table, "public");
-      const text = drawn?.results?.map((r) => String(r.type === "text" ? r.description : r.name))
+      const text = drawn?.results?.map((r) => resultPlainText(r))
         .map((v) => v.replace(/<[^>]*>/g, "").trim()).filter(Boolean).join(", ");
       if (text) await setTodayWeather(text);
     });
