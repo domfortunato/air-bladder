@@ -231,13 +231,40 @@ const noPlayerOwner = (doc) => {
  * or dropping the server's creator stamp at creation so ours really do name
  * nobody) — not a wider test here. Handing a world over by DELETING the old
  * account works; handing it over by demoting it does not.
+ *
+ * AND IT MUST CARRY A WARDEN'S KEY (review #34 finding 106). The last writer
+ * alone was laundered by any GM write that never looked at the document: a
+ * Warden dragging a journal in the sidebar re-indexes every sort-0 sibling and
+ * writes each one, so a TRUSTED player's flagged decoy came out last written
+ * by a GM, and "a Warden who edits a decoy by hand has adopted it" did not
+ * describe a re-index. So the document must also hold an explicit OWNER entry
+ * naming a Gamemaster, or an id that no longer resolves (a deleted Warden; see
+ * `noPlayerOwner`). Ours always do: the server stamps the creating user as
+ * OWNER, and core's ownership dialog submits the Warden's own row even while
+ * it hides it. A player's never can: the server deletes every other user's key
+ * from a non-GM's create and refuses a non-GM's change to one after
+ * (dist/database/sanitization.mjs `sanitizeDocumentOwnershipField`). A decoy
+ * that removed its own key names nobody, and is refused too.
  * @param {foundry.abstract.Document} doc
  * @returns {boolean}
  */
 export const isWardenJournal = (doc) => {
+  if (!wardenKeyed(doc)) return false;
   const user = game.users.get(doc?._stats?.lastModifiedBy);
   if (user) return user.isGM;
   return noPlayerOwner(doc);
+};
+
+/**
+ * Does an explicit OWNER entry name a Gamemaster, or an id that no longer
+ * resolves? The key only a Warden's document carries; see `isWardenJournal`.
+ * @param {foundry.abstract.Document} doc
+ * @returns {boolean}
+ */
+const wardenKeyed = (doc) => {
+  const L = CONST.DOCUMENT_OWNERSHIP_LEVELS;
+  return Object.entries(doc?.ownership ?? {}).some(([id, level]) =>
+    id !== "default" && level >= L.OWNER && (game.users.get(id)?.isGM ?? true));
 };
 
 /**

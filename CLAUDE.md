@@ -270,8 +270,9 @@ goes into the same type packs 2e uses.
   self-checks weekdays. Festivals found by FLAGS. Browsing state on the instance.
   `JOURNAL_BLOCKS`/`localizeJournalBlocks` live in `i18n-content.js`.
 - `module/weather-log.js`, `module/calendar-events.js`: journals found by FLAG plus
-  `isWardenJournal` (last writer a GM; unresolvable writer = unknown, fall back to
-  document ownership). Demotion of the writing GM is NOT covered (stated). Never by
+  `isWardenJournal` (an OWNER key naming a GM or a gone id — a player's create can
+  carry no other user's key — AND last writer a GM; unresolvable writer = unknown,
+  fall back to document ownership). Demotion of the writing GM is NOT covered (stated). Never by
   a stored id (settings read-after-write is not guaranteed). Log written by the
   ACTIVE GM from `cairnWeatherChanged`, in the writer's language. "Hidden" journals
   are concealment, not secrets. Refresh on `updateJournalEntry`.
