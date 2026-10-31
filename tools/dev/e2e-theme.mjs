@@ -654,6 +654,36 @@ try {
     const range = document.querySelector(`[data-message-id="${msg.id}"] .cairn-show-range`);
     out.range = range ? getComputedStyle(range).color : null;
     await msg.delete();
+    // (188) the GLOG public cast card's spell name: a bare <h3> took core's
+    // heading face, 28px, and --color-text-primary — cream on the parchment
+    // tile in a dark scheme. Posted in its producer's markup.
+    const cast = await ChatMessage.create({
+      content: '<div class="grimoire-cast-card"><h3>ZZ Theme Spell</h3><div class="grimoire-cast-effect">x</div></div>',
+      whisper: [game.user.id],
+    });
+    for (let i = 0; i < 30 && !document.querySelector(`[data-message-id="${cast.id}"] .grimoire-cast-card h3`); i++) await sleep(150);
+    const castH3 = document.querySelector(`[data-message-id="${cast.id}"] .grimoire-cast-card h3`);
+    out.castH3 = castH3 ? { color: getComputedStyle(castH3).color, size: getComputedStyle(castH3).fontSize } : null;
+    await cast.delete();
+    // (188) three dialog headings with no face of their own took core's h4 —
+    // the heading face (Modesto) at 24px: the Test x10 report, the offer
+    // picker's group headers, the Vald calendar's festival names. Mounted
+    // briefly under the classes their rules expect, measured, removed.
+    const mount = (html) => {
+      const host = document.createElement("div");
+      host.className = "application cairn";
+      host.innerHTML = html;
+      document.body.append(host);
+      const h = host.querySelector("h4");
+      const face = h ? getComputedStyle(h).fontFamily : null;
+      host.remove();
+      return face;
+    };
+    out.faces = {
+      report: mount('<div class="bg-preview"><h4>ZZ</h4></div>'),
+      offer: mount('<div class="cairn-offer-picker"><h4 class="cairn-offer-group">ZZ</h4></div>'),
+      festival: mount('<div class="cairn-vald-calendar"><article class="cairn-calendar-festival"><h4>ZZ</h4></article></div>'),
+    };
     // (99) a shipped background's read-only Details tab.
     const pack = game.packs.get("air-bladder.backgrounds-2e");
     const bg = pack ? (await pack.getDocuments())[0] : null;
@@ -687,6 +717,12 @@ try {
   };
   verdict(lightC.range && darkC.range === lightC.range,
     "the shown-table chat card keeps its light ink in dark (the tile is parchment)", JSON.stringify({ lightC, darkC }));
+  verdict(lightC.castH3 && darkC.castH3?.color === lightC.castH3.color && darkC.castH3.size !== "28px",
+    "the GLOG cast card's spell name keeps the tile's ink in dark, and is not core's 28px (review #34 finding 188)",
+    JSON.stringify({ light: lightC.castH3, dark: darkC.castH3 }));
+  verdict(Object.values(lightC.faces ?? {}).every((f) => f && !/modesto/i.test(f)),
+    "the Test x10 report, offer-picker and festival headings state their own face, not core's Modesto",
+    JSON.stringify(lightC.faces));
   verdict(darkC.bgH3 && darkC.bgH3 !== "28px" && lightC.bgH3 !== "28px",
     "a locked background's Details headings are not core's 28px", JSON.stringify({ light: lightC.bgH3, dark: darkC.bgH3 }));
   verdict(darkC.goldBorder && darkC.goldBorder !== "rgb(117, 0, 3)" && lightC.goldBorder !== "rgb(117, 0, 3)",
