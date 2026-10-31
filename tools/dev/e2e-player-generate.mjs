@@ -692,6 +692,7 @@ try {
     // switch off and read what arrives: a ROLLED character, never a blank one.
     {
       const rawBefore = await snapshot();
+      const answersBefore = await alice.evaluate(() => game._probeAnswers.length);
       await alice.evaluate(() => {
         game.socket.emit(`system.${game.system.id}`, { action: "generatePC", source: "2e", blank: true });
       });
@@ -699,6 +700,8 @@ try {
       if (!rawArrived) {
         fail("switch off: a raw generatePC emit with blank:true minted nothing within 45s");
       } else {
+        await awaitRelayIdle(answersBefore + 1);
+        const answer = await alice.evaluate(() => game._probeAnswers.at(-1) ?? null);
         const raw = await gm.evaluate(async (before) => {
           const a = game.actors.find((x) => x.type === "character" && !before.actors.includes(x.id));
           const out = {
@@ -712,6 +715,62 @@ try {
         !raw.handBuilt && raw.background && raw.items > 0
           ? ok("switch off: a raw emit with blank:true still mints a ROLLED character — the broker refuses the blank")
           : fail(`switch off: the broker honoured a blank it should have refused: ${JSON.stringify(raw)}`);
+        // ...and SAYS what it did (review #34 finding 220): it answered the blank
+        // it was ASKED for, so the asker skipped the glimpse of a card that was
+        // in fact posted. The answer names what this client did: a card exists.
+        answer?.noCard === false
+          ? ok("   …and its answer says a card was posted (noCard: false), not the blank it refused")
+          : fail(`switch off: the broker's answer misdescribes the rolled character: ${JSON.stringify(answer)}`);
+      }
+    }
+
+    // NO CARD, NO WAIT (review #34 finding 220). With "Show character
+    // generation dice rolls" off, nothing is posted, yet the asker polled ten
+    // times at 150ms for a card that could never arrive — the dead wait review
+    // #26 removed for the empty sheet, by another route. Timed from the
+    // answer's arrival to the new sheet's render on Alice's client.
+    {
+      const showWas = await gm.evaluate(() => game.settings.get("air-bladder", "show-generation-rolls"));
+      await gm.evaluate(() => game.settings.set("air-bladder", "show-generation-rolls", false));
+      await new Promise((r) => setTimeout(r, 600));
+      try {
+        const quietBefore = await snapshot();
+        const answersBefore = await alice.evaluate(() => game._probeAnswers.length);
+        await alice.evaluate(() => {
+          const t = window.__noCardTiming = { answered: null, rendered: null, uuid: null };
+          game.socket.on(`system.${game.system.id}`, (m) => {
+            if (m?.action === "pcGenerated" && t.answered === null && m.uuid) {
+              t.answered = performance.now();
+              t.uuid = m.uuid;
+              t.noCard = m.noCard;
+            }
+          });
+          Hooks.on("renderActorSheetV2", (app) => {
+            if (t.uuid && t.rendered === null && app.document?.uuid === t.uuid) t.rendered = performance.now();
+          });
+          game.socket.emit(`system.${game.system.id}`, { action: "generatePC", source: "2e" });
+        });
+        const quietArrived = await gmPollNewCharacter(quietBefore);
+        await awaitRelayIdle(answersBefore + 1);
+        let timing = null;
+        for (let i = 0; i < 40; i++) {
+          timing = await alice.evaluate(() => ({ ...window.__noCardTiming }));
+          if (timing.rendered !== null) break;
+          await new Promise((r) => setTimeout(r, 150));
+        }
+        const elapsed = timing?.rendered !== null && timing?.answered !== null
+          ? Math.round(timing.rendered - timing.answered) : null;
+        await gm.evaluate(async (before) => {
+          const a = game.actors.find((x) => x.type === "character" && !before.actors.includes(x.id));
+          await a?.sheet?.close?.();
+          await a?.delete();
+        }, quietBefore);
+        await alice.evaluate(async (uuid) => { (await fromUuid(uuid ?? ""))?.sheet?.close?.(); }, timing?.uuid);
+        quietArrived && timing?.noCard === true && elapsed !== null && elapsed < 1000
+          ? ok(`rolls card off: the sheet opens ${elapsed}ms after the answer — no wait for a card that is never posted`)
+          : fail(`rolls card off: ${JSON.stringify({ arrived: !!quietArrived, ...timing, elapsed })} — the poll for a card that cannot arrive costs ~1500ms`);
+      } finally {
+        await gm.evaluate((v) => game.settings.set("air-bladder", "show-generation-rolls", v), showWas);
       }
     }
     // Re-establish the actor's own flag before the Warden leg. Idempotent
