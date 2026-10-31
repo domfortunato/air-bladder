@@ -41,7 +41,18 @@ export const createCairnMacro = async (data, slot) => {
   }
 
   const command = `game.cairn.rollItemMacro("${actor.id}", "${item.id}");`;
-  let macro = game.macros.find((m) => m.name === item.name && m.command === command);
+  // ONLY A MACRO THIS USER AUTHORED is reused (review #34 finding 154, a
+  // security fix). Every world macro reaches every client, a macro's author may
+  // rewrite its command, and assignHotbarMacro checks nothing — so matching on
+  // name and command alone handed the Warden's bar a player-authored script the
+  // player could then edit, run as the Warden on the next click; and the other
+  // way round handed a player the Warden's macro they may not execute. Core
+  // never finds another user's macro by lookup (Hotbar#_onDrop's derived drops
+  // always create one), and `isAuthor` is core's own test
+  // (client/documents/macro.mjs). Script type too: a chat macro with this text
+  // would post the command instead of running it.
+  let macro = game.macros.find((m) => m.isAuthor && m.type === "script"
+    && m.name === item.name && m.command === command);
   if (!macro) {
     macro = await Macro.create({
       name: item.name,
