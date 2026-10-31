@@ -2059,6 +2059,81 @@ const rebuilt = await (async () => {
 })();
 
 /* ---------------------------------------------------------------------------
+ * A PLAYER'S STR SAVE HONOURS THE WARDEN'S ANSWER (review #34 finding 214).
+ *
+ * An owner who is not the detail card's author asks the active Warden to
+ * record the one save per card (finding 86), and the press rolled whatever came
+ * back: `false` — another presser got there first — was thrown away, so the
+ * one-save rule held only where the asker's own copy already carried the flag.
+ * Alice owns the planted PC; her client's query is answered false in-page, and
+ * her press must post no save. CONTROL: the same press with the real query
+ * rolls exactly one, so "nothing posted" is not a dead button.
+ * ------------------------------------------------------------------------- */
+const strRefused = { ran: false };
+{
+  const alicePage = await browser.newPage({ viewport: VIEWPORT });
+  let planted = null;
+  try {
+    await joinAs(alicePage, "Alice");
+    planted = await page.evaluate(async () => {
+      const { Damage } = await import("/systems/air-bladder/module/damage.js");
+      const alice = game.users.find((u) => u.name === "Alice");
+      const scene = await Scene.create({ name: "ZZ StrSave Refusal scene", width: 1000, height: 1000 });
+      const pc = await CONFIG.Actor.documentClass.create({
+        name: "ZZ StrSave Refusal PC", type: "character",
+        ownership: { default: 0, [alice.id]: 3 },
+        system: { hp: { value: 2, max: 2 }, armor: 0, abilities: { STR: { value: 10, max: 10 } } },
+      });
+      const [tok] = await scene.createEmbeddedDocuments("Token", [await pc.getTokenDocument({ x: 200, y: 200 })]);
+      const before = new Set(game.messages.map((m) => m.id));
+      await Damage.applyToTargets([tok.id], 6, scene);
+      let detail = null;
+      for (let i = 0; i < 40 && !detail; i++) {
+        detail = game.messages.contents.find((m) => !before.has(m.id) && /roll-str-save/.test(String(m.content ?? "")));
+        if (!detail) await new Promise((r) => setTimeout(r, 150));
+      }
+      return { sceneId: scene.id, pcId: pc.id, messageId: detail?.id ?? null, before: [...before] };
+    });
+    Object.assign(strRefused, { ran: true }, await alicePage.evaluate(async ({ messageId }) => {
+      const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+      const seen = new Set(game.messages.map((m) => m.id));
+      const saves = () => game.messages.contents
+        .filter((m) => !seen.has(m.id) && m.getFlag("air-bladder", "d20Card")?.ability === "STR").length;
+      const button = () => document.querySelector(`[data-message-id="${messageId}"] .roll-str-save`);
+      for (let i = 0; i < 60 && !(button() && !button().disabled); i++) await sleep(150);
+      if (!button() || button().disabled) return { button: false };
+      const gm = game.users.activeGM;
+      const origQuery = gm.query;
+      gm.query = async () => false;
+      try {
+        button().click();
+        await sleep(1500);
+      } finally {
+        gm.query = origQuery;
+      }
+      const refused = saves();
+      button()?.click();
+      for (let i = 0; i < 40 && saves() === refused; i++) await sleep(150);
+      await sleep(400);
+      return { button: true, refused, control: saves() };
+    }, { messageId: planted.messageId }));
+  } catch (e) {
+    strRefused.error = `${e.name}: ${e.message}`;
+  } finally {
+    await page.evaluate(async (p) => {
+      if (!p) return;
+      const before = new Set(p.before);
+      for (const m of game.messages.contents.filter((m) => !before.has(m.id) && m.speaker?.scene === p.sceneId)) {
+        try { await m.delete(); } catch { /* gone */ }
+      }
+      try { await game.actors.get(p.pcId)?.delete(); } catch { /* gone */ }
+      try { await game.scenes.get(p.sceneId)?.delete(); } catch { /* gone */ }
+    }, planted);
+    await alicePage.close();
+  }
+}
+
+/* ---------------------------------------------------------------------------
  * EVERY FATIGUE FILLS A SLOT (2026-10-03, user ruling).
  *
  * For a day a house rule made the first Fatigue free — carried as though it
@@ -2727,6 +2802,13 @@ check("the − control clears one Fatigue",
 check("...and the trash can deletes the row it is on",
   fatigueSlots.afterTrash?.left === 1 && fatigueSlots.afterTrash?.pressedGone === true,
   `left=${fatigueSlots.afterTrash?.left} pressed row gone=${fatigueSlots.afterTrash?.pressedGone} — no redirect to another Fatigue`);
+
+console.log("\na player's STR save honours the Warden's answer");
+check("precondition: Alice's copy offers Roll STR save", strRefused.button === true, JSON.stringify(strRefused));
+check("the Warden's 'already spent' rolls no save", strRefused.refused === 0,
+  `${strRefused.refused} save(s) posted on a false answer`);
+check("...and the same press, answered for real, rolls exactly one", strRefused.control === 1,
+  `${strRefused.control} save(s) in all`);
 
 if (errors.length) { bad++; console.log("Console errors:\n" + errors.join("\n")); }
 console.log(bad === 0 ? "\nencumbered-damage e2e passed" : `\nencumbered-damage e2e FAILED — ${bad}`);
