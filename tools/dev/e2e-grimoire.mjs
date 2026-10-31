@@ -52,6 +52,8 @@
  *      selection picks the power-2 block. A third cast, seeded [4] on ONE
  *      die, proves the dice line's own _one form ("Rolled 1 magic die,
  *      result is 4") — a lone number must read as a result, never a count.
+ *   6b/6c. A hostile desc FLAG: a literal handler is stripped, and so is one
+ *      the [N] block cut would splice together out of quoted text.
  *   8. The Fatigue button: clicked at a FULL pack it still lands both
  *      Fatigue items (ignoreCapacity — a cost, never refused); the message
  *      flag spends it, so a second click adds nothing.
@@ -75,8 +77,14 @@
  *      book joins the shelf, which an unkeyed book could not manage.
  *  10f. The scroll cast, including CANCEL: the dialog's Cancel resolves null
  *      rather than its own action string, posts no card and spends no charge.
+ *  10g. A STACK of two scrolls: one cast spends one scroll, which splits off
+ *      as its own spent row; a spent and an unspent copy never merge.
+ *  10h. The Add-N-Fatigue button, hostile: a player's card naming an actor its
+ *      author does not own writes nothing on the Warden's click; a count past
+ *      four is paid at four; a double-click pays once.
  *  11. Alice casts from her own character end-to-end: public card + whisper
- *      addressed to Alice, not the GM.
+ *      addressed to Alice, not the GM. On her client, a CONCEALED cast card
+ *      keeps core's private-roll flavor (isContentVisible first).
  *  12. The stamp migration, across a real RELOAD: books written before
  *      `grimoireKey` existed get one; a page on a shelf holding ONE book is
  *      matched to it wherever it sits in the inventory; and on a shelf holding
@@ -839,6 +847,48 @@ try {
     "and the benign description text survives the clean",
     `effect kept prose=${castXss.keepsProse}`);
 
+  /* ------------------- 6c. the block split cannot splice markup back to life */
+  // 6b plants a literal handler and no [N] markers, so it never reaches the
+  // splice (review #34 finding 8). resolveSpellText cuts the text between the
+  // [1] marker and the [dice] one. Run on a string that has ALREADY been
+  // cleaned and serialized, that cut can take an attribute's closing quote
+  // with it: here [1] sits inside the img's title and [2] in the text after it,
+  // whose raw `"` characters then close the title and open an `onerror`.
+  // Clean-then-cut is the order review #24 shipped, and it shipped this hole in
+  // 0.1.17-0.1.25. No src, so nothing loads and nothing fires: the attribute on
+  // the parsed element is the witness. The control is the honest shape — the
+  // power-2 block chosen, its value resolved, and the grimoire-resolved span
+  // (class and data-tooltip, both on core's allow-list) surviving the clean.
+  const castSplice = await gm.evaluate(async () => {
+    const render = async (desc, dice, sum) => {
+      const msg = new ChatMessage.implementation({
+        content: '<div class="grimoire-cast-card">seed</div>',
+        speaker: { alias: "ZZ Grim Caster" },
+        flags: { "air-bladder": { glogCast: {
+          name: "ZZ Spell Alpha", desc, dice, sum, alias: "ZZ Grim Caster",
+        } } },
+      });
+      return (await msg.renderHTML()).querySelector(".grimoire-cast-card");
+    };
+    const hostile = await render('<p><img title="[1]">[2]" onerror="window.__zzGlogSplice = 1" x="</p>'
+      + '<p title="q">z</p>', 2, 7);
+    const honest = await render("<p>[1] ZZ-POWER-ONE.</p><p>[2] ZZ-POWER-TWO deals [sum*10].</p>", 2, 7);
+    const span = honest?.querySelector(".grimoire-resolved");
+    return {
+      spliced: !!hostile?.querySelector("[onerror]"),
+      rendered: !!hostile,
+      text: honest?.textContent ?? "",
+      span: span ? `${span.textContent}|${span.dataset.tooltip}` : null,
+    };
+  });
+  check(castSplice.rendered && !castSplice.spliced,
+    "a [N] marker cut cannot splice a live handler into the cast card",
+    `onerror-attr=${castSplice.spliced}`);
+  check(castSplice.text.includes("ZZ-POWER-TWO") && !castSplice.text.includes("ZZ-POWER-ONE")
+    && castSplice.span === "70|[sum*10]",
+    "and the honest card still picks the power-2 block and marks its resolved value",
+    `${castSplice.text.trim()} / span=${castSplice.span}`);
+
   /* --------------------------------------- 8. the Fatigue button, full pack */
   const fatigue = await gm.evaluate(async ({ casterId, whisperId }) => {
     const a = game.actors.get(casterId);
@@ -1397,6 +1447,156 @@ try {
   check(scrollCastRun.secondRefused,
     "a spent scroll refuses a second cast with the warning");
 
+  /* ------------------------------ 10g. a STACK of scrolls spends one scroll */
+  // Review #34 finding 95. Scrolls stack (findMatchingStack, gear.js) — two
+  // drops of the same compendium scroll are enough — and the cast used to spend
+  // with a bare `uses.value: 0` whatever the quantity held, so ONE cast spent
+  // the whole stack. The cast ruling keeps a spent scroll in the inventory
+  // (castScroll's docblock), so the spent one splits off as its own row and
+  // the rest stay castable. The stack test's other half: a spent scroll and an
+  // unspent one of the same spell are different things, and must not merge
+  // into a row that is one or the other for both.
+  const stackRun = await gm.evaluate(async ({ id, seq }) => {
+    const { castScroll } = await import(`/systems/${game.system.id}/module/grimoire.js`);
+    const { findMatchingStack } = await import(`/systems/${game.system.id}/module/gear.js`);
+    const a = game.actors.get(id);
+    const before = new Set(a.items.map((x) => x.id));
+    await a.createEmbeddedDocuments("Item", [
+      { name: "ZZ Scroll Pair", type: "spellbook",
+        system: { description: "<p>Light.</p>", scroll: true, quantity: 2 } },
+    ]);
+    const pair = a.items.find((x) => !before.has(x.id));
+    const origGet = game.settings.get;
+    const ns = game.system.id;
+    game.settings.get = function (scope, key, ...rest) {
+      // A DOCUMENT request is never shadowed (review #27): core's #setWorld asks
+      // get(ns, key, {document: true}) for the Setting document it updates by id,
+      // and any value handed back makes it CREATE a duplicate. check:probes gates this.
+      if (rest[0]?.document) return foundry.helpers.ClientSettings.prototype.get.call(this, scope, key, ...rest);
+      if (scope === ns && key === "enable-glog-magic") return true;
+      return origGet.call(this, scope, key, ...rest);
+    };
+    let i = 0;
+    const origRnd = CONFIG.Dice.randomUniform;
+    CONFIG.Dice.randomUniform = () => seq[Math.min(i++, seq.length - 1)];
+    try {
+      const opened = new Set(foundry.applications.instances.keys());
+      const p = castScroll(a, pair);
+      let clicked = false;
+      for (let t = 0; t < 40 && !clicked; t++) {
+        const dlg = [...foundry.applications.instances.values()]
+          .find((x) => !opened.has(x.id) && x.constructor.name === "DialogV2"
+            && x.element?.querySelector('select[name="dice"]'));
+        if (dlg) { dlg.element.querySelector('[data-action="cast"]').click(); clicked = true; }
+        else await new Promise((r) => setTimeout(r, 150));
+      }
+      const card = await Promise.race([p, new Promise((r) => setTimeout(() => r("__timeout__"), 20000))]);
+      await new Promise((r) => setTimeout(r, 300));
+      const rows = a.items.filter((x) => x.name === "ZZ Scroll Pair")
+        .map((x) => ({ q: x.system.quantity, u: x.system.uses.value }))
+        .sort((x, y) => y.u - x.u);
+      // The merge test as a unit, on plain data: the arriving copy's spent
+      // state against this actor's rows.
+      const spentLike = { name: "ZZ Scroll Pair", type: "spellbook",
+        system: { scroll: true, uses: { value: 0, max: 1 } } };
+      const freshLike = { name: "ZZ Scroll Pair", type: "spellbook",
+        system: { scroll: true, uses: { value: 1, max: 1 } } };
+      const spentInto = findMatchingStack(a, spentLike);
+      const freshInto = findMatchingStack(a, freshLike);
+      return {
+        clicked, timedOut: card === "__timeout__",
+        rows,
+        spentMergesInto: spentInto ? spentInto.system.uses.value : null,
+        freshMergesInto: freshInto ? freshInto.system.uses.value : null,
+      };
+    } finally {
+      game.settings.get = origGet;
+      CONFIG.Dice.randomUniform = origRnd;
+    }
+  }, { id: scrollFx.id, seq: [0.9] });
+  check(stackRun.clicked && !stackRun.timedOut,
+    "precondition: the stack's cast went through");
+  check(JSON.stringify(stackRun.rows) === JSON.stringify([{ q: 1, u: 1 }, { q: 1, u: 0 }]),
+    "casting from a stack of two spends ONE scroll: one castable left, one spent row kept",
+    JSON.stringify(stackRun.rows));
+  check(stackRun.spentMergesInto === 0 && stackRun.freshMergesInto === 1,
+    "and a spent scroll stacks only with a spent one, a fresh one only with a fresh one",
+    `spent->${stackRun.spentMergesInto} fresh->${stackRun.freshMergesInto}`);
+
+  /* ------------- 10h. the Add-N-Fatigue button trusts no card it did not make */
+  // Review #34 findings 7 and 93. The button reads its actor and its count from
+  // the message HTML, and a player can post a <button> with any class and any
+  // data-* (the server's clean keeps both). So the card's AUTHOR must own the
+  // actor the button names — a GM's click on a player's crafted card is the
+  // confused deputy — and the count is bounded by what a cast can owe: four
+  // Magic Dice, four Fatigue. And one card is one payment: two clicks inside
+  // the round trip used to pass the spent-flag check twice.
+  const fatigueButtonCard = (actorUuid, count) =>
+    `<div class="grimoire-cast-whisper"><button type="button" class="grimoire-add-fatigue"`
+    + ` data-actor-uuid="${actorUuid}" data-count="${count}">ZZ Add Fatigue</button></div>`;
+  const scrollcasterUuid = `Actor.${scrollFx.id}`;
+  const alicePlant = await browser.newPage({ viewport: VIEWPORT });
+  const alicePlantErrors = watchErrors(alicePlant);
+  let forgedId = null;
+  try {
+    await alicePlant.goto(FOUNDRY_URL);
+    await joinAs(alicePlant, "Alice");
+    await dismissChrome(alicePlant);
+    forgedId = await alicePlant.evaluate(async (content) => {
+      const m = await ChatMessage.create({ content });
+      return m?.id ?? null;
+    }, fatigueButtonCard(scrollcasterUuid, 3));
+    check(alicePlantErrors.length === 0, "zero console errors on Alice's planting client",
+      alicePlantErrors[0] ?? "");
+  } finally {
+    await alicePlant.close();
+  }
+  const buttonRun = await gm.evaluate(async ({ id, forgedId, own, many }) => {
+    const { bindGrimoireFatigueButton } = await import(`/systems/${game.system.id}/module/grimoire.js`);
+    const a = game.actors.get(id);
+    const fatigue = () => a.items.filter((i) => i.name === "Fatigue").length;
+    const press = async (msg, times) => {
+      const html = document.createElement("div");
+      html.innerHTML = msg.content;
+      bindGrimoireFatigueButton(msg, html);
+      const btn = html.querySelector(".grimoire-add-fatigue");
+      if (!btn?.onclick) return false;
+      // NOT awaited between presses: the double-click is the case.
+      await Promise.all(Array.from({ length: times }, () => btn.onclick()));
+      return true;
+    };
+    const out = { forgedExists: !!game.messages.get(forgedId) };
+    // (a) A player's card naming an actor that player does not own.
+    const f0 = fatigue();
+    out.forgedAuthorOwns = a.testUserPermission(game.messages.get(forgedId)?.author, "OWNER");
+    await press(game.messages.get(forgedId), 1);
+    out.forgedAdded = fatigue() - f0;
+    // (b) The Warden's own card with a count no cast can owe.
+    const bigMsg = await ChatMessage.create({ content: many, whisper: [game.user.id] });
+    const f1 = fatigue();
+    await press(bigMsg, 1);
+    out.bigAdded = fatigue() - f1;
+    // (c) An honest card, pressed twice inside one round trip.
+    const ownMsg = await ChatMessage.create({ content: own, whisper: [game.user.id] });
+    const f2 = fatigue();
+    out.pressed = await press(ownMsg, 2);
+    await new Promise((r) => setTimeout(r, 300));
+    out.doubleAdded = fatigue() - f2;
+    return out;
+  }, { id: scrollFx.id, forgedId,
+    own: fatigueButtonCard(scrollcasterUuid, 2), many: fatigueButtonCard(scrollcasterUuid, 40) });
+  check(buttonRun.forgedExists && !buttonRun.forgedAuthorOwns,
+    "precondition: Alice's card names an actor she does not own");
+  check(buttonRun.forgedAdded === 0,
+    "the Warden's click on a player's forged Fatigue button writes nothing",
+    `${buttonRun.forgedAdded} Fatigue added`);
+  check(buttonRun.bigAdded === 4,
+    "a card asking for 40 Fatigue pays at most what four Magic Dice can owe",
+    `${buttonRun.bigAdded} Fatigue added`);
+  check(buttonRun.pressed && buttonRun.doubleAdded === 2,
+    "a double-click on an honest Add-2 button adds 2, not 4",
+    `${buttonRun.doubleAdded} Fatigue added`);
+
   /* --------------------------------------------------------- 11. Alice casts */
   const alicePage = await browser.newPage({ viewport: VIEWPORT });
   const aliceErrors = watchErrors(alicePage);
@@ -1410,6 +1610,42 @@ try {
     const aliceId = await alicePage.evaluate(() => game.user.id);
     check(aliceCast.whisperTo.length === 1 && aliceCast.whisperTo[0] === aliceId,
       "her whisper is addressed to Alice, not the GM", JSON.stringify(aliceCast.whisperTo));
+
+    // A CONCEALED cast card, read by a player who may not see it (review #34
+    // finding 94). Core's Conceal Message turns any public card into a whisper
+    // to the Wardens; the public cast card carries its roll, and a whispered
+    // roll stays `visible` to everyone, so the render hook still runs on this
+    // client — after core has written "<user> rolled privately" into the flavor.
+    // The rebuild must ask isContentVisible first and leave core's line alone.
+    // Built in memory on Alice's own client, never posted; the control is the
+    // same card unwhispered, whose flavor the rebuild does write.
+    const concealed = await alicePage.evaluate(async () => {
+      const warden = game.users.find((u) => u.isGM);
+      const roll = await new Roll("2d6").evaluate();
+      const make = (whisper) => new ChatMessage.implementation({
+        author: warden.id, whisper, flavor: "seed",
+        speaker: { alias: "ZZ Grim Caster" }, rolls: [JSON.stringify(roll.toJSON())],
+        content: '<div class="grimoire-cast-card">seed</div>',
+        flags: { "air-bladder": { glogCast: {
+          name: "ZZ Spell Alpha", desc: "ZZ-CONCEALED", dice: 2, sum: 7, alias: "ZZ Grim Caster",
+        } } },
+      });
+      const hidden = make([warden.id]);
+      const open = make([]);
+      const hiddenEl = await hidden.renderHTML();
+      const openEl = await open.renderHTML();
+      return {
+        hiddenReadable: hidden.isContentVisible,
+        hiddenFlavor: hiddenEl.querySelector(".flavor-text")?.innerHTML ?? "",
+        openFlavor: openEl.querySelector(".flavor-text")?.innerHTML ?? "",
+      };
+    });
+    check(!concealed.hiddenReadable && concealed.openFlavor.includes("glog-flavor-tag"),
+      "precondition: Alice cannot read the concealed card, and the open one is rebuilt",
+      concealed.openFlavor);
+    check(!concealed.hiddenFlavor.includes("glog-flavor-tag") && !concealed.hiddenFlavor.includes("ZZ Grim Caster"),
+      "a concealed cast card keeps core's private-roll line: no GLOG tag, no caster",
+      concealed.hiddenFlavor);
     check(aliceErrors.length === 0, "zero console errors on Alice's client", aliceErrors[0] ?? "");
   } finally {
     await alicePage.close();
