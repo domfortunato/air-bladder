@@ -142,9 +142,9 @@ learning:
 | Imported by | File | What it is |
 |---|---|---|
 | 22 | `i18n-content.js` | the content-translation overlay; every displayed name goes through it |
+| 18 | `utils.js` | dice formulas, damage helpers, drag-and-drop plumbing |
 | 17 | `settings.js` | every behavioural switch |
-| 17 | `utils.js` | dice formulas, damage helpers, drag-and-drop plumbing |
-| 10 | `compendium.js` | every lookup into a compendium pack |
+| 12 | `compendium.js` | every lookup into a compendium pack |
 | 10 | `character-generator.js` | generation, and the helpers other features borrow from it |
 | 8 | `icons.js` | the class-art table |
 | 7 | `config.js` | `CONFIG.Cairn`: the declared tables and dice tiers |

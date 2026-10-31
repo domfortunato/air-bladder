@@ -3,7 +3,7 @@ import { rollTablePlainText, resultText, resultPlainText, findTableByName, findD
 import { Cairn } from "./config.js";
 import { evaluateFormula, formatCount, concealSecrets } from "./utils.js";
 import {
-  resolveGearItem, itemDataFromDocument, GEAR_ALIASES, spellScrollItem,
+  resolveGearItem, warmGearItems, itemDataFromDocument, GEAR_ALIASES, spellScrollItem,
   orderGrantedItems, isLightGear, RATIONS_RE,
   CANONICAL_GEAR_PACKS, SPELL_PACKS,
 } from "./gear.js";
@@ -1258,6 +1258,14 @@ export const previewBackground = async (bg, n = 10) => {
   if (!sys.archetype) problems.push({ level: "warn", msg: game.i18n.localize("CAIRN.BgAuthor.LintArchetype") });
   if (!(sys.names ?? []).some((s) => String(s).trim())) problems.push({ level: "warn", msg: game.i18n.localize("CAIRN.BgAuthor.LintNames") });
 
+  // Every name this lint resolves, in one request per pack first (review #34
+  // finding 207, `warmGearItems`); classifyRef then reads the cache.
+  const named = (ref) => !ref?.itemData && String(ref?.name ?? "").trim()
+    && !INSTRUCTION_ROWS.has(String(ref.name).trim().toLowerCase());
+  await warmGearItems([...(sys.startingGear ?? []),
+    ...(sys.tables ?? []).flatMap((t) => (t.options ?? []).flatMap((o) => o.items ?? []))]
+    .filter(named).map((ref) => ref.name));
+
   const gear = [];
   for (const ref of sys.startingGear ?? []) {
     const kind = await classifyRef(ref);
@@ -2143,6 +2151,10 @@ export const resolveStartingGear = async (bg, avoid = new Set()) => {
     if (alias) avoid.add(alias.toLowerCase());
   }
 
+  // Every by-name row's document in one request per pack, so the loop below
+  // reads the cache (review #34 finding 207, `warmGearItems`).
+  await warmGearItems(refs.filter((r) => !r.itemData
+    && !INSTRUCTION_ROWS.has(String(r.name).trim().toLowerCase())).map((r) => r.name));
   for (const ref of refs) {
     const item = await resolveGearRow(ref, avoid);
     if (item) { out.push(item); avoid.add(item.name.toLowerCase()); }

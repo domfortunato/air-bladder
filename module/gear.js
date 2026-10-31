@@ -1,4 +1,5 @@
 import { t } from "./i18n-content.js";
+import { warmPackDocuments } from "./compendium.js";
 
 /**
  * Shared gear resolution for Air Bladder.
@@ -383,6 +384,49 @@ export const buildGearItem = (g) => {
  * session) and 0ms warm, against ~1.7s PER NAME before.
  */
 export const resolveGearItem = async (name, { quantity = 1, uses } = {}) => {
+  let found = null;
+  for (const { pack, entry } of await gearEntries(name)) {
+    const doc = await pack.getDocument(entry._id);
+    if (doc) { found = doc; break; }
+  }
+  if (!found) {
+    console.warn(`resolveGearItem: no item named "${name}" in the canonical packs`);
+    return null;
+  }
+
+  return itemDataFromDocument(found, { quantity, uses, grantName: name });
+};
+
+/**
+ * Fetch, ONE REQUEST PER PACK, the documents these grant names resolve to
+ * (review #34 finding 207), so a loop that then resolves them one by one with
+ * `resolveGearItem` reads the cache. That loop's every name was a server
+ * request in series: a background's starting gear on every generation, swap
+ * and re-deal, each Kettlewright item, Test ×10's lint. Each name is looked up
+ * by `gearEntries`, resolveGearItem's own lookup; a miss is left for
+ * resolveGearItem to warn about.
+ * @param {Iterable<string>} names
+ * @returns {Promise<void>}
+ */
+export const warmGearItems = async (names) => {
+  const byPack = new Map();   // pack → [id]
+  for (const name of names ?? []) {
+    const [hit] = await gearEntries(name);
+    if (!hit) continue;
+    if (!byPack.has(hit.pack)) byPack.set(hit.pack, []);
+    byPack.get(hit.pack).push(hit.entry._id);
+  }
+  await Promise.all([...byPack].map(([pack, ids]) => warmPackDocuments(pack, ids)));
+};
+
+/**
+ * Where a grant name lives: every canonical pack whose INDEX carries it, in
+ * pack order, with its entry. The one lookup `resolveGearItem` and
+ * `warmGearItems` share, so the two cannot disagree about a name.
+ * @param {string} name
+ * @returns {Promise<{pack: CompendiumCollection, entry: object}[]>}
+ */
+const gearEntries = async (name) => {
   const spell = spellNameFromGrant(name);
   let targetName = spell ?? GEAR_ALIASES.get(String(name).trim().toLowerCase()) ?? name;
   // Under GLOG only GLOG and custom spells are used (ruling 2026-08-05):
@@ -402,7 +446,7 @@ export const resolveGearItem = async (name, { quantity = 1, uses } = {}) => {
     : CANONICAL_GEAR_PACKS;
   const lower = String(targetName).toLowerCase();
 
-  let found = null;
+  const hits = [];
   for (const key of packs) {
     const pack = game.packs.get(key);
     if (!pack) continue;
@@ -414,16 +458,9 @@ export const resolveGearItem = async (name, { quantity = 1, uses } = {}) => {
     // the armor. check:refs keys its duplicate-name gate the same way.
     const entry = (await pack.getIndex()).find((e) => e.name.toLowerCase() === lower
       && (spell ? e.type === "spellbook" : e.type !== "spellbook"));
-    if (!entry) continue;
-    const doc = await pack.getDocument(entry._id);
-    if (doc) { found = doc; break; }
+    if (entry) hits.push({ pack, entry });
   }
-  if (!found) {
-    console.warn(`resolveGearItem: no item named "${name}" in the canonical packs`);
-    return null;
-  }
-
-  return itemDataFromDocument(found, { quantity, uses, grantName: name });
+  return hits;
 };
 
 /**

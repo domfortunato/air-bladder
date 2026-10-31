@@ -1,4 +1,4 @@
-import { resolveGearItem, buildGearItem } from "./gear.js";
+import { resolveGearItem, buildGearItem, warmGearItems } from "./gear.js";
 import { resultText } from "./compendium.js";
 import { getBackgroundsFor, withGrantSource, randomPortraitPair, kettlewrightPortraitPath, FLAG_SCOPE } from "./character-generator.js";
 import { CairnActor } from "./actor/actor.js";
@@ -389,6 +389,9 @@ export const kettlewrightToActorData = async (json, { labels = null } = {}) => {
   // --- Items: flatten every container's contents onto the character ---------
   const FATIGUE = FATIGUE_NAME;
   const items = [];
+  // Every exported name's pack document in one request per pack, so each
+  // `importItem` below reads the cache (review #34 finding 207).
+  await warmGearItems((json.items ?? []).map((kw) => kw?.name).filter(Boolean));
   for (const kw of json.items ?? []) {
     // "Carrying X" markers are Kettlewright's container-load bookkeeping; with
     // containers flattened they mean nothing here.
