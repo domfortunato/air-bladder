@@ -45,8 +45,23 @@ jobs:
         with:
           node-version: "24"
 
-      # No `npm ci` — tools/site.mjs uses only Node builtins, so the site build
-      # needs no dependencies and should not wait for an install.
+      # THE PAGE'S GATED CLAIMS, checked before it is published (review #34
+      # finding 21). site/index.html carries text the repo gates as published
+      # claims: the class-icon author list and the art counts (check:licence),
+      # and the translation-coverage figures (i18n:check). Those gates used to
+      # run only at tag time. So at 0.1.25 a site sentence reached master with
+      # the release push, Pages deployed it, and the same push's tag build then
+      # failed i18n:check on that very sentence. The rule is main.yml's own:
+      # the offline gates run BEFORE anything is published. The install and the
+      # pack build are what the two gates need (i18n:check reads the packs'
+      # strings through node-html-parser; check:licence reads LICENSE.txt's
+      # paths against real top-level directories, packs/ among them), measured
+      # in a bare clone. tools/site.mjs itself still uses only builtins.
+      - run: npm ci
+      - run: npm run build:packs
+      - run: npm run check:licence
+      - run: npm run i18n:check
+
       - name: Build the landing page
         run: npm run build:site
 
