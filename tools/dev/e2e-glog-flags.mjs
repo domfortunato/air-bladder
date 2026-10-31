@@ -198,8 +198,8 @@ try {
    * which binds it for good; neither handler asked the setting. A character
    * with a Grimoire, one bound page and one unbound spellbook, under the
    * shadow forced OFF: no control on either row, castFromGrimoire refuses
-   * without a dialog, and the Transmute action binds nothing. The witness runs
-   * the same rows under the shadow forced ON. */
+   * without a dialog, and the Transmute action binds nothing. The witness renders
+   * the same rows under the shadow forced ON, before any gesture. */
   console.log("\ncast and transmute with the hack off");
   const castOff = await page.evaluate(async () => {
     const ns = game.system.id;
@@ -233,6 +233,13 @@ try {
       await actor.createEmbeddedDocuments("Item", [
         { name: "PROBE glog page", type: "spellbook", system: { bound: true, boundTo: book.system.grimoireKey } },
         { name: "PROBE glog loose", type: "spellbook" }]);
+      // The witness renders FIRST, before any gesture: on the unfixed code the
+      // Transmute below really binds the loose book, which would leave a later
+      // witness nothing to offer Transmute on.
+      on = true;
+      const onRows = await rows();
+      await actor.sheet.close();
+      on = false;
       const off = await rows();
       // The cast's page picker answered "cancel"; Transmute's confirm answered
       // YES, so on the unfixed code the bind really lands and the leg can see it.
@@ -249,9 +256,6 @@ try {
       const bound = actor.items.getName("PROBE glog loose")?.system.bound === true;
       D.wait = origWait;
       D.confirm = origConfirm;
-      await actor.sheet.close();
-      on = true;
-      const onRows = await rows();
       await actor.sheet.close();
       return { off, castResult: castResult ?? null, dialogs, bound, on: onRows };
     } finally {
