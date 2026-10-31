@@ -36,11 +36,13 @@ const page = await browser.newContext({ viewport: VIEWPORT }).then((c) => c.newP
 const errors = watchErrors(page);
 await joinAsGM(page);
 await dismissChrome(page);
+// Read by the finally, which checks the bystanders whatever happened above.
+let seeded = null;
 try {
 
   /* ---- seed every branch, then clear the marker ----------------------------- */
 
-  const seeded = await page.evaluate(async () => {
+  seeded = await page.evaluate(async () => {
     const Cls = CONFIG.Actor.documentClass;
     for (const a of game.actors.filter((x) => x.name.startsWith("ZZ Mig"))) await a.delete();
 
@@ -86,9 +88,26 @@ try {
       system: { role: "mount", containerClass: "horse", connectedTo: pc.uuid },
     });
 
+    // BYSTANDERS (review #34 finding 181): stand-ins for the Warden's own
+    // actors, which the re-armed migration walks too — it reads every
+    // npc/hireling in the world, not only the ZZ Mig fixtures. A companion
+    // kept by a character, carrying a second player's OWNER the flatten
+    // would REPLACE away, and an unconnected NONE npc it would raise to
+    // LIMITED. They are not fixtures of the flatten: they must come back from
+    // this probe exactly as they were planted.
+    for (const a of game.actors.filter((x) => x.name.startsWith("ZZ Flat By"))) await a.delete();
+    const byPc = await Cls.create({ name: "ZZ Flat By PC", type: "character", ownership: { default: 0, [alice.id]: L.OWNER } });
+    const byComp = await Cls.create({ name: "ZZ Flat By Companion", type: "npc", system: { role: "companion", connectedTo: byPc.uuid } });
+    await byComp.update({ ownership: foundry.data.operators.ForcedReplacement.create({ default: L.OBSERVER, [alice.id]: L.OWNER, [bob.id]: L.OWNER }) });
+    const byNone = await Cls.create({ name: "ZZ Flat By NoneNpc", type: "npc", ownership: { default: 0 }, system: { role: "npc" } });
+    const byPlanted = Object.fromEntries([byComp, byNone].map((a) => [a.id, {
+      own: { ...a._source.ownership }, link: a._source.system.connectedTo || "",
+    }]));
+
     const was = game.settings.get("air-bladder", "connections-migrated");
     await game.settings.set("air-bladder", "connections-migrated", false);
     return {
+      byPcId: byPc.id, byPlanted,
       markerWas: was,
       aliceId: alice.id, bobId: bob.id,
       ids: {
@@ -210,6 +229,27 @@ try {
       await game.settings.set("air-bladder", "connections-migrated", true);
     }
   }).catch((e) => fail("cleanup", e.message));
+
+  // The Warden's world as it was found: the bystanders, read back after the
+  // cleanup, must match what was planted (review #34 finding 181).
+  if (seeded?.byPlanted) {
+    const by = await page.evaluate(async ({ byPlanted, byPcId }) => {
+      const out = {};
+      for (const id of Object.keys(byPlanted)) {
+        const a = game.actors.get(id);
+        out[id] = a ? { name: a.name, own: { ...a._source.ownership }, link: a._source.system.connectedTo || "" } : null;
+      }
+      for (const id of [...Object.keys(byPlanted), byPcId]) await game.actors.get(id)?.delete();
+      return out;
+    }, seeded).catch((e) => ({ error: String(e?.message ?? e) }));
+    const same = (a, b) => JSON.stringify(Object.entries(a).sort()) === JSON.stringify(Object.entries(b).sort());
+    const moved = by.error ? [by.error] : Object.entries(seeded.byPlanted)
+      .filter(([id, p]) => !by[id] || !same(by[id].own, p.own) || by[id].link !== p.link)
+      .map(([id, p]) => `${by[id]?.name ?? id}: planted ${JSON.stringify(p)} now ${JSON.stringify(by[id])}`);
+    moved.length === 0
+      ? ok("the world's own actors come back as they were found", `${Object.keys(seeded.byPlanted).length} bystanders unchanged`)
+      : fail("the world's own actors come back as they were found", moved.join(" | "));
+  }
   await browser.close();
 }
 
