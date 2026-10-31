@@ -75,6 +75,10 @@
  *      `Actor.create` PAYLOAD reaches no item-level create seam at all, so it
  *      is keyed on the actor side — and its page stays its own when a second
  *      book joins the shelf, which an unkeyed book could not manage.
+ * 10e2. The one-book wall inside that payload (review #34 finding 247): a
+ *      CHARACTER created holding two books keeps the first and the rest of
+ *      its gear, with one warning; an npc keeps both, and two sharing a key
+ *      part, as they would at the item seam.
  *  10f. The scroll cast, including CANCEL: the dialog's Cancel resolves null
  *      rather than its own action string, posts no card and spends no charge.
  *  10g. A STACK of two scrolls: one cast spends one scroll, which splits off
@@ -1316,6 +1320,54 @@ try {
   check(payload.held.length === 1 && payload.otherHeld.length === 0,
     "so its page stays its own once a second book joins the shelf",
     `first ${JSON.stringify(payload.held)}, second ${JSON.stringify(payload.otherHeld)}`);
+
+  /* ------------- 10e2. the one-book wall inside the CREATION PAYLOAD -- */
+  // Review #34 finding 247. Both halves of the wall are item seams, so a
+  // character created with its inventory in one call — Create PC from a
+  // custom background whose Starting gear holds two snapshotted Grimoires —
+  // landed both books with no warning, while Regenerate and a background swap
+  // of the same background spliced to one. The actor-side walk minted a
+  // missing key and stopped there; two books sharing a key (snapshots of one
+  // keyed book) also stayed shared, where the item seam re-keys the arrival.
+  const payloadWall = await gm.evaluate(async () => {
+    const warned = [];
+    const origWarn = ui.notifications.warn;
+    ui.notifications.warn = function (msg, ...rest) {
+      warned.push(String(msg));
+      return origWarn.call(this, msg, ...rest);
+    };
+    const book = (n, key = "") => ({ name: `ZZ Grim Payload Wall ${n}`, type: "item",
+      system: { grimoire: true, grimoirePages: 3, bulky: true, grimoireKey: key } });
+    const made = [];
+    try {
+      made.push(await CONFIG.Actor.documentClass.create({ name: "ZZ Grim Payload Wall PC", type: "character",
+        items: [book("A"), { name: "ZZ Grim Payload Wall Rope", type: "item" }, book("B")] }));
+      // An npc carries as many books as it likes — a pile doing its job.
+      made.push(await CONFIG.Actor.documentClass.create({ name: "ZZ Grim Payload Wall Pile", type: "npc",
+        system: { role: "container", containerClass: "pile", slots: 20 },
+        items: [book("C", "zzsharedgrimkey1"), book("D", "zzsharedgrimkey1")] }));
+    } finally {
+      ui.notifications.warn = origWarn;
+    }
+    const [pc, pile] = made;
+    const books = (a) => a?.items.filter((i) => i.type === "item" && i.system?.grimoire) ?? [];
+    const pileKeys = books(pile).map((b) => b.system.grimoireKey);
+    return {
+      ids: made.map((a) => a.id),
+      pcBooks: books(pc).map((b) => b.name),
+      pcRope: !!pc?.items.some((i) => i.name === "ZZ Grim Payload Wall Rope"),
+      warnings: warned.filter((m) => m === game.i18n.localize("CAIRN.Notify.GrimoireOnlyOne")).length,
+      pileKeys,
+    };
+  });
+  cleanup.actorIds.push(...payloadWall.ids);
+  check(payloadWall.pcBooks.length === 1 && payloadWall.pcBooks[0] === "ZZ Grim Payload Wall A" && payloadWall.pcRope,
+    "a character created with two books in its payload keeps the first, and the rest of its gear",
+    JSON.stringify({ books: payloadWall.pcBooks, rope: payloadWall.pcRope }));
+  check(payloadWall.warnings === 1, "...and says so once", `${payloadWall.warnings} warnings`);
+  check(payloadWall.pileKeys.length === 2 && payloadWall.pileKeys.every(Boolean)
+      && payloadWall.pileKeys[0] !== payloadWall.pileKeys[1],
+    "an npc's payload keeps both books, and two sharing a key part", JSON.stringify(payloadWall.pileKeys));
 
   /* -------------------------------------- 10f. a scroll casts with NO book -- */
   // The hack's rule: a scroll works exactly like a recorded spell, destroyed
