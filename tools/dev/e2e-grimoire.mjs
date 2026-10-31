@@ -86,6 +86,8 @@
  *      as its own spent row; a spent and an unspent copy never merge.
  * 10g2. Two cast dialogs open on ONE scroll: the first answer casts, the
  *      second finds it spent and refuses (review #34 finding 133).
+ * 10g3. Transmute on a stack of two scrolls binds one copy; the other stays a
+ *      castable scroll (review #34 finding 213).
  *  10h. The Add-N-Fatigue button, hostile: a player's card naming an actor its
  *      author does not own writes nothing on the Warden's click; a count past
  *      four is paid at four; a double-click pays once.
@@ -1738,6 +1740,51 @@ try {
   check(twiceRun.secondRefused && twiceRun.warned,
     "the second dialog's answer finds the scroll spent and refuses, with the warning",
     JSON.stringify(twiceRun));
+
+  /* ---------------- 10g3. Transmute on a STACK binds one copy -- */
+  // Review #34 finding 213, 10g's class at a second site. Transmute wrote
+  // bound/boundTo on the whole row, so a stack of two scrolls became ONE page
+  // carrying quantity 2 — counted as one page, the other copy no longer
+  // castable — though the confirm offers to transmute "the scroll" for one
+  // conversion's cost. The confirm is answered yes in-page; GLOG is this
+  // run's (the in-page shadow established at the top).
+  const stackBind = await gm.evaluate(async () => {
+    const D = foundry.applications.api.DialogV2;
+    const origConfirm = D.confirm;
+    try {
+      const a = await CONFIG.Actor.documentClass.create({ name: "ZZ Grim Stack Binder", type: "character",
+        items: [{ name: "ZZ Grim Stack Tome", type: "item", system: { grimoire: true, grimoirePages: 3, bulky: true } }] });
+      const before = new Set(a.items.map((x) => x.id));
+      await a.createEmbeddedDocuments("Item", [{ name: "ZZ Scroll Stack", type: "spellbook",
+        system: { description: "<p>Light.</p>", scroll: true, quantity: 2 } }]);
+      const stack = a.items.find((x) => !before.has(x.id));
+      await a.sheet.render(true);
+      let target = null;
+      for (let t = 0; t < 30 && !target; t++) {
+        target = a.sheet.element?.querySelector(`[data-item-id="${stack.id}"]`);
+        if (!target) await new Promise((r) => setTimeout(r, 100));
+      }
+      D.confirm = async () => true;
+      if (target) {
+        await a.sheet.constructor.DEFAULT_OPTIONS.actions.pageTransmute
+          .call(a.sheet, { preventDefault: () => {} }, target);
+      }
+      await new Promise((r) => setTimeout(r, 500));
+      await a.sheet.close();
+      const rows = a.items.filter((x) => x.name === "ZZ Scroll Stack")
+        .map((x) => ({ q: x.system.quantity, bound: !!x.system.bound, scroll: !!x.system.scroll, u: x.system.uses?.value }))
+        .sort((x, y) => Number(x.bound) - Number(y.bound));
+      return { id: a.id, found: !!target, rows };
+    } finally {
+      D.confirm = origConfirm;
+    }
+  });
+  cleanup.actorIds.push(stackBind.id);
+  check(stackBind.found, "precondition: the stack's row rendered");
+  check(JSON.stringify(stackBind.rows) === JSON.stringify([
+    { q: 1, bound: false, scroll: true, u: 1 }, { q: 1, bound: true, scroll: false, u: 0 }]),
+  "Transmute on a stack of two scrolls binds ONE: a castable scroll stays, one page joins the book",
+  JSON.stringify(stackBind.rows));
 
   /* ------------- 10h. the Add-N-Fatigue button trusts no card it did not make */
   // Review #34 findings 7 and 93. The button reads its actor and its count from
