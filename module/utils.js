@@ -1616,6 +1616,28 @@ export const cleanDescription = (text) => {
   return tpl.innerHTML;
 };
 
+/**
+ * Whether a stored rich-text field holds anything a reader would see: text, or
+ * an image or other embedded element. Not the same question as "is it a
+ * non-empty string" — a ProseMirror editor its user emptied saves the one empty
+ * paragraph, `<p></p>` (prosemirror-editor.mjs `_getValue` serialises the doc),
+ * so a truthiness test keeps an empty box on screen and prints an empty heading
+ * on paper. ONE test for the character sheet's Description editor and the
+ * printed Description section (review #34 finding 55), so the two cannot
+ * disagree about the same field. Parsed in a <template>, inert, for the reason
+ * `cleanDescription` gives: no network for a yes/no question.
+ *
+ * @param {String} [html]
+ * @return {Boolean}
+ */
+export const holdsProse = (html) => {
+  if (!html) return false;
+  const tpl = document.createElement("template");
+  tpl.innerHTML = String(html);
+  if (tpl.content.querySelector("img, video, audio, iframe, table, hr")) return true;
+  return tpl.content.textContent.replace(/ /g, " ").trim().length > 0;
+};
+
 /* -------------------------------------------- */
 /*  ProseMirror editors on a sheet              */
 /* -------------------------------------------- */

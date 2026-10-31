@@ -2,7 +2,7 @@ import { dieIconOrGeneric } from "../utils.js";
 import { canRegenerateContainers, drawBond, bondRecordFrom, withGrantSource, bondEntitlement, resolveRefs, replaceGrantedContainers, promptBackground, changeBackground, promptFailedCareer, rollFailedCareerName, buildFailedCareerItem, getPortraitManifest, pairedTokenFor, randomPortraitInSameFolder, portraitCategoryFor, regenerateNpc, regenerateHireling, rerollNpcBackground, rerollHirelingCareer, rerollNpcName, rerollNpcFaction, promptHirelingCareer, promptNpcBackground, promptNpcFaction, promptPickOmen, promptPickBond, promptPickQuestionOption, promptPickName, findOmensTable, rollNameFromTable, rollAge, rollTextItems, effectiveAgeFormula, effectivePcAbilityFormula, effectivePcGoldFormula, effectivePcHpFormula, rollPcHitProtection, resolveActorBackground, redealBackgroundGear, rerollAllBonds, reorderInventory, postGenerationRolls, isHandBuilt, clearHandBuilt, FLAG_SCOPE } from "../character-generator.js";
 import { promptMonsterTier, regenerateMonster } from "../monster-generator.js";
 import { openMarketplace, TRANSPORTS_CATEGORY } from "../marketplace.js";
-import { evaluateFormula, cairnSavePasses, cleanDescription, bindEditorClickAwaySave, formatCount, sourceLabel, askDamageQuality, damageFormulaFor, damageQualityLabel, damageQualityKind, d20CardBody, d20CardFlavor, D20_CARD_ABILITIES, combatOption, combatDamageFormula, askImprovisedAttack, IMPROVISED_FORMULA } from "../utils.js";
+import { evaluateFormula, cairnSavePasses, cleanDescription, holdsProse, bindEditorClickAwaySave, formatCount, sourceLabel, askDamageQuality, damageFormulaFor, damageQualityLabel, damageQualityKind, d20CardBody, d20CardFlavor, D20_CARD_ABILITIES, combatOption, combatDamageFormula, askImprovisedAttack, IMPROVISED_FORMULA } from "../utils.js";
 import { resultText, compendiumInfoFromString } from "../compendium.js";
 import { SETTINGS_NS } from "../settings.js";
 import { CONTAINER_ART_CHOICES, CONTAINER_CLASSES } from "../icons.js";
@@ -1772,6 +1772,21 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
         this.actor.system.notes,
         { relativeTo: this.actor },
       ));
+    // The character's own Description editor (review #34 finding 55, user
+    // ruling 2026-10-31): shown ONLY while the field holds prose. The
+    // Kettlewright importer writes `system.description` and the paper prints it,
+    // so an imported character's text was on paper and nowhere on screen; a
+    // character made in Foundry still gets no second notes box, which is why the
+    // editor went on 2026-07-29. `holdsProse`, not truthiness, so an editor its
+    // player emptied (`<p></p>`) goes away — the same test the print page asks.
+    // Enriched, NOT translated: a PC is never localized.
+    context.showDescription = holdsProse(this.actor.system.description);
+    context.enrichedDescription = context.showDescription
+      ? cleanDescription(await foundry.applications.ux.TextEditor.implementation.enrichHTML(
+        this.actor.system.description,
+        { relativeTo: this.actor },
+      ))
+      : "";
 
     // Attribute-loss statuses, ability tooltips, peril/low cues, critical skull.
     this._computeStatContext(context);
@@ -2964,8 +2979,12 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
         rows: rows(c, c.items.contents, this._itemNamespaces(c).nameNs),
       })).filter((s) => s.showSlots || s.rows.length),
       // A character's description is the player's own prose; an NPC's is the
-      // statblock prose the overlay files under monster.desc.
-      description: await enrich(isChar ? sys.description : t("monster.desc", sys.description ?? "")),
+      // statblock prose the overlay files under monster.desc. Printed only
+      // while it `holdsProse` — the sheet's own test (review #34 finding 55) —
+      // so an editor emptied to `<p></p>` prints no empty heading.
+      description: holdsProse(sys.description)
+        ? await enrich(isChar ? sys.description : t("monster.desc", sys.description ?? ""))
+        : "",
       // Bonds, the omen and scars are table text — through the overlay
       // (table.result), the same routing the sheet gives them.
       bonds: (sys.bonds ?? []).map((b) => t("table.result", String(b?.description ?? "").trim())).filter(Boolean),

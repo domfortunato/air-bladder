@@ -2170,6 +2170,21 @@
     border-top: 1px solid var(--ab-rule-strong);
 }
 
+/* A character's own Description, shown only while it holds prose (review #34
+   finding 55): the Omen/Scar block's separator, and a bold heading in the
+   traits' weight ABOVE the editor — the editor is a block, not a row control.
+   Field look and pencil come from the `.npc-description-section` selector
+   lists further up; nothing here repeats them. */
+.character-description {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--ab-rule-strong);
+}
+.character-description .character-description-heading {
+    font-weight: bold;
+    margin-bottom: 4px;
+}
+
 /* Disabled-state text for the Omen field (mirrors .scar-display). */
 .omen-display {
     flex: 1 1 auto;
