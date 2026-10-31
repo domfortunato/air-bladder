@@ -5754,6 +5754,15 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       // purpose — barding is equipped armor on a creature that has a stat block.
       const patch = { "system.quantity": 1 };
       if (this.actor.isThing) patch["system.equipped"] = false;
+      // HANDED OVER, NOT GRANTED (review #34 finding 172). Core creates the
+      // source's toObject() verbatim, grant tag included, and the recipient's
+      // background/bond/question re-rolls delete tagged items with no
+      // provenance check. Give strips the tag (buildOfferItemData); a drag is
+      // the same operation, so it does too — in this one update, with v14's
+      // ForcedDeletion operator for removing a key.
+      if (originalActor && originalActor !== this.actor && created.getFlag(FLAG_SCOPE, "grantSource")) {
+        patch[`flags.${FLAG_SCOPE}.grantSource`] = new foundry.data.operators.ForcedDeletion();
+      }
       // abNoStatusCard: this pin is drop machinery normalizing the fresh copy
       // (a cross-actor transfer moves ONE unit whatever the source stack held),
       // and the create above already posted the ledger's "Item added" line —

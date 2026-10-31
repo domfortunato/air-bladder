@@ -530,6 +530,10 @@ const movePileItem = async (actor, itemId, { announce = false, place = "", claim
     const data = doc.toObject();
     data._id = i === 0 && claimId ? claimId : foundry.utils.randomID();
     foundry.utils.setProperty(data, "system.equipped", false);
+    // Handed over, not granted (review #34 finding 172): the grant tag goes,
+    // as Give strips it (buildOfferItemData), or whoever takes it back off the
+    // pile inherits a target for their own background/bond/question re-roll.
+    delete data.flags?.[FLAG_SCOPE]?.grantSource;
     // WHERE it was put down, stamped onto the copy that lands in the pile.
     // Dropping the same thing again overwrites it — the note describes where
     // it is now, and there is no editing it afterwards by ruling.
