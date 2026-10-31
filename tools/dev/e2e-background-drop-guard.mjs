@@ -162,6 +162,50 @@ const out = await page.evaluate(async () => {
   };
   await gated.delete();
 
+  // THE EYE TOGGLE, on the drop too (review #34 finding 51, part 2; user ruling
+  // 2026-10-31). A 2e background the Warden switched off is out of every
+  // roll, and the picker's row radio is DISABLED — for the Warden as well — so
+  // the drop refuses it for everyone, the Warden included: this leg runs as the
+  // Warden on purpose. Switched off by shadowing the settings READ in-page
+  // (never a world write); a document request is forwarded untouched, as the
+  // wiring check requires. The positive control drops the same background with
+  // the eye back on, so a refusal for any other reason cannot pass the leg.
+  const offBg = (await game.packs.get("air-bladder.backgrounds-2e").getDocuments())[0];
+  const eyed = await Cls.create({ name: "ZZ BGGuard Eye PC", type: "character" });
+  const eyeDrop = async () => {
+    const dt3 = new DataTransfer();
+    dt3.setData("text/plain", JSON.stringify({ type: "Item", uuid: offBg.uuid }));
+    DialogV2.confirm = async () => true;
+    try { await eyed.sheet._onDrop(new DragEvent("drop", { dataTransfer: dt3 })); }
+    finally { DialogV2.confirm = origConfirm; }
+    await new Promise((r) => setTimeout(r, 2500));
+  };
+  const origGet = game.settings.get;
+  try {
+    await eyed.sheet.render(true);
+    await new Promise((r) => setTimeout(r, 400));
+    game.settings.get = function (ns, key, ...rest) {
+      if (rest[0]?.document) return foundry.helpers.ClientSettings.prototype.get.call(this, ns, key, ...rest);
+      if (ns === "air-bladder" && key === "disabled-backgrounds") return [offBg.uuid];
+      return origGet.call(this, ns, key, ...rest);
+    };
+    warns.length = 0;
+    const before = eyed.system.background;
+    await eyeDrop();
+    res.eyeOff = {
+      changed: eyed.system.background !== before,
+      warned: warns[0] ?? null,
+      want: game.i18n.format("CAIRN.Notify.BackgroundSwitchedOff", { name: offBg.name }),
+    };
+    game.settings.get = origGet;
+    await eyeDrop();
+    res.eyeOn = { applied: eyed.system.background === offBg.name, background: eyed.system.background, wanted: offBg.name };
+  } finally {
+    game.settings.get = origGet;
+    await eyed.sheet?.close();
+    await eyed.delete();
+  }
+
   ui.notifications.warn = origWarn;
   for (const a of [npc, hire, cont, donor, pc]) await a.delete();
   await worldBg.delete();
@@ -198,6 +242,17 @@ if (out.gatedDrop && !out.gatedDrop.changed && out.gatedDrop.warned === out.gate
   ok(`with Character Creation tools switched off, a dropped background is refused like the picker ("${out.gatedDrop.warned}")`);
 } else {
   fail(`a dropped background got past the Character Creation switch: ${JSON.stringify(out.gatedDrop)}`);
+}
+
+if (out.eyeOff && !out.eyeOff.changed && out.eyeOff.warned === out.eyeOff.want) {
+  ok(`a background the Warden switched off is refused on the drop, the Warden's own included ("${out.eyeOff.warned}")`);
+} else {
+  fail(`a switched-off background got past the eye toggle: ${JSON.stringify(out.eyeOff)}`);
+}
+if (out.eyeOn?.applied) {
+  ok(`positive control: with the eye back on, the same drop applies it ("${out.eyeOn.background}")`);
+} else {
+  fail(`positive control: the background did not apply with its eye on — the refusal above proves nothing: ${JSON.stringify(out.eyeOn)}`);
 }
 
 if (errors.length) { console.log(""); for (const e of errors) fail(`console error: ${e}`); }
