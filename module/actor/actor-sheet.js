@@ -5627,7 +5627,15 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // of the pack (a Grimoire's pages with it). Core treats `inCompendium` as a
     // copy (ActorSheetV2#_onDropItem); reference content walked into play is
     // review #33's reason for `!actor.pack` on Drop, and it is the same here.
-    const originalActor = originalItem.actor?.pack ? null : originalItem.actor;
+    //
+    // And the other direction (review #34 finding 169): a world item dropped
+    // ONTO a compendium actor's sheet is a copy too, or the source write took
+    // the unit out of play. A drag within ONE actor's own sheet stays a
+    // reorder, pack or not — the rule above alone turned a pack entry's own
+    // drag into a copy (or a merge into its own stack).
+    const sameActor = !!originalItem.actor && originalItem.actor.uuid === this.actor.uuid;
+    const originalActor = sameActor ? this.actor
+      : (originalItem.actor?.pack || this.actor.pack) ? null : originalItem.actor;
 
     // A sheet this user does NOT own cannot receive a create at all — until
     // 2026-09-06 the drop silently died on core's owner wall. It is an OFFER
