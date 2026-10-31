@@ -535,8 +535,12 @@ try {
     const origConsoleError = console.error;
     try {
       notes.error = function (msg, ...rest) { seen.push(String(msg)); return origNote.call(this, msg, ...rest); };
+      // Two echoes of the failure asked for: commit()'s own log, and core's —
+      // an error toast writes its text to the console too (measured on the
+      // fleet, 4c7db9c6). Only those; anything else still reaches watchErrors.
       console.error = (...a) => {
-        if (String(a[0]).startsWith("Air Bladder | art pick failed")) return;
+        const text = String(a[0]);
+        if (text.startsWith("Air Bladder | art pick failed") || seen.some((s) => text.includes(s))) return;
         origConsoleError.apply(console, a);
       };
       it.update = () => Promise.reject(new Error("probe: the write is refused"));

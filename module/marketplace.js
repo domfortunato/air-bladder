@@ -747,7 +747,9 @@ export const openMarketplace = async (actor, opts = {}) => {
           else await acquire(actor, foundry.utils.deepClone(data), pay);
         } catch (err) {
           console.error("Air Bladder | marketplace acquire failed:", err);
-          ui.notifications.error(game.i18n.localize("CAIRN.Notify.DropFailed"));
+          // Its own toast (review #34 finding 167): a Buy/Take adds to the
+          // sheet; DropFailed's "Couldn't move that item" described a drag.
+          ui.notifications.error(game.i18n.localize("CAIRN.Notify.AcquireFailed"));
         } finally {
           busy = false;
           refresh();

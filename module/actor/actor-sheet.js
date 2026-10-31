@@ -3843,9 +3843,11 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       windowId: this.window?.windowId,   // see _confirmAction
       ...(this.actor.canKeepConnected ? {} : { exclude: TRANSPORTS_CATEGORY }),
     };
+    // Its own toast (review #34 finding 59): this said DropFailed, "Couldn't
+    // move that item", when nothing was being moved.
     openMarketplace(this.actor, opts).catch((err) => {
       console.error("Air Bladder | marketplace failed to open:", err);
-      ui.notifications.error(game.i18n.localize("CAIRN.Notify.DropFailed"));
+      ui.notifications.error(game.i18n.localize("CAIRN.Notify.MarketplaceOpenFailed"));
     });
   }
 

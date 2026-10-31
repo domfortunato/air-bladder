@@ -618,8 +618,13 @@ try {
     };
     try {
       notes.error = function (msg, ...rest) { seen.push(String(msg)); return origNote.call(this, msg, ...rest); };
+      // Two echoes of each failure asked for: the catch's own log, and core's —
+      // an error toast writes its text to the console too (measured on the
+      // fleet, 4c7db9c6). Only those; anything else still reaches watchErrors.
       console.error = (...a) => {
-        if (/^Air Bladder \| marketplace (failed to open|acquire failed)/.test(String(a[0]))) return;
+        const text = String(a[0]);
+        if (/^Air Bladder \| marketplace (failed to open|acquire failed)/.test(text)
+          || seen.some((s) => text.includes(s))) return;
         origConsoleError.apply(console, a);
       };
 

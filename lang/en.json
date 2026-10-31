@@ -594,7 +594,9 @@
   "CAIRN.NotesPlaceholder": "Click here to add notes about this character.",
   "CAIRN.NotesPlaceholderMonster": "Click here to add notes about this monster.",
   "CAIRN.Notify": {
+    "AcquireFailed": "Couldn't add that to this sheet — you may not have permission to change it.",
     "ApplyDamageWardenOnly": "Only the Warden can apply damage.",
+    "ArtPickFailed": "Couldn't change the picture — you may not have permission to change this sheet.",
     "ImprovisedNotYours": "You can only make an improvised attack for a character you control.",
     "BackgroundNotCharacter": "Only a player character has a background.",
     "BackgroundWrongSource": "That is a {backgroundEdition} background and this is a {characterEdition} character. A character does not change edition.",
@@ -636,6 +638,7 @@
     "LastSource": "At least one background source must stay enabled — Cairn 2e has been switched back on.",
     "LeftOverloaded": "You left the marketplace over capacity — HP stays 0 until you free a slot.",
     "MarketplaceDisabled": "The Warden has closed the marketplace.",
+    "MarketplaceOpenFailed": "Couldn't open the Marketplace.",
     "MaxSlotsOccupied": "Maximum equipment slots used.",
     "NoActorCreate": "Only the Warden can create containers and transports.",
     "NoConnectables": "No eligible actors to connect — they must be unconnected, not monsters, and yours to change.",

@@ -490,7 +490,9 @@ export async function pickArt({
       await onPick(src);
     } catch (err) {
       console.error("Air Bladder | art pick failed:", err);
-      ui.notifications.error(game.i18n.localize("CAIRN.Notify.DropFailed"));
+      // Its own toast (review #34 finding 167): DropFailed said an ITEM could
+      // not be moved, and a pick moves nothing.
+      ui.notifications.error(game.i18n.localize("CAIRN.Notify.ArtPickFailed"));
     } finally {
       dialog.close();
     }
