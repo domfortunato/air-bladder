@@ -26,7 +26,7 @@ import { refreshValdCalendar } from "./vald-calendar.js";
 import { registerSettings, SETTINGS_NS, SETTING_GROUPS, migrateSettingsNamespace } from "./settings.js";
 import { ACTOR_DATA_MODELS, ITEM_DATA_MODELS, deriveNpcRole } from "./data-models.js";
 import { connectionHeadroom, connectedOwnershipShape, syncPendingOwnership, OWNERSHIP_SYNC_FLAG } from "./connections.js";
-import { loadContentOverlay, t, translationOf, contentLocalized, tokenDisplayName, actorDisplayName, LOCALIZED_DIRECTORIES, localizeJournalBlocks } from "./i18n-content.js";
+import { loadContentOverlay, t, translationOf, contentLocalized, tokenDisplayName, actorDisplayName, speakerDisplayName, LOCALIZED_DIRECTORIES, localizeJournalBlocks } from "./i18n-content.js";
 import { injectEncounterButton, localizeEncounterQty, resolveTable } from "./encounters.js";
 import { bindGrimoireFatigueButton, localizeGlogCastCard } from "./grimoire.js";
 import { nameableTokens, DAMAGE_QUALITY_KEYS, localizeD20Card, localizeRollFlavor, damageDiceIcons } from "./utils.js";
@@ -3277,7 +3277,12 @@ const nameManeuverAvailable = (message, html) => {
  */
 const attackerDisplayName = (speaker, scene) => {
   const tok = scene?.tokens?.get(speaker?.token);
-  return tok ? tokenDisplayName(tok) : (speaker?.alias ?? "");
+  if (tok) return tokenDisplayName(tok);
+  // A TOKEN-LESS speaker — a world actor rolled from its sheet with nothing
+  // placed — resolves through the shared resolver, as the card header beside
+  // this line does (review #34 finding 10). The raw alias put "Goblin" under a
+  // "Trasgo" header on a Spanish client.
+  return speakerDisplayName({ speaker }, speaker?.alias ?? "");
 };
 
 /**
