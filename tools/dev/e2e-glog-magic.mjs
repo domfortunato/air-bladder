@@ -274,6 +274,18 @@ try {
     planted = await page.evaluate(async ({ NAME, canonText, ALIAS }) => {
       const mkBook = (name, desc) => ({ name, type: "spellbook", system: { description: desc, scroll: false, glog: false } });
       const out = {};
+      // A LEFTOVER of a killed run first (review #34 finding 148). Both world
+      // packs are created under fixed names, the server refuses a second pack
+      // of an existing name, and only the Node finally removed them — which a
+      // watchdog exit skips — so one aborted run made every later run throw
+      // here, after it had already planted three world spellbooks. Swept by
+      // label, as dev:art-paths sweeps its own.
+      for (const label of ["zz-glog-pack", "zz-glog-actor-pack"]) {
+        for (const p of game.packs.filter((x) => x.metadata.packageType === "world" && x.metadata.label === label)) {
+          await p.configure({ locked: false }).catch(() => {});
+          await p.deleteCompendium();
+        }
+      }
       const wi = await Item.create(mkBook(NAME, canonText));
       out.worldItemId = wi.id;
       // The create seam's OFF direction: with the setting off, a created book

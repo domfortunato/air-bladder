@@ -540,7 +540,10 @@ try {
     out.droppedGone = !pc.items.get(out.dropPickedId ?? "");
     {
       const pile = game.actors.find((a) => a.getFlag("air-bladder", "droppedItemPile"));
-      out.pileMade = !!pile;
+      // MADE BY THIS RUN, not merely present (review #34 finding 152, probe
+      // rule 2): `!!pile` passed on a Warden's own pile filed under Party, a
+      // precondition stale world state satisfied. The ids at start are known.
+      out.pileMade = !!pile && !pileIdsAtStart.includes(pile.id);
       out.pileHasIt = !!pile?.items?.find((i) => i.name === out.dropPickedName);
       out.pileInParty = pile?.folder?.getFlag("air-bladder", "partyFolder") === true;
       // UNLIMITED, and read off the derived value rather than from the source

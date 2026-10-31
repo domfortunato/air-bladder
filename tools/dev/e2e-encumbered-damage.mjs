@@ -588,6 +588,10 @@ const scar = await page.evaluate(async () => {
   const mine = await ActorImpl.create({ name: "ZZ Scar Attacker", type: "character" });
   const prevChar = game.user.character;
   await game.user.update({ character: mine.id });
+  // The Warden's OWN user is restored from a finally (review #34 finding 147):
+  // the restore sat after the whole leg, so any throw in between left the
+  // human Warden's assigned character a deleted ZZ actor.
+  try {
 
   // Exactly-to-zero is the Scar trigger: hp 3, armor 0, damage 3.
   const victim = await ActorImpl.create({
@@ -719,11 +723,13 @@ const scar = await page.evaluate(async () => {
   for (const id of [card?.id, ctl?.id, dmgCard?.id].filter(Boolean)) {
     await game.messages.get(id)?.delete();
   }
-  await game.user.update({ character: prevChar?.id ?? null });
   await scene.delete();
   await victim.delete();
-  await mine.delete();
   return r;
+  } finally {
+    await game.user.update({ character: prevChar?.id ?? null });
+    await mine.delete().catch(() => {});
+  }
 });
 
 /* ---------------------------------------------------------------------------
