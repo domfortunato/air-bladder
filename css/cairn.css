@@ -140,6 +140,14 @@
        those tokens flip with the theme, these must not. */
     --ab-save-pass-chat: #1a7a3a;
     --ab-save-fail-chat: #c62828;
+
+    /* The shown-table card's quiet ink and row rules (review #34 finding 98):
+       the card is the reveal popup's markup posted to chat, and the popup's
+       --ab-muted / --ab-hairline flip with the theme while the chat tile does
+       not, so in a dark scheme the odds read #b9ad99 on parchment. PINNED to
+       their light values, like the rest of this block. */
+    --ab-muted-chat: #4a4335;
+    --ab-hairline-chat: rgba(0, 0, 0, 0.15);
 }
 
 /* Dark scheme.
@@ -4260,6 +4268,17 @@ ol.combat-tracker li.combatant.cairn-drop-below {
     text-align: right;
     font-variant-numeric: tabular-nums;
     color: var(--ab-muted);
+}
+
+/* The CHAT copy of the reveal: parchment in both themes (see the pinned chat
+   tokens at the top of this file). */
+.chat-message .cairn-shown-table .cairn-show-formula,
+.chat-message .cairn-shown-table .cairn-show-range {
+    color: var(--ab-muted-chat);
+}
+
+.chat-message .cairn-shown-table .cairn-show-row {
+    border-top-color: var(--ab-hairline-chat);
 }
 
 .cairn-shown-table .cairn-show-text {
