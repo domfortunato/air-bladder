@@ -63,20 +63,35 @@ const ok = (m) => console.log(`  ok    ${m}`);
 try {
   await joinAsGM(page);
 
-  // ENTRY SWEEP (2026-09-15). Every leg below reads the shop, and the shop is
-  // WORLD FIRST: a Warden's own `Market:` copies — the Create a Custom
-  // Marketplace… button's output, pointing at WORLD items — make step 2 edit
-  // a pack Dagger the shop no longer reads, and the leg reports the edit as
-  // lost. The world-first section swept them, but only when it began, three
-  // steps too late; it redded exactly that way with the dev world's copies
-  // in place. Swept here and named, so a Warden knows to press the button
-  // again afterwards.
-  const sweptAtEntry = await page.evaluate(async () => {
-    const names = game.tables.filter((t) => /^Market:/i.test(t.name)).map((t) => t.name);
-    for (const t of [...game.tables].filter((x) => /^Market:/i.test(x.name))) await t.delete();
-    return names;
+  // HELD ASIDE AT ENTRY, NEVER DELETED (review #34 finding 153). Every leg
+  // below reads the shop, and the shop is WORLD FIRST: a Warden's own `Market:`
+  // copies — the Create a Custom Marketplace… button's output, pointing at
+  // WORLD items — make step 2 edit a pack Dagger the shop no longer reads. This
+  // used to DELETE them (2026-09-15) and print their names "so a Warden knows to
+  // press the button again", which destroyed the Warden's own shop, edits and
+  // all, on every run. Now they are hidden IN-PAGE for this session: the shop
+  // walks `game.tables` by iteration (marketTables), so the iterator is
+  // shadowed to skip their ids, and `find` too (holdAsideWorldTables). Nothing
+  // is written; the shadow dies with the page. Tables this probe plants later
+  // are new ids and stay visible.
+  const heldAtEntry = await page.evaluate(() => {
+    const held = game.tables.filter((t) => /^Market:/i.test(t.name));
+    if (!held.length) return [];
+    const ids = new Set(held.map((t) => t.id));
+    const tables = game.tables;
+    const baseIter = tables[Symbol.iterator];
+    tables[Symbol.iterator] = function* () { for (const t of baseIter.call(this)) if (!ids.has(t.id)) yield t; };
+    const baseFind = tables.find;
+    tables.find = function (condition, ...rest) {
+      return baseFind.call(this, (t, ...a) => !ids.has(t.id) && condition(t, ...a), ...rest);
+    };
+    const baseFilter = tables.filter;
+    tables.filter = function (condition, ...rest) {
+      return baseFilter.call(this, (t, ...a) => !ids.has(t.id) && condition(t, ...a), ...rest);
+    };
+    return held.map((t) => t.name);
   });
-  if (sweptAtEntry.length) console.log(`  --    swept ${sweptAtEntry.length} world Market: table(s) at entry (a Warden's own copies read as overrides): ${sweptAtEntry.join(", ")}`);
+  if (heldAtEntry.length) console.log(`  --    held aside ${heldAtEntry.length} world Market: table(s) in-page, nothing written: ${heldAtEntry.join(", ")}`);
   else ok("no world Market: tables at entry — the shop reads the shipped aisles");
 
   const r = await page.evaluate(async () => {

@@ -454,10 +454,14 @@ try {
   //
   // Four lines instead of two, a season glyph, and — the part that matters for
   // a colour gate — the inner element becomes a real <button>. Core paints a
-  // button's ground, border and text from a later cascade layer, so without the
-  // system layer's `!important` the clock would render as a chrome button
-  // sitting inside its own panel. That is a light-mode failure by construction,
-  // which is exactly what this gate is for.
+  // button's ground, border and text in `@layer elements.forms`, an EARLIER
+  // layer than the system's (review #34 finding 203: this said "a later
+  // cascade layer", which is the belief the calendar's day-cell note records
+  // being measured wrong). So cairn.css's plain `border: none; background:
+  // none; color: inherit` already wins and needs no `!important`. What this
+  // gate catches is that rule being lost or narrowed: without it the clock
+  // renders as a chrome button sitting inside its own panel, a light-mode
+  // failure by construction.
   //
   // The hack and the day's weather are both SHADOWED, never written: the
   // world's setting is nobody's business here and the weather is a record of

@@ -18,10 +18,13 @@
  *    through FormDataExtended: text, number, <select>, and <textarea>.
  *
  * 2. TAB SWITCHING. Nothing in Foundry's JS hides an inactive tab body -- it is
- *    one CSS rule, `.tab[data-tab]:not(.active) { display: none }`
- *    (foundry2.css:5781). Any `display: grid`/`flex` on a tab's PARENT beats it
- *    and every tab renders at once. So this asserts computed visibility, not
- *    just the class. It also clicks the tab LABEL text, because AppV2's
+ *    one CSS rule, `.tab[data-tab]:not(.active) { display: none }`, in core's
+ *    `@layer blocks.base`. A PARENT's display cannot beat it — the cascade is
+ *    per element and `display` does not inherit (9311c04e measured exactly
+ *    that, and this note kept the refuted claim until review #34 finding 204).
+ *    What CAN beat it is a `display` declaration on the `.tab` element itself
+ *    in cairn.css, whose `@layer system` comes later. So this asserts computed
+ *    visibility, not just the class. It also clicks the tab LABEL text, because AppV2's
  *    `_onClickTab` reads `event.target` directly rather than `.closest()`
  *    (application.mjs:1974-1981) -- a click on a child element only works
  *    because of `nav.tabs [data-tab] > * { pointer-events: none }`.
