@@ -66,13 +66,13 @@ const world = await page.evaluate(() => {
   const hotbar = foundry.utils.deepClone(game.user.hotbar ?? {});
   const taken = new Set(Object.keys(hotbar));
   const free = [];
-  for (let s = 1; s <= 50 && free.length < 5; s++) if (!taken.has(String(s))) free.push(s);
+  for (let s = 1; s <= 50 && free.length < 6; s++) if (!taken.has(String(s))) free.push(s);
   return { hotbar, free, macroIds: game.macros.map((m) => m.id) };
 });
-check("precondition: five EMPTY hotbar slots to work in", world.free.length === 5,
+check("precondition: six EMPTY hotbar slots to work in", world.free.length === 6,
   `free=${JSON.stringify(world.free)} of the 50 — the bar is the Warden's, and a probe that writes over an `
   + "occupied slot destroys their macro");
-const [SLOT_TEXT, SLOT_TABLE, SLOT_LOCK, SLOT_WEAPON, SLOT_MACRO] = world.free;
+const [SLOT_TEXT, SLOT_TABLE, SLOT_LOCK, SLOT_WEAPON, SLOT_MACRO, SLOT_FOREIGN] = world.free;
 console.log(`  note  using slots ${world.free.join(", ")}; ${world.macroIds.length} macros already in the world`);
 
 // The bar is restored and this run's macros removed from the FINALLY (review
@@ -85,8 +85,19 @@ try {
     const actor = await ActorImpl.create({ name: "ZZ Hotbar PC", type: "character" });
     await actor.createEmbeddedDocuments("Item", [
       { name: "ZZ Hotbar Blade", type: "weapon", system: { damageFormula: "d6" } },
+      { name: "ZZ Hotbar Planted", type: "weapon", system: { damageFormula: "d6" } },
     ]);
     const weapon = actor.items.find((i) => i.name === "ZZ Hotbar Blade");
+    const planted = actor.items.find((i) => i.name === "ZZ Hotbar Planted");
+    // A macro a PLAYER authored, matching the planted weapon's roll macro by
+    // name and command exactly — what a player's own drag of that weapon mints,
+    // or what a player can plant in advance (every id is in their world data).
+    // A GM may create a macro under another author (Macro#canCreate).
+    const player = game.users.find((u) => !u.isGM);
+    const foreign = player ? await getDocumentClass("Macro").create({
+      name: planted.name, type: "script", author: player.id,
+      command: `game.cairn.rollItemMacro("${actor.id}", "${planted.id}");`,
+    }) : null;
     const table = await getDocumentClass("RollTable").create({
       name: "ZZ Hotbar Table",
       formula: "1d1",
@@ -99,6 +110,7 @@ try {
       actorId: actor.id, weaponUuid: weapon.uuid,
       tableId: table.id, tableUuid: table.uuid,
       macroId: macro.id, macroUuid: macro.uuid,
+      plantedUuid: planted.uuid, foreignId: foreign?.id ?? null, playerName: player?.name ?? null,
     };
   });
   console.log(`  note  fixtures: actor ${fx.actorId}, table ${fx.tableId}, macro ${fx.macroId}`);
@@ -207,6 +219,27 @@ try {
     /game\.cairn\.rollItemMacro/.test(weapon.command ?? ""),
     `command=${JSON.stringify(weapon.command)} — the leg that proves the three fixes above did not simply `
     + "disable the feature");
+  /* ------------------------- 4b. never another user's macro (review #34 F154) */
+  // SECURITY. createCairnMacro reused ANY world macro matching the weapon's name
+  // and command, whoever wrote it, and put it on the dropping user's bar. A
+  // player's own drag of a weapon mints such a macro under their authorship,
+  // and its author may rewrite its command at will — so the Warden's drag of
+  // the same weapon handed the Warden a slot whose script the player controls,
+  // run with the Warden's privileges on the next click. Core never finds
+  // another user's macro by lookup: its derived drops always create a fresh one
+  // (Hotbar#_onDrop). The lookup now asks `isAuthor`, so this Warden drop must
+  // create the Warden's own macro and leave the planted one off the bar.
+  check("precondition: a player to author the planted macro", !!fx.foreignId,
+    "the world needs one non-GM user; without one this leg proves nothing");
+  if (fx.foreignId) {
+    const foreignDrop = await drop(SLOT_FOREIGN, JSON.stringify({ type: "Item", uuid: fx.plantedUuid }));
+    const author = await page.evaluate((id) => game.macros.get(id)?.author?.name ?? null, foreignDrop.slotId);
+    check("a weapon drop never reuses a macro another user authored",
+      !!foreignDrop.slotId && foreignDrop.slotId !== fx.foreignId && author === (await page.evaluate(() => game.user.name)),
+      `slot=${foreignDrop.slotId} planted=${fx.foreignId} author=${JSON.stringify(author)} — the planted macro is `
+      + `${JSON.stringify(fx.playerName)}'s, and a script on the Warden's bar that a player can rewrite runs as the Warden`);
+  }
+
   const macroDrop = await drop(SLOT_MACRO, JSON.stringify({ type: "Macro", uuid: fx.macroUuid }));
   check("an existing Macro is placed as ITSELF, not wrapped",
     macroDrop.slotId === fx.macroId && macroDrop.after === macroDrop.before,
