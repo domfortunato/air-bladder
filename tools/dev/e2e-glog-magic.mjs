@@ -617,6 +617,41 @@ try {
       out.pageDiffNull = glogMod.glogConversionDiff(
         { name: NAME, system: { bound: true, scroll: false, glog: false, description: canonText } }, map,
       ) === null;
+
+      // (f) a canon book riding INSIDE an Actor.create payload (review #34
+      // finding 175): an Adventure import, a compendium actor brought in whole.
+      // The client pre-creates only an operation's top-level documents, so
+      // the item seam above never saw it and it arrived a book.
+      const canonSrc = () => ({ name: NAME, type: "spellbook", img: "systems/air-bladder/icons/spellbook.svg",
+        system: { description: canonText, scroll: false, glog: false } });
+      let whole = null;
+      try {
+        whole = await CONFIG.Actor.documentClass.create({ name: "zz-seam-payload-carrier", type: "character",
+          items: [canonSrc()] });
+        const b = whole.items.find((i) => i.type === "spellbook");
+        out.payload = b ? shape(b) : null;
+        out.payloadSwapped = b?.system.description === glogText;
+        out.payloadImg = b?.img;
+      } finally {
+        await whole?.delete();
+      }
+
+      // (g) Import Data onto a character (review #34 finding 249): core commits
+      // the file as ONE parent update (diff false, recursive false), which no
+      // item seam sees either. The file is the target's own export with a
+      // canon book for its inventory.
+      let target = null;
+      try {
+        target = await CONFIG.Actor.documentClass.create({ name: "zz-seam-import-target", type: "character" });
+        const file = target.toObject();
+        file.items = [canonSrc()];
+        await target.importFromJSON(JSON.stringify(file));
+        const b = target.items.find((i) => i.type === "spellbook");
+        out.imported = b ? shape(b) : null;
+        out.importedSwapped = b?.system.description === glogText;
+      } finally {
+        await target?.delete();
+      }
       return out;
     }, { NAME, canonText: pre.canonText, glogText: pre.glogText, GLOG,
       carrierId: planted.carrierId, uniqueWords: "<p>zz seam unique wording, no counterpart</p>" });
@@ -643,6 +678,13 @@ try {
     seam.pageDiffNull && seam.mapSize > 0
       ? ok("sweep immunity: glogConversionDiff(bound page) is null — a flip can never turn a Grimoire page back into a scroll")
       : fail(`sweep immunity: glogConversionDiff returned a diff for a bound page (map size ${seam.mapSize}) — a flip would unbind every Grimoire in the world`);
+    unspentScroll(seam.payload) && seam.payload.glog === true && seam.payloadSwapped
+      && /spellscroll\.svg$/.test(seam.payloadImg ?? "")
+      ? ok("create seam: a canon book INSIDE an Actor.create payload arrives the same unspent GLOG scroll, scroll art")
+      : fail(`create seam: a canon book in an Actor.create payload arrived ${JSON.stringify(seam.payload)} (swapped ${seam.payloadSwapped}, img ${seam.payloadImg})`);
+    unspentScroll(seam.imported) && seam.imported.glog === true && seam.importedSwapped
+      ? ok("import seam: Import Data onto a character lands a canon book as the same unspent GLOG scroll")
+      : fail(`import seam: Import Data landed ${JSON.stringify(seam.imported)} (swapped ${seam.importedSwapped})`);
 
     /* --- 6. the invariant, world-wide --------------------------------------- */
 
