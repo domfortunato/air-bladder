@@ -312,6 +312,31 @@ const sweep = await page.evaluate(async (before) => {
   return { deleted: names, left: game.actors.filter((a) => !known.has(a.id)).length };
 }, idsBefore);
 
+/* --- a root with a SPACE (review #34 finding 97) ---------------------------- */
+// Browse hands every path back percent-encoded per segment (`toClientPath`), so
+// the list for a root typed "ZZ My Portraits" holds "ZZ%20My%20Portraits/…".
+// The bucketing prefixed with the root AS TYPED, matched nothing, and sent a
+// `monster/` folder's faces to the general (PC) pool. Both settings are
+// SHADOWED in-page for one synchronous call — no folder is made and nothing is
+// written; a document request still reaches the real store.
+const spaced = await page.evaluate(async () => {
+  const cg = await import("/systems/air-bladder/module/character-generator.js");
+  const ROOT = "ZZ My Portraits";
+  const LIST = ["ZZ%20My%20Portraits/monster/zz-mon.webp", "ZZ%20My%20Portraits/zz-loose.webp"];
+  const origGet = game.settings.get;
+  game.settings.get = function (ns, key, ...rest) {
+    if (rest[0]?.document) return foundry.helpers.ClientSettings.prototype.get.call(this, ns, key, ...rest);
+    if (ns === "air-bladder" && key === "custom-portrait-folder") return ROOT;
+    if (ns === "air-bladder" && key === "custom-portrait-list") return LIST;
+    return origGet.call(this, ns, key, ...rest);
+  };
+  try {
+    return { LIST, monster: cg.customPoolFor("monster"), general: cg.customPoolFor(null) };
+  } finally {
+    game.settings.get = origGet;
+  }
+});
+
 await browser.close();
 
 /* -------------------------------------------------------------------------- */
@@ -376,6 +401,12 @@ check(!!R.flatCompanionImg?.includes("/icons/"),
   "a granted beast still takes its class icon", JSON.stringify(R.flatCompanionImg));
 check(allUnder(R.flatDieMonster, FLAT),
   "a monster's die stays in custom art", `${R.flatDieMonster?.length} draws`);
+
+console.log("\na root typed with a space");
+check(JSON.stringify(spaced.monster) === JSON.stringify([spaced.LIST[0]]),
+  "its monster/ folder is the monster pool", JSON.stringify(spaced.monster));
+check(JSON.stringify(spaced.general) === JSON.stringify([spaced.LIST[1]]),
+  "...and stays out of the general pool", JSON.stringify(spaced.general));
 
 console.log("\nrestored");
 check(R.folderAfter === R.prior, "the folder setting is back", JSON.stringify(R.folderAfter));

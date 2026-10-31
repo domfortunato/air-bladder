@@ -260,6 +260,84 @@ if (hdr.error) {
 
 /* -------------------------------------------- */
 
+console.log("\nthe attack line names a TOKEN-LESS attacker in the display language");
+
+// Review #34 finding 10. The card header resolves a speaker with no token
+// through the shared resolver (`speakerDisplayName`); the attack line beneath
+// it read the raw alias, so a world monster rolled from its sheet with nothing
+// placed read "Trasgo" over "Goblin attacks …". The speaker is written out by
+// hand — scene, actor, NO token — which is what `getSpeaker({ actor })` stores
+// for an actor with no token on the viewed scene. A CHARACTER in the same shape
+// is the control: the PC gate keeps its name, so a lookup that ignored the gate
+// would fail there.
+const atk = await page.evaluate(async () => {
+  const i18n = await import("/systems/air-bladder/module/i18n-content.js");
+  const { evaluateFormula } = await import("/systems/air-bladder/module/utils.js");
+  const NAME = "ZZ Probe Goblin";
+  const NAME_ES = "ZZ TRASGO-PROBE";
+  const created = [];
+  const messages = [];
+  const readLine = async (msg) => {
+    for (let i = 0; i < 30; i++) {
+      const el = document.querySelector(`[data-message-id="${msg.id}"] .flavor-dice-roll .dmg-label`);
+      if (el?.querySelector("strong.dmg-target")) return el.textContent.trim();
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    return null;
+  };
+  try {
+    i18n._setOverlay({ "monster.name": { [NAME]: NAME_ES } });
+    const goblin = await Actor.create({ name: NAME, type: "npc", system: { role: "monster" } });
+    const hero = await Actor.create({ name: NAME, type: "character" });
+    const foe = await Actor.create({ name: "ZZ Probe Target", type: "npc", system: { role: "monster" } });
+    created.push(goblin, hero, foe);
+    const scene = await Scene.create({ name: "ZZ Attack-Line Scene", width: 1000, height: 1000 });
+    created.push(scene);
+    const td = (await foe.getTokenDocument({ x: 300, y: 300 })).toObject();
+    const [tok] = await scene.createEmbeddedDocuments("Token", [td]);
+    const post = async (actor) => {
+      const roll = await evaluateFormula("2", {});
+      const flavor = await foundry.applications.handlebars.renderTemplate(
+        "systems/air-bladder/templates/chat/dmg-roll-card.html",
+        { label: "ZZ weapon sentence", weapon: "ZZ Probe Club", targets: tok.id },
+      );
+      const msg = await roll.toMessage({
+        speaker: { scene: scene.id, actor: actor.id, token: null, alias: actor.name },
+        flavor,
+      });
+      messages.push(msg);
+      return msg;
+    };
+    const m1 = await post(goblin);
+    const m2 = await post(hero);
+    return { NAME, NAME_ES, monsterLine: await readLine(m1), heroLine: await readLine(m2),
+      storedToken: m1._source.speaker.token ?? null };
+  } catch (e) {
+    return { error: String(e?.message ?? e) };
+  } finally {
+    for (const m of messages) await m.delete().catch(() => {});
+    for (const d of created) await d.delete().catch(() => {});
+    i18n._setOverlay(null);
+  }
+});
+
+if (atk.error) {
+  fail("attack-line probe setup", atk.error);
+} else {
+  atk.storedToken === null
+    ? ok("precondition: the card's speaker has no token", "the token branch cannot answer")
+    : fail("precondition: the card's speaker has no token", `token=${JSON.stringify(atk.storedToken)} — the leg is vacuous`);
+  atk.monsterLine?.includes(atk.NAME_ES) && !atk.monsterLine.includes(atk.NAME)
+    ? ok("a token-less monster's attack line reads its translated name", `"${atk.monsterLine}"`)
+    : fail("a token-less monster's attack line reads its translated name",
+        `line reads ${JSON.stringify(atk.monsterLine)} — the raw alias, under a translated header`);
+  atk.heroLine?.includes(atk.NAME) && !atk.heroLine.includes(atk.NAME_ES)
+    ? ok("control: a token-less character's line keeps its name", `"${atk.heroLine}" — the PC gate holds`)
+    : fail("control: a token-less character's line keeps its name", `line reads ${JSON.stringify(atk.heroLine)}`);
+}
+
+/* -------------------------------------------- */
+
 console.log("\nno overlay installed (English world)");
 
 const off = await page.evaluate(async () => {

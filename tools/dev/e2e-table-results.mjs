@@ -386,6 +386,59 @@ flavors.custom === "ZZ custom flavor line"
   ? ok("...and core's own default sentence is still rebuilt from the table", JSON.stringify(flavors))
   : fail("core's default draw flavor", JSON.stringify(flavors));
 
+// ONE RESULT WHOSE TEXT HOLDS A LIST (review #34 finding 12). Both rebuilds
+// counted `.table-results li`, which also matches the <li> inside a row's own
+// description, so a single draw of a row holding a three-item list read
+// "Draws 4 results". Two routes, one count: core's sidebar card
+// (`localizeTableResults`) and the Dashboard's single-table card
+// (`localizeDashboardCard`, flagged with the table's uuid). Both rebuilds are
+// ASYNC (they resolve the table first), so each is read after a pause, off
+// the element the hook ran on.
+const listDraw = await page.evaluate(async () => {
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const table = await CONFIG.RollTable.documentClass.create({
+    name: "ZZ TR List Table", formula: "1d1",
+    results: [{ type: "text", description: "<ul><li>ZZ one</li><li>ZZ two</li><li>ZZ three</li></ul>",
+      range: [1, 1], weight: 1 }],
+  });
+  const made = [];
+  try {
+    const { results, roll } = await table.roll();
+    const plain = await table.toMessage(results, { roll });
+    const dash = await table.toMessage(results, {
+      roll, messageData: { flags: { "air-bladder": { dashboardDraw: table.uuid } } },
+    });
+    made.push(plain, dash);
+    const read = async (m) => {
+      const el = await m.renderHTML();
+      await sleep(600);
+      return {
+        flavor: el.querySelector(".flavor-text")?.textContent?.trim() ?? null,
+        nestedLi: el.querySelectorAll(".table-results li li").length,
+      };
+    };
+    return {
+      sidebar: await read(plain),
+      dashboard: await read(dash),
+      singular: game.i18n.format("TABLE.DrawFlavor", { number: 1, name: table.name }),
+    };
+  } finally {
+    for (const m of made) { try { await m?.delete(); } catch { /* gone */ } }
+    await table.delete();
+  }
+});
+listDraw.sidebar.nestedLi >= 3
+  ? ok("precondition: the drawn row's own list rendered as nested <li>", `${listDraw.sidebar.nestedLi}`)
+  : fail("precondition: the drawn row's own list rendered as nested <li>", JSON.stringify(listDraw.sidebar));
+listDraw.sidebar.flavor === listDraw.singular
+  ? ok("a single draw of a row holding a list says ONE result", JSON.stringify(listDraw.sidebar.flavor))
+  : fail("a single draw of a row holding a list says ONE result",
+      `${JSON.stringify(listDraw.sidebar.flavor)}, expected ${JSON.stringify(listDraw.singular)} — the nested <li> were counted`);
+listDraw.dashboard.flavor === listDraw.singular
+  ? ok("...and so does the Dashboard's single-table card", JSON.stringify(listDraw.dashboard.flavor))
+  : fail("the Dashboard's single-table card counts one result",
+      `${JSON.stringify(listDraw.dashboard.flavor)}, expected ${JSON.stringify(listDraw.singular)} — the nested <li> were counted`);
+
 if (errors.length) { console.log(""); for (const e of errors) fail(`console error: ${e}`); }
 
 console.log(`\n${failed ? "TABLE RESULTS PROBE FAILED" : "Table results probe passed."}`);

@@ -1336,18 +1336,24 @@ try {
     if (!npc.isOwner) return { err: "Alice does not own the npc" };
     await target.sheet.render(true);
     await new Promise((r) => setTimeout(r, 700));
+    // The giver's name in the confirm reads the overlay, as the card it posts
+    // does (review #34 finding 11) — a non-character giver's shipped name
+    // translates. Display-only and per client: Alice's alone, put back below.
+    const i18n = await import("/systems/air-bladder/module/i18n-content.js");
+    i18n._setOverlay({ "monster.name": { [npc.name]: "ZZ NPC-OFERTA" } });
     const DialogV2 = foundry.applications.api.DialogV2;
     const origConfirm = DialogV2.confirm;
-    DialogV2.confirm = async () => true;
+    let body = null;
+    DialogV2.confirm = async (opts) => { body = opts?.content ?? null; return true; };
     const dt = new DataTransfer();
     dt.setData("text/plain", JSON.stringify({ type: "Item", uuid: item.uuid }));
     let threw = null;
     try { await target.sheet._onDrop(new DragEvent("drop", { dataTransfer: dt })); }
     catch (e) { threw = e.message; }
-    finally { DialogV2.confirm = origConfirm; }
+    finally { DialogV2.confirm = origConfirm; i18n._setOverlay(null); }
     await new Promise((r) => setTimeout(r, 1200));
     await target.sheet.close();
-    return { threw, ownsNpc: npc.isOwner, itemStill: !!npc.items.get(item.id) };
+    return { threw, ownsNpc: npc.isOwner, itemStill: !!npc.items.get(item.id), body };
   });
   const npcDragOffer = await poll(gm, () => {
     const msg = game.messages.contents.filter((m) => m.getFlag("air-bladder", "itemOffer")).at(-1);
@@ -1357,6 +1363,9 @@ try {
   check("a player dragging off an npc they OWN posts an offer, like the button does",
     !npcDrag.err && !npcDrag.threw && npcDragOffer === true && npcDrag.itemStill,
     JSON.stringify(npcDrag));
+  check("...and its confirm names that giver in the display language",
+    typeof npcDrag.body === "string" && npcDrag.body.includes("ZZ NPC-OFERTA") && !npcDrag.body.includes("ZZ Offer NPC"),
+    `body=${JSON.stringify(npcDrag.body)} — the raw stored name, where the card names the same giver through the overlay`);
 
   /* ---- Q. the Warden gives, and the PLAYER answers ----------------------- */
   console.log("\nthe Warden gives: one click only when nobody else could answer");

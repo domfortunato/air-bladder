@@ -261,6 +261,28 @@ const shown = await page.evaluate(async (fx) => {
     // Its contents-list row must read the entry's translation instead.
     i18n._setOverlay({ "journal.name": { "Core Rules for Players": fx.NAME_ES } });
     out.fallback = readBack(await open());
+    // ...and SEARCH answers to the words that row shows (review #34 finding
+    // 9): typing the entry's translation must keep the row. The nonsense query
+    // first is the control — it must hide the row, so a "shown" below is read
+    // off a filter that is actually running.
+    {
+      const pid = doc.pages.contents[0]?.id;
+      const fInput = doc.sheet.element?.querySelector("search input");
+      const hiddenFor = async (q) => {
+        fInput.value = q;
+        fInput.dispatchEvent(new Event("input", { bubbles: true }));
+        await new Promise((r) => setTimeout(r, 500));
+        return doc.sheet.element?.querySelector(`nav.toc [data-page-id="${pid}"]`)?.hidden ?? null;
+      };
+      if (fInput && pid) {
+        try {
+          out.fallbackSearchNone = await hiddenFor("ZZ-NADA-SIN-PAGINA");
+          out.fallbackSearchEs = await hiddenFor(fx.NAME_ES);
+        } finally {
+          await hiddenFor("");
+        }
+      }
+    }
     await doc.sheet.close();
     i18n._setOverlay({
       "journal.block": { [fx.subjectBlock]: fx.BLOCK_ES, [fx.HEADING_EN]: fx.HEADING_ES },
@@ -402,6 +424,13 @@ else {
   shown.fallback?.pageRow === NAME_ES
     ? ok("with no page-name key, its row reads the entry's translation", NAME_ES)
     : fail("with no page-name key, its row reads the entry's translation", `row read "${shown.fallback?.pageRow}"`);
+  shown.fallbackSearchNone === true
+    ? ok("CONTROL: a nonsense search hides that row", "the filter below is running")
+    : fail("CONTROL: a nonsense search hides that row", `hidden=${shown.fallbackSearchNone} — the leg below is vacuous`);
+  shown.fallbackSearchEs === false
+    ? ok("...and searching the words it shows keeps it", NAME_ES)
+    : fail("...and searching the words it shows keeps it",
+        `hidden=${shown.fallbackSearchEs} — the search asked journal.pageName only, which the extractor never emits for this page`);
   shown.pageName
     ? ok("precondition: the entry has a named page to key on", `"${shown.pageName}"`)
     : fail("precondition: the entry has a named page to key on", "no page name — the two legs below are vacuous");
