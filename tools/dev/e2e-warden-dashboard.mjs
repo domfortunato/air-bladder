@@ -873,6 +873,77 @@ try {
       : fail("the single draw's flavor is the stored sentence", JSON.stringify(drawViewer));
   }
 
+  /* ---- 7b2. a card is a RECORD of what was drawn and shown (review #34
+   * findings 232, 241). Both cards were rebuilt per viewer from the LIVE
+   * table: a rename relabelled every past draw card's sender and flavor, and
+   * rows added after a reveal appeared on the old "copy in the chat log".
+   * A world table wearing a shipped name (world-first: the Travel tab's
+   * buttons resolve to it) is drawn and shown, then renamed and given a third
+   * row; both cards are re-rendered as a fresh client would.
+   * -------------------------------------------------------------------- */
+  const record = await page.evaluate(async () => {
+    const NAME = "Warden: Travel - Path Difficulty";
+    const app = document.querySelector("#cairn-warden-dashboard");
+    const table = await RollTable.create({
+      name: NAME, formula: "1d2",
+      flags: { "air-bladder": { probeFixture: "warden-dashboard" } },
+      results: [
+        { type: "text", description: "ZZ Record Row One", range: [1, 1] },
+        { type: "text", description: "ZZ Record Row Two", range: [2, 2] },
+      ],
+    });
+    const out = {};
+    try {
+      app.querySelector('[data-action="tab"][data-tab="travel"]').click();
+      await new Promise((r) => setTimeout(r, 200));
+      const post = async (sel) => {
+        const had = new Set(game.messages.map((m) => m.id));
+        app.querySelector(sel)?.click();
+        for (let i = 0; i < 60 && !game.messages.some((m) => !had.has(m.id)); i++) {
+          await new Promise((r) => setTimeout(r, 100));
+        }
+        await new Promise((r) => setTimeout(r, 400));
+        return game.messages.find((m) => !had.has(m.id)) ?? null;
+      };
+      const drawMsg = await post(`button[data-action="rollTable"][data-table="${NAME}"]`);
+      const showMsg = await post(`button[data-action="showTable"][data-table="${NAME}"]`);
+      for (const a of foundry.applications.instances.values()) {
+        if (a.id?.startsWith("cairn-shown-table-")) await a.close();
+      }
+      const read = async () => {
+        if (drawMsg) await ui.chat.updateMessage(drawMsg);
+        if (showMsg) await ui.chat.updateMessage(showMsg);
+        await new Promise((r) => setTimeout(r, 900));
+        const d = document.querySelector(`[data-message-id="${drawMsg?.id}"]`);
+        const s = document.querySelector(`[data-message-id="${showMsg?.id}"]`);
+        return {
+          sender: d?.querySelector(".message-sender")?.textContent?.trim() ?? null,
+          flavor: d?.querySelector(".flavor-text")?.textContent?.trim() ?? null,
+          rows: s?.querySelectorAll(".cairn-show-row").length ?? null,
+          title: s?.querySelector(".cairn-show-title")?.textContent?.trim() ?? null,
+        };
+      };
+      out.posted = { draw: !!drawMsg?.getFlag("air-bladder", "dashboardDraw"),
+        show: !!showMsg?.getFlag("air-bladder", "dashboardShown") };
+      out.before = await read();
+      await table.createEmbeddedDocuments("TableResult",
+        [{ type: "text", description: "ZZ Record Row Three", range: [3, 3] }]);
+      await table.update({ name: "ZZ Path Renamed", formula: "1d3" });
+      out.after = await read();
+    } finally {
+      await table.delete();
+    }
+    return out;
+  });
+  record.posted?.draw && record.posted.show && record.before?.rows === 2
+    && record.after?.sender === record.before.sender && record.after.flavor === record.before.flavor
+    && !/ZZ Path Renamed/.test(`${record.after.sender} ${record.after.flavor}`)
+    ? ok("a renamed table leaves its past draw cards under the name they were drawn with (review #34 finding 241)")
+    : fail("a past draw card follows the table's rename", JSON.stringify(record));
+  record.before?.rows === 2 && record.after?.rows === 2 && record.after.title === record.before.title
+    ? ok("...and a shown table's card keeps the rows that were shown, not rows added since (review #34 finding 232)")
+    : fail("a past shown-table card shows the table as it is now", JSON.stringify(record));
+
   /* ---- 7c. a SIDEBAR draw's flavor names the table through the overlay --
    * Core stamps TABLE.DrawFlavor with the table's raw name and stores it, so
    * a Spanish sidebar draw read a Spanish sentence around "Warden: NPC -
