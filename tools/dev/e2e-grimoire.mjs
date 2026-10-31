@@ -805,11 +805,12 @@ try {
     const card = game.messages.get(cardId);
     const out = { storedFlavor: card?.flavor ?? "" };
     const origFmt = game.i18n.format.bind(game.i18n);
-    // `game.i18n.format = fn` DOES NOT WORK and does not say so:
-    // Localization's methods are defined non-writable and non-configurable on
-    // the prototype, so a plain assignment is a silent no-op in sloppy mode
-    // and every call still reaches core. Defining an OWN property on the
-    // instance is what shadows it — and `delete` is what restores. Costed an
+    // `game.i18n.format = fn` DOES NOT WORK and does not say so: core
+    // defines `format` (an alias of `localize`) non-writable on Localization's
+    // prototype with Object.defineProperties, so a plain assignment is a
+    // silent no-op in sloppy mode and every call still reaches core.
+    // (`localize` itself is an ordinary method, and assigns.) Defining an OWN
+    // property on the instance is what shadows it — and `delete` is what restores. Costed an
     // hour reading a green fix as a red one.
     const shadowFormat = (fn) => Object.defineProperty(game.i18n, "format",
       { value: fn, configurable: true, writable: true });

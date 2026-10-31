@@ -408,23 +408,35 @@ const recognised = await page.evaluate(async () => {
     const quotedMsg = await post(quoted);
     const namingMsg = await post(plainT, { flavor: "Weather: ZZ TR Plain Den" });
     const plainMsg = await post(plainT);
-    game.i18n.format = (k, ...a) => (String(k).startsWith("TABLE.DrawFlavor") ? `${real(k, ...a)} ZZ-VIEWER` : real(k, ...a));
+    // An OWN property, never `game.i18n.format = fn`: core defines `format`
+    // non-writable on Localization's prototype (localization.mjs
+    // `Object.defineProperties(Localization.prototype, {format: …})`), so the
+    // assignment is a silent no-op in sloppy mode and every call still reaches
+    // core — this leg's first fleet run read all three cards unmarked
+    // (20261031T172005Z). `delete` restores. The witness says the shadow is in
+    // force before anything is read.
+    Object.defineProperty(game.i18n, "format", { configurable: true, writable: true,
+      value: (k, ...a) => (String(k).startsWith("TABLE.DrawFlavor") ? `${real(k, ...a)} ZZ-VIEWER` : real(k, ...a)) });
+    const shadowLive = /ZZ-VIEWER/.test(game.i18n.format("TABLE.DrawFlavor", { number: 1, name: "x" }));
     const read = async (m) => {
       const el = await m.renderHTML();
       await sleep(600);
       return el.querySelector(".flavor-text")?.textContent?.trim() ?? null;
     };
     return {
-      storedQuote: String(quotedMsg.flavor ?? ""),
+      shadowLive, storedQuote: String(quotedMsg.flavor ?? ""),
       quoted: await read(quotedMsg), naming: await read(namingMsg), plain: await read(plainMsg),
     };
   } finally {
-    game.i18n.format = real;
+    delete game.i18n.format;
     for (const m of made) { try { await m?.delete(); } catch { /* gone */ } }
     await quoted.delete();
     await plainT.delete();
   }
 });
+recognised.shadowLive
+  ? ok("witness: the in-page format shadow is in force")
+  : fail("witness: the in-page format shadow never took — every leg below is void", JSON.stringify(recognised));
 /ZZ-VIEWER/.test(recognised.plain ?? "")
   ? ok("control: core's default sentence is rebuilt for this viewer", recognised.plain)
   : fail("control: core's default sentence was not rebuilt", JSON.stringify(recognised));
