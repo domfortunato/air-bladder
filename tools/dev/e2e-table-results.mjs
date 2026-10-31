@@ -353,6 +353,39 @@ if (out.phase4?.rowId || out.phase4?.wasLocked) {
   }
 }
 
+// A FLAVOR THE CALLER CHOSE SURVIVES (review #34 finding 70). Core sets its
+// default sentence and the core.RollTable flag together and lets
+// `messageData.flavor` override the sentence; the render rebuild rewrote any
+// card carrying the flag to core's default, so a macro's own line read as
+// "Draws a result from the ... table" for every viewer. The control is a draw
+// posted with core's default, which is still rebuilt.
+const flavors = await page.evaluate(async () => {
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const table = await CONFIG.RollTable.documentClass.create({
+    name: "ZZ TR Flavor Table", formula: "1d1",
+    results: [{ type: "text", description: "ZZ row", range: [1, 1], weight: 1 }],
+  });
+  const made = [];
+  try {
+    const { results, roll } = await table.roll();
+    const custom = await table.toMessage(results, { roll, messageData: { flavor: "ZZ custom flavor line" } });
+    const plain = await table.toMessage(results, { roll });
+    made.push(custom, plain);
+    const read = async (m) => (await m.renderHTML()).querySelector(".flavor-text")?.textContent?.trim() ?? null;
+    await sleep(300);
+    return { custom: await read(custom), plain: await read(plain) };
+  } finally {
+    for (const m of made) { try { await m?.delete(); } catch { /* gone */ } }
+    await table.delete();
+  }
+});
+flavors.custom === "ZZ custom flavor line"
+  ? ok("a draw card's caller-chosen flavor is left as the caller wrote it", JSON.stringify(flavors))
+  : fail("a draw card's caller-chosen flavor was rewritten", JSON.stringify(flavors));
+/ZZ TR Flavor Table/.test(flavors.plain ?? "")
+  ? ok("...and core's own default sentence is still rebuilt from the table", JSON.stringify(flavors))
+  : fail("core's default draw flavor", JSON.stringify(flavors));
+
 if (errors.length) { console.log(""); for (const e of errors) fail(`console error: ${e}`); }
 
 console.log(`\n${failed ? "TABLE RESULTS PROBE FAILED" : "Table results probe passed."}`);

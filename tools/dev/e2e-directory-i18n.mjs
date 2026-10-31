@@ -137,6 +137,75 @@ const out = await page.evaluate(async (fx) => {
     res.wolfId = wolf.id;
     res.pcId = pc.id;
 
+    // --- a WORLD Item pack's background reads bg.name (review #34 finding 69)
+    // The namespace was chosen per PACK, by a name starting "backgrounds", and
+    // the system's own world pack is `custom-backgrounds`: the 2e door's copies
+    // read through item.name and stayed English beside the shipped originals.
+    // A throwaway world pack, deleted in the finally.
+    {
+      let pack = null;
+      try {
+        pack = await foundry.documents.collections.CompendiumCollection.createCompendium({
+          type: "Item", label: "ZZ Probe World Backgrounds", name: "zz-probe-world-bgs" });
+        await Item.create({ name: fx.BG_EN, type: "background" }, { pack: pack.collection });
+        await pack.getIndex();
+        await pack.render(true);
+        let app = null;
+        for (let i = 0; i < 40 && !app?.element; i++) {
+          app = [...foundry.applications.instances.values()].find((x) => x.collection === pack) ?? null;
+          if (!app?.element) await new Promise((r) => setTimeout(r, 150));
+        }
+        await new Promise((r) => setTimeout(r, 800));
+        res.worldPackBg = [...(app?.element?.querySelectorAll(".directory-item.entry .entry-name") ?? [])]
+          .map((n) => n.textContent.trim()).filter(Boolean);
+        await app?.close();
+      } catch (e) {
+        res.worldPackBg = `threw: ${e.message}`;
+      } finally {
+        try { await pack?.deleteCompendium(); } catch { /* gone */ }
+      }
+    }
+
+    // --- a match TWO FOLDERS DEEP (review #34 finding 68) --------------------
+    // The translated pass marked only the entry's own folder, and core hides
+    // every folder not marked — so a match inside a subfolder sat in a hidden
+    // parent. The take-over doors make exactly that shape. `checkVisibility()`
+    // and not the leg above's display test: a row inside a hidden ancestor
+    // keeps its own computed display.
+    {
+      const outer = await Folder.create({ name: "ZZ Nest Outer", type: "Item" });
+      const inner = await Folder.create({ name: "ZZ Nest Inner", type: "Item", folder: outer.id });
+      try {
+        const nested = await Item.create({ name: "ZZ Nest Torch", type: "item", folder: inner.id });
+        res.planted.itemIds.push(nested.id);
+        i18n._setOverlay({
+          "monster.name": { [fx.MONSTER_EN]: fx.MONSTER_ES },
+          "item.name": { [fx.GEAR_EN]: fx.GEAR_ES, "ZZ Nest Torch": "ZZ-NEST-ANTORCHA" },
+          "bg.name": { [fx.BG_EN]: fx.BG_ES },
+        });
+        await render();
+        const input = ui.items.element.querySelector('input[type="search"], search input');
+        input.value = "ZZ-NEST-ANTORCHA";
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+        await new Promise((r) => setTimeout(r, 600));
+        const li = ui.items.element.querySelector(`[data-entry-id="${nested.id}"]`);
+        res.nestedVisible = !!li && li.checkVisibility();
+        input.value = "";
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+        await new Promise((r) => setTimeout(r, 400));
+        await nested.delete();
+        res.planted.itemIds = res.planted.itemIds.filter((id) => id !== nested.id);
+      } finally {
+        await inner.delete();
+        await outer.delete();
+        i18n._setOverlay({
+          "monster.name": { [fx.MONSTER_EN]: fx.MONSTER_ES },
+          "item.name": { [fx.GEAR_EN]: fx.GEAR_ES },
+          "bg.name": { [fx.BG_EN]: fx.BG_ES },
+        });
+      }
+    }
+
     // --- the combat tracker --------------------------------------------------
     const scene = game.scenes.active ?? game.scenes.contents[0];
     // Looked up BY actorId, never destructured by position:
@@ -241,6 +310,12 @@ else {
   Array.isArray(out.searchEs) && out.searchEs.includes(out.wolfId)
     ? ok("typing the translated name finds the row", `${out.searchEs.length} row(s) shown`)
     : fail("typing the translated name finds the row", JSON.stringify(out.searchEs));
+  Array.isArray(out.worldPackBg) && out.worldPackBg.includes(BG_ES) && !out.worldPackBg.includes(BG_EN)
+    ? ok("a background in a WORLD Item pack reads its translated name", JSON.stringify(out.worldPackBg))
+    : fail("a background in a world Item pack stayed English", JSON.stringify(out.worldPackBg));
+  out.nestedVisible === true
+    ? ok("...and finds a row TWO folders deep, its ancestors opened")
+    : fail("a translated match two folders deep stays hidden", JSON.stringify(out.nestedVisible));
   Array.isArray(out.searchEn) && out.searchEn.includes(out.wolfId)
     ? ok("and typing the English name still does", "the pass is additive, never subtractive")
     : fail("and typing the English name still does", JSON.stringify(out.searchEn));
