@@ -1776,6 +1776,46 @@ try {
       ? ok("a Secret block in a shared event stays secret in her day panel, the open text shows")
       : fail("a shared event's Secret block on the player's calendar", JSON.stringify(panelRead));
 
+    // A MULTI-DAY EVENT IN THE LEAP WEEK, AND ONE ACROSS THE YEAR END (review
+    // #34 finding 82). `spread` used the plain month lengths, so Reclamation (0
+    // days, 6 in a leap year) had no room: a six-day event on Recognize filed
+    // days 2-6 on Mourning 1-5 of the SAME year. And a run past the year's last
+    // day wrapped into that same year's Mourning instead of the next year's.
+    // 7728 is a leap year (a new world starts in it); 7729 is not.
+    const spans = await withValdOn(page, async (gt, entryId) => {
+      const ce = await import("/systems/air-bladder/module/calendar-events.js");
+      const entry = game.journal.get(entryId);
+      const months = game.time.calendar.months.values;
+      const last = months.length - 2;   // Sunset, the last month before Reclamation
+      const lastDays = months[last].days;
+      const made = await entry.createEmbeddedDocuments("JournalEntryPage", [
+        { name: "ZZ Probe Leap Week", type: "text", text: { content: "" },
+          flags: { "air-bladder": { wardenEvent: true, valdMonth: months.length, valdDay: 1, valdDays: 6, valdYear: 7728, valdWatch: null } } },
+        { name: "ZZ Probe Year End", type: "text", text: { content: "" },
+          flags: { "air-bladder": { wardenEvent: true, valdMonth: last + 1, valdDay: lastDays, valdDays: 3, valdYear: 7729, valdWatch: null } } },
+      ]);
+      try {
+        const on = async (year, name) => [...(await ce.marksByDay(year)).entries()]
+          .filter(([, list]) => list.some((m) => m.name === name)).map(([k]) => k).sort();
+        return {
+          leap7728: await on(7728, "ZZ Probe Leap Week"),
+          end7729: await on(7729, "ZZ Probe Year End"),
+          end7730: await on(7730, "ZZ Probe Year End"),
+          reclamationIndex: months.length - 1, lastIndex: last, lastDays,
+        };
+      } finally {
+        await entry.deleteEmbeddedDocuments("JournalEntryPage", made.map((p) => p.id));
+      }
+    }, evented.entries.shared);
+    const R = spans.reclamationIndex;
+    JSON.stringify(spans.leap7728) === JSON.stringify([1, 2, 3, 4, 5, 6].map((d) => `${R}/${d}`).sort())
+      ? ok("a six-day event on Recognize covers the six days of the leap week, and no Mourning day", JSON.stringify(spans.leap7728))
+      : fail("a six-day leap-week event", JSON.stringify(spans));
+    JSON.stringify(spans.end7729) === JSON.stringify([`${spans.lastIndex}/${spans.lastDays}`])
+      && JSON.stringify(spans.end7730) === JSON.stringify(["0/1", "0/2"])
+      ? ok("a run past the year end carries into NEXT year's Mourning, not this year's", JSON.stringify(spans))
+      : fail("a run across the year end", JSON.stringify(spans));
+
     /* ---- 29. the weather log ------------------------------------------- */
 
     // THE CONTROL FIRST, and it runs before anything switches the log on so it

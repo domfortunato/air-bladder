@@ -515,11 +515,16 @@ try {
 
       // (a) a canon BOOK arriving on a character — the Create dialog / import
       // / world-drag path. Must land an UNSPENT scroll wearing the GLOG text.
+      // `img` STATED as the spellbook art, the way the Create Item dialog and
+      // every canon pack document supply it (review #34 finding 74): the
+      // scroll it becomes must wear the scroll's art, as the sweep's does.
       const [canonArr] = await carrier.createEmbeddedDocuments("Item", [
-        { name: NAME, type: "spellbook", system: { description: canonText, scroll: false, glog: false } },
+        { name: NAME, type: "spellbook", img: "systems/air-bladder/icons/spellbook.svg",
+          system: { description: canonText, scroll: false, glog: false } },
       ]);
       out.canon = shape(canonArr);
       out.canonSwapped = canonArr.system.description === glogText;
+      out.canonImg = canonArr.img;
 
       // (b) the reported repro: a GLOG-pack drag, via the same fromCompendium
       // data a real drop builds. This leg pins the OUTCOME, not the mechanism:
@@ -565,6 +570,9 @@ try {
     unspentScroll(seam.canon) && seam.canon.glog === true && seam.canonSwapped
       ? ok(`create seam: a canon "${NAME}" book ARRIVING under GLOG lands as an unspent scroll wearing the GLOG wording, glog: true`)
       : fail(`create seam: canon-book arrival wrong — ${JSON.stringify(seam.canon)} (swapped ${seam.canonSwapped})`);
+    /spellscroll\.svg$/.test(seam.canonImg ?? "")
+      ? ok("create seam: ...and it wears the SCROLL's art, as the sweep's conversion does", seam.canonImg)
+      : fail(`create seam: the arriving book became a scroll still wearing ${JSON.stringify(seam.canonImg)}`);
     seam.packEntryFound
       ? (unspentScroll(seam.fromPack) && seam.fromPack.desc === pre.glogText
         ? ok("create seam: the GLOG-pack drag (the reported repro) lands as an unspent scroll, wording intact")

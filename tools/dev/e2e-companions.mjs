@@ -635,6 +635,23 @@ const cleaned = await page.evaluate(async ({ ids, grantIds, ravenId, rerollIds, 
 check("the fixture scene is gone again", !!legacy.sceneId && !cleaned.sceneLeft,
   legacy.sceneId ? `scene ${legacy.sceneId} still in the world` : "no scene id came back from the plant");
 
+// A HAND-MADE COMPANION WITH NO KNOWN KIND is not a chest (review #34 finding
+// 75). An unknown Kind fell back to NAME inference, whose last resort is the
+// bare container's chest, so a companion named for a beast the table lacks
+// wore a treasure chest on its sheet and its token. The control is a known
+// Kind, which still takes its own art.
+const art = await page.evaluate(async () => {
+  const wolf = await Actor.create({ name: "ZZ Grey Wolf", type: "npc", system: { role: "companion", containerClass: "" } });
+  const horse = await Actor.create({ name: "ZZ Steed", type: "npc", system: { role: "companion", containerClass: "horse" } });
+  const out = { wolf: wolf.img, wolfToken: wolf.prototypeToken.texture.src, horse: horse.img };
+  await wolf.delete();
+  await horse.delete();
+  return out;
+});
+check("a companion of an unknown Kind does not wear the chest", !/chest\.svg/.test(art.wolf) && !/chest\.svg/.test(art.wolfToken),
+  JSON.stringify(art));
+check("...while a known Kind still takes its own art", /horse\.svg$/.test(art.horse), JSON.stringify(art));
+
 const errs = errors.filter((e) => !/ZZ /.test(e));
 check("zero console errors", errs.length === 0, errs.join(" | "));
 
