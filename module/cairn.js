@@ -1863,8 +1863,18 @@ const migrateIconsToSvg = async () => {
  * anything under a moved folder moves with it, and nothing else is touched. A
  * pasted URL, a custom upload and anything under icons/ all fail the prefix and
  * are left alone. Idempotent by construction — a rewritten path begins
- * `systems/air-bladder/art/…` and matches no `from` — which matters because
- * this runs on every GM load, not behind a version marker.
+ * `systems/air-bladder/art/…` and matches no `from` — so a re-opened sweep
+ * (a new generation, below) rewrites nothing twice.
+ *
+ * IT RUNS ONCE PER GENERATION, NOT ON EVERY LOAD (review #34 finding 158; this
+ * said "every GM load" until then, true only before review #17's marker). So a
+ * document that reaches the world AFTER the sweep, from a source it never read,
+ * keeps its old path for good. Every world source is therefore swept here: the
+ * world collections, and every world compendium a Warden can import from,
+ * Scenes and Adventures included (a placed token COPIES its texture at
+ * creation, so a scene filed into a compendium carries the old path inside).
+ * What it still never reads is a MODULE's compendium or a JSON file exported
+ * from an older world: a document arriving from either keeps the old path.
  *
  * Covers ROLLTABLE RESULTS as well, which the .svg migration above does not
  * need to: a result stores its own `img` as a SNAPSHOT rather than reading the
@@ -1879,9 +1889,12 @@ const migrateIconsToSvg = async () => {
  * rule is the inverse of the "predicate stayed true while its set grew"
  * family, and just as silent. The 2026-08-04 art/ move plus the WebP
  * re-encode are generation 1; the 2026-09-05 move of Lydia Comer's 17
- * monsters into the -monsters folders is generation 2.
+ * monsters into the -monsters folders is generation 2. Generation 3 adds no
+ * rule but new SURFACES (review #34 finding 158): world Scene and Adventure
+ * compendiums and a world table's own icon, which every earlier sweep skipped.
+ * A new surface re-opens the sweep for the same reason a new rule does.
  */
-const ART_MIGRATION_GENERATION = 2;
+const ART_MIGRATION_GENERATION = 3;
 
 /**
  * The 17 creatures that lived in lydia-comer/portraits|tokens from 2026-08-04
@@ -1993,6 +2006,62 @@ const movedArt = (src) => {
   return out;
 };
 
+/**
+ * Compendium types whose art sits DEEP in each document's source rather than on
+ * a field of its own (review #34 finding 158): a Scene's placed tokens (each
+ * one's texture, an unlinked one's ActorDelta portrait and items), tiles and
+ * notes, and an Adventure's whole bundle of actors, items, scenes and tables,
+ * held as plain data. Both are swept by walking the source.
+ */
+const WHOLE_SOURCE_PACKS = ["Scene", "Adventure"];
+
+/**
+ * Repoint, IN PLACE, every `img` and `src` string under `node` that `movedArt`
+ * maps — the two keys every image field in a document uses (`img`,
+ * `texture.src`). Only a path under a moved gallery matches, so walking a
+ * whole source touches nothing else.
+ * @returns {boolean} whether anything moved
+ */
+const repointArtDeep = (node) => {
+  if (!node || typeof node !== "object") return false;
+  let moved = false;
+  for (const [k, v] of Object.entries(node)) {
+    const to = (k === "img" || k === "src") && typeof v === "string" ? movedArt(v) : null;
+    if (to) { node[k] = to; moved = true; }
+    else if (v && typeof v === "object") moved = repointArtDeep(v) || moved;
+  }
+  return moved;
+};
+
+/**
+ * Sweep one world Scene or Adventure compendium: walk each document's source
+ * and write back the top-level fields that moved, in ONE batched update for the
+ * pack. A locked pack is unlocked for the write and relocked, whatever happens.
+ * @param {CompendiumCollection} pack
+ * @returns {Promise<number>} documents rewritten
+ */
+const repointPackSources = async (pack) => {
+  const updates = [];
+  for (const d of await pack.getDocuments()) {
+    const u = {};
+    for (const [k, v] of Object.entries(d.toObject())) {
+      if (k === "_id") continue;
+      const box = { [k]: v };
+      if (repointArtDeep(box)) u[k] = box[k];
+    }
+    if (Object.keys(u).length) updates.push({ _id: d.id, ...u });
+  }
+  if (!updates.length) return 0;
+  const wasLocked = pack.locked;
+  if (wasLocked) await pack.configure({ locked: false });
+  try {
+    await pack.documentClass.updateDocuments(updates, { pack: pack.collection });
+  } finally {
+    if (wasLocked) await pack.configure({ locked: true });
+  }
+  return updates.length;
+};
+
 const migrateArtPaths = async () => {
   // Generation-gated (review #17): this sweep ran on EVERY GM load, forever —
   // including a `pack.getDocuments()` round trip per world pack, the recorded
@@ -2057,6 +2126,10 @@ const migrateArtPaths = async () => {
       .map((r) => ({ _id: r.id, img: movedArt(r.img) }));
     if (results.length) { await table.updateEmbeddedDocuments("TableResult", results); count += results.length; }
   }
+  // A table's OWN icon too, which the pack pass below already read and this
+  // one did not (review #34 finding 158): a Warden can pick it off a gallery.
+  const tableUpdates = game.tables.filter((t) => movedArt(t.img)).map((t) => ({ _id: t.id, img: movedArt(t.img) }));
+  if (tableUpdates.length) { await RollTable.updateDocuments(tableUpdates); count += tableUpdates.length; }
 
   // Macros snapshot an item's img on drag-to-hotbar (module/macros.js), the
   // same copy-at-creation rule as everything above.
@@ -2072,6 +2145,7 @@ const migrateArtPaths = async () => {
   // A locked pack is unlocked for the write and restored, whatever happens.
   for (const pack of game.packs) {
     if (pack.metadata.packageType !== "world") continue;
+    if (WHOLE_SOURCE_PACKS.includes(pack.documentName)) { count += await repointPackSources(pack); continue; }
     if (!["Actor", "Item", "RollTable", "Macro"].includes(pack.documentName)) continue;
     const docs = await pack.getDocuments();
     const stale = docs.some((d) =>
