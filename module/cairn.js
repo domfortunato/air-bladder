@@ -3206,8 +3206,9 @@ const offerUntargetedApply = (html) => {
  * however the formula was shaped.
  *
  * Three things that buys, and they are the reason it is built this way:
- *  - BOTH producers are covered without touching either (`#onRollDamage` and
- *    macros.js), and so is any future one.
+ *  - Every PC damage site is covered without touching any of them
+ *    (`#onRollDamage`, `#onImprovisedAttack` and macros.js — the three that can
+ *    explode), and so is any future one.
  *  - It is language-neutral BY CONSTRUCTION. The only text is built here, per
  *    viewer, from one key and a number — so this cannot join review #24's class
  *    of cards frozen in the composer's language, because there is no stored
@@ -3516,8 +3517,9 @@ const localizeDamageQuality = (html) => {
  * Resolved AT RENDER rather than at roll time, and all three reasons matter:
  * the names then localize per VIEWER (so the content overlay translates a
  * monster's name in a Spanish client and leaves a player-authored PC name
- * alone), BOTH producers are covered without touching either (`#onRollDamage`
- * and macros.js already ship the same `data-targets`), and every damage card
+ * alone), every producer is covered without touching any of them
+ * (`#onRollDamage`, `#onImprovisedAttack`, macros.js and warden-damage.js all
+ * render dmg-roll-card.html with the same `data-targets`), and every damage card
  * already in the log gains the line the next time it renders. Resolving at
  * creation would freeze the sentence in the roller's language and have to be
  * written twice.

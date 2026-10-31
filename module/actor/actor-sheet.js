@@ -1934,10 +1934,13 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
   }
 
   /**
-   * Everything that is not a click: `change` handlers for the class-managed
-   * fields, the two double-click affordances, and the editor click-away save.
-   * Clicks are declared as `actions` in DEFAULT_OPTIONS and wired by
-   * ApplicationV2 — the action system covers no other event type.
+   * What the action system cannot declare: `change` handlers for the
+   * class-managed fields, the two double-click affordances, and the one click
+   * that is not a button (an empty editor's click-to-edit, which has to read
+   * the target it landed on). Every other click is an `action` in
+   * DEFAULT_OPTIONS, wired by ApplicationV2. The editor click-away save is NOT
+   * here: it binds once, in `_onFirstRender` above — bound here it would stack
+   * one more listener per render (review #2; review #34 finding 262).
    * @override
    */
   async _onRender(context, options) {

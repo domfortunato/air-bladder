@@ -2059,12 +2059,6 @@ const rollBarebonesTable = async (tableName) => {
   return resolveBarebonesResult(results[0]);
 };
 
-/**
- * Roll one item off the Additional Gear table (creation step 6), rerolling a
- * name already held — the SRD lets you reroll duplicate gear — and rerolling a
- * transport, which is a container Actor and cannot be an extra item here.
- * @param {Set<string>} avoid  lowercased names already granted
- */
 /** The starting-gear rows the SRD writes as an INSTRUCTION rather than an item.
  *  Kept as one list so the dispatch below and the duplicate-guard that seeds
  *  `avoid` can never disagree about what counts as a literal item. */
@@ -2072,6 +2066,12 @@ const INSTRUCTION_ROWS = new Set([
   "random additional gear", "scroll of random spellbook", "spellbook", "random spellbook",
 ]);
 
+/**
+ * Roll one item off the Additional Gear table (creation step 6), rerolling a
+ * name already held — the SRD lets you reroll duplicate gear — and rerolling a
+ * transport, which is a container Actor and cannot be an extra item here.
+ * @param {Set<string>} avoid  lowercased names already granted
+ */
 const rollAdditionalGear = async (avoid = new Set()) => {
   for (let tries = 0; tries < 50; tries++) {
     const got = await rollBarebonesTable("Barebones: Creation - Additional Gear");
@@ -2362,6 +2362,33 @@ const BLANK_KINDS = {
 };
 
 /**
+ * Would an empty sheet of this kind be FILLABLE by the user about to make one?
+ *
+ * The empty sheet's whole premise is that Character Creation Mode renders the
+ * pickers, which are the only hand-entry path to a bond or a question answer —
+ * both read-only prose. But the sheet derives that mode as the actor's flag AND
+ * `_mayRandomize`, and for a non-GM that reads `allow-player-randomization` on
+ * a character and is FLATLY false on every npc type (the 2026-08-21 ruling that
+ * the randomization surface there is the Warden's alone).
+ *
+ * So with generation allowed and randomization off — a combination the settings
+ * support on purpose — a player who cleared the box got a character with no
+ * background, no gear and NO CONTROL ON THE SHEET that could fill any of it in,
+ * and no way to recover it without the Warden deleting the actor (review #26).
+ * The checkbox is simply not offered to someone it would strand.
+ *
+ * Read on the CLICKING client, which is the one whose sheet is in question —
+ * the relay asks here too, before the request is ever sent.
+ * @param {"character"|"npc"|"hireling"|"monster"} kind
+ * @returns {Boolean}
+ */
+const blankIsFillableBy = (kind) => {
+  if (game.user.isGM) return true;
+  if (kind !== "character") return false; // _mayRandomize refuses any player on npc types
+  return game.settings.get(SETTINGS_NS, "allow-player-randomization") === true;
+};
+
+/**
  * The creation dialog: an optional dropdown, the roll checkbox, its hint, and
  * Cancel / Create.
  *
@@ -2396,33 +2423,6 @@ const BLANK_KINDS = {
  * @returns {Promise<{blank: Boolean, choice: String|null, manual?: Object}|null>}
  *   null = declined; `manual` is present only when the option was given
  */
-/**
- * Would an empty sheet of this kind be FILLABLE by the user about to make one?
- *
- * The empty sheet's whole premise is that Character Creation Mode renders the
- * pickers, which are the only hand-entry path to a bond or a question answer —
- * both read-only prose. But the sheet derives that mode as the actor's flag AND
- * `_mayRandomize`, and for a non-GM that reads `allow-player-randomization` on
- * a character and is FLATLY false on every npc type (the 2026-08-21 ruling that
- * the randomization surface there is the Warden's alone).
- *
- * So with generation allowed and randomization off — a combination the settings
- * support on purpose — a player who cleared the box got a character with no
- * background, no gear and NO CONTROL ON THE SHEET that could fill any of it in,
- * and no way to recover it without the Warden deleting the actor (review #26).
- * The checkbox is simply not offered to someone it would strand.
- *
- * Read on the CLICKING client, which is the one whose sheet is in question —
- * the relay asks here too, before the request is ever sent.
- * @param {"character"|"npc"|"hireling"|"monster"} kind
- * @returns {Boolean}
- */
-const blankIsFillableBy = (kind) => {
-  if (game.user.isGM) return true;
-  if (kind !== "character") return false; // _mayRandomize refuses any player on npc types
-  return game.settings.get(SETTINGS_NS, "allow-player-randomization") === true;
-};
-
 export const promptCreation = async (kind, {
   choices = null, choiceLabel = null, lockChoiceWhenBlank = false, title = null, hint: hintKey = null, manual = null,
   windowId = null,
@@ -2906,15 +2906,14 @@ const getCustomBackgrounds = async () => {
  * EXCEPT for a custom-only game, which gets nothing: the caller says so and
  * generates nothing, rather than dealing from content the Warden switched off
  * (see the refusal in the body below).
- * @returns {Promise<CairnItem[]>}
- */
-/**
+ *
  * One fetch, both answers: the 2e pool AND which ids the CUSTOM toggle
  * admitted. `pack.getDocuments()` is a server round trip on EVERY call
  * (~1.7s warm for the 20-doc pack, measured 2026-08-04), so the picker must
  * not build the pool twice just to learn which entries are custom — that
  * doubled cost is what pushed the picker's open past the probe's wait and
  * looked like a hang.
+ * @returns {Promise<{docs: CairnItem[], customIds: Set<string>}>}
  */
 const build2ePool = async ({ includeDisabled = false } = {}) => {
   const byId = new Map();
