@@ -184,6 +184,53 @@ try {
   drops.compAt === "9/10" && drops.bulkyLanded === 0
     ? ok("a bulky item dragged onto a companion at 9/10 is refused, as a gift is", JSON.stringify(drops))
     : fail(`a bulky drop onto a companion at 9/10: ${JSON.stringify(drops)}`);
+
+  // AN ITEM ON A COMPENDIUM ACTOR IS COPIED, NEVER MOVED (review #34 finding
+  // 160). Its `.actor` is the pack entry, so the drop read it as a transfer:
+  // the copy landed and then the source write took the unit OUT of the pack.
+  // And Give was offered on the pack actor's rows. A throwaway WORLD Actor
+  // compendium is made and deleted here — never a shipped pack, which a red run
+  // would really edit.
+  const packDrop = await page.evaluate(async () => {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    let pack = null;
+    let pc = null;
+    try {
+      pack = game.packs.get("world.zz-probe-gear-actors")
+        ?? await foundry.documents.collections.CompendiumCollection.createCompendium({
+          label: "ZZ Probe Gear Actors", name: "zz-probe-gear-actors", type: "Actor", packageType: "world",
+        });
+      const [entry] = await Actor.createDocuments([{
+        name: "ZZ Gear Pack Hermit", type: "npc", system: { role: "npc" },
+        items: [{ name: "ZZ Gear Pack Lantern", type: "item", system: { quantity: 2 } }],
+      }], { pack: pack.collection });
+      const lantern = entry.items.find((i) => i.name === "ZZ Gear Pack Lantern");
+      pc = await Actor.create({ name: "ZZ Gear Pack Taker", type: "character" });
+      await pc.sheet.render(true);
+      for (let i = 0; i < 30 && !pc.sheet.element; i++) await sleep(100);
+      const dt = new DataTransfer();
+      dt.setData("text/plain", JSON.stringify({ type: "Item", uuid: lantern.uuid }));
+      try { await pc.sheet._onDrop(new DragEvent("drop", { dataTransfer: dt })); } catch { /* refused */ }
+      await sleep(800);
+      await pc.sheet.close();
+      const fresh = await pack.getDocument(entry.id);
+      const packLantern = fresh?.items.find((i) => i.name === "ZZ Gear Pack Lantern");
+      return {
+        landed: pc.items.filter((i) => i.name === "ZZ Gear Pack Lantern").length,
+        packQty: packLantern?.system.quantity ?? null,
+        canGive: lantern.system.canGive === true,
+      };
+    } finally {
+      try { await pc?.delete(); } catch { /* gone */ }
+      try { await pack?.deleteCompendium(); } catch { /* gone */ }
+    }
+  });
+  packDrop.landed === 1 && packDrop.packQty === 2
+    ? ok("an item dragged off a COMPENDIUM actor is copied; the pack entry keeps it", JSON.stringify(packDrop))
+    : fail(`a drag off a compendium actor wrote back to the pack: ${JSON.stringify(packDrop)}`);
+  packDrop.canGive === false
+    ? ok("...and a compendium actor's rows offer no Give")
+    : fail("a compendium actor's item offers Give — delivery would take it out of the pack");
 } catch (e) {
   fail(`${e.name}: ${e.message}`);
 } finally {
