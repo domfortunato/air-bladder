@@ -12,7 +12,7 @@
  *
  * The monsters lived in portraits/ + tokens/ from 2026-08-04 until the artist's
  * character batch arrived; they moved aside (git mv, plus `movedArt` rules in
- * cairn.js for existing worlds) so the characters could take the plain folders —
+ * module/art-paths.js for existing worlds) so the characters could take the plain folders —
  * they are the set most sheets offer.
  *
  * UNLIKE its siblings `game-icons.mjs` and `tlomdev.mjs`, these galleries are

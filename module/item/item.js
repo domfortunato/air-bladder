@@ -2,6 +2,7 @@ import { SETTINGS_NS } from "../settings.js";
 import { grantSourceLabel } from "../utils.js";
 import { iconForItem, SPELLBOOK_ICON, SPELLSCROLL_ICON } from "../icons.js";
 import { glogEnabled, glogConversionDiff, glogTextCached } from "../glog.js";
+import { repointWholeWrite } from "../art-paths.js";
 
 /**
  * The stored name of a Fatigue item. ENGLISH, always — Foundry's language setting
@@ -406,6 +407,10 @@ export class CairnItem extends Item {
   async _preUpdate(changed, options, user) {
     const allowed = await super._preUpdate(changed, options, user);
     if (allowed === false) return false;
+
+    // An Import Data file from an older world names moved gallery art (review
+    // #34 finding 158; `repointWholeWrite` says why only this seam sees it).
+    repointWholeWrite(changed, options);
 
     // A BOOK'S identity is as permanent as a page's binding below, and for a
     // worse reason: clearing `grimoireKey` orphans every page naming it, and

@@ -392,7 +392,7 @@ export const registerSettings = () => {
   });
 
   // Completion marker for the art-path migrations (review #17): which
-  // GENERATION of cairn.js's ART_MOVES/ART_REENCODED tables this world has
+  // GENERATION of art-paths.js's ART_MOVES/ART_REENCODED tables this world has
   // been swept to. A NUMBER, not the usual boolean, because those tables
   // grow — a future art move adds a rule, and a stamp made before the rule
   // existed must not block it (bump ART_MIGRATION_GENERATION beside the

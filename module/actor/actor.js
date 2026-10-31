@@ -9,6 +9,7 @@ import { actorDisplayName, t, itemNamespaces, MONSTER_ITEM_NAMESPACES, ITEM_NAME
 import { concealmentWhisper, formatCount, itemSlotCost } from "../utils.js";
 import { FATIGUE_NAME, arrivingItemSources } from "../item/item.js";
 import { isDroppedPile } from "../party-pile.js";
+import { repointWholeWrite } from "../art-paths.js";
 
 /** Document names go into dialog HTML; a name is user-authored text. */
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -1773,6 +1774,9 @@ export class CairnActor extends Actor {
       const items = await arrivingItemSources(changed.items, this.type);
       if (items) changed.items = items;
     }
+    // ...and its moved gallery art, portrait, token and items alike (review #34
+    // finding 158): an older world's file still names the old folders.
+    repointWholeWrite(changed, options);
 
     // ONE _preUpdate for the whole class. There were briefly two, and the second
     // silently won — a duplicate method in a class body is not an error, the later

@@ -366,11 +366,14 @@ try {
     const scene = game.scenes.get(p.sceneId);
     const table = game.tables.get(p.tableId);
     // The Scene and Adventure packs hold their art inside each document, not on
-    // the index, so the document is read — fresh, off the server, every poll.
+    // the index, so the document is read. From the CACHE, never cleared here:
+    // this poll runs while the sweep writes, core applies the sweep's update to
+    // the cached document, and a `clear()` mid-write left core's reply with no
+    // document to apply it to — the sweep threw and never re-stamped its marker
+    // (fleet 20261031T185237Z).
     const fresh = async (packId, id) => {
       const pk = game.packs.get(packId);
       if (!pk || !id) return null;
-      pk.clear();
       return pk.getDocument(id);
     };
     const packToken = (await fresh(p.scenePackId, p.packSceneId))?.tokens.get(p.packTokenId);
@@ -425,7 +428,7 @@ try {
   // folder prefix — those folders now hold the CHARACTER set, whose paths are
   // legitimate; a prefix test would read the Femme00 control as permanently
   // stale and this poll would never finish. Hand-written like every other
-  // expectation here, so a broken LYDIA_MOVED_MONSTERS list in cairn.js
+  // expectation here, so a broken LYDIA_MOVED_MONSTERS list in art-paths.js
   // cannot make this file agree with it.
   const STALE_MONSTER = new RegExp("systems/air-bladder/art/lydia-comer/(portraits|tokens)/("
     + "Bad-Bunny|Bandit-Leader|Black-Pudding|Dire-Bear|Dire-Fish|Dire-Marsupial|Dire-Wolf"

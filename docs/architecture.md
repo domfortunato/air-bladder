@@ -29,7 +29,7 @@ git grep -n "_prepareContext" -- module/
 
 `system.json` names exactly one JavaScript file, `module/cairn.js`. Everything
 that runs in the browser is reachable from that file's imports; nothing else in
-the repository executes at all. It imports 29 of the system's 38 JavaScript
+the repository executes at all. It imports 30 of the system's 39 JavaScript
 files, registers the document classes, sheets and settings, subscribes about
 nineteen Foundry hooks and one socket channel, and then gets out of the way.
 Play happens inside two document classes, two sheet classes, a combat tracker,
@@ -44,7 +44,7 @@ and a set of feature files that mostly do not know about each other.
 | `module/`, physical lines | **~31,000** |
 | `module/`, code lines | **~13,100** |
 | Comment and blank share | **~57%** |
-| JavaScript files | 38 |
+| JavaScript files | 39 |
 | Handlebars templates | 21 files, ~3,200 lines |
 | Stylesheet | 1 file, ~4,500 lines |
 | Compendium source documents | ~1,140 YAML files across 29 packs |
@@ -110,13 +110,13 @@ Two traps recorded in the code and worth carrying into any new work:
 
 ## The import graph, in tiers
 
-Sorting the 38 files by the longest chain of internal imports beneath each one
+Sorting the 39 files by the longest chain of internal imports beneath each one
 gives this. Tier says **how much has to exist before a file can load** — not how
 complicated it is. `art-picker.js` sits at tier 8 and is 159 lines of code.
 
 | Tier | Files |
 |---|---|
-| **0** — no internal imports at all | `compendium.js`, `config.js`, `i18n-content.js`, `icons.js`, `settings-menus.js` |
+| **0** — no internal imports at all | `art-paths.js`, `compendium.js`, `config.js`, `i18n-content.js`, `icons.js`, `settings-menus.js` |
 | **1** | `settings.js`, `data-models.js` |
 | **2** | `utils.js`, `connections.js` |
 | **3** | `combat.js`, `game-time.js`, `glog.js`, `macros.js` |
