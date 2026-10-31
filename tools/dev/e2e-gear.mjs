@@ -231,6 +231,38 @@ try {
   packDrop.canGive === false
     ? ok("...and a compendium actor's rows offer no Give")
     : fail("a compendium actor's item offers Give — delivery would take it out of the pack");
+
+  // A BACKGROUND'S WEAPONS AND ARMOUR ARRIVE EQUIPPED, WHEREVER IN THE BACKGROUND
+  // THEY COME FROM (review #34 finding 224). Only the starting gear was equipped;
+  // a question's or a bond's grant kept whatever its pack document stored, and
+  // the shipped data is mixed — every Fletchwind's question-2 bow is stored
+  // unequipped, so every generated Fletchwind came with an unequipped bow. Two
+  // routes: a fresh Fletchwind, and a swap onto one.
+  const arms = await page.evaluate(async () => {
+    const gen = await import("/systems/air-bladder/module/character-generator.js");
+    const fw = (await game.packs.get("air-bladder.backgrounds-2e").getDocuments()).find((b) => b.name === "Fletchwind");
+    const made = [];
+    const questionArms = (a) => a.items
+      .filter((i) => (i.type === "weapon" || i.type === "armor")
+        && String(i.getFlag("air-bladder", "grantSource") ?? "").startsWith("question:"))
+      .map((i) => ({ name: i.name, equipped: i.system.equipped === true }));
+    try {
+      const fresh = await gen.createActorWithCharacter(await gen.generate2eCharacter(fw));
+      made.push(fresh);
+      const swapped = await gen.createActorWithCharacter(await gen.generate2eCharacter(
+        (await game.packs.get("air-bladder.backgrounds-2e").getDocuments()).find((b) => b.name === "Cutpurse")));
+      made.push(swapped);
+      await gen.changeBackground(swapped, fw);
+      return { fresh: questionArms(fresh), swapped: questionArms(swapped) };
+    } finally {
+      for (const a of made) { try { await a.delete(); } catch { /* gone */ } }
+    }
+  });
+  for (const [label, list] of [["a generated Fletchwind", arms.fresh], ["a swap onto Fletchwind", arms.swapped]]) {
+    list.length > 0 && list.every((x) => x.equipped)
+      ? ok(`${label}: the question-granted weapon arrives EQUIPPED ${JSON.stringify(list)}`)
+      : fail(`${label}: a question's weapon or armour arrived unequipped (or none was granted) ${JSON.stringify(list)}`);
+  }
 } catch (e) {
   fail(`${e.name}: ${e.message}`);
 } finally {
