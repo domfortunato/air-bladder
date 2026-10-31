@@ -1,6 +1,6 @@
 import { evaluateFormula, getInfoFromDropData, askDamageQuality, damageFormulaFor, damageQualityLabel, damageQualityKind, combatDamageFormula } from "./utils.js";
 import { SETTINGS_NS } from "./settings.js";
-import { t, actorDisplayName } from "./i18n-content.js";
+import { t, actorDisplayName, itemNamespaces } from "./i18n-content.js";
 
 /**
  * @param {Object} data
@@ -91,10 +91,9 @@ export const rollItemMacro = async (actorId, itemId) => {
   // Show the weapon's name through the content overlay, exactly as the sheet's
   // damage control does (localizeNameDesc over _itemNamespaces): a Spanish
   // player's hotbar macro must not print the English name the sheet already
-  // localizes — the "one sheet, two answers" tell. Monster-owned items file
-  // under a different namespace than a character's; a character's npcRole is
-  // undefined, so it falls to item.name.
-  const weaponName = t(actor.npcRole === "monster" ? "monster.itemName" : "item.name", item.name);
+  // localizes — the "one sheet, two answers" tell. The owner's namespaces
+  // (`itemNamespaces`): a monster's item, then item.name.
+  const weaponName = t(itemNamespaces(actor).nameNs, item.name);
 
   const usePanic = game.settings.get(SETTINGS_NS, "use-panic");
   const panicked = usePanic && actor.system.panicked;

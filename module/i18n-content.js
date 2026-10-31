@@ -118,13 +118,23 @@ export const contentLocalized = () => OVERLAY !== null;
  * ANY miss (no overlay, unknown namespace, unknown string, or null input). The
  * load-bearing invariant: a miss is the English source verbatim — never blank,
  * never a throw. This is the guarantee the whole design rests on.
+ *
+ * `ns` may be a LIST, asked in order, the first hit winning — how a monster's
+ * item falls back from `monster.itemName` to `item.name` (`itemNamespaces`).
  */
 export const t = (ns, en) => {
   if (OVERLAY === null || en == null) return en;
-  const table = OVERLAY[ns];
-  if (!table) return en;
-  const hit = table[normalizeKey(en)];
+  const hit = Array.isArray(ns) ? firstHit(ns, en) : OVERLAY[ns]?.[normalizeKey(en)];
   return hit == null ? en : hit;
+};
+
+const firstHit = (list, en) => {
+  const key = normalizeKey(en);
+  for (const ns of list) {
+    const hit = OVERLAY[ns]?.[key];
+    if (hit != null) return hit;
+  }
+  return undefined;
 };
 
 /**
@@ -135,9 +145,7 @@ export const t = (ns, en) => {
  */
 export const translationOf = (ns, en) => {
   if (OVERLAY === null || en == null) return undefined;
-  const table = OVERLAY[ns];
-  if (!table) return undefined;
-  const hit = table[normalizeKey(en)];
+  const hit = Array.isArray(ns) ? firstHit(ns, en) : OVERLAY[ns]?.[normalizeKey(en)];
   return hit == null ? undefined : hit;
 };
 
@@ -188,6 +196,37 @@ export const actorDisplayName = (a) =>
  */
 export const tokenDisplayName = (tok) =>
   tok?.actor?.type === "character" ? (tok?.name ?? "") : t("monster.name", tok?.name ?? "");
+
+/** The namespaces a monster's items are read under, and everyone else's. */
+export const MONSTER_ITEM_NAMESPACES = Object.freeze({
+  nameNs: Object.freeze(["monster.itemName", "item.name"]),
+  descNs: Object.freeze(["monster.itemDesc", "item.desc"]),
+});
+export const ITEM_NAMESPACES = Object.freeze({ nameNs: "item.name", descNs: "item.desc" });
+
+/**
+ * The overlay namespaces an item OWNED BY `owner` is read under — the one rule
+ * for every surface that names an item: the inventory row, its panel, print,
+ * the trash's confirm, the ledger, the hotbar macro, the item sheet's title,
+ * name field and description, the Drop and Give dialogs, the offer card and
+ * toasts, a full container's refusal.
+ *
+ * Keyed on ROLE, not type. A monster stores its attacks and features as items,
+ * which the extractor files under monster.itemName/monster.itemDesc; everything
+ * else — a character, a hireling, a person, and a CONTAINER — holds gear from
+ * the item packs, which is item.*.
+ *
+ * A MONSTER'S FALL BACK TO item.* (review #34 finding 198). A monster also
+ * carries ordinary gear — a Torch handed to it, a sword dropped on it — which
+ * only item.* knows, and the item sheet and the dialogs asked item.* outright
+ * while the row asked monster.* alone: one Adze read "Azuela" on the row and
+ * "Adze" on its sheet, one Torch "Torch" on the row and "Antorcha" on its
+ * sheet. A frozen list `t` and `translationOf` read in order.
+ * @param {Actor|null} owner  the item's parent; none reads item.*
+ * @returns {{nameNs: string|string[], descNs: string|string[]}}
+ */
+export const itemNamespaces = (owner) =>
+  (owner?.npcRole === "monster" ? MONSTER_ITEM_NAMESPACES : ITEM_NAMESPACES);
 
 /**
  * A chat message SPEAKER's name as THIS viewer's card header shows it

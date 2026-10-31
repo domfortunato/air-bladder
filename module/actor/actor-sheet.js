@@ -43,7 +43,7 @@ import {
   canOfferItem, promptOfferTarget, createItemOffer, offerFromDrop,
   canReceiveOffer, settleOwnOffer,
 } from "../item-offer.js";
-import { actorDisplayName, localizeNameDesc, sourceOf, t } from "../i18n-content.js";
+import { actorDisplayName, localizeNameDesc, sourceOf, t, itemNamespaces } from "../i18n-content.js";
 import { dropItemToPile, isDroppedPile, buildWhereField, cleanDropNote, pileDisplayName } from "../party-pile.js";
 import { FATIGUE_NAME } from "../item/item.js";
 import { castFromGrimoire, castScroll, grimoiresOn, pagesOfGrimoire, ensureGrimoireKey,
@@ -1354,12 +1354,11 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    * above it read Spanish. That is what a translator reported (2026-08-02), and no
    * amount of translating could have fixed it.
    *
-   * Keyed on ROLE, not on type. A monster stores its attacks and features as items,
-   * which the extractor files under monster.itemName/monster.itemDesc; everything
-   * else — a character, a hireling, a person, and a CONTAINER — holds gear from the
-   * item packs, which is item.*. Type was the right key only while `container` was
-   * its own type: since it became `npc` + role, `type === "npc"` swept a container's
-   * gear into the monster namespaces, where it could only ever miss.
+   * Keyed on ROLE, not on type, and decided in ONE place for every surface that
+   * names an item (i18n-content.js `itemNamespaces`, review #34 finding 198). Type
+   * was the right key only while `container` was its own type: since it became
+   * `npc` + role, `type === "npc"` swept a container's gear into the monster
+   * namespaces, where it could only ever miss.
    *
    * The actor's OWN name/description stay type-keyed (monster.name / monster.desc),
    * because that is what the extractor emits for every actor doc including mounts
@@ -1367,9 +1366,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    * @private
    */
   _itemNamespaces(actor = this.actor) {
-    return actor.npcRole === "monster"
-      ? { nameNs: "monster.itemName", descNs: "monster.itemDesc" }
-      : { nameNs: "item.name", descNs: "item.desc" };
+    return itemNamespaces(actor);
   }
 
   /**
@@ -3995,7 +3992,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     inner.className = "cairn-drop-confirm";
     const ask = document.createElement("p");
     ask.textContent = game.i18n.format("CAIRN.Pile.ConfirmDrop",
-      { name: t("item.name", item.name), pile: pileDisplayName() });
+      { name: t(this._itemNamespaces().nameNs, item.name), pile: pileDisplayName() });
     inner.append(ask, buildWhereField());
     content.append(inner);
     // THE LABELS ARE CORE'S OWN `COMMON.Yes` / `COMMON.No`, which is what
@@ -4013,7 +4010,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       classes: ["cairn-drop-dialog"],
       // A TITLE (review #33): ApplicationV2's default is "", and this was the
       // one unlabelled window in the feature.
-      window: { title: game.i18n.format("CAIRN.Pile.DropTitle", { name: t("item.name", item.name) }) },
+      window: { title: game.i18n.format("CAIRN.Pile.DropTitle", { name: t(this._itemNamespaces().nameNs, item.name) }) },
       position: { width: 400 },
       renderOptions: { window: { windowId: this.window?.windowId } },   // see _confirmAction
       content,
@@ -5816,9 +5813,9 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     if (!this.actor.livesByPlayerRules) {
       if (capacityVerdict(this.actor, need) === "full") {
         ui.notifications.warn(
-          // The ITEM being refused, which is nearly always pack gear — the row
-          // the player just dragged shows its translated name.
-          game.i18n.format("CAIRN.Notify.ContainerFull", { name: t("item.name", originalItem.name) })
+          // The ITEM being refused, named as the row the player just dragged
+          // it from names it: its own owner's namespaces.
+          game.i18n.format("CAIRN.Notify.ContainerFull", { name: t(itemNamespaces(originalItem.parent).nameNs, originalItem.name) })
         );
         return null;
       }

@@ -35,7 +35,7 @@
  * answered (`offerRefused` with a whitelisted reason), never silently dropped.
  */
 
-import { t, actorDisplayName } from "./i18n-content.js";
+import { t, actorDisplayName, itemNamespaces } from "./i18n-content.js";
 import { FATIGUE_NAME } from "./item/item.js";
 import { findMatchingStack, capacityVerdict, slotsNeeded, landingNeed } from "./gear.js";
 
@@ -299,7 +299,8 @@ export const promptOfferTarget = async (giver, item, { windowId } = {}) => {
     ui.notifications.warn("CAIRN.Notify.OfferNoTargets", { localize: true });
     return null;
   }
-  const itemName = t("item.name", item.name);
+  // As the giver's row names it (`itemNamespaces`, review #34 finding 198).
+  const itemName = t(itemNamespaces(item.parent).nameNs, item.name);
 
   // GROUPED, and CHARACTERS FIRST — which is not decoration. The pre-checked
   // first row must be a character, so today's one-click case stays one click;
@@ -424,7 +425,7 @@ export const createItemOffer = async (giver, item, target) => {
     flags: { [SCOPE]: { [FLAG]: flag } },
   });
   ui.notifications.info("CAIRN.Notify.OfferPosted", {
-    format: { item: t("item.name", item.name), target: actorDisplayName(target) },
+    format: { item: t(itemNamespaces(item.parent).nameNs, item.name), target: actorDisplayName(target) },
   });
   return message;
 };
@@ -486,6 +487,7 @@ export const settleOwnOffer = async (message, target) => {
  */
 const offerNames = (message, offer) => {
   const target = foundry.utils.fromUuidSync(offer.targetActorUuid);
+  const giver = foundry.utils.fromUuidSync(offer.giverActorUuid);
   // A TARGET THAT NO LONGER RESOLVES reads the target's own mask, as a hidden
   // one does (review #34 finding 243): a hireling deleted after the gift left
   // every past card reading "…is now carried by ?.". The giver below got this
@@ -504,8 +506,7 @@ const offerNames = (message, offer) => {
     // is not reopened; an accept after the token is gone still fails the
     // re-verification that already runs at accept.
     giver: (() => {
-      const g = foundry.utils.fromUuidSync(offer.giverActorUuid);
-      if (g) return actorDisplayName(g);
+      if (giver) return actorDisplayName(giver);
       // THE MASK, NOT `message.speaker.alias`. The alias would be friendlier —
       // it still names who it was — and it is a STORED name written by the
       // giver's own client, which is review #24's class exactly. The uuid that
@@ -517,7 +518,9 @@ const offerNames = (message, offer) => {
       return game.i18n.localize("CAIRN.Offer.HiddenGiver");
     })(),
     target: targetName,
-    item: t("item.name", offer.item?.name ?? "?"),
+    // As the giver's row named it; a giver gone reads item.* (review #34
+    // finding 198).
+    item: t(itemNamespaces(giver).nameNs, offer.item?.name ?? "?"),
   };
 };
 
@@ -888,7 +891,8 @@ export const handleOfferSocket = async (msg, senderId) => {
       // untranslated owner (review #26). This runs on the GIVER's client, who
       // can see the target by construction, so the mask is not in play here —
       // only the overlay.
-      ui.notifications.info("CAIRN.Notify.OfferDeclinedBy", { format: { target: actorDisplayName(target), item: t("item.name", offer.item?.name ?? "?") } });
+      ui.notifications.info("CAIRN.Notify.OfferDeclinedBy", { format: { target: actorDisplayName(target),
+        item: t(itemNamespaces(foundry.utils.fromUuidSync(offer.giverActorUuid)).nameNs, offer.item?.name ?? "?") } });
       return;
     }
     offersInFlight.set(message.id, senderId);
@@ -1010,7 +1014,7 @@ export const offerFromDrop = async (targetActor, item, { windowId } = {}) => {
     return null;
   }
   const names = {
-    item: t("item.name", item.name),
+    item: t(itemNamespaces(giver).nameNs, item.name),
     target: actorDisplayName(targetActor),
     // actorDisplayName, as the card it posts names the same giver (review #34
     // finding 11): a mule or companion can give since review #25, and its

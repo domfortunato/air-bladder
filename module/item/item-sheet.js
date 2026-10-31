@@ -1,6 +1,6 @@
 import { resolveGearItem } from "../gear.js";
 import { previewBackground, duplicateBackgroundToWorld } from "../character-generator.js";
-import { t } from "../i18n-content.js";
+import { t, itemNamespaces } from "../i18n-content.js";
 import { TRANSPORT_KINDS } from "../icons.js";
 import { bindEditorClickAwaySave, cleanDescription, formatCount, sourceLabel } from "../utils.js";
 import { pickArt } from "../art-picker.js";
@@ -184,7 +184,10 @@ export class CairnItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
 
   /**
    * The overlay namespace this item's NAME is keyed under. A background is
-   * extracted as `bg.*`, everything else as `item.*`.
+   * extracted as `bg.*`; anything else reads as its OWNER's row reads it
+   * (i18n-content.js `itemNamespaces`, review #34 finding 198) — a monster's
+   * Adze is `monster.itemName`, and the sheet read "Adze" under the row's
+   * "Azuela".
    *
    * One accessor because three places need the same answer and they must never
    * disagree: the window title, the name input's display half, and the submit
@@ -194,7 +197,12 @@ export class CairnItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
    * @private
    */
   get #nameNs() {
-    return this.item.type === "background" ? "bg.name" : "item.name";
+    return this.item.type === "background" ? "bg.name" : itemNamespaces(this.item.parent).nameNs;
+  }
+
+  /** The description's namespace, by the same rule as `#nameNs`. @private */
+  get #descNs() {
+    return this.item.type === "background" ? "bg.desc" : itemNamespaces(this.item.parent).descNs;
   }
 
   /**
@@ -377,8 +385,7 @@ export class CairnItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     // the key every gear lookup, background grant and table match resolves on,
     // and check:refs asserts 394 gear names each resolve to exactly one pack.
     context.nameDisplay = t(this.#nameNs, this.item.name);
-    const descNs = this.item.type === "background" ? "bg.desc" : "item.desc";
-    const descSrc = t(descNs, this.item.system.description);
+    const descSrc = t(this.#descNs, this.item.system.description);
     // Every enriched field on this sheet reaches innerHTML via {{{ }}}, so it
     // goes through cleanDescription first — the sheet-XSS sink (cleanDescription
     // in utils.js): a player owns the browser that writes system.description, so

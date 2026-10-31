@@ -5,7 +5,7 @@ import {
   atConnectionLimit, maxConnections, connectionsUiEnabled,
   connectedOwnershipShape, brokenOwnershipShape, OWNERSHIP_SYNC_FLAG,
 } from "../connections.js";
-import { actorDisplayName, t } from "../i18n-content.js";
+import { actorDisplayName, t, itemNamespaces, MONSTER_ITEM_NAMESPACES, ITEM_NAMESPACES } from "../i18n-content.js";
 import { concealmentWhisper, formatCount, itemSlotCost } from "../utils.js";
 import { FATIGUE_NAME, arrivingItemSources } from "../item/item.js";
 import { isDroppedPile } from "../party-pile.js";
@@ -275,7 +275,7 @@ const changeLogValue = (v, trait = false) => {
 const changeLogLine = (e) => {
   if (!e || typeof e !== "object") return null;
   const name = typeof e.name === "string" ? e.name : "";
-  const ns = e.monster === true ? "monster.itemName" : "item.name";
+  const ns = (e.monster === true ? MONSTER_ITEM_NAMESPACES : ITEM_NAMESPACES).nameNs;
   switch (e.k) {
     case "field": {
       if (typeof e.p !== "string" || !Object.hasOwn(AUDIT_LABELS, e.p)) return null;
@@ -1262,7 +1262,7 @@ export class CairnActor extends Actor {
       // Ask about the name on the row (review #9): the inventory renders the
       // translation (role-keyed namespace, Fatigue via its UI label), and a
       // destructive confirm must not name a document the user cannot see.
-      const ns = this.npcRole === "monster" ? "monster.itemName" : "item.name";
+      const ns = itemNamespaces(this).nameNs;
       const shown = item.name === FATIGUE_NAME
         ? game.i18n.localize("CAIRN.Fatigue")
         : t(ns, item.name);
