@@ -173,6 +173,24 @@ try {
     out.dmgBlindExploded = (game.messages.get(out.dmgBlind)?.rolls?.[0]?.dice?.[0]?.results ?? [])
       .filter((r) => r.exploded).length;
 
+    // 2b. THE DETAIL CARD'S "from X's weapon" LINE (review #34 finding 125).
+    //     nameDamageSource builds it on every client from the damage-source
+    //     flag, and the detail card is PUBLIC for a visible target — so an
+    //     attacker the roll card withheld (a private or blind roll: core shows
+    //     players "privately rolled some dice") was named to the whole table.
+    //     The flag carries the roll card's id now, and a viewer who cannot read
+    //     that card is not told who rolled it. Planted in the flag's exact
+    //     shape, public, pointing at the blind card and (control) the public one.
+    const detail = async (sourceMessage) => (await ChatMessage.create({
+      content: `<p>${MARK} detail</p>`,
+      speaker: { alias: `${MARK} Target` },
+      flags: { "air-bladder": { [FLAG]: true, damageSource: {
+        token: null, actor: null, alias: `${MARK} Attacker`, weapon: "ZZ Blade", sourceMessage,
+      } } },
+    })).id;
+    out.detailFromBlind = await detail(out.dmgBlind);
+    out.detailFromPublic = await detail(out.dmgPublic);
+
     out.dashPrivate = await draw("gm");
     out.dashPublic = await draw("public");
 
@@ -201,7 +219,7 @@ try {
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     const wd = await import("/systems/air-bladder/module/warden-dashboard.js");
     const all = [ids.initHidden, ids.initShown, ids.dashPrivate, ids.dashPublic, ids.qtyPrivate, ids.qtyPublic,
-      ids.dmgBlind, ids.dmgPublic];
+      ids.dmgBlind, ids.dmgPublic, ids.detailFromBlind, ids.detailFromPublic];
     for (let i = 0; i < 60; i++) {
       if (all.every((id) => document.querySelector(`[data-message-id="${id}"]`))) break;
       await sleep(100);
@@ -225,12 +243,14 @@ try {
       renderings: document.querySelectorAll(`[data-message-id="${id}"]`).length,
       maneuverLines: document.querySelector(`[data-message-id="${id}"]`)
         ?.querySelectorAll(".dmg-maneuver-line").length ?? 0,
+      sourceLine: el(id, ".dmg-source")?.textContent?.trim() ?? null,
     });
     return {
       initHidden: read(ids.initHidden), initShown: read(ids.initShown),
       dmgBlind: read(ids.dmgBlind), dmgPublic: read(ids.dmgPublic),
       dashPrivate: read(ids.dashPrivate), dashPublic: read(ids.dashPublic),
       qtyPrivate: read(ids.qtyPrivate), qtyPublic: read(ids.qtyPublic),
+      detailFromBlind: read(ids.detailFromBlind), detailFromPublic: read(ids.detailFromPublic),
       // Core's own substitution, computed on HER client.
       privateLine: game.i18n.format("CHAT.PrivateRollContent", { user: gmName }),
       tableLabel: wd._labelForTable(tableName),
@@ -292,6 +312,14 @@ try {
   s.qtyPublic.present && s.qtyPublic.flavor.includes(`${MARK} Bandit`)
     ? ok(`CONTROL: the public one reads "${s.qtyPublic.flavor}" on her client`)
     : fail(`CONTROL FAILED — the public quantity roll did not rebuild for Alice: "${s.qtyPublic.flavor}"`);
+
+  // F125: the attacker of a blind roll is not named on the public detail card.
+  s.detailFromBlind.present && s.detailFromBlind.sourceLine === null
+    ? ok("a public detail card does not name the attacker of a BLIND roll to Alice")
+    : fail(`the detail card named a blind roll's attacker to Alice: ${JSON.stringify(s.detailFromBlind.sourceLine)}`);
+  s.detailFromPublic.present && /ZZ Privacy Attacker/.test(s.detailFromPublic.sourceLine ?? "")
+    ? ok(`CONTROL: from a PUBLIC roll she reads "${s.detailFromPublic.sourceLine}"`)
+    : fail(`CONTROL FAILED — the public roll's attacker was not named: ${JSON.stringify(s.detailFromPublic.sourceLine)}`);
 } catch (e) {
   fail(`${e.name}: ${e.message}`);
 } finally {

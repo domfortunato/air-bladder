@@ -1227,6 +1227,10 @@ try {
       return {
         rollId: msg.id, detailId: detail?.id ?? null,
         flagged: !!flag, flagWeapon: flag?.weapon ?? null, flagToken: flag?.token ?? null,
+        // The roll card's id rides in the flag (review #34 finding 125), so each
+        // viewer's rebuild can ask whether THEY could read the card that named
+        // the attacker. dev:chat-privacy holds the per-viewer half.
+        flagSourceIsRoll: flag?.sourceMessage === msg.id,
         // The STORED content must not carry the attacker's name: the whole
         // design is that the sentence is built per viewer, so a name appearing
         // in the persisted HTML means it was baked in after all.
@@ -1272,6 +1276,7 @@ try {
     ran: true, gmIsGM: gmWeapon.isGM, aliceIsGM: alWeapon.isGM,
     flagged: fixture.withWeapon.flagged, flagWeapon: fixture.withWeapon.flagWeapon,
     flagToken: fixture.withWeapon.flagToken,
+    flagSourceIsRoll: fixture.withWeapon.flagSourceIsRoll,
     storedHasAttacker: fixture.withWeapon.storedHasAttacker,
     gmText: gmWeapon.text, gmFirst: gmWeapon.isFirst, gmItalic: gmWeapon.italic,
     aliceSawCard: alWeapon.present, aliceText: alWeapon.text,
@@ -2423,6 +2428,8 @@ check("the two-client leg ran", dsource.ran && dsource.gmIsGM && !dsource.aliceI
 check("the detail card is flagged", dsource.flagged && dsource.flagWeapon === "ZZ Probe Crossbow"
   && !!dsource.flagToken,
   `weapon=${JSON.stringify(dsource.flagWeapon)} token=${dsource.flagToken} - ids and a raw name, never a finished sentence`);
+check("the flag names the roll card it came from", dsource.flagSourceIsRoll === true,
+  "the per-viewer rebuild names the attacker only to a viewer who could read that card (review #34 finding 125)");
 check("the attacker is NOT in the stored card", dsource.storedHasAttacker === false,
   "the sentence is built per viewer at render, so a name in the persisted HTML means it was baked in after all");
 check("the Warden reads the whole line",
