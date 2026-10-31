@@ -542,7 +542,31 @@ export const castScroll = async (actor, scroll, { windowId } = {}) => {
     rejectClose: false,
   });
   if (!picked) return null;
+  // Re-asked: the dialog is seconds wide and NOT modal (review #34 finding
+  // 133). A second press on the row's Cast opened a second dialog on the same
+  // scroll, and answering both cast it twice; the charge was read only above.
+  // The live row decides, and a cast already running on this scroll holds it
+  // (the check and the claim are one synchronous step, so two answers inside
+  // one round trip cannot both pass).
+  if ((scroll.system.uses?.value ?? 0) < 1 || !actor.items.get(scroll.id)) {
+    ui.notifications.warn(game.i18n.localize("CAIRN.Notify.ScrollSpent"));
+    return null;
+  }
+  if (scrollCastInFlight.has(scroll.uuid)) return null;
+  scrollCastInFlight.add(scroll.uuid);
+  try {
+    return await spendScrollCast(actor, scroll, picked);
+  } finally {
+    scrollCastInFlight.delete(scroll.uuid);
+  }
+};
 
+/** Scrolls whose cast is between its answer and its spend on this client,
+ *  keyed by uuid — castScroll's twin of fatigueApplyInFlight below. */
+const scrollCastInFlight = new Set();
+
+/** castScroll's report and spend, once the cast is answered and claimed. */
+const spendScrollCast = async (actor, scroll, picked) => {
   const card = await reportCast(actor, scroll, picked);
   // The spend, AFTER the report so a failed card never eats the scroll.
   // `_preUpdate`'s scroll pin deliberately leaves `uses.value` alone, which is
@@ -550,7 +574,7 @@ export const castScroll = async (actor, scroll, { windowId } = {}) => {
   //
   // ONE scroll is spent, not the row. Scrolls stack (findMatchingStack), and a
   // bare `uses.value: 0` on a stack of two spent both (review #34 finding 95).
-  // A spent scroll is kept, not deleted (the docblock above), so it splits off
+  // A spent scroll is kept, not deleted (castScroll's docblock), so it splits off
   // as its own row and the rest stay castable. The stack shrinks FIRST: if the
   // create then fails, a scroll is gone — which is what the rule does to a
   // scroll anyway — where the other order could leave one cast for free.
