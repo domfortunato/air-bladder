@@ -146,6 +146,8 @@ let planted = null;
 // FINALLY when the migration did not re-stamp it (review #34 finding 26): a
 // reload that timed out left it at 0, re-opening the sweep on every later load.
 let genBefore = null;
+// The arrival leg's result; its documents' ids live on the page (deleted from the finally).
+let arrived = null;
 try {
   await joinAsGM(page);
   await dismissChrome(page);
@@ -515,6 +517,90 @@ try {
     ? ok("control: icons/, an external URL, a character path untouched", UNTOUCHED.length + " unchanged")
     : fail("control: icons/, an external URL, a character path untouched", JSON.stringify(after.controls));
 
+  /* --- AFTER the sweep: what ARRIVES is repointed too --------------------- */
+
+  // The sweep runs once per generation and reads only what the world holds, so
+  // a document that comes in later — imported from a MODULE's compendium, out
+  // of an Adventure, or an Import Data file from an older world — kept its old
+  // path for good (review #34 finding 158). Here the gate is closed again (the
+  // marker was re-stamped above) and documents ARRIVE carrying old paths: six
+  // creates, one per type the sweep covers, then Import Data on an Item and an
+  // Actor (core commits those `diff: false, recursive: false` with `noHook`, so
+  // only the document class sees them). A control path arrives too and must
+  // land as it was sent.
+  arrived = await page.evaluate(async ({ MOVES, UNTOUCHED }) => {
+    const old = MOVES.map(([from]) => from);
+    const ActorCls = CONFIG.Actor.documentClass;
+    const ItemCls = CONFIG.Item.documentClass;
+    // On the page as they are made, so the finally can delete them even when
+    // this leg throws before it returns.
+    const ids = globalThis.__abArrivedIds = { items: [], actors: [], scenes: [], tables: [], macros: [] };
+    const item = await ItemCls.create({ name: "zz-art-arrive-item", type: "item", img: old[3] });
+    ids.items.push(item.id);
+    const control = await ItemCls.create({ name: "zz-art-arrive-control", type: "item", img: UNTOUCHED[0] });
+    ids.items.push(control.id);
+    const actor = await ActorCls.create({
+      name: "zz-art-arrive-actor", type: "npc", system: { role: "monster" }, img: old[0],
+      prototypeToken: { texture: { src: old[1] } },
+      items: [{ name: "zz-art-arrive-owned", type: "item", img: old[2] }],
+    });
+    ids.actors.push(actor.id);
+    const scene = await Scene.create({
+      name: "zz-art-arrive-scene", width: 1000, height: 1000,
+      tokens: [{ name: "zz-art-arrive-token", x: 100, y: 100, actorId: actor.id, actorLink: false, texture: { src: old[4] } }],
+    });
+    ids.scenes.push(scene.id);
+    const table = await RollTable.create({ name: "zz-art-arrive-table", img: old[0], results: [{ img: old[0], range: [1, 1] }] });
+    ids.tables.push(table.id);
+    const macro = await Macro.create({ name: "zz-art-arrive-macro", type: "script", img: old[3], command: "" });
+    ids.macros.push(macro.id);
+
+    // Import Data, as the sidebar's context menu runs it: a file from an older
+    // world, onto a document of this one.
+    const jItem = await ItemCls.create({ name: "zz-art-arrive-json-item", type: "item", img: UNTOUCHED[0] });
+    ids.items.push(jItem.id);
+    await jItem.importFromJSON(JSON.stringify({ ...jItem.toObject(), img: old[3] }));
+    const jActor = await ActorCls.create({ name: "zz-art-arrive-json-actor", type: "npc", system: { role: "monster" } });
+    ids.actors.push(jActor.id);
+    await jActor.importFromJSON(JSON.stringify({
+      ...jActor.toObject(), img: old[0], prototypeToken: { ...jActor.toObject().prototypeToken, texture: { src: old[1] } },
+      items: [{ _id: foundry.utils.randomID(), name: "zz-art-arrive-json-owned", type: "item", img: old[2] }],
+    }));
+    return {
+      ids,
+      seen: {
+        item: item.img, control: control.img,
+        actor: actor.img, proto: actor.prototypeToken.texture.src, owned: actor.items.contents[0]?.img ?? null,
+        token: scene.tokens.contents[0]?.texture.src ?? null,
+        table: table.img, result: table.results.contents[0]?.img ?? null,
+        macro: macro.img,
+        jsonItem: game.items.get(jItem.id)?.img ?? null,
+        jsonActor: game.actors.get(jActor.id)?.img ?? null,
+        jsonProto: game.actors.get(jActor.id)?.prototypeToken.texture.src ?? null,
+        jsonOwned: game.actors.get(jActor.id)?.items.contents[0]?.img ?? null,
+      },
+    };
+  }, { MOVES, UNTOUCHED });
+  for (const [label, key, want] of [
+    ["arriving: a created Item", "item", MOVES[3][1]],
+    ["arriving: a created Actor's img", "actor", MOVES[0][1]],
+    ["arriving: ...its prototype token", "proto", MOVES[1][1]],
+    ["arriving: ...its owned Item", "owned", MOVES[2][1]],
+    ["arriving: a created Scene's token", "token", MOVES[4][1]],
+    ["arriving: a created RollTable's icon", "table", MOVES[0][1]],
+    ["arriving: ...its result", "result", MOVES[0][1]],
+    ["arriving: a created Macro", "macro", MOVES[3][1]],
+    ["arriving: Import Data onto an Item", "jsonItem", MOVES[3][1]],
+    ["arriving: Import Data onto an Actor", "jsonActor", MOVES[0][1]],
+    ["arriving: ...its prototype token", "jsonProto", MOVES[1][1]],
+    ["arriving: ...its owned Item", "jsonOwned", MOVES[2][1]],
+    ["arriving control: an icons/ path lands as sent", "control", UNTOUCHED[0]],
+  ]) {
+    arrived.seen[key] === want
+      ? ok(label, want.replace("systems/air-bladder/art/", ""))
+      : fail(label, `got "${arrived.seen[key]}", wanted "${want}"`);
+  }
+
   console.log(`\nconsole errors: ${errors.length}`);
   for (const e of errors.slice(0, 8)) console.log(`  ${e}`);
   if (errors.length) failed = true;
@@ -553,6 +639,18 @@ try {
       }, planted);
     } catch { /* the browser may already be gone */ }
   }
+  try {
+    await page.evaluate(async () => {
+      const ids = globalThis.__abArrivedIds;
+      if (!ids) return;
+      const drop = async (fn) => { try { await fn(); } catch { /* keep going */ } };
+      for (const id of ids.items) await drop(() => game.items.get(id)?.delete());
+      for (const id of ids.scenes) await drop(() => game.scenes.get(id)?.delete());
+      for (const id of ids.actors) await drop(() => game.actors.get(id)?.delete());
+      for (const id of ids.tables) await drop(() => game.tables.get(id)?.delete());
+      for (const id of ids.macros) await drop(() => game.macros.get(id)?.delete());
+    });
+  } catch { /* the browser may already be gone */ }
   await browser.close();
 }
 
