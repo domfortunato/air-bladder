@@ -78,7 +78,8 @@
  * 10e2. The one-book wall inside that payload (review #34 finding 247): a
  *      CHARACTER created holding two books keeps the first and the rest of
  *      its gear, with one warning; an npc keeps both, and two sharing a key
- *      part, as they would at the item seam.
+ *      part, as they would at the item seam. Import Data of a two-book file
+ *      onto a character keeps the first (finding 249).
  *  10f. The scroll cast, including CANCEL: the dialog's Cancel resolves null
  *      rather than its own action string, posts no card and spends no charge.
  *  10g. A STACK of two scrolls: one cast spends one scroll, which splits off
@@ -1350,16 +1351,25 @@ try {
       made.push(await CONFIG.Actor.documentClass.create({ name: "ZZ Grim Payload Wall Pile", type: "npc",
         system: { role: "container", containerClass: "pile", slots: 20 },
         items: [book("C", "zzsharedgrimkey1"), book("D", "zzsharedgrimkey1")] }));
+      // Import Data (finding 249): core commits the file as ONE parent update,
+      // which no item seam sees. The character's own export, two books for
+      // its inventory.
+      const target = await CONFIG.Actor.documentClass.create({ name: "ZZ Grim Import Wall PC", type: "character" });
+      made.push(target);
+      const file = target.toObject();
+      file.items = [book("G"), book("H")];
+      await target.importFromJSON(JSON.stringify(file));
     } finally {
       ui.notifications.warn = origWarn;
     }
-    const [pc, keyed, pile] = made;   // creation order
+    const [pc, keyed, pile, imported] = made;   // creation order
     const books = (a) => a?.items.filter((i) => i.type === "item" && i.system?.grimoire) ?? [];
     const pileKeys = books(pile).map((b) => b.system.grimoireKey);
     return {
       ids: made.map((a) => a.id),
       pcBooks: books(pc).map((b) => b.name),
       keyedBooks: books(keyed).map((b) => b.name),
+      importedBooks: books(imported).map((b) => b.name),
       pcRope: !!pc?.items.some((i) => i.name === "ZZ Grim Payload Wall Rope"),
       warnings: warned.filter((m) => m === game.i18n.localize("CAIRN.Notify.GrimoireOnlyOne")).length,
       pileKeys,
@@ -1372,7 +1382,10 @@ try {
   check(payloadWall.keyedBooks.length === 1 && payloadWall.keyedBooks[0] === "ZZ Grim Payload Wall E",
     "...also when both books arrive keyed, so the splice is the payload's only change",
     JSON.stringify(payloadWall.keyedBooks));
-  check(payloadWall.warnings === 2, "...and says so once per character", `${payloadWall.warnings} warnings`);
+  check(payloadWall.importedBooks.length === 1 && payloadWall.importedBooks[0] === "ZZ Grim Payload Wall G",
+    "Import Data of a two-book file onto a character keeps the first book (finding 249)",
+    JSON.stringify(payloadWall.importedBooks));
+  check(payloadWall.warnings === 3, "...and each says so once", `${payloadWall.warnings} warnings`);
   check(payloadWall.pileKeys.length === 2 && payloadWall.pileKeys.every(Boolean)
       && payloadWall.pileKeys[0] !== payloadWall.pileKeys[1],
     "an npc's payload keeps both books, and two sharing a key part", JSON.stringify(payloadWall.pileKeys));
