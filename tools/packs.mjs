@@ -239,27 +239,31 @@ if (mode === "build" && !process.argv.includes("--force")) {
       + " — re-stamping (the fingerprint now compares meaning, not bytes)");
   }
 
-  // With no marker there is nothing to compare against, so the backup is
+  // With no baseline there is nothing to compare against, so the backup is
   // the ONLY protection. A failed one refuses (review #34 finding 19). It used
-  // to print "continuing" and build. Nothing built at all (a fresh clone, CI)
-  // has nothing to lose and needs no backup.
-  const builtAny = packs.some(({ name }) => fs.existsSync(path.join(outRoot, name)));
-  if (!marker && !builtAny) {
-    console.log("  no sync marker and nothing built yet — nothing to lose, no backup needed");
-  } else if (!marker) {
-    console.log("  no comparable sync marker — taking a backup before building");
+  // to print "continuing" and build.
+  const backupOrRefuse = async (label, why) => {
     try {
       const { execFileSync } = await import("node:child_process");
-      execFileSync(process.execPath, [path.join(root, "tools", "dev", "backup.mjs"), "--label", "first-build"], { stdio: "inherit" });
+      execFileSync(process.execPath, [path.join(root, "tools", "dev", "backup.mjs"), "--label", label], { stdio: "inherit" });
     } catch (err) {
       console.error(
-        "\nREFUSING TO BUILD — the backup failed, and with no sync marker it is the only\n"
+        `\nREFUSING TO BUILD — the backup failed, and with ${why} it is the only\n`
         + "protection packs/ has. If a compendium was edited inside Foundry, packs/ holds the\n"
         + `only copy of that work, and a build would replace it.\n\n  ${err.message.split("\n")[0]}\n\n`
         + "  npm run backup                  see why the backup fails\n"
         + "  npm run build:packs -- --force  only if you mean to discard packs/ as it is\n");
       process.exit(1);
     }
+  };
+
+  // Nothing built at all (a fresh clone, CI) has nothing to lose and needs no backup.
+  const builtAny = packs.some(({ name }) => fs.existsSync(path.join(outRoot, name)));
+  if (!marker && !builtAny) {
+    console.log("  no sync marker and nothing built yet — nothing to lose, no backup needed");
+  } else if (!marker) {
+    console.log("  no comparable sync marker — taking a backup before building");
+    await backupOrRefuse("first-build", "no sync marker");
   } else {
     const { hashes: now, unreadable } = await fingerprintBuilt();
     if (unreadable.length) {
@@ -286,6 +290,17 @@ if (mode === "build" && !process.argv.includes("--force")) {
         + "  npm run backup                  snapshot packs/ and both worlds\n"
         + "  npm run build:packs -- --force  only if you mean to discard those edits\n");
       process.exit(1);
+    }
+    // A pack that is built and readable but has no baseline of its own is as
+    // unknown as a pack with no marker at all (review #34 finding 182). The
+    // re-stamp records only the packs it could read, and a run that fails exits
+    // before it, so a pack first built in that run has no entry either. The
+    // drift test above skips such a pack, and the build used to recompile it
+    // with no comparison and no backup.
+    const unbaselined = Object.keys(now).filter((n) => !marker[n]);
+    if (unbaselined.length) {
+      console.log(`  no baseline for ${unbaselined.join(", ")} — taking a backup before building`);
+      await backupOrRefuse("no-baseline", "no baseline for those packs");
     }
   }
 }
