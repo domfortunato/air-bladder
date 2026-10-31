@@ -293,6 +293,17 @@ try {
       ? ok("emptied to <p></p>: the box goes, and so does the printed heading")
       : fail("emptied to <p></p>: the box goes, and so does the printed heading",
           JSON.stringify({ editor: emptied.editor, printsHeading: emptied.printsHeading }));
+
+    // The leg above passes on the old print code by accident: `cleanDescription`
+    // unwraps the FIRST paragraph, so a lone `<p></p>` cleaned to "". An editor
+    // emptied after an Enter keeps two, the unwrap leaves `<p></p>`, and the
+    // old truthiness test printed an empty Description heading. This is the
+    // leg that holds the print half of the fix (measured red, 2026-10-31).
+    const twoEmpty = await descCase("<p></p><p></p>");
+    !twoEmpty.editor && !twoEmpty.printsHeading
+      ? ok("emptied to two empty paragraphs: no box, no printed heading")
+      : fail("emptied to two empty paragraphs: no box, no printed heading",
+          JSON.stringify({ editor: twoEmpty.editor, printsHeading: twoEmpty.printsHeading }));
   } finally {
     await sweepDesc().catch((e) => fail("description fixtures swept", e.message));
   }
