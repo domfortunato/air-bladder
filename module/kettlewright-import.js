@@ -793,7 +793,7 @@ const promptImportOptions = async () => {
  * genuine export passes through unchanged in meaning; what cannot pass is a
  * payload smuggling extra keys toward Actor.create, or an items array built
  * to grind the Warden's client (each item is a sequential await against the
- * gear packs, ~25s cold for a NORMAL inventory).
+ * gear packs: seconds for a normal inventory, so thousands would be minutes).
  *
  * Returns null when the payload is not plausibly a character export — the
  * one refusal that is a judgement rather than a coercion — so the broker can

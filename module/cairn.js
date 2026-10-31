@@ -977,9 +977,10 @@ const grantableRole = (sys) => {
 const pcGenerationInFlight = new Set();
 
 /** Requesters with an importKW currently running on this client — the same
- *  wall for the same reason, and imports are SLOWER (a cold one re-reads the
- *  gear packs for ~25s), so the window a doubled click could slip through is
- *  wider here than anywhere. */
+ *  wall for the same reason. An import resolves its items one by one against
+ *  the gear packs' indexes, which takes seconds (not the half-minute this
+ *  note once claimed — see the broker below), so a doubled click can land
+ *  inside it. */
 const kwImportInFlight = new Set();
 
 /** Requesters with a grantActors request running on this client. One at a time
