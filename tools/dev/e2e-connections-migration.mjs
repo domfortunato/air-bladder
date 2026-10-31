@@ -21,6 +21,12 @@
  * (modifiedTime delta over every seeded document — the marker is what makes
  * a migration a migration and not a re-enforcement sweep).
  *
+ * The re-armed migration walks the WHOLE world, not just the fixtures, so
+ * every other npc/hireling is snapshotted before the marker is cleared and
+ * put back from the finally; three "ZZ Flat By" bystanders stand in for the
+ * Warden's actors and must come back exactly as planted (review #34 finding
+ * 181).
+ *
  * Usage: npm run dev:connections-migration
  */
 import { chromium } from "playwright";
@@ -104,9 +110,24 @@ try {
       own: { ...a._source.ownership }, link: a._source.system.connectedTo || "",
     }]));
 
+    // THE SNAPSHOT, before the marker is cleared (review #34 finding 181, the
+    // shape of finding 30's fix): everything the flatten can write on every
+    // npc/hireling that is not a fixture — the link, the formerly stamp and
+    // the whole ownership object — put back from the FINALLY.
+    const fixtureIds = new Set([pc, mid, deep, rootNpc, orphan, dangling, cycA, cycB, noneNpc, noneMonster, raised, mount].map((a) => a.id));
+    const flatSnap = game.actors
+      .filter((a) => ["npc", "hireling"].includes(a.type) && !fixtureIds.has(a.id))
+      .map((a) => ({
+        id: a.id,
+        link: a._source.system.connectedTo ?? "",
+        formerly: a._source.system.formerlyBelongedTo ?? "",
+        own: foundry.utils.deepClone(a._source.ownership),
+      }));
+
     const was = game.settings.get("air-bladder", "connections-migrated");
     await game.settings.set("air-bladder", "connections-migrated", false);
     return {
+      flatSnap,
       byPcId: byPc.id, byPlanted,
       markerWas: was,
       aliceId: alice.id, bobId: bob.id,
@@ -229,6 +250,39 @@ try {
       await game.settings.set("air-bladder", "connections-migrated", true);
     }
   }).catch((e) => fail("cleanup", e.message));
+
+  // Everything the re-armed flatten reached, back as it was found (review #34
+  // finding 181). A raw write: a plain connectedTo update only re-renders
+  // sheets, so it starts no ownership transition that could land after this.
+  if (seeded?.flatSnap) {
+    const restored = await page.evaluate(async (snap) => {
+      const same = (a, b) => JSON.stringify(Object.entries(a ?? {}).sort()) === JSON.stringify(Object.entries(b ?? {}).sort());
+      const updates = [];
+      for (const s of snap) {
+        const a = game.actors.get(s.id);
+        if (!a) continue;
+        const src = a._source;
+        if ((src.system.connectedTo ?? "") === s.link && (src.system.formerlyBelongedTo ?? "") === s.formerly
+          && same(src.ownership, s.own)) continue;
+        updates.push({
+          _id: s.id,
+          "system.connectedTo": s.link,
+          "system.formerlyBelongedTo": s.formerly,
+          ownership: foundry.data.operators.ForcedReplacement.create(s.own),
+        });
+      }
+      if (updates.length) await Actor.updateDocuments(updates);
+      const left = snap.filter((s) => {
+        const src = game.actors.get(s.id)?._source;
+        return src && !((src.system.connectedTo ?? "") === s.link && (src.system.formerlyBelongedTo ?? "") === s.formerly
+          && same(src.ownership, s.own));
+      }).length;
+      return { n: updates.length, left };
+    }, seeded.flatSnap).catch((e) => ({ error: String(e?.message ?? e) }));
+    !restored.error && restored.left === 0
+      ? ok(`restored ${restored.n} actor(s) the flatten rewrote`, `${seeded.flatSnap.length} snapshotted`)
+      : fail("the flatten's restore", `${JSON.stringify(restored)} — this probe changed the Warden's world`);
+  }
 
   // The Warden's world as it was found: the bystanders, read back after the
   // cleanup, must match what was planted (review #34 finding 181).
