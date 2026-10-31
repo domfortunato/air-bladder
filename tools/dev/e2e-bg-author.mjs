@@ -260,6 +260,37 @@ try {
   Object.assign(result, ed.out);
   const bgId = ed.bgId;
 
+  // TYPE A NAME, THEN PRESS ADD (review #34 finding 73). The name's `change`
+  // fires at mousedown and Add gear's action at click, and Add rebuilt the
+  // whole array from `item.system`, which holds the typed name only once the
+  // server has answered — so the typed name was written back blank. Driven in
+  // ONE tick here, the window a round trip opens on any hosted server. Its own
+  // background, swept in finally, so no later leg sees its rows.
+  result.race = await page.evaluate(async () => {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const sheetRoot = (app) => (app.element instanceof HTMLElement ? app.element : app.element?.[0]);
+    const bg = await getDocumentClass("Item").create({
+      name: "ZZ Probe Race Background", type: "background",
+      system: { source: "2e", names: [], startingGear: [{ name: "" }], tables: [] },
+    });
+    try {
+      await bg.sheet.render(true);
+      for (let i = 0; i < 30 && !bg.sheet.element; i++) await sleep(100);
+      await bg.sheet.changeTab("details", "primary");
+      await sleep(300);
+      const input = sheetRoot(bg.sheet).querySelector(".bg-gear-name");
+      if (!input) return { error: "no gear-name input" };
+      input.value = "ZZ RACE ROPE";
+      input.dispatchEvent(new Event("change", { bubbles: true }));
+      sheetRoot(bg.sheet).querySelector(".bg-gear-add")?.click();
+      await sleep(1500);
+      return { gear: (bg.system.startingGear ?? []).map((g) => g.name) };
+    } finally {
+      await bg.sheet.close();
+      await bg.delete();
+    }
+  });
+
   stage("generation: snapshot gear + default bonds");
   Object.assign(result, await page.evaluate(async ([bgId, SWORD]) => {
     const out = {};
@@ -624,6 +655,8 @@ const checks = [
   ["12 options padded", result.optionCount === 12],
   ["12 option drop zones", result.optionDropZones === 12],
   ["name-add handler persists", result.namesAfterAdd === 1],
+  ["a gear name typed just before Add gear survives the Add",
+    JSON.stringify(result.race?.gear) === JSON.stringify(["ZZ RACE ROPE", ""]), JSON.stringify(result.race)],
   // Precondition first, or the leg under it passes on a form where nothing ran.
   ["precondition: the first field's edit really commits", result.typing?.firstCommitted === true],
   ["typing in the NEXT field survives that commit",

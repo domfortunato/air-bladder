@@ -1738,6 +1738,44 @@ try {
       ? ok("...and a player cannot add one")
       : fail("a player added a calendar event", JSON.stringify(aliceTried));
 
+    // A SECRET BLOCK IN A SHARED EVENT stays secret on her calendar (review #34
+    // finding 81). The day panel printed the page's raw content, and only core's
+    // enrichment — `secrets` for the page's owners — drops an unrevealed Secret
+    // section, so a Warden's secret paragraph in a SHARED event showed to every
+    // player who opened the day while her journal sheet hid it. Planted on
+    // TODAY, the day the calendar opens on; the open paragraph is the control.
+    const secretPage = await page.evaluate(async (entryId) => {
+      const c = game.time.components;
+      const year = (c.year ?? 0) + (game.time.calendar?.years?.yearZero ?? 0);
+      const [pg] = await game.journal.get(entryId).createEmbeddedDocuments("JournalEntryPage", [{
+        name: "ZZ Probe Fair", type: "text",
+        text: { content: '<p>ZZ-OPEN-LINE</p><section class="secret" id="secret-zzprobe"><p>ZZ-SECRET-LINE</p></section>',
+          format: CONST.JOURNAL_ENTRY_PAGE_FORMATS.HTML },
+        flags: { "air-bladder": { wardenEvent: true, valdMonth: c.month + 1, valdDay: c.dayOfMonth + 1,
+          valdDays: 1, valdYear: year, valdWatch: null } },
+      }]);
+      return pg?.id ?? null;
+    }, evented.entries.shared);
+    const panelRead = await alice.evaluate(async () => {
+      const vc = await import("/systems/air-bladder/module/vald-calendar.js");
+      await vc.openValdCalendar();
+      let text = "";
+      for (let i = 0; i < 40; i++) {
+        text = [...document.querySelectorAll("#cairn-vald-calendar .cairn-calendar-festival-text")]
+          .map((n) => n.textContent).join(" | ");
+        if (/ZZ-OPEN-LINE/.test(text)) break;
+        await new Promise((r) => setTimeout(r, 100));
+      }
+      await vc._calendarApp()?.close();
+      return { open: /ZZ-OPEN-LINE/.test(text), secret: /ZZ-SECRET-LINE/.test(text) };
+    });
+    await page.evaluate(async ({ entryId, pageId }) => {
+      try { await game.journal.get(entryId)?.pages.get(pageId)?.delete(); } catch { /* gone */ }
+    }, { entryId: evented.entries.shared, pageId: secretPage });
+    panelRead.open && !panelRead.secret
+      ? ok("a Secret block in a shared event stays secret in her day panel, the open text shows")
+      : fail("a shared event's Secret block on the player's calendar", JSON.stringify(panelRead));
+
     /* ---- 29. the weather log ------------------------------------------- */
 
     // THE CONTROL FIRST, and it runs before anything switches the log on so it
