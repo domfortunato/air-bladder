@@ -352,11 +352,13 @@ const reportCast = async (actor, spell, dice) => {
     lines.push(`<p class="grimoire-mishap"><strong>${L("CAIRN.GrimoireMishapLine")}</strong></p>`);
     const table = await findTableByName(MISHAPS_TABLE_NAME);
     if (table) {
-      // roll(), not draw(): draw posts its own PUBLIC card (and never forwards
-      // messageData — the recorded speaker trap), and a mishap belongs in this
-      // whisper. `replacement: true` tables never mark rows drawn, so reading
-      // a locked pack copy is safe.
-      const { results } = await table.roll();
+      // THE ROW THE CAST'S SUM LANDS ON (review #34 finding 229), by range —
+      // core's getResultsForRoll, the lookup roll() itself ends in. This called
+      // `table.roll()` with no roll, which rolled the table's own 2d12
+      // independently of the cast, so the row printed under the dice and sum
+      // was any row at all. Never draw(): it posts its own PUBLIC card and
+      // marks a world table's rows, and a mishap belongs in this whisper.
+      const results = table.getResultsForRoll(sum);
       for (const r of results) {
         lines.push(`<div class="grimoire-mishap-text">${t("table.result", r.description ?? "")}</div>`);
       }
