@@ -311,7 +311,12 @@ class ValdCalendarApp extends foundry.applications.api.HandlebarsApplicationMixi
     // Content links render as links rather than `@UUID[...]` text too.
     const TextEditor = foundry.applications.ux.TextEditor.implementation;
     for (const f of on) {
-      const page = f.uuid ? fromUuidSync(f.uuid) : null;
+      // Caught: a shipped festival is a COMPENDIUM page, which `fromUuidSync`
+      // refuses outright ("an Embedded Document ... cannot be retrieved
+      // synchronously"). A pack page carries no secrets for anyone, so it
+      // enriches with none.
+      let page = null;
+      try { page = f.uuid ? fromUuidSync(f.uuid) : null; } catch { page = null; }
       f.text = await TextEditor.enrichHTML(f.text ?? "", { relativeTo: page ?? undefined, secrets: !!page?.isOwner });
     }
 
