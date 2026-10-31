@@ -12,17 +12,22 @@ Game text is CC BY-SA 4.0, Yochai Gal — attribution required, see the README.
 ```
 node tools/import/barebones.mjs      # gear gap, 100 backgrounds, 3 creation tables
 node tools/import/marketplace.mjs    # prices onto pool items, shop-only goods, 3 shop tables
-node tools/import/transports.mjs     # container Actors + the transports shop table
+node tools/import/mounts.mjs         # mounts, transports, containers as Actors + their shop table
+node tools/import/table-icons.mjs    # re-stamp every table row's img from the document it lists
 npm run build:packs                  # src/packs -> packs   (stop Foundry first)
 ```
 
-The order matters twice, and both cases are silent failures rather than errors:
+The order matters three times, and every case is a silent failure rather than an error:
 
 - **barebones before marketplace** — the shop authors a market-only near-duplicate
   of anything it cannot find in the pool, so the Barebones gear has to exist first
   or you get a second "Sewing kit" beside the real "Sewing Kit".
-- **transports after marketplace** — marketplace wipes the whole marketplace table
-  dir, which would delete the shop table transports.mjs writes into it.
+- **mounts after marketplace** — marketplace wipes the whole marketplace table
+  dir, which would delete the `Market: Transports & Containers` table mounts.mjs
+  writes into it.
+- **table-icons last** — a table row keeps its own copy of the `img` it was
+  authored with, so rows written before the documents they list were re-arted
+  show the old art until it runs.
 
 These three are independent of the order above:
 
@@ -57,7 +62,7 @@ curation changes. Point `--src` at the unpacked download.
 | `spell-tables.mjs` | the "Spells — Canon (1d100)" table in `tables-2e` and the "Spells — GLOG" table in `tables-glog` (one file each, stable ids — the rest of both packs is untouched) | `src/packs/spellbooks` for canon; `spellbooks-glog` for GLOG — one document-uuid row per spellbook, alphabetical. These are the random-spell pool's shipped fallbacks (`module/config.js` `characterGenerator2e.spells`). **Run it after any extract, and after `glog-content.mjs`**: the table documents are importer-owned, so an extract that predates their first build sweeps the files |
 | `backgrounds-2e.mjs` | text fields of `backgrounds-2e` | `second-edition/backgrounds/*.md` (20 files) |
 | `marketplace.mjs` | `marketplace`, `market-goods`, `cost` on pool items | `second-edition/players-guide/marketplace.md` + `marketplace-descriptions.csv` |
-| `transports.mjs` | `transports`, the transport shop table | self-contained (2e transport numbers) |
+| `mounts.mjs` | `mounts-transports` (Containers / Mounts / Transports folders; dir wiped whole), the `Market: Transports & Containers` table in `marketplace` | self-contained (Barebones marketplace numbers), plus the beasts a 2e background grants, read from `src/packs/backgrounds-2e` |
 | `npc-careers-2e.mjs` | `module/npc-careers-2e.json` | `resources/hirelings.md` |
 | `portraits.mjs` | `module/portrait-manifest.json` | the shipped image folders |
 | `game-icons.mjs` | `art/game-icons/` (2,275 svg + `CREDITS.md` + `license.txt`), `module/game-icons-manifest.json` | a curated game-icons.net download, via `--src` — or `--restamp`, which needs none |
@@ -101,7 +106,7 @@ hack) and is reported as skipped, never silently passed.
 
 ## The gear pool has no importer, and that is deliberate
 
-`src/packs/{expeditionary-gear,tools,trinkets,extra,weapons,armor}` — the ~260
+`src/packs/{expeditionary-gear,tools,trinkets,weapons,armor}` — the
 bespoke 2e items that backgrounds, bonds and hirelings grant by name — are
 **checked-in content, maintained by hand or in Foundry**, not generated.
 
