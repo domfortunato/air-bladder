@@ -512,6 +512,35 @@ try {
       ? ok("idempotent: a second runGlogConversion() modified nothing (all _stats.modifiedTime unchanged)")
       : fail(`a second sweep WROTE again — modifiedTimes moved: ${JSON.stringify(idem.beforeTimes)} -> ${JSON.stringify(idem.afterTimes)}`);
 
+    /* --- 5a. the sweep is MARKED done, and RESUMED at ready if it was not --- */
+    // Review #34 finding 219. The one-way world conversion ran only from the
+    // setting's onChange, which core does not await, with no completion marker
+    // and nothing to run it again — and the GLOG & Other Hacks menu raises its
+    // reload prompt from the same Save whenever the Vald switch changes, so a
+    // Warden pressing Yes could cut the sweep off for good. Now the sweep
+    // records `glog-converted` when it lands, and the active Warden's ready
+    // hook resumes it while GLOG is on and the marker is unset. The marker is
+    // set back to false here (withSettings restores it at the end), the
+    // routine the ready hook calls is run, and the marker must be true again.
+    const resumed = await page.evaluate(async () => {
+      const out = {};
+      try { out.afterFlip = game.settings.get("air-bladder", "glog-converted"); } catch (e) { out.afterFlip = `unregistered: ${e.message}`; }
+      try {
+        await game.settings.set("air-bladder", "glog-converted", false);
+        const glog = await import("/systems/air-bladder/module/glog.js");
+        out.hasResume = typeof glog.resumeGlogConversion === "function";
+        if (out.hasResume) await glog.resumeGlogConversion();
+        out.afterResume = game.settings.get("air-bladder", "glog-converted");
+      } catch (e) { out.error = e.message; }
+      return out;
+    });
+    resumed.afterFlip === true
+      ? ok("the sweep records itself done (glog-converted) once its writes land")
+      : fail(`the sweep left no completion marker: ${JSON.stringify(resumed.afterFlip)}`);
+    resumed.hasResume && resumed.afterResume === true
+      ? ok("with GLOG on and the marker unset, the ready routine resumes the sweep and records it")
+      : fail(`nothing resumes an unfinished sweep: ${JSON.stringify(resumed)}`);
+
     /* --- 5b. the CREATE seam: what ARRIVES after the flip converts too ------ */
     // The sweep converts what EXISTS; CairnItem._preCreate converts what
     // ARRIVES (there are no spellbooks in GLOG — 2026-08-09 ruling, made when
