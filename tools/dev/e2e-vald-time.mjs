@@ -1493,6 +1493,60 @@ try {
         ? ok("...and the player list did not move", `top ${playersAfter}`)
         : fail("the player list moved", `${playersBefore} -> ${playersAfter}`);
 
+      // WITH THE HACK OFF TOO (review #34 finding 80, user ruling 2026-10-31).
+      // Watches and weather are core Cairn; only the calendar is the hack. Yet
+      // with Vald off — the default — the stored weather was shown NOWHERE:
+      // describeTime's plain branch returned `weather: ""` and the plain clock
+      // had no weather line, so Set the Weather… looked like it did nothing.
+      // Now the clock, its tooltip and the Dashboard band carry it either way.
+      // Vald is switched off by shadowing the settings READ and core's own
+      // calendar in-page, as readDash does; nothing here writes the world.
+      const plainShown = await page.evaluate(async () => {
+        const gt = await import("/systems/air-bladder/module/game-time.js");
+        const wc = await import("/systems/air-bladder/module/watch-clock.js");
+        const dash = await import("/systems/air-bladder/module/warden-dashboard.js");
+        const settings = game.settings;
+        const realGet = settings.get.bind(settings);
+        settings.get = (ns, key, ...rest) => rest[0]?.document
+          ? foundry.helpers.ClientSettings.prototype.get.call(game.settings, ns, key, ...rest)
+          : (ns === "air-bladder" && key === "enable-vald-calendar" ? false : realGet(ns, key, ...rest));
+        const prevConfig = CONFIG.time.worldCalendarConfig;
+        const prevClass = CONFIG.time.worldCalendarClass;
+        CONFIG.time.worldCalendarConfig = CONFIG.time.earthCalendarConfig;
+        CONFIG.time.worldCalendarClass = CONFIG.time.earthCalendarClass;
+        game.time.initializeCalendar();
+        // Leave the Dashboard as this leg found it: later legs read its state.
+        const openedHere = !foundry.applications.instances.get("cairn-warden-dashboard");
+        try {
+          await wc.refreshWatchClock();
+          if (openedHere) await dash.openWardenDashboard();
+          await foundry.applications.instances.get("cairn-warden-dashboard").render();
+          await new Promise((r) => setTimeout(r, 300));
+          const line = (sel) => document.querySelector(sel)?.innerText.replace(/\s+/g, " ").trim() ?? null;
+          return {
+            vald: gt.describeTime().vald,
+            clock: line("#cairn-watch-clock .cairn-watch-weather"),
+            tooltip: document.querySelector("#cairn-watch-clock [data-tooltip]")?.dataset.tooltip ?? null,
+            band: line("#cairn-warden-dashboard .cairn-time-today-weather"),
+          };
+        } finally {
+          settings.get = realGet;
+          CONFIG.time.worldCalendarConfig = prevConfig;
+          CONFIG.time.worldCalendarClass = prevClass;
+          game.time.initializeCalendar();
+          await wc.refreshWatchClock();
+          const app = foundry.applications.instances.get("cairn-warden-dashboard");
+          if (openedHere) await app?.close();
+          else await app?.render();
+        }
+      });
+      !plainShown.vald && /A rain of ash/.test(plainShown.clock ?? "") && /A rain of ash/.test(plainShown.tooltip ?? "")
+        ? ok("with Vald off, the clock carries the weather too", `${plainShown.clock} | tooltip ${JSON.stringify(plainShown.tooltip)}`)
+        : fail("with Vald off, the clock carries the weather too", JSON.stringify(plainShown));
+      /A rain of ash/.test(plainShown.band ?? "")
+        ? ok("...and so does the Dashboard band", plainShown.band)
+        : fail("...and so does the Dashboard band", JSON.stringify(plainShown.band));
+
       // EMPTY MEANS UNCALLED, which is how a Warden undoes a mistake.
       await page.evaluate(async () => {
         const gt = await import("/systems/air-bladder/module/game-time.js");
