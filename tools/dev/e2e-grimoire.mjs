@@ -1627,6 +1627,10 @@ try {
       if (scope === ns && key === "change-log") return true;
       return origGet.call(this, scope, key, ...rest);
     };
+    // The ledger posts AFTER its write, reading the setting then: the pair's
+    // own "Item added" lands under the shadow if the snapshot is taken at once
+    // (run 20261031T161813Z counted it). Settled first, so only the cast counts.
+    await new Promise((r) => setTimeout(r, 1000));
     const msgsBefore = new Set(game.messages.map((m) => m.id));
     let i = 0;
     const origRnd = CONFIG.Dice.randomUniform;
@@ -1783,6 +1787,8 @@ try {
         if (!target) await new Promise((r) => setTimeout(r, 100));
       }
       D.confirm = async () => true;
+      // The setup's own ledger cards settle first (see 10g's snapshot).
+      await new Promise((r) => setTimeout(r, 1000));
       const msgsBefore = new Set(game.messages.map((m) => m.id));
       if (target) {
         await a.sheet.constructor.DEFAULT_OPTIONS.actions.pageTransmute
