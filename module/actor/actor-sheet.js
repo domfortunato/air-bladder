@@ -2604,7 +2604,13 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // Spanish world reads coherent Spanish once both the UI keys and the trait
     // tables are translated. Age is a number and is never overlaid.
     const F = (k, data) => game.i18n.format(this._wording(k), data);
+    // Only the traits the actor's CURRENT role maps (review #34 finding 114).
+    // A role change keeps stored traits on purpose, so an NPC re-roled to
+    // hireling still stores a Quirk and a Goal; the sentence named them while
+    // no row offered a control to change or clear them.
+    const mapped = this._traitTableMapping();
     const val = (key) => {
+      if (!(key in mapped)) return "";
       const raw = String(traits?.[key] ?? "").trim();
       return raw ? t("table.result", raw) : "";
     };
@@ -2632,8 +2638,9 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
 
     if (val("clothing")) parts.push(F("CAIRN.Bio.Clothing", { value: val("clothing") }));
 
-    // The two NPC-only traits (2026-08-20). Nobody else stores them, so no gate
-    // is needed — an empty value is skipped like every other clause.
+    // The two NPC-only traits (2026-08-20). Another role may still STORE them
+    // after a re-role; `val` reads only the current role's keys, so they are
+    // skipped there like an empty value.
     //
     // Quirk gets a clause that NAMES it ("Their Quirk is Missing Ear") rather
     // than being folded into the adjective list below, and that is a wording
@@ -2800,7 +2807,13 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // the {{#if traitsProse}} section drops heading and body together under
     // the page's empty-sections rule, and hasSide collapses the band. Age
     // reaches paper only inside this sentence, so it goes with it.
-    const traitsProse = traitsVisible() ? this._buildTraitSentence(sys.traits, sys.age) : "";
+    // The biography block — pronouns, traits and age, scars — prints only
+    // where the sheet shows it (review #34 finding 114): a character, or a
+    // person role (`showBiography`). A role change keeps the stored values on
+    // purpose (`_traitTableMapping`), so a person re-roled to Monster still
+    // carries them, and paper printed what the sheet had stopped showing.
+    const showsBiography = isChar || PERSON_ROLES.includes(actor.npcRole);
+    const traitsProse = showsBiography && traitsVisible() ? this._buildTraitSentence(sys.traits, sys.age) : "";
 
     // The background's own prose and its rolled question/answer pairs (user
     // additions 2026-08-08), routed exactly as the sheet routes them —
@@ -2943,7 +2956,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       failedCareer: isChar && sys.contentSource === "barebones"
         && game.settings.get(SETTINGS_NS, "barebones-failed-career")
         ? t("bg.name", sys.failedCareer ?? "") : "",
-      pronouns: sys.pronouns,
+      pronouns: showsBiography ? sys.pronouns : "",
       stats: {
         str: sys.abilities.STR.value, strMax: sys.abilities.STR.max,
         dex: sys.abilities.DEX.value, dexMax: sys.abilities.DEX.max,
@@ -3021,7 +3034,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       omen: sys.omenEnabled && omenVisible(actor)
         ? t("table.result", String(sys.omen ?? "").trim())
         : "",
-      scars: (sys.scars ?? []).map((s) => t("table.result", s)),
+      scars: showsBiography ? (sys.scars ?? []).map((s) => t("table.result", s)) : [],
       notes: await enrich(sys.notes),
     };
 
