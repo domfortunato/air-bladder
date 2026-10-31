@@ -755,7 +755,7 @@ export const localizePileCard = (message, html) => {
  *   that frees a slot, in which case no dialog opens at all; or null for Escape
  *   and the window's ×, which is no decision.
  */
-export const askWhatToDrop = async (actor) => {
+export const askWhatToDrop = async (actor, { windowId } = {}) => {
   const items = slotFreeingItems(actor);
   // NOTHING TO PAY WITH IS A REFUSAL, reversing the original carve-out (an empty
   // list used to answer "" and let the Fatigue proceed, on the reasoning that
@@ -847,6 +847,7 @@ export const askWhatToDrop = async (actor) => {
   const answer = await foundry.applications.api.DialogV2.wait({
     classes: ["cairn-drop-dialog"],
     window: { title: game.i18n.localize("CAIRN.Pile.FatigueTitle") },
+    renderOptions: { window: { windowId } },   // the card's own window (review #34 finding 119)
     // STATED: `wait` merges no width, unlike `confirm` and `prompt`.
     position: { width: 400 },
     content,

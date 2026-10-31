@@ -38,6 +38,7 @@
 import { t, actorDisplayName, itemNamespaces } from "./i18n-content.js";
 import { FATIGUE_NAME } from "./item/item.js";
 import { findMatchingStack, capacityVerdict, slotsNeeded, landingNeed } from "./gear.js";
+import { windowIdOf } from "./utils.js";
 
 const SCOPE = "air-bladder";
 const FLAG = "itemOffer";
@@ -577,7 +578,9 @@ export const bindOfferCard = (message, html) => {
     b.type = "button";
     b.className = cls;
     b.textContent = game.i18n.localize(key);
-    b.addEventListener("click", () => handler(message));
+    // The card's own window rides along: in a popped-out chat log, Accept's
+    // confirm opens there (review #34 finding 119).
+    b.addEventListener("click", (ev) => handler(message, { windowId: windowIdOf(ev.currentTarget) }));
     actions.append(b);
   };
   if (canAnswer) {
@@ -614,7 +617,7 @@ const authorGives = (message, offer) => {
   return !!giver && !!message.author && !!giver.testUserPermission?.(message.author, "OWNER");
 };
 
-const onAcceptClick = async (message) => {
+const onAcceptClick = async (message, { windowId } = {}) => {
   const offer = message.getFlag(SCOPE, FLAG);
   if (!offer || offer.state !== "open") {
     ui.notifications.warn("CAIRN.Notify.OfferAnswered", { localize: true });
@@ -671,6 +674,7 @@ const onAcceptClick = async (message) => {
         { item: names.item, target: names.target }))}</p>`,
       yes: { label: game.i18n.localize("CAIRN.Offer.OverburdenConfirm") },
       rejectClose: false,
+      renderOptions: { window: { windowId } },   // the card's own window (review #34 finding 119)
     });
     if (!yes) return;
   }

@@ -515,8 +515,9 @@ export const openEvent = async (uuid) => {
   return page?.sheet?.render({ force: true }) ?? null;
 };
 
-/** Take one off the calendar. The page goes with it — there is nothing else to it. */
-export const removeEvent = async (uuid) => {
+/** Take one off the calendar. The page goes with it — there is nothing else to it.
+ *  The confirm opens in the caller's window (review #34 finding 119). */
+export const removeEvent = async (uuid, { windowId } = {}) => {
   if (!game.user.isGM) {
     ui.notifications.warn(game.i18n.localize("CAIRN.Notify.TimeWardenOnly"));
     return null;
@@ -528,6 +529,7 @@ export const removeEvent = async (uuid) => {
     content: `<p>${foundry.utils.escapeHTML(
       game.i18n.format("CAIRN.Calendar.RemoveEventConfirm", { name: page.name }))}</p>`,
     rejectClose: false,
+    renderOptions: { window: { windowId } },
   });
   if (!ok) return null;
   return page.delete();

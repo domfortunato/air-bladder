@@ -431,6 +431,7 @@ class ValdCalendarApp extends foundry.applications.api.HandlebarsApplicationMixi
       yes: { label: "CAIRN.Time.ConfirmSetDateYes" },
       no: { label: "CAIRN.Cancel" },
       rejectClose: false,
+      renderOptions: { window: { windowId: this.window?.windowId } },   // the calendar's own window (review #34 finding 119)
     });
     if (!yes) return;
     await setDate(date);
@@ -461,7 +462,7 @@ class ValdCalendarApp extends foundry.applications.api.HandlebarsApplicationMixi
   }
 
   static async #onRemoveEvent(event, target) {
-    await removeEvent(target.dataset.uuid);
+    await removeEvent(target.dataset.uuid, { windowId: this.window?.windowId });
   }
 }
 

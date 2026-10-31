@@ -29,7 +29,7 @@ import { connectionHeadroom, connectedOwnershipShape, syncPendingOwnership, OWNE
 import { loadContentOverlay, t, translationOf, contentLocalized, tokenDisplayName, actorDisplayName, speakerDisplayName, LOCALIZED_DIRECTORIES, localizeJournalBlocks } from "./i18n-content.js";
 import { injectEncounterButton, localizeEncounterQty, resolveTable } from "./encounters.js";
 import { bindGrimoireFatigueButton, localizeGlogCastCard } from "./grimoire.js";
-import { nameableTokens, DAMAGE_QUALITY_KEYS, localizeD20Card, localizeRollFlavor, damageDiceIcons } from "./utils.js";
+import { nameableTokens, DAMAGE_QUALITY_KEYS, localizeD20Card, localizeRollFlavor, damageDiceIcons, windowIdOf } from "./utils.js";
 
 /**
  * The Fatigue instead of Critical Damage option: the save card's choice, once
@@ -4183,7 +4183,9 @@ Hooks.on("renderChatMessageHTML", (message, html, data) => {
           // one bargain, and a Fatigue landing while the picker was still open
           // would be half of it. A character who is not overburdened is
           // answered without a dialog as "drop nothing".
-          const chose = mustDropForFatigue(critActor) ? await askWhatToDrop(critActor) : { id: null, place: "" };
+          const chose = mustDropForFatigue(critActor)
+            ? await askWhatToDrop(critActor, { windowId: windowIdOf(b) })
+            : { id: null, place: "" };
           if (chose === null) return;
           if (spent()) return;             // re-asked: the dialog is seconds wide
           if (chose === "critical") {

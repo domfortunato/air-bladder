@@ -771,7 +771,7 @@ export class CairnItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       position: { width: 560 },
       content: renderPreviewReport(report),
       buttons: [{ action: "close", label: game.i18n.localize("CAIRN.Close"), default: true }],
-    }).render(true);
+    }).render({ force: true, window: { windowId: this.window?.windowId } });   // the sheet's own window (review #34 finding 119)
   }
 
   /**

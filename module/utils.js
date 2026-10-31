@@ -1238,6 +1238,18 @@ export const concealmentWhisper = (token) => {
 };
 
 /**
+ * The detached window an element sits in, for a dialog it opens (review #34
+ * finding 119): a card control in a popped-out chat log, or any control in a
+ * popped-out window, must open its dialog THERE, or it opens in a screen the
+ * user is not looking at. The form core's own `<file-picker>` uses
+ * (elements/file-picker.mjs `#onClickButton`). Undefined in the main window,
+ * which is where a dialog with no window goes.
+ * @param {Element} el
+ * @returns {string|undefined}
+ */
+export const windowIdOf = (el) => el?.ownerDocument?.defaultView?.id || undefined;
+
+/**
  * Ask the Warden who takes an UNTARGETED damage roll.
  *
  * A roll made with nothing targeted used to carry no Apply control at all, so the
@@ -1273,11 +1285,13 @@ export const concealmentWhisper = (token) => {
  * viewer may not be told about.
  *
  * @param {Scene} [scene]  the scene the CARD was spoken in, never the viewer's
+ * @param {object} [options]
+ * @param {string} [options.windowId]  the window the card was clicked in (`windowIdOf`)
  * @return {Promise<String[]>}  token ids; EMPTY on dismissal, on Cancel, and on
  *   an empty tick list — all three mean "apply nothing", per the same rule
  *   `askDamageQuality` follows: a ✕ is an instruction, not a default.
  */
-export const askDamageTargets = async (scene) => {
+export const askDamageTargets = async (scene, { windowId } = {}) => {
   const listed = nameableTokens((scene?.tokens?.contents ?? []).map((tk) => tk.id), scene);
   if (!listed.length) {
     // A legacy card whose scene was deleted, or one whose creatures are all gone.
@@ -1342,6 +1356,7 @@ export const askDamageTargets = async (scene) => {
   const picked = await foundry.applications.api.DialogV2.wait({
     classes: ["cairn-damage-targets"],
     window: { title: game.i18n.localize("CAIRN.DamageTargets.Title") },
+    renderOptions: { window: { windowId } },   // the card's own window (review #34 finding 119)
     content,
     buttons: [
       {

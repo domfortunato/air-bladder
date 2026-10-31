@@ -1,6 +1,6 @@
 import { findDeclaredTable, findCompendiumItem, resultText } from './compendium.js'
 import { SETTINGS_NS } from './settings.js'
-import { evaluateFormula, askDamageTargets, concealmentWhisper, d20CardBody, d20CardFlavor, combatOption, cairnSavePasses } from './utils.js'
+import { evaluateFormula, askDamageTargets, concealmentWhisper, d20CardBody, d20CardFlavor, combatOption, cairnSavePasses, windowIdOf } from './utils.js'
 import { postStatusCard } from './actor/actor.js'
 
 // The system's flag namespace, imported rather than re-declared: a second
@@ -379,7 +379,7 @@ export class Damage {
                 // above and not before -- a card that has already been spent must not
                 // open a picker, or the Warden chooses targets and is then refused.
                 if (!targetsList.length) {
-                    targetsList = await askDamageTargets(scene);
+                    targetsList = await askDamageTargets(scene, { windowId: windowIdOf(event?.currentTarget ?? event?.target) });
                     if (!targetsList.length) return; // dismissed, cancelled, or nothing ticked
                 }
 
