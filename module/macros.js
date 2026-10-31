@@ -32,7 +32,11 @@ export const createCairnMacro = async (data, slot) => {
     return true;
   }
 
-  if (!actor) {
+  // A compendium actor's item too (review #34 finding 171): the macro is keyed
+  // by the actor's id and rollItemMacro looks it up in the WORLD, so it reported
+  // "This macro's actor no longer exists", or rolled the world copy that a
+  // keepId import left wearing the same id.
+  if (!actor || actor.pack) {
     return ui.notifications.warn(game.i18n.localize("CAIRN.Macro.OwnedItemsOnly"));
   }
 
