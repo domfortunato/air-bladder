@@ -433,9 +433,16 @@ try {
       trash: await homeOf('[data-action="itemDelete"]'),
       create: await homeOf('[data-action="itemCreate"]'),
       roll: await homeOf('.window-header [data-action="rollActor"]'),
+      // The portrait gallery (review #34 finding 161): pickArt rendered its
+      // own DialogV2 with no window, so from a detached sheet it opened in
+      // the main window.
+      portrait: await homeOf('img.portrait[data-action="editPortrait"]'),
       trashTitle: titles['[data-action="itemDelete"]'] ?? null,
     };
   }, info);
+  homes.portrait === "sheet"
+    ? ok("the portrait gallery opens in the sheet's window (review #34 finding 161)")
+    : fail("the portrait gallery opens in the sheet's window", JSON.stringify(homes));
   homes.sheetDetached && homes.trash === "sheet"
     ? ok("the trash can's (modal) confirm opens in the sheet's window", JSON.stringify(homes))
     : fail("the trash can's (modal) confirm opens in the sheet's window", JSON.stringify(homes));
@@ -469,6 +476,63 @@ try {
   !reattached.windowId && reattached.backInMainDocument && reattached.popOutHidden === false
     ? ok("re-docking brings it back", "_onAttach")
     : fail("re-docking brings it back", JSON.stringify(reattached));
+
+  // THE DASHBOARD'S DIALOGS OPEN WITH IT (review #34 finding 161). It has its own
+  // Pop Out, and Set the Date, Set the Weather, Damage and the four Create
+  // buttons opened their dialogs in the MAIN window while the clicked button
+  // sat disabled in the detached one (`_whileDisabled` holds it until the
+  // dialog resolves). Popped out for real, each control pressed, and the answer
+  // is the document its dialog landed in; every dialog is closed unanswered.
+  console.log("\nthe Dashboard, popped out");
+  await page.evaluate(async () => {
+    const { openWardenDashboard } = await import("/systems/air-bladder/module/warden-dashboard.js");
+    await openWardenDashboard();
+  });
+  await page.waitForSelector("#cairn-warden-dashboard", { timeout: 20000 });
+  await page.waitForTimeout(500);
+  await Promise.all([
+    page.context().waitForEvent("page", { timeout: 20000 }).catch(() => null),
+    page.locator('#cairn-warden-dashboard .window-header button[data-action="detach"]').click(),
+  ]);
+  for (let i = 0; i < 40; i++) {
+    if (await page.evaluate(() => !!foundry.applications.instances.get("cairn-warden-dashboard")?.window?.windowId)) break;
+    await page.waitForTimeout(500);
+  }
+  const dash = await page.evaluate(async () => {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const app = foundry.applications.instances.get("cairn-warden-dashboard");
+    const homeOf = async (selector) => {
+      const control = app.element.querySelector(selector);
+      if (!control) return "no control";
+      const before = new Set(foundry.applications.instances.keys());
+      control.click();
+      let dlg = null;
+      for (let n = 0; n < 40 && !dlg; n++) {
+        dlg = [...foundry.applications.instances.values()]
+          .find((x) => !before.has(x.id) && x.constructor.name === "DialogV2" && x.element);
+        if (!dlg) await sleep(150);
+      }
+      if (!dlg) return "no dialog";
+      const where = dlg.element.ownerDocument === app.element.ownerDocument ? "dashboard"
+        : dlg.element.ownerDocument === document ? "main" : "elsewhere";
+      await dlg.close();
+      await sleep(400);
+      return where;
+    };
+    const out = { detached: app.element.ownerDocument !== document };
+    out.setDate = await homeOf("#cairn-warden-dashboard-set-date");
+    out.setWeather = await homeOf("#cairn-warden-dashboard-set-weather");
+    out.damage = await homeOf('[data-action="wardenDamage"]');
+    out.create = await homeOf('[data-gen="npc"]');
+    await app.attachWindow();
+    await app.close();
+    return out;
+  });
+  const dashHomes = ["setDate", "setWeather", "damage", "create"];
+  dash.detached && dashHomes.every((k) => dash[k] === "dashboard" || dash[k] === "no control")
+    && dashHomes.some((k) => dash[k] === "dashboard")
+    ? ok("every Dashboard dialog opens in the Dashboard's own window", JSON.stringify(dash))
+    : fail("every Dashboard dialog opens in the Dashboard's own window", JSON.stringify(dash));
 
   console.log("\nre-typed under an open sheet — the TITLE is frame state too");
   retype.before === retype.wantBefore
