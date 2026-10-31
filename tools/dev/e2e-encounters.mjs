@@ -549,12 +549,16 @@ try {
   //   row of twenty stacked tokens on sixteen cells;
   // - with no `level`, every token landed on the scene's INITIAL level, so
   //   viewing an upper level showed the toast and no tokens.
+  // TWO TABLES, so each finding reads on its own: the no-replacement one is
+  // asked only for its button, and an ordinary one (no row ever marked) is
+  // drawn and spawned for the count and the level — the first draft spawned
+  // from the no-replacement card, so a missing button failed all three.
   const big = await gm.evaluate(async ({ GOBLIN_UUID, sceneId }) => {
     const enc = await import("/systems/air-bladder/module/encounters.js");
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     const scene = game.scenes.get(sceneId);
     const out = {};
-    let table = null, upper = null;
+    let table = null, crowd = null, upper = null;
     try {
       [upper] = await scene.createEmbeddedDocuments("Level", [{ name: "ZZ Enc Upper", elevation: { bottom: 20, top: 40 } }]);
       await scene.view({ level: upper.id });
@@ -574,8 +578,21 @@ try {
       await sleep(600);
       out.rowDrawn = table.results.contents[0]?.drawn === true;
       out.button = !!document.querySelector(`[data-message-id="${msg?.id}"] .encounter-spawn`);
+
+      crowd = await RollTable.create({
+        name: "ZZ Enc Crowd", formula: "1d1", replacement: true, displayRoll: true,
+        results: [{ type: "text", description: `20 @UUID[${GOBLIN_UUID}]{Goblins} pour in.`, range: [1, 1], weight: 1 }],
+      });
+      await crowd.draw();
+      let crowdMsg = null;
+      for (let i = 0; i < 40 && !crowdMsg; i++) {
+        crowdMsg = game.messages.contents.find((m) => !before.has(m.id) && m.getFlag("core", "RollTable") === crowd.id);
+        if (!crowdMsg) await sleep(150);
+      }
+      await sleep(600);
+      out.crowdButton = !!document.querySelector(`[data-message-id="${crowdMsg?.id}"] .encounter-spawn`);
       const tokensBefore = new Set(scene.tokens.map((t) => t.id));
-      if (msg) await enc.spawnEncounterFromMessage(msg);
+      if (crowdMsg) await enc.spawnEncounterFromMessage(crowdMsg);
       const mine = scene.tokens.contents.filter((t) => !tokensBefore.has(t.id));
       out.placed = mine.length;
       out.cells = new Set(mine.map((t) => `${t.x},${t.y}`)).size;
@@ -584,6 +601,7 @@ try {
       for (const m of game.messages.filter((m) => !before.has(m.id))) await m.delete();
     } finally {
       if (table) await table.delete();
+      if (crowd) await crowd.delete();
       if (upper) {
         await scene.view({ level: scene.initialLevel?.id ?? undefined });
         await scene.deleteEmbeddedDocuments("Level", [upper.id]);
@@ -594,6 +612,9 @@ try {
   big.rowDrawn && big.button
     ? ok("a draw from a no-replacement table still offers Add to scene", JSON.stringify(big))
     : fail("a draw from a no-replacement table offers no Add to scene", JSON.stringify(big));
+  big.crowdButton
+    ? ok("precondition: the ordinary table's card offers Add to scene", "the two legs below spawn from it")
+    : fail("precondition: the ordinary table's card offers Add to scene", JSON.stringify(big));
   big.placed === 20 && big.cells === 20
     ? ok("twenty tokens land on twenty cells, none stacked", JSON.stringify(big))
     : fail("tokens past sixteen stack on earlier cells", JSON.stringify(big));
