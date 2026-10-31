@@ -414,7 +414,10 @@ const acquire = async (actor, data, pay) => {
   } else {
     ui.notifications.info(game.i18n.format("CAIRN.Notify.Took", { name: shown }));
   }
-  if (!actor.isThing && actor.isEncumbered()) {
+  // "HP 0 until you free a slot" is true only where the rule zeroes HP: a
+  // companion or monster filled to capacity keeps its HP (review #34 finding
+  // 129). `livesByPlayerRules`, the test the HP write itself asks.
+  if (actor.livesByPlayerRules && actor.isEncumbered()) {
     ui.notifications.warn(game.i18n.format("CAIRN.Notify.Overloaded", { name: shown }));
   }
   return true;
@@ -680,11 +683,13 @@ export const openMarketplace = async (actor, opts = {}) => {
     buttons: [{ action: "close", label: game.i18n.localize("CAIRN.Close"), default: true }],
   });
 
-  // Warn once, on leaving, if they walk out over capacity.
+  // Warn once, on leaving, if they walk out over capacity — and only an actor
+  // whose HP that zeroes, since the words say so: a sack or a mule filled to
+  // the brim is in its normal state (review #34 finding 129).
   const origClose = dialog.close.bind(dialog);
   let warnedLeave = false;
   dialog.close = (...a) => {
-    if (!warnedLeave && actor.isEncumbered()) {
+    if (!warnedLeave && actor.livesByPlayerRules && actor.isEncumbered()) {
       warnedLeave = true;
       ui.notifications.warn(game.i18n.localize("CAIRN.Notify.LeftOverloaded"));
     }

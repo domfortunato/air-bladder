@@ -1896,7 +1896,11 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     }
     // Encumbrance is a carry state, not an ability loss, but likewise forces HP
     // to 0, so surface it as a persistent banner too. Suppressed when dead.
-    if (!dead && this.actor.system.encumbered) {
+    // Only where the rule zeroes HP (review #34 finding 129): a companion or
+    // monster at capacity is in its normal state and keeps its HP, so "HP
+    // stays 0" would be false — the same `livesByPlayerRules` test the HP
+    // write and the HP submit strip ask.
+    if (!dead && this.actor.livesByPlayerRules && this.actor.system.encumbered) {
       // One wording for every table: the Crawler Combat Mode variant ("…and
       // you are Deprived until you free a slot") went with the derived
       // Deprived rule it described, reversed 2026-10-03.
@@ -4178,8 +4182,9 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     );
     // A notice, never a refusal, and only when this click is what tipped them
     // over. The stored name is English by design, so localize it for display the
-    // way the inventory rows do.
-    if (this.actor.isEncumbered()) {
+    // way the inventory rows do. Its words say HP stays 0, so only where the
+    // rule zeroes it (review #34 finding 129).
+    if (this.actor.livesByPlayerRules && this.actor.isEncumbered()) {
       ui.notifications.warn(game.i18n.format("CAIRN.Notify.Overloaded", {
         name: game.i18n.localize("CAIRN.Fatigue"),
       }));
