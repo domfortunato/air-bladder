@@ -4613,7 +4613,12 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     const failed = !cairnSavePasses(rolled, roll.total !== 0,
       this.actor.system.abilities?.[dataset.ability]?.value);
     const str = this.actor.system.abilities?.STR;
-    const offerCrit =
+    // A compendium document's roll offers nothing to mark (review #34 finding
+    // 170). The card's buttons resolve their actor in the WORLD by the
+    // speaker's id, and a pack copy of a world character shares it (core keeps
+    // the id both ways): Mark Critical Damage and Take a Fatigue instead wrote
+    // to the world character. Reference content is rolled, not marked.
+    const offerCrit = !this.actor.pack &&
       dataset.ability === "STR" && failed &&
       Number(str?.value) > 0 && Number(str?.value) < Number(str?.max);
 
