@@ -84,6 +84,8 @@
  *      rather than its own action string, posts no card and spends no charge.
  *  10g. A STACK of two scrolls: one cast spends one scroll, which splits off
  *      as its own spent row; a spent and an unspent copy never merge.
+ * 10g2. Two cast dialogs open on ONE scroll: the first answer casts, the
+ *      second finds it spent and refuses (review #34 finding 133).
  *  10h. The Add-N-Fatigue button, hostile: a player's card naming an actor its
  *      author does not own writes nothing on the Warden's click; a count past
  *      four is paid at four; a double-click pays once.
@@ -1667,6 +1669,75 @@ try {
   check(stackRun.spentMergesInto === 0 && stackRun.freshMergesInto === 1,
     "and a spent scroll stacks only with a spent one, a fresh one only with a fresh one",
     `spent->${stackRun.spentMergesInto} fresh->${stackRun.freshMergesInto}`);
+
+  /* -------------- 10g2. two dialogs open on ONE scroll cast it once -- */
+  // Review #34 finding 133. castScroll asked the charge before its dialog and
+  // never after, and the dialog is not modal: a second press on the row's Cast
+  // opened a second dialog on the same scroll, and answering both cast it
+  // twice — two cards, Fatigue and Mishap risk twice. Both opened before
+  // either is answered; the first is answered and lands, then the second.
+  const twiceRun = await gm.evaluate(async ({ id }) => {
+    const { castScroll } = await import(`/systems/${game.system.id}/module/grimoire.js`);
+    const a = game.actors.get(id);
+    const before = new Set(a.items.map((x) => x.id));
+    await a.createEmbeddedDocuments("Item", [
+      { name: "ZZ Scroll Twice", type: "spellbook", system: { description: "<p>Light.</p>", scroll: true } },
+    ]);
+    const once = a.items.find((x) => !before.has(x.id));
+    const origGet = game.settings.get;
+    const ns = game.system.id;
+    game.settings.get = function (scope, key, ...rest) {
+      // A DOCUMENT request is never shadowed (review #27) — see 10f.
+      if (rest[0]?.document) return foundry.helpers.ClientSettings.prototype.get.call(this, scope, key, ...rest);
+      if (scope === ns && key === "enable-glog-magic") return true;
+      return origGet.call(this, scope, key, ...rest);
+    };
+    const origWarn = ui.notifications.warn;
+    const warns = [];
+    ui.notifications.warn = (m) => { warns.push(String(m)); };
+    const timeout = (p) => Promise.race([p, new Promise((r) => setTimeout(() => r("__timeout__"), 20000))]);
+    try {
+      const opened = new Set(foundry.applications.instances.keys());
+      const cards = () => game.messages.contents.filter((m) => m.content?.includes("grimoire-cast-card")).length;
+      const cardsBefore = cards();
+      const first = castScroll(a, once);
+      const second = castScroll(a, once);
+      let dialogs = [];
+      for (let t = 0; t < 40 && dialogs.length < 2; t++) {
+        dialogs = [...foundry.applications.instances.values()]
+          .filter((x) => !opened.has(x.id) && x.constructor.name === "DialogV2"
+            && x.element?.querySelector('select[name="dice"]'));
+        if (dialogs.length < 2) await new Promise((r) => setTimeout(r, 150));
+      }
+      if (dialogs.length < 2) {
+        for (const d of dialogs) await d.close();
+        return { dialogs: dialogs.length };
+      }
+      dialogs[0].element.querySelector('[data-action="cast"]').click();
+      const firstResult = await timeout(first);
+      dialogs[1].element.querySelector('[data-action="cast"]').click();
+      const secondResult = await timeout(second);
+      await new Promise((r) => setTimeout(r, 300));
+      return {
+        dialogs: 2,
+        firstCast: !!firstResult && firstResult !== "__timeout__",
+        secondRefused: secondResult === null,
+        newCards: cards() - cardsBefore,
+        usesAfter: once.system.uses.value,
+        warned: warns.includes(game.i18n.localize("CAIRN.Notify.ScrollSpent")),
+      };
+    } finally {
+      ui.notifications.warn = origWarn;
+      game.settings.get = origGet;
+    }
+  }, { id: scrollFx.id });
+  check(twiceRun.dialogs === 2, "precondition: two cast dialogs open on one scroll", `${twiceRun.dialogs} opened`);
+  check(twiceRun.firstCast && twiceRun.newCards === 1 && twiceRun.usesAfter === 0,
+    "the first answer casts and spends the scroll — one card",
+    JSON.stringify(twiceRun));
+  check(twiceRun.secondRefused && twiceRun.warned,
+    "the second dialog's answer finds the scroll spent and refuses, with the warning",
+    JSON.stringify(twiceRun));
 
   /* ------------- 10h. the Add-N-Fatigue button trusts no card it did not make */
   // Review #34 findings 7 and 93. The button reads its actor and its count from
