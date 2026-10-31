@@ -540,7 +540,8 @@ export const bindOfferCard = (message, html) => {
   // that resolves to something with no permission API (a compendium index
   // entry) must degrade to no-buttons-for-you, not a render-hook throw.
   const target = foundry.utils.fromUuidSync(offer.targetActorUuid);
-  const canAnswer = !!target && (game.user.isGM || !!target.testUserPermission?.(game.user, "OWNER"));
+  const canAnswer = !!target && authorGives(message, offer)
+    && (game.user.isGM || !!target.testUserPermission?.(game.user, "OWNER"));
   const canCancel = game.user.isGM || message.isAuthor;
   if (!canAnswer && !canCancel) return;
   const actions = document.createElement("div");
@@ -569,6 +570,23 @@ export const bindOfferCard = (message, html) => {
  *  write the message (author or GM) and both actors' halves. */
 const canRunLocally = (message, giver, target) =>
   (game.user.isGM || message.isAuthor) && !!giver?.isOwner && !!target?.isOwner;
+
+/**
+ * Is the giver the card names one its AUTHOR owns? The file header's rule —
+ * identity is `message.author`, never a payload field — applied to the giver,
+ * which IS a payload field: the flag is written by the author's client, and any
+ * player may post a card naming anybody's actor. A real offer is posted by an
+ * owner of the giver (`canOfferItem`), so a card that fails this is a forgery,
+ * and the Warden's Accept on it took an item off a player who never offered it,
+ * with the Warden's rights (review #34 finding 6). No Accept is drawn for it,
+ * and the local transfer refuses it.
+ * @param {ChatMessage} message
+ * @param {Object} offer  the card's flag
+ */
+const authorGives = (message, offer) => {
+  const giver = foundry.utils.fromUuidSync(offer?.giverActorUuid ?? "");
+  return !!giver && !!message.author && !!giver.testUserPermission?.(message.author, "OWNER");
+};
 
 const onAcceptClick = async (message) => {
   const offer = message.getFlag(SCOPE, FLAG);
@@ -623,6 +641,12 @@ const onAcceptClick = async (message) => {
   }
 
   const giver = foundry.utils.fromUuidSync(offer.giverActorUuid);
+  // No toast: bindOfferCard draws no Accept on such a card, so only a stale
+  // button reaches here, and every existing sentence would describe it wrongly.
+  if (!authorGives(message, offer)) {
+    console.warn(`Air Bladder | refused an offer card whose author does not own its giver (${message.id})`);
+    return;
+  }
   if (canRunLocally(message, giver, target)) return runLocalTransfer(message);
 
   if (!message.author?.active) {
@@ -723,6 +747,8 @@ const runLocalTransfer = async (message) => {
   try {
     const offer = message.getFlag(SCOPE, FLAG);
     if (offer?.state !== "open") return;
+    // The enforcement, beside the affordance in bindOfferCard (`authorGives`).
+    if (!authorGives(message, offer)) return;
     const giver = foundry.utils.fromUuidSync(offer.giverActorUuid);
     const target = foundry.utils.fromUuidSync(offer.targetActorUuid);
     const item = giver?.items.get(offer.itemId);

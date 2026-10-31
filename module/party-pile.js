@@ -32,6 +32,7 @@
 
 import { t } from "./i18n-content.js";
 import { itemSlotCost, formatCount } from "./utils.js";
+import { isWardenJournal } from "./calendar-events.js";
 
 /**
  * The flag scope, DECLARED HERE rather than imported, and that is the one piece
@@ -125,7 +126,7 @@ export const buildWhereField = () => {
  * @return {Boolean}
  */
 export const isDroppedPile = (actor) =>
-  !!actor?.getFlag?.(FLAG_SCOPE, PILE_FLAG) && !playerOwned(actor);
+  !!actor?.getFlag?.(FLAG_SCOPE, PILE_FLAG) && !playerOwned(actor) && wardenWrote(actor);
 
 /**
  * A FLAG ALONE IS NOT IDENTITY (review #33, 2026-10-04 — the journal lesson of
@@ -137,9 +138,28 @@ export const isDroppedPile = (actor) =>
  * planted fixtures before this line existed. With a higher id the same plant
  * got the GM client to delete it, which lets a player get any actor they own
  * deleted. The real pile is default OBSERVER and owned by no player, so
- * requiring that is what tells it from a plant, and nothing a player can write
- * changes it. Consequence stated: a Warden who hands a player OWNER of the pile
- * un-piles it, and the next drop makes a fresh one.
+ * requiring that is what tells it from a plant. Consequence stated: a Warden
+ * who hands a player OWNER of the pile un-piles it, and the next drop makes a
+ * fresh one.
+ *
+ * NO PLAYER OWNER IS NOT ENOUGH ON ITS OWN (review #34 finding 5). This used to
+ * say nothing a player can write changes it, and the server says otherwise: a
+ * non-GM may not touch `default` or another user's key, but may rewrite its
+ * OWN. So the sole owner of an actor could set the flag and lower their own
+ * entry to OBSERVER in one write, and that actor then had no player owner —
+ * review #33's takeover again, one line longer. So the pile must also be LAST
+ * WRITTEN BY A WARDEN: the journals' test (`isWardenJournal`, calendar-events.js,
+ * asked here of an actor), reading `_stats.lastModifiedBy`, which the server
+ * stamps and no client can forge. Every write to the real pile is a Warden's —
+ * it is made on the GM's client, and a player who only OBSERVES it cannot write
+ * to it at all. A plant is last written by its planter.
+ *
+ * A Warden's LATER write would launder that, and on a character the Warden
+ * writes all the time (an Apply of damage is one). So the active GM also
+ * strips the flag the moment a player writes to a flagged actor, and on
+ * arrival from any flagged actor a player wrote last
+ * (`stripPlantedPileFlags`): the flag is gone before a Warden's write can
+ * vouch for it.
  *
  * Guarded because `hasPlayerOwner` walks `game.users`, and `isDroppedPile` is
  * read from `calcCurrentMaxSlots` on every prepare — before the users
@@ -149,6 +169,38 @@ export const isDroppedPile = (actor) =>
  */
 const playerOwned = (actor) => {
   try { return actor.hasPlayerOwner === true; } catch { return false; }
+};
+
+/** Guarded like `playerOwned`, for the same reason, and to the same side: an
+ *  answer that cannot be had yet does not refuse. */
+const wardenWrote = (actor) => {
+  try { return isWardenJournal(actor); } catch { return true; }
+};
+
+/**
+ * Take the pile flag off an actor a PLAYER wrote, on the active GM's client —
+ * the half of the identity test above that a Warden's later write would
+ * otherwise undo. Called from the `createActor`/`updateActor` hooks with the
+ * writing user (the server-authenticated one), and once on `ready` with no
+ * user, when it asks the document's own last writer instead — a plant made
+ * while no Warden was connected is found there, before any Warden write.
+ *
+ * Every write the real pile receives is a Warden's, so a player's write to a
+ * flagged actor is a plant by definition — or a pile the Warden handed a player,
+ * which that hand-over already un-piled.
+ * @param {Actor} actor
+ * @param {string} [userId]  the writer, as the document hook reports it
+ */
+export const stripPlantedPileFlags = (actor, userId) => {
+  if (!game.user.isGM || game.users.activeGM !== game.user) return;
+  const targets = actor ? [actor] : (game.actors?.contents ?? []);
+  for (const a of targets) {
+    if (!a.getFlag(FLAG_SCOPE, PILE_FLAG)) continue;
+    const writer = game.users.get(userId ?? a._stats?.lastModifiedBy);
+    if (!writer || writer.isGM) continue;
+    a.unsetFlag(FLAG_SCOPE, PILE_FLAG).catch((err) =>
+      console.error("Air Bladder | could not strip a planted pile flag", err));
+  }
 };
 
 /** The Party folder, or null if nobody has made one. */

@@ -18,7 +18,7 @@ import { createCairnMacro, rollItemMacro } from "./macros.js";
 import { Damage, DAMAGE_APPLIED_FLAG, DAMAGE_SOURCE_FLAG, localizeDamageCard } from "./damage.js";
 import { registerWardenDamageControl } from "./warden-damage.js";
 import { registerWardenDashboardControl, refreshDashboardTime, localizeDashboardCard } from "./warden-dashboard.js";
-import { handlePileQuery, localizePileCard, PILE_DROP_QUERY, askWhatToDrop, dropItemToPile, partyFolderId } from "./party-pile.js";
+import { handlePileQuery, localizePileCard, PILE_DROP_QUERY, askWhatToDrop, dropItemToPile, partyFolderId, stripPlantedPileFlags } from "./party-pile.js";
 import { mustDropForFatigue } from "./gear.js";
 import { installWorldCalendar, checkWorldCalendar } from "./game-time.js";
 import { renderWatchClock, refreshWatchClock } from "./watch-clock.js";
@@ -2978,6 +2978,16 @@ Hooks.on("userConnected", (user, _connected) => {
   ui.actors.render();
 });
 
+// The Dropped Item Pile's flag, taken off any actor a PLAYER wrote, by the
+// active GM (party-pile.js `stripPlantedPileFlags`, review #34 finding 5). The
+// identity test there already refuses a plant while its planter is its last
+// writer; this takes the flag off before a Warden's own later write — an
+// Apply of damage, a rename — can vouch for it. `ready` covers a plant made
+// while no Warden was connected.
+Hooks.on("createActor", (actor, _options, userId) => stripPlantedPileFlags(actor, userId));
+Hooks.on("updateActor", (actor, _changes, _options, userId) => stripPlantedPileFlags(actor, userId));
+Hooks.once("ready", () => stripPlantedPileFlags());
+
 /**
  * Rewrite a damage card's flavor line to say who is attacking whom.
  *
@@ -3743,7 +3753,14 @@ Hooks.on("renderChatMessageHTML", (message, html, data) => {
   const fatigueBtn = html.querySelector(".take-fatigue-instead");
   if (critBtn || fatigueBtn) {
     const critActor = token?.actor ?? game.actors.get(message.speaker?.actor);
-    const mayAnswer = critActor
+    // The card's AUTHOR must own the actor too (review #34 finding 6). The
+    // speaker is the author's own choice and the buttons ride the stored
+    // content, so a player could post a failed save naming another player's
+    // character, and the Warden's press marked that character's Critical
+    // Damage with the Warden's rights. A real save card is posted by an owner
+    // of the actor or by the Warden, and the Warden owns everything.
+    const mayAnswer = critActor && !!message.author
+      && critActor.testUserPermission(message.author, "OWNER")
       && (critActor.testUserPermission(game.user, "OWNER") || game.user.isGM);
     // SPENDING THE CHOICE IS A MESSAGE WRITE, and a ChatMessage makes its AUTHOR
     // the owner (common/documents/chat-message.mjs `getUserLevel`; `update`
