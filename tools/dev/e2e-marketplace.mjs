@@ -809,6 +809,48 @@ try {
       ? ok("a full COMPANION hears none: no banner, no Take, leave-shop or Fatigue toast")
       : fail(`a full companion keeps its HP, but was told it stays 0: ${JSON.stringify(c)}`);
   }
+
+  // ONE REQUEST PER PACK (review #34 finding 191). The shop resolved each
+  // compendium row with its own `getDocument`, one awaited server request
+  // after another: ~70 in series on every first open. Counted, not timed:
+  // every pack the shipped aisles name is evicted with core's own `clear()`
+  // (it keeps the index; nothing is written, a later read refetches), each of
+  // those packs' `getDocuments` is shadowed ON THE INSTANCE to count its calls
+  // (core's `getDocument` goes through it), and the shop is read once. Every
+  // pack must be asked at most once. Witness: the evicted rows were cold, more
+  // than 20 of them, and the shop still resolved them.
+  const fetches = await page.evaluate(async () => {
+    const mkt = await import("/systems/air-bladder/module/marketplace.js");
+    const { MARKETPLACE_PACK } = await import("/systems/air-bladder/module/compendium.js");
+    const tables = await game.packs.get(MARKETPLACE_PACK).getDocuments();
+    const rows = tables.flatMap((t) => [...t.results])
+      .filter((r) => r.type === CONST.TABLE_RESULT_TYPES.DOCUMENT)
+      .map((r) => foundry.utils.parseUuid(r.documentUuid ?? ""))
+      .filter((p) => p?.collection instanceof foundry.documents.collections.CompendiumCollection && !p.embedded?.length);
+    const packs = [...new Set(rows.map((p) => p.collection))];
+    for (const pack of packs) pack.clear();
+    const cold = rows.filter((p) => p.collection.index.has(p.id)
+      && !(p.collection.get(p.id) instanceof foundry.abstract.Document)).length;
+    const calls = Object.fromEntries(packs.map((p) => [p.collection, 0]));
+    const shadowed = [];
+    try {
+      for (const pack of packs) {
+        const orig = pack.getDocuments;
+        shadowed.push([pack, Object.hasOwn(pack, "getDocuments"), orig]);
+        pack.getDocuments = function (...args) { calls[this.collection] += 1; return orig.apply(this, args); };
+      }
+      const cat = await mkt.getMarketplaceCatalog();
+      return { cold, packs: packs.length, calls, resolved: cat.categories.reduce((n, c) => n + c.items.length, 0) };
+    } finally {
+      for (const [pack, own, orig] of shadowed) { if (own) pack.getDocuments = orig; else delete pack.getDocuments; }
+    }
+  });
+  fetches.cold > 20 && fetches.resolved > 20
+    ? ok(`witness: ${fetches.cold} shop rows were cold across ${fetches.packs} pack(s), and the shop resolved ${fetches.resolved}`)
+    : fail(`the count below proves nothing: ${fetches.cold} cold row(s), ${fetches.resolved} resolved`);
+  Object.values(fetches.calls).every((n) => n <= 1)
+    ? ok(`the shop asked each pack at most once: ${JSON.stringify(fetches.calls)}`)
+    : fail(`the shop fetched its rows one request at a time: ${JSON.stringify(fetches.calls)}`);
 } catch (e) {
   fail(`${e.name}: ${e.message}`);
 } finally {
