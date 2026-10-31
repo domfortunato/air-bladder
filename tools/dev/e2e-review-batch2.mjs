@@ -553,10 +553,29 @@ try {
     // leg failed waiting for it on every run GM2 won: a race that reds about
     // half the runs, bisected wrongly to 5493a440 before two more runs at its
     // parent split pass (Warden elected) and fail (GM2 elected).
+    //
+    // AND THE COUNTER STARTS BEFORE READY (fleet 20261031T151153Z). The spy
+    // used to go on after joinAs returned, and on a fast box an owed login
+    // scan had already written by then: count 0, "never wrote", for a write
+    // that landed. The same init script installs spyWrites' counter at
+    // `setup`, so it sees every write from the first ready tick; spyWrites
+    // finds it present and leaves it.
     await gm2Page.addInitScript(() => {
       const iv = setInterval(() => {
         if (!globalThis.Hooks) return;
         clearInterval(iv);
+        Hooks.once("setup", () => {
+          if (globalThis.__b2Settle) return;
+          const orig = game.settings.set;
+          globalThis.__b2Settle = { orig, last: Date.now(), count: 0 };
+          game.settings.set = function (ns, key, ...rest) {
+            if (ns === "air-bladder" && key === "custom-portrait-list") {
+              globalThis.__b2Settle.last = Date.now();
+              globalThis.__b2Settle.count++;
+            }
+            return orig.call(this, ns, key, ...rest);
+          };
+        });
         Hooks.once("ready", () => { globalThis.__abActiveAtReady = game.users.activeGM === game.user; });
       }, 5);
     });
