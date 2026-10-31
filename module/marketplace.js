@@ -408,7 +408,14 @@ const acquire = async (actor, data, pay) => {
   // NO flag on the create: the item arriving IS the change log's record of the
   // purchase. The gold deduction is flagged so a Buy is one ledger line, not
   // two — the price is on the item line's other side of the same click.
-  await actor.createEmbeddedDocuments("Item", [data]);
+  //
+  // PAID ONLY FOR WHAT LANDED (review #34 finding 164). A create every seam
+  // refuses resolves EMPTY rather than throwing — the one-book wall's
+  // `_preCreate`, a module's preCreateItem veto — and this charged the gold
+  // and said "Bought" for nothing. The refusing seam says why (the wall's own
+  // toast), so this says nothing more; a THROW still reaches AcquireFailed.
+  const [created] = await actor.createEmbeddedDocuments("Item", [data]);
+  if (!created) return false;
   if (pay) {
     await actor.update({ "system.gold": (actor.system.gold ?? 0) - cost }, { abNoStatusCard: true });
     ui.notifications.info(game.i18n.format("CAIRN.Notify.Bought", { name: shown, cost }));

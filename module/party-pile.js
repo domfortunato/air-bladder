@@ -572,15 +572,22 @@ const moveClaimedPileItem = async (actor, item, { announce = false, place = "", 
     else delete data.flags?.[FLAG_SCOPE]?.[DROP_NOTE_FLAG];
     return data;
   });
-  let won = true;
+  // WHAT LANDED, read from the create's answer (review #34 finding 164). A
+  // create every seam refuses — a module's preCreateItem veto, a construction
+  // failure — resolves EMPTY rather than throwing, and `won` read only the
+  // throw: the item was deleted from the sheet with no copy in the pile, and
+  // the broker answered `true`.
+  let landed = new Set();
   try {
     // abNoStatusCard: an ordinary Drop is tidying and the pile is its own record
     // (review #34 finding 245) — without it every Drop whispered "Item added"
     // under the pile's name to every player who can observe it.
-    await pile.createEmbeddedDocuments("Item", copies, { keepId: true, abNoStatusCard: true });
+    const created = await pile.createEmbeddedDocuments("Item", copies, { keepId: true, abNoStatusCard: true });
+    landed = new Set((created ?? []).map((d) => d.id));
   } catch {
-    won = false;
+    /* lost the claim, below */
   }
+  const won = landed.has(copies[0]._id);
   // LOST THE CLAIM: STOP HERE, and do not delete. The session that won is the
   // one that clears the row and posts the card, so a loser that deleted as well
   // would be racing it for no gain — and losing that race logs `Item "..." does
@@ -589,10 +596,13 @@ const moveClaimedPileItem = async (actor, item, { announce = false, place = "", 
   // left holding a copy — visible to the Warden and fixable, which is the side
   // of that trade the ruling already chose.
   if (!won) return false;
+  // Only what has a copy in the pile leaves the sheet: a page a veto refused
+  // stays with the character rather than vanishing.
+  const gone = [item, ...pages].filter((doc, i) => landed.has(copies[i]._id)).map((doc) => doc.id);
   // The SOURCE side stays on the ledger — a transfer the dropper's ledger should
   // show (review #13) — but named for the DROPPER: brokered, this write is the
   // Warden's, and the card read "Changed by Warden" (review #34 finding 245).
-  await actor.deleteEmbeddedDocuments("Item", [item.id, ...pages.map((p) => p.id)], by ? { abChangeLogBy: by } : {});
+  await actor.deleteEmbeddedDocuments("Item", gone, by ? { abChangeLogBy: by } : {});
   if (announce) await postDropCard(actor, name, note);
   return true;
 };
