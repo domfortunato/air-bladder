@@ -138,9 +138,17 @@ const awaitDialog = async (page, title, ms = 15000) => {
   return false;
 };
 
+// The RUN's own snapshot, taken once before anything is minted (review #34
+// finding 35) and swept from the finally. The legs re-take `before` for their
+// own "new since" questions; commit 2aa07191 re-took it before the empty-sheet
+// leg, so the only sweep, against that later `before`, never reached the
+// first leg's fully rolled character or what its background granted — and it
+// sat in the try, so a throw leaked every actor the run had made.
+let runStart = null;
 try {
   await joinAsGM(gm);
   await joinAs(alice, "Alice");
+  runStart = await snapshot();
 
   // ---- Leg 0: the Warden's client pre-warms the generation packs ----------
   // The FIRST generation of a session paid ~5s of compendium loading on the
@@ -774,7 +782,7 @@ try {
     await alice.evaluate((id) => game.actors.get(id)?.sheet?.close(), pcId);
   }
 
-  const swept = await sweep(before);
+  const swept = await sweep(runStart);
   console.log(`  (cleaned up: ${swept.named.join(", ") || "nothing"}; ${swept.messages} chat message(s))`);
 
   // -- The Warden IS asked, since 2026-09-11 ---------------------------------
@@ -931,6 +939,16 @@ try {
   errs.length === 0 ? ok("zero console errors across both clients") : fail(`console errors: ${errs.join(" | ")}`);
 } finally {
   clearTimeout(dog);
+  if (runStart) {
+    try {
+      const left = await sweep(runStart);
+      if (left.named.length || left.messages) {
+        console.log(`  (final sweep: ${left.named.join(", ") || "no actors"}; ${left.messages} chat message(s))`);
+      }
+    } catch (e) {
+      console.error(`  COULD NOT SWEEP this run's documents: ${e.message}`);
+    }
+  }
   for (const [key, prior] of [["allow-player-generate", priorSwitch], ["allow-player-marketplace", priorMarket],
     ["allow-player-randomization", priorRand]]) {
     if (prior === null) continue;
