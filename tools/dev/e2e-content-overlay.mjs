@@ -329,6 +329,85 @@ if (own.error) {
 
 /* -------------------------------------------- */
 
+console.log("\na monster's item reads one name on its row and its sheet");
+
+// Review #34 finding 198. The ROW family named a monster's item under
+// monster.itemName alone; the item SHEET (and the Drop and Give dialogs, the
+// offer toasts, a full container's refusal) under item.name alone; neither
+// fell back. A monster's Adze read "Azuela" on the row and "Adze" on its
+// sheet; a Torch handed to it read "Torch" on the row and "Antorcha" on its
+// sheet. Each name is planted in ONE namespace only, so each direction has a
+// read only the shared rule gets right, and the other read of each is the
+// control. The anchor guard: an unrelated field committed with the name
+// untouched stores the English, not the shown translation.
+const one = await page.evaluate(async () => {
+  const i18n = await import("/systems/air-bladder/module/i18n-content.js");
+  const ADZE = "ZZ Probe Adze";
+  const ADZE_ES = "ZZ AZUELA";
+  const TORCH = "ZZ Probe Torch";
+  const TORCH_ES = "ZZ ANTORCHA";
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const created = [];
+  const open = async (doc) => {
+    await doc.sheet.render(true);
+    for (let i = 0; i < 60 && !doc.sheet.element; i++) await sleep(100);
+    await sleep(400);
+    return doc.sheet.element;
+  };
+  try {
+    i18n._setOverlay({ "monster.itemName": { [ADZE]: ADZE_ES }, "item.name": { [TORCH]: TORCH_ES } });
+    const beast = await Actor.create({ name: "ZZ Probe Svirf", type: "npc", system: { role: "monster" } });
+    created.push(beast);
+    const [adze, torch] = await beast.createEmbeddedDocuments("Item", [
+      { name: ADZE, type: "weapon" }, { name: TORCH, type: "item" },
+    ]);
+    const root = await open(beast);
+    const rowName = (id) => root?.querySelector(`.cairn-items-list-row[data-item-id="${id}"] .cairn-item-title`)?.textContent.trim() ?? null;
+    const out = { ADZE, ADZE_ES, TORCH, TORCH_ES, adzeRow: rowName(adze.id), torchRow: rowName(torch.id) };
+    await beast.sheet.close();
+    const aRoot = await open(adze);
+    out.adzeTitle = adze.sheet.title;
+    out.adzeField = aRoot?.querySelector('input[name="name"]')?.value ?? null;
+    const bulky = aRoot?.querySelector('input[name="system.bulky"]');
+    out.adzeBulkyFound = !!bulky;
+    if (bulky) { bulky.checked = !bulky.checked; bulky.dispatchEvent(new Event("change", { bubbles: true })); await sleep(700); }
+    out.adzeStored = adze._source.name;
+    await adze.sheet.close();
+    const tRoot = await open(torch);
+    out.torchTitle = torch.sheet.title;
+    out.torchField = tRoot?.querySelector('input[name="name"]')?.value ?? null;
+    await torch.sheet.close();
+    return out;
+  } catch (e) {
+    return { error: String(e?.message ?? e) };
+  } finally {
+    for (const d of created) await d.delete().catch(() => {});
+    i18n._setOverlay(null);
+  }
+});
+
+if (one.error) {
+  fail("one-name probe setup", one.error);
+} else {
+  one.adzeRow === one.ADZE_ES
+    ? ok("control: a monster's Adze row reads monster.itemName", `"${one.adzeRow}"`)
+    : fail("control: a monster's Adze row reads monster.itemName", JSON.stringify(one));
+  one.adzeField === one.ADZE_ES && String(one.adzeTitle).endsWith(one.ADZE_ES)
+    ? ok("its item sheet names it as the row does, title and field (review #34 finding 198)", `"${one.adzeTitle}"`)
+    : fail("its item sheet names it as the row does, title and field (review #34 finding 198)", JSON.stringify(one));
+  one.adzeBulkyFound && one.adzeStored === one.ADZE
+    ? ok("an unrelated edit stores the English name, not the shown one", `"${one.adzeStored}"`)
+    : fail("an unrelated edit stores the English name, not the shown one", JSON.stringify(one));
+  one.torchRow === one.TORCH_ES
+    ? ok("a Torch a monster carries reads item.name on its row (review #34 finding 198)", `"${one.torchRow}"`)
+    : fail("a Torch a monster carries reads item.name on its row (review #34 finding 198)", JSON.stringify(one));
+  one.torchField === one.TORCH_ES && String(one.torchTitle).endsWith(one.TORCH_ES)
+    ? ok("control: the Torch's item sheet reads item.name", `"${one.torchTitle}"`)
+    : fail("control: the Torch's item sheet reads item.name", JSON.stringify(one));
+}
+
+/* -------------------------------------------- */
+
 console.log("\nthe attack line names a TOKEN-LESS attacker in the display language");
 
 // Review #34 finding 10. The card header resolves a speaker with no token
