@@ -2179,6 +2179,13 @@ try {
       const theirs = await Cls.create({
         name: "ZZ Pile Foreign PC", type: "character", ownership: { default: L.NONE }, ...fixture,
       });
+      // A second character Alice DOES own, for the plant that gives up its own
+      // ownership in the same write (review #34): after it she can no longer
+      // drop from it, so her drops come from `mine`.
+      const plant = await Cls.create({
+        name: "ZZ Pile Alice Plant", type: "character",
+        ownership: { default: L.NONE, [alice.id]: L.OWNER }, ...fixture,
+      });
       const item = { name: "ZZ Alice Rope", type: "item" };
       await mine.createEmbeddedDocuments("Item", [item]);
       const foreignItem = (await theirs.createEmbeddedDocuments("Item",
@@ -2186,6 +2193,7 @@ try {
       return {
         aliceId: alice.id, mineUuid: mine.uuid, theirsUuid: theirs.uuid,
         mineId: mine.id, theirsId: theirs.id, foreignItemId: foreignItem.id,
+        plantUuid: plant.uuid, plantId: plant.id,
       };
     });
     if (seed.error) {
@@ -2196,7 +2204,7 @@ try {
       await joinAs(alicePage, "Alice");
       await dismissChrome(alicePage);
 
-      const player = await alicePage.evaluate(async ({ mineUuid, theirsUuid, foreignItemId }) => {
+      const player = await alicePage.evaluate(async ({ mineUuid, theirsUuid, foreignItemId, plantUuid }) => {
         const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
         const out = {};
         const mine = await fromUuid(mineUuid);
@@ -2325,6 +2333,33 @@ try {
         // this line then threw "Actor id does not exist" past every assertion
         // below. A regression must red the plant leg, not crash the section.
         try { await mine.unsetFlag("air-bladder", "droppedItemPile"); } catch { /* deleted by the takeover */ }
+
+        // THE PLANT, ONE LINE LONGER (review #34 finding 5): the same flag, and
+        // in the SAME write she lowers her own entry to OBSERVER. The server
+        // walls `default` and every other user's key from a player, but not her
+        // own, so afterwards the actor has no player owner — which was the whole
+        // of the review #33 test. It must still be no pile: its last writer is
+        // her, not a Warden, and the active GM takes the flag off.
+        const plant = await fromUuid(plantUuid);
+        let plantWrite = null;
+        try {
+          await plant.update({ "flags.air-bladder.droppedItemPile": true,
+            [`ownership.${game.user.id}`]: CONST.DOCUMENT_OWNERSHIP_LEVELS.OBSERVER });
+          plantWrite = "landed";
+        } catch (err) { plantWrite = `refused: ${err.message}`; }
+        out.plant2 = {
+          write: plantWrite,
+          ownsAfter: plant?.isOwner ?? null,
+          canonical: pp.isDroppedPile(plant),
+        };
+        const [bait2] = await mine.createEmbeddedDocuments("Item", [{ name: "ZZ Alice Bait Two", type: "item" }]);
+        out.plant2.landed = await pp.dropItemToPile(mine, bait2.id, {});
+        for (let i = 0; i < 40 && mine.items.get(bait2.id); i++) await sleep(150);
+        await sleep(1200);
+        out.plant2.realPileExists = !!game.actors.get(pile.id);
+        out.plant2.plantExists = !!game.actors.get(plant.id);
+        out.plant2.baitInRealPile = !!game.actors.get(pile.id)?.items.find((i) => i.id === bait2.id);
+        out.plant2.flagStripped = !!game.actors.get(plant.id) && !plant.getFlag("air-bladder", "droppedItemPile");
         // EXACTLY ONE COPY. The broker runs on "the active GM's client", which is
         // a test on the USER and not the session, so every Warden session answers
         // the same request — measured: two sessions made two copies and one
@@ -2365,6 +2400,29 @@ try {
         && player.plant?.baitInRealPile && !player.plant?.baitOnMine && player.plant?.ropeStillInRealPile && player.plant?.landed
         ? ok("A PLAYER CANNOT CAPTURE THE PILE: her character wearing the pile's flag is no pile (it has a player owner), the real pile survives with its contents, and her drop lands there")
         : fail(`PILE TAKEOVER: ${JSON.stringify({ canonical: player.plantCanonical, ...player.plant })}`);
+      player.plant2?.write === "landed" && player.plant2?.ownsAfter === false
+        ? ok("precondition: the server lets her lower her OWN entry in the write that plants the flag")
+        : fail(`second plant's write: ${JSON.stringify(player.plant2)}`);
+      player.plant2?.canonical === false && player.plant2?.realPileExists && player.plant2?.plantExists
+        && player.plant2?.baitInRealPile && player.plant2?.landed
+        ? ok("...and that actor, owned by NO player now, is still no pile: its last writer is her, so the real pile survives and her drop lands there")
+        : fail(`PILE TAKEOVER, SECOND FORM: ${JSON.stringify(player.plant2)}`);
+      player.plant2?.flagStripped
+        ? ok("...and the active GM has taken the planted flag off")
+        : fail(`planted flag still on the actor: ${JSON.stringify(player.plant2)}`);
+      // A WARDEN'S LATER WRITE must not vouch for it. On a character the Warden
+      // writes all the time (an Apply of damage is one), and the identity test
+      // reads the LAST writer — so the flag has to be gone before that write.
+      const launder = await page.evaluate(async ({ plantId }) => {
+        const pp = await import("/systems/air-bladder/module/party-pile.js");
+        const plant = game.actors.get(plantId);
+        if (!plant) return { gone: true };
+        await plant.update({ "system.hp.value": plant.system.hp?.value ?? 0, name: "ZZ Pile Alice Plant (edited)" });
+        return { canonical: pp.isDroppedPile(plant), flag: !!plant.getFlag("air-bladder", "droppedItemPile") };
+      }, seed);
+      launder.canonical === false
+        ? ok("...and a Warden's own write to it afterwards does not make it the pile")
+        : fail(`a Warden's write laundered the plant into the pile: ${JSON.stringify(launder)}`);
 
       /* ---- review #33: the choice belongs to the OWNER, whoever rolled ---- */
       // The Roll STR save button is bound for the owner OR the Warden, so when
