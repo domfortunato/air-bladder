@@ -3454,7 +3454,9 @@ const localizeSpeakerName = (message, html, token) => {
   const alias = speaker.alias ?? "";
   if (!alias || header.textContent.trim() !== alias) return;
   let display;
-  if (token) {
+  // Only while the alias IS the token's name (review #34 finding 242,
+  // speakerDisplayName): a card's own alias over a token is its snapshot.
+  if (token && token.name === alias) {
     display = tokenDisplayName(token);
   } else {
     const actor = speaker.actor ? game.actors?.get(speaker.actor) : null;

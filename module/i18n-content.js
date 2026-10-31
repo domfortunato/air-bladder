@@ -198,6 +198,13 @@ export const tokenDisplayName = (tok) =>
  * carry that gate). One resolver, shared by every flavor that is rebuilt per
  * viewer (GLOG cast cards, initiative save cards), so a card's flavor and its
  * header can never disagree about a name.
+ *
+ * THE TOKEN ANSWERS ONLY TO ITS OWN NAME (review #34 finding 242), the test
+ * the actor branch always made. The alias is the card's snapshot, and two
+ * producers set one that is not the token's while keeping `speaker.token`: the
+ * initiative card (the combatant's name, which Combatant Config overrides) and
+ * the generation card (the roller). The token branch replaced both with the
+ * token's live name.
  * @param {ChatMessage} message
  * @param {String} alias  the alias the card was composed with
  * @return {String}
@@ -206,7 +213,7 @@ export const speakerDisplayName = (message, alias) => {
   const speaker = message?.speaker ?? {};
   const token = speaker.scene && speaker.token
     ? game.scenes?.get(speaker.scene)?.tokens?.get(speaker.token) : null;
-  if (token) return tokenDisplayName(token) || alias;
+  if (token && token.name === alias) return tokenDisplayName(token) || alias;
   const actor = speaker.actor ? game.actors?.get(speaker.actor) : null;
   if (!actor || actor.name !== alias) return alias;
   return actorDisplayName(actor) || alias;
