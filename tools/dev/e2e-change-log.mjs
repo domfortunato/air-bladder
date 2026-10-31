@@ -595,6 +595,41 @@ const run = async () => {
         assert(r.rendered.includes("61"), `the rebuilt line lost its value: "${r.rendered.trim()}"`);
       });
 
+      // ---- a departed user's card (review #34 finding 243) -----------------
+      // The rebuild names the user LIVE (`game.users.get(id)?.name ?? id`), so
+      // once that user is deleted every one of their cards read "Changed by"
+      // and a 16-character id. A card's stored body was composed while they
+      // existed, and names them. Planted the poster's way: the flag, and the
+      // body the hook renders from it while the user still exists, stored.
+      await leg("a card whose user was deleted keeps the name it was posted with", async () => {
+        const r = await gm.evaluate(async () => {
+          const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
+          const ghost = await User.create({ name: "ZZ Ledger Ghost", role: CONST.USER_ROLES.PLAYER });
+          try {
+            const msg = await ChatMessage.create({
+              content: '<div class="change-log"></div>', whisper: [game.user.id],
+              flags: { "air-bladder": { changeLog: { user: ghost.id, action: null, entries: [] } } },
+            });
+            await sleep(500);
+            const body = document.querySelector(`[data-message-id="${msg.id}"] .message-content`)?.innerHTML ?? "";
+            await msg.update({ content: body });
+            await ghost.delete();
+            await ui.chat.updateMessage(msg);
+            await sleep(500);
+            return {
+              storedNamed: String(msg.content).includes("ZZ Ledger Ghost"),
+              rendered: document.querySelector(`[data-message-id="${msg.id}"] .change-log`)?.textContent ?? "",
+              ghostId: ghost.id,
+            };
+          } finally {
+            if (game.users.get(ghost.id)) await ghost.delete();
+          }
+        });
+        assert(r.storedNamed, "the planted card's stored body does not name its user — the plant is wrong");
+        assert(r.rendered.includes("ZZ Ledger Ghost") && !r.rendered.includes(r.ghostId),
+          `a departed user's card reads "${r.rendered.trim()}"`);
+      });
+
       // ---- audience (negative) --------------------------------------------
       since = await messageIds(gm);
       await leg("hidden actor's card is invisible to Alice", async () => {

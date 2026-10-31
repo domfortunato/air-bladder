@@ -1577,6 +1577,26 @@ try {
     };
   });
 
+  // ...AND THE TARGET (review #34 finding 243). The giver half got its mask;
+  // a target that no longer resolves (a hireling deleted after the gift) read
+  // a bare "?": "…offers Rope to ?.", "…is now carried by ?.".
+  const hiddenTarget = await gm.evaluate(async () => {
+    const msg = game.messages.contents.filter((m) => m.getFlag("air-bladder", "itemOffer")).at(-1);
+    if (!msg) return { skipped: "no offer card" };
+    const original = msg.getFlag("air-bladder", "itemOffer");
+    await msg.setFlag("air-bladder", "itemOffer", {
+      ...original, targetActorUuid: "Actor.zzzzzzzzzzzzzzzz",
+    });
+    await new Promise((r) => setTimeout(r, 800));
+    const text = document.querySelector(`[data-message-id="${msg.id}"]`)?.innerText ?? "";
+    await msg.setFlag("air-bladder", "itemOffer", original);
+    await new Promise((r) => setTimeout(r, 500));
+    return { text, mask: game.i18n.localize("CAIRN.Offer.HiddenTarget") };
+  });
+  check("a card whose target no longer resolves reads the mask, not \"?\" (review #34 finding 243)",
+    !hiddenTarget.skipped && hiddenTarget.text.includes(hiddenTarget.mask) && !/\?(\.|$|\s)/.test(hiddenTarget.text),
+    JSON.stringify({ mask: hiddenTarget.mask, text: hiddenTarget.text?.slice(0, 160) }));
+
   check("a card whose giver no longer resolves reads the mask, not a broken name",
     !hiddenGiver.skipped && hiddenGiver.text.includes(hiddenGiver.mask) && !hiddenGiver.text.includes("undefined"),
     JSON.stringify({ mask: hiddenGiver.mask, text: hiddenGiver.text?.slice(0, 120) }));
