@@ -57,6 +57,8 @@ watchdog(900000, "dev:marketplace");
 const page = await browser.newContext({ viewport: VIEWPORT }).then((c) => c.newPage());
 const errors = watchErrors(page);
 let failed = false;
+/** Hides the Warden's own Market: tables on a page (set at entry, below). */
+let holdAsideMarket = async () => {};
 const fail = (m) => { console.error(`  FAIL  ${m}`); failed = true; };
 const ok = (m) => console.log(`  ok    ${m}`);
 
@@ -74,10 +76,16 @@ try {
   // shadowed to skip their ids, and `find` too (holdAsideWorldTables). Nothing
   // is written; the shadow dies with the page. Tables this probe plants later
   // are new ids and stay visible.
-  const heldAtEntry = await page.evaluate(() => {
-    const held = game.tables.filter((t) => /^Market:/i.test(t.name));
-    if (!held.length) return [];
-    const ids = new Set(held.map((t) => t.id));
+  const heldAtEntry = await page.evaluate(() =>
+    game.tables.filter((t) => /^Market:/i.test(t.name)).map((t) => ({ id: t.id, name: t.name })));
+  // ONE shadow, applied to EVERY session that reads the shop: the player
+  // session joined below reads the world's tables too, and on its own page the
+  // Warden's aisles were back (fleet 20261031T133723Z: a player's Gear aisle
+  // read the Warden's 49 rows). It hides exactly the ids held here, so tables
+  // this probe plants later stay visible on both pages.
+  holdAsideMarket = (pg) => pg.evaluate((heldIds) => {
+    if (!heldIds.length) return;
+    const ids = new Set(heldIds);
     const tables = game.tables;
     const baseIter = tables[Symbol.iterator];
     tables[Symbol.iterator] = function* () { for (const t of baseIter.call(this)) if (!ids.has(t.id)) yield t; };
@@ -89,9 +97,9 @@ try {
     tables.filter = function (condition, ...rest) {
       return baseFilter.call(this, (t, ...a) => !ids.has(t.id) && condition(t, ...a), ...rest);
     };
-    return held.map((t) => t.name);
-  });
-  if (heldAtEntry.length) console.log(`  --    held aside ${heldAtEntry.length} world Market: table(s) in-page, nothing written: ${heldAtEntry.join(", ")}`);
+  }, heldAtEntry.map((t) => t.id));
+  await holdAsideMarket(page);
+  if (heldAtEntry.length) console.log(`  --    held aside ${heldAtEntry.length} world Market: table(s) in-page, nothing written: ${heldAtEntry.map((t) => t.name).join(", ")}`);
   else ok("no world Market: tables at entry — the shop reads the shipped aisles");
 
   const r = await page.evaluate(async () => {
@@ -433,6 +441,7 @@ try {
   const alicePage = await aliceContext.newPage();
   const aliceErrors = watchErrors(alicePage);
   await joinAs(alicePage, "Alice");
+  await holdAsideMarket(alicePage);   // the same Warden tables, hidden on her page too
   const p = await alicePage.evaluate(async () => {
     const mkt = await import("/systems/air-bladder/module/marketplace.js");
     const cat = await mkt.getMarketplaceCatalog();
