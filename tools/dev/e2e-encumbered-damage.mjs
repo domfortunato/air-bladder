@@ -2134,6 +2134,121 @@ const strRefused = { ran: false };
 }
 
 /* ---------------------------------------------------------------------------
+ * A SAVE CARD'S BUTTONS ACT ON THE ACTOR THE CARD MEANT, OR NOT AT ALL.
+ *
+ * Three ways the card's controls reached an actor nobody pressed for, read on
+ * the Warden's page from FRESH copies (`renderHTML`, what a reload, a popout or
+ * a later-connecting client renders):
+ *   F123 — a player-authored copy of a damage detail card bound Roll STR save
+ *          on the token it names: the damage card is only ever the Warden's.
+ *   F240 — a failed save spoken by an UNLINKED token that has since been
+ *          deleted fell back to the world actor by the speaker's id, which for a
+ *          synthetic actor is the BASE actor's: Mark Critical Damage marked the
+ *          world monster and every token of it.
+ *   F170 — a STR save rolled on a COMPENDIUM actor's sheet offered Critical
+ *          Damage, and the buttons resolve in the WORLD by id; a pack copy of a
+ *          world character shares that id.
+ * ------------------------------------------------------------------------- */
+const cardTargets = await page.evaluate(async () => {
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const { Damage } = await import("/systems/air-bladder/module/damage.js");
+  const utils = await import("/systems/air-bladder/module/utils.js");
+  const alice = game.users.find((u) => u.name === "Alice");
+  const out = {};
+  const made = { actors: [], scenes: [], messages: [] };
+  const before = new Set(game.messages.map((m) => m.id));
+  const newStrSaves = (since) => game.messages.contents
+    .filter((m) => !since.has(m.id) && m.getFlag("air-bladder", "d20Card")?.ability === "STR").length;
+  try {
+    const scene = await Scene.create({ name: "ZZ Card Targets scene", width: 1000, height: 1000 });
+    made.scenes.push(scene);
+
+    // F123: a genuine detail card, then the same card authored by Alice.
+    const pc = await CONFIG.Actor.documentClass.create({ name: "ZZ Card Targets PC", type: "character",
+      system: { hp: { value: 2, max: 2 }, armor: 0, abilities: { STR: { value: 10, max: 10 } } } });
+    made.actors.push(pc);
+    const [pcTok] = await scene.createEmbeddedDocuments("Token", [await pc.getTokenDocument({ x: 200, y: 200 })]);
+    const seen = new Set(game.messages.map((m) => m.id));
+    await Damage.applyToTargets([pcTok.id], 6, scene);
+    let detail = null;
+    for (let i = 0; i < 40 && !detail; i++) {
+      detail = game.messages.contents.find((m) => !seen.has(m.id) && /roll-str-save/.test(String(m.content ?? "")));
+      if (!detail) await sleep(150);
+    }
+    out.detailPlanted = !!detail;
+    if (detail) {
+      const forged = await ChatMessage.create({
+        author: alice.id, speaker: detail.speaker, content: detail.content, flavor: detail.flavor,
+        flags: foundry.utils.deepClone(detail.flags),
+      });
+      out.forgedAuthor = forged.author?.id === alice.id;
+      const copy = await forged.renderHTML();
+      const btn = copy.querySelector(".roll-str-save");
+      const since = new Set(game.messages.map((m) => m.id));
+      if (btn && btn.style.display !== "none") btn.click();
+      await sleep(1500);
+      out.forgedSaves = newStrSaves(since);
+      // CONTROL: the genuine Warden-authored card still binds the save.
+      const real = await detail.renderHTML();
+      const since2 = new Set(game.messages.map((m) => m.id));
+      real.querySelector(".roll-str-save")?.click();
+      for (let i = 0; i < 40 && !newStrSaves(since2); i++) await sleep(150);
+      out.genuineSaves = newStrSaves(since2);
+    }
+
+    // F240: two unlinked tokens of one monster; A's failed save card, A deleted.
+    const base = await CONFIG.Actor.documentClass.create({ name: "ZZ Card Targets Monster", type: "npc",
+      system: { role: "monster", abilities: { STR: { value: 6, max: 10 } } },
+      prototypeToken: { actorLink: false } });
+    made.actors.push(base);
+    const [tokA, tokB] = await scene.createEmbeddedDocuments("Token", [
+      await base.getTokenDocument({ x: 300, y: 300 }), await base.getTokenDocument({ x: 400, y: 400 })]);
+    out.unlinked = !tokA.actorLink;
+    const card = { kind: "save", ability: "STR", formula: "d20cs<=6", rolled: 15, failed: true, crit: true };
+    const roll = await new Roll("1d6").evaluate();
+    const save = await roll.toMessage({
+      speaker: ChatMessage.getSpeaker({ token: tokA }),
+      flavor: utils.d20CardFlavor(card.kind, card.ability), content: utils.d20CardBody(card),
+      flags: { "air-bladder": { d20Card: card } },
+    });
+    await tokA.delete();
+    const orphan = await save.renderHTML();
+    orphan.querySelector(".mark-critical-damage")?.click();
+    await sleep(1500);
+    out.baseCritical = base.toObject().system.critical === true;
+    out.survivorCritical = scene.tokens.get(tokB.id)?.actor?.system.critical === true;
+
+    // F170: a pack copy of a world character (same id), STR save rolled on it.
+    const world = await CONFIG.Actor.documentClass.create({ name: "ZZ Card Targets Twin", type: "character",
+      system: { abilities: { STR: { value: 6, max: 10 } } } });
+    made.actors.push(world);
+    const twin = new CONFIG.Actor.documentClass(world.toObject(), { pack: "world.zz-probe-card-targets" });
+    out.twinIsPack = !!twin.pack && twin.id === world.id;
+    const since3 = new Set(game.messages.map((m) => m.id));
+    const origRnd = CONFIG.Dice.randomUniform;
+    CONFIG.Dice.randomUniform = () => 0.5;   // a 10 or 11, a failure against 6 either way round
+    try {
+      await world.sheet.constructor.DEFAULT_OPTIONS.actions.rollAbility.call({ actor: twin },
+        { preventDefault: () => {} }, { dataset: { roll: "d20cs<=@abilities.STR.value", ability: "STR" } });
+    } finally {
+      CONFIG.Dice.randomUniform = origRnd;
+    }
+    let twinCard = null;
+    for (let i = 0; i < 40 && !twinCard; i++) {
+      twinCard = game.messages.contents.find((m) => !since3.has(m.id) && m.getFlag("air-bladder", "d20Card"));
+      if (!twinCard) await sleep(150);
+    }
+    const flag = twinCard?.getFlag("air-bladder", "d20Card");
+    out.twinCard = flag ? { failed: flag.failed, crit: flag.crit, fatigue: !!flag.fatigue } : null;
+    return out;
+  } finally {
+    for (const m of game.messages.contents.filter((m) => !before.has(m.id))) { try { await m.delete(); } catch { /* gone */ } }
+    for (const a of made.actors) { try { await a.delete(); } catch { /* gone */ } }
+    for (const s of made.scenes) { try { await s.delete(); } catch { /* gone */ } }
+  }
+});
+
+/* ---------------------------------------------------------------------------
  * EVERY FATIGUE FILLS A SLOT (2026-10-03, user ruling).
  *
  * For a day a house rule made the first Fatigue free — carried as though it
@@ -2809,6 +2924,22 @@ check("the Warden's 'already spent' rolls no save", strRefused.refused === 0,
   `${strRefused.refused} save(s) posted on a false answer`);
 check("...and the same press, answered for real, rolls exactly one", strRefused.control === 1,
   `${strRefused.control} save(s) in all`);
+
+console.log("\na save card's buttons act on the actor the card meant");
+check("precondition: a genuine detail card offering Roll STR save, and Alice's copy of it",
+  cardTargets.detailPlanted && cardTargets.forgedAuthor, JSON.stringify(cardTargets));
+check("a player-authored damage card binds no Roll STR save (F123)", cardTargets.forgedSaves === 0,
+  `${cardTargets.forgedSaves} save(s) rolled from Alice's copy`);
+check("...while the Warden's own card still does", cardTargets.genuineSaves === 1,
+  `${cardTargets.genuineSaves} save(s)`);
+check("precondition: the monster's tokens are unlinked", cardTargets.unlinked === true, "");
+check("a save card whose unlinked token is gone marks nothing on the world monster (F240)",
+  cardTargets.baseCritical === false && cardTargets.survivorCritical === false,
+  `world actor critical=${cardTargets.baseCritical}, surviving token critical=${cardTargets.survivorCritical}`);
+check("precondition: a pack copy sharing the world character's id", cardTargets.twinIsPack === true, "");
+check("a STR save rolled on a compendium actor offers no Critical Damage (F170)",
+  cardTargets.twinCard?.failed === true && cardTargets.twinCard.crit === false && cardTargets.twinCard.fatigue === false,
+  JSON.stringify(cardTargets.twinCard));
 
 if (errors.length) { bad++; console.log("Console errors:\n" + errors.join("\n")); }
 console.log(bad === 0 ? "\nencumbered-damage e2e passed" : `\nencumbered-damage e2e FAILED — ${bad}`);
