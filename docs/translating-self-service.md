@@ -48,7 +48,7 @@ That's it — the translation scripts are offline and only read the English sour
 >
 > Where you'd start from: Spanish is the only language with translated game
 > content, and the Danish, French, German, Polish and Brazilian Portuguese
-> interface files inherited from the original Cairn system sit at 15–30% and
+> interface files inherited from the original Cairn system sit at about 5% and
 > aren't maintained. Untranslated strings fall back to English individually, so
 > partial work always ships.
 

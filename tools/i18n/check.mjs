@@ -323,6 +323,10 @@ const COVERAGE_SITES = LANG === "es" ? [
  * The ROUNDED MEAN of the five, because they cluster tightly and a range would
  * need two numbers to keep true. Anchored on the sentence, so a reword fails
  * loudly rather than quietly matching nothing.
+ *
+ * The two translating guides joined in review #34 (finding 44): the README fix
+ * above corrected the three sites the gate held and left the guides a
+ * contributor reads first still saying 15-30%, because nothing held them.
  */
 const INHERITED_LANGS = ["da", "de", "fr", "pl", "pt-BR"];
 const inheritedPcts = INHERITED_LANGS
@@ -338,6 +342,8 @@ const INHERITED_SITES = (LANG === "es" && inheritedPct !== null) ? [
   ["README.md", /They cover \*\*about (\d+)%\*\* of the current interface/],
   ["README.es.md", /Cubren \*\*alrededor del (\d+) %\*\* de la interfaz actual/],
   ["site/index.html", /sit at about (\d+)%/],
+  ["docs/TRANSLATING.md", /covering about (\d+)% of the current interface/],
+  ["docs/translating-self-service.md", /Cairn system sit at about (\d+)%/],
 ] : [];
 for (const [file, re] of INHERITED_SITES) {
   const m = fs.readFileSync(path.join(ROOT, file), "utf8").match(re);
