@@ -27,7 +27,7 @@
  * Creates chat messages and one actor, and deletes exactly the ids it added.
  */
 import { chromium } from "playwright";
-import { VIEWPORT, joinAsGM, joinAs, watchErrors, dismissChrome, watchdog } from "./lib.mjs";
+import { VIEWPORT, joinAsGM, joinAs, watchErrors, dismissChrome, watchdog, holdAsideWorldTables } from "./lib.mjs";
 
 const browser = await chromium.launch();
 
@@ -47,6 +47,13 @@ const note = (m) => console.log(`  note  ${m}`);
 
 try {
   await joinAsGM(page);
+  // The Warden's OWN world tables of the shipped names are held aside in-page
+  // (review #34 finding 149): the buttons resolve world-first and DRAW, and
+  // core marks a drawn row on a no-replacement world table, so every run
+  // crossed rows off the Warden's tables. Held aside, the draws reach the pack,
+  // where core never marks. Nothing is written.
+  await holdAsideWorldTables(page, await page.evaluate(() =>
+    [...new Set(game.tables.filter((t) => /^Warden: /.test(t.name)).map((t) => t.name))]));
   await dismissChrome(page);
 
   // Everything this probe creates is deleted at the end by ID DIFFERENCE, so

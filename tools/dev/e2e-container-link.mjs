@@ -435,11 +435,12 @@ try {
     .catch((e) => console.log(`  note  could not restore core.permissions: ${e.message}`));
 }
 
-await gmPage.evaluate(() => {
-  const perms = foundry.utils.deepClone(game.settings.get("core", "permissions"));
-  perms.ACTOR_CREATE = (perms.ACTOR_CREATE ?? []).filter((r) => r !== CONST.USER_ROLES.PLAYER);
+// Back to the value FOUND (review #34 finding 257): this stripped PLAYER from
+// ACTOR_CREATE outright, undoing the restore two lines up, so a world whose
+// Warden had granted it lost the grant on every run, green ones included.
+await gmPage.evaluate((perms) => {
   game.settings.set("core", "permissions", perms);
-}).catch((e) => {
+}, priorPerms).catch((e) => {
   if (!/Execution context was destroyed|Target closed|frame was detached/i.test(e.message)) throw e;
 });
 await gmPage.waitForFunction(() => globalThis.game?.ready === true, null, { timeout: 60000 })
@@ -507,12 +508,12 @@ connected.beforeDelete === 1 && connected.afterDelete === 0
 
 /* ---- cleanup -------------------------------- */
 
-await gmPage.evaluate(async ({ pcId, muleId, containerId, decoyId }) => {
-  // Belt over the mid-run restore above — filtering an already-clean list is
-  // a no-op, and a future leg added between the two cannot re-leak the grant.
-  const perms = foundry.utils.deepClone(game.settings.get("core", "permissions"));
-  perms.ACTOR_CREATE = (perms.ACTOR_CREATE ?? []).filter((r) => r !== CONST.USER_ROLES.PLAYER);
-  await game.settings.set("core", "permissions", perms);
+await gmPage.evaluate(async ({ pcId, muleId, containerId, decoyId, priorPerms }) => {
+  // Belt over the mid-run restore above, to the value FOUND (review #34
+  // finding 257) — never a filter, which took a Warden's own grant away.
+  if (JSON.stringify(game.settings.get("core", "permissions")) !== JSON.stringify(priorPerms)) {
+    await game.settings.set("core", "permissions", priorPerms);
+  }
   // The PC's connected children FIRST, while the uuid that identifies them
   // still resolves. Generation grants some of them (an Outrider's named horse),
   // and deleting only the PC left those behind on every Outrider roll — an
@@ -523,7 +524,7 @@ await gmPage.evaluate(async ({ pcId, muleId, containerId, decoyId }) => {
   for (const id of [pcId, muleId, containerId, decoyId]) {
     if (id) await game.actors.get(id)?.delete().catch(() => {});
   }
-}, { ...scene, containerId: buy.containerId });
+}, { ...scene, containerId: buy.containerId, priorPerms });
 
 const errors = [...gmErrors, ...aliceErrors];
 console.log(`\nconsole errors: ${errors.length}`);

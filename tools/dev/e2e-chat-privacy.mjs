@@ -38,7 +38,7 @@
  */
 
 import { chromium } from "playwright";
-import { VIEWPORT, joinAsGM, joinAs, watchErrors, watchdog } from "./lib.mjs";
+import { VIEWPORT, joinAsGM, joinAs, watchErrors, watchdog, holdAsideWorldTables } from "./lib.mjs";
 
 const browser = await chromium.launch();
 watchdog(240000, "dev:chat-privacy", () => browser.close());
@@ -71,6 +71,11 @@ let posted = {};
 let priorActive = [];
 try {
   await joinAsGM(gm);
+  // The Warden's own world "Warden: …" tables held aside in-page (review #34
+  // finding 149): this probe draws Warden: NPC - Quirk world-first, and a draw
+  // marks rows on a no-replacement world table. Nothing is written.
+  await holdAsideWorldTables(gm, await gm.evaluate(() =>
+    [...new Set(game.tables.filter((t) => /^Warden: /.test(t.name)).map((t) => t.name))]));
   const pre = await sweep();
   Object.values(pre).some(Boolean)
     ? console.log(`  --    swept leftovers first: ${JSON.stringify(pre)}`)

@@ -85,7 +85,10 @@ const until = async (page, fn, arg, ms = 8000) => {
   return last;
 };
 
-const cleanup = { sceneId: null, tableId: null, actorIds: [], messageIds: [], folderId: null, prevSceneId: null };
+const cleanup = { sceneId: null, tableId: null, actorIds: [], messageIds: [], folderId: null, prevSceneId: null, msgsAtStart: [] };
+// The chat log before this run (review #34 finding 255): every real Add-to-scene
+// quantity roll's flavor starts "Encounter: ", and the sweep took them all.
+cleanup.msgsAtStart = await gm.evaluate(() => game.messages.map((m) => m.id));
 
 try {
   /* ---------------------------------------------------------- fixtures ---- */
@@ -667,7 +670,7 @@ try {
       const mine = game.messages.filter((m) =>
         c.messageIds.includes(m.id)
         || m.getFlag("core", "RollTable") && c.tableId && m.getFlag("core", "RollTable") === c.tableId
-        || /^Encounter: /.test(m.flavor ?? ""));
+        || (!c.msgsAtStart.includes(m.id) && /^Encounter: /.test(m.flavor ?? "")));
       for (const m of mine) await m.delete();
       lines.push(`${mine.length} chat message(s)`);
       return lines;

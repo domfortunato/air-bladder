@@ -134,7 +134,11 @@ const until = async (page, fn, arg, ms = 8000) => {
   return last;
 };
 
-const cleanup = { actorIds: [], itemIds: [], msgsAfter: null };
+const cleanup = { actorIds: [], itemIds: [], msgsAfter: null, msgsAtStart: [] };
+// The chat log as it stood before this run (review #34 finding 255): the sweep
+// deleted every GLOG cast card and whisper in the world by KIND, the table's
+// real casts included. Only the id difference is this run's.
+cleanup.msgsAtStart = await gm.evaluate(() => game.messages.map((m) => m.id));
 
 try {
   /* ------------------------------------------------------------ fixtures -- */
@@ -1800,7 +1804,7 @@ try {
 } finally {
   /* ------------------------------------------------------------- sweep ---- */
   try {
-    const swept = await gm.evaluate(async ({ actorIds, itemIds }) => {
+    const swept = await gm.evaluate(async ({ actorIds, itemIds, msgsAtStart }) => {
       const names = [];
       for (const id of actorIds) {
         const a = game.actors.get(id);
@@ -1810,8 +1814,8 @@ try {
         const i = game.items.get(id);
         if (i) { names.push(`${i.name} ${i.id}`); await i.delete(); }
       }
-      for (const m of game.messages.filter((m) =>
-        m.content?.includes("ZZ Spell") || m.content?.includes("grimoire-cast"))) {
+      for (const m of game.messages.filter((m) => !msgsAtStart.includes(m.id) &&
+        (m.content?.includes("ZZ Spell") || m.content?.includes("grimoire-cast")))) {
         await m.delete();
       }
       return names;

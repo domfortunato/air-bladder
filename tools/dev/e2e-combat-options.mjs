@@ -75,15 +75,18 @@ let r;
 // and the Party folder, which a run creates on demand the way a table would. A
 // probe that leaves them behind makes the next run's "made on demand" leg pass
 // for the wrong reason.
+// The chat log before this run (review #34 finding 255): a real Fatigue-bargain
+// drop leaves a pileDrop card, and the sweep took every one in the world.
+let msgsAtStart = [];
 const cleanup = async () => {
-  await page.evaluate(async ({ ids, msgs, pileId, pileIdsAtStart, sceneId }) => {
+  await page.evaluate(async ({ ids, msgs, pileId, pileIdsAtStart, sceneId, msgsAtStart }) => {
     for (const id of msgs ?? []) { try { await game.messages.get(id)?.delete(); } catch { /* gone */ } }
     // The scene the targeted legs placed a foe on, and its token with it.
     if (sceneId) { try { await game.scenes.get(sceneId)?.delete(); } catch { /* gone */ } }
     for (const s of game.scenes.filter((x) => x.getFlag("air-bladder", "probeFixture") === "combat-options")) {
       try { await s.delete(); } catch { /* gone */ }
     }
-    for (const m of game.messages.filter((x) => x.getFlag("air-bladder", "pileDrop"))) {
+    for (const m of game.messages.filter((x) => !msgsAtStart.includes(x.id) && x.getFlag("air-bladder", "pileDrop"))) {
       try { await m.delete(); } catch { /* gone */ }
     }
     // EVERY pile this run did not find at its start — by ID DIFFERENCE, the
@@ -113,11 +116,12 @@ const cleanup = async () => {
       try { await folder.delete(); } catch { /* gone */ }
     }
   }, { ids: r?.made, msgs: [...(r?.madeMsgs ?? []), ...(r?.made2 ?? [])],
-    pileId: r?.pileId ?? null, pileIdsAtStart: r?.pileIdsAtStart ?? [], sceneId: r?.sceneId ?? null });
+    pileId: r?.pileId ?? null, pileIdsAtStart: r?.pileIdsAtStart ?? [], sceneId: r?.sceneId ?? null, msgsAtStart });
 };
 
 try {
   await joinAsGM(page);
+  msgsAtStart = await page.evaluate(() => game.messages.map((m) => m.id));
 
   r = await withSettings(page, () => page.evaluate(async () => {
     const NS = "air-bladder";
