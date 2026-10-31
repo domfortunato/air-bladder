@@ -2123,7 +2123,13 @@ export class CairnActor extends Actor {
     const entries = documents.map((d) => (d.name === FATIGUE_NAME
       ? { k: "fatigue", added }
       : { k: "item", added, name: d.name, monster }));
-    if (entries.length) this.#postChangeLogCard(entries, userId);
+    // A WARDEN'S write made FOR another user names that user (review #34
+    // finding 245): a brokered Drop runs on the active Warden's client, and its
+    // ledger card read "Changed by Warden" for a player's own rope. Only a GM's
+    // write may claim it — a player cannot sign a card as somebody else.
+    const by = options.abChangeLogBy && game.users.get(userId)?.isGM && game.users.get(options.abChangeLogBy)
+      ? options.abChangeLogBy : userId;
+    if (entries.length) this.#postChangeLogCard(entries, by);
   }
 
   /**

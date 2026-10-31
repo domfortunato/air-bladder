@@ -301,7 +301,7 @@ const reconcilePiles = async (canonical) => {
     const missing = extra.items.filter((i) => !canonical.items.has(i.id)).map((i) => i.toObject());
     if (missing.length) {
       try {
-        await canonical.createEmbeddedDocuments("Item", missing, { keepId: true });
+        await canonical.createEmbeddedDocuments("Item", missing, { keepId: true, abNoStatusCard: true });   // merge machinery (review #34 finding 245)
       } catch {
         // Another session is reconciling the same extra and claimed some of
         // these ids a moment ago; the test below decides whether this one may
@@ -515,7 +515,7 @@ export const dropItemToPile = async (actor, itemId, { announce = false, place = 
  * something to rely on, and the card is composed from it.
  * @private
  */
-const movePileItem = async (actor, itemId, { announce = false, place = "", claimId = null } = {}) => {
+const movePileItem = async (actor, itemId, { announce = false, place = "", claimId = null, by = null } = {}) => {
   const item = actor.items.get(itemId);
   if (!item) return false;
   const pile = await ensureDroppedPile();
@@ -549,7 +549,10 @@ const movePileItem = async (actor, itemId, { announce = false, place = "", claim
   });
   let won = true;
   try {
-    await pile.createEmbeddedDocuments("Item", copies, { keepId: true });
+    // abNoStatusCard: an ordinary Drop is tidying and the pile is its own record
+    // (review #34 finding 245) — without it every Drop whispered "Item added"
+    // under the pile's name to every player who can observe it.
+    await pile.createEmbeddedDocuments("Item", copies, { keepId: true, abNoStatusCard: true });
   } catch {
     won = false;
   }
@@ -561,7 +564,10 @@ const movePileItem = async (actor, itemId, { announce = false, place = "", claim
   // left holding a copy — visible to the Warden and fixable, which is the side
   // of that trade the ruling already chose.
   if (!won) return false;
-  await actor.deleteEmbeddedDocuments("Item", [item.id, ...pages.map((p) => p.id)]);
+  // The SOURCE side stays on the ledger — a transfer the dropper's ledger should
+  // show (review #13) — but named for the DROPPER: brokered, this write is the
+  // Warden's, and the card read "Changed by Warden" (review #34 finding 245).
+  await actor.deleteEmbeddedDocuments("Item", [item.id, ...pages.map((p) => p.id)], by ? { abChangeLogBy: by } : {});
   if (announce) await postDropCard(actor, name, note);
   return true;
 };
@@ -599,6 +605,7 @@ export const handlePileQuery = async (msg, { user } = {}) => {
     announce: msg?.announce === true,
     place: cleanDropNote(msg?.place),
     claimId,
+    by: user.id,   // the server-authenticated requester, for the ledger (review #34 finding 245)
   });
 };
 
