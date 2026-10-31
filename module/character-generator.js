@@ -2805,7 +2805,20 @@ export const isBackgroundDisabled = (bg, offIds = disabledBackgroundIds()) => of
  * @param {String} uuid
  * @returns {Promise<Set<String>|null>}  the new set, or null if refused
  */
-export const toggleBackgroundDisabled = async (uuid) => {
+export const toggleBackgroundDisabled = (uuid) => {
+  // ONE AT A TIME (review #34 finding 134). The body below is a read-modify-
+  // write of one world setting with a pool build in the middle, so two eyes
+  // pressed together each wrote their own stale snapshot and the later write
+  // dropped the earlier, while both rows showed the slashed eye. Chained, each
+  // toggle reads the setting only after the previous one's write has landed —
+  // the shape weather-log.js uses for its own find-and-append.
+  const run = toggleChain.then(() => toggleBackgroundDisabledNow(uuid));
+  toggleChain = run.catch(() => {});
+  return run;
+};
+let toggleChain = Promise.resolve();
+
+const toggleBackgroundDisabledNow = async (uuid) => {
   const off = disabledBackgrounds();
   const id = idOfUuid(uuid);
   const stored = [...off].filter((u) => idOfUuid(u) === id);
