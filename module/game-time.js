@@ -490,6 +490,12 @@ export const describeTime = () => {
     // Foundry's Gregorian calendar. A Cairn table does not care that it is
     // March the 14th.
     const day = dayCount();
+    // TODAY'S WEATHER UNDER EITHER CALENDAR (review #34 finding 80, user ruling
+    // 2026-10-31). Watches and weather are core Cairn; only the calendar is the
+    // hack. This branch returned `weather: ""`, so with Vald off — the default
+    // — Roll Today's Weather and Set the Weather… stored a day's weather that
+    // no surface showed. Read through the overlay for the reason given below.
+    const weather = t("table.result", todayWeather());
     return {
       vald: false,
       watch,
@@ -501,8 +507,9 @@ export const describeTime = () => {
       dateLong: game.i18n.format("CAIRN.Time.DayCount", { day }),
       seasonLine: "",
       seasonIcon: "",
-      weather: "",
-      tooltip: game.i18n.format("CAIRN.Time.Plain", { day, watch }),
+      weather,
+      // Joined the way the Vald tooltip joins its parts, so the two read alike.
+      tooltip: [game.i18n.format("CAIRN.Time.Plain", { day, watch }), weather].filter(Boolean).join(" — "),
     };
   }
 
