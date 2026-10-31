@@ -3657,16 +3657,21 @@ ol.combat-tracker li.combatant.cairn-drop-below {
 }
 
 /******************************************************************************
- * Background authoring form (editable custom 2e backgrounds).                *
- * Read-only shipped backgrounds use .background-details above; this styles    *
- * the editable form a Warden gets on a world-pack background.                 *
+ * Background authoring form (editable custom 2e backgrounds), and the         *
+ * read-only view of a locked one, whose headings share the editor's face.     *
  ******************************************************************************/
 .background-editor {
     overflow-y: auto;
     padding: 4px 8px 12px;
 }
 
-.background-editor h3 {
+/* `.background-details h3` too (review #34 finding 99): the read-only branch's
+   headings were bare <h3>, which on an AppV2 sheet render core's 28px Signika
+   with a 2rem gap (docs/theming.md fact 3), and the banner above used to point
+   at a `.background-details` rule that was never written. It now wears
+   exactly the editable branch's heading, so the two views of one sheet match. */
+.background-editor h3,
+.background-details h3 {
     margin: 12px 0 4px;
     border-bottom: 1px solid var(--ab-edge);
     font-size: 1.05em;
