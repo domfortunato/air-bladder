@@ -341,6 +341,109 @@ try {
     ? ok("the 1d6 row places 1..6, one ogre imported", `${reuse.ogreTokens} tokens`)
     : fail("the 1d6 row places 1..6, one ogre imported", JSON.stringify({ ...reuse, ogresNow }));
 
+  /* --- 4b-4d. whose copy, how many copies, and who hears (review #34 ------
+   * findings 122, 137, 127). Two shipped monsters with NO world copy yet are
+   * picked off the pack, so the legs read this run's imports alone.
+   *   4b (122) the "reuse the world copy" test was `_stats.compendiumSource`,
+   *      which any owner can write: a PLAYER's actor wearing a monster's
+   *      source was placed, and its tokens were theirs to move.
+   *   4c (137) two cards for one un-imported monster pressed together each
+   *      missed the find and imported it twice.
+   *   4d (127) the quantity roll took the Warden's chat dropdown, so a card
+   *      drawn privately was followed by a public "Encounter: …".
+   * -------------------------------------------------------------------- */
+  const fresh = await gm.evaluate(async ({ tableId }) => {
+    const pack = game.packs.get("air-bladder.monsters");
+    const index = await pack.getIndex();
+    const stamped = new Set(game.actors.map((a) => a._stats?.compendiumSource).filter(Boolean));
+    const free = index.contents.filter((e) => !stamped.has(e.uuid)).slice(0, 2);
+    if (free.length < 2) return { error: "fewer than two shipped monsters lack a world copy" };
+    const [a, b] = free;
+    const aliceId = game.users.getName("Alice")?.id;
+    const planted = await CONFIG.Actor.documentClass.create({
+      name: "ZZ Enc Planted", type: "character",
+      ownership: { default: 0, ...(aliceId ? { [aliceId]: 3 } : {}) },
+      _stats: { compendiumSource: a.uuid },
+    });
+    await game.tables.get(tableId).createEmbeddedDocuments("TableResult", [
+      { type: "text", description: `2 @UUID[${a.uuid}]{Planted} lurk.`, range: [7, 7], weight: 1 },
+      { type: "text", description: `2 @UUID[${b.uuid}]{Twins} lurk.`, range: [8, 8], weight: 1 },
+    ]);
+    return { a: a.uuid, b: b.uuid, plantedId: planted.id,
+      plantedStamped: planted._stats?.compendiumSource === a.uuid, aliceOwns: planted.hasPlayerOwner };
+  }, { tableId: fx.tableId });
+  if (fresh.error) {
+    fail("the whose-copy legs found their monsters", fresh.error);
+  } else {
+    cleanup.actorIds.push(fresh.plantedId);
+    const press = (ids) => gm.evaluate(async (ids) => {
+      for (const id of ids) document.querySelector(`[data-message-id="${id}"] .encounter-spawn`)?.click();
+      for (let i = 0; i < 60 && !ids.every((id) => game.messages.get(id)?.getFlag(game.system.id, "encounterSpawned")); i++) {
+        await new Promise((r) => setTimeout(r, 200));
+      }
+    }, ids);
+    const copies = (uuid) => gm.evaluate((uuid) =>
+      game.actors.filter((a) => a._stats?.compendiumSource === uuid).map((a) => a.id), uuid);
+
+    // 4b
+    const plantedMsg = await draw(7);
+    await buttonState(gm, plantedMsg);
+    const before4b = await gm.evaluate(() => canvas.scene.tokens.map((t) => t.id));
+    await press([plantedMsg]);
+    const r4b = await gm.evaluate(({ before, plantedId }) => {
+      const added = canvas.scene.tokens.filter((t) => !before.includes(t.id));
+      return { added: added.length, onPlanted: added.filter((t) => t.actorId === plantedId).length };
+    }, { before: before4b, plantedId: fresh.plantedId });
+    const aCopies = await copies(fresh.a);
+    cleanup.actorIds.push(...aCopies.filter((id) => id !== fresh.plantedId && !cleanup.actorIds.includes(id)));
+    fresh.plantedStamped && fresh.aliceOwns && r4b.added === 2 && r4b.onPlanted === 0
+      ? ok("a player's actor wearing a monster's source is never the encounter's copy", "a Warden's copy was imported")
+      : fail("a player's actor wearing a monster's source is never the encounter's copy", JSON.stringify({ ...fresh, ...r4b }));
+
+    // 4c
+    const twinA = await draw(8);
+    const twinB = await draw(8);
+    await buttonState(gm, twinA);
+    await buttonState(gm, twinB);
+    await press([twinA, twinB]);
+    const bCopies = await copies(fresh.b);
+    cleanup.actorIds.push(...bCopies.filter((id) => !cleanup.actorIds.includes(id)));
+    const folders = await gm.evaluate(() =>
+      game.folders.filter((f) => f.type === "Actor" && f.getFlag(game.system.id, "encounters")).length);
+    bCopies.length === 1 && folders === 1
+      ? ok("two cards for one monster pressed together import it ONCE", "one copy, one Encounters folder")
+      : fail("two cards for one monster pressed together import it ONCE", JSON.stringify({ copies: bCopies.length, folders }));
+
+    // 4d
+    const privMsg = await gm.evaluate(async ({ tableId }) => {
+      const before = new Set(game.messages.keys());
+      await game.tables.get(tableId).draw({ roll: new Roll("1"), messageMode: "gm" });
+      return [...game.messages.keys()].find((k) => !before.has(k)) ?? null;
+    }, { tableId: fx.tableId });
+    if (privMsg) cleanup.messageIds.push(privMsg);
+    await buttonState(gm, privMsg);
+    const qtyBefore = await gm.evaluate(() => game.messages.map((m) => m.id));
+    // The Warden's own dropdown on PUBLIC for the press, so the leg cannot
+    // pass on a dev client left on Private (a client setting; put back after).
+    const modeWas = await gm.evaluate(async () => {
+      const was = game.settings.get("core", "messageMode");
+      await game.settings.set("core", "messageMode", "public");
+      return was;
+    });
+    try { await press([privMsg]); } finally {
+      await gm.evaluate((v) => game.settings.set("core", "messageMode", v), modeWas);
+    }
+    const r4d = await gm.evaluate(({ privMsg, qtyBefore }) => {
+      const card = game.messages.get(privMsg);
+      const qty = game.messages.filter((m) => !qtyBefore.includes(m.id) && m.getFlag("air-bladder", "encounterQty"));
+      return { cardWhisper: card?.whisper?.length ?? 0, qty: qty.length,
+        qtyWhispered: qty.every((m) => m.whisper.length > 0) };
+    }, { privMsg, qtyBefore });
+    r4d.cardWhisper > 0 && r4d.qty >= 1 && r4d.qtyWhispered
+      ? ok("a privately drawn card's quantity roll stays private", `${r4d.qty} roll(s), whispered`)
+      : fail("a privately drawn card's quantity roll stays private", JSON.stringify(r4d));
+  }
+
   /* ------------------------------------------------- 5. plain text is inert */
   const quietMsg = await draw(3);
   await gm.waitForTimeout(1500);

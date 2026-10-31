@@ -968,6 +968,29 @@ try {
     check(p4.addNames.includes("Dagger") === false && !adoptedRow.twin && adoptedRow.rowUuid === adoptedRow.adoptedUuid,
       "the new Weapons table's Dagger row points at the adopted copy and no twin was created under the shipped id", JSON.stringify({ run4, adoptedRow }));
 
+    /* ------------- 9b. a copy a PLAYER owns is not adopted (review #34 finding 122) */
+    // The adoption above reads `_stats.compendiumSource`, which an owner can
+    // write on their own document and a sidebar Duplicate keeps. The same
+    // adopted Dagger, handed to Alice for the length of one PLAN (a pure read),
+    // must no longer be the shop's: the plan adds a copy of its own.
+    console.log("\n9b. a copy a player owns is not the shop's");
+    const owned = await page.evaluate(async ({ adoptedId }) => {
+      const it = game.items.get(adoptedId);
+      const aliceId = game.users.getName("Alice")?.id;
+      if (!it || !aliceId) return { skipped: !it ? "no adopted Dagger" : "no Alice" };
+      await it.update({ [`ownership.${aliceId}`]: CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER });
+      return { playerOwned: it.hasPlayerOwner, aliceId };
+    }, { adoptedId: adopted.id });
+    const p5 = owned.skipped ? null : await planOf("marketplace");
+    if (!owned.skipped) {
+      await page.evaluate(async ({ adoptedId, aliceId }) => {
+        await game.items.get(adoptedId)?.update({ [`ownership.${aliceId}`]: CONST.DOCUMENT_OWNERSHIP_LEVELS.NONE });
+      }, { adoptedId: adopted.id, aliceId: owned.aliceId });
+    }
+    check(owned.playerOwned === true && p5?.addNames.includes("Dagger"),
+      "plan: a Dagger copy a PLAYER owns is not adopted, the shop gets its own (review #34 finding 122)",
+      JSON.stringify({ owned, add: p5?.addNames }));
+
     /* --------------------- 10-pre. an existing pack is named by its own label */
     // The compendium was renamed "Custom 2e Backgrounds" on 2026-09-15, and
     // core cannot rename a world compendium that already exists (the sidebar
