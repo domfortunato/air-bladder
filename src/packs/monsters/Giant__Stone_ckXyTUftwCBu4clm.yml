@@ -129,8 +129,8 @@ system:
     max: 9
   abilities:
     STR:
-      value: 160
-      max: 160
+      value: 16
+      max: 16
     DEX:
       value: 14
       max: 14
