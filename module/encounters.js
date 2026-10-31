@@ -25,13 +25,17 @@
  * `module/i18n-content.js`), so a Spanish client parses the same English the
  * table stores. The drawn rows are recovered from the MESSAGE document, not
  * the DOM: core stamps `flags.core.RollTable` with the table id and rides the
- * Roll along (roll-table.mjs:60), so the roll's total re-derives exactly what
- * was drawn — selected by RANGE, not through `getResultsForRoll`, whose drawn
- * filter loses the very row a no-replacement draw just marked (review #34
- * finding 88). (The card's `data-result-id` attribute is EMPTY on
+ * Roll along (roll-table.mjs:60), so the roll's total re-derives the OUTER row
+ * that was drawn — selected by RANGE, not through `getResultsForRoll`, whose
+ * drawn filter loses the very row a no-replacement draw just marked (review
+ * #34 finding 88). (The card's `data-result-id` attribute is EMPTY on
  * 14.365 — table-result.hbs reads `{{result.id}}` off a `toObject()`, which
  * only carries `_id` — so the DOM could not be the source even if it were the
- * right layer.)
+ * right layer.) WHICH table is the message's own identity, not the id alone
+ * (review #34 finding 231, `drawnTable`). And the limit, stated: a row that
+ * draws from ANOTHER table is re-derived as itself, never as what the inner
+ * draw landed on — the inner roll is not stored, the card's HTML is not
+ * trusted — so a nested table's encounter rows earn no button.
  *
  * The button is Warden-only BOTH ways (affordance/enforcement, as everywhere):
  * injected only into a GM client's copy at render — one visibility gate,
@@ -112,22 +116,64 @@ export const resolveTable = async (tableId) => {
   return null;
 };
 
+/** The rows a roll total lands on, BY RANGE, without core's drawn filter
+ *  (review #34 finding 88). `getResultsForRoll` returns only rows not yet
+ *  drawn, and a world table set to draw WITHOUT replacement marks the row it
+ *  lands on as drawn before the card renders — so the very row this card shows
+ *  was filtered out and the button never appeared. The Scars flow selects the
+ *  same way (damage.js), for the same reason. */
+const rowsAt = (table, total) => table.results.filter((r) => Number.between(total, r.range[0], r.range[1]));
+
+/** The actor uuids a set of specs would place, as a sorted key. */
+const actorKey = (specs) => specs.map((s) => s.uuid).filter(Boolean).sort().join("|");
+
+/**
+ * The table a draw card DREW (review #34 finding 231). Core's flag is the
+ * table's bare id, and core's own Import keeps that id (`keepId ??= true`), so
+ * once a Warden imports a shipped encounter table and edits it, the world copy
+ * and the pack table both answer to it — and world-first spawned the world
+ * copy's creatures under a card that showed the pack's. Two draws do this in
+ * ordinary play: the compendium sheet (the guide says it works "straight from
+ * the compendium") and the Dashboard once its copy is renamed (it draws by
+ * name).
+ *
+ * The Dashboard's card carries the exact uuid it drew (`dashboardDraw`), and
+ * that rules. For core's id alone, every table holding it is a candidate, and
+ * the card's own content chooses between them: the first, world first, whose
+ * rows at this total link the same actors the card SHOWS. The content only
+ * CHOOSES among tables that hold this id — what spawns is still derived from
+ * the chosen table's stored rows, never from HTML the poster's client wrote.
+ * When nothing tells them apart, world first, as before.
+ * @returns {Promise<RollTable|null>}
+ */
+const drawnTable = async (message, tableId, total) => {
+  const drawnUuid = message.getFlag?.("air-bladder", "dashboardDraw");
+  if (typeof drawnUuid === "string") {
+    const byUuid = await fromUuid(drawnUuid).catch(() => null);
+    if (byUuid?.documentName === "RollTable" && byUuid.id === tableId) return byUuid;
+  }
+  const candidates = [];
+  if (game.tables.get(tableId)) candidates.push(game.tables.get(tableId));
+  for (const pack of game.packs.filter((p) => p.documentName === "RollTable")) {
+    if (pack.index.has(tableId)) candidates.push(await pack.getDocument(tableId));
+  }
+  if (candidates.length < 2) return candidates[0] ?? null;
+  const tpl = document.createElement("template");
+  tpl.innerHTML = String(message.content ?? "");
+  const shown = [...tpl.content.querySelectorAll(".table-results a[data-uuid]")]
+    .map((a) => a.dataset.uuid).filter((u) => /(^|\.)Actor\./.test(u)).sort().join("|");
+  return candidates.find((tbl) => actorKey(rowsAt(tbl, total).map(resultSpec).filter(Boolean)) === shown)
+    ?? candidates[0];
+};
+
 /** Every spawnable spec on a draw card's message, [] when there are none. */
 export const encounterSpecsForMessage = async (message) => {
   const tableId = foundry.utils.getProperty(message.flags ?? {}, "core.RollTable");
   const roll = message.rolls?.[0];
   if (!tableId || !roll) return [];
-  const table = await resolveTable(tableId);
+  const table = await drawnTable(message, tableId, roll.total);
   if (!table) return [];
-  // BY RANGE, without core's drawn filter (review #34 finding 88).
-  // `getResultsForRoll` returns only rows not yet drawn, and a world table set
-  // to draw WITHOUT replacement marks the row it lands on as drawn before the
-  // card renders — so the very row this card shows was filtered out and the
-  // button never appeared. The Scars flow selects the same way
-  // (damage.js), for the same reason.
-  return table.results
-    .filter((r) => Number.between(roll.total, r.range[0], r.range[1]))
-    .map(resultSpec).filter(Boolean);
+  return rowsAt(table, roll.total).map(resultSpec).filter(Boolean);
 };
 
 /* -------------------------------------------- */
