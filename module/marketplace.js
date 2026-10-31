@@ -678,6 +678,8 @@ export const openMarketplace = async (actor, opts = {}) => {
     return origClose(...a);
   };
 
+  // ONE PURCHASE AT A TIME — see the click handler below (review #34 finding 91).
+  let busy = false;
   const refresh = () => {
     const root = dialog.element;
     if (!root) return;
@@ -705,8 +707,8 @@ export const openMarketplace = async (actor, opts = {}) => {
       // a PETTY item costs no slot at all.
       const needsRoom = data && !isCarrier(data) && !data.system?.weightless;
       const noRoom = full && !!needsRoom;
-      buy.disabled = noRoom || gold < cost;
-      take.disabled = noRoom;
+      buy.disabled = busy || noRoom || gold < cost;
+      take.disabled = busy || noRoom;
     });
   };
 
@@ -717,13 +719,22 @@ export const openMarketplace = async (actor, opts = {}) => {
     const list = root.querySelector(".mkt-list");
 
     // Buy / Take, and click a name to expand its description.
+    // ONE PURCHASE AT A TIME in this shop (review #34 finding 91). Only the
+    // clicked button was disabled, so a Buy on a second row inside one round
+    // trip ran beside the first: both passed the gold and slot checks against
+    // the pre-purchase actor, and the second's gold write could overwrite the
+    // first's payment or take the balance negative. Every Buy and Take greys
+    // until the one in flight is done; `refresh()` re-derives them after, and
+    // holds them grey while one is in flight (it also runs on actor updates).
     list.addEventListener("click", async (ev) => {
       const btn = ev.target.closest(".mkt-buy, .mkt-take");
       if (btn) {
         ev.preventDefault();
+        if (busy) return;
         const data = built[Number(btn.dataset.idx)];
         if (!data) return;
-        btn.disabled = true;
+        busy = true;
+        for (const b of list.querySelectorAll(".mkt-buy, .mkt-take")) b.disabled = true;
         const pay = btn.classList.contains("mkt-buy");
         // try/finally, because refresh() is the ONLY thing that re-enables the
         // row: a rejected acquire (a permissions wall mid-write is recorded
@@ -738,6 +749,7 @@ export const openMarketplace = async (actor, opts = {}) => {
           console.error("Air Bladder | marketplace acquire failed:", err);
           ui.notifications.error(game.i18n.localize("CAIRN.Notify.DropFailed"));
         } finally {
+          busy = false;
           refresh();
         }
         return;
