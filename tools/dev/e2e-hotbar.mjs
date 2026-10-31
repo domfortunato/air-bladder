@@ -11,13 +11,15 @@
  *      null. The call was unawaited, so it surfaced as an unhandled rejection
  *      naming nothing.
  *   2. A RollTable got a macro that opens its SHEET. Core branches on RollTable
- *      and builds one that DRAWS (hotbar.mjs:499); the system's catch-all
+ *      and builds one that DRAWS (`Hotbar#_onDrop`); the system's catch-all
  *      swallowed that branch. This system ships encounter, spell and Scars
  *      tables.
- *   3. A LOCKED bar accepted the drop. Core tests the hook's return value BEFORE
- *      its own lock check (hotbar.mjs:488-490) and `assignHotbarMacro` never
+ *   3. A LOCKED bar accepted the drop. On 14.365-14.367 core tests the hook's
+ *      return value BEFORE its own lock check and `assignHotbarMacro` never
  *      consults `locked`, so `return false` skipped the only enforcement there
- *      is.
+ *      is. The 14.368 client moved the lock ahead of the hook, so the REAL drop
+ *      below can no longer see the guard on the verified build; the leg after
+ *      it calls the hook itself (review #34 finding 14).
  *
  * **Driven by a REAL `drop` event on a real slot element**, never by calling
  * `createCairnMacro` directly. The private `#onDragDrop` is where the hook's
@@ -149,7 +151,7 @@ check("a table drop makes a macro", !!table.slotId, `slot=${table.slotId} name=$
 check("...that DRAWS from the table, not one that opens its sheet",
   /\.draw\(\)/.test(table.command ?? "") && !/toggleDocumentSheet/.test(table.command ?? ""),
   `command=${JSON.stringify(String(table.command).replace(/\n/g, " ").slice(0, 110))} — core branches on `
-  + "RollTable (hotbar.mjs:499); the system's catch-all swallowed the branch, and this system ships "
+  + "RollTable (Hotbar#_onDrop); the system's catch-all swallowed the branch, and this system ships "
   + "encounter, spell and Scars tables");
 
 /* ------------------------------------------------------------ 3. the lock */
@@ -169,8 +171,29 @@ check("precondition: the lock shadow came back off", shadowOff,
 check("a locked bar takes nothing",
   lockedDrop.after === lockedDrop.before && lockedDrop.unchanged,
   `macros ${lockedDrop.before} -> ${lockedDrop.after} slot ${lockedDrop.slotBefore} -> ${lockedDrop.slotId} `
-  + "— core tests this hook's return BEFORE its own lock check, and assignHotbarMacro never consults "
-  + "`locked`, so returning false here skipped the only enforcement there is");
+  + "— on 14.365-14.367 core tests this hook's return BEFORE its own lock check, and assignHotbarMacro "
+  + "never consults `locked`, so returning false here skipped the only enforcement there is");
+
+// THE GUARD ITSELF, whatever core's order (review #34 finding 14). From 14.368
+// core returns at its lock before the hook runs, so the real drop above passes
+// with or without the system's guard. Called directly, with the bar shadowed
+// locked, the system's hook must hand the drop BACK to core (`true`) and make
+// no macro — not take it over (`false`) and write to a locked bar. Read with
+// Hooks.call's own semantics: it returns false the moment a callback does.
+const direct = await page.evaluate(async (uuid) => {
+  const before = game.macros.size;
+  Object.defineProperty(ui.hotbar, "locked", { get: () => true, configurable: true });
+  let result;
+  try {
+    result = Hooks.call("hotbarDrop", ui.hotbar, { type: "Item", uuid }, 9);
+  } finally {
+    delete ui.hotbar.locked;
+  }
+  await new Promise((r) => setTimeout(r, 800));
+  return { result, made: game.macros.size - before };
+}, fx.weaponUuid);
+check("the system's hook hands a LOCKED bar's drop back to core, on any build",
+  direct.result === true && direct.made === 0, JSON.stringify(direct));
 
 /* ------------------------------------- 4. the positive controls still work */
 console.log("\nwhat must keep working");

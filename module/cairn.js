@@ -226,10 +226,13 @@ Hooks.once("ready", () => {
   // fire-and-forget, because nothing may wait on a warm-up.
   if (game.user.isGM) setTimeout(() => { prewarmGenerationPacks(); }, 3000);
   Hooks.on("hotbarDrop", (bar, data, slot) => {
-    // A LOCKED bar must not be written to, and this hook is the only thing
-    // standing in front of that. Core tests the hook's return value BEFORE its
-    // own lock check (`hotbar.mjs:488-490`) and `User#assignHotbarMacro` never
-    // consults `locked` at all — so `return false` here does not mean "I will
+    // A LOCKED bar must not be written to. ON 14.365-14.367 this hook is the
+    // only thing standing in front of that: core tests the hook's return value
+    // BEFORE its own lock check (`Hotbar#_onDrop`) and `User#assignHotbarMacro`
+    // never consults `locked` at all. The 14.368 client moved the lock AHEAD of
+    // the hook, so on the verified build this line is never reached for a
+    // locked bar — and stays, because the minimum is still 14.365 (review #34
+    // finding 14). Read there, `return false` here does not mean "I will
     // handle it", it means "skip the only enforcement there is", and a Warden
     // who locked their bar watched a dragged weapon land on it anyway. Handing
     // the drop BACK to core is the fix rather than refusing here, because core's
@@ -241,7 +244,7 @@ Hooks.once("ready", () => {
     // a wrapper that opened the macro's own edit sheet instead of running it.
     if (data?.type === "Macro") return true;
     // A RollTable too, and it is the same bug one document type along: core
-    // builds a macro that DRAWS from the table (`hotbar.mjs:499`), the wrapper
+    // builds a macro that DRAWS from the table (`Hotbar#_onDrop`), the wrapper
     // below builds one that opens its SHEET. This system ships encounter, spell
     // and Scars tables, so a Warden dragging one to the bar wants to roll it.
     // Nothing ever recorded a reason to override core here — the wrapper's
