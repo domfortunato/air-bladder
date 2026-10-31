@@ -46,22 +46,55 @@ const VALD_PACK = "air-bladder.journals-vald";
 let FESTIVALS = null;
 
 /**
+ * The live calendar's month lengths in `year` (the DISPLAY year, the one the
+ * flags store), leap week included when that year has one. `null` = no year
+ * known (a yearless festival): the standard lengths.
+ */
+const monthLengths = (year) => {
+  const cal = game.time.calendar;
+  const values = cal?.months?.values ?? [];
+  const leap = Number.isFinite(year) && !!cal?.isLeapYear?.(year - (cal?.years?.yearZero ?? 0));
+  return values.map((m) => (leap ? (m.leapDays ?? m.days) : m.days) ?? 0);
+};
+
+/**
  * A span is filed on EVERY day it covers, each carrying which day of the run it
  * is, so the grid marks all three days of the Splash Festival rather than only
- * the first. Month lengths come from the live calendar, so a run crossing a
- * month boundary lands where it should even though none does today.
+ * the first. Month lengths come from the live calendar.
+ *
+ * LEAP-AWARE, AND THE YEAR CARRIES (review #34 finding 82). The lengths used to
+ * be the plain `days`, so Reclamation (0 days, 6 in a leap year) had no room: a
+ * six-day event on Recognize filed days 2-6 on Mourning 1-5 of the SAME year,
+ * months before it began; and a run past the year's last day wrapped back to
+ * that same year's Mourning. Now an empty month is stepped over, and a run past
+ * the end goes into the next year — filed only when `keepOffset` asks for it,
+ * because each year's map is built separately (`marksByDay` asks for last
+ * year's spill with offset 1).
  */
-const spread = (map, { month, day, days, make }) => {
-  const months = (game.time.calendar?.months?.values ?? []).map((m) => m.days ?? 0);
+const spread = (map, { month, day, days, make, year = null, keepOffset = 0 }) => {
   const total = Math.max(1, Number(days) || 1);
+  let offset = 0;
+  let lengths = monthLengths(year);
   let m = month;
   let d = day;
   for (let i = 0; i < total; i++) {
-    const key = `${m}/${d}`;
-    if (!map.has(key)) map.set(key, []);
-    map.get(key).push(make(i + 1, total));
+    if (offset === keepOffset) {
+      const key = `${m}/${d}`;
+      if (!map.has(key)) map.set(key, []);
+      map.get(key).push(make(i + 1, total));
+    }
+    if (offset > keepOffset) break;
     d += 1;
-    if (d > (months[m] ?? 0)) { d = 1; m = (m + 1) % Math.max(1, months.length); }
+    // `guard`: a calendar whose every month is empty would otherwise spin.
+    for (let guard = 0; d > (lengths[m] ?? 0) && guard < 64; guard++) {
+      d = 1;
+      m += 1;
+      if (m >= lengths.length) {
+        m = 0;
+        offset += 1;
+        lengths = monthLengths(year === null ? null : year + offset);
+      }
+    }
   }
 };
 
@@ -281,9 +314,16 @@ export const marksByDay = async (year) => {
     const day = Number(f.valdDay);
     if (!Number.isInteger(month) || !Number.isInteger(day)) continue;
     const stamped = f.valdYear ?? null;
-    if (stamped !== null && Number(stamped) !== Number(year)) continue;
+    // This year's own run, and LAST year's run spilling past the year end —
+    // a yearly event has both; a stamped one has whichever its year gives.
+    const runs = [];
+    if (stamped === null || Number(stamped) === Number(year)) runs.push({ from: Number(year), keepOffset: 0 });
+    if (stamped === null || Number(stamped) === Number(year) - 1) runs.push({ from: Number(year) - 1, keepOffset: 1 });
+    if (!runs.length) continue;
     const watch = Number.isInteger(f.valdWatch) ? f.valdWatch : null;
-    spread(map, {
+    for (const run of runs) spread(map, {
+      year: run.from,
+      keepOffset: run.keepOffset,
       month: month - 1,
       day,
       days: f.valdDays,
