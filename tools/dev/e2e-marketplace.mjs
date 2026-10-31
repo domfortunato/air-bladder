@@ -681,6 +681,79 @@ try {
   toasts.buySeen.length === 1 && toasts.buySeen[0] === toasts.wantBuy
     ? ok(`a refused Buy says the item was not added: ${JSON.stringify(toasts.buySeen[0])}`)
     : fail(`a refused Buy: ${JSON.stringify(toasts.buySeen)} (wanted ${JSON.stringify(toasts.wantBuy)}; DropFailed is ${JSON.stringify(toasts.dropFailed)})`);
+
+  // "HP STAYS 0" IS SAID ONLY TO WHOM IT IS TRUE (review #34 finding 129).
+  // Encumbrance zeroes HP only where `livesByPlayerRules` (a character or a
+  // person role); a companion, monster or thing at capacity is in its normal
+  // state and keeps its HP. Four messages asked raw capacity instead: the
+  // sheet's Overburdened banner, the after-purchase toast, the leave-the-shop
+  // toast and the Add Fatigue toast. The same gestures on a COMPANION (must
+  // hear none of them) and a HIRELING (must hear all four — the witness that
+  // the leg can see them): Take one 1-slot item into a 1-slot pack, close the
+  // shop, render the sheet, Add Fatigue.
+  const hp0 = await page.evaluate(async () => {
+    const mkt = await import("/systems/air-bladder/module/marketplace.js");
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const poll = async (fn, ms = 8000) => { const t0 = Date.now(); while (Date.now() - t0 < ms) { const v = fn(); if (v) return v; await sleep(100); } return fn(); };
+    const catalog = await mkt.getMarketplaceCatalog();
+    const flat = catalog.categories.flatMap((c) => c.items);
+    const idx = flat.findIndex((d) => d.documentName !== "Actor" && d.type !== "transport"
+      && !d.system?.bulky && !d.system?.weightless && (d.system?.quantity ?? 1) === 1);
+    if (idx < 0) return { error: "no 1-slot row in the shop" };
+    const rowName = flat[idx].name;
+    const notes = ui.notifications;
+    const hadOwn = Object.hasOwn(notes, "warn");
+    const origWarn = notes.warn;
+    const warned = [];
+    const words = {
+      take: game.i18n.format("CAIRN.Notify.Overloaded", { name: rowName }),
+      left: game.i18n.localize("CAIRN.Notify.LeftOverloaded"),
+      fatigue: game.i18n.format("CAIRN.Notify.Overloaded", { name: game.i18n.localize("CAIRN.Fatigue") }),
+    };
+    const made = [];
+    const run = async (role) => {
+      const actor = await Actor.create({ name: `MKT HP0 ${role}`, type: "npc", system: { role, slots: 1 } });
+      made.push(actor);
+      warned.length = 0;
+      await mkt.openMarketplace(actor);
+      const take = await poll(() => document.querySelector(`.marketplace .mkt-take[data-idx="${idx}"]:not([disabled])`));
+      take?.click();
+      await poll(() => actor.items.size >= 1, 6000);
+      for (const w of [...foundry.applications.instances.values()]) {
+        if (w.element?.querySelector?.(".marketplace")) { try { await w.close(); } catch { /* gone */ } }
+      }
+      await sleep(300);
+      await actor.sheet.render(true);
+      await poll(() => actor.sheet.element?.querySelector('[data-action="addFatigue"]'));
+      const banner = !!actor.sheet.element?.querySelector(".status-banner.status-encumbered");
+      actor.sheet.element?.querySelector('[data-action="addFatigue"]')?.click();
+      await poll(() => actor.items.size >= 2, 6000);
+      await sleep(200);
+      await actor.sheet.close();
+      return {
+        took: actor.items.some((i) => i.name === rowName), full: actor.isEncumbered(), banner,
+        take: warned.includes(words.take), left: warned.includes(words.left), fatigue: warned.includes(words.fatigue),
+      };
+    };
+    try {
+      notes.warn = function (msg, ...rest) { warned.push(String(msg)); return origWarn.call(this, msg, ...rest); };
+      return { rowName, companion: await run("companion"), hireling: await run("hireling") };
+    } finally {
+      if (hadOwn) notes.warn = origWarn; else delete notes.warn;
+      for (const a of made) { try { await a.delete(); } catch { /* gone */ } }
+    }
+  });
+  if (hp0.error) fail(`HP-0 words: ${hp0.error}`);
+  else {
+    const w = hp0.hireling;
+    w.took && w.full && w.banner && w.take && w.left && w.fatigue
+      ? ok(`witness: a full HIRELING hears all four HP-0 messages (took ${hp0.rowName})`)
+      : fail(`witness: a full hireling should hear all four HP-0 messages: ${JSON.stringify(w)}`);
+    const c = hp0.companion;
+    c.took && c.full && !c.banner && !c.take && !c.left && !c.fatigue
+      ? ok("a full COMPANION hears none: no banner, no Take, leave-shop or Fatigue toast")
+      : fail(`a full companion keeps its HP, but was told it stays 0: ${JSON.stringify(c)}`);
+  }
 } catch (e) {
   fail(`${e.name}: ${e.message}`);
 } finally {
