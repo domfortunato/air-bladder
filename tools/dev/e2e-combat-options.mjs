@@ -1045,6 +1045,46 @@ try {
       };
     }
 
+    // ONE CHOICE PER CARD, EVEN INSIDE ONE ROUND TRIP (review #34 finding 132).
+    // `spent()` reads the card's flag, which reaches this client only when the
+    // server replies, so a double-click on the no-dialog path passed the check
+    // twice and minted two Fatigues; and a press on Mark Critical Damage inside
+    // the same window wrote `critical` beside the Fatigue. Both clicks go in
+    // synchronously, before any reply can land.
+    {
+      const a = await pcWith("ZZ Barg Double", [ORD]);
+      const m = await postSave(a, true);
+      out.made2.push(m.id);
+      const before = a.items.filter((i) => i.system?.isFatigue).length;
+      const btn = rowOf(m)?.querySelector(".take-fatigue-instead");
+      btn?.click();
+      btn?.click();
+      await sleep(2500);
+      bargain.double = {
+        pressed: !!btn,
+        fatigues: a.items.filter((i) => i.system?.isFatigue).length - before,
+        flag: m.getFlag(NS, "crawlerChoiceTaken") ?? null,
+      };
+    }
+    {
+      const a = await pcWith("ZZ Barg Both", [ORD]);
+      const m = await postSave(a, true);
+      out.made2.push(m.id);
+      const before = a.items.filter((i) => i.system?.isFatigue).length;
+      const row = rowOf(m);
+      const fat = row?.querySelector(".take-fatigue-instead");
+      const crit = row?.querySelector(".mark-critical-damage");
+      fat?.click();
+      crit?.click();
+      await sleep(2500);
+      bargain.both = {
+        pressed: !!fat && !!crit,
+        fatigues: a.items.filter((i) => i.system?.isFatigue).length - before,
+        critical: a._source.system.critical === true,
+        flag: m.getFlag(NS, "crawlerChoiceTaken") ?? null,
+      };
+    }
+
     // A LEGACY CARD carries `true` and is left alone: sealed, quiet, NO check,
     // because a default would silently mislabel history on exactly the cards
     // nothing ever repairs.
@@ -2122,6 +2162,13 @@ try {
       && b.edge?.encumberedAfter === true && b.edge?.flag === "fatigue" && b.edge?.critical === false
       ? ok(`AT 9 OF 10 there is NO picker: the Fatigue lands and leaves them overburdened (${b.edge.usedBefore} -> ${b.edge.usedAfter}) — only an ALREADY overburdened character is asked`)
       : fail(`edge: ${JSON.stringify(b.edge)} — the "would not fit" build asked here`);
+
+    b.double?.pressed && b.double?.fatigues === 1 && b.double?.flag === "fatigue"
+      ? ok("a DOUBLE-CLICK on Take a Fatigue instead takes ONE Fatigue (review #34 finding 132)")
+      : fail(`double-click on the Fatigue choice: ${JSON.stringify(b.double)} — the flag lands one round trip after the check, so the second click passed it`);
+    b.both?.pressed && b.both?.fatigues === 1 && b.both?.critical === false && b.both?.flag === "fatigue"
+      ? ok("Fatigue then Mark Critical Damage inside one round trip: the Fatigue alone stands")
+      : fail(`Fatigue then Critical in one round trip: ${JSON.stringify(b.both)} — both choices were written`);
 
     b.legacy?.sealed && b.legacy?.anyTick === false
       ? ok("a card already in a log (flag `true`) seals with NO check — a default would silently mislabel history on cards nothing ever repairs")
