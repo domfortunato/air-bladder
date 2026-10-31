@@ -169,8 +169,8 @@ const out = await page.evaluate(async (fx) => {
     // --- a match TWO FOLDERS DEEP (review #34 finding 68) --------------------
     // The translated pass marked only the entry's own folder, and core hides
     // every folder not marked — so a match inside a subfolder sat in a hidden
-    // parent. The take-over doors make exactly that shape. `checkVisibility()`
-    // and not the leg above's display test: a row inside a hidden ancestor
+    // parent. The take-over doors make exactly that shape. Every ANCESTOR is
+    // read, not the leg above's display test: a row inside a hidden ancestor
     // keeps its own computed display.
     {
       const outer = await Folder.create({ name: "ZZ Nest Outer", type: "Item" });
@@ -189,10 +189,43 @@ const out = await page.evaluate(async (fx) => {
         input.dispatchEvent(new Event("input", { bubbles: true }));
         await new Promise((r) => setTimeout(r, 600));
         const li = ui.items.element.querySelector(`[data-entry-id="${nested.id}"]`);
-        res.nestedVisible = !!li && li.checkVisibility();
+        // Hidden by an ANCESTOR inside the directory — not `checkVisibility()`,
+        // which is false for anything on an inactive sidebar tab.
+        const shownWithin = (el, root) => {
+          for (let n = el; n && n !== root; n = n.parentElement) {
+            if (getComputedStyle(n).display === "none") return false;
+          }
+          return true;
+        };
+        res.nestedVisible = !!li && shownWithin(li, ui.items.element);
         input.value = "";
         input.dispatchEvent(new Event("input", { bubbles: true }));
         await new Promise((r) => setTimeout(r, 400));
+        // NEGATIVE CONTROL, in-page: the pre-fix pass (the entry and ONLY its
+        // own folder marked) put back on this instance, the same query, and the
+        // same row must read hidden — the measurement can tell the two apart.
+        const wrapped = ui.items._matchSearchEntries;
+        const core = Object.getPrototypeOf(ui.items)._matchSearchEntries.bind(ui.items);
+        ui.items._matchSearchEntries = (q, entryIds, folderIds, autoExpandIds, ...rest) => {
+          core(q, entryIds, folderIds, autoExpandIds, ...rest);
+          if (q.test(foundry.applications.ux.SearchFilter.cleanQuery("ZZ-NEST-ANTORCHA"))) {
+            entryIds.add(nested.id);
+            folderIds.add(inner.id);
+            autoExpandIds.add(inner.id);
+          }
+        };
+        try {
+          input.value = "ZZ-NEST-ANTORCHA";
+          input.dispatchEvent(new Event("input", { bubbles: true }));
+          await new Promise((r) => setTimeout(r, 600));
+          const li2 = ui.items.element.querySelector(`[data-entry-id="${nested.id}"]`);
+          res.nestedControlHidden = !!li2 && !shownWithin(li2, ui.items.element);
+        } finally {
+          ui.items._matchSearchEntries = wrapped;
+          input.value = "";
+          input.dispatchEvent(new Event("input", { bubbles: true }));
+          await new Promise((r) => setTimeout(r, 400));
+        }
         await nested.delete();
         res.planted.itemIds = res.planted.itemIds.filter((id) => id !== nested.id);
       } finally {
@@ -313,6 +346,9 @@ else {
   Array.isArray(out.worldPackBg) && out.worldPackBg.includes(BG_ES) && !out.worldPackBg.includes(BG_EN)
     ? ok("a background in a WORLD Item pack reads its translated name", JSON.stringify(out.worldPackBg))
     : fail("a background in a world Item pack stayed English", JSON.stringify(out.worldPackBg));
+  out.nestedControlHidden === true
+    ? ok("NEGATIVE CONTROL: with the pre-fix pass put back in-page, the same row reads hidden")
+    : fail("the nested-folder control: the measurement cannot see a hidden ancestor", JSON.stringify(out.nestedControlHidden));
   out.nestedVisible === true
     ? ok("...and finds a row TWO folders deep, its ancestors opened")
     : fail("a translated match two folders deep stays hidden", JSON.stringify(out.nestedVisible));
