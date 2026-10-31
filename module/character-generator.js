@@ -4967,10 +4967,12 @@ const promptFromRows = (titleKey, rows, current = null, { windowId } = {}) => {
 
 /**
  * Pick a hireling's career by name, or Random (which defers to the die's own
- * path so "random" means the same thing both ways). Applies on choice.
+ * path so "random" means the same thing both ways). Applies on choice, inside
+ * `serialize` — the sheet passes its `_rerolling` guard (review #34 finding
+ * 237), so the list runs unguarded and only the swap is held.
  * @param {CairnActor} actor @returns {Promise<CairnActor>}
  */
-export const promptHirelingCareer = async (actor, { windowId } = {}) => {
+export const promptHirelingCareer = async (actor, { windowId, serialize = (apply) => apply() } = {}) => {
   const careers = await getNpcCareers2e();
   if (!careers.length) return actor;
   const current = String(actor.system.profession ?? "").trim();
@@ -4985,13 +4987,13 @@ export const promptHirelingCareer = async (actor, { windowId } = {}) => {
     }));
   const choice = await promptFromRows("CAIRN.PickCareer", rows, current, { windowId });
   if (!choice) return actor;
-  if (choice === BG_RANDOM) return rerollHirelingCareer(actor);
+  if (choice === BG_RANDOM) return serialize(() => rerollHirelingCareer(actor));
   // CONFIRMING WHAT IS HELD CHANGES NOTHING (review #34 finding 227). The
   // picker opens on the current career with Choose as its default, and the
   // apply re-dealt it: HP and abilities reset to the career's, `critical`
   // cleared. The die's own contract is a DIFFERENT career; so is this.
   if (choice === current) return actor;
-  return pickHirelingCareer(actor, choice);
+  return serialize(() => pickHirelingCareer(actor, choice));
 };
 
 /**
@@ -4999,9 +5001,10 @@ export const promptHirelingCareer = async (actor, { windowId } = {}) => {
  * the die's own path. The VALUE is the raw English row text — the stored
  * string is the backgroundGear match key — while the label shows the
  * translation, exactly the read/stored split the sheet input already does.
+ * Applies inside `serialize`, as promptHirelingCareer does.
  * @param {CairnActor} actor @returns {Promise<CairnActor>}
  */
-export const promptNpcBackground = async (actor, { windowId } = {}) => {
+export const promptNpcBackground = async (actor, { windowId, serialize = (apply) => apply() } = {}) => {
   // The SAME resolution the die uses — world first — or the list would show the
   // shipped rows while the die rolled the Warden's own table.
   const decl = CONFIG.Cairn?.npcGenerator?.background ?? "";
@@ -5013,11 +5016,11 @@ export const promptNpcBackground = async (actor, { windowId } = {}) => {
     .sort((a, b) => a.label.localeCompare(b.label, game.i18n.lang));
   const choice = await promptFromRows("CAIRN.PickBackground", rows, current, { windowId });
   if (!choice) return actor;
-  if (choice === BG_RANDOM) return rerollNpcBackground(actor);
+  if (choice === BG_RANDOM) return serialize(() => rerollNpcBackground(actor));
   // Confirming the Background already held re-dealt its gear (review #34
   // finding 227) — see promptHirelingCareer.
   if (choice === current) return actor;
-  return pickNpcBackground(actor, choice);
+  return serialize(() => pickNpcBackground(actor, choice));
 };
 
 /**

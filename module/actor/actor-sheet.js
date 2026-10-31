@@ -3785,8 +3785,22 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    */
   static async #onPickProfession(event) {
     event.preventDefault();
-    if (this.actor.npcRole === "npc") await promptNpcBackground(this.actor, { windowId: this.window?.windowId });
-    else await promptHirelingCareer(this.actor, { windowId: this.window?.windowId });
+    // The die's guard, in #onPickBond's shape (review #34 finding 237): refuse
+    // up front, and hold the flag around the apply only — the list itself is
+    // not modal. The apply is the die's own delete-then-create swap.
+    if (this._rerolling) return;
+    const serialize = async (apply) => {
+      if (this._rerolling) return this.actor;
+      this._rerolling = true;
+      try {
+        return await apply();
+      } finally {
+        this._rerolling = false;
+      }
+    };
+    const options = { windowId: this.window?.windowId, serialize };
+    if (this.actor.npcRole === "npc") await promptNpcBackground(this.actor, options);
+    else await promptHirelingCareer(this.actor, options);
   }
 
   /** Faction picker: the same world-first table the Faction die rolls.
@@ -5041,6 +5055,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
   static async #onPickBackground(event) {
     event.preventDefault();
     if (!this._mayChangeBackground()) return;   // don't offer a list we can't act on
+    if (this._rerolling) return;   // refuse UP FRONT too — see #onPickBond (review #34 finding 237)
     const result = await promptBackground(
       this.actor.system.contentSource || "2e",
       this.actor.system.backgroundUuid,
@@ -5089,6 +5104,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    *  other gear to reconcile. @this {CairnActorSheet} */
   static async #onPickFailedCareer(event) {
     event.preventDefault();
+    if (this._rerolling) return;   // refuse UP FRONT too — see #onPickBond (review #34 finding 237)
     const result = await promptFailedCareer(this.actor.system.failedCareer,
       { windowId: this.window?.windowId, exclude: this.actor.system.background });
     if (!result) return;                    // cancelled
@@ -5110,7 +5126,17 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    *  @this {CairnActorSheet} */
   static async #onRollFailedCareerItem(event) {
     event.preventDefault();
-    await this._grantFailedCareerItem(this.actor.system.failedCareer);
+    // _grantFailedCareerItem's own flag is not enough (review #34 finding
+    // 237): pressed during #onRollFailedCareer's name write, this die dealt
+    // the OLD career's keepsake, and the swap's grant then returned early on
+    // that same flag — career B kept career A's keepsake.
+    if (this._rerolling) return;
+    this._rerolling = true;
+    try {
+      await this._grantFailedCareerItem(this.actor.system.failedCareer);
+    } finally {
+      this._rerolling = false;
+    }
   }
 
   /* -------------------------------------------- */
