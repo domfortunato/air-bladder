@@ -38,7 +38,7 @@ const NPC_TRAIT_LABELS = {
   vice: "CAIRN.Trait.Vice",
 };
 import { atConnectionLimit, maxConnections, connectionsUiEnabled, brokenOwnershipShape, OWNERSHIP_SYNC_FLAG } from "../connections.js";
-import { findMatchingStack, rationsLeft, rationToEat, capacityVerdict } from "../gear.js";
+import { findMatchingStack, rationsLeft, rationToEat, capacityVerdict, landingNeed } from "../gear.js";
 import {
   canOfferItem, promptOfferTarget, createItemOffer, offerFromDrop,
   canReceiveOffer, settleOwnOffer,
@@ -5808,8 +5808,11 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       return null;
     }
 
-    const s = originalItem.system ?? {};
-    const need = s.bulky ? 2 : s.weightless ? 0 : 1;
+    // Priced on the branch the drop will take (review #34 finding 156): one
+    // more of a matching stack costs what one of THAT stack costs, so a
+    // one-slot Bag joining a Bulky "Bag" adds two. The offer's confirm and its
+    // delivery door ask the same `landingNeed`.
+    const need = landingNeed(this.actor, originalItem);
     if (!this.actor.livesByPlayerRules) {
       if (capacityVerdict(this.actor, need) === "full") {
         ui.notifications.warn(
