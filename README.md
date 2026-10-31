@@ -70,7 +70,7 @@ Pre-generated Player Characters are also available on <a href="https://domfortun
 
 ## Status
 
-Early, active development. Send feedback and art! The system is being rebuilt on the original's **editable-compendium** architecture — gear lives in Item compendia that a Warden can edit in one place, and character generation and the marketplace reference those packs by name.
+Early, active development. Send feedback and art! The shipped compendiums are templates: copy what you want to change into your world (the Create Custom… buttons do it in one click), and generation and the marketplace read your world's copy first. An update replaces the shipped compendiums and never touches your copies.
 
 ## Languages
 

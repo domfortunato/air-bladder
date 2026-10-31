@@ -101,7 +101,7 @@ También hay Personajes Jugadores pregenerados disponibles en la <a href="https:
 
 ## Estado
 
-Desarrollo temprano y activo. ¡Envía comentarios y arte! El sistema se está reconstruyendo sobre la arquitectura de **compendios editables** del original: el equipo vive en compendios de objetos que el Guardián puede editar en un solo lugar, y la generación de personajes y el mercado hacen referencia a esos compendios por su nombre.
+Desarrollo temprano y activo. ¡Envía comentarios y arte! Los compendios incluidos son plantillas: copia en tu mundo lo que quieras cambiar (botones como **Crear un mercado personalizado…** lo hacen con un clic), y la generación y el mercado leen primero la copia de tu mundo. Una actualización reemplaza los compendios incluidos y nunca toca tus copias.
 
 ## Idiomas
 
