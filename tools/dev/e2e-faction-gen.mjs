@@ -300,15 +300,18 @@ try {
   // faction typed into Name was missing from the list, and one typed into
   // Description arrived as literal tags.
   {
-    await page.evaluate(async (name) => {
+    // Stamped like plantTables' (review #34 finding 254): the sweep removes only
+    // stamped tables now, and this plant was the one that skipped the helper —
+    // left behind, it was the second world Agenda table every later leg read.
+    await page.evaluate(async ({ name, fixture }) => {
       await CONFIG.RollTable.documentClass.create({
-        name, formula: "1d2",
+        name, formula: "1d2", flags: { "air-bladder": { probeFixture: fixture } },
         results: [
           { type: "text", name: "ZZ-NAME-ONLY", description: "", range: [1, 1], weight: 1 },
           { type: "text", description: "<p>ZZ-PARA-ROW</p>", range: [2, 2], weight: 1 },
         ],
       });
-    }, AGENDA_TABLE);
+    }, { name: AGENDA_TABLE, fixture: FIXTURE });
     const id = await openDialog();
     await clickIn(id, 'input[name="roll"]');
     const agenda = await page.evaluate((id) => {
