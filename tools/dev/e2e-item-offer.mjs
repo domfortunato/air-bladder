@@ -1827,6 +1827,38 @@ try {
         asked === 1 && held4.qty["ZZ Consent Sack"] === 1 && !held4.encumbered && state4 === "open",
         JSON.stringify({ asked, ...held4, state: state4 }));
     } else fail("the bulky-stack leg's fixtures did not stand up", JSON.stringify({ s4, p4 }));
+
+    // S5 (finding 156, the drag). The other route into a stack, priced by the
+    // same test: a one-slot Bag dragged onto a crate whose own Bag is Bulky
+    // adds two, so a crate with ONE slot free refuses it — as the offer would.
+    const s5 = await gm.evaluate(async () => {
+      const crate = await Actor.implementation.create({
+        name: "ZZ Consent Bin", type: "npc", system: { role: "container", slots: 4 },
+      });
+      await crate.createEmbeddedDocuments("Item", [
+        { name: "ZZ Consent Bag", type: "item", system: { bulky: true } },
+        { name: "ZZ Consent Bin Filler", type: "item" },
+      ]);
+      const src = await Actor.implementation.create({ name: "ZZ Consent Dragger", type: "character" });
+      const [bag] = await src.createEmbeddedDocuments("Item", [{ name: "ZZ Consent Bag", type: "item" }]);
+      const at = `${crate.system.slotsUsed}/${crate.system.slotsMax}`;
+      await crate.sheet.render(true);
+      for (let i = 0; i < 30 && !(crate.sheet.element instanceof HTMLElement); i++) {
+        await new Promise((r) => setTimeout(r, 100));
+      }
+      const dt = new DataTransfer();
+      dt.setData("text/plain", JSON.stringify({ type: "Item", uuid: bag.uuid }));
+      try { await crate.sheet._onDrop(new DragEvent("drop", { dataTransfer: dt })); } catch { /* refused */ }
+      await new Promise((r) => setTimeout(r, 900));
+      await crate.sheet.close();
+      return {
+        at, after: `${crate.system.slotsUsed}/${crate.system.slotsMax}`,
+        qty: crate.items.find((i) => i.name === "ZZ Consent Bag")?.system.quantity ?? 0,
+        srcKept: !!src.items.get(bag.id),
+      };
+    });
+    check("a drag that merges into a Bulky stack is priced as one more of that stack: one slot free refuses it",
+      s5.at === "3/4" && s5.qty === 1 && s5.after === "3/4" && s5.srcKept, JSON.stringify(s5));
   } finally {
     await disarmConfirm().catch(() => {});
   }
