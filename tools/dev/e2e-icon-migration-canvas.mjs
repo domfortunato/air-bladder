@@ -137,6 +137,15 @@ try {
     };
   }, planted);
 
+  /* --- the STORED path needs no canvas (review #34 finding 38) --------------- */
+  // Read regardless of the control: it is the document's `texture.src`, and
+  // this is the only probe that checks the migration rewrites a scene TOKEN's
+  // path (dev:icons plants an Item). It used to sit inside the drawn-control
+  // branch, so a box whose canvas did not draw skipped it as well.
+  after.subject.stored === GOOD
+    ? ok(`migration rewrote the stored token path (${after.subject.stored})`)
+    : fail(`stored token path is "${after.subject.stored}", expected "${GOOD}"`);
+
   /* --- control first: is the environment even capable? ---------------------- */
 
   const controlOk = after.canvasReady && after.control.placed && after.control.drawn;
@@ -154,10 +163,6 @@ try {
     after.viewedScene === planted.sceneId
       ? ok("the probe scene is the one the canvas drew")
       : fail(`canvas drew a different scene (${after.viewedScene})`);
-
-    after.subject.stored === GOOD
-      ? ok(`migration rewrote the stored token path (${after.subject.stored})`)
-      : fail(`stored token path is "${after.subject.stored}", expected "${GOOD}"`);
 
     after.subject.placed
       ? ok("subject token exists on the token layer")
@@ -207,4 +212,6 @@ console.log(
     : inconclusive ? "\nicon canvas probe INCONCLUSIVE — control did not draw"
       : "\nicon canvas probe passed",
 );
-process.exit(failed ? 1 : 0);
+// INCONCLUSIVE IS NOT A PASS (review #34 finding 38): exit 2, so the fleet
+// scores it red rather than counting a canvas that never drew as proof.
+process.exit(failed ? 1 : inconclusive ? 2 : 0);
