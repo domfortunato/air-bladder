@@ -277,6 +277,62 @@ try {
   }
   await sweep(beforeC);
 
+  /* ---- leg (f): what lands in her character is in HER language --------- */
+  // Review #34 finding 244. The relay runs `kettlewrightToActorData` on the
+  // WARDEN's client, so the two strings it writes into the character — the
+  // default name (an export with none) and the "Traits (imported):" label
+  // (a traits sentence that does not parse) — came out in the Warden's
+  // language. Alice's `localize` is shadowed for those two keys on HER page
+  // only (localize is an ordinary method and assigns; restored after), and the
+  // import goes through the real button, as leg (a)'s does: the character the
+  // Warden's client mints must carry her strings. The same file path leg (a)'s
+  // filechooser listener already sets, rewritten.
+  if (hasButton) {
+    await setSwitch(true);
+    await alice.waitForTimeout(1200);
+    fs.writeFileSync(tmp, JSON.stringify(sampleJson({ name: "", traits: "ZZ unparseable trait words" })));
+    const beforeF = await snapshot();
+    await alice.evaluate(() => {
+      const real = game.i18n.localize.bind(game.i18n);
+      const mine = { "CAIRN.KWImport.DefaultName": "ZZ-ALICE-NAME", "CAIRN.KWImport.TraitsLabel": "ZZ-ALICE-TRAITS" };
+      window.__abRealLocalize = real;
+      game.i18n.localize = (k, ...a) => mine[k] ?? real(k, ...a);
+    });
+    let landed = null;
+    try {
+      await alice.evaluate(() => document.querySelector("#cairn-character-gen-button .import-kettlewright-button").click());
+      await alice.waitForSelector('[data-action="import"]', { timeout: 10000 }).catch(() => null);
+      await alice.evaluate(() => document.querySelector('[data-action="import"]')?.click());
+      const tF = Date.now();
+      while (Date.now() - tF < 90000 && !landed) {
+        landed = await gm.evaluate((before) => {
+          const a = game.actors.find((x) => x.type === "character" && !before.actors.includes(x.id));
+          return a ? { name: a.name, token: a.prototypeToken?.name, notes: String(a.system.notes ?? "") } : null;
+        }, beforeF);
+        if (!landed) await new Promise((r) => setTimeout(r, 500));
+      }
+    } finally {
+      await alice.evaluate(() => {
+        if (window.__abRealLocalize) game.i18n.localize = window.__abRealLocalize;
+        delete window.__abRealLocalize;
+      });
+      fs.writeFileSync(tmp, JSON.stringify(sampleJson()));
+    }
+    const gmSays = await gm.evaluate(() => game.i18n.localize("CAIRN.KWImport.DefaultName"));
+    !landed
+      ? fail("leg (f): no actor appeared after Alice's nameless import")
+      : landed.name === "ZZ-ALICE-NAME" && landed.token === "ZZ-ALICE-NAME" && /ZZ-ALICE-TRAITS/.test(landed.notes)
+        ? ok("a nameless import is named, and its traits labelled, in the REQUESTER's language (review #34 finding 244)")
+        : fail(`the relayed import wrote the Warden's language into Alice's character (Warden reads "${gmSays}"): ${JSON.stringify(landed)}`);
+    await alice.waitForTimeout(1500);   // the summary and sheet land async
+    await alice.evaluate(async () => {
+      for (const app of [...foundry.applications.instances.values()]) {
+        if (app.element?.querySelector?.(".kwi-summary") || app.document?.documentName === "Actor") await app.close().catch(() => {});
+      }
+    });
+    await sweep(beforeF);
+  }
+
   /* ---- leg (e): a payload that is not a character is refused, answered -- */
   // 501 items is a grind aimed at the sequential import loop, not a
   // character; the broker's rebuild (sanitizeKettlewrightExport) refuses it

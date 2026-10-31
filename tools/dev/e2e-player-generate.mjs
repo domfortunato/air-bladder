@@ -371,6 +371,15 @@ try {
   // The emit is read by COUNT DIFFERENCE below, so capture the count first.
   const wiresBefore = await alice.evaluate(() =>
     game._probePayloads.filter((p) => p.action === "generatePC").length);
+  // HER LANGUAGE (review #34 finding 244): on the relay the Warden's client
+  // mints the empty sheet, and named it in the Warden's language. Alice's
+  // `localize` is shadowed for the name's key on HER page (localize assigns;
+  // restored once the character has arrived), so the sheet must carry hers.
+  await alice.evaluate(() => {
+    const real = game.i18n.localize.bind(game.i18n);
+    window.__abRealLocalize = real;
+    game.i18n.localize = (k, ...a) => (k === "CAIRN.Blank.NameCharacter" ? "ZZ-ALICE-BLANK" : real(k, ...a));
+  });
   await clickGenerate();
   const answered = await alice.evaluate(async (prior) => {
     const seen = new Set(prior);
@@ -420,6 +429,10 @@ try {
       : fail(`the generatePC emit did not carry blank: ${JSON.stringify(wire)}`);
   }
   const arrivedEmpty = await gmPollNewCharacter(before);
+  await alice.evaluate(() => {
+    if (window.__abRealLocalize) game.i18n.localize = window.__abRealLocalize;
+    delete window.__abRealLocalize;
+  });
   arrivedEmpty
     ? ok("unticked: a character still arrives")
     : fail("unticked: no character appeared within 45s");
@@ -438,6 +451,9 @@ try {
     shape && shape.items === 0 && !shape.background && shape.hp === 3 && shape.generationEnabled === true
       ? ok("   …and it is EMPTY — the checkbox crossed the wire", `"${shape.name}", HP ${shape.hp}`)
       : fail(`the relayed character was not empty: ${JSON.stringify(shape)}`);
+    shape?.name === "ZZ-ALICE-BLANK"
+      ? ok("   …and named in the REQUESTER's language (review #34 finding 244)", `"${shape.name}"`)
+      : fail(`the empty sheet was named in the Warden's language, not Alice's: ${JSON.stringify(shape?.name)}`);
   }
 
   // ---- The marketplace switch, on the Alice-owned character just minted ---
