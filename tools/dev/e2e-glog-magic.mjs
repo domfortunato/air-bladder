@@ -316,6 +316,16 @@ try {
       out.packItemId = pb.id;
       await pack.configure({ locked: true });
       out.packLockedAtPlant = game.packs.get(out.packId)?.locked === true;
+
+      // A world ACTOR pack holding a caster with a canon book (review #34
+      // finding 96): the sweep walked Item packs only, and the arrival seam
+      // never sees items nested inside an Actor import.
+      const apack = await foundry.documents.collections.CompendiumCollection.createCompendium({ label: "zz-glog-actor-pack", type: "Actor" });
+      out.actorPackId = apack.collection;
+      const caster = await Actor.create({ name: "zz-glog-pack-caster", type: "character" }, { pack: apack.collection });
+      const [cb] = await caster.createEmbeddedDocuments("Item", [mkBook(NAME, canonText)]);
+      out.packActorId = caster.id;
+      out.packActorBookId = cb.id;
       return out;
     }, { NAME, canonText: pre.canonText, ALIAS });
 
@@ -421,7 +431,10 @@ try {
       } : null;
       const pack = game.packs.get(p.packId);
       const packItem = pack ? await pack.getDocument(p.packItemId).catch(() => null) : null;
+      const apack = game.packs.get(p.actorPackId);
+      const packActor = apack ? await apack.getDocument(p.packActorId).catch(() => null) : null;
       return {
+        packActorBook: shape(packActor?.items.get(p.packActorBookId)),
         world: shape(game.items.get(p.worldItemId)),
         unique: shape(game.items.get(p.uniqueId)),
         alias: shape(game.items.get(p.aliasItemId)),
@@ -442,7 +455,7 @@ try {
     let state = null, waited = 0;
     for (; waited < 90000; waited += 500) {
       state = await readPlanted();
-      const done = [state.world, state.ownedBook, state.ownedScroll, state.tokenBook, state.packBook, state.unique, state.alias]
+      const done = [state.world, state.ownedBook, state.ownedScroll, state.tokenBook, state.packBook, state.packActorBook, state.unique, state.alias]
         .every((s) => s && s.scroll === true)
         && state.world.desc === pre.glogText
         && state.packLocked === true;
@@ -465,6 +478,7 @@ try {
     swept("owned SPENT scroll (uses untouched)", state.ownedScroll, { wantGlog: true, wantDesc: pre.glogText, wantUsesValue: 0 });
     swept("unlinked-token delta book", state.tokenBook, { wantGlog: true, wantDesc: pre.glogText });
     swept("locked world-pack book", state.packBook, { wantGlog: true, wantDesc: pre.glogText });
+    swept("a world ACTOR pack caster's book (review #34 finding 96)", state.packActorBook, { wantGlog: true, wantDesc: pre.glogText });
     swept("no-counterpart custom spell (form only, own words kept)", state.unique,
       { wantGlog: false, wantDesc: "<p>zz unique wording with no GLOG counterpart</p>" });
     swept(`renamed-pair book "${ALIAS.name}" (swapped via the alias)`, state.alias,
@@ -613,6 +627,12 @@ try {
         await tryDel("renamed-pair item", () => game.items.get(p.aliasItemId)?.delete());
         await tryDel("world pack", async () => {
           const pk = game.packs.get(p.packId);
+          if (!pk) return;
+          await pk.configure({ locked: false });
+          await pk.deleteCompendium();
+        });
+        await tryDel("world actor pack", async () => {
+          const pk = game.packs.get(p.actorPackId);
           if (!pk) return;
           await pk.configure({ locked: false });
           await pk.deleteCompendium();

@@ -538,6 +538,56 @@ try {
   JSON.stringify(s.shopGear) === JSON.stringify([A, B, C])
     ? ok("and the shop reads the aisle in the new order")
     : fail(`shop Gear aisle after the sort: ${JSON.stringify(s.shopGear)} (want ${JSON.stringify([A, B, C])})`);
+
+  // TWO BUYS IN ONE TICK (review #34 finding 91). Only the clicked button was
+  // disabled, so a Buy on a second row inside one round trip ran beside the
+  // first: both passed the gold check against the pre-purchase balance, and
+  // the second's gold write could overwrite the first's payment or take the
+  // purse negative. Gold here covers either row and not both.
+  const twin = await page.evaluate(async () => {
+    const mkt = await import("/systems/air-bladder/module/marketplace.js");
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const poll = async (fn, ms = 8000) => { const t0 = Date.now(); while (Date.now() - t0 < ms) { const v = fn(); if (v) return v; await sleep(100); } return fn(); };
+    const actor = await Actor.create({ type: "character", name: "MKT Twin Probe", system: { gold: 0 } });
+    const closeShops = async () => {
+      for (const w of [...foundry.applications.instances.values()]) {
+        if (w.element?.querySelector?.(".marketplace")) { try { await w.close(); } catch { /* gone */ } }
+      }
+      await sleep(300);
+    };
+    try {
+      // Read two prices first, then reopen with the purse set — the buttons'
+      // affordability is drawn when the shop renders.
+      await mkt.openMarketplace(actor);
+      await poll(() => document.querySelector(".marketplace .mkt-row"));
+      const priced = [...document.querySelectorAll(".marketplace .mkt-row")]
+        .map((r) => ({ name: r.dataset.name, cost: Number(r.dataset.cost) }))
+        .filter((x) => Number.isFinite(x.cost) && x.cost > 1);
+      await closeShops();
+      const [pa, pb] = priced;
+      if (!pa || !pb) return { error: "fewer than two priced rows" };
+      await actor.update({ "system.gold": pa.cost + pb.cost - 1 });
+      await mkt.openMarketplace(actor);
+      await poll(() => document.querySelector(".marketplace .mkt-row"));
+      await sleep(400);
+      const rowOf = (n) => [...document.querySelectorAll(".marketplace .mkt-row")].find((r) => r.dataset.name === n);
+      const a = { r: rowOf(pa.name), cost: pa.cost };
+      const b = { r: rowOf(pb.name), cost: pb.cost };
+      const before = actor.items.size;
+      const goldBefore = actor.system.gold;
+      a.r.querySelector(".mkt-buy").click();
+      b.r.querySelector(".mkt-buy").click();
+      await sleep(3000);
+      return { goldBefore, goldAfter: actor.system.gold, gained: actor.items.size - before, costs: [a.cost, b.cost] };
+    } finally {
+      await closeShops();
+      await actor.delete();
+    }
+  });
+  !twin.error && twin.gained === 1 && twin.goldAfter >= 0
+    && twin.costs.some((c) => twin.goldAfter === twin.goldBefore - c)
+    ? ok("two Buys in one tick buy once and charge once", JSON.stringify(twin))
+    : fail(`two Buys in one tick: ${JSON.stringify(twin)}`);
 } catch (e) {
   fail(`${e.name}: ${e.message}`);
 } finally {

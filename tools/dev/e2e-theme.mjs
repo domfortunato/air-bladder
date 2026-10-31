@@ -630,6 +630,65 @@ try {
     console.log("");
   }
   if (WANT_SHOTS) console.log(`screenshots: ${outDir}\n`);
+
+  // THREE COLOURS THE SCHEME MUST NOT MOVE, or must (review #34 findings 98,
+  // 99, 101), measured as computed values in DARK with LIGHT as the control:
+  // - the shown-table chat card is parchment in both themes, so its range
+  //   column and formula line keep the light ink (#4a4335) in dark;
+  // - a locked background's Details headings are not core's 28px Signika;
+  // - the overburdened-by-gold border is the palette's peril red, which has a
+  //   dark value, not core's one fixed maroon.
+  const probeColours = async () => page.evaluate(async () => {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const out = {};
+    // (98) the card's markup, posted as chat content the way the Dashboard does.
+    const msg = await ChatMessage.create({
+      content: '<div class="cairn-shown-table"><div class="cairn-show-title">ZZ Theme Table</div>'
+        + '<div class="cairn-show-formula">Rolled on 1d6</div>'
+        + '<div class="cairn-show-row"><span class="cairn-show-range">1-2</span><span class="cairn-show-text">x</span></div></div>',
+      whisper: [game.user.id],
+    });
+    for (let i = 0; i < 30 && !document.querySelector(`[data-message-id="${msg.id}"] .cairn-show-range`); i++) await sleep(150);
+    const range = document.querySelector(`[data-message-id="${msg.id}"] .cairn-show-range`);
+    out.range = range ? getComputedStyle(range).color : null;
+    await msg.delete();
+    // (99) a shipped background's read-only Details tab.
+    const pack = game.packs.get("air-bladder.backgrounds-2e");
+    const bg = pack ? (await pack.getDocuments())[0] : null;
+    if (bg) {
+      await bg.sheet.render(true);
+      for (let i = 0; i < 30 && !bg.sheet.element?.querySelector(".background-details h3"); i++) await sleep(150);
+      const h3 = bg.sheet.element?.querySelector(".background-details h3");
+      out.bgH3 = h3 ? getComputedStyle(h3).fontSize : null;
+      await bg.sheet.close();
+    }
+    // (101) the gold counter of an actor whose coins overburden it.
+    const rich = await Actor.create({ name: "ZZ Theme Rich", type: "character", system: { gold: 5000 } });
+    await rich.sheet.render(true);
+    for (let i = 0; i < 30 && !rich.sheet.element?.querySelector(".overburdened-gold"); i++) await sleep(150);
+    const gold = rich.sheet.element?.querySelector(".overburdened-gold");
+    out.goldBorder = gold ? getComputedStyle(gold).borderTopColor : null;
+    await rich.sheet.close();
+    await rich.delete();
+    return out;
+  });
+  await setScheme(page, "light");
+  await page.waitForTimeout(500);
+  const lightC = await probeColours();
+  await setScheme(page, "dark");
+  await page.waitForTimeout(500);
+  const darkC = await probeColours();
+  await restoreScheme(page);
+  const verdict = (cond, label, detail) => {
+    console.log(`  ${cond ? "ok  " : "FAIL"}  ${label}  ${detail}`);
+    if (!cond) failed = true;
+  };
+  verdict(lightC.range && darkC.range === lightC.range,
+    "the shown-table chat card keeps its light ink in dark (the tile is parchment)", JSON.stringify({ lightC, darkC }));
+  verdict(darkC.bgH3 && darkC.bgH3 !== "28px" && lightC.bgH3 !== "28px",
+    "a locked background's Details headings are not core's 28px", JSON.stringify({ light: lightC.bgH3, dark: darkC.bgH3 }));
+  verdict(darkC.goldBorder && darkC.goldBorder !== "rgb(117, 0, 3)" && lightC.goldBorder !== "rgb(117, 0, 3)",
+    "the overburdened-gold border is the theme's peril red, not core's fixed maroon", JSON.stringify({ light: lightC.goldBorder, dark: darkC.goldBorder }));
 } catch (e) {
   console.error(`  FAIL  ${e.name}: ${e.message}`);
   failed = true;

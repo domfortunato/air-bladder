@@ -535,6 +535,68 @@ try {
     ? ok("a rejected button injection is caught at the call site", "named in console, no unhandled rejection")
     : fail("a rejected button injection is caught at the call site", JSON.stringify(inj));
 
+  /* --- 12. no-replacement draws, twenty tokens, and the VIEWED level ------- */
+  // Review #34 findings 88, 89, 90, on the probe's own scene and a table of
+  // its own (swept in this leg's finally):
+  // - a table set to draw WITHOUT replacement marks the drawn row before the
+  //   card renders, and the rows were re-derived through core's drawn filter,
+  //   so the very row the card shows was lost and no button appeared;
+  // - past sixteen tokens the cluster scaled the same sixteen offsets, so a
+  //   row of twenty stacked tokens on sixteen cells;
+  // - with no `level`, every token landed on the scene's INITIAL level, so
+  //   viewing an upper level showed the toast and no tokens.
+  const big = await gm.evaluate(async ({ GOBLIN_UUID, sceneId }) => {
+    const enc = await import("/systems/air-bladder/module/encounters.js");
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const scene = game.scenes.get(sceneId);
+    const out = {};
+    let table = null, upper = null;
+    try {
+      [upper] = await scene.createEmbeddedDocuments("Level", [{ name: "ZZ Enc Upper", elevation: { bottom: 20, top: 40 } }]);
+      await scene.view({ level: upper.id });
+      for (let i = 0; i < 40 && canvas.level?.id !== upper.id; i++) await sleep(150);
+      out.viewing = canvas.level?.id === upper.id;
+      table = await RollTable.create({
+        name: "ZZ Enc NoRepeat", formula: "1d1", replacement: false, displayRoll: true,
+        results: [{ type: "text", description: `20 @UUID[${GOBLIN_UUID}]{Goblins} pour in.`, range: [1, 1], weight: 1 }],
+      });
+      const before = new Set(game.messages.map((m) => m.id));
+      await table.draw();
+      let msg = null;
+      for (let i = 0; i < 40 && !msg; i++) {
+        msg = game.messages.contents.find((m) => !before.has(m.id) && m.getFlag("core", "RollTable") === table.id);
+        if (!msg) await sleep(150);
+      }
+      await sleep(600);
+      out.rowDrawn = table.results.contents[0]?.drawn === true;
+      out.button = !!document.querySelector(`[data-message-id="${msg?.id}"] .encounter-spawn`);
+      const tokensBefore = new Set(scene.tokens.map((t) => t.id));
+      if (msg) await enc.spawnEncounterFromMessage(msg);
+      const mine = scene.tokens.contents.filter((t) => !tokensBefore.has(t.id));
+      out.placed = mine.length;
+      out.cells = new Set(mine.map((t) => `${t.x},${t.y}`)).size;
+      out.onUpper = mine.length > 0 && mine.every((t) => t.level === upper.id);
+      await scene.deleteEmbeddedDocuments("Token", mine.map((t) => t.id));
+      for (const m of game.messages.filter((m) => !before.has(m.id))) await m.delete();
+    } finally {
+      if (table) await table.delete();
+      if (upper) {
+        await scene.view({ level: scene.initialLevel?.id ?? undefined });
+        await scene.deleteEmbeddedDocuments("Level", [upper.id]);
+      }
+    }
+    return out;
+  }, { GOBLIN_UUID, sceneId: fx.sceneId });
+  big.rowDrawn && big.button
+    ? ok("a draw from a no-replacement table still offers Add to scene", JSON.stringify(big))
+    : fail("a draw from a no-replacement table offers no Add to scene", JSON.stringify(big));
+  big.placed === 20 && big.cells === 20
+    ? ok("twenty tokens land on twenty cells, none stacked", JSON.stringify(big))
+    : fail("tokens past sixteen stack on earlier cells", JSON.stringify(big));
+  big.viewing && big.onUpper
+    ? ok("encounter tokens land on the level being VIEWED", JSON.stringify(big))
+    : fail("encounter tokens landed on another level", JSON.stringify(big));
+
   /* ------------------------------------------------------- console errors -- */
   const gmErrs = gmErrors.filter((e) => !/ZZ Enc/.test(e));
   gmErrs.length === 0 ? ok("zero GM console errors") : fail("zero GM console errors", gmErrs.slice(0, 5).join(" | "));
