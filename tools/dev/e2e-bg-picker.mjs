@@ -187,6 +187,20 @@ try {
       disable.customExcluded = !(await gen.getBackgroundsFor("2e")).some((b) => b.uuid === customVictim.uuid);
       await gen.toggleBackgroundDisabled(customVictim.uuid);
 
+      // TWO EYES PRESSED TOGETHER BOTH HOLD (review #34 finding 134). Each
+      // toggle snapshotted the setting, awaited a whole pool build, then wrote
+      // snapshot-plus-one back, so the second write dropped the first while
+      // both rows showed the slashed eye. Two disables are started without
+      // awaiting the first — what two quick clicks in the picker do — and the
+      // setting must hold both. Undone the same way before the next leg.
+      const pairA = allC.find((b) => b.name === "Aurifex");
+      const pairB = allC.find((b) => b.name === "Barber-Surgeon");
+      await Promise.all([gen.toggleBackgroundDisabled(pairA.uuid), gen.toggleBackgroundDisabled(pairB.uuid)]);
+      const heldBoth = game.settings.get(NS, "disabled-backgrounds");
+      disable.pairHeld = { a: heldBoth.includes(pairA.uuid), b: heldBoth.includes(pairB.uuid) };
+      await gen.toggleBackgroundDisabled(pairA.uuid);
+      await gen.toggleBackgroundDisabled(pairB.uuid);
+
       // The rendered dialog: an eye on every background row (Random has none),
       // the disabled row greyed with a dead radio, and the eye click
       // re-enabling it LIVE — row, radio and setting together.
@@ -497,6 +511,9 @@ try {
     E.customExcluded
       ? ok("a shipped custom background disables through the same path")
       : fail("custom background did not disable");
+    E.pairHeld?.a && E.pairHeld?.b
+      ? ok("two eyes pressed together both hold (review #34 finding 134)")
+      : fail(`two eyes pressed together: ${JSON.stringify(E.pairHeld)} — each wrote its own stale snapshot, so the later write dropped the earlier`);
     E.eyeMatchesRows && E.rowGreyed && E.radioDead
       ? ok("picker rows: every 2e background has an eye; the disabled row is greyed with a dead radio")
       : fail(`eye rendering wrong: eyes=${E.eyeMatchesRows}, greyed=${E.rowGreyed}, radioDead=${E.radioDead}`);
