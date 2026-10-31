@@ -162,6 +162,142 @@ try {
   }
 
   /* ---------------------------------------------------- */
+  /*  A character's own Description (review #34 F55)       */
+  /* ---------------------------------------------------- */
+
+  // The Kettlewright importer writes a character's description into
+  // `system.description` (kettlewright-import.js, `String(json.description)`,
+  // plain text) and the printed sheet prints it, but the character sheet had no
+  // editor for it after 2026-07-29 — so imported text was on paper and nowhere
+  // on screen. The user's ruling (2026-10-31): the Description tab shows it,
+  // editable, under a Description heading, ONLY while the field holds prose, so
+  // a character made in Foundry still has no second notes box (the reason the
+  // editor went). "Holds prose" is ONE test for the sheet and the paper: an
+  // editor its player emptied saves `<p></p>`, not "", and that must neither
+  // keep an empty box on the sheet nor print an empty Description heading.
+  // Fixtures stamped and swept by flag, from a finally (probe rule 6).
+  const DESC_FIXTURE = "notes-editor-description";
+  const IMPORTED = "ZZ imported description, the Kettlewright shape: plain text.";
+  const sweepDesc = () => page.evaluate(async (fixture) => {
+    for (const a of game.actors.filter((x) => x.getFlag("air-bladder", "probeFixture") === fixture)) {
+      await a.sheet?.close();
+      await a.delete();
+    }
+  }, DESC_FIXTURE);
+  const descCase = (description) => page.evaluate(async ({ description, fixture, imported }) => {
+    const actor = await CONFIG.Actor.documentClass.create({
+      name: "ZZ Notes description", type: "character",
+      system: { description },
+      flags: { "air-bladder": { probeFixture: fixture } },
+    });
+    await actor.sheet.render(true);
+    for (let i = 0; i < 40 && !actor.sheet.element; i++) await new Promise((r) => setTimeout(r, 100));
+    await new Promise((r) => setTimeout(r, 700));
+    const el = actor.sheet.element;
+    el.querySelector('.tabs .item[data-tab="description"]')?.click();
+    await new Promise((r) => setTimeout(r, 400));
+    const pm = el.querySelector('.tab[data-tab="description"] prose-mirror[name="system.description"]');
+    const heading = pm?.closest(".character-description")?.querySelector(".character-description-heading");
+    // The paper, captured the way e2e-print does: wrap window.open before the
+    // click and stub the popup's print() so nothing reaches a printer.
+    const origOpen = window.open;
+    let popup = null;
+    const calls = [];
+    window.open = (...a) => {
+      popup = origOpen.apply(window, a);
+      Object.defineProperty(popup, "print", { configurable: true, value: () => calls.push(1) });
+      return popup;
+    };
+    try {
+      el.querySelector('[data-action="printSheet"]')?.click();
+      for (let i = 0; i < 60 && !calls.length; i++) await new Promise((r) => setTimeout(r, 150));
+    } finally { window.open = origOpen; }
+    const printed = calls.length === 1;
+    const h2s = [...(popup?.document?.querySelectorAll("h2") ?? [])].map((h) => h.textContent.trim());
+    popup?.close();
+    return {
+      id: actor.id,
+      sheetId: el.id,
+      editor: !!pm,
+      toggled: pm?.hasAttribute("toggled") ?? false,
+      shows: pm?.textContent?.includes(imported) ?? false,
+      heading: heading?.textContent?.trim() ?? null,
+      want: game.i18n.localize("CAIRN.Description"),
+      printed,
+      printsHeading: h2s.includes(game.i18n.localize("CAIRN.Description")),
+    };
+  }, { description, fixture: DESC_FIXTURE, imported: IMPORTED });
+
+  console.log("\ncharacter description (review #34 finding 55)");
+  try {
+    await sweepDesc();
+
+    const imported = await descCase(IMPORTED);
+    imported.editor && imported.toggled && imported.shows
+      ? ok("imported prose: the Description tab shows it", "toggled editor, display half serves it")
+      : fail("imported prose: the Description tab shows it",
+          JSON.stringify({ editor: imported.editor, toggled: imported.toggled, shows: imported.shows }));
+    imported.heading === imported.want
+      ? ok("...under a Description heading", JSON.stringify(imported.heading))
+      : fail("...under a Description heading", `got ${JSON.stringify(imported.heading)}, wanted ${JSON.stringify(imported.want)}`);
+    imported.printed && imported.printsHeading
+      ? ok("...and the paper prints it, as before")
+      : fail("...and the paper prints it, as before", JSON.stringify({ printed: imported.printed, heading: imported.printsHeading }));
+
+    // Editable: the pencil opens it, typing and a click-away land on the doc.
+    if (imported.editor) {
+      const opened = await page.evaluate(async (id) => {
+        const pm = game.actors.get(id).sheet.element
+          .querySelector('.tab[data-tab="description"] prose-mirror[name="system.description"]');
+        pm?.querySelector("button")?.click();
+        await new Promise((r) => setTimeout(r, 500));
+        return pm?.querySelector(".editor-content")?.getAttribute("contenteditable") === "true";
+      }, imported.id);
+      let typed = false;
+      if (opened) {
+        try {
+          await page.locator(`#${imported.sheetId} prose-mirror[name="system.description"] .editor-content`).click({ timeout: 8000 });
+          await page.keyboard.press("End");
+          await page.keyboard.type(` ${TYPED}`);
+          await page.waitForTimeout(300);
+          typed = true;
+        } catch (e) {
+          fail("...and it takes typing", e.message.split("\n")[0]);
+        }
+      } else fail("...and it takes typing", "the pencil did not open it");
+      if (typed) {
+        const stored = await page.evaluate(async (id) => {
+          const actor = game.actors.get(id);
+          actor.sheet.element.querySelector(".window-content")
+            ?.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+          await new Promise((r) => setTimeout(r, 1200));
+          return actor.system.description ?? "";
+        }, imported.id);
+        stored.includes(TYPED) && stored.includes(IMPORTED)
+          ? ok("...and it takes typing", JSON.stringify(stored.slice(0, 70)))
+          : fail("...and it takes typing", `stored ${JSON.stringify(stored.slice(0, 90))}`);
+      }
+    }
+
+    // A character made in Foundry: no second notes box, the reason the editor
+    // went on 2026-07-29. Passes on the old code too — it guards the ruling.
+    const blank = await descCase("");
+    !blank.editor && !blank.printsHeading
+      ? ok("empty: no description editor, no printed heading")
+      : fail("empty: no description editor, no printed heading", JSON.stringify({ editor: blank.editor, printsHeading: blank.printsHeading }));
+
+    // What a player's emptied editor actually saves (prosemirror-editor.mjs
+    // _getValue serialises the one empty paragraph). Same answer as "".
+    const emptied = await descCase("<p></p>");
+    !emptied.editor && !emptied.printsHeading
+      ? ok("emptied to <p></p>: the box goes, and so does the printed heading")
+      : fail("emptied to <p></p>: the box goes, and so does the printed heading",
+          JSON.stringify({ editor: emptied.editor, printsHeading: emptied.printsHeading }));
+  } finally {
+    await sweepDesc().catch((e) => fail("description fixtures swept", e.message));
+  }
+
+  /* ---------------------------------------------------- */
   /*  Discoverability (2026-08-08): field look, pencil,    */
   /*  click-to-edit on the EMPTY area only                 */
   /* ---------------------------------------------------- */
