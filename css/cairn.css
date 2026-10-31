@@ -1309,8 +1309,12 @@
     opacity: 0.45;
 }
 
+/* --ab-peril, the palette's in-peril red with a dark value (review #34 finding
+   101). Core's --color-level-error-border is one fixed maroon, #750003: about
+   1.6:1 against the dark ground and barely different from the black border in
+   light, so the "this counter is the problem" cue read as no cue. */
 .overburdened-gold {
-    border-color: var(--color-level-error-border);
+    border-color: var(--ab-peril);
 }
 
 /* .cairn scope: see the note at .cairn .portrait. */
