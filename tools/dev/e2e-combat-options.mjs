@@ -115,7 +115,7 @@ const cleanup = async () => {
     if (folder?.getFlag("air-bladder", "partyFolder") && !folder.contents.length) {
       try { await folder.delete(); } catch { /* gone */ }
     }
-  }, { ids: r?.made, msgs: [...(r?.madeMsgs ?? []), ...(r?.made2 ?? [])],
+  }, { ids: r?.made, msgs: [...(r?.madeMsgs ?? []), ...(r?.made2 ?? []), ...(r?.noteMsgs ?? [])],
     pileId: r?.pileId ?? null, pileIdsAtStart: r?.pileIdsAtStart ?? [], sceneId: r?.sceneId ?? null, msgsAtStart });
 };
 
@@ -726,6 +726,39 @@ try {
         stowed: tome?.system?.equipped === false,
       };
 
+      // (5b) PAGES FILED UNDER THE BOOK THAT LANDS (review #34 finding 159). A
+      // second book wearing the key of one already in the pile — what a sidebar
+      // Duplicate of a mage leaves — is re-keyed on arrival by
+      // CairnItem#_preCreate, and its pages were serialized before that, naming
+      // the OLD key: the book already in the pile claimed all four and the new
+      // one stood empty. Issue #17's symptom, which the drag path re-stamps
+      // against. Read by id difference: what each book claims after the drop.
+      {
+        const { pagesOfGrimoire } = await import("/systems/air-bladder/module/grimoire.js");
+        const tomeKey = tome?.system?.grimoireKey ?? "";
+        const mage2 = await mk({ name: "ZZ Grimoire PC Two", type: "character" });
+        await mage2.createEmbeddedDocuments("Item", [{
+          name: "ZZ Tome Twin", type: "item", system: { grimoire: true, grimoireKey: tomeKey },
+        }]);
+        const book2 = mage2.items.getName("ZZ Tome Twin");
+        await mage2.createEmbeddedDocuments("Item", ["ZZ Twin Page One", "ZZ Twin Page Two"].map((name) => (
+          { name, type: "spellbook", system: { bound: true, boundTo: book2?.system?.grimoireKey } })));
+        const claims = (book) => (book ? pagesOfGrimoire(pile, book).map((p) => p.id).sort() : null);
+        const tomeBefore = claims(tome);
+        const beforeTwin = pileIds();
+        const twinLanded = book2 ? await pp.dropItemToPile(mage2, book2.id, {}) : false;
+        await sleep(400);
+        const twin = arrived(beforeTwin, (i) => i.name === "ZZ Tome Twin")[0];
+        out.twinBook = {
+          collided: !!tomeKey && book2?.system?.grimoireKey === tomeKey,
+          landed: twinLanded && !!twin,
+          rekeyed: !!twin && twin.system.grimoireKey !== tomeKey,
+          twinPages: arrived(beforeTwin, (i) => i.name.startsWith("ZZ Twin Page")).map((p) => p.id).sort(),
+          twinClaims: claims(twin),
+          tomeBefore, tomeAfter: claims(tome),
+        };
+      }
+
       // (14) A BLANK NOTE REMOVES THE OLD ONE rather than leaving it.
       const [stale] = await noteActor.createEmbeddedDocuments("Item",
         [{ name: "ZZ Note Stale", type: "item", flags: { [NS]: { droppedAt: "last week" } } }]);
@@ -733,6 +766,42 @@ try {
       await pp.dropItemToPile(noteActor, stale.id, {});
       await sleep(400);
       out.staleNote = arrived(beforeStale, (i) => i.name === "ZZ Note Stale")[0]?.getFlag(NS, "droppedAt") ?? null;
+
+      // (14b) ONLY THE PILE'S DROP WRITES A NOTE (review #34 finding 157). Give
+      // and the Warden's own drag are doors into the pile too, and both carried
+      // whatever `droppedAt` the item wore: an old place from an earlier drop,
+      // or one a player wrote on their own item, past the 25-character clamp.
+      {
+        const { createItemOffer, settleOwnOffer } = await import("/systems/air-bladder/module/item-offer.js");
+        await noteActor.createEmbeddedDocuments("Item", [
+          { name: "ZZ Note Given", type: "item", flags: { [NS]: { droppedAt: "x".repeat(60) } } },
+          { name: "ZZ Note Dragged", type: "item", flags: { [NS]: { droppedAt: "by the well" } } },
+        ]);
+        const given = noteActor.items.getName("ZZ Note Given");
+        const dragged = noteActor.items.getName("ZZ Note Dragged");
+        // Give: the Warden's card to a pile nobody else answers for settles in
+        // one click, through the same accept and delivery a player's does.
+        const beforeGive = pileIds();
+        const offerMsg = given ? await createItemOffer(noteActor, given, pile) : null;
+        if (offerMsg) out.noteMsgs = [offerMsg.id];
+        if (offerMsg) await settleOwnOffer(offerMsg, pile);
+        const gotGiven = () => arrived(beforeGive, (i) => i.name === "ZZ Note Given")[0];
+        for (let i = 0; i < 30 && !gotGiven(); i++) await sleep(150);
+        // The Warden's drag onto the pile's own sheet.
+        const beforeDrag = pileIds();
+        await pile.sheet.render(true);
+        for (let i = 0; i < 30 && !(pile.sheet.element instanceof HTMLElement); i++) await sleep(100);
+        const dt = new DataTransfer();
+        dt.setData("text/plain", JSON.stringify({ type: "Item", uuid: dragged?.uuid }));
+        try { await pile.sheet._onDrop(new DragEvent("drop", { dataTransfer: dt })); } catch { /* refused */ }
+        await sleep(600);
+        await pile.sheet.close();
+        const gotDragged = arrived(beforeDrag, (i) => i.name === "ZZ Note Dragged")[0];
+        out.otherDoors = {
+          given: gotGiven() ? (gotGiven().getFlag(NS, "droppedAt") ?? null) : "did not land",
+          dragged: gotDragged ? (gotDragged.getFlag(NS, "droppedAt") ?? null) : "did not land",
+        };
+      }
 
       // (4) RECONCILE LOSES NOTHING: an extra pile shaped like a sidebar
       // Duplicate — ids the canonical already holds, plus one it does not —
@@ -1850,9 +1919,17 @@ try {
     && r.grimoireDrop.pagesLeft === 0 && !r.grimoireDrop.bookLeft && r.grimoireDrop.stowed
     ? ok("dropping a Grimoire takes its bound pages with it, and the copy lands stowed")
     : fail(`grimoire drop: ${JSON.stringify(r.grimoireDrop)}`);
+  r.twinBook?.collided && r.twinBook.landed && r.twinBook.rekeyed && r.twinBook.twinPages.length === 2
+    && JSON.stringify(r.twinBook.twinClaims) === JSON.stringify(r.twinBook.twinPages)
+    && JSON.stringify(r.twinBook.tomeAfter) === JSON.stringify(r.twinBook.tomeBefore)
+    ? ok("a second book wearing the key of one already in the pile is re-keyed, and its pages are filed under IT (review #34 finding 159)")
+    : fail(`twin grimoire drop: ${JSON.stringify(r.twinBook)}`);
   r.staleNote === null
     ? ok("a blank \"Where?\" REMOVES the note the item already wore")
     : fail(`stale note kept: ${JSON.stringify(r.staleNote)}`);
+  r.otherDoors?.given === null && r.otherDoors.dragged === null
+    ? ok("an item Given to the pile, or dragged onto it by the Warden, arrives with no \"Where?\" note (review #34 finding 157)")
+    : fail(`a note came in through another door: ${JSON.stringify(r.otherDoors)}`);
   r.reconcile?.oneFloor === 1 && r.reconcile.onlyInDupSurvives && r.reconcile.triggerLanded
     ? ok("a Duplicate-shaped second pile is merged without losing its one new item, then removed")
     : fail(`reconcile: ${JSON.stringify(r.reconcile)}`);
