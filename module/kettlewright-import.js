@@ -885,6 +885,14 @@ export const sanitizeKettlewrightExport = (json) => {
 export const performKettlewrightImport = async (json, { ownership = null } = {}) => {
   const { data, report } = await kettlewrightToActorData(json);
   if (ownership) data.ownership = ownership;
+  // THE PARTY FOLDER (review #34 finding 174), where Create PC beside this
+  // button files a new character — `createActorInteractive` on the direct
+  // path, the generatePC relay on the other (review #33). Both of this
+  // import's doors run this function, so they file here, made on demand; a
+  // player who may not make the folder gets the root, as Create PC does.
+  // Dynamic, as character-generator.js reaches party-pile.js.
+  const { partyFolderId } = await import("./party-pile.js");
+  data.folder = await partyFolderId();
   const actor = await CairnActor.create(data);
   return { actor: actor ?? null, report };
 };
