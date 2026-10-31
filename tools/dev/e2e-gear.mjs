@@ -290,6 +290,67 @@ try {
     ? ok("...and a drag within one compendium actor's sheet is a reorder, not a copy")
     : fail(`a drag within a compendium actor's sheet duplicated the item: ${JSON.stringify(packTarget)}`);
 
+  // A HANDED-OVER ITEM ARRIVES LIKE A GIFT (review #34 finding 248): at the
+  // BOTTOM of the list, unworn. Give builds its payload with sort 0 (so
+  // #appendSort places it last) and equipped false; a cross-actor drag kept
+  // the source's sort and equipped, and the pile Drop kept the sort. Two
+  // world characters, each with a few rows; the giver's TOP row is an
+  // equipped armour. Dragged across, and a second one dropped on the pile.
+  const handOver = await page.evaluate(async () => {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const pp = await import("/systems/air-bladder/module/party-pile.js");
+    const made = [];
+    try {
+      const kit = (tag) => [
+        { name: `ZZ Hand ${tag} Mail`, type: "armor", sort: 100000, system: { armor: 1, equipped: true } },
+        { name: `ZZ Hand ${tag} Rope`, type: "item", sort: 200000 },
+        { name: `ZZ Hand ${tag} Chalk`, type: "item", sort: 300000 },
+      ];
+      const giver = await Actor.create({ name: "ZZ Hand Giver", type: "character", items: [...kit("A"), ...kit("B")] });
+      const taker = await Actor.create({ name: "ZZ Hand Taker", type: "character",
+        items: [{ name: "ZZ Hand Own Rope", type: "item", sort: 100000 }, { name: "ZZ Hand Own Chalk", type: "item", sort: 200000 }] });
+      made.push(giver, taker);
+      const mail = giver.items.find((i) => i.name === "ZZ Hand A Mail");
+      await taker.sheet.render(true);
+      for (let i = 0; i < 30 && !taker.sheet.element; i++) await sleep(100);
+      const dt = new DataTransfer();
+      dt.setData("text/plain", JSON.stringify({ type: "Item", uuid: mail.uuid }));
+      try { await taker.sheet._onDrop(new DragEvent("drop", { dataTransfer: dt })); } catch { /* refused */ }
+      await sleep(800);
+      await taker.sheet.close();
+      const arrived = taker.items.find((i) => i.name === "ZZ Hand A Mail");
+      const others = taker.items.filter((i) => i !== arrived).map((i) => i.sort);
+
+      // The Chalk (sort 300000) goes first, so even an EMPTY pile holds a row
+      // the Rope (sort 200000) would land above if it kept the giver's place.
+      const pile0 = pp.findDroppedPile();
+      const before = new Set(pile0?.items.map((i) => i.id) ?? []);
+      for (const name of ["ZZ Hand B Chalk", "ZZ Hand B Rope"]) {
+        const it = giver.items.find((i) => i.name === name);
+        await pp.dropItemToPile(giver, it.id, {});
+        for (let i = 0; i < 40 && giver.items.get(it.id); i++) await sleep(150);
+      }
+      const pile = pp.findDroppedPile();
+      const mine = (pile?.items ?? []).filter((i) => !before.has(i.id));
+      const copy = mine.find((i) => i.name === "ZZ Hand B Rope");
+      const pileOthers = (pile?.items ?? []).filter((i) => i !== copy).map((i) => i.sort);
+      const out = {
+        drag: arrived ? { sort: arrived.sort, equipped: arrived.system.equipped, maxOther: Math.max(...others) } : null,
+        pile: copy ? { sort: copy.sort, maxOther: pileOthers.length ? Math.max(...pileOthers) : 0 } : null,
+      };
+      for (const it of mine) { try { await it.delete(); } catch { /* gone */ } }
+      return out;
+    } finally {
+      for (const a of made) { try { await a.delete(); } catch { /* gone */ } }
+    }
+  });
+  handOver.drag && handOver.drag.equipped === false && handOver.drag.sort > handOver.drag.maxOther
+    ? ok("a dragged-across item lands at the BOTTOM, unworn, like a gift", JSON.stringify(handOver.drag))
+    : fail(`a dragged-across item kept the giver's place or its worn state: ${JSON.stringify(handOver.drag)}`);
+  handOver.pile && handOver.pile.sort > handOver.pile.maxOther
+    ? ok("...and an item dropped on the pile lands at the pile's bottom", JSON.stringify(handOver.pile))
+    : fail(`an item dropped on the pile kept the giver's place: ${JSON.stringify(handOver.pile)}`);
+
   // A BACKGROUND'S WEAPONS AND ARMOUR ARRIVE EQUIPPED, WHEREVER IN THE BACKGROUND
   // THEY COME FROM (review #34 finding 224). Only the starting gear was equipped;
   // a question's or a bond's grant kept whatever its pack document stored, and
