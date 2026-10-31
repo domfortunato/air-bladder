@@ -576,6 +576,7 @@ try {
         minted: !!raven, role: raven?.system.role ?? null,
         DEX: raven?.system.abilities.DEX.value ?? null,
         WIL: raven?.system.abilities.WIL.value ?? null,
+        kind: raven?.system.containerClass ?? null,
         owned: raven?.isOwner ?? false,
         // Her CHARACTER's notes. She owns the PC, so this write is hers to make
         // — the socket only ever brokers the Actor she cannot create.
@@ -595,6 +596,11 @@ check("the broker mints her raven as a COMPANION", alice.minted && alice.role ==
   && alice.DEX === 11 && alice.WIL === 13,
   `role=${alice.role} DEX=${alice.DEX} WIL=${alice.WIL} — GRANTABLE_ROLES must name the new role, or the clamp derives and hands her a container`);
 check("and she owns it", alice.owned, "connection drives ownership, monsters never touched");
+// The KIND crosses the broker too (review #34 finding 62): ec1d17a3 dropped
+// containerClass from the whitelist, so a player's granted raven arrived with a
+// blank Kind while the Warden's grant of the same beast read Raven.
+check("...and her raven keeps its Kind across the broker", alice.kind === "raven",
+  `containerClass=${JSON.stringify(alice.kind)}`);
 check("a PLAYER's own character gets no bullet either", alice.notes === "",
   `notes=${JSON.stringify(alice.notes)} — the write ran on HER client, before the fork to the broker, so `
   + "the player path is where a surviving copy of it would hide");
