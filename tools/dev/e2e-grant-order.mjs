@@ -424,6 +424,57 @@ try {
         + `order differently: dom ${shared.dom.length}, helper ${shared.helper.length}`);
     }
   }
+
+  /* --- 6. a background SWAP arranges the whole inventory ------------------------ */
+
+  // Review #34 finding 173. The Roll Character checklist re-arranged after
+  // changeBackground; the background die, the picker and a background drop
+  // called it and stopped, so the new loadout rode the append seam in list
+  // order — a sword below the rations. The NPC side arranges at every swap
+  // door (applyHirelingCareer, applyNpcBackground). Driven through the DROP
+  // door (its confirm answered in-page, restored in a finally): a 2e
+  // character of another background takes Marchguard, whose sword and armor
+  // arrive after rations already on the sheet.
+  console.log("\n5. a background swap arranges the whole inventory");
+
+  if (setup.marchguard) {
+    const swapped = await page.evaluate(async ({ marchguard, helpers }) => {
+      const H = new Function(helpers)();
+      const gen = await import("/systems/air-bladder/module/character-generator.js");
+      const pack = game.packs.get("air-bladder.backgrounds-2e");
+      const other = (await pack.getDocuments()).find((d) => d.name !== "Marchguard");
+      let actor = null;
+      const D = foundry.applications.api.DialogV2;
+      const hadOwn = Object.hasOwn(D, "confirm");
+      const origConfirm = D.confirm;
+      try {
+        const data = await gen.generate2eCharacter(other);
+        if (!data) return { error: "2e generation returned nothing" };
+        data.name = "ZZ GrantOrder swap";
+        actor = await gen.createActorWithCharacter(data);
+        await H.openSheet(actor);
+        D.confirm = async () => true;
+        await actor.sheet._onDropBackground(await fromUuid(marchguard));
+        await new Promise((r) => setTimeout(r, 600));
+        const rows = await H.openSheet(actor);
+        await actor.sheet.close();
+        return {
+          id: actor.id, swappedTo: actor.system.background,
+          rows: rows.map((r) => ({ ...r, band: H.bandOf(r.name, r.type) })),
+        };
+      } catch (e) {
+        return { id: actor?.id ?? null, error: `swap threw: ${e.message}` };
+      } finally {
+        if (hadOwn) D.confirm = origConfirm; else delete D.confirm;
+      }
+    }, { marchguard: setup.marchguard, helpers: HELPERS });
+    if (!swapped.error && swapped.swappedTo !== "Marchguard") {
+      if (swapped.id) made.push(swapped.id);
+      fail(`precondition: the drop did not swap the background (it reads "${swapped.swappedTo}")`);
+    } else {
+      report("2e, after a background drop onto Marchguard", swapped);
+    }
+  }
 } finally {
   await restore();
 }
