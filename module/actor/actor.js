@@ -1,5 +1,5 @@
 import { SETTINGS_NS } from "../settings.js";
-import { iconForItem, iconForTransport, containerClassSlots, CONTAINER_CLASSES, ICON_DIR } from "../icons.js";
+import { iconForItem, iconForTransport, containerClass, containerClassRole, containerClassSlots, CONTAINER_CLASSES, ICON_DIR } from "../icons.js";
 import { THING_ROLES, PERSON_ROLES } from "../data-models.js";
 import {
   atConnectionLimit, maxConnections, connectionsUiEnabled,
@@ -836,7 +836,17 @@ export class CairnActor extends Actor {
     const artRole = data.system?.role;
     const isContainerish = ["npc", "hireling"].includes(data.type) && (data.system?.containerClass
       || THING_ROLES.includes(artRole) || artRole === "companion");
-    if (isContainerish && !data.img) {
+    // A Kind the table does not know (blank, or a Warden's own word) falls
+    // back to NAME inference, whose last resort is the chest — "a bare
+    // container" — so a hand-made companion named Wolf, or a transport named
+    // Ship, wore a treasure chest on its sheet and its token (review #34
+    // finding 75). The inferred class's art is used only when its own role is
+    // this actor's role; otherwise the actor keeps Foundry's default, which is
+    // what an unknown Kind "brings" by the roles plan.
+    const inferred = containerClass(data.name ?? "", "", data.system?.containerClass ?? "");
+    const inferredRole = containerClassRole(inferred);
+    const roleFits = !artRole || !inferredRole || inferredRole === artRole;
+    if (isContainerish && !data.img && roleFits) {
       const art = iconForTransport(
         data.name ?? "",
         "",
