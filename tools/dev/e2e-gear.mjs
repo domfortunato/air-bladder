@@ -471,6 +471,95 @@ try {
     ? ok("two Drops of one row in one tick file ONE copy", JSON.stringify(twice))
     : fail(`two Drops of one row filed ${twice.copies} copies: ${JSON.stringify(twice)}`);
 
+  // A COMPENDIUM ACTOR RUNS NO WORLD SIDE EFFECTS (review #34 findings 163,
+  // 168, 171). Core keeps ids on import, so a pack entry and its world copy
+  // share one id, and several things keyed on that id reached the world copy:
+  // new art on the entry repainted the copy's placed tokens, a hand edit
+  // whispered a ledger card and a STR-0 edit posted a status card, a granted
+  // transport became a WORLD actor connected to the pack uuid, and a weapon
+  // dragged to the hotbar made a macro keyed to the world copy. The change log
+  // is read-shadowed ON so the ledger leg can fail.
+  const packSide = await page.evaluate(async () => {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const { createCairnMacro } = await import("/systems/air-bladder/module/macros.js");
+    const { grantContainers } = await import("/systems/air-bladder/module/character-generator.js");
+    const ns = "air-bladder";
+    const origGet = game.settings.get;
+    game.settings.get = function (scope, key, ...rest) {
+      // A DOCUMENT request is never shadowed (review #27).
+      if (rest[0]?.document) return foundry.helpers.ClientSettings.prototype.get.call(this, scope, key, ...rest);
+      if (scope === ns && key === "change-log") return true;
+      return origGet.call(this, scope, key, ...rest);
+    };
+    const SLOT = 49;
+    const slotWas = game.user.hotbar[SLOT] ?? null;
+    const macrosBefore = new Set(game.macros.map((m) => m.id));
+    const actorsBefore = new Set(game.actors.map((a) => a.id));
+    let pack = null, world = null, scene = null, entry = null;
+    const out = {};
+    try {
+      pack = game.packs.get("world.zz-probe-gear-actors-3")
+        ?? await foundry.documents.collections.CompendiumCollection.createCompendium({
+          label: "ZZ Probe Gear Actors 3", name: "zz-probe-gear-actors-3", type: "Actor", packageType: "world",
+        });
+      [entry] = await Actor.createDocuments([{
+        name: "ZZ Gear Twin", type: "character", img: "icons/svg/mystery-man.svg",
+        prototypeToken: { texture: { src: "icons/svg/mystery-man.svg" } },
+        system: { hp: { value: 4, max: 4 }, abilities: { STR: { value: 6, max: 10 } } },
+        items: [{ name: "ZZ Gear Twin Sword", type: "weapon" }],
+      }], { pack: pack.collection });
+      world = await game.actors.importFromCompendium(pack, entry.id, {}, { keepId: true });
+      out.sharedId = world?.id === entry.id;
+      scene = await Scene.create({ name: "ZZ Gear Twin scene", width: 1000, height: 1000 });
+      const [tok] = await scene.createEmbeddedDocuments("Token", [await world.getTokenDocument({ x: 100, y: 100 })]);
+      await sleep(1000);   // the setup's own cards settle before the count starts
+      const msgsBefore = new Set(game.messages.map((m) => m.id));
+      await entry.update({ img: "icons/svg/skull.svg", "prototypeToken.texture.src": "icons/svg/skull.svg" });
+      await entry.update({ "system.hp.value": 3 });
+      await entry.update({ "system.abilities.STR.value": 0 });
+      await sleep(1200);
+      out.tokenArt = scene.tokens.get(tok.id)?.texture.src ?? null;
+      const fresh = game.messages.contents.filter((m) => !msgsBefore.has(m.id));
+      out.ledgerCards = fresh.filter((m) => m.getFlag(ns, "changeLog")).length;
+      out.statusCards = fresh.filter((m) => /class="status-banner/.test(String(m.content ?? ""))).length;
+      out.canKeep = entry.canKeepConnected;
+      const minted = await grantContainers(entry, [{ name: "ZZ Gear Twin Mule", slots: 4, grantSource: "probe" }]);
+      out.minted = (minted?.length ?? 0) + game.actors.filter((a) => a.system?.connectedTo === entry.uuid).length;
+      const sword = entry.items.find((i) => i.name === "ZZ Gear Twin Sword");
+      await createCairnMacro({ type: "Item", uuid: sword.uuid }, SLOT);
+      await sleep(400);
+      out.macros = game.macros.filter((m) => !macrosBefore.has(m.id)).length;
+      return out;
+    } catch (e) {
+      return { ...out, error: `${e.name}: ${e.message}` };
+    } finally {
+      game.settings.get = origGet;
+      for (const m of game.macros.filter((m) => !macrosBefore.has(m.id))) { try { await m.delete(); } catch { /* gone */ } }
+      try { await game.user.assignHotbarMacro(slotWas ? game.macros.get(slotWas) : null, SLOT); } catch { /* left */ }
+      for (const m of game.messages.contents.filter((m) => m.speaker?.actor === entry?.id)) {
+        try { await m.delete(); } catch { /* gone */ }
+      }
+      for (const a of game.actors.filter((a) => !actorsBefore.has(a.id))) { try { await a.delete(); } catch { /* gone */ } }
+      try { await scene?.delete(); } catch { /* gone */ }
+      try { await pack?.deleteCompendium(); } catch { /* gone */ }
+    }
+  });
+  packSide.sharedId === true
+    ? ok("precondition: the world copy imported from the pack shares the entry's id")
+    : fail(`precondition: no shared-id world copy: ${JSON.stringify(packSide)}`);
+  packSide.tokenArt === "icons/svg/mystery-man.svg"
+    ? ok("new art on the pack entry leaves the world copy's placed token alone (F163)")
+    : fail(`the pack entry's art repainted the world copy's token: ${packSide.tokenArt}`);
+  packSide.ledgerCards === 0 && packSide.statusCards === 0
+    ? ok("a hand edit to the pack entry posts no ledger card and no status card (F168, F163)")
+    : fail(`the pack entry's edits posted ${packSide.ledgerCards} ledger and ${packSide.statusCards} status card(s)`);
+  packSide.canKeep === false && packSide.minted === 0
+    ? ok("a pack character keeps no connections: a granted transport mints nothing in the world (F163)")
+    : fail(`pack character canKeepConnected=${packSide.canKeep}, minted ${packSide.minted} world actor(s)`);
+  packSide.macros === 0
+    ? ok("a pack actor's weapon dragged to the hotbar makes no world-keyed macro (F171)")
+    : fail(`the pack actor's weapon made ${packSide.macros} macro(s)`);
+
   // A BROKERED DROP'S LEDGER (review #34 finding 245). A player's Drop runs on
   // the active Warden's client (CONFIG.queries["air-bladder.pileDrop"]), so its
   // ledger cards were the Warden's writes: the dropper's read "Changed by
