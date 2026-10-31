@@ -383,13 +383,23 @@ export class Damage {
                     if (!targetsList.length) return; // dismissed, cancelled, or nothing ticked
                 }
 
-                // `.message-content`, not the first `.dice-total` anywhere: the
-                // flavor renders in the header AHEAD of the content, and its HTML is
-                // the card author's — a hidden `.dice-total` planted there was what
-                // the Warden's Apply read, whatever the card showed (review #34
-                // finding 85).
-                const dmg = parseInt((html.querySelector(".message-content .dice-total")
-                    ?? html.querySelector(".dice-total"))?.textContent);
+                // THE ROLL THE CARD SHOWS, read off the message, never its HTML
+                // (review #34 findings 85, 180). The flavor AND the content are
+                // the card author's: a hidden `.dice-total` planted in the flavor
+                // was what the Warden's Apply read, whatever the card showed, and
+                // moving the read into `.message-content` did not close it —
+                // content an author writes is kept verbatim (core renders the
+                // rolls only into EMPTY content), and the flavor fallback still
+                // reached a card whose content had no total. `message.rolls[0]` is
+                // what core prints as the visible total. The DOM read stays only
+                // for a caller that hands no message.
+                const dmg = message
+                    ? Number(message.rolls?.[0]?.total)
+                    : parseInt((html.querySelector(".message-content .dice-total")
+                        ?? html.querySelector(".dice-total"))?.textContent);
+                // A card with no roll has no damage to apply; NaN must not reach
+                // the HP write.
+                if (!Number.isFinite(dmg)) return;
                 // Where it came from, read off the card that was clicked. Both halves
                 // are already here and neither has to be captured at roll time: the
                 // attacker is the message's own speaker, and the weapon is the datum
