@@ -285,6 +285,13 @@ export class CairnItem extends Item {
       const diff = glogConversionDiff(this, await glogTextCached());
       if (diff) {
         this.updateSource(foundry.utils.expandObject({ ...diff, "system.uses.value": 1 }));
+        // ...and its ART, which the class-art block below never reaches for it
+        // (review #34 finding 74): a spellbook arrives already carrying
+        // spellbook.svg — `getDefaultArtwork`, the Create Item dialog and every
+        // canon pack document all supply it — so the "no image of its own" test
+        // is false and the new scroll kept the book's picture. The sweep and the
+        // Scroll checkbox swap the same art in `_preUpdate`; this is their rule.
+        if (this.img === SPELLBOOK_ICON) this.updateSource({ img: SPELLSCROLL_ICON });
       }
     }
 
