@@ -988,6 +988,54 @@ try {
     ? ok("…and Alice was told the Warden switched it off")
     : fail("no PcGenDisabled notification reached Alice");
 
+  // THE SWITCHBOARD ASKS THE SAME SWITCH (review #34 finding 250). A player
+  // with Create New Actors reaches Create Actor from a folder's "+", which the
+  // directory keeps; it listed Character whatever the switch said, and
+  // createActorInteractive never read it. The rows are read off the real
+  // dialog, then the route is asked directly, as a crafted client would.
+  const boardRows = (page) => page.evaluate(async () => {
+    const before = new Set([...document.querySelectorAll(".application.dialog")].map((d) => d.id));
+    const pending = getDocumentClass("Actor").createDialog({});
+    let el = null;
+    for (let i = 0; i < 60 && !el; i++) {
+      el = [...document.querySelectorAll(".application.dialog")].find((d) => !before.has(d.id)) ?? null;
+      if (!el) await new Promise((r) => setTimeout(r, 100));
+    }
+    const rows = el ? [...el.querySelectorAll('select[name="choice"] option')].map((o) => o.value) : null;
+    el?.querySelector('[data-action="close"]')?.click();
+    await Promise.race([pending, new Promise((r) => setTimeout(r, 3000))]);
+    return rows;
+  });
+  const aliceRows = await boardRows(alice);
+  const gmRows = await boardRows(gm);
+  Array.isArray(aliceRows) && aliceRows.length && !aliceRows.includes("character")
+    ? ok("switch off: Alice's Create Actor switchboard offers no Character row")
+    : fail(`switch off: Alice's switchboard rows ${JSON.stringify(aliceRows)}`);
+  gmRows?.includes("character")
+    ? ok("...while the Warden's still does")
+    : fail(`switch off: the Warden's switchboard rows ${JSON.stringify(gmRows)}`);
+  const routed = await alice.evaluate(async () => {
+    const cg = await import("/systems/air-bladder/module/character-generator.js");
+    const before = new Set([...document.querySelectorAll(".application.dialog")].map((d) => d.id));
+    const want = game.i18n.localize("CAIRN.Notify.PcGenDisabled");
+    const warned = [];
+    const realWarn = ui.notifications.warn;
+    ui.notifications.warn = function (m, ...rest) { warned.push(String(m)); return realWarn.call(this, m, ...rest); };
+    let dlg = null, result = null;
+    try {
+      const pending = cg.createActorInteractive("character");
+      await new Promise((r) => setTimeout(r, 1200));
+      dlg = [...document.querySelectorAll(".application.dialog")].find((d) => !before.has(d.id)) ?? null;
+      dlg?.querySelector('button[data-action="cancel"]')?.click();
+      result = await Promise.race([pending, new Promise((r) => setTimeout(() => r("hung"), 3000))]);
+    } finally { ui.notifications.warn = realWarn; }
+    const told = warned.some((m) => m === want || m === "CAIRN.Notify.PcGenDisabled");
+    return { prompted: !!dlg, result: result === null ? null : String(result?.id ?? result), told };
+  });
+  !routed.prompted && routed.result === null && routed.told
+    ? ok("switch off: createActorInteractive refuses Alice a character, and says why")
+    : fail(`switch off: the character route ran for Alice: ${JSON.stringify(routed)}`);
+
   // Live flip back ON: the button returns without a reload.
   await gm.evaluate((k) => game.settings.set("air-bladder", k, true), SWITCH);
   (await waitButton(alice, true))
