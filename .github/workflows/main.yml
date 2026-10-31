@@ -85,28 +85,52 @@ jobs:
       # it fetches the live SRD from another repo, and a release should not be
       # hostage to someone else's outage; it stays a pre-tag step on the
       # developer's machine.
-      - run: npm run check:manifest
-      # The release ARTIFACT's own shape, over the files this workflow is about
-      # to zip (added 2026-09-19, after a user's "Update All" left quarantined
-      # copies of the system behind and the install had to be redone by hand).
-      # It runs here, after build:packs, because `packs/` is most of what ships
-      # and the checks that matter most — case collisions, names Windows cannot
-      # write or DELETE, a pack built but never declared — are only true of a
-      # built tree. The same gate re-runs against the finished zip below.
-      - run: npm run check:package
-      - run: npm run check:fields
-      - run: npm run check:refs
-      - run: npm run check:traits
-      - run: npm run check:licence
-      - run: npm run check:probes
-      - run: npm run i18n:check
-      - run: npm run i18n:source
-      # The translation-loss guard — mandatory both sides of a release by user
-      # ruling (2026-08-11), and review #19 found it in neither this list nor
-      # the PR-merge recipe. On a tag checkout `git describe` names the tag
-      # being BUILT, so `--exclude` moves the baseline to the previous release:
-      # the one whose translations this build must not have lost.
-      - run: npm run check:translations -- --exclude "$RELEASE_TAG"
+      #
+      # ONE STEP, each gate asked of the TAG's own package.json (review #34
+      # finding 20). On a dispatch this file comes from the branch picked in the
+      # dialog while the checkout is the tag, so a gate newer than the tag
+      # (check:package arrived 2026-09-19; no tag up to 0.1.23 has it) stopped
+      # every rebuild at npm's "Missing script" — the very rebuild of 0.1.0-0.1.6
+      # the release step's comment plans for. On a DISPATCH a gate the tag does
+      # not define is skipped with a notice; on a TAG PUSH this file and the
+      # package.json are the same commit, so a missing one is a real fault and
+      # fails.
+      #   check:package — the release ARTIFACT's own shape, over the files this
+      #     workflow is about to zip (added 2026-09-19, after a user's "Update
+      #     All" left quarantined copies of the system behind). After
+      #     build:packs, because `packs/` is most of what ships and the checks
+      #     that matter most — case collisions, names Windows cannot write or
+      #     DELETE, a pack built but never declared — are only true of a built
+      #     tree. The same gate re-runs against the finished zip below.
+      #   check:translations — the translation-loss guard, mandatory both sides
+      #     of a release by user ruling (2026-08-11). On a tag checkout
+      #     `git describe` names the tag being BUILT, so `--exclude` moves the
+      #     baseline to the previous release: the one whose translations this
+      #     build must not have lost.
+      - name: The offline gates
+        env:
+          DISPATCH: ${{ github.event_name == 'workflow_dispatch' }}
+        run: |
+          gate() {
+            if node -e 'process.exit(require("./package.json").scripts?.[process.argv[1]] ? 0 : 1)' "$1"; then
+              npm run "$@"
+            elif [ "$DISPATCH" = "true" ]; then
+              echo "::notice::$1 is newer than $RELEASE_TAG (not in its package.json) - skipped on this rebuild"
+            else
+              echo "::error::$1 is missing from package.json - a tag push runs every gate"
+              exit 1
+            fi
+          }
+          gate check:manifest
+          gate check:package
+          gate check:fields
+          gate check:refs
+          gate check:traits
+          gate check:licence
+          gate check:probes
+          gate i18n:check
+          gate i18n:source
+          gate check:translations -- --exclude "$RELEASE_TAG"
 
       # Substitute the version and the manifest/download URLs in system.json.
       # A node one-liner rather than a third-party action (review #19): the
@@ -145,7 +169,20 @@ jobs:
       # the list in that line, and every permission bit, name and path length is
       # re-checked as shipped. `check:package` reads the same line, so a
       # directory added to one and not the other fails here.
-      - run: node tools/dev/package-audit.mjs --zip ./system.zip
+      # A tag older than the audit (every tag up to 0.1.23) is rebuilt without
+      # it, on a dispatch only, for the reason the gates step gives.
+      - name: Audit the archive
+        env:
+          DISPATCH: ${{ github.event_name == 'workflow_dispatch' }}
+        run: |
+          if [ -f tools/dev/package-audit.mjs ]; then
+            node tools/dev/package-audit.mjs --zip ./system.zip
+          elif [ "$DISPATCH" = "true" ]; then
+            echo "::notice::tools/dev/package-audit.mjs is newer than $RELEASE_TAG - skipped on this rebuild"
+          else
+            echo "::error::tools/dev/package-audit.mjs is missing - a tag push audits the archive"
+            exit 1
+          fi
 
       # The release notes ride in the TAG. `npm run release` writes CHANGELOG.md's
       # section for the version as the body of the annotated tag (RELEASE.md), the
