@@ -285,6 +285,55 @@ try {
     sel("Dagger", "buy")?.click();
     full.buyLandsAgain = await poll(() => actor.items.size === beforeFreed + 1, 60, 50);
 
+    // A FULL SACK GREYS ITS ROWS (review #34 finding 128). The greying read
+    // `!actor.isThing && isEncumbered()`, so a THING's rows were never greyed
+    // and every click on a full sack was refused at the till — the shop
+    // offering what it was about to turn down. A 2-slot sack holding two
+    // 1-slot items: the Dagger must be greyed, a petty item must not.
+    await closeShop();
+    const sack = await CONFIG.Actor.documentClass.create({ name: "MKT Full Sack", type: "npc",
+      system: { role: "container", containerClass: "sack", slots: 2 },
+      items: [{ name: "MKT Sack Rope", type: "item" }, { name: "MKT Sack Chalk", type: "item" }] });
+    try {
+      await mkt.openMarketplace(sack);
+      await poll(() => document.querySelector(".marketplace .mkt-row"));
+      await poll(() => document.querySelector(".marketplace .mkt-slotval")?.textContent
+        === `${sack.system.slotsUsed}/${sack.system.slotsMax}`, 100, 50);
+      full.sack = {
+        slots: `${sack.system.slotsUsed}/${sack.system.slotsMax}`,
+        buyDisabled: sel("Dagger", "buy")?.disabled === true,
+        takeDisabled: sel("Dagger", "take")?.disabled === true,
+        pettyStaysEnabled: petty ? sel(petty.name, "take")?.disabled === false : null,
+      };
+    } finally {
+      await closeShop();
+      await sack.delete();
+    }
+
+    // PAID ONLY FOR WHAT LANDED (review #34 finding 164). A create every seam
+    // refuses resolves EMPTY rather than throwing, and the till charged the
+    // gold and said "Bought" for nothing. A preCreateItem veto on one fresh
+    // buyer stands in for any such seam (the one-book wall, a module's hook).
+    const buyer = await CONFIG.Actor.documentClass.create({ name: "MKT Veto Buyer", type: "character",
+      system: { gold: 50 } });
+    const veto = Hooks.on("preCreateItem", (doc) => (doc.parent?.id === buyer.id ? false : undefined));
+    try {
+      await mkt.openMarketplace(buyer);
+      await poll(() => document.querySelector(".marketplace .mkt-row"));
+      await poll(() => document.querySelector(".marketplace .mkt-slotval")?.textContent
+        === `${buyer.system.slotsUsed}/${buyer.system.slotsMax}`, 100, 50);
+      const items0 = buyer.items.size, gold0 = buyer.system.gold;
+      const live = sel("Dagger", "buy")?.disabled === false;
+      sel("Dagger", "buy")?.click();
+      await wait(1500);
+      full.veto = { live, landed: buyer.items.size - items0, gold: `${gold0} -> ${buyer.system.gold}`,
+        charged: buyer.system.gold !== gold0 };
+    } finally {
+      Hooks.off("preCreateItem", veto);
+      await closeShop();
+      await buyer.delete();
+    }
+
     // cleanup: close any open shop dialog(s), delete the temp actor.
     full.cleanupClosed = await closeShop();
     await actor.delete();
@@ -333,6 +382,12 @@ try {
   F.forcedBuyRefused && F.forcedTakeRefused
     ? ok("forcing the disabled attribute off and clicking is still refused — a stale dialog is not a way through")
     : fail(`ENFORCEMENT MISSING: a forced click went through (buy refused=${F.forcedBuyRefused}, take refused=${F.forcedTakeRefused}) — the greying is only an affordance`);
+  F.sack?.slots === "2/2" && F.sack.buyDisabled && F.sack.takeDisabled && F.sack.pettyStaysEnabled !== false
+    ? ok("a FULL SACK's shop greys a 1-slot row, as its till refuses it — and leaves a petty row live (F128)")
+    : fail(`a full sack's shop offers what it will refuse: ${JSON.stringify(F.sack)}`);
+  F.veto?.live && F.veto.landed === 0 && F.veto.charged === false
+    ? ok(`a Buy whose create is refused charges nothing (F164): gold ${F.veto.gold}`)
+    : fail(`a refused create was paid for: ${JSON.stringify(F.veto)}`);
   F.carrierName === null
     ? console.log("  --    no transport stocked, so the not-everything-is-greyed leg is skipped")
     : F.carrierStaysEnabled

@@ -560,6 +560,38 @@ try {
     ? ok("a pack actor's weapon dragged to the hotbar makes no world-keyed macro (F171)")
     : fail(`the pack actor's weapon made ${packSide.macros} macro(s)`);
 
+  // A PILE MOVE DELETES ONLY WHAT LANDED (review #34 finding 164). A create
+  // every seam refuses resolves EMPTY rather than throwing, and the move read
+  // only a throw: the item left the sheet with no copy in the pile, and the
+  // drop answered `true`. A preCreateItem veto on the pile stands in for any
+  // such seam (a module's hook, a construction failure).
+  const vetoed = await page.evaluate(async () => {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const pp = await import("/systems/air-bladder/module/party-pile.js");
+    const pc = await getDocumentClass("Actor").create({ name: "ZZ Gear Veto Dropper", type: "character" });
+    const pileBefore = pp.findDroppedPile();
+    const veto = Hooks.on("preCreateItem",
+      (doc) => (doc.parent?.getFlag("air-bladder", "droppedItemPile") ? false : undefined));
+    try {
+      const [lamp] = await pc.createEmbeddedDocuments("Item", [{ name: "ZZ Gear Veto Lamp", type: "item" }]);
+      const result = await pp.dropItemToPile(pc, lamp.id);
+      await sleep(600);
+      return {
+        result,
+        kept: !!pc.items.get(lamp.id),
+        inPile: (pp.findDroppedPile()?.items ?? []).some((i) => i.name === "ZZ Gear Veto Lamp"),
+      };
+    } finally {
+      Hooks.off("preCreateItem", veto);
+      try { await pc.delete(); } catch { /* gone */ }
+      const pile = pp.findDroppedPile();
+      if (pile && !pileBefore) { try { await pile.delete(); } catch { /* gone */ } }
+    }
+  });
+  vetoed.result === false && vetoed.kept && !vetoed.inPile
+    ? ok("a Drop the pile refuses keeps the item on the sheet and answers false (F164)")
+    : fail(`a refused pile copy still cost the item: ${JSON.stringify(vetoed)}`);
+
   // A BROKERED DROP'S LEDGER (review #34 finding 245). A player's Drop runs on
   // the active Warden's client (CONFIG.queries["air-bladder.pileDrop"]), so its
   // ledger cards were the Warden's writes: the dropper's read "Changed by
