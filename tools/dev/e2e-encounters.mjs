@@ -400,19 +400,40 @@ try {
       ? ok("a player's actor wearing a monster's source is never the encounter's copy", "a Warden's copy was imported")
       : fail("a player's actor wearing a monster's source is never the encounter's copy", JSON.stringify({ ...fresh, ...r4b }));
 
-    // 4c
+    // 4c. THE WINDOW IS WIDENED IN-PAGE, or the leg measures luck: two clicks
+    // a tick apart raced only when the second card's find landed inside the
+    // first one's import round trip, and the first fleet run of this leg
+    // passed on unfixed code. The import is held 600ms before it runs — the
+    // real import, unchanged, just late — so both cards are inside it.
     const twinA = await draw(8);
     const twinB = await draw(8);
     await buttonState(gm, twinA);
     await buttonState(gm, twinB);
-    await press([twinA, twinB]);
+    const r4c = await gm.evaluate(async ({ ids }) => {
+      const before = canvas.scene.tokens.map((t) => t.id);
+      const real = game.actors.importFromCompendium;
+      game.actors.importFromCompendium = async function (...a) {
+        await new Promise((r) => setTimeout(r, 600));
+        return real.apply(this, a);
+      };
+      try {
+        const enc = await import("/systems/air-bladder/module/encounters.js");
+        await Promise.all(ids.map((id) => enc.spawnEncounterFromMessage(game.messages.get(id))));
+      } finally {
+        game.actors.importFromCompendium = real;
+      }
+      return {
+        stamped: ids.every((id) => game.messages.get(id)?.getFlag(game.system.id, "encounterSpawned")),
+        tokens: canvas.scene.tokens.filter((t) => !before.includes(t.id)).length,
+      };
+    }, { ids: [twinA, twinB] });
     const bCopies = await copies(fresh.b);
     cleanup.actorIds.push(...bCopies.filter((id) => !cleanup.actorIds.includes(id)));
     const folders = await gm.evaluate(() =>
       game.folders.filter((f) => f.type === "Actor" && f.getFlag(game.system.id, "encounters")).length);
-    bCopies.length === 1 && folders === 1
-      ? ok("two cards for one monster pressed together import it ONCE", "one copy, one Encounters folder")
-      : fail("two cards for one monster pressed together import it ONCE", JSON.stringify({ copies: bCopies.length, folders }));
+    r4c.stamped && r4c.tokens === 4 && bCopies.length === 1 && folders === 1
+      ? ok("two cards for one monster spawned together import it ONCE", "4 tokens, one copy, one Encounters folder")
+      : fail("two cards for one monster spawned together import it ONCE", JSON.stringify({ ...r4c, copies: bCopies.length, folders }));
 
     // 4d
     const privMsg = await gm.evaluate(async ({ tableId }) => {
