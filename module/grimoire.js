@@ -196,11 +196,18 @@ export const resolveSpellText = (text, dice, sum) => {
 const esc = (s) => foundry.utils.escapeHTML(String(s ?? ""));
 
 /**
+ * The most Magic Dice one cast can invest — and so the most Fatigue one cast
+ * can owe, since each invested die that comes up 4-6 owes one. The Fatigue
+ * button bounds the count it reads off a card by this.
+ */
+const MAX_MAGIC_DICE = 4;
+
+/**
  * Magic Dice available to `actor` right now: min(4, free inventory slots).
  * Read at the moment of asking, never stored — see the module docblock.
  */
 const magicDice = (actor) =>
-  Math.min(4, Math.max(0, (actor.system.slotsMax ?? 0) - (actor.system.slotsUsed ?? 0)));
+  Math.min(MAX_MAGIC_DICE, Math.max(0, (actor.system.slotsMax ?? 0) - (actor.system.slotsUsed ?? 0)));
 
 /**
  * Where the public cast card keeps its ENGLISH source. Read by
@@ -238,14 +245,24 @@ const glogCastFlavor = (key, name) =>
  * declared htmlFields — a harmless second pass. At RENDER time it is the
  * translated `glogCast.desc` FLAG, and a message's flags are player-authorable
  * and never server-sanitized, so this is the wall: without it a crafted flag
- * put an `on*` handler on every viewer's card (review #24 finding 1). Cleaned
- * BEFORE `resolveSpellText` so the trusted `grimoire-resolved` spans it adds
- * are never stripped.
+ * put an `on*` handler on every viewer's card (review #24 finding 1).
+ *
+ * Cleaned AFTER `resolveSpellText`, never before: the cleaner must be the last
+ * thing to touch the string before it is parsed for display. `resolveSpellText`
+ * is string surgery — the block split cuts between two markers and the
+ * substitution writes a span in — and run on already-cleaned, SERIALIZED HTML
+ * that surgery re-arms what the cleaner disarmed. Review #24 cleaned first, and
+ * a `[1]` inside an allowed `title` with `[2]` in the text after it let the cut
+ * take the title's closing quote, so the text's raw `"` characters became a
+ * live `onerror` (review #34 finding 8; 0.1.17-0.1.25; `cleanDescription`'s
+ * docblock records the same rule from its own iframe splice). The spans the
+ * substitution adds survive the clean: `class` and `data-*` are on core's
+ * allow-list for every tag (`ALLOWED_HTML_ATTRIBUTES["*"]`).
  */
 const glogCastBody = (name, desc, dice, sum) => [
   `<div class="grimoire-cast-card">`,
   `<h3>${esc(name)}</h3>`,
-  `<div class="grimoire-cast-effect">${resolveSpellText(cleanDescription(desc), dice, sum)}</div>`,
+  `<div class="grimoire-cast-effect">${cleanDescription(resolveSpellText(desc, dice, sum))}</div>`,
   `</div>`,
 ].join("\n");
 
@@ -520,19 +537,52 @@ export const castScroll = async (actor, scroll) => {
   // The spend, AFTER the report so a failed card never eats the scroll.
   // `_preUpdate`'s scroll pin deliberately leaves `uses.value` alone, which is
   // exactly what lets this stick.
-  await scroll.update({ "system.uses.value": 0 });
+  //
+  // ONE scroll is spent, not the row. Scrolls stack (findMatchingStack), and a
+  // bare `uses.value: 0` on a stack of two spent both (review #34 finding 95).
+  // A spent scroll is kept, not deleted (the docblock above), so it splits off
+  // as its own row and the rest stay castable. The stack shrinks FIRST: if the
+  // create then fails, a scroll is gone — which is what the rule does to a
+  // scroll anyway — where the other order could leave one cast for free.
+  const quantity = Math.max(1, Number(scroll.system.quantity) || 1);
+  if (quantity > 1) {
+    await scroll.update({ "system.quantity": quantity - 1 });
+    const spent = scroll.toObject();
+    delete spent._id;
+    spent.system.quantity = 1;
+    spent.system.uses = { ...spent.system.uses, value: 0 };
+    await actor.createEmbeddedDocuments("Item", [spent]);
+  } else {
+    await scroll.update({ "system.uses.value": 0 });
+  }
   return card;
 };
 
+/** Cast whispers whose Fatigue button is currently running on this client,
+ *  keyed by message id. The fatigueApplied stamp lands only after the create's
+ *  round trip, so this serializes a doubled click across that window; the
+ *  finally releases it however the handler exits. The grimoire twin of
+ *  damageApplyInFlight (damage.js). */
+const fatigueApplyInFlight = new Set();
+
 /**
  * Wire the whisper's Add-N-Fatigue button on a rendered chat message. Called
- * from the renderChatMessageHTML hook in cairn.js. The whisper is only ever
- * visible to its author, but the OWNERSHIP test is still the gate (not
- * authorship): the enforcement must hold even if the message reaches another
- * client by some future route. Spent is recorded on the MESSAGE
- * (`flags.air-bladder.fatigueApplied`) — the damage-card precedent: the
- * disabled button is the affordance, the flag check here is the enforcement,
- * and a card scrolled back to hours later is still spent.
+ * from the renderChatMessageHTML hook in cairn.js. Spent is recorded on the
+ * MESSAGE (`flags.air-bladder.fatigueApplied`) — the damage-card precedent:
+ * the disabled button is the affordance, the flag check here is the
+ * enforcement, and a card scrolled back to hours later is still spent.
+ *
+ * Everything the button says is read off the message HTML, and a player can
+ * post a `<button>` with any class and any `data-*` (the server's clean keeps
+ * both). So TWO ownership tests, not one (review #34 finding 7):
+ * - the CLICKER owns the actor, or the click writes nothing it could not
+ *   write by hand;
+ * - the card's AUTHOR owns it too. A real cast whisper is posted by the
+ *   caster's own client, which owns the caster; a card that names somebody
+ *   else's actor is a forgery, and the Warden's click on it was a confused
+ *   deputy writing to a character its author cannot touch.
+ * The count is bounded by what a cast can owe (`MAX_MAGIC_DICE`), so even an
+ * author's crafted card on their own actor cannot mint thousands in one write.
  * @param {ChatMessage} message
  * @param {HTMLElement} html
  */
@@ -545,14 +595,24 @@ export const bindGrimoireFatigueButton = (message, html) => {
   }
   btn.onclick = async () => {
     if (message.getFlag("air-bladder", "fatigueApplied")) return;
+    // Sealed synchronously, before the first await: the stamp below lands a
+    // round trip later, and a second click inside that window passed the
+    // check above and paid the Fatigue twice (review #34 finding 93).
+    if (fatigueApplyInFlight.has(message.id)) return;
     const actor = fromUuidSync(btn.dataset.actorUuid);
     if (!actor?.isOwner) return;
-    const count = Math.max(1, Number(btn.dataset.count) || 1);
-    // Fatigue is a COST, never refused — the one thing ignoreCapacity is for.
-    // ONE batched create for all N (createOwnedItem's count), not N awaits that
-    // each wrote a document and re-rendered the sheet.
-    await actor.createOwnedItem({ name: FATIGUE_NAME, type: "item" }, { ignoreCapacity: true, count });
-    await message.setFlag("air-bladder", "fatigueApplied", true);
+    if (!message.author || !actor.testUserPermission(message.author, "OWNER")) return;
+    const count = Math.min(MAX_MAGIC_DICE, Math.max(1, Number(btn.dataset.count) || 1));
+    fatigueApplyInFlight.add(message.id);
+    try {
+      // Fatigue is a COST, never refused — the one thing ignoreCapacity is for.
+      // ONE batched create for all N (createOwnedItem's count), not N awaits that
+      // each wrote a document and re-rendered the sheet.
+      await actor.createOwnedItem({ name: FATIGUE_NAME, type: "item" }, { ignoreCapacity: true, count });
+      await message.setFlag("air-bladder", "fatigueApplied", true);
+    } finally {
+      fatigueApplyInFlight.delete(message.id);
+    }
   };
 };
 
@@ -572,6 +632,15 @@ export const bindGrimoireFatigueButton = (message, html) => {
  * @param {HTMLElement} html
  */
 export const localizeGlogCastCard = (message, html) => {
+  // isContentVisible FIRST, the standing rule for every rebuild in the hook.
+  // The card is posted public, but core's Conceal Message whispers it to the
+  // Wardens afterwards, and a whispered ROLL stays `visible` to everyone
+  // (chat-message.mjs `visible`), so this still runs on a player who may not
+  // read it — after core has written "<user> rolled privately" into the flavor.
+  // Writing the flavor below would name the caster under the GLOG tag over
+  // core's line (review #34 finding 94). The body was safe only because core
+  // drops it from a private copy; that is ordering, not a guard.
+  if (!message?.isContentVisible) return;
   const f = message.getFlag("air-bladder", GLOG_CAST_FLAG);
   if (!f) return;
   const card = html.querySelector(".grimoire-cast-card");

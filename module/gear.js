@@ -477,8 +477,11 @@ export const itemDataFromDocument = (doc, { quantity = 1, uses, grantName } = {}
  * (review #9). A bound page and the loose book of the same spell are
  * different things (the page is the book's), and a GRIMOIRE never stacks at
  * all: each book carries its own pages, and quantity 2 on one document would
- * make two libraries indistinguishable. Any future flag-style splitter joins
- * this test rather than growing a new merge.
+ * make two libraries indistinguishable. A SPENT scroll and a fresh one of the
+ * same spell are different things too: the merge only adds quantity, so a
+ * fresh scroll dropped on a spent one became uncastable, and a spent one
+ * dropped on a fresh one became castable (review #34 finding 95). Any future
+ * flag-style splitter joins this test rather than growing a new merge.
  * @param {CairnActor} actor  the receiving actor
  * @param {CairnItem|Object} itemLike  the arriving item or its plain data
  * @returns {CairnItem|null}
@@ -489,7 +492,16 @@ export const findMatchingStack = (actor, itemLike) =>
       && !!it.system?.scroll === !!itemLike.system?.scroll
       && !!it.system?.bound === !!itemLike.system?.bound
       && !it.system?.grimoire && !itemLike.system?.grimoire
+      && isSpentScroll(it) === isSpentScroll(itemLike)
   ) ?? null;
+
+/** A spellscroll whose single use is gone (the strike-through row). Plain data
+ *  with no count at all is a fresh scroll: that is what `CairnItem#_preCreate`
+ *  makes of it. */
+const isSpentScroll = (itemLike) => {
+  const value = itemLike.system?.uses?.value;
+  return !!itemLike.system?.scroll && value !== undefined && (Number(value) || 0) < 1;
+};
 
 /**
  * What happens if `need` slots arrive on this actor? THREE verdicts.
