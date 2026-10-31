@@ -29,7 +29,7 @@ git grep -n "_prepareContext" -- module/
 
 `system.json` names exactly one JavaScript file, `module/cairn.js`. Everything
 that runs in the browser is reachable from that file's imports; nothing else in
-the repository executes at all. It imports 27 of the system's 37 JavaScript
+the repository executes at all. It imports 29 of the system's 38 JavaScript
 files, registers the document classes, sheets and settings, subscribes about
 nineteen Foundry hooks and one socket channel, and then gets out of the way.
 Play happens inside two document classes, two sheet classes, a combat tracker,
@@ -44,7 +44,7 @@ and a set of feature files that mostly do not know about each other.
 | `module/`, physical lines | **~31,000** |
 | `module/`, code lines | **~13,100** |
 | Comment and blank share | **~57%** |
-| JavaScript files | 37 |
+| JavaScript files | 38 |
 | Handlebars templates | 21 files, ~3,200 lines |
 | Stylesheet | 1 file, ~4,500 lines |
 | Compendium source documents | ~1,140 YAML files across 29 packs |
@@ -110,22 +110,30 @@ Two traps recorded in the code and worth carrying into any new work:
 
 ## The import graph, in tiers
 
-Sorting the 37 files by the longest chain of internal imports beneath each one
+Sorting the 38 files by the longest chain of internal imports beneath each one
 gives this. Tier says **how much has to exist before a file can load** — not how
-complicated it is. `art-picker.js` sits at tier 7 and is 159 lines of code.
+complicated it is. `art-picker.js` sits at tier 8 and is 159 lines of code.
 
 | Tier | Files |
 |---|---|
-| **0** — no internal imports at all | `compendium.js`, `config.js`, `damage.js`, `i18n-content.js`, `icons.js`, `settings-menus.js` |
-| **1** | `settings.js`, `data-models.js`, `combat.js`, `faction-generator.js` |
-| **2** | `utils.js`, `game-time.js`, `connections.js` |
-| **3** | `glog.js`, `macros.js`, `marketplace.js`, `warden-damage.js`, `calendar-events.js` |
-| **4** | `gear.js`, `item/item.js`, `vald-calendar.js`, `weather-log.js` |
-| **5** | `actor/actor.js`, `grimoire.js`, `item-offer.js`, `watch-clock.js`, `warden-dashboard.js` |
-| **6** | `character-generator.js` |
-| **7** | `monster-generator.js`, `kettlewright-import.js`, `encounters.js`, `art-picker.js`, `take-over.js` |
-| **8** | `actor/actor-sheet.js`, `item/item-sheet.js`, `table-banner.js` |
-| **9** | `cairn.js` |
+| **0** — no internal imports at all | `compendium.js`, `config.js`, `i18n-content.js`, `icons.js`, `settings-menus.js` |
+| **1** | `settings.js`, `data-models.js` |
+| **2** | `utils.js`, `connections.js` |
+| **3** | `combat.js`, `game-time.js`, `glog.js`, `macros.js` |
+| **4** | `calendar-events.js`, `gear.js`, `item/item.js` |
+| **5** | `grimoire.js`, `item-offer.js`, `marketplace.js`, `party-pile.js`, `vald-calendar.js`, `weather-log.js` |
+| **6** | `actor/actor.js`, `watch-clock.js` |
+| **7** | `character-generator.js` |
+| **8** | `art-picker.js`, `damage.js`, `encounters.js`, `faction-generator.js`, `kettlewright-import.js`, `monster-generator.js`, `take-over.js` |
+| **9** | `actor/actor-sheet.js`, `item/item-sheet.js`, `table-banner.js`, `warden-damage.js` |
+| **10** | `warden-dashboard.js` |
+| **11** | `cairn.js` |
+
+Measured over static `import` and `export … from`, in BOTH quote styles.
+Dynamic `import()` is left out, because it does not have to exist before a file
+loads. `damage.js` is the one module that writes its imports in single quotes.
+An earlier measurement missed them and put it in tier 0, along with the two
+files above it (review #34).
 
 The other measure worth having is the reverse one — how many files import each
 file. It identifies the shared vocabulary, which is the part you cannot avoid
@@ -133,12 +141,14 @@ learning:
 
 | Imported by | File | What it is |
 |---|---|---|
-| 19 | `i18n-content.js` | the content-translation overlay; every displayed name goes through it |
-| 16 | `settings.js` | every behavioural switch |
-| 11 | `utils.js` | dice formulas, damage helpers, drag-and-drop plumbing |
-| 8 | `compendium.js` | every lookup into a compendium pack |
+| 22 | `i18n-content.js` | the content-translation overlay; every displayed name goes through it |
+| 17 | `settings.js` | every behavioural switch |
+| 17 | `utils.js` | dice formulas, damage helpers, drag-and-drop plumbing |
+| 10 | `compendium.js` | every lookup into a compendium pack |
+| 10 | `character-generator.js` | generation, and the helpers other features borrow from it |
 | 8 | `icons.js` | the class-art table |
-| 7 | `character-generator.js` | also called from four other features |
+| 7 | `config.js` | `CONFIG.Cairn`: the declared tables and dice tiers |
+| 7 | `gear.js` | gear resolution, loadout order and capacity verdicts |
 | 6 | `game-time.js` | watches and the calendar |
 | 6 | `item/item.js` | the Item document class |
 
@@ -157,9 +167,9 @@ Six things carry roughly half the logic, and nothing routes around them.
    migrations. It is the third-largest file in the system, and it is really
    four unrelated jobs sharing an address.
 
-2. **`module/settings.js` — the switches.** 38 setting registrations, grouped
+2. **`module/settings.js` — the switches.** 44 setting registrations, grouped
    into four submenus by one declaration (`SETTING_GROUPS`) that both the
-   registration code and the tests read. Sixteen files import it. If a
+   registration code and the tests read. Seventeen files import it. If a
    behaviour has an "unless the Warden turned it off" clause, it is here.
 
 3. **`module/data-models.js` — what a document *is*.** Nine schema classes over
@@ -197,10 +207,13 @@ on its own once the spine is familiar:
 `monster-generator.js` · `table-banner.js` ·
 `warden-dashboard.js` · `watch-clock.js` · `weather-log.js`
 
-Three more form a small cluster of their own around timekeeping —
-`vald-calendar.js`, `calendar-events.js` and `warden-damage.js` are imported by
-the dashboard and the clock as well as by the boot file — and
-`settings-menus.js` is a leaf of `settings.js` rather than of the system.
+Three more are shared by a few features rather than the system:
+`vald-calendar.js` (imported by the boot file, the dashboard and the clock),
+`calendar-events.js` (by the Vald calendar, the weather log and the party pile)
+and `warden-damage.js` (by the boot file and the dashboard). `settings-menus.js`
+is a leaf of `settings.js` rather than of the system. `party-pile.js` is NOT a
+leaf: the Actor class and its sheet import it as well as the boot file, because
+the pile's identity test (`isDroppedPile`) and the drop sit under every actor.
 `marketplace.js` and `take-over.js` left this list on 2026-09-15, when
 `table-banner.js` began importing both: the aisle helper, the alphabetical
 predicate and the re-sort from the first, the button-to-table lookup from the
@@ -218,7 +231,7 @@ estimating the blast radius of any change.
 Several of the biggest files are repetitive rather than complex, and reading
 them line by line wastes days.
 
-- **`settings.js`** is 38 near-identical registration calls. Read two of them
+- **`settings.js`** is 44 near-identical registration calls. Read two of them
   and you have read the file; the interesting part is `SETTING_GROUPS` at the
   top and the menu registration at the bottom.
 - **`data-models.js`** is nine schemas assembled from the same handful of field
