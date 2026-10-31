@@ -765,6 +765,50 @@ try {
       JSON.stringify(k3));
   }
 
+  // K4: a forged CARD (review #34 finding 6). Bob posts an offer naming ALICE's
+  // character as the giver and an unowned NPC as the target — the flag is
+  // written by its author's client, and any player may post any flag. The
+  // Warden gets Accept on every open card, and the local transfer runs with
+  // the Warden's rights, so one click took the item off a player who never
+  // offered it. A card whose author does not own its giver draws no Accept,
+  // and nothing moves.
+  const k4Item = await gm.evaluate(async () => {
+    const giver = game.actors.getName("ZZ Offer Giver");
+    const [it] = await giver.createEmbeddedDocuments("Item", [{ name: "ZZ Forged Bait", type: "item" }]);
+    return { giverUuid: giver.uuid, itemId: it.id, npcUuid: game.actors.getName("ZZ Offer NPC").uuid };
+  });
+  const k4Id = await bob.evaluate(async ({ giverUuid, itemId, npcUuid }) => {
+    const m = await ChatMessage.create({
+      content: '<div class="cairn-offer-card">x</div>',
+      flags: { "air-bladder": { itemOffer: {
+        state: "open", settled: false, giverActorUuid: giverUuid, targetActorUuid: npcUuid,
+        itemId, acceptorUserId: null, item: { name: "ZZ Forged Bait" },
+      } } },
+    });
+    return m?.id ?? null;
+  }, k4Item);
+  if (k4Id) {
+    await poll(gm, (id) => !!game.messages.get(id), k4Id);
+    const k4 = await gm.evaluate(async ({ id, npcUuid, itemId }) => {
+      const msg = game.messages.get(id);
+      const el = await msg.renderHTML();
+      const accept = el.querySelector(".cairn-offer-accept");
+      if (accept) accept.click();
+      await new Promise((r) => setTimeout(r, 2500));
+      const npc = await fromUuid(npcUuid);
+      return {
+        acceptDrawn: !!accept,
+        stillOnGiver: !!game.actors.getName("ZZ Offer Giver")?.items.get(itemId),
+        onNpc: !!npc?.items.find((i) => i.name === "ZZ Forged Bait"),
+        state: game.messages.get(id)?.getFlag("air-bladder", "itemOffer")?.state,
+      };
+    }, { id: k4Id, ...k4Item });
+    check("a card naming a giver its author does not own draws no Accept for the Warden",
+      !k4.acceptDrawn, JSON.stringify(k4));
+    check("...and the item stays on the player who never offered it",
+      k4.stillOnGiver && !k4.onNpc && k4.state === "open", JSON.stringify(k4));
+  } else fail("forged-card leg: Bob's card was never posted");
+
   /* ---- M. a forged refusal cannot wedge an accept mid-flight -------------- */
   // Review #23 finding 1: offerRefused must authenticate BEFORE clearing the
   // pending-accept entry. The forged refusal (from the GM context — any

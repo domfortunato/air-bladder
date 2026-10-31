@@ -2475,6 +2475,40 @@ try {
         ? ok("...and her choice is RECORDED through the Warden's client: flag written, one Fatigue, both buttons sealed on her screen")
         : fail(`owner's choice via the Warden: ${JSON.stringify(ownerChoice)}`);
 
+      /* ---- review #34: a save card its AUTHOR could not have rolled ------- */
+      // Finding 6's third site. The speaker is the author's own choice and the
+      // buttons ride the stored content, so Alice can post a failed save naming
+      // a character she does not own — and the Warden's press on Mark Critical
+      // Damage wrote that character's status with the Warden's rights.
+      const forgedSave = await alicePage.evaluate(async ({ theirsId }) => {
+        const utils = await import("/systems/air-bladder/module/utils.js");
+        const card = { kind: "save", ability: "STR", formula: "d20cs<=10", rolled: 17, failed: true, crit: true, fatigue: false };
+        const m = await ChatMessage.create({
+          speaker: { actor: theirsId, alias: "ZZ Pile Foreign PC" },
+          content: utils.d20CardBody(card),
+          flags: { "air-bladder": { d20Card: card } },
+        });
+        return m?.id ?? null;
+      }, seed);
+      const forgedPress = await page.evaluate(async ({ id, theirsId }) => {
+        const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+        for (let i = 0; i < 40 && !game.messages.get(id); i++) await sleep(150);
+        const msg = game.messages.get(id);
+        const theirs = game.actors.get(theirsId);
+        const before = theirs?._source?.system?.critical === true;
+        const el = msg ? await msg.renderHTML() : null;
+        const btn = el?.querySelector(".mark-critical-damage");
+        const shown = !!btn && btn.style.display !== "none";
+        btn?.click();
+        await sleep(1500);
+        const after = theirs?._source?.system?.critical === true;
+        try { await msg?.delete(); } catch { /* gone */ }
+        return { posted: !!msg, before, shown, after };
+      }, { id: forgedSave, theirsId: seed.theirsId });
+      forgedPress.posted && !forgedPress.before && !forgedPress.after
+        ? ok("a save card naming a character its author does not own marks nothing on the Warden's press")
+        : fail(`forged save card: ${JSON.stringify(forgedPress)}`);
+
       player.clamped === 25
         ? ok("...and a 40-character note sent through the broker lands clamped to 25 — the enforcement is on the GM's side, where the write is, because maxlength binds the field and not the wire")
         : fail(`brokered note length: ${player.clamped} — a crafted emit is not bound by the field's maxlength`);
