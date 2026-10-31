@@ -7,7 +7,7 @@ import {
 } from "../connections.js";
 import { actorDisplayName, t } from "../i18n-content.js";
 import { concealmentWhisper, formatCount, itemSlotCost } from "../utils.js";
-import { FATIGUE_NAME } from "../item/item.js";
+import { FATIGUE_NAME, arrivingItemSources } from "../item/item.js";
 import { isDroppedPile } from "../party-pile.js";
 
 /** Document names go into dialog HTML; a name is user-authored text. */
@@ -880,41 +880,21 @@ export class CairnActor extends Actor {
     // the field existed — the shipped Reliquary book included, since its pack
     // YAML states none. An identity must be minted once and stored.
     //
-    // A MISSING key is filled. A key already present is a copy of a real book —
-    // actor duplication — and keeping it is right: every page lookup is within
-    // one actor, and moving one of the pair onto the other re-mints at the item
-    // seam (probe leg 10d). Unless an EARLIER book in this same payload wears
-    // it: two books on one actor are never the same book, so the later one is
-    // re-keyed, as the item seam re-keys an arrival (review #34 finding 247).
-    //
-    // THE ONE-BOOK WALL rides here too, for the same reason (finding 247): both
-    // of its halves are item seams this payload never reaches, so Create PC
-    // from a custom background listing two Grimoires handed the new character
-    // both, while Regenerate of the same background spliced to one. A CHARACTER
-    // keeps the first book, the rest of the payload still lands, and one
-    // warning says so — `CairnItem.#enforceOneBook`'s splice, on the payload.
+    // Two more item-seam rules ride the same payload for the same reason: the
+    // one-book wall (finding 247 — Create PC from a custom background listing
+    // two Grimoires handed the new character both, while Regenerate spliced
+    // to one) and, under GLOG, the arriving canon book's conversion (finding
+    // 175 — an Adventure import or a compendium actor brought in whole landed
+    // its books raw). All three are `arrivingItemSources` (item.js), which
+    // Import Data's parent update shares in `_preUpdate` below.
     const payload = this._source.items;
     if (Array.isArray(payload) && payload.length) {
-      const items = [];
-      const keys = new Set();
-      let changed = false;
-      let surplus = 0;
-      for (const i of payload) {
-        if (i?.type !== "item" || !i.system?.grimoire) { items.push(i); continue; }
-        if (this.type === "character" && keys.size) { surplus += 1; changed = true; continue; }
-        const key = i.system.grimoireKey;
-        if (key && !keys.has(key)) { keys.add(key); items.push(i); continue; }
-        const fresh = foundry.utils.randomID();
-        keys.add(fresh);
-        items.push({ ...i, system: { ...i.system, grimoireKey: fresh } });
-        changed = true;
-      }
-      if (surplus) ui.notifications.warn(game.i18n.localize("CAIRN.Notify.GrimoireOnlyOne"));
+      const items = await arrivingItemSources(payload, this.type);
       // FORCED: an embedded collection's update is diffed by `_id`, and a
       // splice with no re-key is no diff at all, so EmbeddedCollectionField
       // returns "no changes" and the surplus book would stay (fields.mjs
       // `_updateDiff`). A replacement commits the array as given.
-      if (changed) this.updateSource({ items: foundry.data.operators.ForcedReplacement.create(items) });
+      if (items) this.updateSource({ items: foundry.data.operators.ForcedReplacement.create(items) });
     }
   }
 
@@ -1752,7 +1732,8 @@ export class CairnActor extends Actor {
    * knows fills a still-zero day rate.
    *
    * **any type** — stash the former owner so `_onUpdate` can re-render the sheet
-   * a broken link just vanished from.
+   * a broken link just vanished from; and on Import Data's wholesale `items`
+   * replacement, the item seam's arrival rules (`arrivingItemSources`).
    *
    * The `container` type had a third job here (re-art on a `transportKind`
    * change); it went with the type.
@@ -1761,6 +1742,19 @@ export class CairnActor extends Actor {
   async _preUpdate(changed, options, user) {
     const result = await super._preUpdate(changed, options, user);
     if (result === false) return false;
+
+    // IMPORT DATA (review #34 finding 249). Core commits the file as ONE
+    // parent update with `diff: false, recursive: false` (client-document.mjs
+    // `importFromJSON`): the whole inventory replaced in a write that only
+    // this seam sees, so a two-Grimoire file landed both on a character and,
+    // under GLOG, a canon book landed a book. The item seam's arrival rules
+    // are restated here as they are at creation (`_preCreate` above). Only for
+    // a wholesale replacement: a recursive update's `items` are per-item
+    // diffs (the Rest's ration write), not sources.
+    if (options.recursive === false && Array.isArray(changed.items)) {
+      const items = await arrivingItemSources(changed.items, this.type);
+      if (items) changed.items = items;
+    }
 
     // ONE _preUpdate for the whole class. There were briefly two, and the second
     // silently won — a duplicate method in a class body is not an error, the later
