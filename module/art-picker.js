@@ -178,6 +178,7 @@ const attr = (s) => String(s).replace(/&/g, "&amp;").replace(/"/g, "&quot;").rep
 export async function pickArt({
   current, title, shipped = false, custom = false, gameIcons = false,
   tlomdev = false, lydia = false, classes = null, browseStart = "", onPick,
+  windowId = null,
 }) {
   const isGM = game.user.isGM;
   const customPaths = custom ? getCustomPortraitPaths() : [];
@@ -460,7 +461,11 @@ export async function pickArt({
       </div>`,
     buttons: [{ action: "close", label: game.i18n.localize("CAIRN.Close"), default: true }],
   });
-  await dialog.render(true);
+  // IN THE CALLER'S WINDOW (review #34 finding 161): core sets a render's host
+  // document only from `window.windowId` (application.mjs), so from a
+  // popped-out sheet the gallery opened in the MAIN window, where the player
+  // was not looking. Undefined on an attached sheet, which is a no-op.
+  await dialog.render({ force: true, ...(windowId ? { window: { windowId } } : {}) });
   // CLAIM THE FRONT, explicitly. `render(true)` assigns a z-index at the moment
   // it renders, and that is not the same as being on top when it FINISHES: this
   // dialog awaits two manifests before rendering, and anything that raises a

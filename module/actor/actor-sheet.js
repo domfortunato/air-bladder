@@ -5389,6 +5389,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     }));
 
     await pickArt({
+      windowId: this.window?.windowId,   // the sheet's own window (review #34 finding 161)
       current,
       title: game.i18n.localize("CAIRN.ChooseContainerArt"),
       classes: { label: game.i18n.localize("CAIRN.ContainerArtTabKinds"), cells, credit: "CAIRN.GameIconsCredit" },
@@ -5433,6 +5434,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     event.preventDefault();
     const isMonster = this.actor.npcRole === "monster";
     await pickArt({
+      windowId: this.window?.windowId,   // the sheet's own window (review #34 finding 161)
       current: this.actor.img,
       title: game.i18n.localize("CAIRN.ChoosePortrait"),
       shipped: !isMonster,

@@ -168,13 +168,14 @@ const buildForm = () => {
  *
  * @return {Promise<ChatMessage|null>} the card, or null if nothing was rolled
  */
-export const openWardenDamage = async () => {
+export const openWardenDamage = async ({ windowId } = {}) => {
   if (!game.user.isGM) {
     ui.notifications.warn(game.i18n.localize("CAIRN.Notify.WardenDamageWardenOnly"));
     return null;
   }
 
   const answer = await foundry.applications.api.DialogV2.wait({
+    renderOptions: { window: { windowId } },   // the caller's own window (review #34 finding 161)
     classes: ["cairn-warden-damage"],
     window: { title: game.i18n.localize("CAIRN.WardenDamage.Title") },
     content: buildForm(),

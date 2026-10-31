@@ -380,7 +380,7 @@ export const marksOn = async ({ year, month, day }) => {
  *
  * @param {{year: number, month: number, day: number}} at  the day on screen
  */
-export const promptAddEvent = async (at) => {
+export const promptAddEvent = async (at, { windowId } = {}) => {
   if (!game.user.isGM) {
     ui.notifications.warn(game.i18n.localize("CAIRN.Notify.TimeWardenOnly"));
     return null;
@@ -431,6 +431,7 @@ export const promptAddEvent = async (at) => {
     </div>`;
 
   const picked = await foundry.applications.api.DialogV2.wait({
+    renderOptions: { window: { windowId } },   // the caller's own window (review #34 finding 161)
     window: { title: "CAIRN.Calendar.AddEventTitle" },
     // 400, stated: DialogV2.wait merges NO width where confirm and prompt
     // merge 400 (dialog.mjs:353,374), so a wait() dialog inherits

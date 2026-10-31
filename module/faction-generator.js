@@ -349,9 +349,10 @@ const buildFactionPicks = async () => {
  * (roll everything), or the Warden's picks.
  * @returns {Promise<Object|null>}
  */
-export const promptFactionCreation = async () => {
+export const promptFactionCreation = async ({ windowId = null } = {}) => {
   const manual = await buildFactionPicks();
   const answer = await promptCreation("faction", {
+    windowId,
     title: "CAIRN.Blank.TitleFaction",
     hint: "CAIRN.Blank.HintFaction",
     manual,
@@ -367,8 +368,8 @@ export const promptFactionCreation = async () => {
  * third call site cannot drift the way the Dashboard's once did (review #26).
  * @returns {Promise<JournalEntry|null>} null = declined, nothing created
  */
-export const createFactionInteractive = async () => {
-  const picks = await promptFactionCreation();
+export const createFactionInteractive = async ({ windowId = null } = {}) => {
+  const picks = await promptFactionCreation({ windowId });
   if (!picks) return null;
   return generateFaction(picks);
 };

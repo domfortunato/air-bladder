@@ -74,7 +74,7 @@ export { _resetFestivals };
  * DialogV2 sanitizes a string it is handed and listeners on sanitized markup
  * are dead — the trap `promptSetDate` and `warden-damage.js` already carry.
  */
-export const promptSetWeather = async () => {
+export const promptSetWeather = async ({ windowId } = {}) => {
   if (!game.user.isGM) {
     ui.notifications.warn(game.i18n.localize("CAIRN.Notify.TimeWardenOnly"));
     return null;
@@ -111,6 +111,7 @@ export const promptSetWeather = async () => {
     </datalist>`;
 
   const picked = await foundry.applications.api.DialogV2.wait({
+    renderOptions: { window: { windowId } },   // the caller's own window (review #34 finding 161)
     window: { title: "CAIRN.Calendar.SetWeatherTitle" },
     // 400, stated: DialogV2.wait merges NO width where confirm and prompt
     // merge 400 (dialog.mjs:353,374), so a wait() dialog inherits
@@ -436,7 +437,7 @@ class ValdCalendarApp extends foundry.applications.api.HandlebarsApplicationMixi
   }
 
   static async #onSetWeather() {
-    await promptSetWeather();
+    await promptSetWeather({ windowId: this.window?.windowId });
   }
 
   /**
@@ -452,7 +453,7 @@ class ValdCalendarApp extends foundry.applications.api.HandlebarsApplicationMixi
    */
   static async #onAddEvent() {
     const at = this.#selectionInView();
-    await promptAddEvent({ year: at.year, month: at.month, day: at.day });
+    await promptAddEvent({ year: at.year, month: at.month, day: at.day }, { windowId: this.window?.windowId });
   }
 
   static async #onEditEvent(event, target) {

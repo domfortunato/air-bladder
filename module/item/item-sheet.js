@@ -747,6 +747,7 @@ export class CairnItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
   static async #onEditImage(event) {
     event.preventDefault();
     await pickArt({
+      windowId: this.window?.windowId,   // the sheet's own window (review #34 finding 161)
       current: this.item.img,
       title: game.i18n.localize("CAIRN.ChooseItemArt"),
       custom: true,

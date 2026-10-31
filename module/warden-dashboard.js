@@ -336,10 +336,10 @@ const GENERATORS = {
   // a third call site cannot drift the way this one did — and the faction
   // has its own wrapper since 2026-09-12, when it gained the same dialog (with
   // the pick-lists inside it, a journal having no sheet to carry them).
-  npc: async () => (await import("./character-generator.js")).createActorInteractive("npc"),
-  hireling: async () => (await import("./character-generator.js")).createActorInteractive("hireling"),
-  monster: async () => (await import("./character-generator.js")).createActorInteractive("monster"),
-  faction: async () => (await import("./faction-generator.js")).createFactionInteractive(),
+  npc: async (o) => (await import("./character-generator.js")).createActorInteractive("npc", o),
+  hireling: async (o) => (await import("./character-generator.js")).createActorInteractive("hireling", o),
+  monster: async (o) => (await import("./character-generator.js")).createActorInteractive("monster", o),
+  faction: async (o) => (await import("./faction-generator.js")).createFactionInteractive(o),
 };
 
 /* -------------------------------------------- */
@@ -857,7 +857,7 @@ const showTableToPlayers = async (name) => {
  * read in the button callback because listeners attached to sanitized HTML are
  * dead — the trap `warden-damage.js` already carries.
  */
-const promptSetDate = async () => {
+const promptSetDate = async ({ windowId } = {}) => {
   if (!game.user.isGM) {
     ui.notifications.warn(game.i18n.localize("CAIRN.Notify.TimeWardenOnly"));
     return null;
@@ -923,6 +923,7 @@ const promptSetDate = async () => {
   };
 
   const picked = await foundry.applications.api.DialogV2.wait({
+    renderOptions: { window: { windowId } },   // the caller's own window (review #34 finding 161)
     window: { title: "CAIRN.Time.SetDateTitle" },
     // 400, stated: DialogV2.wait merges NO width where confirm and prompt
     // merge 400 (dialog.mjs:353,374), so a wait() dialog inherits
@@ -1246,14 +1247,14 @@ class WardenDashboard extends foundry.applications.api.HandlebarsApplicationMixi
       // dialog" of three functions that had stopped opening one, which is the
       // correct-sounding comment on contradicting code this project keeps
       // paying for.
-      const doc = await make();
+      const doc = await make({ windowId: this.window?.windowId });   // its own window (review #34 finding 161)
       if (doc) doc.sheet.render(true);
     });
   }
 
   /** @this {WardenDashboard} */
   static async _onWardenDamage(event, target) {
-    await this._whileDisabled(target, () => openWardenDamage());
+    await this._whileDisabled(target, () => openWardenDamage({ windowId: this.window?.windowId }));
   }
 
   /**
@@ -1286,7 +1287,7 @@ class WardenDashboard extends foundry.applications.api.HandlebarsApplicationMixi
 
   /** @this {WardenDashboard} */
   static async _onSetWeather(event, target) {
-    await this._whileDisabled(target, () => promptSetWeather());
+    await this._whileDisabled(target, () => promptSetWeather({ windowId: this.window?.windowId }));
   }
 
   /** @this {WardenDashboard} */
@@ -1326,7 +1327,7 @@ class WardenDashboard extends foundry.applications.api.HandlebarsApplicationMixi
 
   /** @this {WardenDashboard} */
   static async _onSetDate(event, target) {
-    await this._whileDisabled(target, () => promptSetDate());
+    await this._whileDisabled(target, () => promptSetDate({ windowId: this.window?.windowId }));
   }
 
   /* -------------------------------------------- */

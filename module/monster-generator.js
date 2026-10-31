@@ -318,7 +318,8 @@ const TIER_CHOICES = [
  * `createActorInteractive`, which owns the dialog for all four kinds.
  * @returns {Promise<{blank: Boolean, choice: String|null}|null>}
  */
-export const promptMonsterCreation = () => promptCreation("monster", {
+export const promptMonsterCreation = ({ windowId = null } = {}) => promptCreation("monster", {
+  windowId,
   choices: TIER_CHOICES,
   choiceLabel: "CAIRN.MonsterGen.TierPrompt",
   // A tier chooses nothing on an empty sheet, so it greys out with the box.

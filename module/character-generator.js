@@ -2425,6 +2425,7 @@ const blankIsFillableBy = (kind) => {
 
 export const promptCreation = async (kind, {
   choices = null, choiceLabel = null, lockChoiceWhenBlank = false, title = null, hint: hintKey = null, manual = null,
+  windowId = null,
 } = {}) => {
   // `?? {}` for a kind with no empty-sheet spec (faction), which must then
   // pass its own `title` and `hint`. BLANK_KINDS stays four entries, so
@@ -2491,6 +2492,7 @@ export const promptCreation = async (kind, {
   }
 
   const picked = await foundry.applications.api.DialogV2.wait({
+    renderOptions: { window: { windowId } },   // the caller's own window (review #34 finding 161)
     window: { title: game.i18n.localize(title ?? spec.title) },
     // 400 is CORE'S OWN width for a question dialog — `DialogV2.confirm` and
     // `DialogV2.prompt` both merge `position: {width: 400}` over the config
@@ -2612,7 +2614,7 @@ const promptCharacterCreation = async () => {
  * @param {"character"|"npc"|"hireling"|"monster"} kind
  * @returns {Promise<CairnActor|null>} null = declined, and nothing is created
  */
-export const createActorInteractive = async (kind, { folder = null } = {}) => {
+export const createActorInteractive = async (kind, { folder = null, windowId = null } = {}) => {
   if (kind === "character") {
     const answer = await promptCharacterCreation();
     if (!answer) return null;
@@ -2635,13 +2637,13 @@ export const createActorInteractive = async (kind, { folder = null } = {}) => {
     // module, so a static import back is a cycle — the same reason _preCreate
     // and the switchboard reach for their generators dynamically.
     const { promptMonsterCreation, createMonster } = await import("./monster-generator.js");
-    const answer = await promptMonsterCreation();
+    const answer = await promptMonsterCreation({ windowId });
     if (!answer) return null;
     return answer.blank
       ? createBlankActor("monster", { folder })
       : createMonster({ folder, tier: answer.choice ?? "random" });
   }
-  const answer = await promptCreation(kind);
+  const answer = await promptCreation(kind, { windowId });
   if (!answer) return null;
   if (answer.blank) return createBlankActor(kind, { folder });
   return kind === "hireling" ? createHireling({ folder }) : createNpc({ folder });
