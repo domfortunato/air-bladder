@@ -587,6 +587,39 @@ try {
     check(busy.n === 1 && busy.titles[0] === MARKET_TITLE && busy.after.m === false && busy.after.c === false,
       "…a real click on a greyed second door opens nothing, only the first door's confirm is up, and every door is back once the job ends", JSON.stringify(busy));
 
+    // ...and in a DETACHED window too (review #34 finding 2). A popped-out
+    // directory can be detached into its own browser window, and its doors then
+    // live in that window's document, which a bare `document.querySelectorAll`
+    // never reaches. Stood in for in-page by moving the popout's element into an
+    // iframe's document — another document, which is the whole of the point.
+    const detached = await page.evaluate(async (MOD) => {
+      const mod = await import(MOD);
+      await ui.tables.renderPopout();
+      const pop = ui.tables.popout;
+      for (let t = 0; t < 40 && !pop?.element?.querySelector(".cairn-take-over"); t++) {
+        await new Promise((r) => setTimeout(r, 150));
+      }
+      const frame = document.createElement("iframe");
+      document.body.append(frame);
+      frame.contentDocument.body.append(pop.element);
+      const door = (k) => pop.element.querySelector(`.cairn-take-over[data-kind="${k}"]`);
+      const moved = pop.element.ownerDocument !== document && !!door("barebones");
+      const before = new Set(foundry.applications.instances.keys());
+      const first = mod.openTakeOver("marketplace");
+      const during = door("barebones")?.disabled;
+      const confirms = () => [...foundry.applications.instances.values()].filter((x) => !before.has(x.id) && x.element?.querySelector(".cairn-take-over"));
+      for (let t = 0; t < 120 && !confirms().length; t++) await new Promise((r) => setTimeout(r, 250));
+      for (const d of confirms()) await d.close();
+      await first;
+      const after = door("barebones")?.disabled;
+      document.body.append(pop.element);
+      frame.remove();
+      await pop.close();
+      return { moved, during, after };
+    }, MOD);
+    check(detached.moved && detached.during === true && detached.after === false,
+      "a directory in ANOTHER document (a detached window) has its doors greyed during a job and back after", JSON.stringify(detached));
+
     // On a short screen the confirm SCROLLS (review #31: measured at 650px, the
     // Copy button sat below the bottom edge with the overflow hidden).
     await page.setViewportSize({ width: VIEWPORT.width, height: 650 });

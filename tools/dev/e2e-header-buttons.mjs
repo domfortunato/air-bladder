@@ -394,6 +394,53 @@ try {
     ? ok("Pop Out hides once detached", "_onDetach fired after the move settled")
     : fail("Pop Out hides once detached", `popOutHidden=${detached.popOutHidden}`);
 
+  // A DIALOG FROM A DETACHED SHEET OPENS WITH THE SHEET (review #34 finding 1).
+  // Review #33 routed four dialogs and stopped there; the trash can's confirm
+  // and the Roll Character checklist are MODAL, so in the main window they
+  // locked a screen the player was not looking at. Each press is a real click
+  // on the detached sheet's own control, and the answer is the document the
+  // new dialog landed in.
+  const homes = await page.evaluate(async (i) => {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const app = foundry.applications.instances.get(i.sheetId);
+    const actor = game.actors.get(i.actorId);
+    await actor.createEmbeddedDocuments("Item", [{ name: "ZZ Header Rope", type: "item" }]);
+    for (let n = 0; n < 40 && !app.element.querySelector('[data-action="itemDelete"]'); n++) await sleep(150);
+    const homeOf = async (selector) => {
+      const control = app.element.querySelector(selector);
+      if (!control) return "no control";
+      const before = new Set(foundry.applications.instances.keys());
+      control.click();
+      let dlg = null;
+      for (let n = 0; n < 40 && !dlg; n++) {
+        dlg = [...foundry.applications.instances.values()]
+          .find((x) => !before.has(x.id) && x.constructor.name === "DialogV2" && x.element);
+        if (!dlg) await sleep(150);
+      }
+      if (!dlg) return "no dialog";
+      const where = dlg.element.ownerDocument === app.element.ownerDocument ? "sheet"
+        : dlg.element.ownerDocument === document ? "main" : "elsewhere";
+      await dlg.close();
+      await sleep(300);
+      return where;
+    };
+    return {
+      sheetDetached: app.element.ownerDocument !== document,
+      trash: await homeOf('[data-action="itemDelete"]'),
+      create: await homeOf('[data-action="itemCreate"]'),
+      roll: await homeOf('.window-header [data-action="rollActor"]'),
+    };
+  }, info);
+  homes.sheetDetached && homes.trash === "sheet"
+    ? ok("the trash can's (modal) confirm opens in the sheet's window", JSON.stringify(homes))
+    : fail("the trash can's (modal) confirm opens in the sheet's window", JSON.stringify(homes));
+  homes.create === "sheet"
+    ? ok("...and so does Create Item's prompt")
+    : fail("...and so does Create Item's prompt", JSON.stringify(homes));
+  homes.roll === "sheet"
+    ? ok("...and the (modal) Roll Character checklist")
+    : fail("...and the (modal) Roll Character checklist", JSON.stringify(homes));
+
   const reattached = await page.evaluate(async (i) => {
     const app = foundry.applications.instances.get(i.sheetId);
     await app.attachWindow();
