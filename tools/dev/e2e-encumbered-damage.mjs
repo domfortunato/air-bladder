@@ -443,6 +443,44 @@ const out = await page.evaluate(async () => {
   results.playerPool = { wil: `${wil1} -> ${wil()}`, hp: `${hp1} -> ${v4hp()}` };
   results.playerPoolIgnored = wil() === wil1 && v4hp() === Math.max(0, hp1 - 2);
 
+  /* 3d2. Apply takes the total the card SHOWS ------------------------------- */
+  // Review #34 finding 180. Finding 85's fix moved the read into
+  // `.message-content`, but a card whose author writes its own content keeps
+  // it verbatim (core renders the rolls only into empty content), so a hidden
+  // `.dice-total` planted there — or one in the author's flavor, which the
+  // fallback still read when the content had none — was what the Warden's
+  // Apply took, whatever the card showed. Two Alice-authored cards over a
+  // roll of 2, each hiding a 40: the victim must take 2.
+  const forged = {};
+  for (const where of ["content", "flavor"]) {
+    const v = await mkVictim(where === "content" ? 5 : 6);
+    const [t] = await scene3.createEmbeddedDocuments("Token", [await v.getTokenDocument({ x: 600, y: 600 })]);
+    const roll = await evaluateFormula("2", {});
+    const hidden = '<div class="dice-total" hidden>40</div>';
+    const flavor = await foundry.applications.handlebars.renderTemplate(
+      "systems/air-bladder/templates/chat/dmg-roll-card.html", { label: "probe forged", targets: t.id });
+    const msg = await roll.toMessage({
+      speaker: ChatMessage.getSpeaker(), author: aliceU?.id,
+      flavor: where === "flavor" ? flavor + hidden : flavor,
+      // Content with child elements is kept as written: the visible total, and
+      // (first leg) the hidden one ahead of it.
+      content: where === "content" ? `${hidden}<div class="dice-total">2</div>` : '<div class="zz-shown">2</div>',
+    });
+    await until(() => document.querySelector(`[data-message-id="${msg.id}"] .apply-dmg i`));
+    const before = { hp: v.toObject().system.hp.value, str: v.toObject().system.abilities.STR.value };
+    document.querySelector(`[data-message-id="${msg.id}"] .apply-dmg i`)?.click();
+    await until(() => v.toObject().system.hp.value !== before.hp);
+    await new Promise((r) => setTimeout(r, 400));
+    forged[where] = {
+      author: msg.author?.id === aliceU?.id, rollTotal: msg.rolls?.[0]?.total,
+      hp: `${before.hp} -> ${v.toObject().system.hp.value}`,
+      str: `${before.str} -> ${v.toObject().system.abilities.STR.value}`,
+      tookTwo: v.toObject().system.hp.value === before.hp - 2
+        && v.toObject().system.abilities.STR.value === before.str,
+    };
+  }
+  results.forgedTotal = forged;
+
   /* 3e. Roll STR save is ONE save per card, on every copy ------------------- */
   // Review #34 finding 86. The button was disabled in the presser's own DOM only,
   // so a re-render (a reload, a scroll-back, the Warden's copy) put it back live
@@ -2459,6 +2497,10 @@ check("the Warden's pool card drains the pool", out.poolPlanted && out.wardenPoo
   "the control: data-pool on a Warden-authored card still lands on WIL");
 check("a PLAYER's card with a planted pool is ordinary damage", out.playerPoolAuthor && out.playerPoolIgnored,
   `WIL ${out.playerPool?.wil}, HP ${out.playerPool?.hp} (expected WIL unchanged, HP down 2)`);
+check("Apply takes the roll the card shows, not a total hidden in a player's content (review #34 finding 180)",
+  out.forgedTotal?.content?.author && out.forgedTotal.content.tookTwo, JSON.stringify(out.forgedTotal?.content));
+check("...nor one hidden in the flavor when the content has none", out.forgedTotal?.flavor?.author
+  && out.forgedTotal.flavor.tookTwo, JSON.stringify(out.forgedTotal?.flavor));
 
 console.log("\nRoll STR save is one save per card");
 check("the overflow offers Roll STR save", out.strSaveOffered);
