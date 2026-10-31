@@ -24,9 +24,9 @@ export const MARKETPLACE_PACK = "air-bladder.marketplace";
  * This is the same mistake `gear.js` `resolveGearItem` already documents fixing
  * ("twenty names went 34.5s -> 5.2s"); the fix is deliberately the same shape.
  *
- * Still not cached, for the same reason it is not cached there: an in-session
- * edit to a compendium item must show up on the next lookup — that is the point
- * of the editable-compendium model.
+ * Still not cached, for the same reason it is not cached there: an edit to a
+ * compendium item shows up on the next lookup, for as long as the edit lives
+ * (a system update replaces a shipped pack wholesale).
  *
  * @param {String} compendiumName
  * @param {String} itemName

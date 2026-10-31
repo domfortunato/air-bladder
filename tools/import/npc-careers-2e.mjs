@@ -51,7 +51,7 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", ".
 const OUT = path.join(root, "module", "npc-careers-2e.json");
 const dry = process.argv.includes("--dry");
 
-// KEEP IN SYNC with module/gear.js GEAR_ALIASES (and gear-2e.mjs / marketplace.mjs):
+// KEEP IN SYNC with module/gear.js GEAR_ALIASES (and marketplace.mjs):
 // the resolver maps these grant names onto differently-named pool items, so the
 // author-time check has to know them or it reports a false miss.
 const ALIASES = new Map([

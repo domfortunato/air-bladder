@@ -3,17 +3,21 @@ import { t } from "./i18n-content.js";
 /**
  * Shared gear resolution for Air Bladder.
  *
- * Gear is the single editable source of truth: it lives in Item compendia that a
- * Warden can unlock and edit. Character generation (2e AND Barebones), hireling
- * loadouts, bonds, and the marketplace all reference an item BY NAME and resolve
- * it here — so editing a pack item once flows everywhere it is granted.
+ * Gear has one source of truth: it lives in the shipped Item compendia.
+ * Character generation (2e AND Barebones), hireling loadouts, bonds, and the
+ * marketplace all reference an item BY NAME and resolve it here — so a fix to a
+ * pack item reaches everywhere it is granted. Those packs are TEMPLATES, not a
+ * Warden's workbench: a system update replaces them wholesale, so an edit made
+ * inside one in Foundry lasts only until then (as core's own unlock warning
+ * says).
  *
  * This is the resolve-time half. The author-time half (turning an inline
  * {name, tags, uses, ...} record into an item's type/system fields) is
  * `buildGearItem`, kept here too so the two halves stay in one place; the
- * tools/import/gear-2e.mjs authoring script carries a byte-identical copy of that
- * inference (Node can't import this browser module across the ESM/CJS boundary,
- * so the copies are kept in sync by hand — see the note there).
+ * tools/import/marketplace.mjs authoring script carries a byte-identical copy of
+ * it and of the aliases (Node can't import this browser module across the
+ * ESM/CJS boundary, so the copies are kept in sync by hand — see the note
+ * there).
  *
  * Nothing here touches Foundry globals at module load; `game`/`foundry` are read
  * only inside resolveGearItem's body.
@@ -368,9 +372,9 @@ export const buildGearItem = (g) => {
  *
  * Still not cached: the match is found in the pack INDEX (names only, kept in
  * memory and updated live when a document changes), then that one document is
- * materialized with `getDocument`. So an in-session edit to an item is reflected
- * on the next resolve — the whole point of the editable-compendium model (edit →
- * regenerate → change appears) — without loading every document in eight packs.
+ * materialized with `getDocument`. So an edit to a pack item is reflected on the
+ * next resolve (until an update replaces the pack — see the module docblock)
+ * without loading every document in eight packs.
  *
  * This runs once per gear name, and `getDocuments()` was walking ~1,000 documents
  * across eight packs each time to read one name off each. Measured on the dev
