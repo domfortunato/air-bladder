@@ -2797,10 +2797,13 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // page. A CHARACTER prints those two as ALWAYS-PRESENT mark boxes
     // instead (user ask 2026-08-10: the paper sheet needs somewhere to
     // pencil them mid-session even when printed clean) — filled at print
-    // time when the condition is already on.
+    // time when the condition is already on. Panicked prints only while the
+    // rule is on (`usePanic`, the switch the sheets draw it under): a field
+    // the Warden has hidden does not reappear on paper (review #34 finding
+    // 222, the show-omens ruling).
     const status = [
       !isChar && sys.deprived && L("CAIRN.Deprived"),
-      !isChar && sys.panicked && L("CAIRN.Panicked"),
+      !isChar && sys.usePanic && sys.panicked && L("CAIRN.Panicked"),
       sys.critical && L("CAIRN.CriticalDamage"),
     ].filter(Boolean).join(" · ");
     // Empty when the Warden hides rolled flavor (show-traits, 2026-09-07):
@@ -2973,7 +2976,9 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       // that put Print on every sheet): the schema's 10/10/10 on a sack is
       // noise, not information, so the statblock section is creatures-only.
       showStats: !actor.isThing,
-      marks: isChar ? { deprived: !!sys.deprived, panicked: !!sys.panicked } : null,
+      marks: isChar
+        ? { deprived: !!sys.deprived, showPanicked: !!sys.usePanic, panicked: !!sys.panicked }
+        : null,
       traitsProse,
       // Kettlewright's two-column band (user rulings 2026-08-08): Stats and
       // Items on the left; the background's description then Traits beside

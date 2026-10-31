@@ -63,7 +63,8 @@
   .stats .row b { font-style: italic; }
   .statusline { margin-top: 0.4rem; font-style: italic; }
   /* Deprived/Panicked mark-later boxes (user ask 2026-08-10): always printed
-     on a character page so a player can pencil the condition mid-session;
+     on a character page so a player can pencil the condition mid-session
+     (Panicked only while its rule is on — review #34 finding 222);
      the box arrives filled when the condition is on at print time. They sit
      BELOW the stats grid (user ruling 2026-08-11, reversing the previous
      day's move into the header — under the Background line they read badly).
@@ -210,7 +211,7 @@
   {{#if marks}}
   <div class="cond-marks">
     <span><span class="box">{{#if marks.deprived}}✕{{/if}}</span> {{ localize "CAIRN.Deprived" }}</span>
-    <span><span class="box">{{#if marks.panicked}}✕{{/if}}</span> {{ localize "CAIRN.Panicked" }}</span>
+    {{#if marks.showPanicked}}<span><span class="box">{{#if marks.panicked}}✕{{/if}}</span> {{ localize "CAIRN.Panicked" }}</span>{{/if}}
   </div>
   {{/if}}
   {{#if status}}<div class="statusline">{{ status }}</div>{{/if}}
