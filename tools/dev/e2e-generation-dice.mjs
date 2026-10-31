@@ -228,12 +228,27 @@ try {
       const sys = changes?.system ?? {};
       if (a.id === actor.id && ("background" in sys || "backgroundUuid" in sys || "questions" in sys)) bgWrites++;
     });
+    // ...and with NO ERROR: the race's commoner outcome is not a second
+    // loadout but the second click's delete throwing on an id the first had
+    // already removed ("Item ... does not exist!", measured on the unguarded
+    // build) — which this probe's console-error list reports and does not fail.
+    const bgErrors = [];
+    const onRejection = (e) => bgErrors.push(String(e.reason?.message ?? e.reason));
+    window.addEventListener("unhandledrejection", onRejection);
+    const origError = console.error;
+    console.error = (...a) => { bgErrors.push(a.map(String).join(" ")); return origError.apply(console, a); };
     const bgDie = actor.sheet.element?.querySelector('[data-action="rollBackground"]');
-    bgDie?.click();
-    bgDie?.click();
-    await sleep(4000);
+    try {
+      bgDie?.click();
+      bgDie?.click();
+      await sleep(4000);
+    } finally {
+      console.error = origError;
+      window.removeEventListener("unhandledrejection", onRejection);
+    }
     Hooks.off("updateActor", hookId);
     out.bgDoubleWrites = bgDie ? bgWrites : null;
+    out.bgDoubleErrors = bgErrors;
     await actor.sheet.close();
 
     return out;
@@ -326,9 +341,9 @@ try {
   r.traitDie && r.legs.traitRoll.length === 0
     ? ok("a trait die posts nothing either, with the change log ON — a roll is not a manual change")
     : fail(`trait die (present=${r.traitDie}) posted ${r.legs.traitRoll?.length} message(s) [${(r.legs.traitRoll ?? []).map((m) => m.id).join(", ")}]`);
-  r.bgDoubleWrites === 1
-    ? ok("a double-click on the Background die swaps once")
-    : fail(`a double-click on the Background die wrote the background ${r.bgDoubleWrites} time(s)`);
+  r.bgDoubleWrites === 1 && !r.bgDoubleErrors?.length
+    ? ok("a double-click on the Background die swaps once, with no error")
+    : fail(`a double-click on the Background die: ${r.bgDoubleWrites} write(s), errors ${JSON.stringify(r.bgDoubleErrors)}`);
 
   // ---- Leg 6: two seconds of dice, then the sheet --------------------------
   // ChatMessage.create resolves when the document saves; Dice So Nice keeps

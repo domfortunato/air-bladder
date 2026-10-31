@@ -458,6 +458,71 @@ labels.actor === "Air Bladder" && labels.item === "Air Bladder"
   ? ok("both sheets register a label", `"${labels.actor}" / "${labels.item}"`)
   : fail("both sheets register a label", `actor="${labels.actor}" item="${labels.item}"`);
 
+console.log("\na monster's stats are not a character's (review #34 finding 52)");
+
+// The npc sheet serves every monster, and the shipped bestiary runs to HP 30
+// and STR 20 — but its inputs carried the character sheet's 0-18 clamp, so a
+// Warden's hand edit of a Dragon Turtle's HP from 30 to 29 saved 18. The
+// control is a character, whose 18 stands.
+const caps = await page.evaluate(async () => {
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const typeInto = async (actor, name, value) => {
+    await actor.sheet.render(true);
+    for (let i = 0; i < 40 && !actor.sheet.element?.querySelector(`input[name="${name}"]`); i++) await sleep(150);
+    const input = actor.sheet.element.querySelector(`input[name="${name}"]`);
+    input.value = String(value);
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+    await sleep(1200);
+  };
+  const beast = await Actor.create({ name: "ZZ Caps Beast", type: "npc",
+    system: { role: "monster", hp: { value: 30, max: 30 }, abilities: { STR: { value: 20, max: 20 } } } });
+  await typeInto(beast, "system.hp.value", 29);
+  await typeInto(beast, "system.abilities.STR.value", 19);
+  const pc = await Actor.create({ name: "ZZ Caps PC", type: "character" });
+  await typeInto(pc, "system.abilities.STR.value", 25);
+  const out = {
+    beastHp: beast._source.system.hp.value,
+    beastStr: beast._source.system.abilities.STR.value,
+    pcStr: pc._source.system.abilities.STR.value,
+  };
+  await beast.sheet.close(); await pc.sheet.close();
+  await beast.delete(); await pc.delete();
+  return out;
+});
+caps.beastHp === 29 && caps.beastStr === 19
+  ? ok("a monster's hand-edited HP 29 and STR 19 save as typed", JSON.stringify(caps))
+  : fail("a monster's hand-edited HP 29 and STR 19 save as typed", JSON.stringify(caps));
+caps.pcStr === 18
+  ? ok("...and a character's STR is still capped at 18", JSON.stringify(caps))
+  : fail("...and a character's STR is still capped at 18", JSON.stringify(caps));
+
+console.log("\na typed number cannot make the sheet draw millions of rows (review #34 finding 54)");
+
+// Coin rows (one per coin slot) and use pips (one per use) are drawn by the
+// `times` helper from numbers an owner types, with no ceiling: gold 1e9 drew
+// ten million rows and broke the sheet on every client that had it open.
+const rows = await page.evaluate(async () => {
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const rich = await Actor.create({ name: "ZZ Rows Rich", type: "character", system: { gold: 1e9 } });
+  await rich.createEmbeddedDocuments("Item", [{ name: "ZZ Rows Rope", type: "item", system: { uses: { value: 1, max: 1e7 } } }]);
+  const t0 = performance.now();
+  let threw = null;
+  try { await rich.sheet.render(true); } catch (e) { threw = e.message; }
+  for (let i = 0; i < 40 && !rich.sheet.element?.querySelector(".cairn-items-list-header"); i++) await sleep(150);
+  const out = {
+    rendered: !!rich.sheet.element?.querySelector(".cairn-items-list-header"),
+    ms: Math.round(performance.now() - t0),
+    threw,
+    nodes: rich.sheet.element?.querySelectorAll("*").length ?? 0,
+  };
+  await rich.sheet.close();
+  await rich.delete();
+  return out;
+});
+rows.rendered && !rows.threw && rows.nodes < 20000
+  ? ok("gold 1e9 and a 1e7-use item still render a sheet of ordinary size", JSON.stringify(rows))
+  : fail("gold 1e9 and a 1e7-use item still render a sheet of ordinary size", JSON.stringify(rows));
+
 /* ----------------------------------------------------------- teardown ---- */
 await page.evaluate(async (id) => { await game.actors.get(id)?.delete(); }, actorId);
 

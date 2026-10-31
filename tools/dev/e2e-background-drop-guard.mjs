@@ -137,6 +137,31 @@ const out = await page.evaluate(async () => {
   await new Promise((r) => setTimeout(r, 4000));
   res.characterAccepted = { background: pc.system.background, items: pc.items.size };
 
+  // THE PICKER'S SWITCH, on the drop too (review #34 finding 51). The die and
+  // the magnifier refuse whoever the Warden's Character Creation switch denies
+  // (`_mayRandomize`); the drop is the same operation and asked nothing, so a
+  // drag from the compendium was the way around the switch. The Warden always
+  // passes the real test, so it is shadowed on THIS sheet's instance, in-page:
+  // the question is whether the drop asks it at all.
+  const gated = await Cls.create({ name: "ZZ BGGuard Gated PC", type: "character" });
+  await gated.sheet.render(true);
+  await new Promise((r) => setTimeout(r, 400));
+  gated.sheet._mayRandomize = () => false;
+  warns.length = 0;
+  const gatedBefore = gated.system.background;
+  const dt2 = new DataTransfer();
+  dt2.setData("text/plain", JSON.stringify({ type: "Item", uuid: packBg.uuid }));
+  DialogV2.confirm = async () => true;
+  try { await gated.sheet._onDrop(new DragEvent("drop", { dataTransfer: dt2 })); }
+  finally { DialogV2.confirm = origConfirm; delete gated.sheet._mayRandomize; }
+  await new Promise((r) => setTimeout(r, 2500));
+  res.gatedDrop = {
+    changed: gated.system.background !== gatedBefore,
+    warned: warns[0] ?? null,
+    want: game.i18n.localize("CAIRN.Notify.RandomizationDisabled"),
+  };
+  await gated.delete();
+
   ui.notifications.warn = origWarn;
   for (const a of [npc, hire, cont, donor, pc]) await a.delete();
   await worldBg.delete();
@@ -167,6 +192,12 @@ if (out.characterAccepted?.background) {
 } else {
   fail("positive control: a character did NOT accept a background — the drop path is broken, "
     + "so every refusal above proves nothing");
+}
+
+if (out.gatedDrop && !out.gatedDrop.changed && out.gatedDrop.warned === out.gatedDrop.want) {
+  ok(`with Character Creation tools switched off, a dropped background is refused like the picker ("${out.gatedDrop.warned}")`);
+} else {
+  fail(`a dropped background got past the Character Creation switch: ${JSON.stringify(out.gatedDrop)}`);
 }
 
 if (errors.length) { console.log(""); for (const e of errors) fail(`console error: ${e}`); }

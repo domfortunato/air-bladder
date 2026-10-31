@@ -250,6 +250,22 @@ const grants = await page.evaluate(async (prefix) => {
     questionGold: (blank._source.system.questions ?? []).reduce((n, q) => n + (q.gold ?? 0), 0),
   };
 
+  // (a2) THE OWNER'S OWN GEAR SURVIVES A SECOND PICK (review #34 finding 61).
+  // The legacy name-matcher ran BEFORE the hand-built check and deleted one
+  // untagged item per old-background ref — on this sheet, every one of them is
+  // the owner's transcription. Typed here under the refs' own names, untagged,
+  // then the background changes again.
+  const otherBg = bgs.find((b) => b.id !== bg.id) ?? null;
+  const typed = await blank.createEmbeddedDocuments("Item",
+    bg.system.startingGear.slice(0, 2).map((g) => ({ name: g.name, type: "item" })));
+  const typedIds = typed.map((i) => i.id);
+  if (otherBg) await cg.changeBackground(blank, otherBg);
+  out.handBuiltRepick = {
+    ran: !!otherBg,
+    typed: typedIds.length,
+    survived: typedIds.filter((id) => blank.items.has(id)).length,
+  };
+
   // (b) THE CONTROL — the same background, the same call, on a ROLLED
   // character. Without this, a changeBackground broken to grant nothing at all
   // would make (a) pass and read as a working feature.
@@ -500,6 +516,13 @@ if (grants.handBuilt) {
   h.questions > 0
     ? ok(`   …while the ${h.questions} question rows still land, so the pickers have something to hang on`)
     : fail("the background's question rows did not land");
+}
+
+if (grants.handBuiltRepick) {
+  const r = grants.handBuiltRepick;
+  r.ran && r.typed > 0 && r.survived === r.typed
+    ? ok(`a second background pick on a hand-built sheet keeps the owner's typed gear (${r.survived}/${r.typed})`)
+    : fail(`a second background pick deleted the owner's typed gear: ${JSON.stringify(r)}`);
 }
 
 if (grants.control) {
