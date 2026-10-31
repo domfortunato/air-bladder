@@ -368,11 +368,11 @@ export class Damage {
             // -- two HP/STR passes, two Scar draws. The finally releases it
             // however this exits, so a cancelled dialog or a throw cannot wedge
             // the card out of ever applying. Keyed on the card; a null-message
-            // caller takes no lock.
-            if (message && damageApplyInFlight.has(message.id)) {
-                ui.notifications.warn(game.i18n.localize("CAIRN.Notify.DamageAlreadyApplied"));
-                return;
-            }
+            // caller takes no lock. SILENT (review #34 finding 184): nothing has
+            // landed yet — the picker may sit open, or be cancelled — so "This
+            // card's damage has already been applied" was untrue; the encounter
+            // button's twin lock returns silently too.
+            if (message && damageApplyInFlight.has(message.id)) return;
             if (message) damageApplyInFlight.add(message.id);
             try {
                 // An UNTARGETED roll: ask who takes it. AFTER the once-only check
