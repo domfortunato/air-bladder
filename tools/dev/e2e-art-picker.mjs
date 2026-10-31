@@ -859,6 +859,55 @@ try {
     : fail("a nested tile's face decodes and its drill-down resolves",
         `key ${tidy.firstKey}, face decodes ${tidy.faceDecodes}, ${tidy.drilled?.length} cell(s)`);
 
+  // ONE LEVEL AT A TIME, SIDE BY SIDE (review #34 finding 208). The scan
+  // browsed one folder per awaited request, so Refresh waited for the sum of
+  // every folder's round trip. The folders at one depth do not depend on each
+  // other. Measured on `tidy`'s root (still the folder setting here, restored
+  // below): `browse` is wrapped on the FilePicker class to count requests in
+  // flight, and one refresh must have more than one at once. Witness: a plain
+  // serial walk of the same root, by hand in this leg, finds the SAME images
+  // in the SAME order, and the walk made more than two requests.
+  const walk = await page.evaluate(async () => {
+    const gen = await import("/systems/air-bladder/module/character-generator.js");
+    const FP = foundry.applications.apps.FilePicker.implementation;
+    const dir = game.settings.get("air-bladder", "custom-portrait-folder");
+    const img = (f) => /\.(?:webp|png|jpe?g|gif|svg|avif|bmp)$/i.test(f);
+    const expected = [];
+    const seen = new Set([dir]);
+    const root = await FP.browse("data", dir);
+    expected.push(...(root?.files ?? []).filter(img));
+    const queue = (root?.dirs ?? []).map((path) => ({ path, depth: 1 }));
+    while (queue.length) {
+      const { path, depth } = queue.shift();
+      if (seen.has(path)) continue;
+      seen.add(path);
+      const res = await FP.browse("data", path);
+      expected.push(...(res?.files ?? []).filter(img));
+      if (depth < 6) queue.push(...(res?.dirs ?? []).map((p) => ({ path: p, depth: depth + 1 })));
+    }
+    const own = Object.hasOwn(FP, "browse");
+    const orig = FP.browse;
+    let inFlight = 0, peak = 0, calls = 0;
+    let files;
+    try {
+      FP.browse = async function (...args) {
+        calls += 1; inFlight += 1; peak = Math.max(peak, inFlight);
+        try { return await orig.apply(this, args); } finally { inFlight -= 1; }
+      };
+      files = await gen.refreshCustomPortraits();
+    } finally {
+      if (own) FP.browse = orig; else delete FP.browse;
+    }
+    return { dir, peak, calls, n: files.length, expected: expected.length,
+      same: JSON.stringify(files) === JSON.stringify(expected) };
+  });
+  walk.same && walk.n > 0 && walk.calls > 2
+    ? ok("witness: the scan finds what a serial walk finds, in the same order", `${walk.n} images, ${walk.calls} requests under "${walk.dir}"`)
+    : fail("witness: the scan finds what a serial walk finds, in the same order", JSON.stringify(walk));
+  walk.peak > 1
+    ? ok("the scan browses a level's folders side by side", `${walk.peak} requests in flight at once`)
+    : fail("the scan browses a level's folders side by side", `peak ${walk.peak} in flight over ${walk.calls} requests: one folder at a time`);
+
   const restored = await page.evaluate(async (prior) => {
     const NS = "air-bladder";
     await game.settings.set(NS, "custom-portrait-folder", prior.folder);
