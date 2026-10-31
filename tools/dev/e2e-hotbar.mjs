@@ -43,7 +43,7 @@
  * The dev world has NO actors; fixtures are created and removed.
  */
 import { chromium } from "playwright";
-import { FOUNDRY_URL, VIEWPORT, dismissChrome, joinAsGM, watchErrors, watchdog } from "./lib.mjs";
+import { FOUNDRY_URL, VIEWPORT, dismissChrome, joinAs, joinAsGM, watchErrors, watchdog } from "./lib.mjs";
 
 let failures = 0;
 const ok = (l, d = "") => console.log(`  ok    ${l.padEnd(52)} ${d}`);
@@ -89,15 +89,7 @@ try {
     ]);
     const weapon = actor.items.find((i) => i.name === "ZZ Hotbar Blade");
     const planted = actor.items.find((i) => i.name === "ZZ Hotbar Planted");
-    // A macro a PLAYER authored, matching the planted weapon's roll macro by
-    // name and command exactly — what a player's own drag of that weapon mints,
-    // or what a player can plant in advance (every id is in their world data).
-    // A GM may create a macro under another author (Macro#canCreate).
     const player = game.users.find((u) => !u.isGM);
-    const foreign = player ? await getDocumentClass("Macro").create({
-      name: planted.name, type: "script", author: player.id,
-      command: `game.cairn.rollItemMacro("${actor.id}", "${planted.id}");`,
-    }) : null;
     const table = await getDocumentClass("RollTable").create({
       name: "ZZ Hotbar Table",
       formula: "1d1",
@@ -110,9 +102,32 @@ try {
       actorId: actor.id, weaponUuid: weapon.uuid,
       tableId: table.id, tableUuid: table.uuid,
       macroId: macro.id, macroUuid: macro.uuid,
-      plantedUuid: planted.uuid, foreignId: foreign?.id ?? null, playerName: player?.name ?? null,
+      plantedUuid: planted.uuid, plantedName: planted.name,
+      plantedCommand: `game.cairn.rollItemMacro("${actor.id}", "${planted.id}");`,
+      playerName: player?.name ?? null,
     };
   });
+  // A macro a PLAYER authored, matching the planted weapon's roll macro by name
+  // and command exactly — what a player's own drag of that weapon mints, or
+  // what a player can plant in advance (every id is in their world data). Made
+  // FROM THE PLAYER'S OWN SESSION: core stamps the creating user as author in
+  // Macro#_preCreate and the server refuses to change it afterwards, so a GM
+  // cannot make one (measured on the fleet, 1f651d33: the plant came out the
+  // Warden's, and the leg failed both before and after the fix). The macro is
+  // inside the snapshot's id difference, so the teardown below removes it.
+  fx.foreignId = null;
+  if (fx.playerName) {
+    const playerPage = await browser.newPage({ viewport: VIEWPORT });
+    try {
+      await joinAs(playerPage, fx.playerName);
+      fx.foreignId = await playerPage.evaluate(async ({ name, command }) => (await getDocumentClass("Macro")
+        .create({ name, type: "script", command }))?.id ?? null, { name: fx.plantedName, command: fx.plantedCommand });
+    } finally {
+      await playerPage.close();
+    }
+    // Let the Warden's client receive it before anything looks it up.
+    await page.waitForFunction((id) => !!game.macros.get(id), fx.foreignId, { timeout: 10000 }).catch(() => {});
+  }
   console.log(`  note  fixtures: actor ${fx.actorId}, table ${fx.tableId}, macro ${fx.macroId}`);
 
   /**
@@ -232,6 +247,32 @@ try {
   check("precondition: a player to author the planted macro", !!fx.foreignId,
     "the world needs one non-GM user; without one this leg proves nothing");
   if (fx.foreignId) {
+    // THE WITNESS, in-page: with `isAuthor` forced true — the old lookup, which
+    // never asked — the same drop must REUSE the planted macro. Without this the
+    // leg below could pass because the plant never matched at all, which is how
+    // its first version passed nothing and failed both ways. The getter is put
+    // back from a finally; the slot it fills is the probe's own and is
+    // overwritten by the real drop next.
+    const witnessed = await page.evaluate(async ({ slot, uuid }) => {
+      const proto = foundry.documents.Macro.prototype;
+      const desc = Object.getOwnPropertyDescriptor(proto, "isAuthor");
+      Object.defineProperty(proto, "isAuthor", { get: () => true, configurable: true });
+      try {
+        await ui.hotbar.render(true);
+        const el = ui.hotbar.element.querySelector(`.slot[data-slot="${slot}"]`);
+        const dt = new DataTransfer();
+        dt.setData("text/plain", JSON.stringify({ type: "Item", uuid }));
+        el?.dispatchEvent(new DragEvent("drop", { dataTransfer: dt, bubbles: true, cancelable: true }));
+        for (let i = 0; i < 40 && !game.user.hotbar[slot]; i++) await new Promise((r) => setTimeout(r, 100));
+        return game.user.hotbar[slot] ?? null;
+      } finally {
+        if (desc) Object.defineProperty(proto, "isAuthor", desc);
+        else delete proto.isAuthor;
+      }
+    }, { slot: SLOT_FOREIGN, uuid: fx.plantedUuid });
+    check("witness: with authorship ignored, the drop reuses the planted macro", witnessed === fx.foreignId,
+      `slot=${witnessed} planted=${fx.foreignId} — if this is not the planted macro, the leg below proves nothing`);
+
     const foreignDrop = await drop(SLOT_FOREIGN, JSON.stringify({ type: "Item", uuid: fx.plantedUuid }));
     const author = await page.evaluate((id) => game.macros.get(id)?.author?.name ?? null, foreignDrop.slotId);
     check("a weapon drop never reuses a macro another user authored",
