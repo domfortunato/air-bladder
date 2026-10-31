@@ -347,10 +347,19 @@ const wrapTranslatedSearch = (app, displayOf) => {
         const display = displayOf(e);
         if (!display || display === e.name || !query.test(clean(display))) continue;
         entryIds.add(id);
-        const fid = e.folder?.id ?? e.folder?._id ?? e.folder;
-        if (fid) {
+        // The entry's folder AND EVERY ANCESTOR (review #34 finding 68), the
+        // way core's `#onMatchFolder` recurses up `folder.folder`. Marking only
+        // the immediate folder left a match two levels deep inside a hidden
+        // parent — and the take-over doors make exactly that shape, a "Custom …"
+        // folder with one subfolder per source compendium.
+        let fid = e.folder?.id ?? e.folder?._id ?? e.folder;
+        const seen = new Set();
+        while (fid && !seen.has(fid)) {
+          seen.add(fid);
           folderIds.add(fid);
           autoExpandIds.add(fid);
+          const folder = app.collection.folders?.get?.(fid) ?? game.folders?.get(fid);
+          fid = folder?.folder?.id ?? folder?.folder ?? null;
         }
       }
     } catch (err) {
@@ -440,11 +449,31 @@ const packNameNamespace = (meta) =>
   (meta?.name ?? "").startsWith("backgrounds") ? "bg.name" :
   "item.name";
 
+/**
+ * The namespace for ONE entry of a pack (review #34 finding 69), refining the
+ * pack's by the entry's own `type`, which an index entry carries. Two kinds of
+ * WORLD pack break the per-pack premise above: the system's own
+ * `world.custom-backgrounds` is an Item pack whose name does not start
+ * "backgrounds", so the 2e door's copies read through item.name and stayed
+ * English beside the Spanish originals; and a Warden's world Actor pack can
+ * hold player characters, whose names are never localized (the 2026-08-04
+ * ruling — `worldDisplayName`'s and `actorDisplayName`'s rule, here per entry).
+ * @returns {string|null}  null = leave the name as it is
+ */
+const packEntryNamespace = (meta, entry) => {
+  if (meta?.type === "Actor") return entry?.type === "character" ? null : "monster.name";
+  if (meta?.type === "Item" && entry?.type) return entry.type === "background" ? "bg.name" : "item.name";
+  return packNameNamespace(meta);
+};
+
 Hooks.on("renderCompendium", (app, html) => {
   if (!contentLocalized()) return;
-  const ns = packNameNamespace(app.collection?.metadata);
-  if (ns === null) return;
-  const displayOf = (e) => t(ns, e.name ?? "");
+  const meta = app.collection?.metadata;
+  if (packNameNamespace(meta) === null) return;
+  const displayOf = (e) => {
+    const ns = packEntryNamespace(meta, e);
+    return ns ? t(ns, e.name ?? "") : (e.name ?? "");
+  };
   localizeDirectoryNames(html, app.collection, displayOf);
   wrapTranslatedSearch(app, displayOf);
 });
@@ -506,11 +535,12 @@ const wrapCompendiumDocumentSearch = (app) => {
           if (added >= 25) break;
           if (!pack.visible) continue;
           if (filters.size && !filters.has(pack.documentName)) continue;
-          const ns = packNameNamespace(pack.metadata);
-          if (ns === null) continue;
+          if (packNameNamespace(pack.metadata) === null) continue;
           for (const entry of pack.index) {
             if (added >= 25) break;
             if (seen.has(entry.uuid)) continue;
+            const ns = packEntryNamespace(pack.metadata, entry);
+            if (!ns) continue;
             const display = t(ns, entry.name ?? "");
             if (!display || display === entry.name) continue;
             const have = words(display);
@@ -539,8 +569,10 @@ const wrapCompendiumDocumentSearch = (app) => {
         for (const li of listEl?.querySelectorAll?.("li[data-document-match]") ?? []) {
           const el = li.querySelector("a[data-name]");
           if (!el || el.children.length) continue;
-          const ns = packNameNamespace(foundry.utils.parseUuid(li.dataset.uuid)?.collection?.metadata);
-          if (ns === null) continue;
+          let entry = null;
+          try { entry = fromUuidSync(li.dataset.uuid); } catch { entry = null; }
+          const ns = packEntryNamespace(foundry.utils.parseUuid(li.dataset.uuid)?.collection?.metadata, entry);
+          if (!ns) continue;
           const english = el.textContent.trim();
           const display = t(ns, english);
           if (display && display !== english) el.textContent = display;
@@ -624,6 +656,14 @@ const localizeResultCells = (cells) => {
  * Two cards claim this line themselves and are left alone: the Dashboard's
  * draw, relabelled with its button's UI key in `localizeDashboardCard`, and the
  * scar card.
+ *
+ * AND A FLAVOR SOMEBODY CHOSE IS LEFT ALONE (review #34 finding 70). Core sets
+ * its default sentence and the `core.RollTable` flag together, then lets the
+ * caller's `messageData.flavor` override the sentence — so a macro's or
+ * another package's "Weather for the day" was rewritten to core's default for
+ * every viewer, while the stored message kept the text. Core's default always
+ * carries the table's name, escaped (roll-table.mjs `toMessage`), in whatever
+ * language composed it; a stored flavor that does not is somebody's own line.
  */
 const relabelDrawFlavor = (message, flavor, count) => {
   if (!flavor) return;
@@ -632,6 +672,7 @@ const relabelDrawFlavor = (message, flavor, count) => {
   if (!tableId) return;
   resolveTable(tableId).then((table) => {
     if (!table) return;
+    if (!String(message.flavor ?? "").includes(foundry.utils.escapeHTML(table.name))) return;
     flavor.textContent = game.i18n.format(`TABLE.DrawFlavor${count > 1 ? "Plural" : ""}`, {
       number: count, name: t("table.name", table.name),
     });
