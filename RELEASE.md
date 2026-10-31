@@ -127,8 +127,11 @@ publishes documentation for a version nobody can install yet.
 If a release's assets are missing or you need to rebuild without a new version:
 **Actions → Release Creation → Run workflow → enter the tag → Run.** This
 `workflow_dispatch` path (re)builds and re-attaches the assets to the existing tag.
-It checks out the TAG you enter, whichever branch the Run-workflow dialog shows —
-that picker only chooses which copy of the workflow file runs, never what is built.
+It checks out the TAG you enter, whichever branch the Run-workflow dialog shows,
+and zips the file list in the TAG's own `main.yml`, not the running copy's — so
+0.1.0–0.1.9, whose lists carry `template.json` and the old gallery folders, ship
+what they shipped. That picker only chooses which copy of the workflow file runs,
+never what is built.
 The rebuild runs each gate the tag's own `package.json` defines. A gate added after
 that tag (every tag up to 0.1.23 predates `check:package` and the archive audit) is
 skipped with a notice. A tag push runs every gate, and a missing one fails it.

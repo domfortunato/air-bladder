@@ -155,11 +155,37 @@ jobs:
             console.log(`system.json: version ${m.version}, download ${m.download}`);
           '
 
+      # A REBUILD SHIPS WHAT THE TAG SHIPPED (review #34 finding 260). The list
+      # of what goes in the archive is a literal line in the RUNNING workflow,
+      # and on a dispatch that file comes from the branch picked in the dialog
+      # while the checkout is the tag. So a rebuild of 0.1.0-0.1.9 zipped TODAY's
+      # list from the old tree: no template.json (0.1.0-0.1.4's only declaration
+      # of their Actor and Item types), no portrait, token or Lydia Comer
+      # galleries, no game-icons/ or tlomdev/ in 0.1.9 — zip skips a missing name
+      # with a warning — and the release step then replaced the working asset.
+      # On a dispatch, the TAG's own zip line is read from its main.yml on disk
+      # and run instead. On a tag push that file IS the running one, so the
+      # literal line below runs. The path is quoted on purpose: check:package and
+      # this step's own grep both look for the unquoted line, which must stay the
+      # first of its kind in the file.
+      - name: On a rebuild, zip the tag's own file list
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          line=$(grep -m1 -E '^[[:space:]]*(- run: )?zip -r \./system\.zip ' .github/workflows/main.yml || true)
+          if [ -z "$line" ]; then
+            echo "::error::no zip line in $RELEASE_TAG's own .github/workflows/main.yml - nothing says what it shipped"
+            exit 1
+          fi
+          list=${line#*system.zip }
+          echo "::notice::$RELEASE_TAG ships its own file list: $list"
+          zip -r "./system.zip" $list
+
       # Create a zip file with all files required by the system to add to the release
       # template.json was dropped when the sub-type schemas moved to TypeDataModel
       # (module/data-models.js). zip skips a missing file silently, so this listed a
       # file that had not existed for releases without anyone noticing.
       - run: zip -r ./system.zip README.md README.es.md LICENSE.txt system.json art/ css/ fonts/ icons/ lang/ logo/ module/ packs/ templates/
+        if: github.event_name != 'workflow_dispatch'
 
       # And again over the archive itself, which is the only thing a user ever
       # receives. The tree pass above cannot see what `zip` actually wrote — the
