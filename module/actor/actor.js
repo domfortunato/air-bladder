@@ -1786,6 +1786,13 @@ export class CairnActor extends Actor {
             const art = iconForTransport(changed.name ?? this.name, "", cls);
             changed.img = art;
             foundry.utils.setProperty(changed, "prototypeToken.texture.src", art);
+            // AN UNLINKED TOKEN'S ACTOR (review #34 finding 162): the delta
+            // declares no prototypeToken, so the line above is dropped in the
+            // rewrite and only `img` lands — the sheet changed, the canvas did
+            // not. Its one placed token is carried along in _onUpdate
+            // (#restampMatchingTokenArt), under the same rule as every other
+            // token: only while it still wears the former picture.
+            if (this.isToken) ((options.airBladder ??= {})[this.id] ??= {}).formerKindArt = this.img;
           }
         }
         if (flat["system.slots"] === undefined && !Number(this.system.slots)) {
@@ -2023,6 +2030,16 @@ export class CairnActor extends Actor {
    * former prototype value, so randomImg tokens are naturally left alone.
    */
   async #restampMatchingTokenArt(stash, userId) {
+    // A SYNTHETIC actor re-arted by its Kind (see _preUpdate): its own one
+    // token, while it still wears the picture the actor wore — the rename
+    // rule's token branch (#renameMatchingTokens), applied to art.
+    if (this.isToken) {
+      const formerImg = stash.formerKindArt;
+      const token = this.token;
+      if (formerImg === undefined || userId !== game.user.id || formerImg === this.img) return;
+      if (token?.isOwner && token.texture?.src === formerImg) await token.update({ "texture.src": this.img });
+      return;
+    }
     const former = stash.formerTokenArt;
     const target = this.prototypeToken?.texture?.src;
     if (former === undefined || !target || former === target) return;
@@ -2032,11 +2049,6 @@ export class CairnActor extends Actor {
     // that id with the pack entry: new art picked on the entry repainted every
     // placed token of the world copy.
     if (this.pack) return;
-    // A synthetic actor never reaches past this line in practice: ActorDelta
-    // declares no prototypeToken field, so the change that stashed `former`
-    // is dropped in the rewrite and target === former above. The sheet's art
-    // setters write an unlinked token's texture directly instead.
-    if (this.isToken) return;
     for (const scene of game.scenes) {
       const updates = [];
       for (const token of scene.tokens) {
