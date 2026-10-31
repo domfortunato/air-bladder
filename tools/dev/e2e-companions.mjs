@@ -78,31 +78,58 @@ const role = await page.evaluate(async () => {
     r.liveReads = `THREW: ${e.message.slice(0, 80)}`;
   }
 
-  // The RESTAMP: reset the marker, run the world migration's own writes the
-  // way the ready hook does — write the read value back, diff: false.
+  // The RESTAMP is the REAL phase (review #34 finding 24): the marker is
+  // cleared here, and the reload below lets `migrateMountToCompanion` run from
+  // the ready hook. This used to run its own in-page copy of the restamp, so
+  // the probe stayed green with the phase deleted, or with the filter on a
+  // stored "mount" brought back that the function's docblock calls the wrong
+  // first draft.
+  r.markerWas = game.settings.get("air-bladder", "companion-restamped");
   await game.settings.set("air-bladder", "companion-restamped", false);
-  const updates = game.actors
-    .filter((a) => ["npc", "hireling"].includes(a.type))
-    .map((a) => ({ _id: a.id, "system.role": a.system.role }));
-  await ActorImpl.updateDocuments(updates, { diff: false });
-  await game.settings.set("air-bladder", "companion-restamped", true);
-  r.rawAfter = await rawRole();
-
-  // The sheet's role select carries the new word and never the old.
-  await legacy.sheet.render(true);
-  await sleep(800);
-  const options = [...(legacy.sheet.element?.querySelectorAll('select[name="system.role"] option') ?? [])]
-    .map((o) => o.textContent.trim());
-  r.roleOptions = options;
-  await legacy.sheet.close();
-
   r.ids = { legacyId: legacy.id };
   return r;
 });
 
+let restamp = {};
+try {
+  await page.reload({ waitUntil: "networkidle", timeout: 60000 });
+  await page.waitForFunction(() => globalThis.game?.ready === true, null, { timeout: 90000 });
+  await dismissChrome(page);
+  // Until the PHASE has stamped its marker — the writes land before it.
+  await page.waitForFunction(() => game.settings.get("air-bladder", "companion-restamped") === true,
+    null, { timeout: 30000 }).catch(() => {});
+  restamp = await page.evaluate(async (id) => {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const out = { marker: game.settings.get("air-bladder", "companion-restamped") };
+    const res = await foundry.helpers.SocketInterface.dispatch("modifyDocument", {
+      type: "Actor", action: "get", operation: { query: { _id__in: [id] }, broadcast: false },
+    });
+    out.rawAfter = res?.result?.[0]?.system?.role ?? null;
+    // The sheet's role select carries the new word and never the old.
+    const legacy = game.actors.get(id);
+    await legacy?.sheet.render(true);
+    await sleep(800);
+    out.roleOptions = [...(legacy?.sheet.element?.querySelectorAll('select[name="system.role"] option') ?? [])]
+      .map((o) => o.textContent.trim());
+    await legacy?.sheet.close();
+    return out;
+  }, role.ids.legacyId);
+} finally {
+  // The marker back to what it was, whatever happened above: a probe that
+  // leaves it false re-arms the restamp on every later GM load.
+  await page.evaluate(async (was) => {
+    if (game.settings.get("air-bladder", "companion-restamped") !== was) {
+      await game.settings.set("air-bladder", "companion-restamped", was);
+    }
+  }, role.markerWas ?? true).catch(() => {});
+}
+Object.assign(role, { rawAfter: restamp.rawAfter ?? null, roleOptions: restamp.roleOptions ?? [] });
+
 check("a stored mount READS companion", role.rawBefore === "mount" && role.readAs === "companion"
   && role.liveReads === "companion",
   `db="${role.rawBefore}" read="${role.readAs}" — migrateData, before choices validation`);
+check("the ready-hook PHASE ran and stamped its marker", restamp.marker === true,
+  `marker=${JSON.stringify(restamp.marker)} — the reload must run the real migration, not a copy of it`);
 check("the restamp writes it to the DATABASE", role.rawAfter === "companion",
   `db="${role.rawAfter}" — blind, like the hireling restamp: the stored value is unobservable, so a filtered migration stamps nothing`);
 check("the sheet says Companion, never Mount", role.roleOptions.includes("Companion")

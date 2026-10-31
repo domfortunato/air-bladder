@@ -55,6 +55,8 @@ const LATE = "ZZ Role Late NPC";
 const LATE2 = "ZZ Role Late NPC Two";
 const PACK_LABEL = "zz-role-split-pack";
 const PACK_PERSON = "ZZ Role Pack Person";
+const DELTA_BASE = "ZZ Role Delta Base";
+const DELTA_SCENE = "ZZ Role Delta Scene";
 const RATE = 5;
 
 let failed = false;
@@ -512,9 +514,20 @@ try {
     };
   });
 
-  const splitState = await page.evaluate(async ({ name, late, rate }) => {
-    for (const s of game.actors.filter((a) => [name, late].includes(a.name))) await s.delete();
+  const splitState = await page.evaluate(async ({ name, late, rate, deltaBase, deltaScene }) => {
+    for (const s of game.actors.filter((a) => [name, late, deltaBase].includes(a.name))) await s.delete();
+    for (const s of game.scenes.filter((x) => x.name === deltaScene)) await s.delete();
     const Cls = CONFIG.Actor.documentClass;
+    // AN UNLINKED TOKEN'S DELTA storing "npc" (review #34 finding 24: the
+    // split's delta walk ran in no probe). Written through the synthetic
+    // actor, which stores the difference from its base in the delta — the
+    // shape a pre-split world holds for a token re-roled on the canvas.
+    const base = await Cls.create({ name: deltaBase, type: "npc" });
+    const scene = await Scene.create({ name: deltaScene, width: 1000, height: 1000 });
+    const td = (await base.getTokenDocument({ x: 100, y: 100, actorLink: false })).toObject();
+    const [tok] = await scene.createEmbeddedDocuments("Token", [td]);
+    await tok.actor.update({ "system.role": "npc" });
+    const deltaPlanted = tok.delta?._source?.system?.role ?? null;
     const doc = await Cls.create({ name, type: "npc", system: { profession: "Torchbearer", dayRate: rate } });
     await foundry.helpers.SocketInterface.dispatch("modifyDocument", {
       type: "Actor", action: "update",
@@ -537,8 +550,13 @@ try {
     return {
       id: doc.id, lateId: lateDoc.id, started,
       splitCreated: doc._source._stats.createdTime, lateCreated: lateDoc._source._stats.createdTime,
+      sceneId: scene.id, tokenId: tok.id, deltaPlanted,
     };
-  }, { name: SPLIT, late: LATE, rate: RATE });
+  }, { name: SPLIT, late: LATE, rate: RATE, deltaBase: DELTA_BASE, deltaScene: DELTA_SCENE });
+
+  splitState.deltaPlanted === "npc"
+    ? ok('precondition: an unlinked token\'s delta stores role "npc"')
+    : fail("precondition: the delta plant", `delta holds ${JSON.stringify(splitState.deltaPlanted)}`);
 
   splitState.splitCreated < splitState.started && splitState.started < splitState.lateCreated
     ? ok("precondition: the recorded start falls between the two creations",
@@ -568,6 +586,12 @@ try {
   const splitAfter = await rawRole(splitState.id);
   if (splitAfter === "hireling") ok("the pre-split person is a HIRELING in the database now");
   else fail(`the database still holds ${JSON.stringify(splitAfter)} — the split did not convert it`);
+
+  const deltaAfter = await page.evaluate(({ sceneId, tokenId }) =>
+    game.scenes.get(sceneId)?.tokens.get(tokenId)?.delta?._source?.system?.role ?? null, splitState);
+  deltaAfter === "hireling"
+    ? ok("the unlinked token's delta is a HIRELING now — the delta walk ran")
+    : fail(`the token's delta still holds ${JSON.stringify(deltaAfter)} — the split skipped the delta walk`);
 
   const lateAfter = await rawRole(splitState.lateId);
   lateAfter === "npc"
@@ -702,13 +726,14 @@ try {
   }
   // The split leg names its actors rather than holding ids, so it can clean up
   // even when it threw before the ids came back.
-  await page.evaluate(async ({ names, label }) => {
+  await page.evaluate(async ({ names, label, sceneName }) => {
+    for (const s of game.scenes.filter((x) => x.name === sceneName)) await s.delete();
     for (const n of names) for (const a of game.actors.filter((x) => x.name === n)) await a.delete();
     for (const p of game.packs.filter((p) => p.metadata.label === label)) {
       await p.configure({ locked: false }).catch(() => {});   // a locked pack refuses its delete
       await p.deleteCompendium().catch(() => {});
     }
-  }, { names: [SPLIT, SURVIVOR, LATE, LATE2], label: PACK_LABEL }).catch(() => {});
+  }, { names: [SPLIT, SURVIVOR, LATE, LATE2, DELTA_BASE], label: PACK_LABEL, sceneName: DELTA_SCENE }).catch(() => {});
   // EVERYTHING the split reached, back as it was found, then both settings —
   // here, so a throw anywhere above still leaves the Warden's world whole.
   if (splitSnap) {
