@@ -314,6 +314,10 @@ const builder = await page.evaluate(async () => {
   r.pNum = parseDiceFormula("3");
   r.pEmpty = JSON.stringify(parseDiceFormula(""));
   r.pKhCount = parseDiceFormula("2d6 + d8");   // max(2d6,d8) is not a builder shape
+  // The parser speaks the dialect too (review #34 finding 49): with the
+  // notation off, `+` ADDS, so the builder must read a sum, counts and all.
+  r.pSumOff = JSON.stringify(parseDiceFormula("d6 + d6", { cairnNotation: false }));
+  r.pSumOffCount = JSON.stringify(parseDiceFormula("2d6 + d8", { cairnNotation: false }));
 
   const open = async () => {
     // A CLOSING dialog LINGERS in the DOM. Reopening while the last one is
@@ -403,6 +407,9 @@ check("the parser refuses what the buttons can't say", builder.pArith === null
   && builder.pAt === null && builder.pNum === null && builder.pKhCount === null
   && builder.pEmpty === JSON.stringify({ sizes: [], mode: null }),
   `2d6+3, @ref, 3, 2d6+d8 → null; "" → empty tray`);
+check("with the notation OFF, the parser reads `+` as the sum it rolls", builder.pSumOff === JSON.stringify({ sizes: [6, 6], mode: "sum" })
+  && builder.pSumOffCount === JSON.stringify({ sizes: [6, 6, 8], mode: "sum" }),
+  `d6 + d6 → ${builder.pSumOff}; 2d6 + d8 → ${builder.pSumOffCount} — keep-highest checked over a sum was the old reading`);
 check("clicks reach the field", builder.uiOpened && builder.uiCleared === ""
   && builder.uiTwoD6 === "2d6",
   `✕→"${builder.uiCleared}" then d6,d6→"${builder.uiTwoD6}" — the leg that catches listeners wired on the built nodes, which serialization discards`);

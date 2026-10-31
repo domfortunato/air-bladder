@@ -1683,7 +1683,9 @@ try {
   const WANT = {
     d6: "d6x2=6", oneD8: "1d8x3=8", twoD10: "2d10x4=10",
     keep: "2d6kx2=6", keepH: "2d8khx3=8", keepH1: "3d6kh1x2=6",
-    plusSame: "2d6kx2=6", plusCount: "3d6kx2=6",
+    // A COUNTED `+` term is not judged (review #34 finding 48): `2d6 + d6`
+    // is max(2d6, d6), which no single Die keep form says, so it stays as typed.
+    plusSame: "2d6kx2=6", plusCount: "2d6 + d6",
     plusMixed: "d6 + d8", arithmetic: "2d20 + 10", already: "1d6x", empty: "",
     // NO FLOOR (2026-10-03): every sub-d6 shape explodes like any other, the
     // `+` pool through its keep form, and d12 still does — each at its own cap.
