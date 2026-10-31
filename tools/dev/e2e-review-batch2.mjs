@@ -544,6 +544,22 @@ try {
     });
     cleanup.gm2Made = true;
     gm2Page = await (await browser.newContext({ viewport: VIEWPORT })).newPage();
+    // WAS GM2 THE ACTIVE GM AT ITS OWN READY? Recorded on its page at the
+    // ready tick (review #34, fleet 2026-10-31). The settle below assumed an
+    // elected GM2 always owes a login write — but the ready hook's scan is
+    // gated on `activeGM === game.user` AT READY, and the election that later
+    // names GM2 (getDesignatedUser breaks the tie by user id) can land after
+    // GM2's ready returned early. Then no login write was ever coming, and the
+    // leg failed waiting for it on every run GM2 won: a race that reds about
+    // half the runs, bisected wrongly to 5493a440 before two more runs at its
+    // parent split pass (Warden elected) and fail (GM2 elected).
+    await gm2Page.addInitScript(() => {
+      const iv = setInterval(() => {
+        if (!globalThis.Hooks) return;
+        clearInterval(iv);
+        Hooks.once("ready", () => { globalThis.__abActiveAtReady = game.users.activeGM === game.user; });
+      }, 5);
+    });
     await joinAs(gm2Page, "ZZ PROBE GM2");
     await spyWrites([page, gm2Page]);
 
@@ -567,7 +583,11 @@ try {
     // hook returns before the scan — and `getDesignatedUser` breaks the role
     // tie by user id, so which of the two it is changes with every fresh GM2.
     const activeName = await page.evaluate(() => game.users.activeGM?.name ?? null);
-    await settleWrites([page, gm2Page], { expectFrom: activeName === "ZZ PROBE GM2" ? gm2Page : null });
+    // A login write is owed only by a GM2 that was the active GM when its OWN
+    // ready hook ran (recorded above); elected later, its scan never started.
+    const gm2OwesLoginWrite = activeName === "ZZ PROBE GM2"
+      && await gm2Page.evaluate(() => globalThis.__abActiveAtReady === true);
+    await settleWrites([page, gm2Page], { expectFrom: gm2OwesLoginWrite ? gm2Page : null });
 
     const idlePage = activeName === "ZZ PROBE GM2" ? page : gm2Page;
     for (const p of [page, gm2Page]) {
