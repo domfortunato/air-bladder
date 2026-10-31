@@ -139,6 +139,61 @@ const result = await page.evaluate(async () => {
   return out;
 });
 
+// ONE REQUEST PER PACK FOR GEAR NAMES (review #34 finding 207). Three loops
+// resolved grant names one awaited `getDocument` at a time: a background's
+// starting gear (every generation, swap and re-deal), each Kettlewright item,
+// and Test ×10's lint. Four names only the FIRST gear pack answers (so the
+// unfixed loops ask that one pack four times), an UNSAVED background carrying
+// them as starting gear and as one option's items (nothing is written), and
+// each site run once with every gear and spell pack's cache evicted by core's
+// own `clear()` and its `getDocuments` counted on the instance. Every pack
+// must be asked at most once per site. Witness: the four were cold before
+// each site, and each site resolved all four by name.
+const gearLeg = await page.evaluate(async () => {
+  const CGm = await import("/systems/air-bladder/module/character-generator.js");
+  const KW = await import("/systems/air-bladder/module/kettlewright-import.js");
+  const G = await import("/systems/air-bladder/module/gear.js");
+  const packs = [...new Set([...G.CANONICAL_GEAR_PACKS, ...G.SPELL_PACKS])]
+    .map((k) => game.packs.get(k)).filter(Boolean);
+  const first = game.packs.get(G.CANONICAL_GEAR_PACKS[0]);
+  const entries = [...first.index].filter((e) => e.type !== "spellbook" && !G.spellNameFromGrant(e.name)
+    && !G.GEAR_ALIASES.has(e.name.toLowerCase()) && !/^(random|scroll|spellbook|fatigue)\b/i.test(e.name));
+  const picked = entries.filter((e, i) => entries.findIndex((x) => x.name === e.name) === i).slice(0, 4);
+  const names = picked.map((e) => e.name);
+  const calls = {};
+  const site = async (fn) => {
+    for (const p of packs) p.clear();
+    const cold = picked.filter((e) => !(first.get(e._id) instanceof foundry.abstract.Document)).length;
+    for (const k of Object.keys(calls)) delete calls[k];
+    const resolved = await fn();
+    return { cold, resolved, calls: { ...calls } };
+  };
+  const shadowed = [];
+  try {
+    for (const p of packs) {
+      const orig = p.getDocuments;
+      shadowed.push([p, Object.hasOwn(p, "getDocuments"), orig]);
+      p.getDocuments = function (...args) { calls[this.collection] = (calls[this.collection] ?? 0) + 1; return orig.apply(this, args); };
+    }
+    const refs = names.map((name) => ({ name }));
+    const bg = new Item.implementation({
+      name: "ZZ Gear Probe", type: "background",
+      system: { source: "2e", archetype: "Fighter", names: ["Ade"], startingGear: refs,
+        tables: [{ question: "Q?", options: [{ description: "Take them.", items: refs }] }] },
+    });
+    const isNamed = (n) => names.includes(n);
+    return {
+      names,
+      starting: await site(async () => (await CGm.resolveStartingGear(bg)).filter((i) => isNamed(i.name)).length),
+      kettlewright: await site(async () => (await KW.kettlewrightToActorData({ name: "ZZ Gear Probe", items: refs }))
+        .report.matched.filter(isNamed).length),
+      preview: await site(async () => (await CGm.previewBackground(bg, 0)).gear.filter((g) => g.kind === "name").length),
+    };
+  } finally {
+    for (const [p, own, orig] of shadowed) { if (own) p.getDocuments = orig; else delete p.getDocuments; }
+  }
+});
+
 await browser.close();
 
 const checks = [
@@ -159,6 +214,12 @@ const checks = [
     result.poolCold >= 4 && result.poolHoldsPlants === true],
   [`the pool asked each world/module pack at most once: ${JSON.stringify(result.poolCalls)}`,
     Object.values(result.poolCalls ?? { none: 2 }).every((n) => n <= 1)],
+  ...["starting", "kettlewright", "preview"].flatMap((k) => [
+    [`witness (${k}): ${gearLeg[k].cold} of ${JSON.stringify(gearLeg.names)} cold, ${gearLeg[k].resolved} resolved by name`,
+      gearLeg.names.length === 4 && gearLeg[k].cold === 4 && gearLeg[k].resolved === 4],
+    [`${k} asked each gear pack at most once: ${JSON.stringify(gearLeg[k].calls)}`,
+      Object.values(gearLeg[k].calls).every((n) => n <= 1)],
+  ]),
   ["world pack cleaned up", result.packRemoved === true],
 ];
 
