@@ -1155,13 +1155,18 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       // exactly the same as spells recorded in your Grimoire"), gated on the
       // GLOG rules setting, spent scrolls and bound pages excluded. The
       // control is the affordance; castScroll re-derives every guard.
-      if (game.settings.get(SETTINGS_NS, "enable-glog-magic")) {
+      const glog = game.settings.get(SETTINGS_NS, "enable-glog-magic");
+      if (glog) {
         context.items = context.items.map((i) =>
           i.type === "spellbook" && i.system.scroll && !i.system.bound
             && (i.system.uses?.value ?? 0) > 0
             ? { ...i, system: { ...i.system, canCastScroll: true } } : i);
       }
-      const grimoire = grimoiresOn(this.actor)[0];
+      // The Grimoire's Cast and every Transmute are the hack's too (review #34
+      // finding 223; 2174792d's record: "Cast, scroll conversion and transmute
+      // all sit behind enable-glog-magic"). Magic Dice are a rule of this world
+      // only while the hack is on, and a transmute binds a book for good.
+      const grimoire = glog ? grimoiresOn(this.actor)[0] : null;
       if (grimoire) {
         const pageCount = pagesOfGrimoire(this.actor, grimoire).length;
         const hasRoom = pageCount < (grimoire.system.grimoirePages ?? 0);
@@ -4072,6 +4077,9 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     const item = this.actor.getOwnedItem(row?.dataset.itemId);
     if (!item || item.type !== "spellbook" || item.system.bound) return;
     if (this.actor.type !== "character") return;
+    // The hack's gesture, gated as castScroll is (review #34 finding 223): the
+    // row control is the affordance, this is the enforcement.
+    if (!game.settings.get(SETTINGS_NS, "enable-glog-magic")) return;
     const grimoire = grimoiresOn(this.actor)[0];
     if (!grimoire) return;
     const pageCount = pagesOfGrimoire(this.actor, grimoire).length;

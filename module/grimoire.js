@@ -395,12 +395,16 @@ const reportCast = async (actor, spell, dice) => {
  * Cast from `actor`'s carried Grimoire: pick a bound page and a power
  * (1..min(4, free slots)), roll, and report — the resolved effect publicly,
  * the mechanics privately. Returns the public ChatMessage, or null when the
- * cast could not happen (no book, no pages, no dice, dialog dismissed).
+ * cast could not happen (the GLOG hack off, no book, no pages, no dice, dialog
+ * dismissed).
  * @param {CairnActor} actor
  * @returns {Promise<ChatMessage|null>}
  */
 export const castFromGrimoire = async (actor, { windowId } = {}) => {
   if (actor?.type !== "character") return null;
+  // Gated like castScroll below, for its reason: the setting is what makes
+  // Magic Dice a rule of this world at all (review #34 finding 223).
+  if (!game.settings.get(SETTINGS_NS, "enable-glog-magic")) return null;
   const book = grimoiresOn(actor)[0];
   if (!book) return null;
   // This book's pages, not every page on the actor. Identical on a character

@@ -122,6 +122,28 @@ await gm.goto(FOUNDRY_URL);
 await joinAsGM(gm);
 await dismissChrome(gm);
 
+/**
+ * THE GLOG HACK READS ON for this probe's sessions (review #34 finding 223).
+ * The Grimoire's Cast and every Transmute are the hack's gestures (2174792d's
+ * record), gated like the scroll's Cast; this probe exercises them, so it
+ * ESTABLISHES the hack in-page — never writing the world's setting, which is
+ * the Warden's (one-way for a campaign). A leg that needs it off (the plant,
+ * 10f's control) shadows over this one and restores it.
+ */
+const glogOn = (page) => page.evaluate(() => {
+  const ns = game.system.id;
+  const origGet = game.settings.get;
+  game.settings.get = function (scope, key, ...rest) {
+    // A DOCUMENT request is never shadowed (review #27): core's #setWorld asks
+    // get(ns, key, {document: true}) and any value handed back makes it CREATE
+    // a duplicate. check:probes gates this.
+    if (rest[0]?.document) return foundry.helpers.ClientSettings.prototype.get.call(this, scope, key, ...rest);
+    if (scope === ns && key === "enable-glog-magic") return true;
+    return origGet.call(this, scope, key, ...rest);
+  };
+});
+await glogOn(gm);
+
 /** Poll in-page until fn(arg) is truthy (or times out). */
 const until = async (page, fn, arg, ms = 8000) => {
   const t0 = Date.now();
@@ -1653,6 +1675,7 @@ try {
   await alicePage.goto(FOUNDRY_URL);
   await joinAs(alicePage, "Alice");
   await dismissChrome(alicePage);
+  await glogOn(alicePage);
   try {
     const aliceCast = await seedCast(alicePage, [0.9, 0.4]);
     check(!aliceCast.error && aliceCast.rollTotal === 5,
