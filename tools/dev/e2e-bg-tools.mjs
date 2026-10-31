@@ -83,6 +83,43 @@ const result = await page.evaluate(async () => {
     await game.settings.set(NS, "content-source-custom", true);
     const pool = await CG.getBackgroundsFor("2e");
     out.worldPackDiscovered = pool.some((b) => b.id === copy?.id);
+
+    // ONE REQUEST PER PACK (review #34 finding 206). The world/module scan
+    // fetched each source-2e background with its own `getDocument`, one
+    // awaited server request after another: 27 in a row once the 2e
+    // take-over has filled this pack. Three more plants (stamped, deleted by
+    // id below), the cache of every world/module Item pack evicted with
+    // core's own `clear()` (it keeps the index; nothing is written), each
+    // pack's `getDocuments` shadowed ON THE INSTANCE to count its calls
+    // (core's `getDocument` goes through it), the pool built once. Every
+    // pack must be asked at most once. Witness: at least four backgrounds in
+    // the world pack were cold, and the pool still holds every plant.
+    const wpack = game.packs.get("world.custom-backgrounds");
+    const planted = await Item.createDocuments([1, 2, 3].map((n) => ({
+      name: `ZZ Pool Probe ${n}`, type: "background", system: { source: "2e" },
+      flags: { [NS]: { probeFixture: "bg-tools" } },
+    })), { pack: wpack.collection });
+    const shadowed = [];
+    try {
+      const scanned = [...game.packs].filter((p) => p.metadata.type === "Item"
+        && ["world", "module"].includes(p.metadata.packageType));
+      for (const p of scanned) p.clear();
+      const isBg = (e) => e.type === "background" && e.system?.source === "2e";
+      const indexed = (await wpack.getIndex({ fields: ["system.source"] })).filter(isBg);
+      const calls = Object.fromEntries(scanned.map((p) => [p.collection, 0]));
+      for (const p of scanned) {
+        const orig = p.getDocuments;
+        shadowed.push([p, Object.hasOwn(p, "getDocuments"), orig]);
+        p.getDocuments = function (...args) { calls[this.collection] += 1; return orig.apply(this, args); };
+      }
+      out.poolCold = indexed.filter((e) => !(wpack.get(e._id) instanceof foundry.abstract.Document)).length;
+      const pool2 = await CG.getBackgroundsFor("2e");
+      out.poolCalls = calls;
+      out.poolHoldsPlants = planted.every((d) => pool2.some((b) => b.id === d.id));
+    } finally {
+      for (const [p, own, orig] of shadowed) { if (own) p.getDocuments = orig; else delete p.getDocuments; }
+      await Item.deleteDocuments(planted.map((d) => d.id), { pack: wpack.collection });
+    }
   } finally {
     await game.settings.set(NS, "content-source-custom", priorCustom);
   }
@@ -118,6 +155,10 @@ const checks = [
   ["duplicate name suffixed", /\(Copy\)$/.test(result.copyName ?? "")],
   ["duplicate carried gear + tables", result.copyGearCount > 0 && result.copyTablesCount > 0],
   ["world-pack bg discovered by index-first scan", result.worldPackDiscovered === true],
+  [`witness: ${result.poolCold} world-pack backgrounds were cold, and the pool holds every plant`,
+    result.poolCold >= 4 && result.poolHoldsPlants === true],
+  [`the pool asked each world/module pack at most once: ${JSON.stringify(result.poolCalls)}`,
+    Object.values(result.poolCalls ?? { none: 2 }).every((n) => n <= 1)],
   ["world pack cleaned up", result.packRemoved === true],
 ];
 
