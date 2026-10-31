@@ -152,6 +152,14 @@ git push origin :refs/tags/X.Y.Z
 # then `npm run release X.Y.Z` again
 ```
 
+The re-run sees that `system.json` already reads X.Y.Z, says it is a **redo**,
+and makes no second bump or commit. It tags `HEAD` with the CHANGELOG section
+and pushes. This also recovers a refused `git push --atomic`: the local Release
+commit stays, and only the local tag needs deleting. If the redo is for a fix
+(0.1.25's first tag failed CI on a gate), land the fix on `dev`, merge `dev`
+into `master` as usual, then re-run. The tag then goes on the merge, on top of
+the first run's Release commit.
+
 **A redo cannot change `compatibility` on the Marketplace.** The API refuses a
 duplicate version, so the listing keeps the FIRST submission's `minimum` and
 `verified`, and the re-run's job goes green saying "already listed". Foundry
