@@ -143,19 +143,39 @@ export const _resetFestivals = () => { FESTIVALS = null; };
 /* -------------------------------------------- */
 
 /**
- * The journal holding events of one kind, or null.
- *
- * FOUND BY ITS OWN FLAG, not by name and not by an id kept in a setting.
- *
- * Not by NAME, because a name goes through the content overlay and a Warden may
- * rename it. Not by a STORED ID either, and that is the more interesting half:
- * awaiting `game.settings.set` does NOT guarantee that the next
- * `game.settings.get` on the same client returns the new value — measured, and
- * intermittent, which is the worst kind. An identity that has to be written and
- * read back is an identity that is occasionally missing for a few hundred
- * milliseconds, and the calendar renders inside that window. The flag is on the
- * document itself and is true the moment it exists.
+ * `isWardenJournal`'s fallback when the last writer cannot be resolved: does
+ * no RESOLVABLE player hold OWNER? See `isWardenJournal` for why, and for the
+ * one shape (a demoted Warden) this cannot tell from a player's decoy.
+ * @param {foundry.abstract.Document} doc
+ * @returns {boolean}
  */
+const noPlayerOwner = (doc) => {
+  const L = CONST.DOCUMENT_OWNERSHIP_LEVELS;
+  const own = doc?.ownership ?? {};
+  if ((own.default ?? L.NONE) >= L.OWNER) return false;
+  for (const [id, level] of Object.entries(own)) {
+    if (id === "default") continue;
+    if (level < L.OWNER) continue;
+    const user = game.users.get(id);
+    // AN UNRESOLVABLE ID IS UNKNOWN HERE TOO — the same rule the caller applies
+    // to `lastModifiedBy`, and without it this whole fallback was dead (review
+    // #29). OURS DO NOT "NAME NOBODY", whatever isWardenJournal's docblock used to say:
+    // the SERVER stamps the requesting user as an explicit OWNER entry on any
+    // document that has an ownership field, with no role test —
+    // `this.ownership && i && !(i.id in this.ownership) && this.updateSource(
+    // {[`ownership.${i.id}`]: OWNER})` (dist/database/backend/server-document.mjs,
+    // ServerDocumentMixin#_preCreate). So every journal we make carries the
+    // creating Warden's id at OWNER, nothing sweeps it when that account goes,
+    // and `!undefined?.isGM` took the reject branch for the exact document this
+    // guard exists to recognise. Delete the Warden account and the fallback
+    // still answered false: events off the grid, a second journal on the next
+    // "Add an event…", a fresh weather log per write — the bug review #28
+    // reported as fixed.
+    if (user && !user.isGM) return false;
+  }
+  return true;
+};
+
 /**
  * Was this document last written by a Gamemaster? `_stats.lastModifiedBy` is
  * stamped by the SERVER from the requesting user and a client cannot forge it
@@ -214,39 +234,26 @@ export const _resetFestivals = () => { FESTIVALS = null; };
  * @param {foundry.abstract.Document} doc
  * @returns {boolean}
  */
-const noPlayerOwner = (doc) => {
-  const L = CONST.DOCUMENT_OWNERSHIP_LEVELS;
-  const own = doc?.ownership ?? {};
-  if ((own.default ?? L.NONE) >= L.OWNER) return false;
-  for (const [id, level] of Object.entries(own)) {
-    if (id === "default") continue;
-    if (level < L.OWNER) continue;
-    const user = game.users.get(id);
-    // AN UNRESOLVABLE ID IS UNKNOWN HERE TOO — the same rule the caller applies
-    // to `lastModifiedBy`, and without it this whole fallback was dead (review
-    // #29). OURS DO NOT "NAME NOBODY", whatever the docblock above used to say:
-    // the SERVER stamps the requesting user as an explicit OWNER entry on any
-    // document that has an ownership field, with no role test —
-    // `this.ownership && i && !(i.id in this.ownership) && this.updateSource(
-    // {[`ownership.${i.id}`]: OWNER})` (dist/database/backend/server-document.mjs,
-    // ServerDocumentMixin#_preCreate). So every journal we make carries the
-    // creating Warden's id at OWNER, nothing sweeps it when that account goes,
-    // and `!undefined?.isGM` took the reject branch for the exact document this
-    // guard exists to recognise. Delete the Warden account and the fallback
-    // still answered false: events off the grid, a second journal on the next
-    // "Add an event…", a fresh weather log per write — the bug review #28
-    // reported as fixed.
-    if (user && !user.isGM) return false;
-  }
-  return true;
-};
-
 export const isWardenJournal = (doc) => {
   const user = game.users.get(doc?._stats?.lastModifiedBy);
   if (user) return user.isGM;
   return noPlayerOwner(doc);
 };
 
+/**
+ * The journal holding events of one kind, or null.
+ *
+ * FOUND BY ITS OWN FLAG, not by name and not by an id kept in a setting.
+ *
+ * Not by NAME, because a name goes through the content overlay and a Warden may
+ * rename it. Not by a STORED ID either, and that is the more interesting half:
+ * awaiting `game.settings.set` does NOT guarantee that the next
+ * `game.settings.get` on the same client returns the new value — measured, and
+ * intermittent, which is the worst kind. An identity that has to be written and
+ * read back is an identity that is occasionally missing for a few hundred
+ * milliseconds, and the calendar renders inside that window. The flag is on the
+ * document itself and is true the moment it exists.
+ */
 const eventsJournal = (hidden = false) => {
   const kind = hidden ? "hidden" : "shared";
   return game.journal.find((j) => j.flags?.["air-bladder"]?.calendarEvents === kind && isWardenJournal(j)) ?? null;

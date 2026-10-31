@@ -2192,7 +2192,7 @@ try {
         // ALSO the demoted-Warden shape, and that ambiguity is precisely why
         // demotion is not covered: after a demotion the ex-Warden is a
         // resolvable non-GM holding OWNER, which is byte-identical to a
-        // player's decoy. See the docblock on `noPlayerOwner`. Do not "fix"
+        // player's decoy. See the docblock on `isWardenJournal`. Do not "fix"
         // this row without deciding that question first.
         liveWarden: ce.isWardenJournal(
           { _stats: { lastModifiedBy: gm.id }, ownership: { default: L.OBSERVER } }),
