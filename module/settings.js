@@ -39,9 +39,10 @@ export const SETTING_KEYS = [
   // disabled-backgrounds is Warden CONFIGURATION (which 2e backgrounds are
   // switched off), not a migration marker — it must ride the namespace
   // migration like custom-portrait-list does. It was registered without being
-  // listed here (review #9); the six completion markers (roles-restamped,
-  // companion-restamped, hireling-split, grimoire-keys-stamped,
-  // connections-migrated, art-migration-generation) stay unlisted on purpose.
+  // listed here (review #9); the completion markers (roles-restamped,
+  // companion-restamped, hireling-split and its hireling-split-pending,
+  // grimoire-keys-stamped, connections-migrated, art-migration-generation)
+  // stay unlisted on purpose.
   // Every one of them dates
   // from AFTER the namespace move, so there is no "cairn.<key>" value for this
   // list to carry across — listing them would iterate keys that cannot exist.
@@ -360,6 +361,19 @@ export const registerSettings = () => {
     config: false,
     type: Boolean,
     default: false,
+  });
+
+  // The split's unfinished business (review #34 finding 3): `started`, the
+  // server time of the first attempt, which every retry selects against so a
+  // genuine NPC made since is never converted; and `packs`, the world Actor
+  // packs that failed and retry alone. `{}` once the split is wholly done.
+  // `hireling-split` above is set as soon as the WORLD's documents land, so
+  // its truth no longer waits on a pack.
+  game.settings.register(SETTINGS_NS, "hireling-split-pending", {
+    scope: "world",
+    config: false,
+    type: Object,
+    default: {},
   });
 
   // Completion marker for the art-path migrations (review #17): which

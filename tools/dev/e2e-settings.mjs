@@ -88,9 +88,11 @@ try {
     // "cairn.<key>" value for the migration to carry, and listing it would
     // make that loop iterate a key which cannot exist. It is also worthless to
     // carry — it goes stale the next day by design.
+    // `hireling-split-pending` joined with review #34 finding 3: the split's
+    // failed packs and the start time a retry is judged against.
     const MARKERS = ["roles-restamped", "companion-restamped", "connections-migrated",
-      "grimoire-keys-stamped", "hireling-split", "art-migration-generation",
-      "vald-weather-today"];
+      "grimoire-keys-stamped", "hireling-split", "hireling-split-pending",
+      "art-migration-generation", "vald-weather-today"];
     out.unlisted = [...game.settings.settings.keys()]
       .filter((k) => k.startsWith(`${mod.SETTINGS_NS}.`))
       .map((k) => k.slice(mod.SETTINGS_NS.length + 1))

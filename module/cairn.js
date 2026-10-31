@@ -2228,8 +2228,10 @@ const migrateNpcRoles = async () => {
  * runs, a genuine NEW npc stores exactly the value this converts. A blind
  * restamp would turn every real NPC in the world into a hireling on the second
  * pass. The marker is what stops there being a second pass, and it is set only
- * after the writes land, so a failed run retries rather than recording itself
- * done.
+ * after the world's writes land, so a failed run retries rather than recording
+ * itself done. A world pack that fails retries on its own, recorded in
+ * `hireling-split-pending`, and every retry is limited to documents created
+ * before the first attempt began (review #34 finding 3).
  *
  * DELTAS NEED THEIR OWN WALK, for the same reason the selection works. Both
  * siblings argue that unlinked-token deltas need no pass "because they store
@@ -2246,7 +2248,26 @@ const migrateNpcRoles = async () => {
  * ours to write.
  */
 const migrateHirelingSplit = async () => {
-  if (game.settings.get(SETTINGS_NS, "hireling-split")) return;
+  const done = game.settings.get(SETTINGS_NS, "hireling-split");
+  const pending = foundry.utils.deepClone(game.settings.get(SETTINGS_NS, "hireling-split-pending") ?? {});
+  if (done && !pending.packs?.length) return;
+
+  // THE FIRST ATTEMPT'S START, in the server's clock, kept until the split is
+  // wholly done (review #34 finding 3). A retry used to re-run every selection
+  // from the top. Since the split, a genuine NPC stores exactly the
+  // `role: "npc"` it selects on, so an NPC the Warden made between a failed
+  // first attempt and the retry was converted into a hireling. Every selection
+  // below asks `createdBefore` too, so a retry reaches only what existed when
+  // the split first ran. A document with no stamp (packed before Foundry kept
+  // one) counts as old.
+  if (!Number.isFinite(pending.started)) {
+    pending.started = game.time.serverTime;
+    await game.settings.set(SETTINGS_NS, "hireling-split-pending", pending);
+  }
+  const createdBefore = (doc) => {
+    const t = doc?._source?._stats?.createdTime;
+    return !Number.isFinite(t) || t <= pending.started;
+  };
   let count = 0;
 
   // `_source`, never the prepared value: the prepared one has already been
@@ -2254,23 +2275,33 @@ const migrateHirelingSplit = async () => {
   // DATABASE holds.
   const storedNpc = (doc) => doc?._source?.system?.role === "npc";
 
-  const updates = game.actors
-    .filter((a) => ["npc", "hireling"].includes(a.type) && storedNpc(a))
-    .map((a) => ({ _id: a.id, "system.role": "hireling" }));
-  if (updates.length) {
-    await Actor.updateDocuments(updates, { diff: false });   // one batch, so it can't half-finish
-    count += updates.length;
-  }
-
-  // Unlinked tokens: writing through the synthetic `token.actor` updates the
-  // delta. Linked tokens ARE the world actor already handled above.
-  for (const scene of game.scenes) {
-    for (const token of scene.tokens) {
-      if (token.actorLink || !token.actor) continue;
-      if (!storedNpc(token.delta)) continue;
-      await token.actor.update({ "system.role": "hireling" }, { diff: false });
-      count += 1;
+  if (!done) {
+    const updates = game.actors
+      .filter((a) => ["npc", "hireling"].includes(a.type) && storedNpc(a) && createdBefore(a))
+      .map((a) => ({ _id: a.id, "system.role": "hireling" }));
+    if (updates.length) {
+      await Actor.updateDocuments(updates, { diff: false });   // one batch, so it can't half-finish
+      count += updates.length;
     }
+
+    // Unlinked tokens: writing through the synthetic `token.actor` updates the
+    // delta. Linked tokens ARE the world actor already handled above. A delta
+    // carries no creation stamp of its own, so it is read through its BASE
+    // actor's.
+    for (const scene of game.scenes) {
+      for (const token of scene.tokens) {
+        if (token.actorLink || !token.actor) continue;
+        if (!storedNpc(token.delta) || !createdBefore(token.baseActor)) continue;
+        await token.actor.update({ "system.role": "hireling" }, { diff: false });
+        count += 1;
+      }
+    }
+
+    // THE MARKER, as soon as the world's own documents land (review #34
+    // finding 3). It used to wait for every pack too, so one pack that failed
+    // re-ran the WORLD selection on every later load. What is left after this
+    // line is per pack, and retries per pack.
+    await game.settings.set(SETTINGS_NS, "hireling-split", true);
   }
 
   // World compendia. Unlocked around the write and locked back exactly as it
@@ -2279,13 +2310,16 @@ const migrateHirelingSplit = async () => {
   // rule the world-actor batch above follows: the per-document loop this
   // replaces was a server round trip per NPC and could throw midway, leaving
   // a pack half-converted. Each pack still fails independently — one bad pack
-  // must not cost the others their conversion.
-  let packFailed = false;
+  // must not cost the others their conversion. On a retry only the packs
+  // that failed are visited.
+  const retryOnly = done ? new Set(pending.packs) : null;
+  const failed = [];
   for (const pack of game.packs) {
     if (pack.metadata.packageType !== "world" || pack.metadata.type !== "Actor") continue;
+    if (retryOnly && !retryOnly.has(pack.collection)) continue;
     try {
       const docs = await pack.getDocuments();
-      const stale = docs.filter((d) => ["npc", "hireling"].includes(d.type) && storedNpc(d));
+      const stale = docs.filter((d) => ["npc", "hireling"].includes(d.type) && storedNpc(d) && createdBefore(d));
       if (!stale.length) continue;
       const wasLocked = pack.locked;
       try {
@@ -2298,23 +2332,21 @@ const migrateHirelingSplit = async () => {
         if (wasLocked) await pack.configure({ locked: true });
       }
     } catch (err) {
-      packFailed = true;
+      failed.push(pack.collection);
       console.warn(`Air Bladder | could not split roles in world pack "${pack.metadata.label}":`, err);
     }
   }
 
   if (count) console.log(`Air Bladder | npc -> hireling on ${count} document(s)`);
-  // The docblock's own contract, actually kept (review #17): the marker is
-  // set only after the writes LAND. A pack failure above is caught so the
-  // other packs still convert — but stamping over it would record the one
-  // migration that can never safely re-run as done while documents still
-  // store the old meaning of "npc". Selection is what makes the retry safe:
-  // everything already converted no longer matches.
-  if (packFailed) {
-    console.warn("Air Bladder | hireling split incomplete — marker not set; it will retry on the next GM load");
+  // A failed pack is recorded BY ID, with the start it is still judged
+  // against, and retried alone on the next GM load. A pack deleted in the
+  // meantime simply is not found again, and drops off the list.
+  if (failed.length) {
+    console.warn(`Air Bladder | hireling split incomplete in ${failed.length} world pack(s) — they retry on the next GM load`);
+    await game.settings.set(SETTINGS_NS, "hireling-split-pending", { ...pending, packs: failed });
     return;
   }
-  await game.settings.set(SETTINGS_NS, "hireling-split", true);
+  await game.settings.set(SETTINGS_NS, "hireling-split-pending", {});
 };
 
 /**

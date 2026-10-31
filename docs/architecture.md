@@ -167,7 +167,7 @@ Six things carry roughly half the logic, and nothing routes around them.
    migrations. It is the third-largest file in the system, and it is really
    four unrelated jobs sharing an address.
 
-2. **`module/settings.js` — the switches.** 44 setting registrations, grouped
+2. **`module/settings.js` — the switches.** 45 setting registrations, grouped
    into four submenus by one declaration (`SETTING_GROUPS`) that both the
    registration code and the tests read. Seventeen files import it. If a
    behaviour has an "unless the Warden turned it off" clause, it is here.
@@ -231,7 +231,7 @@ estimating the blast radius of any change.
 Several of the biggest files are repetitive rather than complex, and reading
 them line by line wastes days.
 
-- **`settings.js`** is 44 near-identical registration calls. Read two of them
+- **`settings.js`** is 45 near-identical registration calls. Read two of them
   and you have read the file; the interesting part is `SETTING_GROUPS` at the
   top and the menu registration at the bottom.
 - **`data-models.js`** is nine schemas assembled from the same handful of field
