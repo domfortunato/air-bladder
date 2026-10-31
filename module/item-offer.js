@@ -936,7 +936,10 @@ export const offerFromDrop = async (targetActor, item, { windowId } = {}) => {
   const names = {
     item: t("item.name", item.name),
     target: actorDisplayName(targetActor),
-    giver: giver.name,
+    // actorDisplayName, as the card it posts names the same giver (review #34
+    // finding 11): a mule or companion can give since review #25, and its
+    // shipped name translates.
+    giver: actorDisplayName(giver),
   };
   const yes = await foundry.applications.api.DialogV2.confirm({
     window: { title: game.i18n.format("CAIRN.Offer.DragTitle", { item: names.item }) },
