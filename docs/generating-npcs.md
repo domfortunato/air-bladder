@@ -57,8 +57,8 @@ is the one to use when you want the new person filed straight into a folder.
 - **Ten traits**: the six appearance ones a player character rolls — Physique,
   Skin, Hair, Face, Speech, Clothing — plus **Quirk**, **Goal**, **Virtue** and
   **Vice** off the Warden's Guide NPC lists.
-- **An age**, respecting your minimum- and maximum-age settings, the same as a
-  player character's.
+- **An age**, rolled with your **Age formula for generated characters**
+  setting, the same as a player character's.
 - **Blank pronouns.** Generation does not choose them — there is no table for
   pronouns and no die should decide them. The field is at the top of the
   Description tab; fill it in when you know.
@@ -139,12 +139,13 @@ nothing else:
 | beside **Background** | a new Background **and the gear it grants** — the kit stays between ordinary trades; landing **Lord or Politician empties the whole pack**, and rolling back off one repacks it (NPC role) |
 | beside **Career** | a new Career — **and its stat block and gear with it**, because in 2e a career *is* those things |
 | beside **Faction** | a side, off `Warden: NPC - Faction` |
-| beside **Age** | your **Age formula** setting (default: 2d20 + 10 — see [Dice Formulas](dice-formulas.md)) |
+| beside **Age** | your **Age formula for generated characters** setting (default: 2d20 + 10 — see [Dice Formulas](dice-formulas.md)) |
 | on the portrait | another face from the same folder |
 
 **These dice are yours alone.** On an NPC or hireling sheet a player never sees
-them — not even a player who owns the hireling, and whatever **Allow players
-to randomize** says. That setting still governs player characters only.
+them — not even a player who owns the hireling, and whatever **Let players use
+Character Creation tools on their sheets** says. That setting still governs
+player characters only.
 
 ### Picking instead of rolling
 
