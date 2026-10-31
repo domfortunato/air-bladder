@@ -523,7 +523,10 @@ const isSpentScroll = (itemLike) => {
  *   with no free slot, which sets Hit Protection to 0 until something is
  *   dropped or handed away. This is the case the rules OWE, and an informed
  *   click may buy it: an accepted gift, generation, Fatigue. Ordinary
- *   acquisition still refuses it.
+ *   acquisition (a drop, Create Item, the shop) does NOT ask this verdict for a
+ *   person: it refuses only a person who has no free slot already
+ *   (`isEncumbered`), so a buy at 9/10 lands, bulky or not — a feature by the
+ *   2026-07-18 ruling.
  * - `"full"` — a THING, a companion or a monster has no room. NOBODY may buy
  *   this, on either route. "Overflow is owed, never merely allowed" is a rule
  *   about a person being handed what the rules give them; a sack has no Hit

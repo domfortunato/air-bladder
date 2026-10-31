@@ -714,7 +714,12 @@ export const openMarketplace = async (actor, opts = {}) => {
     // about to turn down. `acquire` still refuses on its own: this is the
     // affordance, not the enforcement, and a stale dialog must not become a way
     // through.
-    const full = !actor.isThing && actor.isEncumbered();
+    // The SAME two tests `acquire` refuses on (review #34 finding 128): a
+    // person with no free slot, and for anyone else the row's own slots
+    // through `capacityVerdict`. This read `!actor.isThing && isEncumbered()`,
+    // so a full Sack's every row stayed live and each click was refused at the
+    // till — the shop offering what it was about to turn down.
+    const personFull = actor.livesByPlayerRules && actor.isEncumbered();
     root.querySelectorAll(".mkt-row").forEach((row) => {
       const cost = Number(row.dataset.cost);
       const buy = row.querySelector(".mkt-buy");
@@ -725,7 +730,9 @@ export const openMarketplace = async (actor, opts = {}) => {
       // you FIX being full, so refusing it at the till would be perverse), and
       // a PETTY item costs no slot at all.
       const needsRoom = data && !isCarrier(data) && !data.system?.weightless;
-      const noRoom = full && !!needsRoom;
+      const noRoom = !!needsRoom && (actor.livesByPlayerRules
+        ? personFull
+        : capacityVerdict(actor, slotCost(data.system)) === "full");
       buy.disabled = busy || noRoom || gold < cost;
       take.disabled = busy || noRoom;
     });
