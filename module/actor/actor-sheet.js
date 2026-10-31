@@ -5782,13 +5782,29 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     if (foundItem) {
       await foundItem.update({ "system.quantity": (foundItem.system.quantity ?? 1) + 1 });
     } else {
-      created = await super._onDropItem(event, originalItem);
+      // Core's create, with the payload a GIFT carries (review #34 finding
+      // 248). ActorSheetV2#_onDropItem copies `toObject()` verbatim, so the
+      // copy kept the giver's `sort` (#appendSort places only a sort of 0, so
+      // it landed mid-list, in someone else's number space — a world item's
+      // is the sidebar's) and its `equipped`: worn armour arrived worn. Give
+      // builds sort 0 and equipped false; a drag is the same hand-over. A
+      // world or compendium item is not a hand-over and keeps what it says
+      // about `equipped`; `fromCompendium` already drops the sort.
+      const keepId = !this.actor.items.has(originalItem.id);
+      const data = originalItem.inCompendium
+        ? game.items.fromCompendium(originalItem, { clearFolder: true, keepId })
+        : originalItem.toObject();
+      data.sort = 0;
+      if (originalActor) foundry.utils.setProperty(data, "system.equipped", false);
+      created = (await Item.implementation.create(data, { parent: this.actor, keepId })) ?? null;
       if (!created) {
         ui.notifications.warn(game.i18n.localize("CAIRN.Notify.DropFailed"));
         return null;
       }
       // Items inside a thing are stowed, never equipped. A mount is excluded on
-      // purpose — barding is equipped armor on a creature that has a stat block.
+      // purpose — barding is equipped armor on a creature that has a stat block
+      // (barding handed over from another actor arrives unworn anyway, above,
+      // and the recipient puts it on).
       const patch = { "system.quantity": 1 };
       if (this.actor.isThing) patch["system.equipped"] = false;
       // HANDED OVER, NOT GRANTED (review #34 finding 172). Core creates the

@@ -530,6 +530,10 @@ const movePileItem = async (actor, itemId, { announce = false, place = "", claim
     const data = doc.toObject();
     data._id = i === 0 && claimId ? claimId : foundry.utils.randomID();
     foundry.utils.setProperty(data, "system.equipped", false);
+    // Appended, like a gift (review #34 finding 248): sort 0 is what lets
+    // #appendSort place it at the bottom of the pile; the giver's own sort
+    // put it mid-list.
+    data.sort = 0;
     // Handed over, not granted (review #34 finding 172): the grant tag goes,
     // as Give strips it (buildOfferItemData), or whoever takes it back off the
     // pile inherits a target for their own background/bond/question re-roll.
