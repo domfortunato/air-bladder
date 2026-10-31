@@ -40,7 +40,7 @@
  * real space and never buys a near-empty page.
  */
 import { chromium } from "playwright";
-import { FOUNDRY_URL, VIEWPORT, dismissChrome, joinAsGM, watchErrors, watchdog } from "./lib.mjs";
+import { FOUNDRY_URL, VIEWPORT, dismissChrome, joinAsGM, watchErrors, watchdog, withSettings } from "./lib.mjs";
 
 let failures = 0;
 const ok = (l, d = "") => console.log(`  ok    ${l.padEnd(38)} ${d}`);
@@ -1416,6 +1416,69 @@ check("control: the body's print padding brings the blank page back", paperContr
 check("the 9mm roof still lands on page 1", paper.roof?.top === 0 && paper.roof?.h > 30,
   `${JSON.stringify(paper.roof)} — the frame's thead is what replaced the body padding, so it must be `
   + "the first thing on the paper, not merely present on continuation pages");
+
+/* ------------------------------------------- the Panicked rule off ---- */
+// A FIELD THE WARDEN HAS HIDDEN DOES NOT REAPPEAR ON PAPER (review #34
+// finding 222; the show-omens ruling). With "Use the 2e Panicked condition"
+// off the sheets draw no Panicked control, but the printed character page
+// drew its Panicked mark box (filled, for a stored true — a Kettlewright
+// import writes one) and an NPC page's status line printed "Panicked". The
+// setting is a real write for this leg only: withSettings restores it from a
+// Node-level finally. The Deprived box is the witness that the marks row
+// still prints.
+console.log("\nthe Panicked rule off");
+const panicOff = await withSettings(page, () => page.evaluate(async () => {
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const origOpen = window.open;
+  const pageOf = async (actor) => {
+    await actor.sheet.render(true);
+    await sleep(400);
+    const calls = [];
+    let popup = null;
+    window.open = (...a) => {
+      popup = origOpen.apply(window, a);
+      Object.defineProperty(popup, "print", { configurable: true, value: () => calls.push(1) });
+      return popup;
+    };
+    actor.sheet.element.querySelector('[data-action="printSheet"]')?.click();
+    for (let i = 0; i < 60 && !calls.length; i++) await sleep(150);
+    window.open = origOpen;
+    const doc = popup?.document;
+    const out = {
+      marks: doc?.querySelector(".cond-marks")?.textContent ?? null,
+      status: doc?.querySelector(".statusline")?.textContent ?? "",
+    };
+    popup?.close();
+    await actor.sheet.close();
+    return out;
+  };
+  const made = [];
+  try {
+    await game.settings.set("air-bladder", "use-panic", false);
+    const pc = await Actor.create({ name: "ZZ Print Panic PC", type: "character", system: { panicked: true, deprived: true } });
+    const npc = await Actor.create({ name: "ZZ Print Panic NPC", type: "npc", system: { role: "npc", panicked: true } });
+    made.push(pc, npc);
+    for (const a of made) a.reset();
+    const panicLabel = game.i18n.localize("CAIRN.Panicked");
+    const pcPage = await pageOf(pc);
+    const npcPage = await pageOf(npc);
+    return {
+      usePanic: pc.system.usePanic, panicLabel,
+      deprivedLabel: game.i18n.localize("CAIRN.Deprived"),
+      pcMarks: pcPage.marks, npcStatus: npcPage.status,
+    };
+  } finally {
+    for (const a of made) { try { await a.delete(); } catch { /* gone */ } }
+  }
+}));
+check("precondition: the rule reads off on the planted actors", panicOff.usePanic === false,
+  `usePanic=${panicOff.usePanic}`);
+check("witness: the character's mark-later row still prints its Deprived box",
+  (panicOff.pcMarks ?? "").includes(panicOff.deprivedLabel), JSON.stringify(panicOff.pcMarks));
+check("a character page prints no Panicked box while the rule is off",
+  panicOff.pcMarks !== null && !panicOff.pcMarks.includes(panicOff.panicLabel), JSON.stringify(panicOff.pcMarks));
+check("an NPC page's status line prints no Panicked while the rule is off",
+  !panicOff.npcStatus.includes(panicOff.panicLabel), JSON.stringify(panicOff.npcStatus));
 
 /* ----------------------------------------------------------- teardown ---- */
 await page.evaluate(async ({ ids, itemIds, pagerId: pid }) => {
