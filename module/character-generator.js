@@ -4960,6 +4960,11 @@ export const promptHirelingCareer = async (actor, { windowId } = {}) => {
   const choice = await promptFromRows("CAIRN.PickCareer", rows, current, { windowId });
   if (!choice) return actor;
   if (choice === BG_RANDOM) return rerollHirelingCareer(actor);
+  // CONFIRMING WHAT IS HELD CHANGES NOTHING (review #34 finding 227). The
+  // picker opens on the current career with Choose as its default, and the
+  // apply re-dealt it: HP and abilities reset to the career's, `critical`
+  // cleared. The die's own contract is a DIFFERENT career; so is this.
+  if (choice === current) return actor;
   return pickHirelingCareer(actor, choice);
 };
 
@@ -4983,6 +4988,9 @@ export const promptNpcBackground = async (actor, { windowId } = {}) => {
   const choice = await promptFromRows("CAIRN.PickBackground", rows, current, { windowId });
   if (!choice) return actor;
   if (choice === BG_RANDOM) return rerollNpcBackground(actor);
+  // Confirming the Background already held re-dealt its gear (review #34
+  // finding 227) — see promptHirelingCareer.
+  if (choice === current) return actor;
   return pickNpcBackground(actor, choice);
 };
 

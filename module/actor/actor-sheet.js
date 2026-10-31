@@ -5007,6 +5007,13 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       { windowId: this.window?.windowId },
     );
     if (!result) return;                    // cancelled
+    // CONFIRMING WHAT IS HELD CHANGES NOTHING (review #34 finding 227). The
+    // picker opens on the current background with Choose as its default, and
+    // changeBackground has no same-background guard: the tagged gear was
+    // deleted and re-dealt, both questions re-rolled, a granted beast
+    // re-minted. The die's own contract is a DIFFERENT background ("never the
+    // current"); the picker's is now the same.
+    if (result.bg && result.bg.uuid === this.actor.system.backgroundUuid) return;
     if (this._rerolling) return;   // guard the double-click delete/create race (review #34 finding 58)
     this._rerolling = true;
     try {
@@ -5045,6 +5052,9 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     const result = await promptFailedCareer(this.actor.system.failedCareer,
       { windowId: this.window?.windowId, exclude: this.actor.system.background });
     if (!result) return;                    // cancelled
+    // Confirming the failed career already held re-drew its keepsake (review
+    // #34 finding 227) — see #onPickBackground.
+    if (result.name === this.actor.system.failedCareer) return;
     if (this._rerolling) return;   // guard the double-click delete/create race (review #34 finding 58)
     this._rerolling = true;
     try {
@@ -5299,6 +5309,9 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     }
     if (!picked) return;                     // cancelled
     if (picked.random) return CairnActorSheet.#onRerollQuestion.call(this, event, target);
+    // Confirming the answer already held re-minted its items and an Outrider's
+    // horse (review #34 finding 227) — see #onPickBackground.
+    if ((picked.option?.description ?? "") === (this.actor.system.questions?.[idx]?.answer ?? "")) return;
     if (this._rerolling) return;
     this._rerolling = true;
     try {
