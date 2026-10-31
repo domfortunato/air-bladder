@@ -31,7 +31,11 @@
  * as day 0 of the following year. `ValdCalendar` overrides the method core's own
  * docstring nominates for it. Restore core's two lines and legs 12 and 13 red.
  *
- * Creates nothing. Restores everything it touches.
+ * Creates nothing it does not remove. Restores everything it touches — world
+ * time, the day's weather and every journal it made — from the FINALLY, so a
+ * throw anywhere in the run still hands the world back (review #34 finding 34).
+ * A Warden's own weather log is held ASIDE in-page for the race leg, never
+ * deleted.
  */
 import { chromium } from "playwright";
 import { VIEWPORT, joinAsGM, joinAs, watchErrors, dismissChrome, watchdog } from "./lib.mjs";
@@ -112,11 +116,21 @@ const withValdOn = (p, body, arg = null) => p.evaluate(async ({ body: src, arg: 
   }
 }, { body: body.toString(), arg });
 
+// What the run restores, read once before the first leg and put back from the
+// finally (review #34 finding 34). The restore used to sit at the end of the
+// try, so a throw in any of ~1,200 lines of evaluates left worldTime at 0 (leg
+// 10 sets it), the "ZZ Probe" event journals, and the day's weather set.
+let start = null;
 try {
   await joinAsGM(page);
   await dismissChrome(page);
 
-  const startTime = await page.evaluate(() => game.time.worldTime);
+  start = await page.evaluate(() => ({
+    time: game.time.worldTime,
+    weather: foundry.utils.deepClone(game.settings.get("air-bladder", "vald-weather-today") ?? null),
+    journals: game.journal.map((j) => j.id),
+  }));
+  const startTime = start.time;
 
   /* ---- 1. watches ship ungated; Vald does not ------------------------- */
 
@@ -2184,13 +2198,21 @@ try {
       settings.get = (ns, key, ...rest) => rest[0]?.document
         ? foundry.helpers.ClientSettings.prototype.get.call(game.settings, ns, key, ...rest)   // review #34 finding 29
         : (ns === "air-bladder" && key === "weather-log" ? true : realGet(ns, key, ...rest));
+      // Start from no log the WRITER can see, so the create is genuinely
+      // contended. A log that already exists — the Warden's own, quite
+      // possibly — is HELD ASIDE in-page (review #34 finding 34): the writer's
+      // one lookup (`game.journal.find`) is shadowed past it, and the probe's
+      // own reads skip it. It used to be DELETED, and the id-difference sweep
+      // below cannot bring back a document that was there before the run.
+      const all = () => game.journal.contents.filter((j) => j.flags?.["air-bladder"]?.weatherLog);
+      const held = new Set(all().map((j) => j.id));
+      const realFind = game.journal.find;
+      game.journal.find = function (condition, ...rest) {
+        return realFind.call(this, (j, ...a) => !held.has(j.id) && condition(j, ...a), ...rest);
+      };
       try {
         const wl = await import("/systems/air-bladder/module/weather-log.js");
-        const logs = () => game.journal.contents
-          .filter((j) => j.flags?.["air-bladder"]?.weatherLog);
-        // Start from no log at all, so the create is genuinely contended.
-        const existing = logs().map((j) => j.id);
-        if (existing.length) await getDocumentClass("JournalEntry").deleteDocuments(existing);
+        const logs = () => all().filter((j) => !held.has(j.id));
         await new Promise((r) => setTimeout(r, 300));
 
         const a = wl.recordWeather();
@@ -2206,6 +2228,7 @@ try {
           lines: (entry?.pages?.contents?.[0]?.text?.content?.match(/<li>/g) ?? []).length,
         };
       } finally {
+        game.journal.find = realFind;
         settings.get = realGet;
       }
     });
@@ -2227,12 +2250,13 @@ try {
     // THE WEATHER GOES BACK TOO. The log legs above call it several times, and
     // a run that left it set made the NEXT run's "the clock has no weather line
     // yet" leg red for a reason that was entirely this file's own fault.
-    const sweptHere = await page.evaluate(async (b) => {
+    // Back to the value READ at the start, not a blank (review #34 finding 34).
+    const sweptHere = await page.evaluate(async ({ b, weather }) => {
       const ids = game.journal.contents.filter((j) => !b.journals.includes(j.id)).map((j) => j.id);
       if (ids.length) await getDocumentClass("JournalEntry").deleteDocuments(ids);
-      await game.settings.set("air-bladder", "vald-weather-today", { day: 0, text: "" });
+      await game.settings.set("air-bladder", "vald-weather-today", weather ?? { day: 0, text: "" });
       return ids.length;
-    }, journalsBefore);
+    }, { b: journalsBefore, weather: start.weather });
     note(`removed ${sweptHere} journal(s) this probe created`);
 
     // Everything else must still be clean. The two refusals above — the clock
@@ -2263,6 +2287,21 @@ try {
 
   errors.length === 0 ? ok("zero console errors") : fail("console errors", JSON.stringify(errors).slice(0, 400));
 } finally {
+  // THE NET (review #34 finding 34): whatever happened above, the time, the
+  // weather and the journals this run made go back. Idempotent after the
+  // success path's own restore.
+  if (start) {
+    const back = await page.evaluate(async (st) => {
+      foundry.applications.instances.get("cairn-warden-dashboard")?.close();
+      const mine = game.journal.contents.filter((j) => !st.journals.includes(j.id)).map((j) => j.id);
+      if (mine.length) await getDocumentClass("JournalEntry").deleteDocuments(mine);
+      await game.settings.set("air-bladder", "vald-weather-today", st.weather ?? { day: 0, text: "" });
+      if (game.time.worldTime !== st.time) await game.time.set(st.time);
+      return { journals: mine.length, time: game.time.worldTime };
+    }, start).catch((e) => ({ error: String(e?.message ?? e) }));
+    if (back.error) fail("the final restore", back.error);
+    else if (back.journals) note(`the final restore removed ${back.journals} journal(s) left by a failed leg`);
+  }
   await browser.close();
 }
 
