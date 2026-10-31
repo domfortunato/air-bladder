@@ -1586,6 +1586,251 @@ try {
       && new RegExp(`(^|\\n)${hiddenGiver.mask} `).test(hiddenGiver.text),
     JSON.stringify({ mask: hiddenGiver.mask, targetMask: hiddenGiver.targetMask, text: hiddenGiver.text?.slice(0, 120) }));
 
+  /* ---- S. the consent describes what lands (review #34 findings 135, 156, 179) */
+  console.log("\nconsent: what lands is what was accepted");
+  // "An accepted gift after the recipient's informed confirm" is the only way
+  // past the limit, so the confirm has to price what actually lands, on the
+  // actor it lands on. Each leg below changes one thing between Bob's click and
+  // the delivery — the target, the item, the load — and the gift must not put
+  // him past the limit with no confirm. The relay path throughout: Bob is
+  // neither the author nor a GM, so his accept goes to Alice's client and her
+  // release comes back.
+  //
+  // ONE FRESH PERSON PER LEG, each Bob's and each at max-2: a leg that reds on
+  // unfixed code over-burdens its target, and a shared target would hand that
+  // load to the next leg.
+  await gm.evaluate(async () => {
+    await __abFresh("ZZ Offer Giver").createEmbeddedDocuments("Item", [
+      "ZZ Consent Rope", "ZZ Consent Plank", "ZZ Consent Spool", "ZZ Consent Twine", "ZZ Consent Wire",
+      "ZZ Consent Sack",
+    ].map((name) => ({ name, type: "item" })));
+    // Every offer card's state, in order, as the Warden's client sees it — how
+    // a leg tells "reopened after an accept" from "never answered".
+    window.__consentStates = {};
+    Hooks.on("updateChatMessage", (doc) => {
+      const f = doc.getFlag("air-bladder", "itemOffer");
+      if (!f) return;
+      (window.__consentStates[doc.id] ??= []).push(f.settled ? "settled" : f.state);
+    });
+  });
+  const plantConsent = (name, extra = []) => gm.evaluate(async ({ name, extra }) => {
+    const L = CONST.DOCUMENT_OWNERSHIP_LEVELS;
+    const bobU = game.users.getName("Bob");
+    const a = await Actor.implementation.create({
+      name, type: "character", ownership: { default: L.LIMITED, [bobU.id]: L.OWNER },
+    });
+    if (extra.length) await a.createEmbeddedDocuments("Item", extra);
+    const fill = (a.system.slotsMax - 2) - a.system.slotsUsed;
+    if (fill > 0) {
+      await a.createEmbeddedDocuments("Item",
+        Array.from({ length: fill }, (_, i) => ({ name: `ZZ Consent Filler ${i}`, type: "item" })));
+    }
+    return { uuid: a.uuid, atMaxLess2: a.system.slotsUsed === a.system.slotsMax - 2,
+      slots: `${a.system.slotsUsed}/${a.system.slotsMax}` };
+  }, { name, extra });
+  /** Alice offers her `itemName` to `targetUuid`; resolves once Bob's card has Accept. */
+  const consentOffer = async (itemName, targetUuid) => {
+    const id = await alice.evaluate(async ({ itemName, targetUuid }) => {
+      const { createItemOffer } = await import("/systems/air-bladder/module/item-offer.js");
+      let giver = null, item = null, target = null;
+      for (let i = 0; i < 60 && !(item && target); i++) {
+        giver = __abFresh("ZZ Offer Giver");
+        item = giver?.items.find((it) => it.name === itemName) ?? null;
+        target = foundry.utils.fromUuidSync(targetUuid);
+        if (!(item && target)) await new Promise((r) => setTimeout(r, 100));
+      }
+      if (!item || !target) return null;
+      return (await createItemOffer(giver, item, target))?.id ?? null;
+    }, { itemName, targetUuid });
+    if (!id) return null;
+    const ready = await poll(bob, (id) =>
+      document.querySelector(`.chat-message[data-message-id="${id}"] .cairn-offer-accept`) ? true : null, id);
+    return ready ? id : null;
+  };
+  /** Bob's over-burden confirm, stubbed to COUNT and answer `yes`. */
+  const armConfirm = (yes) => bob.evaluate((yes) => {
+    const D = foundry.applications.api.DialogV2;
+    window.__consentOrigConfirm ??= D.confirm;
+    window.__consentConfirms = 0;
+    D.confirm = async () => { window.__consentConfirms++; return yes; };
+  }, yes);
+  const disarmConfirm = () => bob.evaluate(() => {
+    if (window.__consentOrigConfirm) foundry.applications.api.DialogV2.confirm = window.__consentOrigConfirm;
+    delete window.__consentOrigConfirm;
+  });
+  /** Wait until every card in `ids` was accepted and then settled or reopened. */
+  const consentSettled = (ids) => poll(gm, (ids) => ids.every((id) => {
+    const s = window.__consentStates[id] ?? [];
+    return s.includes("accepted") && ["settled", "open"].includes(s.at(-1));
+  }) || null, ids, 20000);
+  /** What the target holds now, as the Warden reads it. */
+  const consentHolds = (uuid, names) => gm.evaluate(({ uuid, names }) => {
+    const a = foundry.utils.fromUuidSync(uuid);
+    return {
+      slots: `${a?.system.slotsUsed}/${a?.system.slotsMax}`,
+      encumbered: !!a?.system.encumbered,
+      qty: Object.fromEntries(names.map((n) => [n, a?.items.find((i) => i.name === n)?.system.quantity ?? 0])),
+    };
+  }, { uuid, names });
+  const consentState = (id) => gm.evaluate((id) => {
+    const f = game.messages.get(id)?.getFlag("air-bladder", "itemOffer");
+    return f ? (f.settled ? "settled" : f.state) : null;
+  }, id);
+
+  try {
+    // S1 (finding 179). The giver retargets the card after Bob's accept: one
+    // preUpdate hook folds `targetActorUuid` into Alice's OWN {state:
+    // "accepted"} write, and her honest release then follows the flag onto
+    // Bob's FULL crate, which holds a matching Rope — the stack branch, which
+    // asked no capacity at all. Bob consented to his person, which had room.
+    const crate = await gm.evaluate(async () => {
+      const L = CONST.DOCUMENT_OWNERSHIP_LEVELS;
+      const bobU = game.users.getName("Bob");
+      const c = await Actor.implementation.create({
+        name: "ZZ Consent Crate", type: "npc", system: { role: "container", slots: 1 },
+        ownership: { default: L.LIMITED, [bobU.id]: L.OWNER },
+      });
+      await c.createEmbeddedDocuments("Item", [{ name: "ZZ Consent Rope", type: "item" }]);
+      return { uuid: c.uuid, full: c.system.slotsUsed >= c.system.slotsMax,
+        slots: `${c.system.slotsUsed}/${c.system.slotsMax}` };
+    });
+    const p1 = await plantConsent("ZZ Consent Alpha");
+    const s1 = await consentOffer("ZZ Consent Rope", p1.uuid);
+    if (s1 && crate.full && p1.atMaxLess2) {
+      await alice.evaluate(({ id, crateUuid }) => {
+        window.__consentRetargeted = false;
+        window.__consentRetarget = Hooks.on("preUpdateChatMessage", (doc, changes) => {
+          const f = changes?.flags?.["air-bladder"]?.itemOffer;
+          if (doc.id !== id || f?.state !== "accepted") return;
+          f.targetActorUuid = crateUuid;
+          window.__consentRetargeted = true;
+        });
+      }, { id: s1, crateUuid: crate.uuid });
+      await armConfirm(true);
+      await clickCard(bob, s1, "cairn-offer-accept");
+      await consentSettled([s1]);
+      const retargeted = await alice.evaluate(() => {
+        Hooks.off("preUpdateChatMessage", window.__consentRetarget);
+        return window.__consentRetargeted;
+      });
+      const [onCrate, onPerson, state1] = [await consentHolds(crate.uuid, ["ZZ Consent Rope"]),
+        await consentHolds(p1.uuid, ["ZZ Consent Rope"]), await consentState(s1)];
+      check("a card retargeted by its giver after the accept delivers nothing, and reopens",
+        retargeted === true && onCrate.qty["ZZ Consent Rope"] === 1 && onPerson.qty["ZZ Consent Rope"] === 0
+          && state1 === "open",
+        `${JSON.stringify({ retargeted, crate: onCrate, person: onPerson, state: state1 })} — Bob accepted for ${p1.slots}; the release followed the flag onto a full crate`);
+    } else fail("the retarget leg's fixtures did not stand up", JSON.stringify({ s1, crate, p1 }));
+
+    // S2 (finding 156, the click). The item turns Bulky after it was offered,
+    // so the card's snapshot says one slot and the item says two. Bob at max-2
+    // must be asked; he answers No, and nothing moves.
+    const p2 = await plantConsent("ZZ Consent Beta");
+    const s2 = await consentOffer("ZZ Consent Plank", p2.uuid);
+    if (s2 && p2.atMaxLess2) {
+      await alice.evaluate(async () => {
+        await __abFresh("ZZ Offer Giver").items.find((i) => i.name === "ZZ Consent Plank").update({ "system.bulky": true });
+      });
+      const bobSeesBulky = await poll(bob, () =>
+        __abFresh("ZZ Offer Giver")?.items.find((i) => i.name === "ZZ Consent Plank")?.system.bulky || null);
+      await armConfirm(false);
+      await clickCard(bob, s2, "cairn-offer-accept");
+      // Asked-and-refused moves nothing and writes nothing, so the end of this
+      // leg is the confirm itself; on unfixed code it is the settle.
+      await poll(bob, (id) => window.__consentConfirms > 0
+        || game.messages.get(id)?.getFlag("air-bladder", "itemOffer")?.settled || null, s2);
+      await new Promise((r) => setTimeout(r, 1500));
+      const asked = await bob.evaluate(() => window.__consentConfirms);
+      const [held2, state2] = [await consentHolds(p2.uuid, ["ZZ Consent Plank"]), await consentState(s2)];
+      check("an item turned Bulky after it was offered asks the over-burden confirm",
+        bobSeesBulky === true && asked === 1, JSON.stringify({ bobSeesBulky, asked }));
+      check("...and answering No lands nothing",
+        held2.qty["ZZ Consent Plank"] === 0 && !held2.encumbered && state2 === "open",
+        JSON.stringify({ ...held2, state: state2 }));
+    } else fail("the bulky-after-posting leg's fixtures did not stand up", JSON.stringify({ s2, p2 }));
+
+    // S2b (finding 156, the door). Everything Bob's client can see says one
+    // slot, and he is not asked; the RELEASE carries a Bulky item (the wire is
+    // the giver's). The delivery must judge what arrives and refuse an
+    // over-burden nobody confirmed.
+    const p2b = await plantConsent("ZZ Consent Epsilon");
+    const s2b = await consentOffer("ZZ Consent Spool", p2b.uuid);
+    if (s2b && p2b.atMaxLess2) {
+      await alice.evaluate((id) => {
+        const sock = game.socket;
+        window.__consentOrigEmit = sock.emit;
+        window.__consentWireBulky = false;
+        sock.emit = function (event, payload, ...rest) {
+          if (payload?.action === "offerRelease" && payload.messageId === id && payload.itemData) {
+            payload = { ...payload, itemData: { ...payload.itemData,
+              system: { ...payload.itemData.system, bulky: true } } };
+            window.__consentWireBulky = true;
+          }
+          return window.__consentOrigEmit.call(this, event, payload, ...rest);
+        };
+      }, s2b);
+      await armConfirm(true);
+      await clickCard(bob, s2b, "cairn-offer-accept");
+      await consentSettled([s2b]);
+      const wire = await alice.evaluate(() => {
+        game.socket.emit = window.__consentOrigEmit;
+        delete window.__consentOrigEmit;
+        return window.__consentWireBulky;
+      });
+      const asked = await bob.evaluate(() => window.__consentConfirms);
+      const [held2b, state2b] = [await consentHolds(p2b.uuid, ["ZZ Consent Spool"]), await consentState(s2b)];
+      check("a release heavier than what was accepted is refused at delivery, and the offer reopens",
+        wire === true && asked === 0 && held2b.qty["ZZ Consent Spool"] === 0 && !held2b.encumbered
+          && state2b === "open",
+        JSON.stringify({ wire, asked, ...held2b, state: state2b }));
+    } else fail("the heavier-release leg's fixtures did not stand up", JSON.stringify({ s2b, p2b }));
+
+    // S3 (finding 135). Two one-slot offers to Bob at max-2, both accepted in
+    // the same tick: each click reads the load before either gift has landed,
+    // so neither asks. One fits; the second would over-burden him with no
+    // confirm, so it is refused and reopens — accepting it again asks.
+    const p3 = await plantConsent("ZZ Consent Gamma");
+    const s3a = await consentOffer("ZZ Consent Twine", p3.uuid);
+    const s3b = await consentOffer("ZZ Consent Wire", p3.uuid);
+    if (s3a && s3b && p3.atMaxLess2) {
+      await armConfirm(true);
+      await bob.evaluate(({ a, b }) => {
+        for (const id of [a, b]) {
+          document.querySelector(`.chat-message[data-message-id="${id}"] .cairn-offer-accept`)?.click();
+        }
+      }, { a: s3a, b: s3b });
+      await consentSettled([s3a, s3b]);
+      const asked = await bob.evaluate(() => window.__consentConfirms);
+      const held3 = await consentHolds(p3.uuid, ["ZZ Consent Twine", "ZZ Consent Wire"]);
+      const states3 = [await consentState(s3a), await consentState(s3b)];
+      const landed = held3.qty["ZZ Consent Twine"] + held3.qty["ZZ Consent Wire"];
+      check("two accepts in one tick land the one that fits and reopen the one that would over-burden",
+        asked === 0 && landed === 1 && !held3.encumbered
+          && states3.filter((s) => s === "settled").length === 1 && states3.filter((s) => s === "open").length === 1,
+        JSON.stringify({ asked, ...held3, states: states3 }));
+    } else fail("the back-to-back leg's fixtures did not stand up", JSON.stringify({ s3a, s3b, p3 }));
+
+    // S4 (finding 156, the merge). Bob's own Sack is Bulky; Alice's is not,
+    // and one more of Bob's stack costs what one of HIS costs. At max-2 that
+    // is over the limit, so he is asked; he answers No.
+    const p4 = await plantConsent("ZZ Consent Delta",
+      [{ name: "ZZ Consent Sack", type: "item", system: { bulky: true } }]);
+    const s4 = await consentOffer("ZZ Consent Sack", p4.uuid);
+    if (s4 && p4.atMaxLess2) {
+      await armConfirm(false);
+      await clickCard(bob, s4, "cairn-offer-accept");
+      await poll(bob, (id) => window.__consentConfirms > 0
+        || game.messages.get(id)?.getFlag("air-bladder", "itemOffer")?.settled || null, s4);
+      await new Promise((r) => setTimeout(r, 1500));
+      const asked = await bob.evaluate(() => window.__consentConfirms);
+      const [held4, state4] = [await consentHolds(p4.uuid, ["ZZ Consent Sack"]), await consentState(s4)];
+      check("a gift that merges into a Bulky stack is priced as one more of that stack, and asks",
+        asked === 1 && held4.qty["ZZ Consent Sack"] === 1 && !held4.encumbered && state4 === "open",
+        JSON.stringify({ asked, ...held4, state: state4 }));
+    } else fail("the bulky-stack leg's fixtures did not stand up", JSON.stringify({ s4, p4 }));
+  } finally {
+    await disarmConfirm().catch(() => {});
+  }
+
   const allErrors = [...gmErrors, ...alErrors, ...bobErrors].filter((e) => !/ZZ /.test(e));
   check("zero console errors", allErrors.length === 0, allErrors.slice(0, 3).join(" | "));
 } finally {
