@@ -1623,8 +1623,11 @@ try {
       // and any value handed back makes it CREATE a duplicate. check:probes gates this.
       if (rest[0]?.document) return foundry.helpers.ClientSettings.prototype.get.call(this, scope, key, ...rest);
       if (scope === ns && key === "enable-glog-magic") return true;
+      // The change log ON, read-shadowed, for the one-card leg (finding 235).
+      if (scope === ns && key === "change-log") return true;
       return origGet.call(this, scope, key, ...rest);
     };
+    const msgsBefore = new Set(game.messages.map((m) => m.id));
     let i = 0;
     const origRnd = CONFIG.Dice.randomUniform;
     CONFIG.Dice.randomUniform = () => seq[Math.min(i++, seq.length - 1)];
@@ -1640,7 +1643,9 @@ try {
         else await new Promise((r) => setTimeout(r, 150));
       }
       const card = await Promise.race([p, new Promise((r) => setTimeout(() => r("__timeout__"), 20000))]);
-      await new Promise((r) => setTimeout(r, 300));
+      await new Promise((r) => setTimeout(r, 800));
+      const ledger = game.messages.contents
+        .filter((m) => !msgsBefore.has(m.id) && m.getFlag("air-bladder", "changeLog")).length;
       const rows = a.items.filter((x) => x.name === "ZZ Scroll Pair")
         .map((x) => ({ q: x.system.quantity, u: x.system.uses.value }))
         .sort((x, y) => y.u - x.u);
@@ -1654,7 +1659,7 @@ try {
       const freshInto = findMatchingStack(a, freshLike);
       return {
         clicked, timedOut: card === "__timeout__",
-        rows,
+        rows, ledger,
         spentMergesInto: spentInto ? spentInto.system.uses.value : null,
         freshMergesInto: freshInto ? freshInto.system.uses.value : null,
       };
@@ -1671,6 +1676,11 @@ try {
   check(stackRun.spentMergesInto === 0 && stackRun.freshMergesInto === 1,
     "and a spent scroll stacks only with a spent one, a fresh one only with a fresh one",
     `spent->${stackRun.spentMergesInto} fresh->${stackRun.freshMergesInto}`);
+  // One cast, one ledger card (review #34 finding 235): the split's create is
+  // the system splitting off the spent copy, not an "Item added".
+  check(stackRun.ledger === 1,
+    "a cast from a stack posts ONE change-log card — no false 'Item added' for the split",
+    `${stackRun.ledger} card(s)`);
 
   /* -------------- 10g2. two dialogs open on ONE scroll cast it once -- */
   // Review #34 finding 133. castScroll asked the charge before its dialog and
@@ -1751,6 +1761,14 @@ try {
   const stackBind = await gm.evaluate(async () => {
     const D = foundry.applications.api.DialogV2;
     const origConfirm = D.confirm;
+    const origGet = game.settings.get;
+    const ns = game.system.id;
+    game.settings.get = function (scope, key, ...rest) {
+      // A DOCUMENT request is never shadowed (review #27) — see 10f.
+      if (rest[0]?.document) return foundry.helpers.ClientSettings.prototype.get.call(this, scope, key, ...rest);
+      if (scope === ns && key === "change-log") return true;   // the one-card half (finding 235's class)
+      return origGet.call(this, scope, key, ...rest);
+    };
     try {
       const a = await CONFIG.Actor.documentClass.create({ name: "ZZ Grim Stack Binder", type: "character",
         items: [{ name: "ZZ Grim Stack Tome", type: "item", system: { grimoire: true, grimoirePages: 3, bulky: true } }] });
@@ -1765,18 +1783,22 @@ try {
         if (!target) await new Promise((r) => setTimeout(r, 100));
       }
       D.confirm = async () => true;
+      const msgsBefore = new Set(game.messages.map((m) => m.id));
       if (target) {
         await a.sheet.constructor.DEFAULT_OPTIONS.actions.pageTransmute
           .call(a.sheet, { preventDefault: () => {} }, target);
       }
-      await new Promise((r) => setTimeout(r, 500));
+      await new Promise((r) => setTimeout(r, 800));
       await a.sheet.close();
+      const ledger = game.messages.contents
+        .filter((m) => !msgsBefore.has(m.id) && m.getFlag("air-bladder", "changeLog")).length;
       const rows = a.items.filter((x) => x.name === "ZZ Scroll Stack")
         .map((x) => ({ q: x.system.quantity, bound: !!x.system.bound, scroll: !!x.system.scroll, u: x.system.uses?.value }))
         .sort((x, y) => Number(x.bound) - Number(y.bound));
-      return { id: a.id, found: !!target, rows };
+      return { id: a.id, found: !!target, rows, ledger };
     } finally {
       D.confirm = origConfirm;
+      game.settings.get = origGet;
     }
   });
   cleanup.actorIds.push(stackBind.id);
@@ -1785,6 +1807,9 @@ try {
     { q: 1, bound: false, scroll: true, u: 1 }, { q: 1, bound: true, scroll: false, u: 0 }]),
   "Transmute on a stack of two scrolls binds ONE: a castable scroll stays, one page joins the book",
   JSON.stringify(stackBind.rows));
+  check(stackBind.ledger === 1,
+    "...posting ONE change-log card — no false 'Item added' for the page split off",
+    `${stackBind.ledger} card(s)`);
 
   /* ------------- 10h. the Add-N-Fatigue button trusts no card it did not make */
   // Review #34 findings 7 and 93. The button reads its actor and its count from
