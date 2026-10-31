@@ -4143,7 +4143,9 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       page.system.quantity = 1;
       page.system.bound = true;
       page.system.boundTo = boundTo;
-      await this.actor.createEmbeddedDocuments("Item", [page]);
+      // The page splitting off is no "Item added" — castScroll's split, the
+      // same flag (review #34 finding 235): the stack's "2 → 1" is the card.
+      await this.actor.createEmbeddedDocuments("Item", [page], { abNoStatusCard: true });
     } else {
       await item.update({ "system.bound": true, "system.boundTo": boundTo });
     }

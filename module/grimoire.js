@@ -585,7 +585,10 @@ const spendScrollCast = async (actor, scroll, picked) => {
     delete spent._id;
     spent.system.quantity = 1;
     spent.system.uses = { ...spent.system.uses, value: 0 };
-    await actor.createEmbeddedDocuments("Item", [spent]);
+    // abNoStatusCard: the spent copy splitting off is the system's bookkeeping,
+    // not an "Item added" (review #34 finding 235) — the stack's "2 → 1" is the
+    // cast's one ledger card, as "1 → 0" is a single scroll's.
+    await actor.createEmbeddedDocuments("Item", [spent], { abNoStatusCard: true });
   } else {
     await scroll.update({ "system.uses.value": 0 });
   }
