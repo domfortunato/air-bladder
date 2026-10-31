@@ -166,5 +166,27 @@ shadowProblems.length === 0
   ? ok("every settings.get shadow, function or arrow form, forwards its arguments and passes document requests through")
   : fail(`${shadowProblems.length} settings.get shadow(s) that would make a world-setting write create a duplicate document:\n         ${shadowProblems.join("\n         ")}`);
 
+// `game.i18n.format` CANNOT BE SHADOWED BY ASSIGNMENT. Core aliases it with
+// `Object.defineProperties(Localization.prototype, {format: …})`, which is
+// non-writable, and a non-writable prototype property blocks a plain
+// assignment on the instance: a silent no-op in a page.evaluate's sloppy
+// mode, every call still reaching core. dev:grimoire paid an hour for it
+// (2026-08-18), and review #34's F238 legs repeated it (2026-10-31): all three
+// read red, the control included, which looks exactly like the fix failing.
+// Shadow with `Object.defineProperty(game.i18n, "format", {value, configurable:
+// true, writable: true})` and restore with `delete`. (`localize` is an ordinary
+// method and assigns.)
+const formatAssigns = [];
+for (const f of files) {
+  fs.readFileSync(path.join(dir, f), "utf8").split(/\r?\n/).forEach((line, i) => {
+    // Code only: the notes that warn about this quote it.
+    if (/^\s*\*/.test(line)) return;
+    if (/i18n\.format\s*=(?!=)/.test(line.replace(/\/\/.*$/, ""))) formatAssigns.push(`${f}:${i + 1}`);
+  });
+}
+formatAssigns.length === 0
+  ? ok("no probe shadows game.i18n.format by assignment (a silent no-op)")
+  : fail(`${formatAssigns.length} game.i18n.format assignment(s) — a silent no-op; use Object.defineProperty:\n         ${formatAssigns.join("\n         ")}`);
+
 console.log(failed ? "\nPROBE WIRING CHECK FAILED\n" : "\nprobe wiring check passed\n");
 process.exit(failed ? 1 : 0);
