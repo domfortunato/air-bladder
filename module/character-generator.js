@@ -1,5 +1,5 @@
 import { CairnActor } from "./actor/actor.js";
-import { rollTablePlainText, resultText, resultPlainText, findTableByName, findDeclaredTable } from "./compendium.js";
+import { rollTablePlainText, resultText, resultPlainText, findTableByName, findDeclaredTable, warmPackDocuments } from "./compendium.js";
 import { Cairn } from "./config.js";
 import { evaluateFormula, formatCount, concealSecrets } from "./utils.js";
 import {
@@ -2923,6 +2923,12 @@ const customOnly = () =>
  * source-"2e" backgrounds, so admitting (potentially large, third-party) module
  * item packs costs a cheap index read, not a full load. Only called when the custom
  * toggle is on.
+ *
+ * ONE REQUEST PER PACK (review #34 finding 206): the matched ids are fetched
+ * together (`warmPackDocuments`), then read from the cache in index order. The
+ * per-background `getDocument` this replaced was 27 requests in series once the
+ * 2e take-over had filled the world pack. It stays only as the fallback for
+ * what the warm could not cache (an invalid document; core caches none).
  * @returns {Promise<CairnItem[]>}
  */
 const getCustomBackgrounds = async () => {
@@ -2932,11 +2938,11 @@ const getCustomBackgrounds = async () => {
     const pt = pack.metadata.packageType;
     if (pt !== "world" && pt !== "module") continue;
     const index = await pack.getIndex({ fields: ["system.source"] });
-    for (const entry of index) {
-      if (entry.type === "background" && entry.system?.source === "2e") {
-        const doc = await pack.getDocument(entry._id);
-        if (doc) out.push(doc);
-      }
+    const ids = [...index].filter((e) => e.type === "background" && e.system?.source === "2e").map((e) => e._id);
+    await warmPackDocuments(pack, ids);
+    for (const id of ids) {
+      const doc = pack.get(id) ?? await pack.getDocument(id);
+      if (doc) out.push(doc);
     }
   }
   return out;
