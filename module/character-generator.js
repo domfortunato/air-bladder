@@ -2124,18 +2124,31 @@ export const resolveStartingGear = async (bg, avoid = new Set()) => {
   }
 
   for (const ref of refs) {
-    const lower = String(ref.name).trim().toLowerCase();
-    let item = null;
-    // A snapshot travels inside the background (custom-authored gear), so it
-    // resolves without ever touching the canonical packs or the instruction rows.
-    if (ref.itemData) item = ownedFromSnapshot(ref.itemData, { quantity: ref.quantity ?? 1, uses: ref.uses });
-    else if (lower === "random additional gear") item = await rollAdditionalGear(avoid);
-    else if (lower === "scroll of random spellbook") item = await randomScrollItem();
-    else if (lower === "spellbook" || lower === "random spellbook") item = await randomSpellbookItem();
-    else item = await resolveGearItem(ref.name, { quantity: ref.quantity ?? 1, uses: ref.uses });
+    const item = await resolveGearRow(ref, avoid);
     if (item) { out.push(item); avoid.add(item.name.toLowerCase()); }
   }
   return out;
+};
+
+/**
+ * Resolve ONE starting-gear row: a snapshot, an instruction row dealt by its
+ * roll, or a by-name reference. The one dispatch for those rows, shared by
+ * resolveStartingGear and the failed-career keepsake — the keepsake went round
+ * it with the bare resolveRef, so one drawn on "Spellbook" was nothing (review
+ * #34 finding 130).
+ * @param {Object} ref  a startingGear entry
+ * @param {Set<string>} [avoid]  names already granted, for the Additional Gear roll
+ * @returns {Promise<Object|null>}
+ */
+const resolveGearRow = async (ref, avoid = new Set()) => {
+  const lower = String(ref.name).trim().toLowerCase();
+  // A snapshot travels inside the background (custom-authored gear), so it
+  // resolves without ever touching the canonical packs or the instruction rows.
+  if (ref.itemData) return ownedFromSnapshot(ref.itemData, { quantity: ref.quantity ?? 1, uses: ref.uses });
+  if (lower === "random additional gear") return rollAdditionalGear(avoid);
+  if (lower === "scroll of random spellbook") return randomScrollItem();
+  if (lower === "spellbook" || lower === "random spellbook") return randomSpellbookItem();
+  return resolveGearItem(ref.name, { quantity: ref.quantity ?? 1, uses: ref.uses });
 };
 
 /**
@@ -3328,7 +3341,8 @@ const failedCareerItemFromBg = async (bg) => {
   const gear = bg?.system?.startingGear ?? [];
   if (!gear.length) return null;
   const ref = gear[Math.floor(Math.random() * gear.length)];
-  const item = await resolveRef(ref);
+  // An instruction row deals as starting gear deals it (review #34 finding 130).
+  const item = await resolveGearRow(ref);
   if (!item) return null;
   item.system = { ...(item.system ?? {}), weightless: true, bulky: false };
   return withGrantSource(item, "failed-career");
