@@ -515,9 +515,30 @@ export const dropItemToPile = async (actor, itemId, { announce = false, place = 
  * something to rely on, and the card is composed from it.
  * @private
  */
-const movePileItem = async (actor, itemId, { announce = false, place = "", claimId = null, by = null } = {}) => {
+const movePileItem = async (actor, itemId, options = {}) => {
   const item = actor.items.get(itemId);
   if (!item) return false;
+  // ONE MOVE PER ITEM AT A TIME on this client (review #34 finding 136). The
+  // claim id is fresh per gesture (review #33, above), so it no longer refuses
+  // a SECOND gesture on the same item: Drop, Enter, Drop, Enter inside the
+  // round trip before the delete lands passed the check above twice and filed
+  // two copies. The check and the claim are one synchronous step; the
+  // released item is gone by then, so a later gesture fails the check above.
+  if (pileMovesInFlight.has(item.uuid)) return false;
+  pileMovesInFlight.add(item.uuid);
+  try {
+    return await moveClaimedPileItem(actor, item, options);
+  } finally {
+    pileMovesInFlight.delete(item.uuid);
+  }
+};
+
+/** Items whose move to the pile is running on this client, by uuid — see
+ *  movePileItem. The damage card's damageApplyInFlight is the precedent. */
+const pileMovesInFlight = new Set();
+
+/** movePileItem's move, once the item is claimed. */
+const moveClaimedPileItem = async (actor, item, { announce = false, place = "", claimId = null, by = null } = {}) => {
   const pile = await ensureDroppedPile();
   if (!pile) return false;
   const name = item.name;
