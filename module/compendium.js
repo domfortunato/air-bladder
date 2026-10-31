@@ -198,59 +198,24 @@ export const resultPlainText = (result) => {
 };
 
 /**
- * A rolled result rendered the way it would appear in chat: prose for a text row,
- * a content link for a document row.
- *
- * Replaces `TableResult#getChatText()`, deprecated `{since: 13, until: 15}`
- * (client/documents/table-result.mjs:120-124). The body is core's own expression
- * from that method, so the output is byte-identical to what shipped.
- *
- * `getHTML()` is core's nominated successor and is NOT a drop-in here. It is async,
- * it enriches to real HTML, and it wraps the result in a template — whereas this
- * value is stored on the actor as one of the eight 2e trait strings and rendered as
- * plain text. Swapping it in would put markup into `system.traits.*` on every
- * generated character, and the content-translation overlay keys on the English
- * source string, so every trait would also lose its translation.
- *
- * @param {TableResult} result
- * @returns {String}
- */
-export const resultChatText = (result) =>
-  (result?.type === CONST.TABLE_RESULT_TYPES.DOCUMENT
-    ? `@UUID[${result.documentUuid}]{${result.name}}`
-    : (result?.description || result?.name)) ?? "";   // a Name-only row: review #34 finding 225
-
-/**
- * One rolled result's chat text off a declared table.
- * @param {String} decl  "pack;Name" or "Name"
- * @returns {Promise.<String>}  the result's chat text, or "" if the table is
- *                              missing or empty (generation must degrade, not throw)
- */
-export const rollTableText = async (decl) => {
-  const rolled = await rollTable(decl);
-  const r = rolled?.results?.[0];
-  // Its one caller stores the value as a trait STRING, shown escaped — so a
-  // text row reads as its plain text (review #34 finding 225: a row written in
-  // the Description editor stored a literal "<p>…</p>"). A document row keeps
-  // its content link, as before.
-  return r?.type === CONST.TABLE_RESULT_TYPES.DOCUMENT ? resultChatText(r) : resultPlainText(r);
-};
-
-/**
  * One rolled result as PLAIN TEXT off a declared table — a document row's name,
- * a text row's prose, trimmed — for a reader that composes the value into a
- * NAME rather than storing it as chat text.
+ * a text row's prose, trimmed — and the one reader every generator stores or
+ * composes a rolled row through: the monster generator's names and attacks,
+ * the eight 2e traits and the NPC four (`rollTextItems`), the NPC Background.
  *
- * The monster generator's reader (review #30). Its private copy returned
- * `resultText(...).trim()`; the shared `rollTableText` above it was folded
- * into returns `resultChatText`, which renders a DOCUMENT row as
- * `@UUID[...]{name}` — right for a 2e trait string that chat enriches, wrong
- * in a monster's name, where it read as the literal `@UUID[Item.xxxx]{Rusty
- * Blade}` and matched nothing in `ARMORED_FEATURES`. Reachable only since
- * the declarations went world-first: a Warden's own table can hold a dragged
- * document row where the shipped ones hold text.
+ * There was a second, chat-text reader, `rollTableText`, after core's
+ * deprecated `TableResult#getChatText()`. It rendered a DOCUMENT row as
+ * `@UUID[...]{name}`, which reads as the literal link wherever the value is
+ * stored or composed rather than posted to chat: in a monster's name, where it
+ * matched nothing in `ARMORED_FEATURES` (review #30), and in a stored trait,
+ * which the trait sentence and the printed page show escaped and the pick-list
+ * beside the die could not select (review #34 finding 131). Retired with its
+ * last caller. Reachable only since the declarations went world-first: a
+ * Warden's own table can hold a dragged document row where the shipped ones
+ * hold text.
  * @param {String} decl  "pack;Name" or "Name"
- * @returns {Promise.<String>}  the row's plain text, or "" on a missing table
+ * @returns {Promise.<String>}  the row's plain text, or "" if the table is
+ *                              missing or empty (generation must degrade, not throw)
  */
 export const rollTablePlainText = async (decl) => {
   const rolled = await rollTable(decl);

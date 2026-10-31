@@ -1,5 +1,5 @@
 import { CairnActor } from "./actor/actor.js";
-import { rollTableText, rollTablePlainText, resultText, resultPlainText, findTableByName, findDeclaredTable } from "./compendium.js";
+import { rollTablePlainText, resultText, resultPlainText, findTableByName, findDeclaredTable } from "./compendium.js";
 import { Cairn } from "./config.js";
 import { evaluateFormula, formatCount, concealSecrets } from "./utils.js";
 import {
@@ -853,14 +853,17 @@ export const rollPcHitProtection = async () => {
 
 /**
  * Roll one text result from each declared table (the eight 2e traits, the NPC
- * traits). WORLD FIRST since 2026-09-13, through `rollTableText`: a Warden's
- * own table of the same name is what comes up, and the roll marks nothing.
+ * traits). WORLD FIRST since 2026-09-13, through `rollTablePlainText`: a
+ * Warden's own table of the same name is what comes up, and the roll marks
+ * nothing. PLAIN text, because the value is stored as a trait string and shown
+ * escaped: a document row on a Warden's table stored `@UUID[...]{name}` through
+ * the chat-text reader (review #34 finding 131).
  * @param {Object<string,string>} items  key -> "pack;TableName"
  * @returns {Promise<Object<string,string>>}
  */
 export const rollTextItems = async (items) => {
   const data = {};
-  for (const [key, value] of Object.entries(items)) data[key] = await rollTableText(value);
+  for (const [key, value] of Object.entries(items)) data[key] = await rollTablePlainText(value);
   return data;
 };
 
@@ -4696,7 +4699,7 @@ const rollNpcBackground = async () => {
   const decl = CONFIG.Cairn?.npcGenerator?.background ?? "";
   // PLAIN TEXT, not chat text (review #34 finding 65): the value is a match
   // key into `Cairn.npcGenerator.backgroundGear` and the sheet's text field.
-  // `rollTableText` renders a DOCUMENT row as `@UUID[...]{name}`, which a
+  // The chat-text reader rendered a DOCUMENT row as `@UUID[...]{name}`, which a
   // Warden's own world table can hold — the NPC's Background then read the
   // literal link, matched nothing, and lost its kit. The picker beside the die
   // has always listed plain names.

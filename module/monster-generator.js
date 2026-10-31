@@ -77,10 +77,11 @@ const pickWeighted = (pairs) => {
 // SHARED reader, since 2026-09-13, which resolves each declaration WORLD FIRST
 // and rolls without marking. A private copy lived here for a month and was
 // the reason a Warden's own monster table came up on the Dashboard button and
-// never in a generated monster. PLAIN text, trimmed, not `rollTableText`: that
-// one returns chat text, which renders a document row as `@UUID[...]{name}`
-// — right in a trait string, wrong in a monster's name (review #30; the
-// comment here called the two "identical but for the lookup" for a day).
+// never in a generated monster. PLAIN text, trimmed, not the chat-text reader
+// it had: that one rendered a document row as `@UUID[...]{name}`, wrong in a
+// monster's name (review #30; the comment here called the two "identical but
+// for the lookup" for a day) and, it turned out, in a stored trait too (review
+// #34 finding 131), so it is gone.
 
 /**
  * The tier picker — and, on a re-roll, the CONFIRMATION. It is dismissible

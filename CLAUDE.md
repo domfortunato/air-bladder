@@ -287,8 +287,8 @@ goes into the same type packs 2e uses.
 - **Every table a generator declares resolves world-first** via
   `compendium.js` `findDeclaredTable` (world by name, then the declared pack). The
   `"pack;Name"` prefix is the FALLBACK, never a lock. **Read with `roll()`, never
-  `draw()`** (`draw` marks world rows drawn): `rollTable` / `rollTableText` /
-  `rollTablePlainText` (monster names). Pick-lists resolve the same way; trait
+  `draw()`** (`draw` marks world rows drawn): `rollTable` / `rollTablePlainText`
+  (the one text reader; the chat-text one is retired). Pick-lists resolve the same way; trait
   dropdowns via `declaredTableCached` (not `findDeclaredTable` — too slow). Scars
   checklist stays pack-only. Kettlewright's Bonds matcher and `resolveVirtueVice`
   stay on the pack deliberately. `roll()` still skips drawn rows and saves a blank

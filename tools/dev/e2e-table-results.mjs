@@ -95,7 +95,7 @@ const out = await page.evaluate(async () => {
       res.shippedResolved = n;
     });
 
-    await step("the eight 2e trait rolls (rollTableText)", async () => {
+    await step("the eight 2e trait rolls (rollTextItems)", async () => {
       const mapping = CONFIG.Cairn?.characterGenerator2e?.biography?.items ?? {};
       res.traits = await cg.rollTextItems(mapping);
     });
@@ -148,7 +148,6 @@ const out = await page.evaluate(async () => {
 
   // The text row's prose and the document rows' names, via the one helper.
   res.helper = [...table.results].map((r) => comp.resultText(r));
-  res.chatText = [...table.results].map((r) => comp.resultChatText(r));
 
   /* ---- CONTROLS: both of the above must be able to FAIL ------------------ */
   // (a) Phase 1's trip-wire. A green phase 1 means "nothing read a deprecated
@@ -297,9 +296,6 @@ out.mixed.textSkipped
 out.helper[2] === "ZZ TR just prose" && out.helper[0] === "ZZ TR World Dagger"
   ? ok("resultText reads prose from a text row and the name from a document row")
   : fail("resultText returned the wrong field", JSON.stringify(out.helper));
-out.chatText[2] === "ZZ TR just prose" && out.chatText[0].startsWith("@UUID[")
-  ? ok("resultChatText links a document row and passes prose through")
-  : fail("resultChatText is not what getChatText produced", JSON.stringify(out.chatText));
 
 console.log("\ncontrols — both of the above must be able to fail");
 out.tripwire.threw

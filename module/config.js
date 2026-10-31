@@ -171,8 +171,8 @@ Cairn.npcGenerator = {
   // through `resolveStartingGear` (character-generator.js `buildNpcItems`) —
   // NOT a bare `resolveRefs`, which drops the instruction rows.
   //
-  // Keyed on the ENGLISH table text, and that is load-bearing: `rollTableText`
-  // returns the raw result, NOT the content overlay's translation, so
+  // Keyed on the ENGLISH table text, and that is load-bearing: `rollTablePlainText`
+  // returns the row's own text, NOT the content overlay's translation, so
   // `system.background` stores English in every language while the SHEET shows
   // `backgroundDisplay`. A map keyed on what the Warden reads would miss on
   // every non-English client. (The read/stored split, module/i18n-content.js.)

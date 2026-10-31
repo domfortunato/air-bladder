@@ -68,7 +68,7 @@
  *      the shipped ids in one folder, text rows verbatim, Bonds' gold/items row
  *      flags intact, the Spells table NOT copied, every declaration resolving to
  *      the world copy — control: the Spells declaration still resolves to the pack.
- *      A reworded row is what `rollTableText` returns.
+ *      A reworded row is what `rollTablePlainText` returns.
  *  11. A second backgrounds run keeps a rename, even with the pack locked; red-first
  *      on the plan: the world index shadowed empty → 27 to add.
  *  12. Barebones: six tables under the shipped ids, 38 items, the Weapon table's
@@ -1217,7 +1217,7 @@ try {
       await bonds.deleteEmbeddedDocuments("TableResult", keep);
       await bonds.createEmbeddedDocuments("TableResult", [{ type: CONST.TABLE_RESULT_TYPES.TEXT, description: "A probe owes you a favour.", range: [1, 1], weight: 1 }]);
       await bonds.update({ formula: "1d1" });
-      return cpd.rollTableText("air-bladder.tables-2e;Bonds");
+      return cpd.rollTablePlainText("air-bladder.tables-2e;Bonds");
     }, { CPD, ids: newC2eTables });
     check(/probe owes you a favour/.test(reworded ?? ""), "a reworded row is what a Bonds roll returns", JSON.stringify(reworded));
 
