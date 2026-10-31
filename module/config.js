@@ -168,7 +168,8 @@ Cairn.npcGenerator = {
   // table names positions in the world; the Barebones list of 100 names TRADES,
   // and a trade is the only background in this system that carries gear — three
   // items each. So an NPC gets the gear of its nearest Barebones counterpart,
-  // through the same resolveRefs path a Barebones PC and a 2e hireling use.
+  // through `resolveStartingGear` (character-generator.js `buildNpcItems`) —
+  // NOT a bare `resolveRefs`, which drops the instruction rows.
   //
   // Keyed on the ENGLISH table text, and that is load-bearing: `rollTableText`
   // returns the raw result, NOT the content overlay's translation, so

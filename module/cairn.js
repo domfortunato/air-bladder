@@ -166,8 +166,9 @@ Hooks.once("init", async function () {
   Hooks.on("cairnWeatherChanged", refreshTimeSurfaces);
 
   // ...and, on ONE client, write it down. The log is off by default; the
-  // module is only fetched on a Warden's client, and only then, for the reason
-  // the dashboard's import above is dynamic.
+  // module is fetched only here, on a Warden's client — nothing else imports
+  // it, so a player's client never loads it. (This used to cite the dashboard's
+  // import as the precedent; that one is static now, see above.)
   Hooks.on("cairnWeatherChanged", () => {
     if (!game.user?.isGM) return;
     import("./weather-log.js")
@@ -871,21 +872,6 @@ Hooks.on("setup", () => {
   foundry.utils.setProperty(game.i18n.translations, "USER.RoleAssistant", game.i18n.localize("CAIRN.AssistantWarden"));
 });
 
-// Rename the default GM account to "Warden". Only the acting GM writes (avoids
-// multi-GM races).
-//
-// The name is a WORLD value but the label is localized per CLIENT, so whichever
-// GM logs in first decides what every other player sees. That used to be
-// one-way and unrecoverable: the rename matched only the two default names, so
-// the moment it wrote, nothing matched again -- a GM who then switched language,
-// or turned the setting off, was stuck with the old name and no way back short
-// of editing the user by hand.
-//
-// Remembering the name we replaced fixes both halves. `renamedFrom` marks the
-// accounts this system renamed (so a deliberately-named GM is never touched),
-// lets a language switch re-apply the new label, and lets the original name come
-// back if the setting is turned off. Idempotent: it writes only when the stored
-// name and the wanted name actually differ.
 /**
  * GM-side broker for the Actors a PLAYER's character generation grants.
  *
@@ -1174,12 +1160,10 @@ Hooks.once("init", () => {
     // saying the FLAG is the authorization introduced a branch whose guard is
     // `senderId`. A correct-sounding comment on contradicting code reads as
     // verification; review #28 caught it, and this file records the same
-    // failure twice elsewhere.)
-    // A player dropped something into the Dropped Item Pile. The pile is
-    // OBSERVER for players by ruling, so they cannot write to it and the active
-    // GM does the move for them — the ownershipSync shape exactly, including the
-    // catch: `fromUuid` throws on a malformed uuid, and a throw out of an
-    // un-awaited async socket handler names nothing.
+    // failure twice elsewhere — and a third time: the pile-drop branch was
+    // inserted here too, and when review #33 moved the pile to a `User#query`
+    // (`handlePileQuery`, registered in the init hook above) its paragraph was
+    // left behind on this branch until review #34.)
     if (msg?.action === "ownershipSync") {
       if (game.users.activeGM !== game.user) return;
       // Caught, the handler's own standing rule (review #17): a throw here —
@@ -1235,8 +1219,8 @@ Hooks.once("init", () => {
         // The wire names a content source (the player answered the picker on
         // their own client — a prompt HERE would hang their request on this
         // screen's modal), but the wire is not trusted: anything not currently
-        // enabled clamps to the only enabled source, or to 2e under the same
-        // everything-off kindness promptContentSource applies. A source is
+        // enabled clamps to the only enabled source, or to 2e when everything
+        // is off (nothing then to choose between). A source is
         // always passed, so generateCharacter never prompts on this client.
         const enabled = enabledContentSources().map((s) => s.key);
         const source = enabled.includes(msg.source) ? msg.source : (enabled[0] ?? "2e");
@@ -1515,6 +1499,21 @@ Hooks.once("init", () => {
   });
 });
 
+// Rename the default GM account to "Warden". Only the acting GM writes (avoids
+// multi-GM races).
+//
+// The name is a WORLD value but the label is localized per CLIENT, so whichever
+// GM logs in first decides what every other player sees. That used to be
+// one-way and unrecoverable: the rename matched only the two default names, so
+// the moment it wrote, nothing matched again -- a GM who then switched language,
+// or turned the setting off, was stuck with the old name and no way back short
+// of editing the user by hand.
+//
+// Remembering the name we replaced fixes both halves. `renamedFrom` marks the
+// accounts this system renamed (so a deliberately-named GM is never touched),
+// lets a language switch re-apply the new label, and lets the original name come
+// back if the setting is turned off. Idempotent: it writes only when the stored
+// name and the wanted name actually differ.
 Hooks.once("ready", async () => {
   if (!game.user.isGM) return;
   if (game.users.activeGM && game.users.activeGM !== game.user) return;
@@ -2999,29 +2998,6 @@ Hooks.on("updateActor", (actor, _changes, _options, userId) => stripPlantedPileF
 Hooks.once("ready", () => stripPlantedPileFlags());
 
 /**
- * Rewrite a damage card's flavor line to say who is attacking whom.
- *
- * The ids were always on the card — `data-targets` is what Apply damage reads —
- * and the card simply never showed them, so the log recorded "Rolling damage
- * with Crossbow" and left the table to remember who that was aimed at.
- *
- * Resolved AT RENDER rather than at roll time, and all three reasons matter:
- * the names then localize per VIEWER (so the content overlay translates a
- * monster's name in a Spanish client and leaves a player-authored PC name
- * alone), BOTH producers are covered without touching either (`#onRollDamage`
- * and macros.js already ship the same `data-targets`), and every damage card
- * already in the log gains the line the next time it renders. Resolving at
- * creation would freeze the sentence in the roller's language and have to be
- * written twice.
- *
- * ORDERING: must run BEFORE the player-trim below, which REMOVES `.apply-dmg`
- * from a non-GM's copy and with it the only copy of the ids. Deliberately not
- * duplicated onto the label to make that safe — a second attribute holding the
- * same data is the shape that produced years of container bugs here. The Alice
- * leg in dev:enc-damage is what guards the ordering: move this after the trim
- * and a player stops seeing the names, which that leg asserts.
- */
-/**
  * Give an UNTARGETED damage card the Apply control it never had.
  *
  * A roll made with nothing targeted shipped no anchor at all
@@ -3382,6 +3358,29 @@ const localizeDamageQuality = (html) => {
   el.textContent = game.i18n.localize(DAMAGE_QUALITY_KEYS[kind]);
 };
 
+/**
+ * Rewrite a damage card's flavor line to say who is attacking whom.
+ *
+ * The ids were always on the card — `data-targets` is what Apply damage reads —
+ * and the card simply never showed them, so the log recorded "Rolling damage
+ * with Crossbow" and left the table to remember who that was aimed at.
+ *
+ * Resolved AT RENDER rather than at roll time, and all three reasons matter:
+ * the names then localize per VIEWER (so the content overlay translates a
+ * monster's name in a Spanish client and leaves a player-authored PC name
+ * alone), BOTH producers are covered without touching either (`#onRollDamage`
+ * and macros.js already ship the same `data-targets`), and every damage card
+ * already in the log gains the line the next time it renders. Resolving at
+ * creation would freeze the sentence in the roller's language and have to be
+ * written twice.
+ *
+ * ORDERING: must run BEFORE the player-trim below, which REMOVES `.apply-dmg`
+ * from a non-GM's copy and with it the only copy of the ids. Deliberately not
+ * duplicated onto the label to make that safe — a second attribute holding the
+ * same data is the shape that produced years of container bugs here. The Alice
+ * leg in dev:enc-damage is what guards the ordering: move this after the trim
+ * and a player stops seeing the names, which that leg asserts.
+ */
 const nameDamageTargets = (message, html, scene) => {
   const label = html.querySelector(".flavor-dice-roll .dmg-label")
     // Cards posted before the class existed: the label is the child div that is

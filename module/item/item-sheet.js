@@ -533,12 +533,6 @@ export class CairnItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
   /* -------------------------------------------- */
 
   /**
-   * Non-click listeners only. Clicks are declared as `actions` in DEFAULT_OPTIONS
-   * and wired by ApplicationV2; everything here is a `change` handler, which the
-   * action system does not cover.
-   * @override
-   */
-  /**
    * Frame-level listeners, bound once. The frame survives re-render, so binding
    * these in `_onRender` would stack a duplicate on every redraw.
    *

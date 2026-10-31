@@ -96,10 +96,11 @@ export const rollItemMacro = async (actorId, itemId) => {
     quality = await askDamageQuality(item.system.damageFormula, weaponName);
     if (quality === null) return; // dismissed: roll nothing
   }
-  // The second PC damage call site — the hotbar macro. Gated through the SAME
-  // function as the sheet's control (actor-sheet.js `#onRollDamage`,
-  // `combatDamageFormula` in utils.js); the two are the only places a damage
-  // roll can be a player character's, and the Warden's Damage tool is
+  // One of the three PC damage call sites — the hotbar macro. Gated through the
+  // SAME function as the sheet's two (actor-sheet.js `#onRollDamage` and
+  // `#onImprovisedAttack`, both through `combatDamageFormula` in utils.js);
+  // those three are the only places a damage roll can be a player
+  // character's, and the Warden's Damage tool is
   // deliberately NOT one of them (a trap has no actor). No die-size floor since
   // 2026-10-03, and melee and ranged are the same to both options since.
   const base = damageFormulaFor(quality, item.system.damageFormula);

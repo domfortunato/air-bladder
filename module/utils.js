@@ -632,7 +632,7 @@ export const buildDiceBuilder = () => {
  *
  * The DIALECT is read from the setting ONCE here and passed as an argument —
  * `composeDiceFormula` itself reads nothing, which is what lets a probe drive
- * both dialects with zero world writes against a `requiresReload` setting.
+ * both dialects with zero world writes to the notation setting.
  */
 export const wireDiceBuilder = (root) => {
   const field = root.querySelector('input[name="formula"]');

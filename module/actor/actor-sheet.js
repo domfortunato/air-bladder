@@ -203,38 +203,6 @@ const slideDown = (el) => {
 };
 
 /**
- * Wrap an action handler so it does nothing on a non-editable sheet.
- *
- * AppV1 simply never bound any of these listeners when `options.editable` was
- * false — `activateListeners` returned early — so an observer's sheet was inert
- * beyond Foundry's own controls. ApplicationV2 wires `actions` regardless of
- * editability, so preserving that behaviour means guarding at the handler.
- *
- * For MUTATING actions only. The read set — rolls to chat, description
- * expanders, the collapse toggles — is deliberately unwrapped (review #6):
- * none of them writes the document, and wrapping them meant a Warden opening
- * a monster from a locked compendium could not roll its attack, with a
- * PackLocked toast diagnosing a write-permission problem no write had.
- */
-/**
- * Wrap a randomization-surface handler so it refuses whoever the Warden's
- * allow-player-randomization switch denies (`_mayRandomize` — the Warden
- * always passes). Applied to exactly the actions whose CONTROLS hide while
- * the switch is off: the two frame buttons (#syncGenerationButtons) and every
- * control inside a template's `generationEnabled` block — that context is
- * derived as actorFlag && _mayRandomize(), so a hidden control and a refused
- * handler are the same statement. Review #13: only rollActor and
- * toggleGeneration carried the guard in-handler, and rollBackground — a
- * wholesale background-and-gear rewrite — answered a call past its hidden die.
- * The hidden control is the affordance, this is the enforcement: a sheet
- * already open when the switch flips, or a crafted client, must not be a way
- * through (the marketplace acquire() split).
- *
- * The actor's OWN generationEnabled flag is deliberately NOT checked here: a
- * player the switch allows can flip that flag themselves via toggleGeneration,
- * so refusing on it would enforce nothing.
- */
-/**
  * May this actor's Omen be shown AT ALL? Two terms, and both surfaces need
  * both — which is the whole reason this is a function.
  *
@@ -275,6 +243,24 @@ const omenVisible = (actor) =>
  */
 const traitsVisible = () => game.settings.get(SETTINGS_NS, "show-traits");
 
+/**
+ * Wrap a randomization-surface handler so it refuses whoever the Warden's
+ * allow-player-randomization switch denies (`_mayRandomize` — the Warden
+ * always passes). Applied to exactly the actions whose CONTROLS hide while
+ * the switch is off: the two frame buttons (#syncGenerationButtons) and every
+ * control inside a template's `generationEnabled` block — that context is
+ * derived as actorFlag && _mayRandomize(), so a hidden control and a refused
+ * handler are the same statement. Review #13: only rollActor and
+ * toggleGeneration carried the guard in-handler, and rollBackground — a
+ * wholesale background-and-gear rewrite — answered a call past its hidden die.
+ * The hidden control is the affordance, this is the enforcement: a sheet
+ * already open when the switch flips, or a crafted client, must not be a way
+ * through (the marketplace acquire() split).
+ *
+ * The actor's OWN generationEnabled flag is deliberately NOT checked here: a
+ * player the switch allows can flip that flag themselves via toggleGeneration,
+ * so refusing on it would enforce nothing.
+ */
 const mayRandomize = (fn) => function (event, target) {
   if (!this._mayRandomize()) {
     ui.notifications.warn(game.i18n.localize("CAIRN.Notify.RandomizationDisabled"));
@@ -283,6 +269,20 @@ const mayRandomize = (fn) => function (event, target) {
   return fn.call(this, event, target);
 };
 
+/**
+ * Wrap an action handler so it does nothing on a non-editable sheet.
+ *
+ * AppV1 simply never bound any of these listeners when `options.editable` was
+ * false — `activateListeners` returned early — so an observer's sheet was inert
+ * beyond Foundry's own controls. ApplicationV2 wires `actions` regardless of
+ * editability, so preserving that behaviour means guarding at the handler.
+ *
+ * For MUTATING actions only. The read set — rolls to chat, description
+ * expanders, the collapse toggles — is deliberately unwrapped (review #6):
+ * none of them writes the document, and wrapping them meant a Warden opening
+ * a monster from a locked compendium could not roll its attack, with a
+ * PackLocked toast diagnosing a write-permission problem no write had.
+ */
 const owned = (fn) => function (event, target) {
   if (!this.isEditable) {
     // SAY WHY. This used to `return undefined` in silence, which is the worst
@@ -314,7 +314,7 @@ const owned = (fn) => function (event, target) {
 /**
  * The actor sheet, on ApplicationV2.
  *
- * One class serves all four actor types; the template and the tab set are chosen
+ * One class serves all three actor types; the template and the tab set are chosen
  * per render from `actor.type` (see _configureRenderParts / _getTabsConfig).
  *
  * Two AppV1 behaviours are re-declared rather than inherited, because
@@ -506,8 +506,9 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
   }
 
   /**
-   * The tab set varies by actor type, and the Containers tab comes and goes with
-   * the actor's containers.
+   * The tab set varies by actor type, and the Containers tab shows only where
+   * `showContainersTab` allows it: the parked Connections UI switched on, not a
+   * monster, not an unlinked token.
    * @override
    */
   _getTabsConfig(group) {
@@ -525,22 +526,14 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // but an initial the filtered list dropped would strand the reset.
     const initial = initialTabId(this.actor);
     config.initial = ids.includes(initial) ? initial : (ids[0] ?? config.initial);
-    // Losing your last container removes the tab you were standing on.
-    // `_prepareTabs` only defaults the group when it is unset (`??=`), so without
+    // A tab can vanish under the viewer: the Connections UI switched off, a
+    // role change, a sheet reopened as an unlinked token. `_prepareTabs` only defaults the group when it is unset (`??=`), so without
     // this the group keeps pointing at a tab that is no longer rendered and NO
     // panel is active — a blank sheet body with no error.
     if (!ids.includes(this.tabGroups[group])) this.tabGroups[group] = config.initial;
     return config;
   }
 
-  /**
-   * Rows are dragged to reorder an inventory or to hand an item to another actor.
-   * ActorSheetV2 hardcodes `.draggable` with no dropSelector, so the whole
-   * application is the drop zone (which is what we want) but the drag selector
-   * has to be replaced. Overriding the getter is preferable to adding a
-   * `draggable` class to every row — that class carries Foundry styling of its own.
-   * @override
-   */
   /**
    * @override — drops normally bind only on an editable sheet (core's
    * default). An UNOWNED sheet additionally accepts them so a player can
@@ -558,6 +551,14 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     return this.isEditable || (!this.actor?.isOwner && canReceiveOffer(this.actor));
   }
 
+  /**
+   * Rows are dragged to reorder an inventory or to hand an item to another actor.
+   * ActorSheetV2 hardcodes `.draggable` with no dropSelector, so the whole
+   * application is the drop zone (which is what we want) but the drag selector
+   * has to be replaced. Overriding the getter is preferable to adding a
+   * `draggable` class to every row — that class carries Foundry styling of its own.
+   * @override
+   */
   get _dragDrop() {
     return this.#dragDrop ??= new foundry.applications.ux.DragDrop.implementation({
       dragSelector: ".cairn-items-list-row",
@@ -1369,9 +1370,9 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
   /**
    * Order an item list the way the inventory tab renders it, so the sheet and the
    * printed page cannot drift (review #12: print built rows in insertion order
-   * while the sheet sorted). Manual `sort` when drag-to-reorder is on, else
-   * alphabetical by DISPLAY name (localeCompare in the reader's language),
-   * equipped first, Fatigue last. `nameNs` is the OWNING actor's item namespace —
+   * while the sheet sorted). Each item's stored `sort`, always, with ties broken
+   * alphabetically by DISPLAY name (localeCompare in the reader's language).
+   * `nameNs` is the OWNING actor's item namespace —
    * a connected monster's gear is filed under monster.itemName — and Fatigue's
    * label comes from the UI key, both matching `_prepareContext`. Returns a copy;
    * the source array is never mutated.
@@ -1897,13 +1898,6 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
   /* -------------------------------------------- */
 
   /**
-   * Everything that is not a click: `change` handlers for the class-managed
-   * fields, the two double-click affordances, and the editor click-away save.
-   * Clicks are declared as `actions` in DEFAULT_OPTIONS and wired by
-   * ApplicationV2 — the action system covers no other event type.
-   * @override
-   */
-  /**
    * Listeners that belong to the FRAME, which is built once and survives every
    * re-render. Binding these in `_onRender` instead would stack a duplicate on
    * each redraw — and this sheet redraws on every committed keystroke, because
@@ -1920,6 +1914,13 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     bindEditorClickAwaySave(this.element);
   }
 
+  /**
+   * Everything that is not a click: `change` handlers for the class-managed
+   * fields, the two double-click affordances, and the editor click-away save.
+   * Clicks are declared as `actions` in DEFAULT_OPTIONS and wired by
+   * ApplicationV2 — the action system covers no other event type.
+   * @override
+   */
   async _onRender(context, options) {
     await super._onRender(context, options);
     const el = this.element;

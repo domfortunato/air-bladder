@@ -1430,9 +1430,9 @@ export const grantContainers = async (actor, specs) => {
    * needs ACTOR_CREATE, which players do not have, so the item branch was a
    * permissions workaround wearing a display setting's name. Hence the broker
    * below. */
-  /* Resolved ONCE, because the keeper's notes need the same answers the payload
-   * does: what this thing IS (role + Kind) and, where the granting option said
-   * nothing itself, the stock description off its pack document. */
+  /* Resolved once per spec: what this thing IS (role + Kind) and, where the
+   * granting option said nothing itself, the stock description off its pack
+   * document. */
   const entries = specs.map((spec) => {
     const { doc, kind, art } = resolve(spec);
     return {
@@ -1668,11 +1668,8 @@ const deleteContainers = async (actor, targets) => {
  * @param {CairnActor} actor
  */
 export const clearGrantedContainers = async (actor) => {
-  // The bullets those grants left go with them, but NOT from here: the delete
-  // itself is what removes them (CairnActor._onDeleteOperation → pruneGrantNotes),
-  // so every route that ends a grant cleans up the same way — this one, a
-  // re-rolled question, a changed background, and a Warden deleting the mule
-  // straight out of the directory.
+  // Nothing else to tidy: the keeper's notes no longer carry a bullet per grant
+  // (removed 2026-08-16, 08925b3b), so the delete is the whole of it.
   await deleteContainers(actor, grantedContainersOf(actor));
 };
 
@@ -1686,9 +1683,6 @@ export const clearGrantedContainers = async (actor) => {
  */
 export const replaceGrantedContainers = async (actor, source, specs) => {
   const stale = grantedContainersOf(actor).filter((c) => c.getFlag(FLAG_SCOPE, "grantSource") === source);
-  // The previous answer's bullet goes with the beast it described — carried by
-  // the delete, not by this function (see clearGrantedContainers) — and the new
-  // one is added by grantContainers below.
   await deleteContainers(actor, stale);
   return grantContainers(actor, (specs ?? []).map((c) => ({ ...c, grantSource: source })));
 };
@@ -2140,9 +2134,9 @@ const rollBarebonesEquipment = async (avoid = new Set()) => {
  * Rations and Torch, a rolled Armor and Weapon (equipped), and one roll on
  * Additional Gear (a second if Armor came up None).
  *
- * Two GM-gated extras: a bond, which REPLACES the Additional Gear step because a
- * bond already grants an item and rolling both overloads a ten-slot inventory;
- * and a "failed career", a second background name as pure flavor (no items).
+ * No bond: bonds are 2e's alone (the setting that lent one to Barebones was
+ * removed 2026-08-09). One GM-gated extra, the "failed career": a second
+ * background name plus one weightless keepsake drawn from that career's gear.
  *
  * @param {CairnItem|null} chosenBg  a Barebones background Item, or null for random
  * @returns {Promise<Object|null>}
@@ -2845,10 +2839,10 @@ const getCustomBackgrounds = async () => {
 /**
  * The 2e background pool: the shipped pack and/or the world's custom backgrounds,
  * each gated by its own toggle and unioned de-duped by id. Shipped-off + custom-on
- * is a homebrew-only game. An empty union (everything off, or custom-on with no
- * world backgrounds yet) falls back to the shipped pack so the picker is never
- * empty — the same "can never do nothing" invariant promptContentSource holds at
- * the source level.
+ * is a homebrew-only game. An empty union falls back to the shipped pack —
+ * EXCEPT for a custom-only game, which gets nothing: the caller says so and
+ * generates nothing, rather than dealing from content the Warden switched off
+ * (see the refusal in the body below).
  * @returns {Promise<CairnItem[]>}
  */
 /**
@@ -3976,7 +3970,7 @@ export const findGenerationRollMessage = (actor) => {
  * dev:monster-gen rule: a probe-side copy is a list that goes stale).
  *
  * `documents` are the packs generation loads WHOLE (`getDocuments()` on
- * every run — deliberately uncached in this module, see resolveBackgrounds).
+ * every run — deliberately uncached in this module).
  * `indexes` are the gear and spell packs, where resolveGearItem matches on
  * the pack INDEX and materializes single documents — the index build is the
  * once-per-session cost worth paying early (gear.js measured it at ~1.8s
@@ -4059,8 +4053,7 @@ export const createCharacter = async ({ folder = null, ownership = null, source 
 export const regenerateActor = async (actor) => {
   if (!canRegenerateContainers(actor)) return actor; // bail before wiping items
   // A whole new character is a ROLLED one, whatever this sheet used to be.
-  // Cleared BEFORE the re-deal, or the generation below would be suppressed by
-  // a mark that is about to stop being true.
+  // (Nothing below reads the mark; clearing it is the point, not an ordering.)
   await clearHandBuilt(actor);
   let bg = actor.system.backgroundUuid ? await fromUuid(actor.system.backgroundUuid) : null;
   // A Barebones character made before backgrounds had uuids is keyed by name.
@@ -4163,8 +4156,8 @@ export const generateHireling = async () => {
     abilities: h?.abilities ?? { STR: 10, DEX: 10, WIL: 10 },
     hp: h?.hp ?? 6,
     // A person, not just a statblock (2026-08-01): the biography the PC
-    // generator rolls, through the SAME paths — rollAge honours the Warden's
-    // minimum-age floor, rollTextItems draws the eight tables-2e trait tables.
+    // generator rolls, through the SAME paths — rollAge reads the Warden's age
+    // formula, rollTextItems draws the eight tables-2e trait tables.
     // PRONOUNS ARE NEVER ROLLED (2026-08-20, user ruling). They were a uniform
     // pick of three from 2026-08-01 until now, on the reasoning that a
     // generated stranger needs an answer on arrival. They do not: pronouns are
@@ -4408,18 +4401,17 @@ export const rerollNpcFaction = async (actor) => {
  * four traits — Quirk, Goal, Virtue, Vice — off that book's NPC tables, which
  * have shipped in `warden-npcs` all along with nothing reading them.
  *
- * Two deliberate absences, and both are the point rather than an omission:
+ * What else it gets (these were once deliberate ABSENCES; both were added
+ * later, and the code below is the authority):
  *
- *   - NO GEAR. An NPC arrives with an empty inventory. Slots are NOT written
- *     either, so `calcCurrentMaxSlots` falls through to the Warden's
- *     `max-equip-slots` setting (ten by default) — writing 10 here would
- *     override a Warden who chose eight, to say the thing their setting
- *     already says.
- *   - NO ROLLED STATS. Abilities and HP take the schema defaults (10/10/10,
- *     6 HP). The Warden's Guide gives NPCs no stat line, and a generator that
- *     invented one would be making up rules — the house position everywhere
- *     else in this system. A Warden fills them in if the innkeeper ends up in
- *     a fight.
+ *   - A ROLLED STATBLOCK, from `Cairn.npcGenerator.ability` and
+ *     `.hitProtection`.
+ *   - GEAR: the background's own, through `Cairn.npcGenerator.backgroundGear`
+ *     to a Barebones background resolved by `resolveStartingGear` (Lord and
+ *     Politician grant nothing, kit included), plus the Barebones kit
+ *     (`rollBarebonesEquipment`, tagged `npc-kit`). Slots are NOT written, so
+ *     `calcCurrentMaxSlots` falls through to the Warden's `max-equip-slots`
+ *     setting — writing 10 here would override a Warden who chose eight.
  *
  * Faction is likewise not rolled, matching hirelings: it stays the sheet's own
  * die, because a campaign's factions are the Warden's to hand out.
@@ -4621,8 +4613,8 @@ export const generateNpc = async () => {
     },
     hp: hpRoll.total,
     // Same paths a hireling's biography uses, so the two cannot diverge on
-    // anything that is not the point of the split: rollAge honours the Warden's
-    // min/max age settings, and pronouns are left BLANK for the Warden to
+    // anything that is not the point of the split: rollAge reads the Warden's
+    // age formula, and pronouns are left BLANK for the Warden to
     // state — see generateHireling for the ruling.
     pronouns: "",
     age: String(await rollAge(Cairn.characterGenerator2e.biography.age)),

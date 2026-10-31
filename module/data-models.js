@@ -362,7 +362,7 @@ class NpcData extends CairnDataModel {
       notes: html(),
       // Nullable because 202 of the 205 shipped monsters store null. An authored
       // value DOES reach the sheet: `_prepareCharacterData` uses it as a FLOOR the
-      // equipped-gear sum cannot go below (actor.js:696-702, the review #9 fix),
+      // equipped-gear sum cannot go below (the review #9 fix),
       // with an override still beating both. (This comment once said a
       // `_prepareNpcData` clobbered it every prepare so an authored value never
       // showed — false, and doubly so since that method was deleted 2026-07-31.)

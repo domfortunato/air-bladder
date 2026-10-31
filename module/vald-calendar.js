@@ -82,7 +82,7 @@ export const promptSetWeather = async () => {
   const table = game.tables?.getName?.(weatherTableForToday() ?? "")
     ?? (await suggestionsFromPack(weatherTableForToday()));
   // `description` is the v14 field and the one every other reader here uses
-  // (see warden-dashboard.js:322). Tags are stripped because a datalist option
+  // (see `postSetDraw` in warden-dashboard.js). Tags are stripped because a datalist option
   // is plain text, and the Cairn tables bold their keyword.
   const suggestions = (table?.results ?? [])
     .map((r) => String(r.type === "text" ? r.description : r.name))

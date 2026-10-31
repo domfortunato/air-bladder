@@ -108,7 +108,7 @@ export const CONTAINER_CLASSES = {
 /** A class's default capacity, or 0 ("use the world setting") if it has none. */
 export const containerClassSlots = (cls) => CONTAINER_CLASSES[cls]?.slots ?? 0;
 
-/** Which role a Kind implies: "mount", "transport" or "container" for a known
+/** Which role a Kind implies: "companion", "transport" or "container" for a known
  *  class, "" for a blank or Warden-invented one (see docs/npc-roles-plan.md).
  *  Lives on the same table as art, label and capacity so they cannot drift. */
 export const containerClassRole = (cls) => CONTAINER_CLASSES[cls]?.role ?? "";

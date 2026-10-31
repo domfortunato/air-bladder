@@ -574,13 +574,10 @@ const CAIRN_WEATHER_BY_SEASON = {
 /**
  * The weather table for the season the world is actually in.
  *
- * THIS IS THE ONE PLACE the Vald setting arbitrates between the two weather
- * sets, and that is the honest place for it: the button must pick a single
- * table, and picking it is the whole reason the calendar earns its keep. The
- * two groups of BUTTONS sit side by side on the Dashboard (user ruling
- * 2026-09-10) because Cairn's four are a severity ladder feeding
- * `Warden: Weather - Difficulty` while Vald's four are descriptive — a Vald
- * table wants both.
+ * Under the Vald hack this picks the season's Vald table; otherwise Cairn's.
+ * It is not the only place the hack decides weather: the Dashboard drops
+ * Cairn's weather group under Vald (`VALD_WEATHER_GROUP`, warden-dashboard.js
+ * — the 2026-09-10 side-by-side ruling was reversed the next day).
  *
  * `undefined` under a calendar we do not recognise, so the button hides rather
  * than rolling the wrong season's weather.

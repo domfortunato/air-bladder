@@ -982,13 +982,11 @@ export class CairnActor extends Actor {
     this.system.showGold = !this.isThing && this.npcRole !== "companion";
     // The Items tab's Fatigue +/- header. A THING cannot be tired: a sack, cart
     // or crate has no STR to burn and no save to fail, so the control was pure
-    // nonsense on one — and on a GLOG grimoire it is worse than nonsense,
-    // because casting genuinely costs Fatigue and the header looks like the way
-    // to pay it, while the cost belongs on the CONNECTED CHARACTER (grimoire is
-    // already in THING_ROLES, so writing the test as `isThing` covers that
-    // branch without knowing about it — an explicit container/transport list
-    // would not). MONSTERS AND MOUNTS KEEP IT: they are creatures with stat
-    // blocks, and taking Fatigue off them is a separate ruling nobody has made.
+    // nonsense on one. (A GLOG grimoire is an ITEM flag, not an npc role, so
+    // this test never meets one; a comment here once said THING_ROLES held it,
+    // which described a branch that was never merged.) MONSTERS AND MOUNTS
+    // KEEP IT: they are creatures with stat blocks, and taking Fatigue off them
+    // is a separate ruling nobody has made.
     this.system.showFatigue = !this.isThing;
     // Both of these are now PERMANENTLY TRUE and no template reads either. They
     // date from template.json, where `biography`/`description` could be absent or
@@ -1325,28 +1323,6 @@ export class CairnActor extends Actor {
   }
 
   /**
-   * Every Actor connected to this one — what the Connected tab lists.
-   *
-   * DERIVED, deliberately, and this is the point of `connectedTo`. The old model
-   * was a two-way link: the owner kept a `system.containers` uuid array and the
-   * container kept a `keeper` uuid pointing back, which meant two writes per
-   * change and a whole family of bugs when only one of them landed — a uuid left
-   * pointing at a deleted actor, a container whose keeper was set while the
-   * parent's half was silently dropped by schema cleaning, and a delete race
-   * where two prunes interleaved read-modify-writes on the same array and
-   * whichever finished last re-dangled the other's entry.
-   *
-   * Computing the list from the child's own `connectedTo` deletes that entire
-   * class: there is one place the fact is stored, so it cannot disagree with
-   * itself, and a deleted actor simply stops appearing. It costs one pass over
-   * `game.actors` per prepare, which is nothing next to the bookkeeping it removes.
-   *
-   * The legacy `system.containers` array used to be unioned in for worlds built
-   * before this. It went with `keeper` when the `container` type was retired
-   * (2026-07-31), exactly as this note used to promise it would.
-   * @returns {CairnActor[]}
-   */
-  /**
    * The actor's effective role. A character has no role and reads null.
    * Everything role-gated consults THIS, never `system.role` directly.
    *
@@ -1380,9 +1356,9 @@ export class CairnActor extends Actor {
   /**
    * Does this actor live by the PLAYER rules — specifically, does being over
    * capacity read as an injury (HP 0) rather than as a full hold? A character
-   * does by type; an npc-typed document does when it is a PERSON — role npc,
-   * which covers a hireling-typed alias too, since `npcRole` answers with the
-   * stored role or "npc". Since the 2026-08-20 split that means EITHER person
+   * does by type; an npc-typed document does when it is a PERSON — which
+   * covers a hireling-typed alias too, since `npcRole` answers with the stored
+   * role (or "hireling", the schema's initial). Since the 2026-08-20 split that means EITHER person
    * role — an innkeeper and a hired guard are equally people, and encumbrance
    * is a rule about people. Monster, companion, transport and container are
    * exempt: a crate at exactly its capacity is in its normal state.
@@ -1580,6 +1556,28 @@ export class CairnActor extends Actor {
     return true;
   }
 
+  /**
+   * Every Actor connected to this one — what the Connected tab lists.
+   *
+   * DERIVED, deliberately, and this is the point of `connectedTo`. The old model
+   * was a two-way link: the owner kept a `system.containers` uuid array and the
+   * container kept a `keeper` uuid pointing back, which meant two writes per
+   * change and a whole family of bugs when only one of them landed — a uuid left
+   * pointing at a deleted actor, a container whose keeper was set while the
+   * parent's half was silently dropped by schema cleaning, and a delete race
+   * where two prunes interleaved read-modify-writes on the same array and
+   * whichever finished last re-dangled the other's entry.
+   *
+   * Computing the list from the child's own `connectedTo` deletes that entire
+   * class: there is one place the fact is stored, so it cannot disagree with
+   * itself, and a deleted actor simply stops appearing. It costs one pass over
+   * `game.actors` per prepare, which is nothing next to the bookkeeping it removes.
+   *
+   * The legacy `system.containers` array used to be unioned in for worlds built
+   * before this. It went with `keeper` when the `container` type was retired
+   * (2026-07-31), exactly as this note used to promise it would.
+   * @returns {CairnActor[]}
+   */
   connectedActors() {
     return game.actors.filter((a) => a.system?.connectedTo === this.uuid);
   }
