@@ -180,18 +180,32 @@ const canonicalDoc = (v) => {
  */
 const MARKER_FORMAT = 3;
 
-/** A per-pack fingerprint of the CURRENT contents of packs/, or null if unreadable. */
+/**
+ * A per-pack fingerprint of the CURRENT contents of packs/, plus the names of
+ * the built packs that could not be READ.
+ *
+ * An unreadable pack is UNKNOWN, and unknown refuses (review #34 finding 19).
+ * This used to `continue` past an extract failure with "the build itself will
+ * report it". That holds only on Windows, where the server's open handles make
+ * the rmSync below fail with EPERM. On Linux and macOS, rmSync unlinks a
+ * LevelDB directory that a running server holds open, and compilePack writes a
+ * fresh one. LevelDB's own lock still makes the extract here fail. So the guard
+ * compared nothing, passed, and the build destroyed the world's edits: the
+ * 2026-08-04 loss, on a different OS.
+ */
 const fingerprintBuilt = async () => {
   const scratch = path.join(root, ".pack-guard-tmp");
   fs.rmSync(scratch, { recursive: true, force: true });
   const out = {};
+  const unreadable = [];
   for (const { name } of packs) {
     const built = path.join(outRoot, name);
-    if (!fs.existsSync(built)) continue;
+    if (!fs.existsSync(built)) continue;   // never built: nothing in it to lose
     try {
       await extractPack(built, path.join(scratch, name), { yaml: true, clean: true });
-    } catch {
-      continue;                       // locked or absent: the build itself will report it
+    } catch (err) {
+      unreadable.push(`${name} (${err.message.split("\n")[0]})`);
+      continue;
     }
     const docs = listYaml(path.join(scratch, name));
     // Keyed by the document's own id, not the filename: `extract` renames files
@@ -207,7 +221,7 @@ const fingerprintBuilt = async () => {
     out[name] = crypto.createHash("sha256").update(canon.join("\n")).digest("hex");
   }
   fs.rmSync(scratch, { recursive: true, force: true });
-  return out;
+  return { hashes: out, unreadable };
 };
 
 if (mode === "build" && !process.argv.includes("--force")) {
@@ -225,14 +239,39 @@ if (mode === "build" && !process.argv.includes("--force")) {
       + " — re-stamping (the fingerprint now compares meaning, not bytes)");
   }
 
-  if (!marker) {
+  // With no marker there is nothing to compare against, so the backup is
+  // the ONLY protection. A failed one refuses (review #34 finding 19). It used
+  // to print "continuing" and build. Nothing built at all (a fresh clone, CI)
+  // has nothing to lose and needs no backup.
+  const builtAny = packs.some(({ name }) => fs.existsSync(path.join(outRoot, name)));
+  if (!marker && !builtAny) {
+    console.log("  no sync marker and nothing built yet — nothing to lose, no backup needed");
+  } else if (!marker) {
     console.log("  no comparable sync marker — taking a backup before building");
     try {
       const { execFileSync } = await import("node:child_process");
       execFileSync(process.execPath, [path.join(root, "tools", "dev", "backup.mjs"), "--label", "first-build"], { stdio: "inherit" });
-    } catch { console.log("  (backup failed; continuing — nothing to compare against anyway)"); }
+    } catch (err) {
+      console.error(
+        "\nREFUSING TO BUILD — the backup failed, and with no sync marker it is the only\n"
+        + "protection packs/ has. If a compendium was edited inside Foundry, packs/ holds the\n"
+        + `only copy of that work, and a build would replace it.\n\n  ${err.message.split("\n")[0]}\n\n`
+        + "  npm run backup                  see why the backup fails\n"
+        + "  npm run build:packs -- --force  only if you mean to discard packs/ as it is\n");
+      process.exit(1);
+    }
   } else {
-    const now = await fingerprintBuilt();
+    const { hashes: now, unreadable } = await fingerprintBuilt();
+    if (unreadable.length) {
+      console.error(
+        "\nREFUSING TO BUILD — these built packs could not be read, so the guard cannot tell\n"
+        + "whether they hold edits made inside Foundry:\n\n"
+        + unreadable.map((n) => `  ${n}`).join("\n")
+        + "\n\nUsually a running Foundry server holds them locked. Stop it (or close the world)\n"
+        + "and build again. On Linux and macOS the build would NOT fail on that lock by itself.\n\n"
+        + "  npm run build:packs -- --force  only if you mean to discard whatever they hold\n");
+      process.exit(1);
+    }
     const drifted = Object.keys(now).filter((n) => marker[n] && marker[n] !== now[n]);
     if (drifted.length) {
       console.error(
@@ -309,8 +348,13 @@ if (failed) process.exit(1);
 // a marker that advanced past work nobody folded in would silently re-arm the
 // exact loss this guards.
 try {
+  const { hashes, unreadable } = await fingerprintBuilt();
   fs.writeFileSync(SYNC_MARKER,
-    JSON.stringify({ __format: MARKER_FORMAT, packs: await fingerprintBuilt() }, null, 2) + "\n");
+    JSON.stringify({ __format: MARKER_FORMAT, packs: hashes }, null, 2) + "\n");
+  if (unreadable.length) {
+    console.error(`  WARNING  no baseline recorded for ${unreadable.join(", ")} — the next build `
+      + "cannot compare them");
+  }
 } catch (err) {
   console.error(`  WARNING  could not write ${path.basename(SYNC_MARKER)} — the next build will `
     + `have no baseline and will back up instead of comparing (${err.message})`);

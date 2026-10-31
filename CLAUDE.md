@@ -436,8 +436,8 @@ Listed so a review does not re-litigate them. Argue against the reason, not the 
   allowed.
 - **Content translation is a display-only overlay** keyed on English (above).
 - **Pack YAML in `src/packs/` is the source of truth**; `packs/` is generated
-  LevelDB, gitignored. Never edit `packs/`. `npm run build:packs` fails while
-  Foundry has the world open.
+  LevelDB, gitignored. Never edit `packs/`. `npm run build:packs` refuses while
+  Foundry has the world open (an unreadable pack is unknown, and unknown refuses).
   - **EXTRACT BEFORE YOU BUILD.** Once a Warden edits a compendium in Foundry,
     `packs/` holds the only copy; build rmSyncs it (5 hours of work lost once).
     `tools/packs.mjs` refuses a build when `packs/` changed since the last sync.

@@ -29,11 +29,16 @@
  */
 
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
-const FOUNDRY = "C:/Users/domin/foundry";
+// The RUNNING user's `foundry` folder, or AB_FOUNDRY_HOME (review #34 finding
+// 19). This was a literal `C:/Users/domin/foundry`. On another Windows account
+// the mkdir failed. On Linux the path is RELATIVE, so the snapshot landed under
+// a directory literally named `C:` inside the current one.
+const FOUNDRY = process.env.AB_FOUNDRY_HOME ?? path.join(os.homedir(), "foundry");
 const DEST = path.join(FOUNDRY, "backups");
 const KEEP = 24;
 
