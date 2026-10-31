@@ -327,8 +327,8 @@ class CharacterData extends CairnDataModel {
  * `forHire` is set (actor.js `showDayRate`). The `hireling` TYPE is NOT migrated
  * away -- it stays registered as an alias of this model (see ACTOR_DATA_MODELS
  * below for why a real retirement would cost every existing hireling its
- * document id); an alias-typed document reads as role hireling regardless of
- * what it stores (CairnActor#npcRole).
+ * document id); an alias-typed document reads the role it STORES, like any
+ * npc (CairnActor#npcRole — the hard-map to hireling was removed).
  *
  * TWO PEOPLE ROLES since 2026-08-20, and the distinction is which fields they
  * read rather than which fields exist:
@@ -481,8 +481,10 @@ class NpcData extends CairnDataModel {
   /**
    * Documents minted before `role` existed carry `forHire`/`inanimate` instead;
    * derive on every load, so packs and old worlds read correctly without being
-   * written. The one-time world migration (cairn.js) persists the value and
-   * deletes the two retired keys; until it runs, this shim is the truth.
+   * written. The world migration (cairn.js `migrateNpcRoles`) is a blind
+   * restamp that persists `role` and nothing else: `forHire` is a live,
+   * sheet-written field again, and `inanimate` is left where it lies, so this
+   * shim stays the truth for any source that still carries it.
    *
    * **`migrateData` RUNS ON UPDATE DIFFS, not only on whole sources.** Measured
    * against 14.365: `NpcData.migrateData({containerClass: "pile"})` comes back
@@ -512,8 +514,8 @@ class NpcData extends CairnDataModel {
    * that gives up is a pre-roles
    * document that stored a `containerClass` and NEITHER flag, which would have
    * derived `mount` for a mount class; it takes the schema initial instead. The
-   * shipped packs all state their role outright, and the world migration
-   * selects on type + legacy keys + dayRate, never on this.
+   * shipped packs all state their role outright, and the world migration's
+   * restamp writes back the value this derives — it selects nothing of its own.
    */
   static migrateData(source) {
     // The funeralwagon Kind retirement (2026-08-02), FIRST — before anything

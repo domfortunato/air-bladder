@@ -163,8 +163,8 @@ that a player's client never fetches it.
 Six things carry roughly half the logic, and nothing routes around them.
 
 1. **`module/cairn.js` — the boot and the switchboard.** Registration, about
-   nineteen hook subscriptions, the socket handler, and seven one-shot world
-   migrations. It is the third-largest file in the system, and it is really
+   nineteen hook subscriptions, the socket handler, and the world migrations.
+   It is the third-largest file in the system, and it is really
    four unrelated jobs sharing an address.
 
 2. **`module/settings.js` — the switches.** 45 setting registrations, grouped
@@ -260,12 +260,13 @@ the hardest things here.
    unlike anything else in the system.
 
 3. **The socket handler and the migrations in `cairn.js`** — one 348-line
-   listener that dispatches every cross-client message, and seven one-shot
-   world migrations (`migrateIconsToSvg`, `migrateArtPaths`,
-   `migrateScrollsToSpellbooks`, `migrateNpcRoles`, `migrateHirelingSplit`,
-   `migrateMountToCompanion`, `migrateGrimoirePages`). The migrations have the
-   highest consequence per line in the repository: they rewrite documents in
-   somebody's world, once, with no undo.
+   listener that dispatches every cross-client message, and the world
+   migrations: the `phase` chain in the GM's `ready` hook, whose list is the
+   one to read. Most record a done-marker setting and run once;
+   `migrateIconsToSvg`, `migrateScrollsToSpellbooks` and `removeGrantNotes`
+   keep none and re-check on every GM load, finding nothing left to change.
+   The migrations have the highest consequence per line in the repository:
+   they rewrite documents in somebody's world, with no undo.
 
 4. **The document lifecycle in `actor/actor.js`** — in particular the rename
    that propagates to placed tokens. An unlinked token's rename travels through
