@@ -455,11 +455,14 @@ const out = await page.evaluate(async () => {
   results.strSaveOffered = !!saveBtn() && !saveBtn().disabled;
   saveBtn()?.click();
   await until(() => saveCards() === 1);
-  await ui.chat.render({ force: true });
-  await until(() => !!saveBtn());
   await new Promise((r) => setTimeout(r, 400));
-  results.strSaveSealedAfterRender = saveBtn()?.disabled === true;
-  saveBtn()?.click();
+  // A FRESH copy of the card — what the Warden's client, a co-owner's, the
+  // notification pane or this one after a reload renders. The log's own copy is
+  // not the witness: the press disabled that one element by hand.
+  const copy = await detail.renderHTML();
+  const copyBtn = copy.querySelector(".roll-str-save");
+  results.strSaveSealedAfterRender = copyBtn?.disabled === true;
+  copyBtn?.click();
   await new Promise((r) => setTimeout(r, 1500));
   results.strSaveCards = saveCards();
 

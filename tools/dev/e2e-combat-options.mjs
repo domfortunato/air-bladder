@@ -2358,7 +2358,9 @@ try {
         await sleep(1200);
         out.plant2.realPileExists = !!game.actors.get(pile.id);
         out.plant2.plantExists = !!game.actors.get(plant.id);
-        out.plant2.baitInRealPile = !!game.actors.get(pile.id)?.items.find((i) => i.id === bait2.id);
+        // By NAME against the snapshot, like `hers`: the drop lands under a fresh
+        // claim id, never the item's own.
+        out.plant2.baitInRealPile = !!game.actors.get(pile.id) && hers("ZZ Alice Bait Two").length > 0;
         out.plant2.flagStripped = !!game.actors.get(plant.id) && !plant.getFlag("air-bladder", "droppedItemPile");
         // EXACTLY ONE COPY. The broker runs on "the active GM's client", which is
         // a test on the USER and not the session, so every Warden session answers
