@@ -429,6 +429,32 @@ try {
         }
       }
 
+      // ---- 8b. CONFIRMING WHAT IS HELD CHANGES NOTHING (review #34 F227) ---
+      // Every picker opens on the current value with Choose as its default, and
+      // pressing it re-dealt the lot: a background re-pick deleted and re-rolled
+      // the tagged gear and both questions, a question re-pick re-minted its
+      // items (and an Outrider's horse). Choose is pressed here with the
+      // selection untouched, and every granted item must keep its id.
+      const confirmHeld = async (anchor) => {
+        const tagged = () => actor.items.filter((i) => i.getFlag(NS, "grantSource")).map((i) => i.id).sort();
+        const before = tagged();
+        const answers = JSON.stringify(actor.system.questions ?? []);
+        anchor?.click();
+        const d = await waitFor(() => document.querySelector(".bg-picker"), 15000);
+        if (!d) return { opened: false };
+        d.closest(".application")?.querySelector('button[data-action="choose"]')?.click();
+        await waitFor(() => !document.querySelector(".bg-picker"), 5000);
+        await new Promise((r) => setTimeout(r, 1500));
+        return {
+          opened: true,
+          sameItems: JSON.stringify(tagged()) === JSON.stringify(before),
+          sameAnswers: JSON.stringify(actor.system.questions ?? []) === answers,
+          tagged: before.length,
+        };
+      };
+      out.heldQuestion = await confirmHeld(rootOf()?.querySelector('a[data-action="pickQuestion"][data-index="0"]'));
+      out.heldBackground = await confirmHeld(rootOf()?.querySelector('a[data-action="pickBackground"]'));
+
       // ---- 9. The name picker (2026-09-03) --------------------------------
       // Lists the 2e background's own example names in LIST order behind the
       // Random row; picking one renames the actor through the normal rename.
@@ -795,6 +821,13 @@ try {
     QP.opened && QP.applied && QP.oldGone
       ? ok(`it lists the background's options (${QP.rows} rows + Random) and picking one swaps answer and grants`)
       : fail(`question pick: ${JSON.stringify(QP)}`);
+
+    // F227: Choose on the value already held changes nothing.
+    for (const [label, H] of [["question", r.heldQuestion], ["background", r.heldBackground]]) {
+      H?.opened && H.sameItems && H.sameAnswers
+        ? ok(`confirming the ${label} already held changes nothing (${H.tagged} granted item(s) kept by id)`)
+        : fail(`confirming the held ${label} re-dealt it: ${JSON.stringify(H)}`);
+    }
   }
 } catch (e) {
   fail(`${e.name}: ${e.message}`);
