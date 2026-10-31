@@ -197,6 +197,9 @@ try {
     // copy-at-creation case with no second chance, and the lock must be
     // restored after the write. Swept first in case a prior aborted run left one.
     for (const p of game.packs.filter((p) => p.metadata.label === "zz-art-path-pack")) {
+      // Unlocked first, as the finally below does: a left-over pack is LOCKED
+      // (this leg locks it), and core refuses to delete a locked pack.
+      await p.configure({ locked: false }).catch(() => {});
       await p.deleteCompendium().catch(() => {});
     }
     const pack = await foundry.documents.collections.CompendiumCollection.createCompendium({

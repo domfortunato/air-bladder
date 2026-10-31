@@ -625,7 +625,12 @@ try {
   // its lock comes back — while a genuine NPC in the world, which a re-run of
   // the world selection would convert, is not touched.
   const packLeg = await page.evaluate(async ({ label, person, late2 }) => {
-    for (const p of game.packs.filter((p) => p.metadata.label === label)) await p.deleteCompendium().catch(() => {});
+    // UNLOCKED first: core refuses to delete a locked pack (`#assertUserCanManage`),
+    // and this leg's pack is left locked by design.
+    for (const p of game.packs.filter((p) => p.metadata.label === label)) {
+      await p.configure({ locked: false }).catch(() => {});
+      await p.deleteCompendium().catch(() => {});
+    }
     for (const a of game.actors.filter((a) => a.name === late2)) await a.delete();
     const Cls = CONFIG.Actor.documentClass;
     const pack = await foundry.documents.collections.CompendiumCollection.createCompendium({ label, type: "Actor" });
@@ -687,7 +692,10 @@ try {
   // even when it threw before the ids came back.
   await page.evaluate(async ({ names, label }) => {
     for (const n of names) for (const a of game.actors.filter((x) => x.name === n)) await a.delete();
-    for (const p of game.packs.filter((p) => p.metadata.label === label)) await p.deleteCompendium().catch(() => {});
+    for (const p of game.packs.filter((p) => p.metadata.label === label)) {
+      await p.configure({ locked: false }).catch(() => {});   // a locked pack refuses its delete
+      await p.deleteCompendium().catch(() => {});
+    }
   }, { names: [SPLIT, SURVIVOR, LATE, LATE2], label: PACK_LABEL }).catch(() => {});
   // EVERYTHING the split reached, back as it was found, then both settings —
   // here, so a throw anywhere above still leaves the Warden's world whole.
