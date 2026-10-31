@@ -4,6 +4,7 @@ import { iconForTransport, TRANSPORT_KINDS } from "./icons.js";
 import { atConnectionLimit, maxConnections, connectedOwnershipShape, OWNERSHIP_SYNC_FLAG } from "./connections.js";
 import { actorDisplayName, localizeNameDesc, t } from "./i18n-content.js";
 import { formatCount } from "./utils.js";
+import { capacityVerdict } from "./gear.js";
 import { SETTINGS_NS } from "./settings.js";
 
 /**
@@ -368,13 +369,18 @@ const acquire = async (actor, data, pay) => {
   // the retired `container` TYPE — the same correction review #5 made to the
   // nesting guard below, which this pair was missed in, so an npc sack took
   // stock past its capacity and equipped it.
-  if (actor.isThing) {
+  //
+  // A COMPANION OR MONSTER is strict too (review #34 finding 47): it never
+  // overflows, and the offer route has always refused it as `full`
+  // (`capacityVerdict`, gear.js). It was falling through to the person branch
+  // below and taking a bulky item to 11/10. Only a THING stows unequipped.
+  if (!actor.livesByPlayerRules) {
     const need = slotCost(data.system);
-    if ((actor.system.slotsUsed ?? 0) + need > (actor.system.slotsMax ?? 0)) {
+    if (capacityVerdict(actor, need) === "full") {
       ui.notifications.warn(game.i18n.format("CAIRN.Notify.ContainerFull", { name: shown }));
       return false;
     }
-    data.system.equipped = false;
+    if (actor.isThing) data.system.equipped = false;
   } else if (actor.isEncumbered() && !data.system?.weightless) {
     // Shopping is ORDINARY ACQUISITION, so a full pack refuses it — the same
     // rule and the same words as `createOwnedItem` and a drop onto a full

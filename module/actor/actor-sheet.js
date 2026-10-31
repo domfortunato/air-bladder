@@ -38,7 +38,7 @@ const NPC_TRAIT_LABELS = {
   vice: "CAIRN.Trait.Vice",
 };
 import { atConnectionLimit, maxConnections, connectionsUiEnabled, brokenOwnershipShape, OWNERSHIP_SYNC_FLAG } from "../connections.js";
-import { findMatchingStack, rationsLeft, rationToEat } from "../gear.js";
+import { findMatchingStack, rationsLeft, rationToEat, capacityVerdict } from "../gear.js";
 import {
   canOfferItem, promptOfferTarget, createItemOffer, offerFromDrop,
   canReceiveOffer, settleOwnOffer,
@@ -5010,7 +5010,8 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    *  other gear to reconcile. @this {CairnActorSheet} */
   static async #onPickFailedCareer(event) {
     event.preventDefault();
-    const result = await promptFailedCareer(this.actor.system.failedCareer, { windowId: this.window?.windowId });
+    const result = await promptFailedCareer(this.actor.system.failedCareer,
+      { windowId: this.window?.windowId, exclude: this.actor.system.background });
     if (!result) return;                    // cancelled
     if (this._rerolling) return;   // guard the double-click delete/create race (review #34 finding 58)
     this._rerolling = true;
@@ -5630,8 +5631,13 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // full pack does not stop a spell being cast. A THING — role container or
     // transport — is strict for a different reason: it refuses anything that
     // won't fit, because a sack has no rule that punishes it for being overfull.
-    // A MOUNT is not a thing and is deliberately lenient: it is a creature with
-    // a stat block, and it follows the npc rule (over capacity does nothing).
+    // A COMPANION OR MONSTER IS STRICT TOO (review #34 finding 47). This used to
+    // call a mount "deliberately lenient", on two premises that had both gone:
+    // the `mount` role (retired into `companion`, 2026-08-08) and "the npc rule
+    // (over capacity does nothing)", overtaken by `livesByPlayerRules`. The rule
+    // now is CLAUDE.md's: a thing, companion or monster never overflows — the
+    // same `full` verdict the offer route has always refused with
+    // (`capacityVerdict`, gear.js), so a drag and a gift no longer disagree.
     //
     // This comment used to say a character MAY go over here, directly above the
     // line that refuses. It was describing an intention nobody had implemented,
@@ -5653,8 +5659,8 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
 
     const s = originalItem.system ?? {};
     const need = s.bulky ? 2 : s.weightless ? 0 : 1;
-    if (this.actor.isThing) {
-      if ((this.actor.system.slotsUsed ?? 0) + need > (this.actor.system.slotsMax ?? 0)) {
+    if (!this.actor.livesByPlayerRules) {
+      if (capacityVerdict(this.actor, need) === "full") {
         ui.notifications.warn(
           // The ITEM being refused, which is nearly always pack gear — the row
           // the player just dragged shows its translated name.
@@ -5662,7 +5668,9 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
         );
         return null;
       }
-    } else if (this.actor.isEncumbered()) {
+    } else if (need > 0 && this.actor.isEncumbered()) {
+      // A PETTY item costs no slot and lands on a full person, as it does
+      // through Create Item, the shop and a gift (review #34 finding 47).
       ui.notifications.warn(game.i18n.localize("CAIRN.Notify.MaxSlotsOccupied"));
       return null;
     }

@@ -1,5 +1,5 @@
 import { CairnActor } from "./actor/actor.js";
-import { rollTableText, resultText, resultPlainText, findTableByName, findDeclaredTable } from "./compendium.js";
+import { rollTableText, rollTablePlainText, resultText, resultPlainText, findTableByName, findDeclaredTable } from "./compendium.js";
 import { Cairn } from "./config.js";
 import { evaluateFormula, formatCount } from "./utils.js";
 import {
@@ -1719,13 +1719,21 @@ export const generate2eCharacter = async (chosenBg = null) => {
   // A chosen background (from a picker / persisted across regenerate) is used
   // as-is; otherwise pick at random. Everything else derives from it.
   const bg = chosenBg ?? backgrounds[Math.floor(Math.random() * backgrounds.length)];
-  const names = bg.system.names ?? [];
+  // Blank names are skipped (review #34 finding 63): the authoring form's Add
+  // name appends "", and an Actor's name may not be blank, so a background
+  // holding ["Ada", ""] failed core's validation about half the time and
+  // created no character at all. The sheet's name die already guards this.
+  const names = (bg.system.names ?? []).map((n) => String(n ?? "").trim()).filter(Boolean);
   const name = names.length ? names[Math.floor(Math.random() * names.length)] : bg.name;
 
   // Starting gear: resolve each reference against the editable pool, tag it
   // "background", and equip weapons/armor so Armor derives to its intended value
-  // (pool items are equipped:false).
-  const gear = tagBackgroundGear(await resolveRefs(bg.system.startingGear));
+  // (pool items are equipped:false). Through resolveStartingGear, the ONE
+  // resolver a background swap and an NPC use too (review #34 finding 64): a
+  // bare resolveRefs dropped the instruction rows ("Spellbook", "Random
+  // Additional Gear") that Test x10 calls rolled, so a duplicated Acolyte
+  // generated a spellbook short while a swap onto it dealt one.
+  const gear = tagBackgroundGear(await resolveStartingGear(bg));
   for (const it of gear) {
     if (it.type === "weapon" || it.type === "armor") it.system.equipped = true;
   }
@@ -2046,8 +2054,10 @@ const rollAdditionalGear = async (avoid = new Set()) => {
  * Acolyte. The importer skips the same rows; see `META` in
  * tools/import/barebones.mjs.
  *
- * 2e backgrounds carry no such rows, so this is a pass-through for them; it is
- * shared so that generation and a background swap can never disagree.
+ * The SHIPPED 2e backgrounds carry no such rows, but a Warden's own can (one
+ * typed in, or a Barebones background Duplicated, which forces source 2e).
+ * This is shared so that generation and a background swap can never disagree
+ * — 2e generation went round it until review #34 finding 64.
  * @param {CairnItem} bg
  * @param {Set<string>} [avoid]  names already granted, for the Additional Gear roll
  * @returns {Promise<Object[]>}
@@ -3173,10 +3183,17 @@ export const promptBackground = async (source, currentUuid = null, { windowId } 
  * one function would mean one of the two callers passing a flag saying "but don't
  * actually do the thing", which is how the system this descends from ended up with
  * four near-identical background swappers.
+ * The RANDOM row rolls exactly what the die beside it rolls —
+ * `rollFailedCareerName`, avoiding the character's real background (review #34
+ * finding 66). It drew from every background, so about one Random pick in a
+ * hundred landed ON the background, the collision the 2026-08-08 ruling allows
+ * only for a hand pick; the named rows stay the player's to choose freely.
  * @param {String|null} [currentName]
+ * @param {Object} [options]
+ * @param {String} [options.exclude]  the character's real background
  * @returns {Promise<{name: String}|false>}  false when cancelled
  */
-export const promptFailedCareer = async (currentName = null, { windowId } = {}) => {
+export const promptFailedCareer = async (currentName = null, { windowId, exclude = "" } = {}) => {
   const backgrounds = await getBarebonesBackgrounds();
   if (!backgrounds.length) return false;
   // Same display-name sort as promptBackground's groups (review #9).
@@ -3222,9 +3239,9 @@ export const promptFailedCareer = async (currentName = null, { windowId } = {}) 
     // The launching sheet's own window when it is popped out (review #34
     // finding 1; the reasoning is at `_confirmAction` in actor-sheet.js).
     dialog.render({ force: true, window: { windowId } });
-  }).then((choice) => {
+  }).then(async (choice) => {
     if (!choice) return false;
-    if (choice === BG_RANDOM) return { name: sorted[Math.floor(Math.random() * sorted.length)].name };
+    if (choice === BG_RANDOM) return { name: await rollFailedCareerName(exclude) };
     return { name: choice };
   });
 };
@@ -4601,7 +4618,13 @@ export const reorderInventory = async (actor) => {
  *  same name, world first — or "" when it is missing. */
 const rollNpcBackground = async () => {
   const decl = CONFIG.Cairn?.npcGenerator?.background ?? "";
-  return decl ? rollTableText(decl) : "";
+  // PLAIN TEXT, not chat text (review #34 finding 65): the value is a match
+  // key into `Cairn.npcGenerator.backgroundGear` and the sheet's text field.
+  // `rollTableText` renders a DOCUMENT row as `@UUID[...]{name}`, which a
+  // Warden's own world table can hold — the NPC's Background then read the
+  // literal link, matched nothing, and lost its kit. The picker beside the die
+  // has always listed plain names.
+  return decl ? rollTablePlainText(decl) : "";
 };
 
 /** Generate a full NPC person. @returns {Promise<Object>} */

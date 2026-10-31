@@ -1007,6 +1007,13 @@ async function handleGrantActors(msg, senderId) {
       // for the TARGET, closed here for what the grant creates. Anything
       // else on the wire derives from the class, as a pre-roles payload did.
       role: grantableRole(p?.system),
+      // The KIND, as grantContainers sends it (review #34 finding 62). Dropped
+      // from this whitelist by ec1d17a3 while its message said the whitelist
+      // was untouched, so a player's granted horse or cart arrived with a blank
+      // Kind while the Warden's grant of the same beast read Horse or Cart: one
+      // background, two creatures, by who clicked. A string, coerced; an
+      // unknown one is a Warden-invented Kind, which the field allows.
+      containerClass: String(p?.system?.containerClass ?? ""),
       cost: Number(p?.system?.cost) || 0,
       generationEnabled: false,
       ...(p?.system?.hp ? { hp: { value: Number(p.system.hp.value) || 0, max: Number(p.system.hp.max) || 0 } } : {}),

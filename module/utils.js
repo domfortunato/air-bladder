@@ -111,10 +111,19 @@ export const composeDiceFormula = (sizes, mode, { cairnNotation = true } = {}) =
  * unrepresentable: the builder's keep-highest terms are single dice, and
  * max(2d6, d8) is not something its controls can say.
  *
+ * THE DIALECT DECIDES WHAT `+` MEANS, here as in `evaluateFormula` (review #34
+ * finding 49): with the notation setting off, `d6 + d6` is a SUM, 2-12. This
+ * read every `+` as keep-highest, so the builder checked Keep highest over a
+ * roll that would sum, and the next die click rewrote the typed sum into a
+ * real keep-highest pool. Off, a `+` of bare dice reads as the sum it is,
+ * counts and all.
+ *
  * @param {String} formula
+ * @param {Object} [options]
+ * @param {Boolean} [options.cairnNotation=true]  the world's dialect
  * @return {{sizes: Number[], mode: "sum"|"kh"|null} | null}
  */
-export const parseDiceFormula = (formula) => {
+export const parseDiceFormula = (formula, { cairnNotation = true } = {}) => {
   const f = String(formula ?? "").trim();
   if (!f) return { sizes: [], mode: null };
   const single = /^(\d*)d(\d+)$/i.exec(f);
@@ -140,10 +149,12 @@ export const parseDiceFormula = (formula) => {
     const sizes = [];
     for (const t of terms) {
       const m = /^(\d*)d(\d+)$/i.exec(t);
-      if (!m || (m[1] && m[1] !== "1")) return null;
-      sizes.push(Number(m[2]));
+      if (!m) return null;
+      if (cairnNotation && m[1] && m[1] !== "1") return null;
+      const n = Math.max(1, Number(m[1] || 1));
+      for (let i = 0; i < n; i++) sizes.push(Number(m[2]));
     }
-    return { sizes, mode: "kh" };
+    return { sizes, mode: cairnNotation ? "kh" : "sum" };
   }
   return null;
 };
@@ -229,13 +240,18 @@ const KEEP_DIE = /^(\d*)d(\d+)k[hl]?\d*$/i;
  * Answers `{formula, faces, count}` or null:
  *   - a bare die (`d4`, `1d6`, `2d10`) or a keep form (`2d6k`, `2d8kh`,
  *     `3d6kh1`) is itself;
- *   - a same-size `+` pool (`d6 + d6`, `2d6 + d6`) is its KEEP form (`2d6k`,
- *     `3d6k`). Cairn's `+` means keep-highest (`evaluateFormula` above), and
+ *   - a same-size `+` pool of SINGLE dice (`d6 + d6`, `d6 + d6 + d6`) is its
+ *     KEEP form (`2d6k`, `3d6k`). Cairn's `+` means keep-highest (`evaluateFormula` above), and
  *     the keep form is the same roll written as ONE Die term, which is what
  *     both consumers need: `kx` explodes only the kept die, and the card can
  *     read `active` off one term where a PoolTerm's losing member may ALSO
  *     have rolled its maximum and nothing can tell kept from dropped without
  *     walking `PoolTerm#results`;
+ *   - a `+` term with a COUNT (`2d6 + d6`) is null: `evaluateFormula` reads
+ *     it as max(2d6, d6), the higher of a SUM and a die, and no single Die
+ *     term says that. It used to be added up into `3d6k` — the highest of
+ *     three single d6, 1-6 where the weapon rolls 2-12 — so switching on an
+ *     optional rule silently changed the weapon (review #34 finding 48);
  *   - mixed sizes (`d6 + d8`), arithmetic (`2d20 + 10`), anything already
  *     carrying a modifier we did not write (`1d6x`) and anything unrecognised
  *     are null — left alone by both halves, a stated limit rather than an
@@ -283,7 +299,8 @@ export const judgedDie = (formula) => {
   if (!game.settings.get(SETTINGS_NS, "use-cairn-dice-notation")) return null;
   const parsed = f.split("+").map((term) => BARE_DIE.exec(term.trim()));
   if (parsed.some((m) => !m)) return null;
-  // Each term may carry its own count: `2d6 + d6` is three d6 kept highest.
+  // Every term a SINGLE die — see the docblock for why a counted one is null.
+  if (parsed.some((m) => Number(m[1] || 1) !== 1)) return null;
   const faces = new Set(parsed.map((m) => m[2]));
   if (faces.size !== 1) return null;                   // mixed sizes — see above
   const count = parsed.reduce((n, m) => n + Math.max(1, Number(m[1] || 1)), 0);
@@ -670,7 +687,7 @@ export const wireDiceBuilder = (root) => {
 
   const mode = () => radios.find((r) => r.checked)?.value ?? "sum";
   const refresh = () => {
-    const parsed = parseDiceFormula(field.value);
+    const parsed = parseDiceFormula(field.value, { cairnNotation });
     const off = parsed === null;
     for (const el of [...dice, ...radios]) el.disabled = off;
     // The string decides the mode where it can (2d6 is a sum, d6 + d6 a keep-
@@ -680,7 +697,7 @@ export const wireDiceBuilder = (root) => {
 
   for (const btn of dice) {
     btn.addEventListener("click", () => {
-      const parsed = parseDiceFormula(field.value);
+      const parsed = parseDiceFormula(field.value, { cairnNotation });
       if (parsed === null) return; // disabled anyway; a race is not a crash
       parsed.sizes.push(Number(btn.dataset.die));
       field.value = composeDiceFormula(parsed.sizes, mode(), { cairnNotation });
@@ -689,7 +706,7 @@ export const wireDiceBuilder = (root) => {
   }
   for (const r of radios) {
     r.addEventListener("change", () => {
-      const parsed = parseDiceFormula(field.value);
+      const parsed = parseDiceFormula(field.value, { cairnNotation });
       if (parsed === null || !parsed.sizes.length) return;
       field.value = composeDiceFormula(parsed.sizes, mode(), { cairnNotation });
       refresh();
