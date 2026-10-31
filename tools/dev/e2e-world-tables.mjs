@@ -353,6 +353,45 @@ try {
     ? ok("a scar row a hand draw marked `drawn` still scars — the damage flow selects by range, never through roll()'s drawn filter")
     : fail(`no scar from a drawn row: ${sd.card === null ? "no card posted" : sd.card.slice(0, 120)}`);
 
+  /* ---- 4b. a WARDEN-WRITTEN row reads as its text (review #34 F225) ------- */
+  // Core v14's table editor has no inline text field: `+` makes an empty row
+  // whose config offers a Name input and a ProseMirror Description, which saves
+  // `<p>…</p>`. F092's fix taught the generators to read either; the bond draw,
+  // the Omen die and the trait readers still read the description raw, so a
+  // row typed into Name drew a BLANK bond (and the die did nothing), and one
+  // written into Description stored a literal "<p>…</p>". The Warden's own
+  // Bonds and Omens are held aside in-page; the plants carry this probe's flag.
+  console.log("\na row the Warden typed into Name, or into the Description editor");
+  await holdAsideWorldTables(page, ["Bonds", "Omens"]);
+  const wr = await page.evaluate(async ({ FLAG }) => {
+    const gen = await import("/systems/air-bladder/module/character-generator.js");
+    const RT = CONFIG.RollTable.documentClass;
+    const flags = { "air-bladder": { [FLAG]: true } };
+    await RT.create({ name: "Bonds", formula: "1d1", replacement: true, flags,
+      results: [{ type: "text", name: "ZZ Name-only bond", description: "", range: [1, 1], weight: 1 }] });
+    await RT.create({ name: "Omens", formula: "1d1", replacement: true, flags,
+      results: [{ type: "text", name: "", description: "<p>ZZ Paragraph omen</p>", range: [1, 1], weight: 1 }] });
+    const bond = await gen.drawBond("Bonds");
+    const pc = await Actor.create({ name: "ZZ World-table Omen PC", type: "character", flags,
+      system: { generationEnabled: true, omenEnabled: true } });
+    await pc.sheet.render(true);
+    for (let i = 0; i < 40 && !pc.sheet.element; i++) await new Promise((r) => setTimeout(r, 100));
+    await new Promise((r) => setTimeout(r, 500));
+    pc.sheet.element.querySelector('.tabs .item[data-tab="description"]')?.click();
+    await new Promise((r) => setTimeout(r, 300));
+    const die = pc.sheet.element.querySelector('[data-action="rollOmen"]');
+    die?.click();
+    for (let i = 0; i < 40 && !pc.system.omen; i++) await new Promise((r) => setTimeout(r, 100));
+    await pc.sheet.close();
+    return { bond: bond?.description ?? null, omen: pc.system.omen ?? null, dieFound: !!die };
+  }, { FLAG });
+  wr.bond === "ZZ Name-only bond"
+    ? ok(`a bond row typed into Name draws as its name ("${wr.bond}")`)
+    : fail(`a Name-only bond row drew ${JSON.stringify(wr.bond)} — blank, so the character got an empty bond`);
+  wr.dieFound && wr.omen === "ZZ Paragraph omen"
+    ? ok(`an omen row written in the Description editor reads as its text ("${wr.omen}")`)
+    : fail(`the Omen die stored ${JSON.stringify(wr.omen)} from a Description-written row (die found: ${wr.dieFound})`);
+
   /* ---- 5. restore ---------------------------------------------------------- */
   console.log("\nrestore");
   const post = await sweep();
