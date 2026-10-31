@@ -112,6 +112,10 @@ const ok = (l, d = "") => console.log(`  ok    ${l.padEnd(46)} ${d}`);
 const fail = (l, d = "") => { console.log(`  FAIL  ${l.padEnd(46)} ${d}`); failures++; };
 const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 
+// The Warden's portrait folder, read before the leg that rescans and put back
+// from the FINALLY as well as on the success path (review #34 finding 26): the
+// straight-line restore below never ran when a leg between threw.
+let priorArt = null;
 try {
   await joinAsGM(page);
   await dismissChrome(page);
@@ -644,7 +648,7 @@ try {
   // Both settings are captured and restored, and the restoration is ASSERTED.
   // Restoring the folder re-fires its onChange, which rescans and puts the
   // cached list back by itself — checked rather than assumed.
-  const priorArt = await page.evaluate(() => ({
+  priorArt = await page.evaluate(() => ({
     folder: game.settings.get("air-bladder", "custom-portrait-folder"),
     list: game.settings.get("air-bladder", "custom-portrait-list"),
   }));
@@ -856,6 +860,12 @@ try {
 } catch (err) {
   fail("probe threw", err.message);
 } finally {
+  if (priorArt) {
+    await page.evaluate(async (prior) => {
+      if (game.settings.get("air-bladder", "custom-portrait-folder") === prior.folder) return;
+      await game.settings.set("air-bladder", "custom-portrait-folder", prior.folder);
+    }, priorArt).catch((e) => fail("restoring the portrait folder", e.message));
+  }
   await browser.close();
 }
 

@@ -75,161 +75,172 @@ check("precondition: five EMPTY hotbar slots to work in", world.free.length === 
 const [SLOT_TEXT, SLOT_TABLE, SLOT_LOCK, SLOT_WEAPON, SLOT_MACRO] = world.free;
 console.log(`  note  using slots ${world.free.join(", ")}; ${world.macroIds.length} macros already in the world`);
 
-const fx = await page.evaluate(async () => {
-  const ActorImpl = CONFIG.Actor.documentClass;
-  const actor = await ActorImpl.create({ name: "ZZ Hotbar PC", type: "character" });
-  await actor.createEmbeddedDocuments("Item", [
-    { name: "ZZ Hotbar Blade", type: "weapon", system: { damageFormula: "d6" } },
-  ]);
-  const weapon = actor.items.find((i) => i.name === "ZZ Hotbar Blade");
-  const table = await getDocumentClass("RollTable").create({
-    name: "ZZ Hotbar Table",
-    formula: "1d1",
-    results: [{ type: "text", description: "zz", range: [1, 1] }],
+// The bar is restored and this run's macros removed from the FINALLY (review
+// #34 finding 26): the teardown sat at the end of the file, so a throw in any
+// leg left the Warden's user hotbar holding this run's macros.
+let fx = null;
+try {
+  fx = await page.evaluate(async () => {
+    const ActorImpl = CONFIG.Actor.documentClass;
+    const actor = await ActorImpl.create({ name: "ZZ Hotbar PC", type: "character" });
+    await actor.createEmbeddedDocuments("Item", [
+      { name: "ZZ Hotbar Blade", type: "weapon", system: { damageFormula: "d6" } },
+    ]);
+    const weapon = actor.items.find((i) => i.name === "ZZ Hotbar Blade");
+    const table = await getDocumentClass("RollTable").create({
+      name: "ZZ Hotbar Table",
+      formula: "1d1",
+      results: [{ type: "text", description: "zz", range: [1, 1] }],
+    });
+    const macro = await getDocumentClass("Macro").create({
+      name: "ZZ Hotbar Macro", type: "script", command: "console.log('zz');",
+    });
+    return {
+      actorId: actor.id, weaponUuid: weapon.uuid,
+      tableId: table.id, tableUuid: table.uuid,
+      macroId: macro.id, macroUuid: macro.uuid,
+    };
   });
-  const macro = await getDocumentClass("Macro").create({
-    name: "ZZ Hotbar Macro", type: "script", command: "console.log('zz');",
+  console.log(`  note  fixtures: actor ${fx.actorId}, table ${fx.tableId}, macro ${fx.macroId}`);
+
+  /**
+   * Dispatch a real `drop` on a real hotbar slot and wait for the bar to settle.
+   *
+   * `text` is put on the DataTransfer verbatim, so a caller can hand over
+   * non-JSON and reproduce exactly what a text or file drag delivers. Returns
+   * whatever macro the slot ends up holding, plus the macro count either side —
+   * the count is what tells "nothing was created" apart from "something was
+   * created and not assigned".
+   */
+  const drop = async (slot, text) => page.evaluate(async ({ slot, text }) => {
+    const before = game.macros.size;
+    const slotBefore = game.user.hotbar[slot] ?? null;
+    const beforeSlot = slotBefore;
+    await ui.hotbar.render(true);
+    const el = ui.hotbar.element.querySelector(`.slot[data-slot="${slot}"]`);
+    if (!el) return { error: "no slot element" };
+    const dt = new DataTransfer();
+    dt.setData("text/plain", text);
+    el.dispatchEvent(new DragEvent("drop", { dataTransfer: dt, bubbles: true, cancelable: true }));
+    // The handler is async and dispatch is not: settle by polling rather than by
+    // a fixed sleep, or a slow create reads as "nothing happened".
+    const deadline = Date.now() + 4000;
+    while (Date.now() < deadline) {
+      if (game.macros.size !== before || (game.user.hotbar[slot] ?? null) !== beforeSlot) break;
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    await new Promise((r) => setTimeout(r, 250));
+    const id = game.user.hotbar[slot] ?? null;
+    const m = id ? game.macros.get(id) : null;
+    return {
+      before, after: game.macros.size, slotBefore,
+      slotId: id, unchanged: id === slotBefore,
+      name: m?.name ?? null, command: m?.command ?? null,
+    };
+  }, { slot, text });
+
+  /* -------------------------------------------------- 1. a non-document drag */
+  console.log("\na drag that is not a document");
+  const plain = await drop(SLOT_TEXT, "just some dragged text, not JSON at all");
+  check("a text drag creates no macro", plain.after === plain.before && plain.unchanged,
+    `macros ${plain.before} -> ${plain.after} slot ${plain.slotBefore} -> ${plain.slotId} — getDragEventData `
+    + "hands the hook {} for anything non-JSON, which is every text, URL and file drag");
+  const nullDeref = errors.filter((e) => /Cannot read properties of null|of null \(reading/.test(e));
+  check("...and throws nothing", nullDeref.length === 0,
+    nullDeref.join(" | ") || "the guard tested `!== undefined` and null passed it");
+
+  /* --------------------------------------------------------- 2. a RollTable */
+  console.log("\na RollTable dropped on the bar");
+  const table = await drop(SLOT_TABLE, JSON.stringify({ type: "RollTable", uuid: fx.tableUuid }));
+  check("a table drop makes a macro", !!table.slotId, `slot=${table.slotId} name=${JSON.stringify(table.name)}`);
+  check("...that DRAWS from the table, not one that opens its sheet",
+    /\.draw\(\)/.test(table.command ?? "") && !/toggleDocumentSheet/.test(table.command ?? ""),
+    `command=${JSON.stringify(String(table.command).replace(/\n/g, " ").slice(0, 110))} — core branches on `
+    + "RollTable (Hotbar#_onDrop); the system's catch-all swallowed the branch, and this system ships "
+    + "encounter, spell and Scars tables");
+
+  /* ------------------------------------------------------------ 3. the lock */
+  console.log("\na LOCKED bar");
+  // Shadowed as an own property on the instance — the `core.hotbarLock` SETTING
+  // is the user's, and a probe that flips it is a real write to their world.
+  await page.evaluate(() => {
+    Object.defineProperty(ui.hotbar, "locked", { get: () => true, configurable: true });
   });
-  return {
-    actorId: actor.id, weaponUuid: weapon.uuid,
-    tableId: table.id, tableUuid: table.uuid,
-    macroId: macro.id, macroUuid: macro.uuid,
-  };
-});
-console.log(`  note  fixtures: actor ${fx.actorId}, table ${fx.tableId}, macro ${fx.macroId}`);
-
-/**
- * Dispatch a real `drop` on a real hotbar slot and wait for the bar to settle.
- *
- * `text` is put on the DataTransfer verbatim, so a caller can hand over
- * non-JSON and reproduce exactly what a text or file drag delivers. Returns
- * whatever macro the slot ends up holding, plus the macro count either side —
- * the count is what tells "nothing was created" apart from "something was
- * created and not assigned".
- */
-const drop = async (slot, text) => page.evaluate(async ({ slot, text }) => {
-  const before = game.macros.size;
-  const slotBefore = game.user.hotbar[slot] ?? null;
-  const beforeSlot = slotBefore;
-  await ui.hotbar.render(true);
-  const el = ui.hotbar.element.querySelector(`.slot[data-slot="${slot}"]`);
-  if (!el) return { error: "no slot element" };
-  const dt = new DataTransfer();
-  dt.setData("text/plain", text);
-  el.dispatchEvent(new DragEvent("drop", { dataTransfer: dt, bubbles: true, cancelable: true }));
-  // The handler is async and dispatch is not: settle by polling rather than by
-  // a fixed sleep, or a slow create reads as "nothing happened".
-  const deadline = Date.now() + 4000;
-  while (Date.now() < deadline) {
-    if (game.macros.size !== before || (game.user.hotbar[slot] ?? null) !== beforeSlot) break;
-    await new Promise((r) => setTimeout(r, 100));
-  }
-  await new Promise((r) => setTimeout(r, 250));
-  const id = game.user.hotbar[slot] ?? null;
-  const m = id ? game.macros.get(id) : null;
-  return {
-    before, after: game.macros.size, slotBefore,
-    slotId: id, unchanged: id === slotBefore,
-    name: m?.name ?? null, command: m?.command ?? null,
-  };
-}, { slot, text });
-
-/* -------------------------------------------------- 1. a non-document drag */
-console.log("\na drag that is not a document");
-const plain = await drop(SLOT_TEXT, "just some dragged text, not JSON at all");
-check("a text drag creates no macro", plain.after === plain.before && plain.unchanged,
-  `macros ${plain.before} -> ${plain.after} slot ${plain.slotBefore} -> ${plain.slotId} — getDragEventData `
-  + "hands the hook {} for anything non-JSON, which is every text, URL and file drag");
-const nullDeref = errors.filter((e) => /Cannot read properties of null|of null \(reading/.test(e));
-check("...and throws nothing", nullDeref.length === 0,
-  nullDeref.join(" | ") || "the guard tested `!== undefined` and null passed it");
-
-/* --------------------------------------------------------- 2. a RollTable */
-console.log("\na RollTable dropped on the bar");
-const table = await drop(SLOT_TABLE, JSON.stringify({ type: "RollTable", uuid: fx.tableUuid }));
-check("a table drop makes a macro", !!table.slotId, `slot=${table.slotId} name=${JSON.stringify(table.name)}`);
-check("...that DRAWS from the table, not one that opens its sheet",
-  /\.draw\(\)/.test(table.command ?? "") && !/toggleDocumentSheet/.test(table.command ?? ""),
-  `command=${JSON.stringify(String(table.command).replace(/\n/g, " ").slice(0, 110))} — core branches on `
-  + "RollTable (Hotbar#_onDrop); the system's catch-all swallowed the branch, and this system ships "
-  + "encounter, spell and Scars tables");
-
-/* ------------------------------------------------------------ 3. the lock */
-console.log("\na LOCKED bar");
-// Shadowed as an own property on the instance — the `core.hotbarLock` SETTING
-// is the user's, and a probe that flips it is a real write to their world.
-await page.evaluate(() => {
-  Object.defineProperty(ui.hotbar, "locked", { get: () => true, configurable: true });
-});
-const lockedDrop = await drop(SLOT_LOCK, JSON.stringify({ type: "Item", uuid: fx.weaponUuid }));
-const shadowOff = await page.evaluate(() => {
-  delete ui.hotbar.locked;
-  return ui.hotbar.locked === game.settings.get("core", "hotbarLock");
-});
-check("precondition: the lock shadow came back off", shadowOff,
-  "everything below runs against the world's real setting");
-check("a locked bar takes nothing",
-  lockedDrop.after === lockedDrop.before && lockedDrop.unchanged,
-  `macros ${lockedDrop.before} -> ${lockedDrop.after} slot ${lockedDrop.slotBefore} -> ${lockedDrop.slotId} `
-  + "— on 14.365-14.367 core tests this hook's return BEFORE its own lock check, and assignHotbarMacro "
-  + "never consults `locked`, so returning false here skipped the only enforcement there is");
-
-// THE GUARD ITSELF, whatever core's order (review #34 finding 14). From 14.368
-// core returns at its lock before the hook runs, so the real drop above passes
-// with or without the system's guard. Called directly, with the bar shadowed
-// locked, the system's hook must hand the drop BACK to core (`true`) and make
-// no macro — not take it over (`false`) and write to a locked bar. Read with
-// Hooks.call's own semantics: it returns false the moment a callback does.
-const direct = await page.evaluate(async (uuid) => {
-  const before = game.macros.size;
-  Object.defineProperty(ui.hotbar, "locked", { get: () => true, configurable: true });
-  let result;
-  try {
-    result = Hooks.call("hotbarDrop", ui.hotbar, { type: "Item", uuid }, 9);
-  } finally {
+  const lockedDrop = await drop(SLOT_LOCK, JSON.stringify({ type: "Item", uuid: fx.weaponUuid }));
+  const shadowOff = await page.evaluate(() => {
     delete ui.hotbar.locked;
+    return ui.hotbar.locked === game.settings.get("core", "hotbarLock");
+  });
+  check("precondition: the lock shadow came back off", shadowOff,
+    "everything below runs against the world's real setting");
+  check("a locked bar takes nothing",
+    lockedDrop.after === lockedDrop.before && lockedDrop.unchanged,
+    `macros ${lockedDrop.before} -> ${lockedDrop.after} slot ${lockedDrop.slotBefore} -> ${lockedDrop.slotId} `
+    + "— on 14.365-14.367 core tests this hook's return BEFORE its own lock check, and assignHotbarMacro "
+    + "never consults `locked`, so returning false here skipped the only enforcement there is");
+
+  // THE GUARD ITSELF, whatever core's order (review #34 finding 14). From 14.368
+  // core returns at its lock before the hook runs, so the real drop above passes
+  // with or without the system's guard. Called directly, with the bar shadowed
+  // locked, the system's hook must hand the drop BACK to core (`true`) and make
+  // no macro — not take it over (`false`) and write to a locked bar. Read with
+  // Hooks.call's own semantics: it returns false the moment a callback does.
+  const direct = await page.evaluate(async (uuid) => {
+    const before = game.macros.size;
+    Object.defineProperty(ui.hotbar, "locked", { get: () => true, configurable: true });
+    let result;
+    try {
+      result = Hooks.call("hotbarDrop", ui.hotbar, { type: "Item", uuid }, 9);
+    } finally {
+      delete ui.hotbar.locked;
+    }
+    await new Promise((r) => setTimeout(r, 800));
+    return { result, made: game.macros.size - before };
+  }, fx.weaponUuid);
+  check("the system's hook hands a LOCKED bar's drop back to core, on any build",
+    direct.result === true && direct.made === 0, JSON.stringify(direct));
+
+  /* ------------------------------------- 4. the positive controls still work */
+  console.log("\nwhat must keep working");
+  const weapon = await drop(SLOT_WEAPON, JSON.stringify({ type: "Item", uuid: fx.weaponUuid }));
+  check("an owned weapon still makes its roll macro",
+    /game\.cairn\.rollItemMacro/.test(weapon.command ?? ""),
+    `command=${JSON.stringify(weapon.command)} — the leg that proves the three fixes above did not simply `
+    + "disable the feature");
+  const macroDrop = await drop(SLOT_MACRO, JSON.stringify({ type: "Macro", uuid: fx.macroUuid }));
+  check("an existing Macro is placed as ITSELF, not wrapped",
+    macroDrop.slotId === fx.macroId && macroDrop.after === macroDrop.before,
+    `slot=${macroDrop.slotId} expected=${fx.macroId} macros ${macroDrop.before} -> ${macroDrop.after} — `
+    + "a wrapper here would open the macro's edit sheet instead of running it");
+
+} catch (e) {
+  check("the probe ran to the end", false, e.message);
+} finally {
+  if (fx) {
+    /* ----------------------------------------------------------- teardown ---- */
+    // Restore the bar to its SNAPSHOT and delete only the id DIFFERENCE. Never "the
+    // macro that is in the slot I used" — that is how the first draft deleted the
+    // Warden's world copy of the shipped Toggle Change Log macro.
+    const swept = await page.evaluate(async ({ fx, hotbar, macroIds }) => {
+      const known = new Set(macroIds);
+      const made = game.macros.filter((m) => !known.has(m.id)).map((m) => m.id);
+      await game.user.update({ hotbar }, { diff: false, recursive: false });
+      for (const id of made) await game.macros.get(id)?.delete();
+      await game.tables.get(fx.tableId)?.delete();
+      await game.actors.get(fx.actorId)?.delete();
+      return {
+        made: made.length,
+        restored: JSON.stringify(foundry.utils.deepClone(game.user.hotbar)) === JSON.stringify(hotbar),
+        kept: game.macros.size,
+      };
+    }, { fx, hotbar: world.hotbar, macroIds: world.macroIds });
+    console.log(`  note  cleanup: removed ${swept.made} macro(s) this run created; ${swept.kept} pre-existing kept`);
+    check("the Warden's hotbar is exactly as it was found", swept.restored,
+      `snapshot=${JSON.stringify(world.hotbar)} — the bar is user content, not scratch space`);
+    check("every pre-existing macro survived", swept.kept === world.macroIds.length,
+      `${swept.kept} left, ${world.macroIds.length} at the start`);
   }
-  await new Promise((r) => setTimeout(r, 800));
-  return { result, made: game.macros.size - before };
-}, fx.weaponUuid);
-check("the system's hook hands a LOCKED bar's drop back to core, on any build",
-  direct.result === true && direct.made === 0, JSON.stringify(direct));
-
-/* ------------------------------------- 4. the positive controls still work */
-console.log("\nwhat must keep working");
-const weapon = await drop(SLOT_WEAPON, JSON.stringify({ type: "Item", uuid: fx.weaponUuid }));
-check("an owned weapon still makes its roll macro",
-  /game\.cairn\.rollItemMacro/.test(weapon.command ?? ""),
-  `command=${JSON.stringify(weapon.command)} — the leg that proves the three fixes above did not simply `
-  + "disable the feature");
-const macroDrop = await drop(SLOT_MACRO, JSON.stringify({ type: "Macro", uuid: fx.macroUuid }));
-check("an existing Macro is placed as ITSELF, not wrapped",
-  macroDrop.slotId === fx.macroId && macroDrop.after === macroDrop.before,
-  `slot=${macroDrop.slotId} expected=${fx.macroId} macros ${macroDrop.before} -> ${macroDrop.after} — `
-  + "a wrapper here would open the macro's edit sheet instead of running it");
-
-/* ----------------------------------------------------------- teardown ---- */
-// Restore the bar to its SNAPSHOT and delete only the id DIFFERENCE. Never "the
-// macro that is in the slot I used" — that is how the first draft deleted the
-// Warden's world copy of the shipped Toggle Change Log macro.
-const swept = await page.evaluate(async ({ fx, hotbar, macroIds }) => {
-  const known = new Set(macroIds);
-  const made = game.macros.filter((m) => !known.has(m.id)).map((m) => m.id);
-  await game.user.update({ hotbar }, { diff: false, recursive: false });
-  for (const id of made) await game.macros.get(id)?.delete();
-  await game.tables.get(fx.tableId)?.delete();
-  await game.actors.get(fx.actorId)?.delete();
-  return {
-    made: made.length,
-    restored: JSON.stringify(foundry.utils.deepClone(game.user.hotbar)) === JSON.stringify(hotbar),
-    kept: game.macros.size,
-  };
-}, { fx, hotbar: world.hotbar, macroIds: world.macroIds });
-console.log(`  note  cleanup: removed ${swept.made} macro(s) this run created; ${swept.kept} pre-existing kept`);
-check("the Warden's hotbar is exactly as it was found", swept.restored,
-  `snapshot=${JSON.stringify(world.hotbar)} — the bar is user content, not scratch space`);
-check("every pre-existing macro survived", swept.kept === world.macroIds.length,
-  `${swept.kept} left, ${world.macroIds.length} at the start`);
+}
 
 const errs = errors.filter((e) => !/ZZ /.test(e));
 check("zero console errors", errs.length === 0, errs.join(" | "));

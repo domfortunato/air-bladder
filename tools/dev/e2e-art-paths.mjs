@@ -134,6 +134,10 @@ const page = await browser.newContext({ viewport: VIEWPORT }).then((c) => c.newP
 const errors = watchErrors(page);
 let planted = null;
 
+// The generation marker, read before it is put back to 0 and restored from the
+// FINALLY when the migration did not re-stamp it (review #34 finding 26): a
+// reload that timed out left it at 0, re-opening the sweep on every later load.
+let genBefore = null;
 try {
   await joinAsGM(page);
   await dismissChrome(page);
@@ -296,6 +300,7 @@ try {
     await game.settings.set(NS, "art-migration-generation", 0);
     return { before };
   });
+  genBefore = gen.before;
 
   await page.reload({ waitUntil: "networkidle", timeout: 60000 });
   await page.waitForFunction(() => globalThis.game?.ready === true, null, { timeout: 90000 });
@@ -442,6 +447,12 @@ try {
 } catch (err) {
   fail("probe threw", err.message);
 } finally {
+  if (genBefore !== null) {
+    await page.evaluate(async (g) => {
+      const NS = "air-bladder";
+      if (game.settings.get(NS, "art-migration-generation") < g) await game.settings.set(NS, "art-migration-generation", g);
+    }, genBefore).catch((e) => fail("restoring the art-migration generation", e.message));
+  }
   // From NODE, off the ids the page returned, so a throw partway through still
   // tidies. Every delete is independent — one failure must not strand the rest.
   if (planted) {
