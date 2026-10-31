@@ -668,6 +668,19 @@ try {
     "doubles: the Mishap line is present");
   check(/grimoire-mishap-text/.test(castA.whisperContent) && !/grimoire-mishap-text"><\/div>/.test(castA.whisperContent),
     "and a drawn Mishaps row rides in the whisper (world-first table resolved)");
+  // WHICH row (review #34 finding 229): the one whose range holds the CAST'S sum.
+  // The whisper rolled the table's own 2d12, independent of the cast, so the row
+  // printed under "[4,4] (8)" was any row at all. Read from the same world-first
+  // table the cast resolves, by range — core's getResultsForRoll.
+  const mishapFor8 = await gm.evaluate(async () => {
+    const { findTableByName } = await import("/systems/air-bladder/module/compendium.js");
+    const { MISHAPS_TABLE_NAME } = await import("/systems/air-bladder/module/grimoire.js");
+    const table = await findTableByName(MISHAPS_TABLE_NAME);
+    return table?.getResultsForRoll(8)?.[0]?.description ?? null;
+  });
+  check(!!mishapFor8 && castA.whisperContent.includes(mishapFor8),
+    "the whispered Mishaps row is the one the cast's sum (8) lands on",
+    `want ${JSON.stringify(String(mishapFor8).slice(0, 60))}`);
   const castFlavorText = await gm.evaluate(() =>
     game.i18n.format("CAIRN.GrimoireCastFlavor", { name: "ZZ Grim Caster" }));
   const mishapFlavorText = await gm.evaluate(() =>
