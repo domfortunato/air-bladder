@@ -1342,6 +1342,10 @@ try {
     try {
       made.push(await CONFIG.Actor.documentClass.create({ name: "ZZ Grim Payload Wall PC", type: "character",
         items: [book("A"), { name: "ZZ Grim Payload Wall Rope", type: "item" }, book("B")] }));
+      // Both books already keyed, apart: the splice is then the ONLY change to
+      // the payload, which an embedded collection's by-id diff reads as none.
+      made.push(await CONFIG.Actor.documentClass.create({ name: "ZZ Grim Payload Wall PC Keyed", type: "character",
+        items: [book("E", "zzkeyedgrimbook1"), book("F", "zzkeyedgrimbook2")] }));
       // An npc carries as many books as it likes — a pile doing its job.
       made.push(await CONFIG.Actor.documentClass.create({ name: "ZZ Grim Payload Wall Pile", type: "npc",
         system: { role: "container", containerClass: "pile", slots: 20 },
@@ -1349,12 +1353,13 @@ try {
     } finally {
       ui.notifications.warn = origWarn;
     }
-    const [pc, pile] = made;
+    const [pc, pile, keyed] = made;
     const books = (a) => a?.items.filter((i) => i.type === "item" && i.system?.grimoire) ?? [];
     const pileKeys = books(pile).map((b) => b.system.grimoireKey);
     return {
       ids: made.map((a) => a.id),
       pcBooks: books(pc).map((b) => b.name),
+      keyedBooks: books(keyed).map((b) => b.name),
       pcRope: !!pc?.items.some((i) => i.name === "ZZ Grim Payload Wall Rope"),
       warnings: warned.filter((m) => m === game.i18n.localize("CAIRN.Notify.GrimoireOnlyOne")).length,
       pileKeys,
@@ -1364,7 +1369,10 @@ try {
   check(payloadWall.pcBooks.length === 1 && payloadWall.pcBooks[0] === "ZZ Grim Payload Wall A" && payloadWall.pcRope,
     "a character created with two books in its payload keeps the first, and the rest of its gear",
     JSON.stringify({ books: payloadWall.pcBooks, rope: payloadWall.pcRope }));
-  check(payloadWall.warnings === 1, "...and says so once", `${payloadWall.warnings} warnings`);
+  check(payloadWall.keyedBooks.length === 1 && payloadWall.keyedBooks[0] === "ZZ Grim Payload Wall E",
+    "...also when both books arrive keyed, so the splice is the payload's only change",
+    JSON.stringify(payloadWall.keyedBooks));
+  check(payloadWall.warnings === 2, "...and says so once per character", `${payloadWall.warnings} warnings`);
   check(payloadWall.pileKeys.length === 2 && payloadWall.pileKeys.every(Boolean)
       && payloadWall.pileKeys[0] !== payloadWall.pileKeys[1],
     "an npc's payload keeps both books, and two sharing a key part", JSON.stringify(payloadWall.pileKeys));
