@@ -260,6 +260,75 @@ if (hdr.error) {
 
 /* -------------------------------------------- */
 
+console.log("\na card's own alias outranks its token's name");
+
+// Review #34 finding 242. Both speaker resolvers — the header
+// (`localizeSpeakerName`) and the rebuilt flavors (`speakerDisplayName`) —
+// answered with the token's name whenever the speaker's token resolved, while
+// their actor branch asks that the alias WAS the actor's name. A card
+// composed with an alias of its own over a token (the initiative card's
+// combatant name, the generation card's roller) read the token's name in
+// both. The control is a card whose alias IS the token's name: the token
+// branch still rules, and its header still translates.
+const own = await page.evaluate(async () => {
+  const i18n = await import("/systems/air-bladder/module/i18n-content.js");
+  const NAME = "ZZ Probe Ghoul";
+  const NAME_ES = "ZZ GHOUL-ES";
+  const ALIAS = "ZZ Chosen Alias";
+  const created = [];
+  const messages = [];
+  const readHeader = async (msg) => {
+    for (let i = 0; i < 30; i++) {
+      const el = document.querySelector(`[data-message-id="${msg.id}"] .message-sender`);
+      if (el) return el.textContent.trim();
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    return null;
+  };
+  try {
+    i18n._setOverlay({ "monster.name": { [NAME]: NAME_ES } });
+    const ghoul = await Actor.create({ name: NAME, type: "npc", system: { role: "monster" } });
+    created.push(ghoul);
+    const scene = await Scene.create({ name: "ZZ Alias Scene", width: 1000, height: 1000 });
+    created.push(scene);
+    const [tok] = await scene.createEmbeddedDocuments("Token", [(await ghoul.getTokenDocument({ x: 300, y: 300 })).toObject()]);
+    const speak = async (alias) => {
+      const m = await ChatMessage.create({ speaker: { scene: scene.id, actor: ghoul.id, token: tok.id, alias }, content: "alias probe" });
+      messages.push(m);
+      return m;
+    };
+    const chosen = await speak(ALIAS);
+    const asToken = await speak(tok.name);
+    return {
+      ALIAS, NAME, NAME_ES, tokenName: tok.name,
+      chosenHeader: await readHeader(chosen), tokenHeader: await readHeader(asToken),
+      chosenFlavor: i18n.speakerDisplayName(chosen, ALIAS), tokenFlavor: i18n.speakerDisplayName(asToken, tok.name),
+    };
+  } catch (e) {
+    return { error: String(e?.message ?? e) };
+  } finally {
+    for (const m of messages) await m.delete().catch(() => {});
+    for (const d of created) await d.delete().catch(() => {});
+    i18n._setOverlay(null);
+  }
+});
+
+if (own.error) {
+  fail("own-alias probe setup", own.error);
+} else {
+  own.tokenName === own.NAME
+    ? ok("precondition: the token carries the creature's name", own.tokenName)
+    : fail("precondition: the token carries the creature's name", `token is ${JSON.stringify(own.tokenName)} — the control is vacuous`);
+  own.chosenHeader === own.ALIAS && own.chosenFlavor === own.ALIAS
+    ? ok("a card's own alias over a token is kept, header and flavor (review #34 finding 242)", `"${own.chosenHeader}"`)
+    : fail("a card's own alias over a token is kept, header and flavor (review #34 finding 242)", JSON.stringify(own));
+  own.tokenHeader === own.NAME_ES && own.tokenFlavor === own.NAME_ES
+    ? ok("control: spoken as the token by its own name, the token's name still translates", `"${own.tokenHeader}"`)
+    : fail("control: spoken as the token by its own name, the token's name still translates", JSON.stringify(own));
+}
+
+/* -------------------------------------------- */
+
 console.log("\nthe attack line names a TOKEN-LESS attacker in the display language");
 
 // Review #34 finding 10. The card header resolves a speaker with no token
