@@ -382,6 +382,59 @@ flavors.custom === "ZZ custom flavor line"
   ? ok("...and core's own default sentence is still rebuilt from the table", JSON.stringify(flavors))
   : fail("core's default draw flavor", JSON.stringify(flavors));
 
+// CORE'S SENTENCE, RECOGNISED AS STORED (review #34 finding 238). Finding 70's
+// test was "the stored flavor contains escapeHTML(table.name)", but the server
+// stores ' and " unescaped, so a table named with an apostrophe never matched
+// and its card kept the composer's language; and a caller's flavor that NAMES
+// the table matched, and was rewritten to core's default. A `format` shadow
+// installed after posting marks a rebuilt line; each card is read off the
+// element the hook ran on, after the async relabel.
+const recognised = await page.evaluate(async () => {
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const mk = (name) => CONFIG.RollTable.documentClass.create({
+    name, formula: "1d1", results: [{ type: "text", description: "ZZ row", range: [1, 1], weight: 1 }],
+  });
+  const quoted = await mk("ZZ TR Smuggler's Den");
+  const plainT = await mk("ZZ TR Plain Den");
+  const made = [];
+  const real = game.i18n.format.bind(game.i18n);
+  try {
+    const post = async (table, messageData = {}) => {
+      const { results, roll } = await table.roll();
+      const m = await table.toMessage(results, { roll, messageData });
+      made.push(m);
+      return m;
+    };
+    const quotedMsg = await post(quoted);
+    const namingMsg = await post(plainT, { flavor: "Weather: ZZ TR Plain Den" });
+    const plainMsg = await post(plainT);
+    game.i18n.format = (k, ...a) => (String(k).startsWith("TABLE.DrawFlavor") ? `${real(k, ...a)} ZZ-VIEWER` : real(k, ...a));
+    const read = async (m) => {
+      const el = await m.renderHTML();
+      await sleep(600);
+      return el.querySelector(".flavor-text")?.textContent?.trim() ?? null;
+    };
+    return {
+      storedQuote: String(quotedMsg.flavor ?? ""),
+      quoted: await read(quotedMsg), naming: await read(namingMsg), plain: await read(plainMsg),
+    };
+  } finally {
+    game.i18n.format = real;
+    for (const m of made) { try { await m?.delete(); } catch { /* gone */ } }
+    await quoted.delete();
+    await plainT.delete();
+  }
+});
+/ZZ-VIEWER/.test(recognised.plain ?? "")
+  ? ok("control: core's default sentence is rebuilt for this viewer", recognised.plain)
+  : fail("control: core's default sentence was not rebuilt", JSON.stringify(recognised));
+/ZZ-VIEWER/.test(recognised.quoted ?? "") && recognised.storedQuote.includes("Smuggler's")
+  ? ok("...and so is it for a table whose name holds an apostrophe, stored unescaped (review #34 finding 238)", recognised.quoted)
+  : fail("a quoted table name's default sentence is left in the composer's language", JSON.stringify(recognised));
+recognised.naming === "Weather: ZZ TR Plain Den"
+  ? ok("...while a caller's flavor that NAMES the table is left as written", recognised.naming)
+  : fail("a caller's flavor naming the table was rewritten", JSON.stringify(recognised));
+
 // ONE RESULT WHOSE TEXT HOLDS A LIST (review #34 finding 12). Both rebuilds
 // counted `.table-results li`, which also matches the <li> inside a row's own
 // description, so a single draw of a row holding a three-item list read
