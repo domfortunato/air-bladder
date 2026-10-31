@@ -318,6 +318,67 @@ try {
     ? ok("an item Dropped to the pile lands UNTAGGED")
     : fail(`the pile's copy kept its grant tag: ${JSON.stringify(piled)}`);
 
+  // A BROKERED DROP'S LEDGER (review #34 finding 245). A player's Drop runs on
+  // the active Warden's client (CONFIG.queries["air-bladder.pileDrop"]), so its
+  // ledger cards were the Warden's writes: the dropper's read "Changed by
+  // Warden", and the pile's whispered "Item added" to every observer on every
+  // Drop. The broker is called here as the Warden receives it — the requester
+  // is a PLAYER who owns the source — with the change log switched on by a
+  // settings READ shadow (no world write). The dropper's card must name the
+  // player, and the pile posts none: it is its own record.
+  const ledger = await page.evaluate(async () => {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const pp = await import("/systems/air-bladder/module/party-pile.js");
+    const player = game.users.find((u) => !u.isGM);
+    if (!player) return { error: "no player in this world" };
+    const pileBefore = pp.findDroppedPile();
+    const pc = await Actor.create({ name: "ZZ Gear Brokered Dropper", type: "character",
+      ownership: { default: 0, [player.id]: 3 } });
+    const settings = game.settings;
+    const realGet = settings.get.bind(settings);
+    settings.get = (ns, key, ...rest) => rest[0]?.document
+      ? foundry.helpers.ClientSettings.prototype.get.call(game.settings, ns, key, ...rest)
+      : (ns === "air-bladder" && key === "change-log" ? true : realGet(ns, key, ...rest));
+    const before = new Set(game.messages.map((m) => m.id));
+    let pile = null;
+    try {
+      const [cord] = await pc.createEmbeddedDocuments("Item", [{ name: "ZZ Gear Brokered Cord", type: "item" }],
+        { abNoStatusCard: true });
+      const okDrop = await CONFIG.queries["air-bladder.pileDrop"](
+        { actorUuid: pc.uuid, itemId: cord.id, claimId: foundry.utils.randomID(), place: "", announce: false },
+        { user: player });
+      await sleep(1200);
+      pile = pp.findDroppedPile();
+      const cards = game.messages.filter((m) => !before.has(m.id) && m.getFlag("air-bladder", "changeLog"));
+      const pileCards = cards.filter((m) => m.speaker?.actor === pile?.id);
+      const dropperCards = cards.filter((m) => m.speaker?.actor === pc.id);
+      return {
+        okDrop, pileCards: pileCards.length,
+        dropperBy: dropperCards.map((m) => m.getFlag("air-bladder", "changeLog")?.user),
+        want: player.id, warden: game.user.id,
+        cardIds: cards.map((m) => m.id),
+      };
+    } finally {
+      settings.get = realGet;
+      for (const m of game.messages.filter((x) => !before.has(x.id))) { try { await m.delete(); } catch { /* gone */ } }
+      try { await pc.delete(); } catch { /* gone */ }
+      if (pile && !pileBefore) { try { await pile.delete(); } catch { /* gone */ } }
+      else if (pile) {
+        const left = pile.items.filter((i) => i.name === "ZZ Gear Brokered Cord").map((i) => i.id);
+        if (left.length) { try { await pile.deleteEmbeddedDocuments("Item", left, { abNoStatusCard: true }); } catch { /* gone */ } }
+      }
+    }
+  });
+  if (ledger.error) fail(`precondition: ${ledger.error}`);
+  else {
+    ledger.okDrop === true && ledger.dropperBy.length === 1 && ledger.dropperBy[0] === ledger.want
+      ? ok("a player's brokered Drop: the dropper's ledger card names the PLAYER, not the Warden")
+      : fail(`a brokered Drop's dropper card: ${JSON.stringify(ledger)}`);
+    ledger.pileCards === 0
+      ? ok("...and the pile posts no ledger card of its own (it is its own record)")
+      : fail(`the pile whispered ${ledger.pileCards} ledger card(s) for one Drop`);
+  }
+
   for (const [label, list] of [["a generated Fletchwind", arms.fresh], ["a swap onto Fletchwind", arms.swapped]]) {
     list.length > 0 && list.every((x) => x.equipped)
       ? ok(`${label}: the question-granted weapon arrives EQUIPPED ${JSON.stringify(list)}`)
