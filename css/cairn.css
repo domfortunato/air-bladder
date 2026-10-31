@@ -3993,6 +3993,11 @@ ol.combat-tracker li.combatant.cairn-drop-below {
 .bg-preview h4 {
     margin: 10px 0 2px;
     border-bottom: 1px solid var(--ab-hairline);
+    /* Its own face and size (review #34 finding 188): a bare h4 took core's —
+       the heading face at 24px — inside a 0.9em report. docs/theming.md fact 3. */
+    font-family: var(--font-sans);
+    font-size: 14px;
+    font-weight: 600;
 }
 
 .bg-preview-ok {
@@ -4831,7 +4836,24 @@ body.theme-light .cairn-watch-clock,
 
 .cairn-vald-calendar .cairn-calendar-festival h4 {
     margin: 10px 0 2px;
+    font-family: var(--font-sans);   /* not core's h4 face (review #34 finding 188) */
     font-size: 16px;
+}
+
+/* The GLOG public cast card's spell name (review #34 finding 188). A bare h3
+   took core's heading rule — its face at 28px, in --color-text-primary, which
+   the chat log's themed ancestor sets to cream in a dark scheme: cream on the
+   parchment tile, which stays light in BOTH schemes (the F098 doctrine, palette
+   above). Core keeps its own chat headings legible the same way: `.chat-message
+   h4` resets to the sans face and `color: inherit` (foundry2.css). */
+.chat-message .grimoire-cast-card h3 {
+    font-family: var(--font-sans);
+    font-size: 16px;
+    font-weight: 700;
+    line-height: unset;
+    color: inherit;
+    margin: 0 0 4px;
+    border-bottom: none;
 }
 
 .cairn-vald-calendar .cairn-calendar-span,
@@ -4914,6 +4936,7 @@ body.theme-light .cairn-watch-clock,
     margin: 8px 0 2px;
     padding-bottom: 2px;
     border-bottom: 1px solid var(--ab-line);
+    font-family: var(--font-sans);   /* not core's h4 face (review #34 finding 188) */
     font-size: 12px;
     font-weight: 600;
     color: var(--ab-muted);
