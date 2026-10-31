@@ -75,6 +75,15 @@ try {
   //
   // Refuse to run instead. A precondition the probe cannot establish is one it
   // must at least NAME — a wrong answer here is far more expensive than no answer.
+  //
+  // TWO CHECKS, because the count below cannot see the case named above
+  // (review #34 finding 109): `game.users` lists the Warden ONCE however many
+  // tabs hold that login. The second-tab case is caught BEFORE joining —
+  // joinAsGM refuses a Warden whose join option says they are already in the
+  // world. What this count adds is a DIFFERENT GM user connected: whichever of
+  // the two `getDesignatedUser` ranks first runs the broker, and if that is not
+  // this probe's Warden the clamp lines land on another client's console and
+  // "the clamp was silent" reds for a reason that is not the product's.
   const brokers = await gmPage.evaluate(() =>
     game.users.filter((u) => u.active && u.isGM).map((u) => `${u.name} (${u.id})`));
   if (brokers.length > 1) {

@@ -2596,7 +2596,7 @@ try {
       {
         const gm2 = await (await browser.newContext({ viewport: VIEWPORT })).newPage();
         const gm2Errors = watchErrors(gm2);
-        await joinAsGM(gm2);
+        await joinAsGM(gm2, { secondSession: true });
         await dismissChrome(gm2);
         const twoSessions = await gm2.evaluate(() => ({
           sameUser: game.users.activeGM === game.user,

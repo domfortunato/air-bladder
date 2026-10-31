@@ -462,14 +462,23 @@ export function watchErrors(page) {
  * matched by name without regard to case and one selector serves both
  * dropdowns. On a dropdown too the Warden is now the role-4 user, never the
  * first option. And 14.369 DISABLES the option of a user already in the world,
- * and a disabled option drops out of the form it submits; but a probe may open
- * a second session of one user on purpose (`dev:combat-options`' second
- * Warden), or re-join one whose first session the server has not yet let go
- * (`dev:connections`, `dev:encumbered-damage`). The server accepts both and
- * 14.368's name box allowed them, so the option is enabled again before it is
- * picked. Measured by DB Mythic's probes on the same fleet
- * (its `738a598d`, `1571b3cd`): every box's settle failed on the old selector,
- * then exactly its four second-session probes failed on the disabled option.
+ * and a disabled option drops out of the form it submits. Measured by DB
+ * Mythic's probes on the same fleet (its `738a598d`, `1571b3cd`): every box's
+ * settle failed on the old selector, then exactly its four second-session
+ * probes failed on the disabled option.
+ *
+ * THAT DISABLED OPTION IS A SIGNAL, NOT AN OBSTACLE (review #34 finding 109).
+ * It is the one pre-join sign that the user already holds a session — a parked
+ * Warden tab, an orphaned probe browser — and once joined, `game.users` cannot
+ * show it (it counts the USER once). This used to re-enable it for every
+ * caller, so every probe joined on top of a parked Warden without a word. Now
+ * a busy user (a disabled option, or `active` on the page's own user list) is
+ * waited for, reloading the join page, because a re-join right after closing
+ * the first session (`dev:connections`, `dev:encumbered-damage`) can beat the
+ * server's release; and if it is still busy after BUSY_WAIT_MS the join
+ * THROWS, naming the user. Only a caller that opens a second session on
+ * purpose (`dev:combat-options`' second Warden) passes `secondSession: true`,
+ * and only then is the option enabled again.
  *
  * Wait for the CONTROL, not the network — the join form is rendered
  * client-side and is routinely still absent at networkidle. That wait was once
@@ -480,48 +489,70 @@ export function watchErrors(page) {
  *
  * @param {import("playwright").Page} page
  * @param {String|null} name  a User name, or null for the Warden
+ * @param {{secondSession?: boolean}} [opts]
  * @return {Promise<String|null>}  the name chosen, or null when there is none
  */
 const JOIN_SELECT = 'select[name="userid" i]';
+const BUSY_WAIT_MS = 20000;
 
-async function chooseJoinUser(page, name) {
-  await page.waitForSelector(
-    `${JOIN_SELECT} option[value]:not([value=""]), #join-game-form input[name="username"]`,
-    { state: "attached", timeout: 30000 });
-  return page.evaluate(({ name, select }) => {
-    const raw = globalThis.game?.users;
-    const users = raw?.contents ?? (Array.isArray(raw) ? raw : []);
-    const GM = globalThis.CONST?.USER_ROLES?.GAMEMASTER ?? 4;
-    const warden = users.find((u) => u.role === GM);
-    // 14.365 and 14.369: Foundry v14 hides <select> behind custom elements, so
-    // Playwright's selectOption() sees it as invisible. Drive the element.
-    const s = document.querySelector(select);
-    if (s) {
-      const options = [...s.options].filter((o) => o.value);
-      const opt = name ? options.find((o) => o.textContent.trim() === name)
-        : (warden ? options.find((o) => o.value === (warden.id ?? warden._id)) : options[0]);
-      if (!opt) return null;
-      opt.disabled = false;
-      s.value = opt.value;
-      s.dispatchEvent(new Event("change", { bubbles: true }));
-      return opt.textContent.trim();
+async function chooseJoinUser(page, name, { secondSession = false } = {}) {
+  const deadline = Date.now() + BUSY_WAIT_MS;
+  for (;;) {
+    await page.waitForSelector(
+      `${JOIN_SELECT} option[value]:not([value=""]), #join-game-form input[name="username"]`,
+      { state: "attached", timeout: 30000 });
+    const r = await page.evaluate(({ name, select, secondSession }) => {
+      const raw = globalThis.game?.users;
+      const users = raw?.contents ?? (Array.isArray(raw) ? raw : []);
+      const GM = globalThis.CONST?.USER_ROLES?.GAMEMASTER ?? 4;
+      const warden = users.find((u) => u.role === GM);
+      const userOf = (id) => users.find((u) => (u.id ?? u._id) === id);
+      // 14.365 and 14.369: Foundry v14 hides <select> behind custom elements, so
+      // Playwright's selectOption() sees it as invisible. Drive the element.
+      const s = document.querySelector(select);
+      if (s) {
+        const options = [...s.options].filter((o) => o.value);
+        const opt = name ? options.find((o) => o.textContent.trim() === name)
+          : (warden ? options.find((o) => o.value === (warden.id ?? warden._id)) : options[0]);
+        if (!opt) return { picked: null };
+        const label = opt.textContent.trim();
+        if ((opt.disabled || userOf(opt.value)?.active === true) && !secondSession) return { busy: label };
+        opt.disabled = false;
+        s.value = opt.value;
+        s.dispatchEvent(new Event("change", { bubbles: true }));
+        return { picked: label };
+      }
+      // 14.368: a typed username and no list.
+      const field = document.querySelector('#join-game-form input[name="username"]');
+      const user = name ? users.find((u) => u.name === name) : (warden ?? users[0]);
+      if (!field || !user) return { picked: null };
+      if (user.active === true && !secondSession) return { busy: user.name };
+      field.value = user.name;
+      field.dispatchEvent(new Event("input", { bubbles: true }));
+      field.dispatchEvent(new Event("change", { bubbles: true }));
+      return { picked: user.name };
+    }, { name, select: JOIN_SELECT, secondSession });
+    if (!r.busy) return r.picked;
+    if (Date.now() > deadline) {
+      throw new Error(`join: "${r.busy}" already holds a session in this world and still did after `
+        + `${BUSY_WAIT_MS / 1000} s — a parked tab or an orphaned probe browser (list chrome-headless-shell). `
+        + "Close it and re-run; a probe that opens a second session on purpose passes {secondSession: true}");
     }
-    // 14.368: a typed username and no list.
-    const field = document.querySelector('#join-game-form input[name="username"]');
-    const user = name ? users.find((u) => u.name === name) : (warden ?? users[0]);
-    if (!field || !user) return null;
-    field.value = user.name;
-    field.dispatchEvent(new Event("input", { bubbles: true }));
-    field.dispatchEvent(new Event("change", { bubbles: true }));
-    return user.name;
-  }, { name, select: JOIN_SELECT });
+    await page.waitForTimeout(2000);
+    await page.goto(`${FOUNDRY_URL}/join`, { waitUntil: "networkidle", timeout: 60000 });
+  }
 }
 
-/** Join the world as the Warden: the role-4 user, on every form. */
-export async function joinAsGM(page) {
+/**
+ * Join the world as the Warden: the role-4 user, on every form.
+ * @param {import("playwright").Page} page
+ * @param {{secondSession?: boolean}} [opts]  true only to open a second
+ *   session of a Warden who is already in the world, on purpose
+ */
+export async function joinAsGM(page, opts = {}) {
   noteBrowser(page);
   await page.goto(`${FOUNDRY_URL}/join`, { waitUntil: "networkidle", timeout: 60000 });
-  const picked = await chooseJoinUser(page, null);
+  const picked = await chooseJoinUser(page, null, opts);
   // Fail LOUDLY and immediately. Returning quietly here is what bought the
   // 90-second timeout above; a thrown error names the real problem.
   if (!picked) throw new Error("joinAsGM: the join form never offered a user");
@@ -542,11 +573,12 @@ export async function joinAsGM(page) {
  *
  * @param {import("playwright").Page} page
  * @param {String} name  a User name that already exists in the world
+ * @param {{secondSession?: boolean}} [opts]  as joinAsGM
  */
-export async function joinAs(page, name) {
+export async function joinAs(page, name, opts = {}) {
   noteBrowser(page);
   await page.goto(`${FOUNDRY_URL}/join`, { waitUntil: "networkidle", timeout: 60000 });
-  const picked = await chooseJoinUser(page, name);
+  const picked = await chooseJoinUser(page, name, opts);
   if (!picked) throw new Error(`joinAs: no user named "${name}" — run \`npm run dev:players\` first`);
 
   await page.locator('button[type="submit"][name="join"], form#join-game button[type="submit"]')
