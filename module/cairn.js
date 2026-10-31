@@ -1320,6 +1320,22 @@ Hooks.once("init", () => {
         // always passed, so generateCharacter never prompts on this client.
         const enabled = enabledContentSources().map((s) => s.key);
         const source = enabled.includes(msg.source) ? msg.source : (enabled[0] ?? "2e");
+        // The empty-sheet choice the player made on their own client. Coerced
+        // rather than passed through: the wire is not trusted, and anything
+        // other than a literal true means roll, which is the safe reading —
+        // a rolled character can be emptied by hand, a silently empty one
+        // looks like generation broke.
+        //
+        // AND ONLY WHERE THE PLAYER COULD FILL IT IN (review #27). The box
+        // is withheld on the clicking client from a player whose sheet would
+        // render no pickers (`blankIsFillableBy`: a character, and only
+        // while allow-player-randomization is on), but that is the
+        // affordance half, and this broker is the enforcement half — the
+        // one place a crafted or stale client cannot script around, as the
+        // allow-player-generate refusal above already says. A character is
+        // the only kind this relay mints, so the test is that one switch.
+        const blank = msg.blank === true
+          && game.settings.get(SETTINGS_NS, "allow-player-randomization") === true;
         const actor = await createCharacter({
           source,
           // THE PARTY FOLDER, which only `createActorInteractive` applied until
@@ -1330,22 +1346,7 @@ Hooks.once("init", () => {
           // characters filed themselves. This runs on the GM's client, which
           // may make the folder.
           folder: await partyFolderId(),
-          // The empty-sheet choice the player made on their own client. Coerced
-          // rather than passed through: the wire is not trusted, and anything
-          // other than a literal true means roll, which is the safe reading —
-          // a rolled character can be emptied by hand, a silently empty one
-          // looks like generation broke.
-          //
-          // AND ONLY WHERE THE PLAYER COULD FILL IT IN (review #27). The box
-          // is withheld on the clicking client from a player whose sheet would
-          // render no pickers (`blankIsFillableBy`: a character, and only
-          // while allow-player-randomization is on), but that is the
-          // affordance half, and this broker is the enforcement half — the
-          // one place a crafted or stale client cannot script around, as the
-          // allow-player-generate refusal above already says. A character is
-          // the only kind this relay mints, so the test is that one switch.
-          blank: msg.blank === true
-            && game.settings.get(SETTINGS_NS, "allow-player-randomization") === true,
+          blank,
           ownership: { [senderId]: CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER },
           // The generation chat card is headed by the ROLLER's name, and the
           // roller is the PLAYER who asked -- this branch runs on the Warden's
@@ -1369,11 +1370,16 @@ Hooks.once("init", () => {
           }));
         }
         game.socket.emit(`system.${game.system.id}`, {
-          // The empty-sheet answer travels BACK too (review #26). An empty
-          // sheet posts no generation card, so without this the asking client
-          // polled ten times at 150ms for a message that could never arrive:
-          // ~1.5s of dead wait between the toast and their own sheet opening.
-          action: "pcGenerated", userId: senderId, uuid: actor?.uuid ?? null, blank: msg.blank === true,
+          // WHETHER A CARD WAS POSTED travels BACK (review #26; review #34
+          // finding 220), or the asking client polls ten times at 150ms for a
+          // message that can never arrive: ~1.5s of dead wait between the
+          // toast and their own sheet opening. None is posted for an empty
+          // sheet, which rolled nothing, nor with "Show character generation
+          // dice rolls" off (postGenerationRolls). What THIS client did, not
+          // what was asked: a blank the randomization switch refused above was
+          // rolled, and its card is there to wait for.
+          action: "pcGenerated", userId: senderId, uuid: actor?.uuid ?? null,
+          noCard: blank || !game.settings.get(SETTINGS_NS, "show-generation-rolls"),
         });
       } catch (err) {
         console.error(`Air Bladder | generatePC failed for ${user.name}:`, err);
@@ -1414,11 +1420,11 @@ Hooks.once("init", () => {
           // over: find it by actor.
           // Poll briefly, because the custom emit can outrun the chat broadcast
           // exactly as it can outrun the actor's (that is why this loop exists).
-          // Skipped for an empty sheet, which rolled nothing and so posts no
-          // card to find. Coerced the same way the request was: only a literal
-          // true skips the wait, so a malformed answer still waits rather than
-          // opening the sheet over an animation.
-          if (msg.blank !== true) {
+          // Skipped when the broker posted no card (`noCard`: an empty sheet,
+          // or the rolls card switched off). Coerced the same way the request
+          // was: only a literal true skips the wait, so a malformed answer
+          // still waits rather than opening the sheet over an animation.
+          if (msg.noCard !== true) {
             for (let j = 0; j < 10; j++) {
               const rollMessage = findGenerationRollMessage(actor);
               if (rollMessage) { await awaitDiceAnimation(rollMessage.id); break; }
