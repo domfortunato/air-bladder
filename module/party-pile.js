@@ -25,9 +25,10 @@
  * THE MOVE RUNS ON THE ACTIVE GM'S CLIENT. The pile is OBSERVER for players by
  * ruling — the table sees what was dropped, the Warden hands things back — and a
  * player cannot write to an actor they only observe, so the server would refuse
- * their create. The broker below is the same shape as `ownershipSync`: the
- * player emits, the active GM answers, and `senderId` is the only field trusted,
- * because it is the only one the server authenticates.
+ * their create. The broker below is a `User#query` (review #33): the player's
+ * client asks the active GM, who answers with whether the drop landed, and
+ * the requesting `user` core hands the handler is the only thing trusted,
+ * because it is the only thing the server authenticates.
  */
 
 import { t } from "./i18n-content.js";
@@ -58,7 +59,6 @@ const PARTY_FOLDER_FLAG = "partyFolder";
 const PILE_FLAG = "droppedItemPile";
 /** The chat card a Fatigue-driven drop leaves behind, rebuilt per viewer. */
 export const PILE_DROP_FLAG = "pileDrop";
-/** The socket action the broker answers. */
 /**
  * The query a player's client sends the active Warden to drop on their behalf
  * (`CONFIG.queries`, core's request-and-REPLY channel: `User#query`, which
@@ -73,8 +73,8 @@ export const PILE_DROP_QUERY = "air-bladder.pileDrop";
  * How long a "where did you drop it" note may be (user ask: limit 25
  * characters). The `maxlength` attribute is the affordance and THIS is the
  * enforcement, applied where the write happens — a player's drop is brokered, so
- * the only field the server authenticates is `senderId` and a crafted emit can
- * carry a note of any length. Same pairing as the marketplace's greyed rows and
+ * the only thing the server authenticates is the asking user and a crafted
+ * query can carry a note of any length. Same pairing as the marketplace's greyed rows and
  * the refusal behind them.
  */
 export const DROP_NOTE_MAX = 25;
@@ -600,13 +600,15 @@ const moveClaimedPileItem = async (actor, item, { announce = false, place = "", 
 /**
  * The broker, run by the active GM on a player's behalf.
  *
- * THE SENDER'S OWNERSHIP IS THE AUTHORIZATION, and it is checked HERE because
- * nothing in the payload can be trusted — `senderId` is the one field the server
- * authenticates. Without this test any client could emit another player's actor
- * uuid and strip their sheet one item at a time.
+ * THE ASKER'S OWNERSHIP IS THE AUTHORIZATION, and it is checked HERE because
+ * nothing in the payload can be trusted — the requesting `user` in the query's
+ * context is the one thing the server authenticates. Without this test any
+ * client could send another player's actor uuid and strip their sheet one item
+ * at a time.
  *
- * @param {Object} msg
- * @param {String} senderId
+ * @param {Object} msg            `{actorUuid, itemId, claimId, announce?, place?}`
+ * @param {Object} ctx            `{user}` — the requesting User
+ * @return {Promise<Boolean>}     whether the drop landed
  */
 export const handlePileQuery = async (msg, { user } = {}) => {
   // The query is addressed to the active GM USER; Foundry hands it to that
