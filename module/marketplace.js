@@ -1,4 +1,4 @@
-import { findTableItems, resultText, MARKETPLACE_PACK, compendiumInfoFromString } from "./compendium.js";
+import { findTableItems, warmResultDocuments, resultText, MARKETPLACE_PACK, compendiumInfoFromString } from "./compendium.js";
 import { Cairn } from "./config.js";
 import { iconForTransport, TRANSPORT_KINDS } from "./icons.js";
 import { atConnectionLimit, maxConnections, connectedOwnershipShape, OWNERSHIP_SYNC_FLAG } from "./connections.js";
@@ -247,6 +247,9 @@ export const getMarketplaceCatalog = async () => {
   };
   // The heading is `marketAisle`'s label — translate, then strip; see there.
   tables.sort((a, b) => orderOf(a.name) - orderOf(b.name) || a.name.localeCompare(b.name));
+  // Every aisle's rows in ONE request per pack, before the aisles are read one
+  // by one (review #34 finding 191, `warmResultDocuments`).
+  await warmResultDocuments(tables.flatMap((t) => [...t.results]));
 
   const categories = [];
   for (const table of tables) {

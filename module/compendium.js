@@ -245,10 +245,17 @@ export const rollTablePlainText = async (decl) => {
  * A row that resolves to nothing is warned about rather than skipped in silence —
  * that is a broken content reference, and `findCompendiumItem` used to say so.
  *
+ * ONE ROUND TRIP PER PACK (review #34 finding 191). `fromUuid` on a pack row is
+ * `getDocument`, a server request on every cache miss, and this loop awaited
+ * each row's in turn: the shop's ~77 shipped rows were 77 requests in series
+ * on every first open. `warmResultDocuments` fetches what is missing first,
+ * one `getDocuments({_id__in})` per pack, so the loop below reads the cache.
+ *
  * @param {TableResult[]} results
  * @returns {Promise.<Document[]>}
  */
 export const findTableItems = async (results) => {
+  await warmResultDocuments(results);
   const items = [];
   for (const result of results) {
     if (result.type !== CONST.TABLE_RESULT_TYPES.DOCUMENT) continue;
@@ -257,4 +264,42 @@ export const findTableItems = async (results) => {
     else console.warn(`findTableItems: unresolvable result uuid (${result.documentUuid})`);
   }
   return items;
+};
+
+/**
+ * Load, in ONE request, the documents `ids` names in `pack` that this client
+ * has not cached (review #34 finding 191) — the take-over's rule ("One round
+ * trip per source pack, not one per row"). Core's `getDocument` is a server
+ * request on every miss. An id the index does not know is left for the caller
+ * to warn about. An INVALID document is never cached by core, so it is asked
+ * for once (then `invalidDocumentIds` knows it) and is the caller's to fetch
+ * with `getDocument`, as before.
+ * @param {CompendiumCollection} pack
+ * @param {Iterable<string>} ids
+ * @returns {Promise<void>}
+ */
+export const warmPackDocuments = async (pack, ids) => {
+  const missing = [...new Set(ids)].filter((id) => pack.index.has(id)
+    && !(pack.get(id) instanceof foundry.abstract.Document) && !pack.invalidDocumentIds.has(id));
+  if (missing.length) await pack.getDocuments({ _id__in: missing });
+};
+
+/**
+ * `warmPackDocuments` for table rows: every top-level compendium document
+ * they name, one request per pack, the packs asked side by side. A world row
+ * needs no request.
+ * @param {TableResult[]} results
+ * @returns {Promise<void>}
+ */
+export const warmResultDocuments = async (results) => {
+  const byPack = new Map();   // pack → [id]
+  for (const r of results ?? []) {
+    if (r?.type !== CONST.TABLE_RESULT_TYPES.DOCUMENT) continue;
+    const p = foundry.utils.parseUuid(r.documentUuid ?? "");
+    const pack = p?.collection;
+    if (!(pack instanceof foundry.documents.collections.CompendiumCollection) || p.embedded?.length) continue;
+    if (!byPack.has(pack)) byPack.set(pack, []);
+    byPack.get(pack).push(p.id);
+  }
+  await Promise.all([...byPack].map(([pack, ids]) => warmPackDocuments(pack, ids)));
 };
