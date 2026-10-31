@@ -141,9 +141,16 @@ export const clearGlogTextCache = () => { glogTextCache = null; };
  *
  * Coverage is the house migration list, all of it: world Items, every actor's
  * owned items, UNLINKED scene tokens (their synthetic actors are not in
- * game.actors — the trap that bit twice), and world compendium Item packs
- * (unlocked for the write and restored after). Prototype tokens carry no items,
- * so actor coverage is their coverage.
+ * game.actors — the trap that bit twice), world compendium Item packs, and the
+ * owned items of every actor in a world compendium ACTOR pack (packs unlocked
+ * for the write and restored after). Prototype tokens carry no items, so actor
+ * coverage is their coverage.
+ *
+ * The Actor packs were missing until review #34 finding 96: a
+ * table keeping pregenerated characters or NPC casters in a world Actor pack
+ * flipped the hack and kept canon books there, and importing one afterwards
+ * landed a canon book — the arrival seam (`CairnItem._preCreate`) never sees
+ * items nested inside an Actor create.
  */
 export const runGlogConversion = async () => {
   if (game.users.activeGM !== game.user) return;
@@ -183,6 +190,28 @@ export const runGlogConversion = async () => {
     for (const token of scene.tokens) {
       if (token.actorLink || !token.actor) continue;
       await convertCollection(token.actor, token.actor.items);
+    }
+  }
+
+  // World compendium ACTOR packs: every actor's owned spellbooks, written as
+  // embedded updates inside the pack.
+  for (const pack of game.packs) {
+    if (pack.metadata.packageType !== "world" || pack.metadata.type !== "Actor") continue;
+    let docs;
+    try {
+      docs = await pack.getDocuments();
+    } catch {
+      continue;
+    }
+    const pending = docs.filter((a) => a.items.some((it) => it.type === "spellbook"
+      && glogConversionDiff(it, glogText)));
+    if (!pending.length) continue;
+    const wasLocked = pack.locked;
+    if (wasLocked) await pack.configure({ locked: false });
+    try {
+      for (const actor of pending) await convertCollection(actor, actor.items);
+    } finally {
+      if (wasLocked) await pack.configure({ locked: true });
     }
   }
 
