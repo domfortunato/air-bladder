@@ -10,8 +10,11 @@
  * reorder WITHIN a bucket (combatSort flags; cross-bucket refuses — changing
  * sides is a re-roll, not a drag), which section 4 covers.
  *
- * THE SAVE IS DETERMINISTIC WITHOUT STUBBING A DIE: DEX 20 cannot fail a d20
- * save and DEX 0 cannot pass one, so every bucket is forced by fixture — no
+ * THE DIE IS PINNED to a 10 (u 0.5) around every initiative roll. This used to
+ * say no die needed stubbing because DEX 20 cannot fail a d20 save — true
+ * until saves honoured Cairn's natural 20 (review #34 finding 50), after which
+ * DEX 20 fails one roll in twenty and the bucket legs would flake. A 10 passes
+ * DEX 20 and fails DEX 0 every time, which forces every bucket by fixture — no
  * dice-decided assertion (the 0.1.12 lesson).
  *
  * The dev world has NO actors; every fixture is created here and removed.
@@ -97,10 +100,11 @@ const roll = await page.evaluate(async () => {
   CombatantCls.prototype.update = function (...a) { perDoc++; return origUpdate.apply(this, a); };
   const before = new Set(game.messages.contents.map((m) => m.id));
   try {
-    await combat.rollInitiative([
+    const pinned = async (fn) => { const o = CONFIG.Dice.randomUniform; CONFIG.Dice.randomUniform = () => 0.5; try { return await fn(); } finally { CONFIG.Dice.randomUniform = o; } };
+    await pinned(() => combat.rollInitiative([
       byName("ZZ Init Pass"), byName("ZZ Init Fail"), byName("ZZ Init Neutral"),
       byName("ZZ Init Foe"), byName("ZZ Init Hidden"),
-    ].map((c) => c.id));
+    ].map((c) => c.id)));
   } finally {
     CombatantCls.prototype.update = origUpdate;
     delete combat.updateEmbeddedDocuments; // the own property; the prototype returns
@@ -184,7 +188,8 @@ const card = await page.evaluate(async (ids) => {
     await game.settings.set("core", "messageMode", "gm");
     const [c] = await combat.createEmbeddedDocuments("Combatant", [{ actorId: a.id, name: a.name }]);
     const before = new Set(game.messages.contents.map((m) => m.id));
-    await combat.rollInitiative([c.id]);
+    const pinned = async (fn) => { const o = CONFIG.Dice.randomUniform; CONFIG.Dice.randomUniform = () => 0.5; try { return await fn(); } finally { CONFIG.Dice.randomUniform = o; } };
+    await pinned(() => combat.rollInitiative([c.id]));
     const msg = game.messages.contents.find((m) => !before.has(m.id) && m.speaker?.alias === "ZZ Init Private");
     r.whisper = msg ? msg.whisper.length : "no card";
     r.blind = msg?.blind ?? "no card";
@@ -242,7 +247,8 @@ const flavorLeg = await page.evaluate(async (ids) => {
   const [c] = await combat.createEmbeddedDocuments("Combatant", [{
     actorId: mule.id, tokenId: tok.id, sceneId: scene.id }]);
   const before = new Set(game.messages.contents.map((m) => m.id));
-  await combat.rollInitiative([c.id]);
+  const pinned = async (fn) => { const o = CONFIG.Dice.randomUniform; CONFIG.Dice.randomUniform = () => 0.5; try { return await fn(); } finally { CONFIG.Dice.randomUniform = o; } };
+  await pinned(() => combat.rollInitiative([c.id]));
   const msg = game.messages.contents.find((m) => !before.has(m.id) && m.speaker?.alias === "ZZ Init Mule");
   const passMsg = game.messages.contents.find((m) => m.speaker?.alias === "ZZ Init Pass"
     && m.getFlag("air-bladder", "save"));
@@ -399,8 +405,9 @@ try {
     const mine = combat.combatants.find((c) => c.name === "ZZ Init Mine");
     const notMine = combat.combatants.find((c) => c.name === "ZZ Init Unrolled");
     let threw = null;
+    const pinned = async (fn) => { const o = CONFIG.Dice.randomUniform; CONFIG.Dice.randomUniform = () => 0.5; try { return await fn(); } finally { CONFIG.Dice.randomUniform = o; } };
     try {
-      await combat.rollInitiative([mine.id, notMine.id]);
+      await pinned(() => combat.rollInitiative([mine.id, notMine.id]));
     } catch (e) {
       threw = `${e.name}: ${e.message}`;
     }

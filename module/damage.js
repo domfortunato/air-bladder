@@ -791,8 +791,8 @@ export class Damage {
     static async _rollStrSave(token, html) {
         const roll = await evaluateFormula("d20cs<=@STR", token.actor.getRollData());
         const rolled = roll.terms[0].results[0].result;
-        // A 1 always passes and a 20 always fails (cairnSavePasses).
-        const failed = !cairnSavePasses(rolled, roll.total !== 0);
+        // A 1 passes and a 20 fails (cairnSavePasses).
+        const failed = !cairnSavePasses(rolled, roll.total !== 0, token.actor.system.abilities?.STR?.value);
         // A failed Critical Damage save means the character is taking Critical
         // Damage. STR was already reduced when the damage was applied, so this
         // only offers to flag the status (set by the button; not automatic, per

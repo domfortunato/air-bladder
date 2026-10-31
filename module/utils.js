@@ -32,16 +32,24 @@ export const evaluateFormula = async (formula, data) => {
  * the attribute — a `d20cs<=X` total of 1, or `total <= X` — and the natural
  * die overrides it at both ends.
  *
+ * NOT AT AN ATTRIBUTE OF 0. Zero is not a low score but a state — STR 0 is
+ * death, DEX 0 paralysis, WIL 0 delirium — and a paralysed character does not
+ * act first on a lucky 1. So the natural 1 passes only against an attribute
+ * of 1 or more; the natural 20 fails against anything.
+ *
  * ONE copy for every save (review #34 finding 50): the sheet's ability
  * rolls, the damage flow's STR save and the initiative DEX save each read
  * `roll ≤ ability` and nothing else, so an ability of 20 (four shipped
- * monsters have STR 20) could never fail and an ability of 0 never pass.
+ * monsters have STR 20) could never fail.
  * @param {number} natural         the d20's face
  * @param {boolean} passedByTarget whether the roll met the attribute
+ * @param {number} target          the attribute saved against
  * @returns {boolean}
  */
-export const cairnSavePasses = (natural, passedByTarget) =>
-  natural === 1 ? true : natural === 20 ? false : !!passedByTarget;
+export const cairnSavePasses = (natural, passedByTarget, target) =>
+  natural === 20 ? false
+    : natural === 1 && Number(target) >= 1 ? true
+    : !!passedByTarget;
 
 /* -------------------------------------------- */
 /*  Dice-formula composer / parser              */

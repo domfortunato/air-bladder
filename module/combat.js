@@ -144,7 +144,7 @@ export class CairnCombat extends Combat {
       const die = roll.dice[0];
       const natural = die?.faces === 20 && roll.dice.length === 1 && die.results.length === 1
         ? die.results[0].result : null;
-      const pass = cairnSavePasses(natural, roll.total <= dex);
+      const pass = cairnSavePasses(natural, roll.total <= dex, dex);
       updates.push({ _id: id, initiative: pass ? 1 : -1 });
 
       const messageData = foundry.utils.mergeObject({

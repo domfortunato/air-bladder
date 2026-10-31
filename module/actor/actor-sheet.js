@@ -4507,8 +4507,9 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     if (!dataset.roll) return;
     const roll = await evaluateFormula(dataset.roll, this.actor.getRollData());
     const rolled = roll.terms[0].results[0].result;
-    // A 1 always passes and a 20 always fails, whatever the ability.
-    const failed = !cairnSavePasses(rolled, roll.total !== 0);
+    // A 1 passes and a 20 fails, whatever the ability (cairnSavePasses).
+    const failed = !cairnSavePasses(rolled, roll.total !== 0,
+      this.actor.system.abilities?.[dataset.ability]?.value);
     const str = this.actor.system.abilities?.STR;
     const offerCrit =
       dataset.ability === "STR" && failed &&
