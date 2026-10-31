@@ -678,6 +678,50 @@ const r = await page.evaluate(async ({ xssName }) => {
   } finally { i18n._setOverlay(null); }
   out.overlayRemoved = !i18n.contentLocalized();
 
+  // A RE-ROLED PERSON (review #34 finding 114). A role change keeps stored
+  // biography on purpose, so a person re-roled to Monster still carries its
+  // pronouns, traits, age and scars; the sheet hides that block for a
+  // non-person and print showed it. And an NPC re-roled to hireling still
+  // stores a Quirk and a Goal, which the trait sentence named although no row
+  // of the hireling's offers them. The witness prints the same actor while it
+  // is still a person, so the plant is proved to reach paper first.
+  {
+    const pageText = async (actor) => {
+      await actor.sheet.render(true);
+      await sleep(400);
+      const calls = [];
+      let popup = null;
+      window.open = (...a) => {
+        popup = origOpen.apply(window, a);
+        Object.defineProperty(popup, "print", { configurable: true, value: () => calls.push(1) });
+        return popup;
+      };
+      actor.sheet.element.querySelector('[data-action="printSheet"]')?.click();
+      for (let i = 0; i < 60 && !calls.length; i++) await sleep(150);
+      window.open = origOpen;
+      const text = popup?.document?.body?.textContent ?? "";
+      popup?.close();
+      await actor.sheet.close();
+      return text;
+    };
+    const bio = { pronouns: "zz/zir", traits: { physique: "ZZ-TRAIT-PHYS", quirk: "ZZ-TRAIT-QUIRK", goal: "ZZ-TRAIT-GOAL" },
+      age: "77", scars: ["ZZ-SCAR-ROW"] };
+    const has = (s) => ({ pron: s.includes("zz/zir"), phys: s.includes("ZZ-TRAIT-PHYS"), scar: s.includes("ZZ-SCAR-ROW") });
+    const reroled = await Actor.create({ name: "ZZ Print Reroled", type: "npc", system: { role: "npc", ...bio } });
+    try {
+      out.reroleAsPerson = has(await pageText(reroled));
+      await reroled.update({ "system.role": "monster" });
+      out.reroleAsMonster = has(await pageText(reroled));
+      await reroled.update({ "system.role": "hireling" });
+      await reroled.sheet.render(true);
+      await sleep(600);
+      out.reroleHirelingSentence = reroled.sheet.element?.querySelector(".trait-sentence")?.textContent ?? null;
+      await reroled.sheet.close();
+    } finally {
+      await reroled.delete();
+    }
+  }
+
   // Things print too (user ruling 2026-08-11, superseding 2026-08-08's "a
   // cart prints on its keeper's page" — the Warden had forgotten containers
   // hold gear worth handing across the table). A thing's page is its CARGO:
@@ -1173,6 +1217,18 @@ check("a hireling's printed Career asks npc.career, the sheet header's namespace
 check("and an NPC's printed Background still asks table.result",
   (r.personSub ?? "").includes("ZZ-ORIGEN-TRADUCIDO"),
   `subtitle="${r.personSub}" — the other half of the role split must keep its own namespace`);
+
+console.log("\na re-roled person (review #34 finding 114)");
+const asP = r.reroleAsPerson ?? {};
+check("witness: a person's page prints its pronouns, traits and scars", asP.pron && asP.phys && asP.scar,
+  JSON.stringify(asP));
+const asM = r.reroleAsMonster ?? {};
+check("re-roled to Monster, the page prints none of them — the sheet hides that block",
+  r.reroleAsMonster && !asM.pron && !asM.phys && !asM.scar, JSON.stringify(asM));
+check("re-roled to hireling, the trait sentence names no Quirk or Goal",
+  typeof r.reroleHirelingSentence === "string" && r.reroleHirelingSentence.includes("ZZ-TRAIT-PHYS")
+    && !r.reroleHirelingSentence.includes("ZZ-TRAIT-QUIRK") && !r.reroleHirelingSentence.includes("ZZ-TRAIT-GOAL"),
+  `sentence=${JSON.stringify(r.reroleHirelingSentence)} — no row of a hireling's offers either, so nothing could clear them`);
 
 console.log("\nthe thing's page");
 check("a container prints its cargo with the AUTHORED slot fraction",
