@@ -278,7 +278,7 @@ class ValdCalendarApp extends foundry.applications.api.HandlebarsApplicationMixi
       month,
       isGM: game.user.isGM,
       headSeasonIcon: month.days[0]?.seasonIcon ?? "",
-      panel: this.#panel(month, selected, now, festivals),
+      panel: await this.#panel(month, selected, now, festivals),
     };
   }
 
@@ -286,7 +286,7 @@ class ValdCalendarApp extends foundry.applications.api.HandlebarsApplicationMixi
    * The day panel: the long date, the season, what is marked on the day, and
    * — for today alone — the weather.
    */
-  #panel(month, at, now, festivals) {
+  async #panel(month, at, now, festivals) {
     const day = month.days.find((d) => d.dayOfMonth === at.day) ?? month.days[0];
     const isToday = month.year === now.year && month.month === now.month && day.dayOfMonth === now.day;
     const components = game.time.calendar.timeToComponents(day.time);
@@ -303,6 +303,17 @@ class ValdCalendarApp extends foundry.applications.api.HandlebarsApplicationMixi
       hidden: f.hidden,
       uuid: f.uuid,
     }));
+    // ENRICHED the way core's own page view enriches it (review #34 finding
+    // 81): `enrichHTML` with `secrets` for the page's owners only is the step
+    // that drops an unrevealed Secret block, and the panel printed the raw
+    // content — so a Warden's Secret paragraph in a SHARED event showed to
+    // every player who opened the day, while their journal sheet hid it.
+    // Content links render as links rather than `@UUID[...]` text too.
+    const TextEditor = foundry.applications.ux.TextEditor.implementation;
+    for (const f of on) {
+      const page = f.uuid ? fromUuidSync(f.uuid) : null;
+      f.text = await TextEditor.enrichHTML(f.text ?? "", { relativeTo: page ?? undefined, secrets: !!page?.isOwner });
+    }
 
     return {
       day: day.dayOfMonth,

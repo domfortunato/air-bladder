@@ -505,6 +505,26 @@ export class CairnItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
   }
 
   /**
+   * Run one read-modify-write of this background's arrays AFTER every earlier
+   * one has landed (review #34 finding 73). Each field commit and each Add /
+   * Remove rebuilds a WHOLE array from `this.item.system` and writes it back,
+   * and a client's `_source` changes only when the server answers. Clicking
+   * Add gear right after typing a name fired the name's `change` at mousedown
+   * and the action at click, a round trip apart, so the action rebuilt the
+   * array from the pre-commit data and wrote the typed name back to blank —
+   * every time the server was further away than a click. One chain per sheet,
+   * so each step reads what the step before it wrote.
+   * @param {() => Promise<*>} fn
+   * @returns {Promise<*>}
+   * @private
+   */
+  _serialWrite(fn) {
+    const run = (this._writeChain ?? Promise.resolve()).then(fn);
+    this._writeChain = run.catch(() => {});
+    return run;
+  }
+
+  /**
    * A deep clone of the background's tables padded to the fixed 2×6 shape,
    * preserving each option's real items (with their itemData snapshots) and
    * containers. Handlers mutate this and write it back, so editing one field on a
@@ -622,52 +642,71 @@ export class CairnItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     const commit = (data, render = false) => item.update(data, { render });
 
     // --- Example names ---------------------------------------------------------
-    on(".bg-name-input", async (ev) => {
-      const names = [...(item.system.names ?? [])];
-      names[Number(ev.currentTarget.dataset.i)] = ev.currentTarget.value;
-      await commit({ "system.names": names });
+    // Every handler reads the field SYNCHRONOUSLY (`currentTarget` is gone once
+    // the event finishes dispatching) and then queues its write behind the
+    // writes before it: `_serialWrite`.
+    on(".bg-name-input", (ev) => {
+      const i = Number(ev.currentTarget.dataset.i), value = ev.currentTarget.value;
+      return this._serialWrite(async () => {
+        const names = [...(item.system.names ?? [])];
+        names[i] = value;
+        await commit({ "system.names": names });
+      });
     });
 
     // --- Starting gear ---------------------------------------------------------
-    on(".bg-gear-name", async (ev) => {
-      const gear = foundry.utils.deepClone(item.system.startingGear ?? []);
-      const i = Number(ev.currentTarget.dataset.i);
-      gear[i].name = ev.currentTarget.value;
-      // Typing a name over a snapshot converts the row back to a by-name pointer.
-      // That flips `isSnapshot`, which draws the camera badge beside this input,
-      // so THIS commit — alone among the six — has something on screen to
-      // correct and must render. Only on the conversion itself: once the
-      // snapshot is gone, further typing in the same field renders nothing, so
-      // the ordinary case still cannot eat a neighbouring field's keystrokes.
-      const wasSnapshot = !!gear[i].itemData;
-      delete gear[i].itemData;
-      await commit({ "system.startingGear": gear }, wasSnapshot);
+    on(".bg-gear-name", (ev) => {
+      const i = Number(ev.currentTarget.dataset.i), value = ev.currentTarget.value;
+      return this._serialWrite(async () => {
+        const gear = foundry.utils.deepClone(item.system.startingGear ?? []);
+        gear[i].name = value;
+        // Typing a name over a snapshot converts the row back to a by-name pointer.
+        // That flips `isSnapshot`, which draws the camera badge beside this input,
+        // so THIS commit — alone among the six — has something on screen to
+        // correct and must render. Only on the conversion itself: once the
+        // snapshot is gone, further typing in the same field renders nothing, so
+        // the ordinary case still cannot eat a neighbouring field's keystrokes.
+        const wasSnapshot = !!gear[i].itemData;
+        delete gear[i].itemData;
+        await commit({ "system.startingGear": gear }, wasSnapshot);
+      });
     });
-    on(".bg-gear-uses", async (ev) => {
-      const gear = foundry.utils.deepClone(item.system.startingGear ?? []);
-      const i = Number(ev.currentTarget.dataset.i);
-      const v = parseInt(ev.currentTarget.value, 10);
-      if (Number.isNaN(v) || v <= 0) delete gear[i].uses;
-      else gear[i].uses = v;
-      await commit({ "system.startingGear": gear });
+    on(".bg-gear-uses", (ev) => {
+      const i = Number(ev.currentTarget.dataset.i), v = parseInt(ev.currentTarget.value, 10);
+      return this._serialWrite(async () => {
+        const gear = foundry.utils.deepClone(item.system.startingGear ?? []);
+        if (Number.isNaN(v) || v <= 0) delete gear[i].uses;
+        else gear[i].uses = v;
+        await commit({ "system.startingGear": gear });
+      });
     });
 
     // --- The two d6 tables -----------------------------------------------------
-    on(".bg-table-question", async (ev) => {
-      const tables = this._normalizedTables();
-      tables[Number(ev.currentTarget.dataset.t)].question = ev.currentTarget.value;
-      await commit({ "system.tables": tables });
+    on(".bg-table-question", (ev) => {
+      const ti = Number(ev.currentTarget.dataset.t), value = ev.currentTarget.value;
+      return this._serialWrite(async () => {
+        const tables = this._normalizedTables();
+        tables[ti].question = value;
+        await commit({ "system.tables": tables });
+      });
     });
-    on(".bg-option-desc", async (ev) => {
-      const tables = this._normalizedTables();
-      tables[Number(ev.currentTarget.dataset.t)].options[Number(ev.currentTarget.dataset.o)].description = ev.currentTarget.value;
-      await commit({ "system.tables": tables });
+    on(".bg-option-desc", (ev) => {
+      const ti = Number(ev.currentTarget.dataset.t), o = Number(ev.currentTarget.dataset.o);
+      const value = ev.currentTarget.value;
+      return this._serialWrite(async () => {
+        const tables = this._normalizedTables();
+        tables[ti].options[o].description = value;
+        await commit({ "system.tables": tables });
+      });
     });
-    on(".bg-option-gold", async (ev) => {
-      const tables = this._normalizedTables();
+    on(".bg-option-gold", (ev) => {
+      const ti = Number(ev.currentTarget.dataset.t), o = Number(ev.currentTarget.dataset.o);
       const v = parseInt(ev.currentTarget.value, 10);
-      tables[Number(ev.currentTarget.dataset.t)].options[Number(ev.currentTarget.dataset.o)].bonusGold = Number.isNaN(v) ? 0 : Math.max(0, v);
-      await commit({ "system.tables": tables });
+      return this._serialWrite(async () => {
+        const tables = this._normalizedTables();
+        tables[ti].options[o].bonusGold = Number.isNaN(v) ? 0 : Math.max(0, v);
+        await commit({ "system.tables": tables });
+      });
     });
   }
 
@@ -733,34 +772,43 @@ export class CairnItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
 
   /** @this {CairnItemSheet} */
   static async #onAddName() {
-    await this.item.update({ "system.names": [...(this.item.system.names ?? []), ""] });
+    await this._serialWrite(() => this.item.update({ "system.names": [...(this.item.system.names ?? []), ""] }));
   }
 
   /** @this {CairnItemSheet} */
   static async #onRemoveName(event, target) {
-    const names = [...(this.item.system.names ?? [])];
-    names.splice(Number(target.dataset.i), 1);
-    await this.item.update({ "system.names": names });
+    const i = Number(target.dataset.i);
+    await this._serialWrite(() => {
+      const names = [...(this.item.system.names ?? [])];
+      names.splice(i, 1);
+      return this.item.update({ "system.names": names });
+    });
   }
 
   /** @this {CairnItemSheet} */
   static async #onAddGear() {
-    await this.item.update({ "system.startingGear": [...(this.item.system.startingGear ?? []), { name: "" }] });
+    await this._serialWrite(() =>
+      this.item.update({ "system.startingGear": [...(this.item.system.startingGear ?? []), { name: "" }] }));
   }
 
   /** @this {CairnItemSheet} */
   static async #onRemoveGear(event, target) {
-    const gear = foundry.utils.deepClone(this.item.system.startingGear ?? []);
-    gear.splice(Number(target.dataset.i), 1);
-    await this.item.update({ "system.startingGear": gear });
+    const i = Number(target.dataset.i);
+    await this._serialWrite(() => {
+      const gear = foundry.utils.deepClone(this.item.system.startingGear ?? []);
+      gear.splice(i, 1);
+      return this.item.update({ "system.startingGear": gear });
+    });
   }
 
   /** @this {CairnItemSheet} */
   static async #onRemoveOptionItem(event, target) {
     const { t: ti, o, i } = target.dataset;
-    const tables = this._normalizedTables();
-    tables[Number(ti)].options[Number(o)].items.splice(Number(i), 1);
-    await this.item.update({ "system.tables": tables });
+    await this._serialWrite(() => {
+      const tables = this._normalizedTables();
+      tables[Number(ti)].options[Number(o)].items.splice(Number(i), 1);
+      return this.item.update({ "system.tables": tables });
+    });
   }
 
   /* -------------------------------------------- */
@@ -801,13 +849,18 @@ export class CairnItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     const snap = snapshotItem(dropped);
     const zone = event.target.closest("[data-drop]");
     if (zone?.dataset.drop === "option") {
-      const tables = this._normalizedTables();
-      tables[Number(zone.dataset.t)].options[Number(zone.dataset.o)].items.push({ name: snap.name, itemData: snap });
-      await this.item.update({ "system.tables": tables });
+      const ti = Number(zone.dataset.t), o = Number(zone.dataset.o);
+      await this._serialWrite(() => {
+        const tables = this._normalizedTables();
+        tables[ti].options[o].items.push({ name: snap.name, itemData: snap });
+        return this.item.update({ "system.tables": tables });
+      });
     } else {
-      const gear = foundry.utils.deepClone(this.item.system.startingGear ?? []);
-      gear.push({ name: snap.name, itemData: snap });
-      await this.item.update({ "system.startingGear": gear });
+      await this._serialWrite(() => {
+        const gear = foundry.utils.deepClone(this.item.system.startingGear ?? []);
+        gear.push({ name: snap.name, itemData: snap });
+        return this.item.update({ "system.startingGear": gear });
+      });
     }
   }
 

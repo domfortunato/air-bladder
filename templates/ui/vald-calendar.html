@@ -118,10 +118,11 @@
                     {{#if this.span}}<p class="cairn-calendar-span">{{this.span}}</p>{{/if}}
                     {{#if this.watch}}<p class="cairn-calendar-span">{{this.watch}}</p>{{/if}}
                     {{!-- Pack HTML, server-sanitized on write like every other
-                          journal page, so a triple-stache is correct here for
-                          the same reason core's own page view uses one. The
-                          Warden's own events are pages too, and travel the
-                          same road. --}}
+                          journal page, and ENRICHED in `#panel` the way core's
+                          page view enriches it (secrets for owners only) — so
+                          a triple-stache is correct here for the same reason
+                          core's own page view uses one. The Warden's own
+                          events are pages too, and travel the same road. --}}
                     <div class="cairn-calendar-festival-text">{{{this.text}}}</div>
                     {{#if this.warden}}
                         {{#if ../isGM}}
