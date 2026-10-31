@@ -664,9 +664,8 @@ const localizeResultCells = (cells) => {
  * its default sentence and the `core.RollTable` flag together, then lets the
  * caller's `messageData.flavor` override the sentence — so a macro's or
  * another package's "Weather for the day" was rewritten to core's default for
- * every viewer, while the stored message kept the text. Core's default always
- * carries the table's name, escaped (roll-table.mjs `toMessage`), in whatever
- * language composed it; a stored flavor that does not is somebody's own line.
+ * every viewer, while the stored message kept the text. See isCoreDrawFlavor
+ * for how core's own sentence is told apart.
  */
 const relabelDrawFlavor = (message, flavor, count) => {
   if (!flavor) return;
@@ -675,11 +674,41 @@ const relabelDrawFlavor = (message, flavor, count) => {
   if (!tableId) return;
   resolveTable(tableId).then((table) => {
     if (!table) return;
-    if (!String(message.flavor ?? "").includes(foundry.utils.escapeHTML(table.name))) return;
+    if (!isCoreDrawFlavor(message.flavor, table, count)) return;
     flavor.textContent = game.i18n.format(`TABLE.DrawFlavor${count > 1 ? "Plural" : ""}`, {
       number: count, name: t("table.name", table.name),
     });
   }).catch((err) => console.error("Air Bladder | draw flavor localization failed", err));
+};
+
+/**
+ * Is a stored draw flavor core's own sentence for this table?
+ *
+ * COMPARED AS TEXT, AND AS THE WHOLE SENTENCE (review #34 finding 238). The
+ * test was "the stored flavor contains `escapeHTML(table.name)`", and both
+ * halves failed: the server's cleaner stores ' and " UNescaped, so a table
+ * named with an apostrophe never matched and kept the composer's language,
+ * while a caller's own line that merely names the table ("Weather: …")
+ * matched and was rewritten. Now the stored HTML is read as text (an inert
+ * <template>, the cleanDescription idiom) and must equal core's sentence —
+ * `TABLE.DrawFlavor[Plural]` with this count and name — in this client's
+ * language or in English, core's fallback. A default composed in a third
+ * language is left as stored: the one case this cannot recognise.
+ * @param {string} stored  `message.flavor`
+ * @param {RollTable} table
+ * @param {number} count   the rendered result rows
+ * @returns {boolean}
+ */
+const isCoreDrawFlavor = (stored, table, count) => {
+  const norm = (s) => String(s ?? "").replace(/\s+/g, " ").trim();
+  const tpl = document.createElement("template");
+  tpl.innerHTML = String(stored ?? "");
+  const text = norm(tpl.content.textContent);
+  const key = `TABLE.DrawFlavor${count > 1 ? "Plural" : ""}`;
+  return [game.i18n.translations, game.i18n._fallback]
+    .map((src) => foundry.utils.getProperty(src ?? {}, key))
+    .filter((s) => typeof s === "string")
+    .some((s) => norm(s.replaceAll("{number}", () => String(count)).replaceAll("{name}", () => table.name)) === text);
 };
 
 const localizeTableResults = (message, root) => {
