@@ -184,7 +184,7 @@ const plantTables = (specs) => page.evaluate(async ({ specs, fixture }) => {
 
 const sweepTables = () => page.evaluate(async ({ names, fixture }) => {
   for (const t of game.tables.filter((x) => names.includes(x.name)
-)) await t.delete();
+    && x.getFlag("air-bladder", "probeFixture") === fixture)) await t.delete();
 }, { names: SENTINEL_TABLES, fixture: FIXTURE });
 // The Type leg compares the dialog's world-first list with the PACK's faction
 // table, so a Warden's copy of that one is held aside too.
@@ -208,6 +208,8 @@ try {
   // table that is not ours, the stand-in included: a world copy shadows the
   // pack and corrupts the stock leg below.
   await sweepTables();
+  const held = await holdAsideWorldTables(page, HELD_ASIDE);
+  console.log(`  note  held aside ${held.length} world table(s) by name: ${held.map((h) => h.name).join(", ") || "none"}`);
 
   await page.evaluate(() => ui.sidebar.changeTab?.("actors", "primary") ?? ui.sidebar.activateTab?.("actors"));
   await page.waitForTimeout(600);
@@ -534,7 +536,7 @@ try {
   await page.evaluate(async ({ ids, names, fixture, standIn }) => {
     for (const id of ids) await game.journal.get(id)?.delete().catch(() => {});
     for (const t of game.tables.filter((x) => names.includes(x.name)
-  )) await t.delete();
+      && x.getFlag("air-bladder", "probeFixture") === fixture)) await t.delete();
     if (standIn) await game.tables.get(standIn)?.delete();
     for (const app of foundry.applications.instances.values()) {
       if (app instanceof foundry.applications.api.DialogV2) await app.close().catch(() => {});
