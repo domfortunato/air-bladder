@@ -2101,6 +2101,14 @@ try {
         });
         return j?.id ?? null;
       });
+      // A WARDEN'S INCIDENTAL WRITE MUST NOT VOUCH FOR IT (review #34 finding
+      // 106). The last-writer test alone was laundered
+      // by any GM write that never looked at the decoy: dragging a journal in
+      // the sidebar re-indexes every sort-0 sibling, and each re-index is a
+      // write stamped with the Warden's id. The Warden makes that write here,
+      // a sort bump, BEFORE the log runs, so the decoy reaches recordWeather
+      // last-written by a GM and the guard must refuse it on what only a
+      // Warden's own document carries: an OWNER key naming a Gamemaster.
       const result = await page.evaluate(async (decoyId) => {
         const settings = game.settings;
         const realGet = settings.get.bind(settings);
@@ -2110,13 +2118,19 @@ try {
         try {
           const wl = await import("/systems/air-bladder/module/weather-log.js");
           const logs = () => game.journal.filter((j) => j.flags?.["air-bladder"]?.weatherLog);
+          const planted = game.journal.get(decoyId);
+          const L = CONST.DOCUMENT_OWNERSHIP_LEVELS;
+          const decoyNamesNoGM = !Object.entries(planted?.ownership ?? {})
+            .some(([id, lvl]) => id !== "default" && lvl >= L.OWNER && game.users.get(id)?.isGM);
+          await planted?.update({ sort: (planted.sort ?? 0) + 1 });
           await wl.recordWeather();
           for (let i = 0; i < 40 && logs().length < 2; i++) await new Promise((r) => setTimeout(r, 100));
           const decoyDoc = game.journal.get(decoyId);
           const mine = logs().filter((j) => j.id !== decoyId);
           const out = {
             decoyExists: !!decoyDoc,
-            decoyCreatedByGM: !!game.users.get(decoyDoc?._stats?.lastModifiedBy)?.isGM,
+            decoyNamesNoGM,
+            decoyTouchedByGM: !!game.users.get(decoyDoc?._stats?.lastModifiedBy)?.isGM,
             decoyPages: decoyDoc?.pages?.size ?? -1,
             wardenLogs: mine.length,
             wardenLogPages: mine[0]?.pages?.size ?? 0,
@@ -2134,9 +2148,11 @@ try {
         await rejoin(1).catch((e) => note(`Alice's rejoin after the restore failed: ${e.message}`));
       }
     })();
-    decoy.decoyExists && !decoy.decoyCreatedByGM && decoy.decoyPages === 0
-      && decoy.wardenLogs === 1 && decoy.wardenLogPages === 1 && decoy.wardenLogByGM
-      ? ok("a player's flagged decoy captures nothing: the Warden's line lands in a journal a Warden made")
+    decoy.decoyExists && decoy.decoyNamesNoGM && decoy.decoyTouchedByGM
+      ? ok("witness: the decoy is Alice's, names no Gamemaster, and a Warden's write was its last")
+      : fail("the decoy is not the shape this leg needs", JSON.stringify(decoy));
+    decoy.decoyPages === 0 && decoy.wardenLogs === 1 && decoy.wardenLogPages === 1 && decoy.wardenLogByGM
+      ? ok("a player's flagged decoy captures nothing, even after a Warden's write: the line lands in a journal a Warden made")
       : fail("the log wrote into a player's decoy journal", JSON.stringify(decoy));
 
     /* ---- a writer who no longer exists ----------------------------------- */
@@ -2160,14 +2176,26 @@ try {
       if (!gm || !player) return { skipped: true };
       const GONE = "zzzzGoneUser00000";
       return {
-        // Ours: OBSERVER to the table, nobody named, writer gone.
-        oursGoneWriter: ce.isWardenJournal(
+        // NAMES NOBODY, writer gone (review #34 finding 106). This row used to
+        // be "ours" and expected true, but no journal of ours has this shape
+        // (see the next row), while a PLAYER's decoy can: the server lets a
+        // non-GM remove their own key, so a decoy created OBSERVER-to-all and
+        // then stripped of its creator's key names nobody. Refused.
+        nobodyNamedGoneWriter: ce.isWardenJournal(
           { _stats: { lastModifiedBy: GONE }, ownership: { default: L.OBSERVER } }),
+        // ...and the same two decoys after a Warden's incidental write (a
+        // sidebar re-index stamps every sort-0 sibling): last written by a GM,
+        // and still nobody's but the player's. The last-writer test alone
+        // answered true for both.
+        decoyWardenTouched: ce.isWardenJournal(
+          { _stats: { lastModifiedBy: gm.id }, ownership: { default: L.NONE, [player.id]: L.OWNER } }),
+        nobodyNamedWardenTouched: ce.isWardenJournal(
+          { _stats: { lastModifiedBy: gm.id }, ownership: { default: L.OBSERVER } }),
         // THE SHAPE A REAL JOURNAL ACTUALLY HAS, and the row whose absence let
         // the deleted-GM bug survive the fix that claimed to close it (review
-        // #29). The four rows above and below are hand-built objects, and the
-        // "ours" one names NOBODY — a document shape that never exists in a
-        // world. The SERVER stamps the creating user as an explicit OWNER entry
+        // #29). The rows above and below are hand-built objects, and the "ours"
+        // row then named NOBODY — a shape no journal of ours has, and since
+        // finding 106 a refused one. The SERVER stamps the creating user as an explicit OWNER entry
         // on anything with an ownership field, GM included and with no role
         // test (dist/database/backend/server-document.mjs,
         // ServerDocumentMixin#_preCreate), and nothing sweeps it when the
@@ -2188,14 +2216,16 @@ try {
         decoyLiveOwnerGoneWriter: ce.isWardenJournal(
           { _stats: { lastModifiedBy: GONE },
             ownership: { default: L.OBSERVER, [gm.id]: L.OWNER, [player.id]: L.OWNER } }),
-        // The two the guard already answered, unchanged. NOTE `livePlayer` is
+        // The two the guard already answered. `liveWarden` carries the creating
+        // Warden's stamp, as every real journal does; since finding 106 the
+        // guard requires it. NOTE `livePlayer` is
         // ALSO the demoted-Warden shape, and that ambiguity is precisely why
         // demotion is not covered: after a demotion the ex-Warden is a
         // resolvable non-GM holding OWNER, which is byte-identical to a
         // player's decoy. See the docblock on `isWardenJournal`. Do not "fix"
         // this row without deciding that question first.
         liveWarden: ce.isWardenJournal(
-          { _stats: { lastModifiedBy: gm.id }, ownership: { default: L.OBSERVER } }),
+          { _stats: { lastModifiedBy: gm.id }, ownership: { default: L.OBSERVER, [gm.id]: L.OWNER } }),
         livePlayer: ce.isWardenJournal(
           { _stats: { lastModifiedBy: player.id }, ownership: { default: L.OBSERVER } }),
       };
@@ -2203,12 +2233,14 @@ try {
     if (dangling.skipped) {
       fail("the dangling-writer legs need a player user", "run npm run dev:players");
     } else {
-      dangling.oursGoneWriter
-        ? ok("a journal whose writer was deleted is still ours", "unknown is not the same as a player")
-        : fail("a deleted GM orphans the calendar and the weather log",
-          "isWardenJournal answered false for a journal granting OBSERVER and naming nobody");
+      dangling.nobodyNamedGoneWriter === false
+        ? ok("a journal naming nobody is vouched for by nobody", "a player's decoy can drop its own key; ours never lack the Warden's")
+        : fail("a journal naming nobody was adopted", JSON.stringify(dangling));
+      dangling.decoyWardenTouched === false && dangling.nobodyNamedWardenTouched === false
+        ? ok("a Warden's incidental write does not adopt a player's decoy", "no OWNER key names a Gamemaster")
+        : fail("a sidebar re-index launders a player's decoy into a Warden's journal", JSON.stringify(dangling));
       dangling.oursGoneWriterRealShape
-        ? ok("...including one carrying the server's own creator stamp",
+        ? ok("a journal whose writer was deleted is still ours",
           "the shape a real journal has: {default: OBSERVER, <goneWardenId>: OWNER}")
         : fail("a deleted GM STILL orphans the calendar — the real document shape is refused",
           "every journal carries an explicit OWNER entry for its creator (server _preCreate); "
