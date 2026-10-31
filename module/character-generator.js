@@ -3377,7 +3377,14 @@ export const changeBackground = async (actor, newBg = null, { ignoreHandBuilt = 
       if (BG_GRANT_SOURCES.includes(src)) claimedNames.set(i.name, (claimedNames.get(i.name) ?? 0) + 1);
     }
   }
-  for (const g of oldBg?.system?.startingGear ?? []) {
+  // NOT ON A HAND-BUILT SHEET (review #34 finding 61), whatever
+  // `ignoreHandBuilt` says. The name-matcher exists for characters made before
+  // grants were tagged; a hand-built sheet was never handed an untagged grant
+  // (the flag is cleared before any grant lands), so every untagged item on it
+  // is the owner's own transcription — and the matcher was deleting one per
+  // old-background ref, silently, with nothing granted back.
+  const legacyRefs = isHandBuilt(actor) ? [] : (oldBg?.system?.startingGear ?? []);
+  for (const g of legacyRefs) {
     const n = claimedNames.get(g.name) ?? 0;
     if (n > 0) { claimedNames.set(g.name, n - 1); continue; }
     const hit = actor.items.find(

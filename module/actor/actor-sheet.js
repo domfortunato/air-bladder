@@ -2005,12 +2005,18 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       pm.querySelector("button.toggle")?.click();
     });
 
-    // Stat inputs (HP + abilities, current & max) are numeric and capped 0-18.
+    // Stat inputs (HP + abilities, current & max) are numeric and never
+    // negative; a CHARACTER's are capped at 18. The npc sheet serves every
+    // monster, and nothing caps a monster: the schema has no ceiling and the
+    // shipped bestiary runs to HP 30 and STR 20, which a Warden's hand edit was
+    // silently cutting to 18 (review #34 finding 52; the npc template's
+    // `max="18"` went with it).
+    const statCap = this.actor.type === "character" ? 18 : Infinity;
     on(".stat-input", "change", (ev) => {
       const input = ev.currentTarget;
       let n = Math.round(Number(input.value));
       if (!Number.isFinite(n)) n = 0;
-      n = Math.min(18, Math.max(0, n));
+      n = Math.min(statCap, Math.max(0, n));
       if (String(n) !== input.value) input.value = n;
     });
 
@@ -2396,6 +2402,15 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       return null;
     }
     if (!this._mayChangeBackground()) return null;
+    // The picker's own refusal (review #34 finding 51): the drop is the same
+    // operation as the magnifier and the die, both wrapped in `mayRandomize`,
+    // so with the Warden's Character Creation tools switched off for players a
+    // drag from the Backgrounds compendium was the way around them — a swap,
+    // freshly rolled starting gear and question coins included.
+    if (!this._mayRandomize()) {
+      ui.notifications.warn(game.i18n.localize("CAIRN.Notify.RandomizationDisabled"));
+      return null;
+    }
     // Through the content overlay, like every other background-name surface: the
     // sheet header (_prepareContext), the picker and the failed-career list all
     // show `t("bg.name", …)`, so naming the raw English here would ask a Spanish
@@ -3676,8 +3691,14 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    */
   static async #onRollProfession(event) {
     event.preventDefault();
-    if (this.actor.npcRole === "npc") await rerollNpcBackground(this.actor);
-    else await rerollHirelingCareer(this.actor);
+    if (this._rerolling) return;   // guard the double-click delete/create race (review #34 finding 58)
+    this._rerolling = true;
+    try {
+      if (this.actor.npcRole === "npc") await rerollNpcBackground(this.actor);
+      else await rerollHirelingCareer(this.actor);
+    } finally {
+      this._rerolling = false;
+    }
   }
 
   /**
@@ -4889,7 +4910,10 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     if (!ref) return;
     const rolled = (await rollTextItems({ [key]: ref }))[key];
     if (!rolled) return;
-    await this.actor.update({ [`system.traits.${key}`]: rolled });
+    // A ROLL, not a hand edit, so no change-log card (review #34 finding 57):
+    // the Roll Character checklist writes the same field with the same flag,
+    // and the setting's hint promises rolled generation is never logged.
+    await this.actor.update({ [`system.traits.${key}`]: rolled }, { abNoStatusCard: true });
   }
 
   /**
@@ -4925,7 +4949,13 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    */
   static async #onRollBackground(event) {
     event.preventDefault();
-    await changeBackground(this.actor, null);
+    if (this._rerolling) return;   // guard the double-click delete/create race (review #34 finding 58)
+    this._rerolling = true;
+    try {
+      await changeBackground(this.actor, null);
+    } finally {
+      this._rerolling = false;
+    }
   }
 
   /**
@@ -4957,10 +4987,18 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    *  a fresh keepsake item. @this {CairnActorSheet} */
   static async #onRollFailedCareer(event) {
     event.preventDefault();
-    const name = await rollFailedCareerName(this.actor.system.background);
-    if (!name) return;
-    await this.actor.update({ "system.failedCareer": name });
-    await this._grantFailedCareerItem(name);
+    // The NAME write sits outside `_grantFailedCareerItem`'s own guard, so a
+    // second click stored career B with career A's keepsake still in flight.
+    if (this._rerolling) return;   // guard the double-click delete/create race (review #34 finding 58)
+    this._rerolling = true;
+    try {
+      const name = await rollFailedCareerName(this.actor.system.background);
+      if (!name) return;
+      await this.actor.update({ "system.failedCareer": name });
+      await this._grantFailedCareerItem(name);
+    } finally {
+      this._rerolling = false;
+    }
   }
 
   /** Magnifier on the Barebones "Failed career" line: choose a different one.

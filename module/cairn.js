@@ -4037,8 +4037,17 @@ const configureHandleBar = () => {
   // also handed container contents, which no sheet context walks.
   Handlebars.registerHelper("damageDiceIcons", (formula) => damageDiceIcons(formula));
 
-  Handlebars.registerHelper("times", function (n, block) {
+  // BOUNDED (review #34 finding 54). Both callers are driven by a number an
+  // owner types — coin rows by gold, use pips by uses.max — with no ceiling in
+  // the schema, so one keystroke (gold 1e9) built millions of rows and stalled,
+  // then broke, the sheet on every client that had it open: the Warden's
+  // included. Review #33 bounded the damage-dice glyph loop for the same
+  // reason. A hundred is far past any real inventory or counter, and the
+  // stored value is untouched; only the drawing stops.
+  const TIMES_CEILING = 100;
+  Handlebars.registerHelper("times", function (count, block) {
     var accum = "";
+    var n = Math.min(Number(count) || 0, TIMES_CEILING);
     for (var i = 0; i < n; ++i) {
       block.data.index = i;
       block.data.first = i === 0;
