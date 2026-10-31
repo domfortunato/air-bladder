@@ -645,9 +645,12 @@ try {
     });
     const late = await Cls.create({ name: late2, type: "npc", system: { role: "npc" } });
     await pack.configure({ locked: true });
+    // The start from the document's OWN server stamp, not `game.time.serverTime`:
+    // that is an estimate, and can sit a few ms before a stamp the server just
+    // wrote — reading the pack's person as made AFTER the attempt.
     if (game.settings.settings.has("air-bladder.hireling-split-pending")) {
       await game.settings.set("air-bladder", "hireling-split-pending", {
-        started: game.time.serverTime, packs: [pack.collection],
+        started: inPack._source._stats.createdTime + 1, packs: [pack.collection],
       });
     }
     return { collection: pack.collection, inPackId: inPack.id, lateId: late.id,
@@ -662,7 +665,16 @@ try {
   await page.reload({ waitUntil: "networkidle", timeout: 60000 });
   await page.waitForFunction(() => globalThis.game?.ready === true, null, { timeout: 90000 });
   await dismissChrome(page);
-  await page.waitForTimeout(3000);
+  // Until the ready-time migration is DONE, not a fixed pause: the phases run
+  // in sequence and the split is not the first, so a read 3 s in raced it (the
+  // first green run read the pack as untouched and the cleared record a moment
+  // later). The record empties as the split's last act; the unfixed code never
+  // empties it, and times out here into the red reads below.
+  await page.waitForFunction(() => {
+    const has = game.settings.settings.has("air-bladder.hireling-split-pending");
+    const v = has ? game.settings.get("air-bladder", "hireling-split-pending") : null;
+    return has && v && Object.keys(v).length === 0;
+  }, null, { timeout: 20000 }).catch(() => {});
 
   const packAfter = await rawPackRole(packLeg.collection, packLeg.inPackId);
   packAfter === "hireling"

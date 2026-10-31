@@ -462,6 +462,14 @@ try {
     try {
       document.querySelector(`[data-message-id="${msgId}"] .encounter-spawn`)?.click();
       for (let i = 0; i < 50 && !out.toasts.length; i++) await new Promise((r) => setTimeout(r, 200));
+      // Core echoes a notification to console when it is DISPLAYED (`#fetch`),
+      // not when it is raised: with MAX_ACTIVE toasts already showing it QUEUES,
+      // and the echo landed after the filter below was taken down, red on the
+      // zero-errors leg (fleet 20261031T043716Z). So the filter stays up until
+      // the toast is on screen.
+      const shown = () => [...document.querySelectorAll("#notifications .notification")]
+        .some((n) => n.textContent.includes(wantText));
+      for (let i = 0; i < 100 && out.toasts.length && !shown(); i++) await new Promise((r) => setTimeout(r, 200));
     } finally {
       SceneCls.prototype.createEmbeddedDocuments = origCreate;
       console.error = origError;

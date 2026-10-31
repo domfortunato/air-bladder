@@ -83,7 +83,10 @@ try {
     const flags = { "air-bladder": { [FLAG]: true } };
 
     // 1. The initiative save of a HIDDEN combatant, through the real roll.
-    //    DEX 20 cannot fail a d20 save, so the outcome is forced by fixture.
+    //    DEX 20 passes every d20 save EXCEPT a natural 20, which always fails
+    //    (review #34 finding 50). So the die is PINNED (u = 0.5, a natural 11),
+    //    as dev:combat-order does. "DEX 20 cannot fail" made the control red on
+    //    one roll in twenty (fleet 20261031T043716Z).
     const scene = await Scene.create({ name: `${MARK} Scene`, width: 1000, height: 1000, flags });
     await scene.view();
     await sleep(300);
@@ -105,7 +108,13 @@ try {
       { actorId: shown.a.id, tokenId: shown.t.id, sceneId: scene.id },
     ]);
     const before = new Set(game.messages.map((m) => m.id));
-    await combat.rollInitiative([ch.id, cs.id]);
+    const priorUniform = CONFIG.Dice.randomUniform;
+    CONFIG.Dice.randomUniform = () => 0.5;
+    try {
+      await combat.rollInitiative([ch.id, cs.id]);
+    } finally {
+      CONFIG.Dice.randomUniform = priorUniform;
+    }
     await sleep(400);
     const fresh = game.messages.filter((m) => !before.has(m.id));
     out.initHidden = fresh.find((m) => m.speaker?.alias === `${MARK} Hidden`)?.id ?? null;
