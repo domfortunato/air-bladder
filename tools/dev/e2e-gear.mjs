@@ -232,6 +232,64 @@ try {
     ? ok("...and a compendium actor's rows offer no Give")
     : fail("a compendium actor's item offers Give — delivery would take it out of the pack");
 
+  // THE OTHER DIRECTION (review #34 finding 169): an item dragged from a WORLD
+  // actor onto an open compendium actor's sheet. The handler never asked
+  // whether the TARGET is a pack entry, so the copy landed there and the
+  // source write then took the unit out of play. Core only copies there, and
+  // canDrop / canReceiveOffer already refuse a pack. And a drag WITHIN one
+  // compendium actor's sheet is a reorder: the item count must not change.
+  const packTarget = await page.evaluate(async () => {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const dropOn = async (sheet, uuid) => {
+      const dt = new DataTransfer();
+      dt.setData("text/plain", JSON.stringify({ type: "Item", uuid }));
+      try { await sheet._onDrop(new DragEvent("drop", { dataTransfer: dt })); } catch { /* refused */ }
+      await sleep(800);
+    };
+    let pack = null;
+    let pc = null;
+    try {
+      pack = game.packs.get("world.zz-probe-gear-actors-2")
+        ?? await foundry.documents.collections.CompendiumCollection.createCompendium({
+          label: "ZZ Probe Gear Actors 2", name: "zz-probe-gear-actors-2", type: "Actor", packageType: "world",
+        });
+      const [entry] = await Actor.createDocuments([{
+        name: "ZZ Gear Pack Keeper", type: "npc", system: { role: "npc" },
+        items: [{ name: "ZZ Gear Pack Rope", type: "item" }, { name: "ZZ Gear Pack Chalk", type: "item" }],
+      }], { pack: pack.collection });
+      pc = await Actor.create({ name: "ZZ Gear World Giver", type: "character",
+        items: [{ name: "ZZ Gear World Torch", type: "item", system: { quantity: 2 } }] });
+      const torch = pc.items.find((i) => i.name === "ZZ Gear World Torch");
+      await entry.sheet.render(true);
+      for (let i = 0; i < 30 && !entry.sheet.element; i++) await sleep(100);
+      await dropOn(entry.sheet, torch.uuid);
+      const afterIn = await pack.getDocument(entry.id);
+      const rope = afterIn.items.find((i) => i.name === "ZZ Gear Pack Rope");
+      const countBefore = afterIn.items.size;
+      await dropOn(afterIn.sheet, rope.uuid);
+      const afterSort = await pack.getDocument(entry.id);
+      try { await entry.sheet.close(); } catch { /* gone */ }
+      try { await afterSort.sheet.close(); } catch { /* gone */ }
+      return {
+        landedInPack: afterIn.items.filter((i) => i.name === "ZZ Gear World Torch").length,
+        worldQty: pc.items.find((i) => i.name === "ZZ Gear World Torch")?.system.quantity ?? null,
+        countBefore, countAfterSort: afterSort.items.size,
+        // A same-name drop MERGES into the stack rather than adding a row, so
+        // the count alone could miss a copy: the quantity says it.
+        ropeQty: afterSort.items.find((i) => i.name === "ZZ Gear Pack Rope")?.system.quantity ?? null,
+      };
+    } finally {
+      try { await pc?.delete(); } catch { /* gone */ }
+      try { await pack?.deleteCompendium(); } catch { /* gone */ }
+    }
+  });
+  packTarget.landedInPack === 1 && packTarget.worldQty === 2
+    ? ok("an item dragged ONTO a compendium actor is copied; the world actor keeps it", JSON.stringify(packTarget))
+    : fail(`a drag onto a compendium actor took the unit out of play: ${JSON.stringify(packTarget)}`);
+  packTarget.countAfterSort === packTarget.countBefore && packTarget.ropeQty === 1
+    ? ok("...and a drag within one compendium actor's sheet is a reorder, not a copy")
+    : fail(`a drag within a compendium actor's sheet duplicated the item: ${JSON.stringify(packTarget)}`);
+
   // A BACKGROUND'S WEAPONS AND ARMOUR ARRIVE EQUIPPED, WHEREVER IN THE BACKGROUND
   // THEY COME FROM (review #34 finding 224). Only the starting gear was equipped;
   // a question's or a bond's grant kept whatever its pack document stored, and
