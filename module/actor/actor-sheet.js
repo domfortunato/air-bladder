@@ -1,5 +1,5 @@
 import { dieIconOrGeneric } from "../utils.js";
-import { canRegenerateContainers, drawBond, bondRecordFrom, withGrantSource, bondEntitlement, resolveRefs, replaceGrantedContainers, promptBackground, changeBackground, promptFailedCareer, rollFailedCareerName, buildFailedCareerItem, getPortraitManifest, pairedTokenFor, randomPortraitInSameFolder, portraitCategoryFor, regenerateNpc, regenerateHireling, rerollNpcBackground, rerollHirelingCareer, rerollNpcName, rerollNpcFaction, promptHirelingCareer, promptNpcBackground, promptNpcFaction, promptPickOmen, promptPickBond, promptPickQuestionOption, promptPickName, findOmensTable, rollNameFromTable, rollAge, rollTextItems, effectiveAgeFormula, effectivePcAbilityFormula, effectivePcGoldFormula, effectivePcHpFormula, rollPcHitProtection, resolveActorBackground, redealBackgroundGear, rerollAllBonds, reorderInventory, postGenerationRolls, isHandBuilt, clearHandBuilt, FLAG_SCOPE } from "../character-generator.js";
+import { canRegenerateContainers, drawBond, bondRecordFrom, withGrantSource, bondEntitlement, resolveRefs, replaceGrantedContainers, promptBackground, changeBackground, promptFailedCareer, rollFailedCareerName, buildFailedCareerItem, getPortraitManifest, pairedTokenFor, randomPortraitInSameFolder, portraitCategoryFor, regenerateNpc, regenerateHireling, rerollNpcBackground, rerollHirelingCareer, rerollNpcName, rerollNpcFaction, promptHirelingCareer, promptNpcBackground, promptNpcFaction, promptPickOmen, promptPickBond, promptPickQuestionOption, promptPickName, findOmensTable, rollNameFromTable, rollAge, rollTextItems, effectiveAgeFormula, effectivePcAbilityFormula, effectivePcGoldFormula, effectivePcHpFormula, rollPcHitProtection, resolveActorBackground, redealBackgroundGear, rerollAllBonds, reorderInventory, postGenerationRolls, isHandBuilt, clearHandBuilt, isBackgroundDisabled, FLAG_SCOPE } from "../character-generator.js";
 import { promptMonsterTier, regenerateMonster } from "../monster-generator.js";
 import { openMarketplace, TRANSPORTS_CATEGORY } from "../marketplace.js";
 import { evaluateFormula, cairnSavePasses, cleanDescription, holdsProse, bindEditorClickAwaySave, formatCount, sourceLabel, askDamageQuality, damageFormulaFor, damageQualityLabel, damageQualityKind, d20CardBody, d20CardFlavor, D20_CARD_ABILITIES, combatOption, combatDamageFormula, askImprovisedAttack, IMPROVISED_FORMULA } from "../utils.js";
@@ -2424,6 +2424,17 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // freshly rolled starting gear and question coins included.
     if (!this._mayRandomize()) {
       ui.notifications.warn(game.i18n.localize("CAIRN.Notify.RandomizationDisabled"));
+      return null;
+    }
+    // The eye toggle (review #34 finding 51, part 2; user ruling 2026-10-31). A
+    // 2e background the Warden switched off is out of every roll, and the
+    // picker renders its radio DISABLED for the Warden as well — so the drop
+    // refuses it for everyone, the Warden included, rather than being the one
+    // way around the eye. By id, as the picker asks (`isBackgroundDisabled`),
+    // so a stand-in copy of a switched-off background is refused with it. 2e
+    // only: Barebones has no eye. Core escapes the format argument.
+    if (bgSource === "2e" && isBackgroundDisabled(bg)) {
+      ui.notifications.warn(game.i18n.format("CAIRN.Notify.BackgroundSwitchedOff", { name: t("bg.name", bg.name) }));
       return null;
     }
     // Through the content overlay, like every other background-name surface: the

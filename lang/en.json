@@ -599,6 +599,7 @@
     "ArtPickFailed": "Couldn't change the picture — you may not have permission to change this sheet.",
     "ImprovisedNotYours": "You can only make an improvised attack for a character you control.",
     "BackgroundNotCharacter": "Only a player character has a background.",
+    "BackgroundSwitchedOff": "{name} is not one of this campaign's backgrounds.",
     "BackgroundWrongSource": "That is a {backgroundEdition} background and this is a {characterEdition} character. A character does not change edition.",
     "BadAgeFormula": "The Age formula setting (\"{formula}\") is not a valid dice formula — the default was rolled instead.",
     "BadPcHpFormula": "The Hit Protection formula setting (\"{formula}\") is not a valid dice formula — the default was rolled instead.",
