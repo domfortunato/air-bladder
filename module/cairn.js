@@ -3905,9 +3905,12 @@ Hooks.on("renderChatMessageHTML", (message, html, data) => {
       // copy — the Warden's, a co-owner's, the notification pane, the same card
       // after a reload — stayed live, and the same overflow could be saved
       // twice with each card offering its own Critical Damage. Recorded BEFORE
-      // the roll, the choice pair's order; where it cannot be recorded (no
-      // Warden connected for an owner who is not the card's author) the save
-      // still rolls, as it always did, sealed only on this screen.
+      // the roll, the choice pair's order — and like the pair, a Warden who
+      // answers "already spent" stops it (review #34 finding 214: the answer
+      // used to be thrown away). Where it cannot be recorded (no Warden
+      // connected for an owner who is not the card's author, or a query that
+      // never answered) the save still rolls, as it always did, sealed only on
+      // this screen.
       if (btn && message.getFlag(FLAG_SCOPE, STR_SAVE_FLAG)) {
         btn.setAttribute("disabled", "disabled");
       } else if (btn) {
@@ -3918,12 +3921,14 @@ Hooks.on("renderChatMessageHTML", (message, html, data) => {
             if (message.isAuthor || game.user.isGM) {
               await message.setFlag(FLAG_SCOPE, STR_SAVE_FLAG, true);
             } else if (game.users.activeGM) {
+              let recorded = null;
               try {
-                await game.users.activeGM.query(CHOICE_QUERY,
+                recorded = await game.users.activeGM.query(CHOICE_QUERY,
                   { messageId: message.id, kind: "strSave" }, { timeout: 15000 });
               } catch (err) {
                 console.warn("Air Bladder | the Warden's client did not record the STR save:", err);
               }
+              if (recorded === false) return;   // spent, by the Warden's own copy
             }
             await Damage._rollStrSave(token, html);
           } finally {
