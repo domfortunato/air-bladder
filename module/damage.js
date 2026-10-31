@@ -252,13 +252,23 @@ export class Damage {
         }
 
         const armor = token.actor.system.armor;
-        // HP comes from SOURCE, not the derived value. _prepareCharacterData zeroes
-        // system.hp.value whenever the actor is encumbered or panicked, and this
-        // result is written straight back with update() — so reading the derived 0
-        // and persisting it destroyed the stored Hit Protection, even when armor
-        // absorbed the hit entirely (dmg 0 <= hp 0 still writes 0). Armor and STR
-        // are safe to read derived; only HP is overwritten during data prep.
-        const hp = token.actor.toObject().system.hp.value;
+        // THE HIT IS JUDGED AGAINST THE HP EVERYONE SEES (review #34 finding 46,
+        // user ruling 2026-10-31). _prepareCharacterData zeroes system.hp.value
+        // whenever the actor is encumbered (for whoever `livesByPlayerRules`) or
+        // panicked, and a hit on 0 HP goes to STR — so that is where it goes. From
+        // review #1 until this ruling the hit was judged against the STORED HP
+        // underneath, and a character showing 0 took a hit as hidden HP loss with
+        // no STR damage and no STR save.
+        //
+        // Review #1's own bug stays fixed, more strongly: reading the derived 0
+        // and writing it back destroyed the stored Hit Protection, even when armor
+        // absorbed the whole hit. While the rule zeroes HP, HP is NOT WRITTEN at
+        // all, so the stored value comes back intact when the load or the panic
+        // lifts. Armor and STR are safe to read derived; only HP is overwritten
+        // during data prep.
+        const storedHp = token.actor.toObject().system.hp.value;
+        const hp = token.actor.system.hp.value;
+        const zeroedByRule = hp === 0 && storedHp !== 0;
         const str = token.actor.system.abilities.STR.value;
 
         let { dmg, newHp, newStr } = this._calculateHpAndStr(damage, armor, hp, str);
@@ -270,7 +280,9 @@ export class Damage {
         // reading "Dead" above the "Damage: 5" that caused it. _showDetails posts
         // it instead, in order. See postStatusCard.
         await token.actor.update(
-            { 'system.hp.value': newHp, 'system.abilities.STR.value': newStr },
+            zeroedByRule
+                ? { 'system.abilities.STR.value': newStr }
+                : { 'system.hp.value': newHp, 'system.abilities.STR.value': newStr },
             { abNoStatusCard: true });
 
         return { token, pool: "hp", dmg, damage, armor, hp, str, newHp, newStr };

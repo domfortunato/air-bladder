@@ -487,7 +487,10 @@ Listed so a review does not re-litigate them. Argue against the reason, not the 
   a one-button prompt. PC confirm has no tip; PC tooltip is `RestRationTip`;
   `CAIRN.RestTip` stays for NPCs. Gates `dev:rest`, `dev:change-log`.
 - **Encumbered = no free slot** (`slotsUsed >= slotsMax`) → HP 0. So does panic.
-  **CLOSED: the threshold is not changing.**
+  **CLOSED: the threshold is not changing.** A hit on that 0 is judged against
+  it — the damage goes to STR — and stored HP is not written while the rule
+  zeroes it (review #34 F046, user ruling 2026-10-31, reversing review #1's
+  stored-HP judgement; gate `dev:enc-damage`).
 - **Overflow is owed, never merely allowed.** A character may exceed the limit only
   for: generation and background grants; Fatigue (`ignoreCapacity: true`); an
   accepted gift after the recipient's informed confirm. A thing/companion/monster
