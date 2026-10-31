@@ -385,8 +385,16 @@ export class CairnActor extends Actor {
         { ...options, types: ["character", "npc"] }, renderOptions);
     }
     const folder = data.folder ?? null;
+    // CHARACTER UNDER THE WARDEN'S SWITCH (review #34 finding 250), the test
+    // the directory's Create PC button asks: a player with Create New Actors
+    // reaches this from a folder's "+", which the directory keeps, and rolled
+    // a whole character with "Allow players to create new player characters"
+    // off. createActorInteractive refuses behind it.
+    const mayMakePc = game.user.isGM || game.settings.get(SETTINGS_NS, "allow-player-generate");
     const choices = [
-      ["character", game.i18n.localize(CONFIG.Actor.typeLabels?.character ?? "TYPES.Actor.character")],
+      ...(mayMakePc
+        ? [["character", game.i18n.localize(CONFIG.Actor.typeLabels?.character ?? "TYPES.Actor.character")]]
+        : []),
       ["npc", game.i18n.localize("CAIRN.RoleNpc")],
       ["hireling", game.i18n.localize("CAIRN.RoleHireling")],
       ...(game.user.isGM ? [["monster", game.i18n.localize("CAIRN.RoleMonster")]] : []),

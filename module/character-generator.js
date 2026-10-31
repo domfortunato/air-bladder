@@ -2646,6 +2646,14 @@ const promptCharacterCreation = async () => {
  */
 export const createActorInteractive = async (kind, { folder = null, windowId = null } = {}) => {
   if (kind === "character") {
+    // THE WARDEN'S SWITCH, ENFORCED (review #34 finding 250). Both entry
+    // points hide their affordance while it is off (the directory's button,
+    // the switchboard's row); this is the refusal behind them, in the
+    // sentence the generatePC broker already answers with.
+    if (!game.user.isGM && !game.settings.get(SETTINGS_NS, "allow-player-generate")) {
+      ui.notifications.warn(game.i18n.localize("CAIRN.Notify.PcGenDisabled"));
+      return null;
+    }
     const answer = await promptCharacterCreation();
     if (!answer) return null;
     // PLAYER CHARACTERS LAND IN THE PARTY FOLDER (2026-10-02, user ask), made on
