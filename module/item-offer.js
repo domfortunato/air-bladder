@@ -148,7 +148,14 @@ export const buildOfferItemData = (item) => {
   delete data._id;
   data.sort = 0;
   data.system = { ...data.system, equipped: false, quantity: 1 };
-  if (data.flags?.[SCOPE]) delete data.flags[SCOPE].grantSource;
+  if (data.flags?.[SCOPE]) {
+    delete data.flags[SCOPE].grantSource;
+    // The pile's "Where?" note (review #34 finding 157): written only by the
+    // pile's own Drop, never carried in. A gift to the pile kept the place an
+    // earlier drop left on the item, or a note of any length its owner wrote
+    // on it, past the Drop's clamp.
+    delete data.flags[SCOPE].droppedAt;
+  }
   return data;
 };
 
@@ -172,7 +179,10 @@ const sanitizeDelivery = (data) => {
   delete data._id;
   data.sort = 0;
   data.system = { ...(data.system ?? {}), equipped: false, quantity: 1 };
-  if (data.flags?.[SCOPE]) delete data.flags[SCOPE].grantSource;
+  if (data.flags?.[SCOPE]) {
+    delete data.flags[SCOPE].grantSource;
+    delete data.flags[SCOPE].droppedAt;   // see buildOfferItemData
+  }
   return data;
 };
 

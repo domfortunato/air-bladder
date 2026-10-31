@@ -572,6 +572,23 @@ const moveClaimedPileItem = async (actor, item, { announce = false, place = "", 
     else delete data.flags?.[FLAG_SCOPE]?.[DROP_NOTE_FLAG];
     return data;
   });
+  // FILED UNDER THE BOOK THAT LANDS (review #34 finding 159). The pile holds a
+  // library, and CairnItem#_preCreate re-mints a key that a book already in
+  // the pile wears — AFTER the pages above were serialized naming the old one,
+  // so the book already there claimed them and this one stood empty: issue
+  // #17's symptom, which the drag path re-stamps against. The same rule
+  // _preCreate applies (a key missing, or taken on this parent, is replaced),
+  // applied here before the create so the book and its pages arrive agreeing.
+  // An unkeyed legacy book's pages are stamped with it.
+  if (pages.length) {
+    const key = copies[0].system?.grimoireKey ?? "";
+    const taken = pile.items.some((i) => i.type === "item" && i.system?.grimoire && i.system.grimoireKey === key);
+    if (!key || taken) {
+      const fresh = foundry.utils.randomID();
+      copies[0].system.grimoireKey = fresh;
+      for (const page of copies.slice(1)) page.system.boundTo = fresh;
+    }
+  }
   // WHAT LANDED, read from the create's answer (review #34 finding 164). A
   // create every seam refuses — a module's preCreateItem veto, a construction
   // failure — resolves EMPTY rather than throwing, and `won` read only the

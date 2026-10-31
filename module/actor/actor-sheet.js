@@ -5856,6 +5856,11 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
         : originalItem.toObject();
       data.sort = 0;
       if (originalActor) foundry.utils.setProperty(data, "system.equipped", false);
+      // The pile's "Where?" note is written only by the pile's own Drop
+      // (review #34 finding 157), so a drag carries none in — off the pile, or
+      // onto it by the Warden, where it showed an old place, or a note of any
+      // length its owner wrote, past the Drop's clamp.
+      delete data.flags?.[FLAG_SCOPE]?.droppedAt;
       created = (await Item.implementation.create(data, { parent: this.actor, keepId })) ?? null;
       if (!created) {
         ui.notifications.warn(game.i18n.localize("CAIRN.Notify.DropFailed"));
