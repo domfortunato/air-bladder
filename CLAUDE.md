@@ -577,7 +577,9 @@ on the cluster's probe fleet (~4 min) and where it stands: `docs/fleet-probes.md
   the server reads `system.json` only at startup.
 - `check:fields` holds pack provenance clean: `_stats.compendiumSource`,
   `duplicateSource`, `exportSource` together, and `ownership` only `default`.
-  Check every member of a set the framework clears atomically.
+  Check every member of a set the framework clears atomically. It also refuses a
+  `_stats.coreVersion` newer than `compatibility.minimum` — an extract on a newer
+  dev server stamps its build, and older servers then fail to migrate the record.
 - A probe that shadows `game.settings.get` must forward every argument and pass
   `{document: true}` to `ClientSettings.prototype.get` (`check:probes` enforces).
 - **Probe rules, paid for:**

@@ -334,7 +334,35 @@ const SOURCE_FIELDS = {
   // (client-document.mjs:935). In a shipped pack it is someone else's world.
   exportSource: v =>
     v === "null" ? null : `ships a non-null exportSource — foreign world/core provenance belongs to whoever exported it, not to this pack`,
+  // null, or no newer than `compatibility.minimum`. This one is about BEHAVIOUR,
+  // not provenance: the server stamps the running build into `_stats.coreVersion`
+  // on every write and every migrated record, so an extract taken on a newer dev
+  // server copies that build into src/packs. A server OLDER than a record's
+  // coreVersion refuses to migrate it ("Documents from a core version newer than
+  // the running version cannot be migrated", server-document.mjs), logs the stack,
+  // marks the pack PARTIALLY_MIGRATED, and does the same again at every launch,
+  // because the record is never rewritten. Review #34 F108, when the dev servers
+  // moved to 14.369 while the floor stayed 14.365.
+  coreVersion: v => {
+    const raw = v.replace(/^['"]|['"]$/g, "");
+    if (raw === "null") return null;
+    const floor = manifest.compatibility?.minimum;
+    return versionNewer(raw, floor)
+      ? `ships _stats.coreVersion ${raw} — newer than compatibility.minimum ${floor}, so any supported server older than ${raw} fails to migrate the record at every launch`
+      : null;
+  },
 };
+
+// Dotted numeric versions, part by part ("14.369" > "14.365", "14.1000" > "14.999").
+function versionNewer(a, b) {
+  const pa = String(a).split(".").map(Number);
+  const pb = String(b).split(".").map(Number);
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+    const d = (pa[i] || 0) - (pb[i] || 0);
+    if (d) return d > 0;
+  }
+  return false;
+}
 
 for (const file of walk(at("src", "packs"), ".yml")) {
   const text = readFile(file);
