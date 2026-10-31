@@ -43,6 +43,15 @@ const hasButton = await page.evaluate(() => !!document.querySelector(".import-ke
 // Intercept the native file chooser and feed our sample.
 page.on("filechooser", (fc) => fc.setFiles(tmp).catch(() => {}));
 
+// BY ID DIFFERENCE, never by name (review #34 finding 36). The wait and the
+// read used `getName("Yorsa E2E")`, and the delete ran only on the straight
+// path — so a run that stopped between the create and the cleanup left a
+// Yorsa behind, and the NEXT run's wait succeeded at once and read every
+// assertion off that old, correctly imported actor, even with the import
+// broken. The cleanup is in the finally below.
+const beforeIds = await page.evaluate(() => game.actors.map((a) => a.id));
+let out, mapping, badUrlCreate;
+try {
 await page.evaluate(() => document.querySelector(".import-kettlewright-button")?.click());
 
 // The button no longer opens the file chooser directly: it first shows an
@@ -58,14 +67,19 @@ const optionsDialogFound = await page.evaluate(() => {
   return true;
 });
 
-// Wait for the import to finish: the actor appears + the summary dialog renders.
-await page.waitForFunction(() => !!game.actors.getName("Yorsa E2E"), null, { timeout: 15000 }).catch(() => {});
+// Wait for the import to finish: a NEW actor appears + the summary dialog renders.
+await page.waitForFunction((ids) => game.actors.some((a) => a.name === "Yorsa E2E" && !ids.includes(a.id)),
+  beforeIds, { timeout: 15000 }).catch(() => {});
 await page.waitForTimeout(800);
 
-const out = await page.evaluate(() => {
-  const a = game.actors.getName("Yorsa E2E");
-  const dlg = document.querySelector(".dialog-v2, .application.dialog, dialog.application");
+out = await page.evaluate((ids) => {
+  const fresh = game.actors.filter((x) => x.name === "Yorsa E2E" && !ids.includes(x.id));
+  const a = fresh.length === 1 ? fresh[0] : null;
+  // THE SUMMARY, by its own content — not "any dialog", which the lingering
+  // options dialog also satisfies.
+  const dlg = document.querySelector(".kwi-summary")?.closest(".application") ?? null;
   return {
+    freshCount: fresh.length,
     actorCreated: !!a,
     itemCount: a?.items?.size ?? 0,
     bgUuidSet: !!a?.system?.backgroundUuid,
@@ -76,7 +90,7 @@ const out = await page.evaluate(() => {
     summaryShown: !!dlg,
     summaryText: dlg?.textContent?.replace(/\s+/g, " ").trim().slice(0, 300) ?? "",
   };
-});
+}, beforeIds);
 
 // The rest of the portrait decision table, straight through the exported
 // converter: the placeholder and an unknown number keep the random-pair
@@ -87,7 +101,7 @@ const out = await page.evaluate(() => {
 // report.portrait entry instead of killing the create — as is a discarded
 // filename, so the summary can say the chosen face was lost (2026-09-01).
 const KW_DIR = "systems/air-bladder/art/tlomdev/kettlewright-portraits";
-const mapping = await page.evaluate(async () => {
+mapping = await page.evaluate(async () => {
   const { kettlewrightToActorData } = await import("/systems/air-bladder/module/kettlewright-import.js");
   const base = {
     name: "ZZ KW Map", background: "Kettlewright",
@@ -111,7 +125,7 @@ const mapping = await page.evaluate(async () => {
 // An unusable URL must not kill the CREATE either — this is the very failure
 // the 2026-09-01 report was about: the GM picked a file, clicked Import, and
 // got a raw DataModelValidationError instead of a character.
-const badUrlCreate = await page.evaluate(async () => {
+badUrlCreate = await page.evaluate(async () => {
   const { kettlewrightToActorData } = await import("/systems/air-bladder/module/kettlewright-import.js");
   const { data } = await kettlewrightToActorData({
     name: "ZZ KW BadUrl", background: "Kettlewright",
@@ -135,13 +149,19 @@ const badUrlCreate = await page.evaluate(async () => {
   }
 });
 
-const dlg = await page.$(".dialog-v2, .application.dialog, dialog.application");
+const dlg = await page.$(".application:has(.kwi-summary)");
 if (dlg) await dlg.screenshot({ path: "tools/dev/out/kw-import-summary.png" });
-
-// Cleanup
-await page.evaluate(() => game.actors.getName("Yorsa E2E")?.delete());
-await browser.close();
-fs.rmSync(tmp, { force: true });
+} finally {
+  // Cleanup, BY ID DIFFERENCE, from the finally (review #34 finding 36): only
+  // the Yorsa this run created, whatever happened above. A Warden's own
+  // imported Yorsa — it is a real player's exported character — is never
+  // touched.
+  await page.evaluate(async (ids) => {
+    for (const a of game.actors.filter((x) => x.name === "Yorsa E2E" && !ids.includes(x.id))) await a.delete();
+  }, beforeIds).catch(() => {});
+  await browser.close();
+  fs.rmSync(tmp, { force: true });
+}
 
 console.log(JSON.stringify(out, null, 2));
 console.log(JSON.stringify(mapping, null, 2));
@@ -156,11 +176,13 @@ const portraitReported = mapping.placeholder.portrait === null
   && mapping.unknown.portrait?.reason === "unknown" && mapping.unknown.portrait?.dropped === "portrait999.webp"
   && mapping.customNoExt.portrait?.reason === "url" && !mapping.customNoExt.img?.startsWith("https://");
 const badUrlSurvives = badUrlCreate.created && badUrlCreate.gone && !badUrlCreate.error;
-const ok = hasButton && optionsDialogFound && out.actorCreated && out.itemCount === 3 && out.bgUuidSet && out.armor === 1
+const ok = hasButton && optionsDialogFound && out.freshCount === 1 && out.actorCreated && out.itemCount === 3 && out.bgUuidSet && out.armor === 1
   && JSON.stringify(out.scars) === JSON.stringify(["Nicked", "Burned"]) && out.summaryShown
   && stockMapped && fallbacksKept && portraitReported && badUrlSurvives && errors.length === 0;
 if (!hasButton) console.log("FAIL: import button not injected");
 if (!optionsDialogFound) console.log("FAIL: no [data-action=import] options dialog appeared");
+if (out.freshCount !== 1) console.log(`FAIL: expected ONE new "Yorsa E2E" from this run, found ${out.freshCount}`);
+if (!out.summaryShown) console.log("FAIL: the import summary (.kwi-summary) never rendered");
 if (!stockMapped) console.log(`FAIL: stock portrait17.webp not mapped to the shipped tlomdev copy (img=${out.img}, token=${out.token})`);
 if (!fallbacksKept) console.log("FAIL: placeholder/unknown/custom portrait fallbacks changed behaviour");
 if (!portraitReported) console.log("FAIL: discarded portrait references are not reported (or a kept one is)");
