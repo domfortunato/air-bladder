@@ -38,11 +38,15 @@ export const FLAG_SCOPE = "air-bladder";
  * moment the first item was typed, so the second background picked would behave
  * differently from the first with nothing on screen to say why.
  *
- * **The way out is Roll Character with Background checked** — the checklist's
- * own default. That clears the mark BEFORE it re-deals, so the character
- * becomes a rolled one and grants resume. A bare background die does NOT clear
- * it: pressing that die is still choosing a background, which is the gesture
- * the ruling is about.
+ * **The ways out** are the gestures that ask the dice for the thing itself:
+ * Roll Character with Background ticked, which re-deals with `ignoreHandBuilt`
+ * and clears the mark only AFTER changeBackground returns true (clearing first
+ * left an aborted swap's character silently un-hand-built, review #26 — see
+ * `_applyRerollParts`); ticking Starting gear (`redealBackgroundGear`); and a
+ * full regenerate (`regenerateActor`, `regenerateHireling`, `regenerateNpc`,
+ * monster-generator.js `regenerateMonster`). The character becomes a rolled one and grants
+ * resume. A bare background die does NOT clear it: pressing that die is still
+ * choosing a background, which is the gesture the ruling is about.
  */
 export const HAND_BUILT_FLAG = "handBuilt";
 
@@ -59,11 +63,13 @@ export const clearHandBuilt = async (actor) => {
  * Cairn 2e character generation.
  *
  * Gear is NEVER inlined here: a background's starting gear, a bond's item, and a
- * choice-table option's items are all BY-NAME references into the editable gear
+ * choice-table option's items are all BY-NAME references into the shipped gear
  * pool. `resolveGearItem` (module/gear.js) turns each reference into a fresh
- * owned-item payload cloned from the current pack document — so editing a pool
- * item flows into every character generated afterwards. That single-source-of-
+ * owned-item payload cloned from the current pack document — so a fix to a pool
+ * item reaches every character generated afterwards. That single-source-of-
  * truth is the whole reason this system was rebuilt off the fork's inlined model.
+ * The shipped packs are TEMPLATES, not a Warden's workbench: a system update
+ * replaces them wholesale, so an edit made to one in Foundry does not survive it.
  */
 
 /* -------------------------------------------------------------------------- */
@@ -1381,9 +1387,10 @@ const containerKindFor = (name) => (/\b(wagon|cart|sled|sledge)\b/i.test(name) ?
  * produces (marketplace.js acquireTransport), so a granted donkey and a bought
  * one behave identically.
  *
- * The spec's name is resolved against the editable Mounts & Transports Actor
- * pack first, so a Warden who retunes "Donkey" there changes every donkey granted
- * afterwards; the grant's own `slots` still wins, because that number is the
+ * The spec's name is resolved against the shipped Mounts & Transports Actor
+ * pack first, so the pack's "Donkey" is every donkey granted (a template, like
+ * every shipped pack: an edit made there does not survive a system update);
+ * the grant's own `slots` still wins, because that number is the
  * background's (a Rivertooth is +6 where a Blacklegged Dandy is +4). A name with
  * no pack document — the one-off beasts — is minted from the spec alone.
  *
@@ -1426,7 +1433,7 @@ export const grantContainers = async (actor, specs) => {
   // (review #5, critical: the pack was stocked by nothing).
   const pack = game.packs.get("air-bladder.mounts-transports");
   const docs = pack ? await pack.getDocuments() : [];
-  // Resolve a spec against that editable pack (art/stats/description), with
+  // Resolve a spec against that pack (art/stats/description), with
   // sensible fallbacks for one-off beasts the pack doesn't carry. `kind` only
   // matters on the no-document path (icon + class inference by name); a resolved
   // Actor carries its class outright.
@@ -1767,7 +1774,7 @@ export const generate2eCharacter = async (chosenBg = null) => {
   const names = (bg.system.names ?? []).map((n) => String(n ?? "").trim()).filter(Boolean);
   const name = names.length ? names[Math.floor(Math.random() * names.length)] : bg.name;
 
-  // Starting gear: resolve each reference against the editable pool, tag it
+  // Starting gear: resolve each reference against the shipped pool, tag it
   // "background", and equip weapons/armor so Armor derives to its intended value
   // (pool items are equipped:false). Through resolveStartingGear, the ONE
   // resolver a background swap and an NPC use too (review #34 finding 64): a
@@ -2716,7 +2723,7 @@ export const createBlankActor = async (kind, { folder = null, ownership = null, 
     system: { hp: { value: BLANK_HP, max: BLANK_HP }, generationEnabled: true },
     // HAND-BUILT: from here on, a background, a question, a bond and the failed
     // career all record the choice and grant NOTHING. See HAND_BUILT_FLAG for
-    // why, and for the one way back out.
+    // why, and for the ways back out.
     flags: { [FLAG_SCOPE]: { [HAND_BUILT_FLAG]: true } },
   };
   if (kind === "character") data.system.contentSource = source ?? resolveContentSource();
@@ -3812,7 +3819,8 @@ export const createActorWithCharacter = async (characterData, { folder = null, o
     data.prototypeToken.texture = { src: pair.token };
   }
   // The createDialog switchboard threads the folder "+"'s destination through
-  // here (2026-08-02); the directory button passes nothing and lands at root.
+  // here (2026-08-02), and the directory button's Party folder too
+  // (createActorInteractive); a caller that passes nothing lands at root.
   if (folder) data.folder = folder;
   // The generatePC relay mints on the Warden's client FOR a player, so the
   // requester's OWNER must be in the CREATE data, not patched on after:
@@ -4182,9 +4190,9 @@ export const regenerateActor = async (actor) => {
  * armor included). No bonds/omens/scars/traits/questions -- generated NPCs are
  * deliberately simple.
  *
- * Its gear is BY-NAME REFERENCES into the editable pool, exactly like a
+ * Its gear is BY-NAME REFERENCES into the shipped pool, exactly like a
  * background's starting gear: resolveGearItem clones the current pool document,
- * so editing an item flows into every NPC generated afterwards.
+ * so a fix to an item reaches every NPC generated afterwards.
  * ======================================================================== */
 
 /** The 2e careers catalogue (shipped runtime data), fetched once and cached. */
@@ -4552,8 +4560,8 @@ const rollNpcTraits = async () => ({
 
 /**
  * The gear an NPC's Background hands them, resolved the same way a Barebones
- * character's and a hireling's are: by-NAME references into the editable gear
- * pool, so a Warden editing an item changes what every NPC generated afterwards
+ * character's and a hireling's are: by-NAME references into the shipped gear
+ * pool, so a fix to an item changes what every NPC generated afterwards
  * carries.
  *
  * The items come from the nearest BAREBONES background

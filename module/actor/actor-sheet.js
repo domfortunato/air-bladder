@@ -3479,8 +3479,9 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // as one swap (and stamps the provenance flag rolled); unchecked, its
     // freed children re-roll in place against the CURRENT background.
     if (parts.background) {
-      // THE WAY OUT OF HAND-BUILT, and the only one. Asking the dice to deal a
-      // background is asking for a rolled character. A bare background die does
+      // A WAY OUT OF HAND-BUILT (the others: ticking Starting gear, a full
+      // regenerate). Asking the dice to deal a background is asking for a
+      // rolled character. A bare background die does
       // not come through here and deliberately does not clear it: pressing that
       // die is still choosing a background. See HAND_BUILT_FLAG.
       //
