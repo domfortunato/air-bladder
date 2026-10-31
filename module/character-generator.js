@@ -1404,7 +1404,11 @@ const containerKindFor = (name) => (/\b(wagon|cart|sled|sledge)\b/i.test(name) ?
  * @returns {Promise<CairnActor[]>}  the containers created
  */
 export const grantContainers = async (actor, specs) => {
-  if (!actor || !specs?.length) return [];
+  // A compendium character keeps no connections (canKeepConnected, review #34
+  // finding 163): a granted beast would be a WORLD actor connected to a pack
+  // uuid. Nothing to mint, and nothing to say — the headroom toast below would
+  // name a limit it never reached.
+  if (!actor || actor.pack || !specs?.length) return [];
   // The connection ceiling, CLAMPED rather than refused outright: a background
   // granting three beasts to a keeper with room for one still owes the
   // character that one. What was dropped is SAID — a silent clamp reads as

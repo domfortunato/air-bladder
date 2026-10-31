@@ -1421,6 +1421,11 @@ export class CairnActor extends Actor {
    */
   get canKeepConnected() {
     if (this.isToken) return false;   // see canBeConnected
+    // A compendium entry is reference content; the graph lives in the world
+    // (review #34 finding 163). A transport bought for it, or granted by its
+    // background, minted a WORLD actor connected to the pack uuid. Refusing
+    // here is what scopes its shop to gear and walls acquireTransport.
+    if (this.pack) return false;
     return this.type === "character";
   }
 
@@ -2022,6 +2027,11 @@ export class CairnActor extends Actor {
     const target = this.prototypeToken?.texture?.src;
     if (former === undefined || !target || former === target) return;
     if (userId !== game.user.id) return;
+    // A compendium entry has no placed tokens (review #34 finding 163). The
+    // walk below matches world tokens by actor ID, and a keepId import shares
+    // that id with the pack entry: new art picked on the entry repainted every
+    // placed token of the world copy.
+    if (this.pack) return;
     // A synthetic actor never reaches past this line in practice: ActorDelta
     // declares no prototypeToken field, so the change that stashed `former`
     // is dropped in the rewrite and target === former above. The sheet's art
@@ -2254,6 +2264,12 @@ export class CairnActor extends Actor {
    * language for the owners AND the Wardens who read it.
    */
   #postChangeLogCard(entries, userId, actionKey = null) {
+    // The ledger is the table's record of hand changes to actors IN PLAY. A
+    // compendium entry is reference content (review #34 finding 168): each
+    // Warden edit to a world-pack entry, or a Replace re-export over one,
+    // whispered a card to every player the pack lets observe, spoken under the
+    // world actor sharing its id. The one poster, so every ledger path stops.
+    if (this.pack) return null;
     const speaker = this.token
       ? ChatMessage.getSpeaker({ token: this.token })
       : ChatMessage.getSpeaker({ actor: this });
@@ -2284,6 +2300,9 @@ export class CairnActor extends Actor {
     // browser open that is completely invisible, which is why the probe leg for
     // it has to join as a second player.
     if (userId !== game.user.id) return;
+    // Not for a compendium entry (review #34 finding 163): reference content is
+    // not in play, and the card spoke under the world actor sharing its id.
+    if (this.pack) return;
     // The damage flow posts its own, in order, after the damage card; the
     // regeneration paths set these fields while REBUILDING a character, which is
     // neither stabilizing nor killing one. Operation-level (a caller sets it for
