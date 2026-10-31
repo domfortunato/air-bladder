@@ -97,7 +97,7 @@ try {
     // becomes a permanent failure.
     for (const a of game.actors.filter((x) => x.name?.startsWith("ZZ Enc"))) await a.delete();
     for (const s of game.scenes.filter((x) => x.name === "ZZ Encounter Scene")) await s.delete();
-    for (const t of game.tables.filter((x) => x.name === "ZZ Encounter Table")) await t.delete();
+    for (const t of game.tables.filter((x) => x.name === "ZZ Encounter Table" || x.name === "ZZ Encounter Copy")) await t.delete();
 
     const out = { prevSceneId: game.scenes.viewed?.id ?? null };
     // The folder is found by flag; remember whether it predates this run.
@@ -550,6 +550,75 @@ try {
     r4d.cardWhisper > 0 && r4d.qty >= 1 && r4d.qtyWhispered
       ? ok("a privately drawn card's quantity roll stays private", `${r4d.qty} roll(s), whispered`)
       : fail("a privately drawn card's quantity roll stays private", JSON.stringify(r4d));
+  }
+
+  /* --- 4e. the table the card DREW (review #34 finding 231) ---------------
+   * Core's flag is the table's bare id, and core's own Import keeps it, so a
+   * Warden's imported-and-edited copy and the shipped table both answer to it;
+   * world-first spawned the copy's creature under a card showing the pack's.
+   * A shipped encounter table whose id no world table holds is copied into the
+   * world UNDER THAT ID, and the copy's first monster row relinked to another
+   * monster, as a Warden's edit would leave it. Read through
+   * `encounterSpecsForMessage`, the button's own derivation:
+   *   - a core draw from the PACK must place the pack's monster;
+   *   - a Dashboard-flagged card with NO content names its table by the uuid
+   *     alone (the content cannot choose here, so only the flag can);
+   *   - control: a draw from the world copy places the copy's monster.
+   * -------------------------------------------------------------------- */
+  const r4e = await gm.evaluate(async ({ GOBLIN_UUID, OGRE_UUID }) => {
+    const enc = await import("/systems/air-bladder/module/encounters.js");
+    const pack = game.packs.get("air-bladder.warden-encounters");
+    const index = await pack.getIndex();
+    const entry = index.contents.find((e) => !game.tables.has(e._id));
+    if (!entry) return { error: "every shipped encounter table's id is held by a world table" };
+    const shipped = await pack.getDocument(entry._id);
+    const row = shipped.results.find((r) => /@UUID\[[^\]]*Actor\./.test(r.description ?? ""));
+    const shippedUuid = row?.description.match(/@UUID\[([^\]]+)\]/)?.[1] ?? null;
+    if (!row || !shippedUuid) return { error: `${shipped.name} has no monster row` };
+    const editedUuid = shippedUuid === OGRE_UUID ? GOBLIN_UUID : OGRE_UUID;
+    const total = row.range[0];
+    const data = shipped.toObject();
+    data.name = "ZZ Encounter Copy";
+    for (const r of data.results) if (r._id === row.id) r.description = r.description.replace(shippedUuid, editedUuid);
+    const copy = await RollTable.create(data, { keepId: true });
+    const made = [];
+    const newMessage = async (fn) => {
+      const before = new Set(game.messages.keys());
+      await fn();
+      const m = game.messages.find((x) => !before.has(x.id)) ?? null;
+      if (m) made.push(m);
+      return m;
+    };
+    const uuidsOf = async (m) => (m ? (await enc.encounterSpecsForMessage(m)).map((s) => s.uuid ?? null) : null);
+    try {
+      const packMsg = await newMessage(() => shipped.draw({ roll: new Roll(String(total)) }));
+      const dashMsg = await newMessage(async () => ChatMessage.create({
+        content: "", rolls: [await new Roll(String(total)).evaluate()],
+        flags: { core: { RollTable: shipped.id }, "air-bladder": { dashboardDraw: shipped.uuid } },
+      }));
+      const worldMsg = await newMessage(() => copy.draw({ roll: new Roll(String(total)) }));
+      return {
+        table: shipped.name, total, shippedUuid, editedUuid, sameId: copy.id === shipped.id,
+        cardShowsUuid: String(packMsg?.content ?? "").includes(shippedUuid),
+        pack: await uuidsOf(packMsg), dash: await uuidsOf(dashMsg), world: await uuidsOf(worldMsg),
+      };
+    } finally {
+      for (const m of made) await m.delete().catch(() => {});
+      await copy.delete().catch(() => {});
+    }
+  }, { GOBLIN_UUID, OGRE_UUID });
+  if (r4e.error) {
+    fail("the drawn-table legs found a shipped table", r4e.error);
+  } else {
+    r4e.sameId && r4e.world?.includes(r4e.editedUuid)
+      ? ok("control: a draw from the world copy places the copy's monster", r4e.table)
+      : fail("control: a draw from the world copy places the copy's monster", JSON.stringify(r4e));
+    r4e.pack?.includes(r4e.shippedUuid) && !r4e.pack.includes(r4e.editedUuid)
+      ? ok("a draw from the PACK places the pack's monster, not the world copy's (review #34 finding 231)", `card shows it: ${r4e.cardShowsUuid}`)
+      : fail("a draw from the PACK places the pack's monster, not the world copy's (review #34 finding 231)", JSON.stringify(r4e));
+    r4e.dash?.includes(r4e.shippedUuid) && !r4e.dash.includes(r4e.editedUuid)
+      ? ok("a Dashboard card names its table by the uuid it drew", "")
+      : fail("a Dashboard card names its table by the uuid it drew", JSON.stringify(r4e));
   }
 
   /* ------------------------------------------------- 5. plain text is inert */
