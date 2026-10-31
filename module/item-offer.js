@@ -37,7 +37,7 @@
 
 import { t, actorDisplayName } from "./i18n-content.js";
 import { FATIGUE_NAME } from "./item/item.js";
-import { findMatchingStack, capacityVerdict, slotsNeeded } from "./gear.js";
+import { findMatchingStack, capacityVerdict, slotsNeeded, landingNeed } from "./gear.js";
 
 const SCOPE = "air-bladder";
 const FLAG = "itemOffer";
@@ -51,8 +51,9 @@ const REFUSAL_TOASTS = {
   notYours: "CAIRN.Notify.OfferNotYours",
 };
 
-/** Accepts this client has emitted and not yet heard back on: messageId → true.
- *  An `offerRelease` for a message NOT in here is forged and ignored. */
+/** Accepts this client has emitted and not yet heard back on: messageId → the
+ *  consent the click gave (`{targetUuid, overburden}`, see deliverItem). An
+ *  `offerRelease` for a message NOT in here is forged and ignored. */
 const pendingAccepts = new Map();
 
 /** Offers this (giver's) client is mid-transaction on: messageId → the user
@@ -622,9 +623,14 @@ const onAcceptClick = async (message) => {
   }
   // What happens if this lands? ONE test, shared with the drop handler, so an
   // offer and a drag can never disagree about the same actor and the same
-  // item. `need` comes off the offer-time snapshot (the derived-slots rule),
-  // the numbers off the LIVE actor.
-  const need = slotsNeeded(offer.item);
+  // item. `need` comes off the LIVE item where this client can see it, and the
+  // offer-time snapshot only otherwise (review #34 finding 156): the snapshot
+  // is the giver's own flag, and an item turned Bulky after posting, or a
+  // snapshot rewritten to weightless, put the recipient past the limit with
+  // no confirm. Priced on the branch it will take (landingNeed), as the
+  // delivery door prices it. The numbers come off the LIVE actor.
+  const liveItem = foundry.utils.fromUuidSync(offer.giverActorUuid)?.items?.get(offer.itemId);
+  const need = liveItem ? landingNeed(target, liveItem) : slotsNeeded(offer.item);
   const verdict = capacityVerdict(target, need);
 
   // A THING, a companion or a monster simply has no room, and nobody may buy
@@ -657,13 +663,19 @@ const onAcceptClick = async (message) => {
     console.warn(`Air Bladder | refused an offer card whose author does not own its giver (${message.id})`);
     return;
   }
-  if (canRunLocally(message, giver, target)) return runLocalTransfer(message);
+  // WHAT WAS CONSENTED TO, carried to the delivery (review #34 findings 135,
+  // 156, 179): this target, and whether an overburden was confirmed. The
+  // delivery judges what actually lands against it — the giver's flag and the
+  // item can change between this click and the release, and so can the
+  // target's load.
+  const consent = { targetUuid: target.uuid, overburden: verdict === "overburden" };
+  if (canRunLocally(message, giver, target)) return runLocalTransfer(message, consent);
 
   if (!message.author?.active) {
     ui.notifications.warn("CAIRN.Notify.OfferGiverOffline", { format: { giver: names.giver } });
     return;
   }
-  pendingAccepts.set(message.id, true);
+  pendingAccepts.set(message.id, consent);
   game.socket.emit(`system.${game.system.id}`, { action: "offerAccept", messageId: message.id },
     { recipients: [message.author.id] });
 };
@@ -714,8 +726,27 @@ const onCancelClick = async (message) => {
 
 /** Merge-or-create the delivered item on the target — the drag-move's stack
  *  rule via the SHARED discriminator, else the ignoreCapacity door. Returns
- *  truthy on success. */
-const deliverItem = async (target, rawData) => {
+ *  truthy on success.
+ *  @param {CairnActor} target
+ *  @param {Object} rawData
+ *  @param {{targetUuid: string, overburden: boolean}} consent  what the
+ *    acceptor's click agreed to (onAcceptClick) */
+const deliverItem = (target, rawData, consent) => {
+  // ONE AT A TIME PER TARGET on this client (review #34 finding 135), so each
+  // delivery judges the load the one before it left: two accepts answered
+  // back to back release two deliveries, and the second read the target's
+  // slots before the first had landed.
+  const key = target?.uuid ?? "";
+  const run = (deliveryChains.get(key) ?? Promise.resolve()).then(() => deliverNow(target, rawData, consent));
+  deliveryChains.set(key, run.catch(() => null));
+  return run;
+};
+
+/** Deliveries running on this client, chained per target uuid — see deliverItem. */
+const deliveryChains = new Map();
+
+/** deliverItem's delivery, once it is this target's turn. */
+const deliverNow = async (target, rawData, consent) => {
   const data = sanitizeDelivery(rawData);
   if (!data) return null;
   // ENFORCEMENT, behind the affordance in onAcceptClick — the Fatigue
@@ -723,15 +754,28 @@ const deliverItem = async (target, rawData) => {
   // on the local fast path AND on the offerRelease socket leg, where the
   // target was resolved from a flag the giver's client wrote.
   if (!canReceiveOffer(target)) return null;
+  // THE CONSENT DESCRIBES WHAT LANDS (review #34 findings 135, 156, 179). The
+  // target must be the one accepted: the giver's client writes the flag this
+  // was resolved from, and could retarget it between the click and the
+  // release (onto a full crate of the acceptor's that holds a matching
+  // stack). And the verdict is judged again on what actually arrives, against
+  // the target's load NOW: a second accept clicked inside the first one's
+  // round trip read a stale load, and the item itself may have grown since.
+  // An overburden the acceptor never confirmed is refused; the offer reopens,
+  // and accepting again asks.
+  if (!consent || consent.targetUuid !== target.uuid) return null;
+  const verdict = capacityVerdict(target, landingNeed(target, data));
+  // ...and the capacity door, on BOTH branches: a merge adds slots as surely
+  // as a create. `ignoreCapacity` below is what lets an accepted gift
+  // overflow a PERSON who clicked through the confirm; nothing may overflow a
+  // crate.
+  if (verdict === "full") return null;
+  if (verdict === "overburden" && !consent.overburden) return null;
   const stack = findMatchingStack(target, data);
   if (stack) {
     await stack.update({ "system.quantity": (stack.system.quantity ?? 1) + 1 });
     return stack;
   }
-  // ...and the capacity door. `ignoreCapacity` below is what lets an accepted
-  // gift overflow a PERSON who clicked through the confirm; without this it
-  // would let one overflow a crate too, which nothing may.
-  if (capacityVerdict(target, slotsNeeded(data.system)) === "full") return null;
   // weightless threaded top-level: createOwnedItem rebuilds system.weightless
   // from it and would clobber the real value with undefined otherwise.
   const [created] = (await target.createOwnedItem(
@@ -750,8 +794,9 @@ const removeGiverHalf = async (giver, itemId) => {
   else await giver.deleteEmbeddedDocuments("Item", [item.id]);
 };
 
-/** The GM / same-user fast-path: the whole hand-off on one client. */
-const runLocalTransfer = async (message) => {
+/** The GM / same-user fast-path: the whole hand-off on one client.
+ *  @param {ChatMessage} message  @param {Object} consent  see deliverItem */
+const runLocalTransfer = async (message, consent) => {
   if (offersInFlight.has(message.id)) return;
   offersInFlight.set(message.id, game.user.id);
   try {
@@ -769,7 +814,7 @@ const runLocalTransfer = async (message) => {
       return;
     }
     await message.setFlag(SCOPE, FLAG, { state: "accepted", acceptorUserId: game.user.id });
-    const created = await deliverItem(target, buildOfferItemData(item));
+    const created = await deliverItem(target, buildOfferItemData(item), consent);
     if (!created) {
       await message.setFlag(SCOPE, FLAG, { state: "open", acceptorUserId: null });
       ui.notifications.warn("CAIRN.Notify.OfferFailed", { localize: true });
@@ -851,17 +896,24 @@ export const handleOfferSocket = async (msg, senderId) => {
     // forged, and the sender must be the offer's author.
     if (!pendingAccepts.has(msg.messageId)) return;
     if (!message || message.author?.id !== senderId) return;
+    const consent = pendingAccepts.get(msg.messageId);
     pendingAccepts.delete(msg.messageId);
     const offer = message.getFlag(SCOPE, FLAG);
     const target = foundry.utils.fromUuidSync(offer?.targetActorUuid ?? "");
     const names = offerNames(message, offer ?? {});
+    // A REFUSAL IS NOT AN ERROR. The delivery door refuses by design — a
+    // retargeted card, a load that grew past what was consented to — and a
+    // console error on every such refusal reads as a fault; only a throw is one.
+    let created = null;
     try {
-      const created = target ? await deliverItem(target, msg.itemData) : null;
-      if (!created) throw new Error("delivery refused");
-      ui.notifications.info("CAIRN.Notify.OfferTaken", { format: { item: names.item, target: names.target } });
-      answer("offerDone", msg.messageId, {}, senderId);
+      created = target ? await deliverItem(target, msg.itemData, consent) : null;
     } catch (err) {
       console.error("Air Bladder | offer delivery failed:", err);
+    }
+    if (created) {
+      ui.notifications.info("CAIRN.Notify.OfferTaken", { format: { item: names.item, target: names.target } });
+      answer("offerDone", msg.messageId, {}, senderId);
+    } else {
       ui.notifications.warn("CAIRN.Notify.OfferFailed", { localize: true });
       answer("offerFail", msg.messageId, {}, senderId);
     }

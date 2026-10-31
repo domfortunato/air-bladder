@@ -571,3 +571,16 @@ export const mustDropForFatigue = (actor) => actor?.isEncumbered?.() === true;
 /** Slots an item wants. Bulky 2, weightless 0, otherwise 1. */
 export const slotsNeeded = (itemLike) =>
   (itemLike?.bulky ? 2 : itemLike?.weightless ? 0 : 1);
+
+/**
+ * The slots one arriving unit adds to `actor`, on the branch it will take: one
+ * more of a matching stack costs what one of THAT stack costs, and anything
+ * else costs its own size (review #34 finding 156 — a one-slot Rope merging
+ * into a Bulky "Rope" adds two, and was priced at one). The `need` to hand
+ * capacityVerdict for anything that lands through findMatchingStack.
+ * @param {CairnActor} actor
+ * @param {Object} itemLike  an item, or its source data
+ * @returns {Number}
+ */
+export const landingNeed = (actor, itemLike) =>
+  slotsNeeded((findMatchingStack(actor, itemLike) ?? itemLike).system);
