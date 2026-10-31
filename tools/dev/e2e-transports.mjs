@@ -480,6 +480,12 @@ try {
       : fail(`the nesting toast renamed a token PC: "${r.names.tokToast}"`);
 
     r.edit.flowed ? ok(`EDIT FLOWS THROUGH: capacity ${r.edit.expected} on the next one bought (the ${r.edit.source} Mule)`) : fail(`document edit did not flow through (got ${r.edit.got}, expected ${r.edit.expected}, the ${r.edit.source} Mule)`);
+    // The edit is a write, so it must land on the SHIPPED pack, never on the
+    // Warden's world copy (review #34 finding 111): a killed run strands
+    // whatever it touched, and every leg above compares against the pack.
+    r.edit.source === "air-bladder.mounts-transports"
+      ? ok("the capacity edit lands on the shipped pack's Mule, not the Warden's")
+      : fail(`the capacity edit landed on the ${r.edit.source} Mule — this probe wrote the Warden's own document`);
 
     r.afford.refused && r.afford.noActor && r.afford.goldIntact ? ok("an unaffordable transport is refused, mints nothing, spends nothing") : fail("affordability check did not hold");
 
