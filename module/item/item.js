@@ -489,7 +489,10 @@ export class CairnItem extends Item {
     // untouched. Still never Fatigue (a cost is not a possession), never a
     // Grimoire or its bound pages (they travel as a bundle the Warden drags).
     // This is the AFFORDANCE half; canOfferItem is the enforcement behind it.
-    this.system.canGive = !!this.actor?.isOwner
+    // Not from a COMPENDIUM actor (review #34 finding 160): delivery takes the
+    // unit out of the giver, and the giver would be the pack entry — the line
+    // canDrop and canReceiveOffer already draw for the target.
+    this.system.canGive = !!this.actor?.isOwner && !this.actor?.pack
       && !this.system.isFatigue
       && !(this.type === "item" && this.system.grimoire)
       && !this.system.bound;

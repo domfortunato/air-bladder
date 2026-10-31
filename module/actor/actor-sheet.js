@@ -5583,8 +5583,14 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
   async _onDropItem(event, originalItem) {
     if (!originalItem) return null;
 
-    // The Actor the item currently belongs to; null for a world or compendium item.
-    const originalActor = originalItem.actor;
+    // The Actor the item currently belongs to; null for a world or compendium
+    // item — AND for an item on a COMPENDIUM ACTOR (review #34 finding 160).
+    // That item's `.actor` is the pack entry, so it read as a transfer source:
+    // the permission wall applied, and the source write below took the unit out
+    // of the pack (a Grimoire's pages with it). Core treats `inCompendium` as a
+    // copy (ActorSheetV2#_onDropItem); reference content walked into play is
+    // review #33's reason for `!actor.pack` on Drop, and it is the same here.
+    const originalActor = originalItem.actor?.pack ? null : originalItem.actor;
 
     // A sheet this user does NOT own cannot receive a create at all — until
     // 2026-09-06 the drop silently died on core's owner wall. It is an OFFER

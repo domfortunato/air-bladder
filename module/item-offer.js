@@ -78,6 +78,14 @@ const offersInFlight = new Map();
  */
 export const canOfferItem = (item) => {
   if (!item?.actor?.isOwner) return { ok: false, reason: "CAIRN.Notify.OfferNotYourActor" };
+  // A compendium actor is reference content, never a giver (review #34
+  // finding 160): delivery's removeGiverHalf would take the unit out of the
+  // pack. canGive withholds the Give row there (the affordance); this is the
+  // enforcement, reached only by someone who OWNS a pack actor and drags from
+  // it, since pack ownership is NONE by default. It reuses the nearest
+  // existing refusal rather than a new sentence: a pack entry is not a sheet
+  // in play.
+  if (item.actor.pack) return { ok: false, reason: "CAIRN.Notify.OfferNotYourActor" };
   if (item.name === FATIGUE_NAME) return { ok: false, reason: "CAIRN.Notify.OfferNoFatigue" };
   if ((item.type === "item" && item.system?.grimoire) || item.system?.bound) {
     return { ok: false, reason: "CAIRN.Notify.OfferNoGrimoire" };
