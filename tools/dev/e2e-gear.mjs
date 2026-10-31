@@ -258,6 +258,66 @@ try {
       for (const a of made) { try { await a.delete(); } catch { /* gone */ } }
     }
   });
+  // HANDED OVER, NOT GRANTED (review #34 finding 172). Give strips the item's
+  // grantSource tag on purpose: the recipient's background, bond and question
+  // re-rolls delete tagged items with no provenance check. A sheet DRAG between
+  // two actors, and the Dropped Item Pile's Drop, kept it — so a dragged-over
+  // "background" lantern was eaten by the recipient's next background re-roll.
+  const handed = await page.evaluate(async () => {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const made = [];
+    try {
+      const giver = await Actor.create({ name: "ZZ Gear Giver", type: "character" });
+      const taker = await Actor.create({ name: "ZZ Gear Taker", type: "character" });
+      made.push(giver, taker);
+      const [lamp] = await giver.createEmbeddedDocuments("Item", [{ name: "ZZ Gear Tagged Lamp", type: "item",
+        flags: { "air-bladder": { grantSource: "background" } } }]);
+      await taker.sheet.render(true);
+      for (let i = 0; i < 30 && !taker.sheet.element; i++) await sleep(100);
+      const dt = new DataTransfer();
+      dt.setData("text/plain", JSON.stringify({ type: "Item", uuid: lamp.uuid }));
+      try { await taker.sheet._onDrop(new DragEvent("drop", { dataTransfer: dt })); } catch { /* refused */ }
+      await sleep(800);
+      await taker.sheet.close();
+      const arrived = taker.items.find((i) => i.name === "ZZ Gear Tagged Lamp");
+      return { arrived: !!arrived, tag: arrived?.getFlag("air-bladder", "grantSource") ?? null };
+    } finally {
+      for (const a of made) { try { await a.delete(); } catch { /* gone */ } }
+    }
+  });
+  handed.arrived && handed.tag === null
+    ? ok("an item dragged to another actor arrives UNTAGGED, as a gift does")
+    : fail(`a dragged-over item kept its grant tag, so the recipient's re-roll would delete it: ${JSON.stringify(handed)}`);
+
+  // ...and the pile's Drop, the other door (same finding): the copy on the
+  // pile kept the tag, and whoever took it back off inherited a re-roll target.
+  // The pile is made on first drop; if this leg made it, it deletes it too.
+  const piled = await page.evaluate(async () => {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const pp = await import("/systems/air-bladder/module/party-pile.js");
+    const pileBefore = pp.findDroppedPile();
+    const pc = await Actor.create({ name: "ZZ Gear Dropper", type: "character" });
+    let pile = null;
+    let copyId = null;
+    try {
+      const [rope] = await pc.createEmbeddedDocuments("Item", [{ name: "ZZ Gear Tagged Rope", type: "item",
+        flags: { "air-bladder": { grantSource: "background" } } }]);
+      await pp.dropItemToPile(pc, rope.id);
+      await sleep(800);
+      pile = pp.findDroppedPile();
+      const copy = pile?.items.find((i) => i.name === "ZZ Gear Tagged Rope");
+      copyId = copy?.id ?? null;
+      return { onPile: !!copy, tag: copy?.getFlag("air-bladder", "grantSource") ?? null };
+    } finally {
+      try { await pc.delete(); } catch { /* gone */ }
+      if (pile && !pileBefore) { try { await pile.delete(); } catch { /* gone */ } }
+      else if (pile && copyId) { try { await pile.deleteEmbeddedDocuments("Item", [copyId]); } catch { /* gone */ } }
+    }
+  });
+  piled.onPile && piled.tag === null
+    ? ok("an item Dropped to the pile lands UNTAGGED")
+    : fail(`the pile's copy kept its grant tag: ${JSON.stringify(piled)}`);
+
   for (const [label, list] of [["a generated Fletchwind", arms.fresh], ["a swap onto Fletchwind", arms.swapped]]) {
     list.length > 0 && list.every((x) => x.equipped)
       ? ok(`${label}: the question-granted weapon arrives EQUIPPED ${JSON.stringify(list)}`)
