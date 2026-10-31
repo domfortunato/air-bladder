@@ -36,7 +36,7 @@
  * globally: a credit under the wrong art is worse than none.
  */
 
-import { getPortraitManifest, getCustomPortraitPaths, customPortraitFolder, reservedPortraitCategory, refreshCustomPortraits, getGameIconManifest, getTlomdevManifest, getLydiaManifest } from "./character-generator.js";
+import { getPortraitManifest, getCustomPortraitPaths, customPortraitFolder, reservedPortraitCategory, refreshCustomPortraits, getGameIconManifest, getTlomdevManifest, getLydiaManifest, clientPathPrefix } from "./character-generator.js";
 
 /**
  * Category display names, localized rather than title-cased in place so a
@@ -127,7 +127,8 @@ const customCategoryLabel = (key, { reserved = true } = {}) => {
  * become a path this hides.
  */
 const splitCustomPaths = (paths, root) => {
-  const prefix = root ? `${String(root).replace(/\/+$/, "")}/` : "";
+  // In the server's encoded form, as the paths are (`clientPathPrefix`).
+  const prefix = clientPathPrefix(root);
   const loose = [];
   const byCat = new Map();
   for (const p of paths) {

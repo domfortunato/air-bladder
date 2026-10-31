@@ -266,6 +266,30 @@ export const reservedPortraitCategory = (segment) => {
 };
 
 /**
+ * A folder root in the form the SERVER hands paths back in (review #34 finding
+ * 97). Browse returns every file through `toClientPath` — percent-encoded per
+ * segment by `foundry.utils.encodeURL`, unless already encoded
+ * (dist/files/local.mjs) — so a root typed with a space or an accent ("My
+ * Portraits", "Retratos/Niños") never prefixed its own files: every image fell
+ * to LOOSE in the picker and to GENERAL here, and a reserved `monster/` folder's
+ * faces went to the PC pool. Encoded the same way, core's own already-encoded
+ * test included. "" for no root.
+ * @param {string} root
+ * @returns {string}  the prefix, with its trailing slash
+ */
+export const clientPathPrefix = (root) => {
+  const trimmed = String(root ?? "").replace(/\/+$/, "");
+  if (!trimmed) return "";
+  let encoded;
+  try {
+    encoded = decodeURIComponent(trimmed) !== trimmed ? trimmed : foundry.utils.encodeURL(trimmed);
+  } catch {
+    encoded = foundry.utils.encodeURL(trimmed);
+  }
+  return `${encoded}/`;
+};
+
+/**
  * The flat cached list, bucketed into the four reserved categories plus
  * `general`. Derived on every call rather than cached: the list changes under
  * a Warden's Refresh and there is no invalidation hook worth owning for a walk
@@ -277,8 +301,7 @@ export const reservedPortraitCategory = (segment) => {
  * @returns {Object<String, String[]>}
  */
 const customBuckets = () => {
-  const root = customPortraitFolder().replace(/\/+$/, "");
-  const prefix = root ? `${root}/` : "";
+  const prefix = clientPathPrefix(customPortraitFolder());
   const buckets = { general: [] };
   for (const cat of PORTRAIT_CATEGORIES) buckets[cat] = [];
   for (const p of getCustomPortraitPaths()) {
