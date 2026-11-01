@@ -842,6 +842,98 @@ try {
     verdict(["light", "dark"].every((s) => pair[s]?.hovered && pair[s].ratio >= TEXT_MIN),
       `${label} keeps readable ink under the pointer, both schemes (review #34 finding 187)`, JSON.stringify(pair));
   }
+
+  // A RESTYLED CHECKBOX KEEPS CORE'S TWO STATES (review #34 finding 199). Core
+  // draws a checkbox's keyboard-focus ring and its disabled look on the ::before
+  // glyph (`:focus { outline: none }`, then `:focus-visible::before { outline }`;
+  // `:disabled` recolours the glyphs and sets `cursor: inherit`), and the
+  // sheets' six restyled boxes switch that ::before off. Every box on a
+  // character's sheet (Description tab included) and a hireling's is focused
+  // from the KEYBOARD, Shift+Tab then Tab, which is what makes :focus-visible
+  // match (the precondition), and must show a ring that reads against its
+  // backdrop; then it is disabled, as core's _toggleDisabled does on a sheet the
+  // viewer cannot edit, and must stop looking and pointing live.
+  const BOXES = ".deprived-check, .panicked-check, .for-hire-check, .omen-enable, .scar-enable, .scar-check";
+  const boxPass = async (scheme) => {
+    await setScheme(page, scheme);
+    await page.waitForTimeout(300);
+    const sheets = await page.evaluate(async () => {
+      const Cls = CONFIG.Actor.documentClass;
+      const out = [];
+      for (const [type, tab] of [["character", "description"], ["hireling", null]]) {
+        const a = await Cls.create({ name: `ZZ Theme Boxes ${type}`, type });
+        await a.sheet.render(true);
+        for (let i = 0; i < 40 && !a.sheet.element; i++) await new Promise((r) => setTimeout(r, 100));
+        await new Promise((r) => setTimeout(r, 500));
+        if (tab) a.sheet.element.querySelector(`.tabs .item[data-tab="${tab}"]`)?.click();
+        await new Promise((r) => setTimeout(r, 300));
+        out.push({ actorId: a.id, sheetId: a.sheet.element.id });
+      }
+      return out;
+    });
+    const found = [];
+    for (const { actorId, sheetId } of sheets) {
+      const n = await page.evaluate(([sheetId, BOXES]) => {
+        const boxes = [...document.querySelectorAll(`#${sheetId} :is(${BOXES})`)].filter((b) => b.getBoundingClientRect().width > 0);
+        boxes.forEach((b, i) => b.setAttribute("data-ab-box", `${sheetId}-${i}`));
+        return boxes.length;
+      }, [sheetId, BOXES]);
+      for (let i = 0; i < n; i++) {
+        const sel = `[data-ab-box="${sheetId}-${i}"]`;
+        await page.focus(sel);
+        await page.keyboard.press("Shift+Tab");
+        await page.keyboard.press("Tab");
+        await page.waitForTimeout(100);
+        found.push(await page.evaluate(async (sel) => {
+          const el = document.querySelector(sel);
+          await window.__abWarm(el.closest(".application") ?? el);
+          const parse = (s) => {
+            const m = /rgba?\(([^)]+)\)/.exec(s || "");
+            if (!m) return null;
+            const p = m[1].split(/[,\s/]+/).filter(Boolean).map(Number);
+            return { r: p[0], g: p[1], b: p[2], a: p.length > 3 ? p[3] : 1 };
+          };
+          const srgb = (c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
+          const lum = (c) => 0.2126 * srgb(c.r / 255) + 0.7152 * srgb(c.g / 255) + 0.0722 * srgb(c.b / 255);
+          const cs = getComputedStyle(el);
+          const ring = parse(cs.outlineColor);
+          const bg = window.__abBackdrop(el.parentElement);
+          const [hi, lo] = ring ? [lum(ring), lum(bg)].sort((x, y) => y - x) : [0, 0];
+          const out = {
+            box: el.className,
+            focusVisible: el === document.activeElement && el.matches(":focus-visible"),
+            ring: cs.outlineStyle !== "none" && parseFloat(cs.outlineWidth) >= 1,
+            ringRatio: ring ? Math.round(((hi + 0.05) / (lo + 0.05)) * 100) / 100 : 0,
+          };
+          el.blur();
+          el.disabled = true;
+          const ds = getComputedStyle(el);
+          out.disabledCursor = ds.cursor;
+          out.disabledOpacity = Number(ds.opacity);
+          el.disabled = false;
+          return out;
+        }, sel));
+      }
+    }
+    await page.evaluate(async (sheets) => {
+      for (const { actorId } of sheets) {
+        await game.actors.get(actorId)?.sheet.close();
+        await game.actors.get(actorId)?.delete();
+      }
+    }, sheets);
+    return found;
+  };
+  const boxesLight = await boxPass("light");
+  const boxesDark = await boxPass("dark");
+  await restoreScheme(page);
+  const allBoxes = [...boxesLight, ...boxesDark];
+  const kinds = new Set(allBoxes.map((b) => b.box));
+  verdict(kinds.size >= 4 && allBoxes.every((b) => b.focusVisible && b.ring && b.ringRatio >= BORDER_MIN),
+    "a restyled sheet checkbox shows a focus ring from the keyboard, both schemes (review #34 finding 199)",
+    JSON.stringify({ kinds: [...kinds], light: boxesLight, dark: boxesDark }));
+  verdict(allBoxes.length > 0 && allBoxes.every((b) => b.disabledCursor !== "pointer" && b.disabledOpacity < 1),
+    "...and a disabled one no longer looks or points like a live one",
+    JSON.stringify(allBoxes.map((b) => ({ box: b.box, cursor: b.disabledCursor, opacity: b.disabledOpacity }))));
 } catch (e) {
   console.error(`  FAIL  ${e.name}: ${e.message}`);
   failed = true;
