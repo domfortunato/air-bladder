@@ -727,10 +727,16 @@
     top: 6px;
     right: 6px;
 }
+/* BOTH halves of core's hover pair, as the Dashboard's eye states them (review
+   #34 finding 187). Restating the ink alone left core's orange hover ground
+   (`--button-hover-background-color`, warm-2) under the accent teal: 1.34:1 in
+   light, 2.14:1 in dark. The teal has no value that reads on parchment either
+   way, so the hover is the eye's: the strong wash under the ink. */
 .cairn .tab[data-tab="notes"] prose-mirror.inactive > button.icon.toggle:enabled:hover,
 .cairn .npc-description-section prose-mirror.inactive > button.icon.toggle:enabled:hover,
 .cairn.sheet.item prose-mirror.inactive > button.icon.toggle:enabled:hover {
-    color: var(--ab-accent);
+    background: var(--ab-wash-strong);
+    color: var(--ab-ink);
 }
 
 /* The two generation buttons carry TEXT, unlike Foundry's own frame buttons.
@@ -3147,10 +3153,16 @@ ol.combat-tracker li.combatant.cairn-drop-below {
     border-bottom: 1px solid var(--ab-rule-strong);
 }
 
+/* `background: none` restates only HALF of core's hover pair (`button:hover`
+   sets ground AND ink, @layer elements.forms), so the ink is stated too, or
+   core's near-white hover ink lands on parchment in the light scheme (review
+   #34 finding 187). A system-layer `color` outranks core's hover one. The
+   folder tile, Back and the Dashboard's eye below do the same. */
 .cairn-portrait-tab {
     flex: 0 0 auto;
     width: auto;
     background: none;
+    color: var(--ab-ink);
     border: none;
     border-bottom: 2px solid transparent;
     border-radius: 0;
@@ -3213,6 +3225,7 @@ ol.combat-tracker li.combatant.cairn-drop-below {
     min-height: 44px;
     padding: 6px 8px;
     background: none;
+    color: var(--ab-ink);   /* the other half of core's hover pair; see .cairn-portrait-tab */
     border: 1px solid var(--ab-rule);
     border-radius: 4px;
     cursor: pointer;
@@ -3266,6 +3279,7 @@ ol.combat-tracker li.combatant.cairn-drop-below {
     width: auto;
     align-self: flex-start;
     background: none;
+    color: var(--ab-ink);   /* the other half of core's hover pair; see .cairn-portrait-tab */
     border: none;
     padding: 2px 4px;
     margin-bottom: 4px;
@@ -4233,6 +4247,7 @@ ol.combat-tracker li.combatant.cairn-drop-below {
     justify-content: center;
     border: none;
     background: none;
+    color: var(--ab-ink);   /* the other half of core's hover pair; see .cairn-portrait-tab */
     opacity: 0.6;
 }
 
