@@ -3381,7 +3381,10 @@ ol.combat-tracker li.combatant.cairn-drop-below {
     font-family: "Alegreya", Times, "Times New Roman", Georgia, serif;
     font-variant: small-caps;
     font-size: 15px;
-    color: var(--ab-ink-muted, inherit);
+    /* The muted voice of the "Hired by…" label beside it. It named
+       `--ab-ink-muted`, a token defined nowhere, so the fallback drew it in
+       full ink (review #34 finding 103). */
+    color: var(--ab-muted);
     cursor: pointer;
 }
 
