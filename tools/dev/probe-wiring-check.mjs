@@ -188,5 +188,27 @@ formatAssigns.length === 0
   ? ok("no probe shadows game.i18n.format by assignment (a silent no-op)")
   : fail(`${formatAssigns.length} game.i18n.format assignment(s) — a silent no-op; use Object.defineProperty:\n         ${formatAssigns.join("\n         ")}`);
 
+// A BATCH CREATE RETURNS IN NO PROMISED ORDER. The server pushes each created
+// document after its own LevelDB read for a fresh id (server-backend.mjs
+// `_createDocuments`, a `Promise.all` over `createNewId()`), so a batch of two
+// can come back swapped under load. dev:token-names paid for it in the 0.1.21
+// sweep (2026-09-13), and review #34's F198 leg in dev:content-overlay again
+// (fleet 20261101T114217Z: the Adze's checks read the Torch). Destructure only
+// a batch of ONE; give a larger batch its own `_id`s with `keepId: true` and
+// read each back by id.
+const batchDestructures = [];
+for (const f of files) {
+  fs.readFileSync(path.join(dir, f), "utf8").split(/\r?\n/).forEach((line, i) => {
+    if (/^\s*\*/.test(line)) return;
+    const code = line.replace(/\/\/.*$/, "");
+    if (/\[\s*[\w$]*\s*,[^\]]*\]\s*=\s*await\b[^;]*(create(?:Embedded)?Documents\s*\(|\.create\s*\(\s*\[)/.test(code)) {
+      batchDestructures.push(`${f}:${i + 1}`);
+    }
+  });
+}
+batchDestructures.length === 0
+  ? ok("no probe reads a batch create's documents by position")
+  : fail(`${batchDestructures.length} batch create(s) destructured by position — the server returns them in completion order; supply _ids with keepId and read by id:\n         ${batchDestructures.join("\n         ")}`);
+
 console.log(failed ? "\nPROBE WIRING CHECK FAILED\n" : "\nprobe wiring check passed\n");
 process.exit(failed ? 1 : 0);

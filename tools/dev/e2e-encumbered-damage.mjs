@@ -2265,8 +2265,15 @@ const cardTargets = await page.evaluate(async () => {
       system: { role: "monster", abilities: { STR: { value: 6, max: 10 } } },
       prototypeToken: { actorLink: false } });
     made.actors.push(base);
-    const [tokA, tokB] = await scene.createEmbeddedDocuments("Token", [
-      await base.getTokenDocument({ x: 300, y: 300 }), await base.getTokenDocument({ x: 400, y: 400 })]);
+    // Our own ids, read back by id: a batch comes back in the order the server
+    // finished it, so position cannot say which token is A.
+    const tokAId = foundry.utils.randomID();
+    const tokBId = foundry.utils.randomID();
+    await scene.createEmbeddedDocuments("Token", [
+      await base.getTokenDocument({ _id: tokAId, x: 300, y: 300 }),
+      await base.getTokenDocument({ _id: tokBId, x: 400, y: 400 })], { keepId: true });
+    const tokA = scene.tokens.get(tokAId);
+    const tokB = scene.tokens.get(tokBId);
     out.unlinked = !tokA.actorLink;
     const card = { kind: "save", ability: "STR", formula: "d20cs<=6", rolled: 15, failed: true, crit: true };
     const roll = await new Roll("1d6").evaluate();

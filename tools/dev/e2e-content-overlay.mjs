@@ -358,9 +358,15 @@ const one = await page.evaluate(async () => {
     i18n._setOverlay({ "monster.itemName": { [ADZE]: ADZE_ES }, "item.name": { [TORCH]: TORCH_ES } });
     const beast = await Actor.create({ name: "ZZ Probe Svirf", type: "npc", system: { role: "monster" } });
     created.push(beast);
-    const [adze, torch] = await beast.createEmbeddedDocuments("Item", [
-      { name: ADZE, type: "weapon" }, { name: TORCH, type: "item" },
-    ]);
+    // Our own ids, read back by id: a batch comes back in the order the server
+    // finished it (fleet 20261101T114217Z swapped these two).
+    const adzeId = foundry.utils.randomID();
+    const torchId = foundry.utils.randomID();
+    await beast.createEmbeddedDocuments("Item", [
+      { _id: adzeId, name: ADZE, type: "weapon" }, { _id: torchId, name: TORCH, type: "item" },
+    ], { keepId: true });
+    const adze = beast.items.get(adzeId);
+    const torch = beast.items.get(torchId);
     const root = await open(beast);
     const rowName = (id) => root?.querySelector(`.cairn-items-list-row[data-item-id="${id}"] .cairn-item-title`)?.textContent.trim() ?? null;
     const out = { ADZE, ADZE_ES, TORCH, TORCH_ES, adzeRow: rowName(adze.id), torchRow: rowName(torch.id) };

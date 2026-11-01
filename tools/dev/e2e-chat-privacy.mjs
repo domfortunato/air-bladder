@@ -113,10 +113,16 @@ try {
     const shown = await mk(`${MARK} Shown`, 300);
     const combat = await Combat.create({ scene: scene.id, flags });
     await combat.activate();
-    const [ch, cs] = await combat.createEmbeddedDocuments("Combatant", [
-      { actorId: hidden.a.id, tokenId: hidden.t.id, sceneId: scene.id, hidden: true },
-      { actorId: shown.a.id, tokenId: shown.t.id, sceneId: scene.id },
-    ]);
+    // Our own ids, read back by id: a batch comes back in the order the server
+    // finished it, so position cannot say which combatant is the hidden one.
+    const chId = foundry.utils.randomID();
+    const csId = foundry.utils.randomID();
+    await combat.createEmbeddedDocuments("Combatant", [
+      { _id: chId, actorId: hidden.a.id, tokenId: hidden.t.id, sceneId: scene.id, hidden: true },
+      { _id: csId, actorId: shown.a.id, tokenId: shown.t.id, sceneId: scene.id },
+    ], { keepId: true });
+    const ch = combat.combatants.get(chId);
+    const cs = combat.combatants.get(csId);
     const before = new Set(game.messages.map((m) => m.id));
     const priorUniform = CONFIG.Dice.randomUniform;
     CONFIG.Dice.randomUniform = () => 0.5;
