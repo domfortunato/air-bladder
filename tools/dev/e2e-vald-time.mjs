@@ -2056,6 +2056,118 @@ try {
       ? ok("a HIDDEN event on the day is not written into the log the party reads")
       : fail("a hidden event in the weather log", JSON.stringify(hiddenMark));
 
+    /* ---- hidden is OWNERSHIP, not the journal it is filed in (review #34 finding 230) ---- */
+
+    // The party's calendar follows ownership; the Warden's mark and the log
+    // asked which journal an event was FILED in. Two of core's own routes split
+    // them. (a) A page in the SHARED journal set to None through its page
+    // ownership: off the party's calendar, yet named in the log they read.
+    // (b) The hidden journal raised to Observer, the reveal the guide
+    // describes: on the party's calendar, yet still marked "Only you can see
+    // this one." for the Warden AND for Alice, and left out of the log. Both on
+    // TODAY; the precondition is that the Warden's mark lookup sees both, or
+    // "absent from the line" proves nothing. Each planted id is recorded on the
+    // page as it is made, so the finally below cleans up after a partial plant.
+    let byOwnership = null;
+    try {
+      await page.evaluate(async () => {
+        const L = CONST.DOCUMENT_OWNERSHIP_LEVELS;
+        const cal = await import("/systems/air-bladder/module/calendar-events.js");
+        const made = globalThis.__abF230 = { journals: [], pages: [], raised: null };
+        const c = game.time.components;
+        const flags = { wardenEvent: true, valdMonth: c.month + 1, valdDay: c.dayOfMonth + 1,
+          valdDays: 1, valdYear: (c.year ?? 0) + (game.time.calendar?.years?.yearZero ?? 0), valdWatch: null };
+        const journalOf = async (kind, name, level) => {
+          let entry = game.journal.find((j) => j.flags?.["air-bladder"]?.calendarEvents === kind && cal.isWardenJournal(j));
+          if (!entry) {
+            entry = await JournalEntry.create({ name, ownership: { default: level },
+              flags: { "air-bladder": { calendarEvents: kind } } });
+            made.journals.push(entry.id);
+          }
+          return entry;
+        };
+        const plant = async (entry, name, extra = {}) => {
+          const [pg] = await entry.createEmbeddedDocuments("JournalEntryPage", [{
+            name, type: "text", text: { content: "" }, ...extra, flags: { "air-bladder": flags } }]);
+          made.pages.push([entry.id, pg.id]);
+        };
+        const shared = await journalOf("shared", "ZZ Shared Events", L.OBSERVER);
+        const hidden = await journalOf("hidden", "ZZ Hidden Events", L.NONE);
+        await plant(shared, "ZZ Page-Hidden Ambush", { ownership: { default: L.NONE } });
+        await plant(hidden, "ZZ Revealed Parley");
+        made.raised = [hidden.id, hidden.ownership.default];
+        await hidden.update({ "ownership.default": L.OBSERVER });
+      });
+      const aliceMarks = await alice.evaluate(async () => {
+        const cal = await import("/systems/air-bladder/module/calendar-events.js");
+        const c = game.time.components;
+        const year = (c.year ?? 0) + (game.time.calendar?.years?.yearZero ?? 0);
+        const day = async () => (await cal.marksByDay(year)).get(`${c.month}/${c.dayOfMonth + 1}`) ?? [];
+        let marks = await day();
+        for (let i = 0; i < 30 && !marks.some((m) => m.name === "ZZ Revealed Parley"); i++) {
+          await new Promise((r) => setTimeout(r, 100));
+          marks = await day();
+        }
+        const parley = marks.find((m) => m.name === "ZZ Revealed Parley");
+        return { parleySeen: !!parley, parleyMarked: !!parley?.hidden,
+          ambushSeen: marks.some((m) => m.name === "ZZ Page-Hidden Ambush") };
+      });
+      const warden = await page.evaluate(async () => {
+        const settings = game.settings;
+        const realGet = settings.get.bind(settings);
+        settings.get = (ns, key, ...rest) => rest[0]?.document
+          ? foundry.helpers.ClientSettings.prototype.get.call(game.settings, ns, key, ...rest)   // review #34 finding 29
+          : (ns === "air-bladder" && key === "weather-log" ? true : realGet(ns, key, ...rest));
+        try {
+          const cal = await import("/systems/air-bladder/module/calendar-events.js");
+          const c = game.time.components;
+          const year = (c.year ?? 0) + (game.time.calendar?.years?.yearZero ?? 0);
+          const marks = (await cal.marksByDay(year)).get(`${c.month}/${c.dayOfMonth + 1}`) ?? [];
+          const ambush = marks.find((m) => m.name === "ZZ Page-Hidden Ambush");
+          const parley = marks.find((m) => m.name === "ZZ Revealed Parley");
+          const gt = await import("/systems/air-bladder/module/game-time.js");
+          const log = () => game.journal.contents.find((j) => j.flags?.["air-bladder"]?.weatherLog);
+          const text = () => log()?.pages?.contents?.[0]?.text?.content ?? "";
+          await gt.setTodayWeather("Drizzle, and a parley in it");
+          for (let i = 0; i < 60 && !/Drizzle, and a parley/.test(text()); i++) await new Promise((r) => setTimeout(r, 100));
+          const line = text().split("<li>").at(-1) ?? "";
+          return {
+            seen: !!ambush && !!parley,
+            ambushMarked: !!ambush?.hidden,
+            parleyMarked: !!parley?.hidden,
+            wrote: /Drizzle, and a parley/.test(line),
+            ambushLogged: /ZZ Page-Hidden Ambush/.test(line),
+            parleyLogged: /ZZ Revealed Parley/.test(line),
+            line: line.slice(0, 200),
+          };
+        } finally {
+          settings.get = realGet;
+        }
+      });
+      byOwnership = { ...warden, alice: aliceMarks };
+    } finally {
+      await page.evaluate(async () => {
+        const made = globalThis.__abF230;
+        if (!made) return;
+        if (made.raised) await game.journal.get(made.raised[0])?.update({ "ownership.default": made.raised[1] }).catch(() => {});
+        for (const [entryId, pageId] of made.pages) {
+          if (!made.journals.includes(entryId)) await game.journal.get(entryId)?.pages.get(pageId)?.delete().catch(() => {});
+        }
+        for (const id of made.journals) await game.journal.get(id)?.delete().catch(() => {});
+        delete globalThis.__abF230;
+      });
+    }
+
+    byOwnership.seen && byOwnership.ambushMarked && byOwnership.wrote && !byOwnership.ambushLogged
+      ? ok("an event hidden by its PAGE's ownership is marked hidden and kept out of the log")
+      : fail("a page-hidden event in the shared journal", JSON.stringify(byOwnership));
+    byOwnership.seen && !byOwnership.parleyMarked && byOwnership.wrote && byOwnership.parleyLogged
+      ? ok("...and an event the hidden journal now SHOWS loses its mark and is logged like any other")
+      : fail("a revealed event kept its hidden mark or left the log", JSON.stringify(byOwnership));
+    byOwnership.alice.parleySeen && !byOwnership.alice.parleyMarked && !byOwnership.alice.ambushSeen
+      ? ok("...and Alice sees the revealed one unmarked, and not the page-hidden one")
+      : fail("the player's marks after a reveal", JSON.stringify(byOwnership.alice));
+
     /* ---- a player's DECOY is not the log (review #27) -------------------- */
 
     // The log is found by its flag, and a flag sits on a document any TRUSTED
