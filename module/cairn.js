@@ -29,7 +29,7 @@ import { connectionHeadroom, connectedOwnershipShape, syncPendingOwnership, OWNE
 import { loadContentOverlay, t, translationOf, contentLocalized, tokenDisplayName, actorDisplayName, speakerDisplayName, LOCALIZED_DIRECTORIES, localizeJournalBlocks } from "./i18n-content.js";
 import { injectEncounterButton, localizeEncounterQty, resolveTable } from "./encounters.js";
 import { bindGrimoireFatigueButton, localizeGlogCastCard } from "./grimoire.js";
-import { nameableTokens, DAMAGE_QUALITY_KEYS, localizeD20Card, localizeRollFlavor, damageDiceIcons, windowIdOf, relayedLabel } from "./utils.js";
+import { nameableTokens, DAMAGE_QUALITY_KEYS, localizeD20Card, localizeRollFlavor, damageDiceIcons, windowIdOf, relayedLabel, labelIconControl } from "./utils.js";
 import { movedArt, movedFields, registerArtArrival } from "./art-paths.js";
 
 /**
@@ -3210,8 +3210,9 @@ const offerUntargetedApply = (html) => {
   anchor.className = "btn apply-dmg";
   // A DIFFERENT tooltip from the targeted card's, deliberately. The rule this
   // leaves is meant to be readable from the card — the splat asks only when it
-  // has to — and the tooltip is where that is said.
-  anchor.dataset.tooltip = game.i18n.localize("CAIRN.ApplyDamageChoose");
+  // has to — and the tooltip is where that is said. Its name too: this anchor
+  // is built per render and never stored, so the template's cannot reach it.
+  labelIconControl(anchor, game.i18n.localize("CAIRN.ApplyDamageChoose"));
   const icon = document.createElement("i");
   icon.className = "fas fa-burst";
   anchor.append(icon);
@@ -3525,7 +3526,7 @@ const relabelWeaponLine = (label) => {
  */
 const relabelApplyTooltip = (html) => {
   const btn = html.querySelector(".apply-dmg[data-targets]");
-  if (btn) btn.dataset.tooltip = game.i18n.localize("CAIRN.ApplyDamage");
+  if (btn) labelIconControl(btn, game.i18n.localize("CAIRN.ApplyDamage"));
 };
 
 /**
@@ -3770,7 +3771,7 @@ const showDamageApplied = (message, html, scene) => {
   if (btn) {
     btn.classList.add("spent");
     btn.setAttribute("disabled", "disabled");
-    btn.dataset.tooltip = game.i18n.localize("CAIRN.Notify.DamageAlreadyApplied");
+    labelIconControl(btn, game.i18n.localize("CAIRN.Notify.DamageAlreadyApplied"));
   }
 
   const row = html.querySelector(".flavor-dice-roll");

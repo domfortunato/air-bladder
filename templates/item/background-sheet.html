@@ -142,7 +142,7 @@
                                         {{#each this.items}}
                                         <span class="bg-item-chip{{#if this.isSnapshot}} is-snapshot{{/if}}">
                                             {{#if this.isSnapshot}}<i class="fas fa-camera"></i> {{/if}}{{this.name}}
-                                            <a class="bg-option-item-remove" data-action="removeOptionItem" data-t="{{@../../index}}" data-o="{{@../index}}" data-i="{{@index}}"><i class="fas fa-times"></i></a>
+                                            <a class="bg-option-item-remove" data-action="removeOptionItem" data-t="{{@../../index}}" data-o="{{@../index}}" data-i="{{@index}}" title="{{ localize 'CAIRN.Remove' }}"><i class="fas fa-times"></i></a>
                                         </span>
                                         {{/each}}
                                         <span class="bg-drop-hint bg-drop-hint-inline">{{ localize 'CAIRN.BgAuthor.DropItemHint' }}</span>

@@ -629,7 +629,7 @@ export const buildDiceBuilder = () => {
   const clear = document.createElement("button");
   clear.setAttribute("type", "button");
   clear.className = "wd-clear";
-  clear.setAttribute("data-tooltip", game.i18n.localize("CAIRN.WardenDamage.Clear"));
+  labelIconControl(clear, game.i18n.localize("CAIRN.WardenDamage.Clear"));
   const clearIcon = document.createElement("i");
   clearIcon.className = "fa-solid fa-xmark";
   clear.append(clearIcon);
@@ -1264,6 +1264,20 @@ export const relayedLabel = (v) => {
  * @returns {string|undefined}
  */
 export const windowIdOf = (el) => el?.ownerDocument?.defaultView?.id || undefined;
+
+/**
+ * Label an icon-only control: its tooltip and its accessible name, together.
+ * data-tooltip names nothing (core's TooltipManager sets aria-describedby only
+ * while the element is hovered, tooltip-manager.mjs:248), so the same text is
+ * its aria-label too, the rule since review #21 (review #34 findings 189, 200,
+ * 201). One call for both, so rewriting one cannot leave the other stale.
+ * @param {HTMLElement} el
+ * @param {string} text   already localized
+ */
+export const labelIconControl = (el, text) => {
+  el.dataset.tooltip = text;
+  el.setAttribute("aria-label", text);
+};
 
 /**
  * Ask the Warden who takes an UNTARGETED damage roll.
