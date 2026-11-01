@@ -141,6 +141,22 @@ export const repointArtDeep = (node) => {
 };
 
 /**
+ * The top-level fields of a plain source that `repointArtDeep` changes, each
+ * one whole and repointed, ready to write back. `_id` is never one of them.
+ * @param {object} src   a document's `toObject()`, or one embedded row of it
+ * @returns {object} field → repointed value; empty when nothing moved
+ */
+export const movedFields = (src) => {
+  const changes = {};
+  for (const [k, v] of Object.entries(src)) {
+    if (k === "_id") continue;
+    const box = { [k]: v };
+    if (repointArtDeep(box)) changes[k] = box[k];
+  }
+  return changes;
+};
+
+/**
  * The document types the sweep covers, each of which can ARRIVE carrying an
  * old path: created from a module's compendium (Import, or a drag that
  * imports), out of an Adventure, or pasted from another world. Embedded types
@@ -158,12 +174,7 @@ const ARRIVAL_TYPES = ["Actor", "Item", "Scene", "Token", "RollTable", "TableRes
 export const repointArrivingArt = (doc) => {
   const src = doc.toObject();
   if (!JSON.stringify(src).includes("systems/air-bladder/")) return;
-  const changes = {};
-  for (const [k, v] of Object.entries(src)) {
-    if (k === "_id") continue;
-    const box = { [k]: v };
-    if (repointArtDeep(box)) changes[k] = box[k];
-  }
+  const changes = movedFields(src);
   if (Object.keys(changes).length) doc.updateSource(changes);
 };
 

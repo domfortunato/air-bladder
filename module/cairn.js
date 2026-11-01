@@ -30,7 +30,7 @@ import { loadContentOverlay, t, translationOf, contentLocalized, tokenDisplayNam
 import { injectEncounterButton, localizeEncounterQty, resolveTable } from "./encounters.js";
 import { bindGrimoireFatigueButton, localizeGlogCastCard } from "./grimoire.js";
 import { nameableTokens, DAMAGE_QUALITY_KEYS, localizeD20Card, localizeRollFlavor, damageDiceIcons, windowIdOf, relayedLabel } from "./utils.js";
-import { movedArt, repointArtDeep, registerArtArrival } from "./art-paths.js";
+import { movedArt, movedFields, registerArtArrival } from "./art-paths.js";
 
 /**
  * The Fatigue instead of Critical Damage option: the save card's choice, once
@@ -1914,31 +1914,47 @@ const WHOLE_SOURCE_PACKS = ["Scene", "Adventure"];
 
 /**
  * Sweep one world Scene or Adventure compendium: walk each document's source
- * and write back the top-level fields that moved, in ONE batched update for the
- * pack. A locked pack is unlocked for the write and relocked, whatever happens.
+ * and write back the fields that moved. A locked pack is unlocked for the
+ * write and relocked, whatever happens.
+ *
+ * A Scene's placed things (tokens, tiles, notes, its levels and every other
+ * EMBEDDED collection) go back as embedded updates, one per scene and type,
+ * never inside the scene's own update. Core answers a Scene update naming
+ * `tokens` with a DEFERRED region write (client scene.mjs `#onUpdateRegions`
+ * → `updateRegionShapeConstraints`: throttled 250 ms onto a ticker frame,
+ * never awaited, sent even with no region to write), so it reached the pack
+ * after the relock and every connected client logged "You may not update
+ * documents in the locked compendium" (fleet 20261031T190758Z). An embedded
+ * Token update schedules nothing. An Adventure has no embedded collections
+ * (its bundle is plain data), so its fields stay in ONE batched write.
  * @param {CompendiumCollection} pack
- * @returns {Promise<number>} documents rewritten
+ * @returns {Promise<number>} documents and rows rewritten
  */
 const repointPackSources = async (pack) => {
+  const embedded = Object.entries(pack.documentClass.metadata.embedded ?? {});
   const updates = [];
+  const rows = [];   // [document, embedded type, row updates]
   for (const d of await pack.getDocuments()) {
-    const u = {};
-    for (const [k, v] of Object.entries(d.toObject())) {
-      if (k === "_id") continue;
-      const box = { [k]: v };
-      if (repointArtDeep(box)) u[k] = box[k];
+    const src = d.toObject();
+    for (const [type, key] of embedded) {
+      const moved = (src[key] ?? []).map((row) => ({ _id: row._id, ...movedFields(row) }))
+        .filter((row) => Object.keys(row).length > 1);
+      if (moved.length) rows.push([d, type, moved]);
+      delete src[key];
     }
+    const u = movedFields(src);
     if (Object.keys(u).length) updates.push({ _id: d.id, ...u });
   }
-  if (!updates.length) return 0;
+  if (!updates.length && !rows.length) return 0;
   const wasLocked = pack.locked;
   if (wasLocked) await pack.configure({ locked: false });
   try {
-    await pack.documentClass.updateDocuments(updates, { pack: pack.collection });
+    if (updates.length) await pack.documentClass.updateDocuments(updates, { pack: pack.collection });
+    for (const [d, type, moved] of rows) await d.updateEmbeddedDocuments(type, moved);
   } finally {
     if (wasLocked) await pack.configure({ locked: true });
   }
-  return updates.length;
+  return updates.length + rows.reduce((n, [, , moved]) => n + moved.length, 0);
 };
 
 const migrateArtPaths = async () => {
