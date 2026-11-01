@@ -23,7 +23,8 @@ import { t } from "./i18n-content.js";
  * WHY TWO WORLD JOURNALS RATHER THAN A FLAG ON THE PAGE: ownership is the one
  * mechanism a player's client applies without being asked, so the party's
  * calendar and the party's sidebar both follow it for free, and nothing here
- * has to remember to filter.
+ * has to remember to filter. The one thing the Warden's own client must ASK is
+ * what to mark hidden, since a GM passes every permission test (`partySees`).
  *
  * WHAT "HIDDEN" IS, EXACTLY, AND IT IS NOT A SECRET. MEASURED, not assumed: a
  * JournalEntry with `ownership.default: NONE` IS STILL SENT to every player —
@@ -300,7 +301,31 @@ const makeEventsJournal = async (hidden) => {
 };
 
 /**
- * Every event page this client may SEE.
+ * Does the PARTY see this event page? The test each player's own client makes
+ * in `eventPages`, asked here on their behalf (review #34 finding 230): a GM
+ * passes every permission test (`testUserPermission` makes a GM OWNER), so the
+ * Warden's client cannot learn the answer by asking itself. Both halves hold:
+ * - a player with no grant of their own sees it: the page's default level, or
+ *   its journal's where the page INHERITs, core `getUserLevel`'s order
+ *   (common/abstract/document.mjs). So a world with no players yet, or a player
+ *   who joins later, is not handed a hidden event;
+ * - every player there is sees it, so one denied by name is not spoiled.
+ * The journal an event is FILED in is not asked. The Warden's dialog picks the
+ * journal, but core's page eye and ownership dialog move what the party sees
+ * without moving the page.
+ * @param {JournalEntryPage} page
+ * @returns {boolean}
+ */
+const partySees = (page) => {
+  const L = CONST.DOCUMENT_OWNERSHIP_LEVELS;
+  const own = page.ownership?.default ?? L.INHERIT;
+  const level = own === L.INHERIT ? (page.parent?.ownership?.default ?? L.NONE) : own;
+  return level >= L.OBSERVER && game.users.every((u) => u.isGM || page.testUserPermission(u, "OBSERVER"));
+};
+
+/**
+ * Every event page this client may SEE, each with whether it is `hidden`: the
+ * party cannot see it (`partySees`).
  *
  * Read LIVE from `game.journal`, which is in memory — there is nothing to await
  * and nothing to cache.
@@ -312,12 +337,11 @@ const makeEventsJournal = async (hidden) => {
  */
 const eventPages = () => {
   const out = [];
-  for (const hidden of [false, true]) {
-    const entry = eventsJournal(hidden);
+  for (const entry of [eventsJournal(false), eventsJournal(true)]) {
     for (const page of entry?.pages ?? []) {
       if (!page.flags?.["air-bladder"]?.wardenEvent) continue;
       if (!page.testUserPermission(game.user, "OBSERVER")) continue;
-      out.push({ page, hidden });
+      out.push({ page, hidden: !partySees(page) });
     }
   }
   return out;
@@ -393,6 +417,9 @@ export const watchLineFor = (watch) => (Number.isInteger(watch) && WATCH_KEYS[wa
  * permission test, and it is a journal every player reads — so the docs' own
  * example, an ambush hidden on the fourteenth, was written into it by name.
  * The log lists what the PARTY's calendar shows that day, and nothing more.
+ * "Hidden" is the party's ownership of the page, never the journal it is filed
+ * in (finding 230): a page set to None in the shared journal stays out, and the
+ * hidden journal's events go in once the Warden raises it.
  */
 export const marksOn = async ({ year, month, day }) => {
   const map = await marksByDay(year);
