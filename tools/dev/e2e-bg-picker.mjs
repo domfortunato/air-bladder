@@ -372,7 +372,18 @@ try {
     for (const c of containersOf(bbActor)) made.push(c);
     const bbBefore = { name: bbActor.name, bg: bbActor.system.background, hp: bbActor.system.hp.max };
     const merchant = gbb[0].backgrounds.find((b) => b.name === "Merchant");
-    await gen.changeBackground(bbActor, merchant);
+    // The generator only WARNS on a gear row it cannot resolve, and the
+    // tagged-count check below went red once with nothing else in the log
+    // (fleet 20261101T121856Z, green on rerun): keep what was said during the
+    // swap, so a repeat names its cause.
+    const swapWarns = [];
+    const realWarn = console.warn;
+    console.warn = (...a) => { swapWarns.push(a.map(String).join(" ").slice(0, 200)); realWarn.apply(console, a); };
+    try {
+      await gen.changeBackground(bbActor, merchant);
+    } finally {
+      console.warn = realWarn;
+    }
     for (const c of containersOf(bbActor)) made.push(c);
     const bbSwap = {
       background: bbActor.system.background,
@@ -389,6 +400,9 @@ try {
       taggedCount: bbActor.items.filter(
         (i) => i.getFlag("air-bladder", "grantSource") === "background").length,
       refCount: (merchant.system.startingGear ?? []).length,
+      refs: (merchant.system.startingGear ?? []).map((g) => g.name),
+      taggedNames: bbActor.items.filter((i) => i.getFlag("air-bladder", "grantSource") === "background").map((i) => i.name),
+      swapWarns,
     };
 
     // Barebones renders the single-column variant.
@@ -565,7 +579,8 @@ try {
     // that catches an SRD instruction being silently dropped.
     r.bbSwap.taggedCount === r.bbSwap.refCount
       ? ok(`its SRD "Random Additional Gear" row resolved to a real item (${r.bbSwap.taggedCount}/${r.bbSwap.refCount} granted)`)
-      : fail(`an instruction row was dropped: ${r.bbSwap.taggedCount} items for ${r.bbSwap.refCount} references`);
+      : fail(`an instruction row was dropped: ${r.bbSwap.taggedCount} items for ${r.bbSwap.refCount} references `
+        + JSON.stringify({ refs: r.bbSwap.refs, tagged: r.bbSwap.taggedNames, warns: r.bbSwap.swapWarns }));
 
     const B = r.bbDialog;
     B.noEyes ? ok("Barebones rows carry no eye toggle (all-or-nothing by ruling)") : fail("a Barebones row has an eye toggle");
