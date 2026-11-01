@@ -934,6 +934,47 @@ try {
   verdict(allBoxes.length > 0 && allBoxes.every((b) => b.disabledCursor !== "pointer" && b.disabledOpacity < 1),
     "...and a disabled one no longer looks or points like a live one",
     JSON.stringify(allBoxes.map((b) => ({ box: b.box, cursor: b.disabledCursor, opacity: b.disabledOpacity }))));
+
+  // THE FOR HIRE LABEL SPEAKS IN THE MUTED VOICE (review #34 finding 103). It
+  // named `--ab-ink-muted`, a token defined nowhere, so its `inherit` fallback
+  // always won and it drew in full ink beside the muted "Hired by…" label on
+  // the same line. The muted colour is RESOLVED, not copied: a throwaway span
+  // inside the sheet takes `var(--ab-muted)` and its computed colour is the
+  // target. The label's parent ink is read too, and must differ from the
+  // target — the precondition, or a label still on full ink would pass.
+  const hirePass = async (scheme) => {
+    await setScheme(page, scheme);
+    await page.waitForTimeout(300);
+    return page.evaluate(async () => {
+      const a = await CONFIG.Actor.documentClass.create({ name: "ZZ Theme For Hire", type: "hireling" });
+      try {
+        await a.sheet.render(true);
+        for (let i = 0; i < 40 && !a.sheet.element; i++) await new Promise((r) => setTimeout(r, 100));
+        await new Promise((r) => setTimeout(r, 500));
+        const label = a.sheet.element.querySelector(".for-hire-label");
+        if (!label || label.getBoundingClientRect().width === 0) return { rendered: false };
+        const probe = document.createElement("span");
+        probe.style.color = "var(--ab-muted)";
+        label.parentElement.append(probe);
+        const muted = getComputedStyle(probe).color;
+        probe.remove();
+        return {
+          rendered: true,
+          label: getComputedStyle(label).color,
+          muted,
+          ink: getComputedStyle(label.parentElement).color,
+        };
+      } finally {
+        await a.sheet.close();
+        await a.delete();
+      }
+    });
+  };
+  const hire = { light: await hirePass("light"), dark: await hirePass("dark") };
+  await restoreScheme(page);
+  verdict(Object.values(hire).every((h) => h.rendered && h.muted !== h.ink && h.label === h.muted),
+    "the For Hire label is the muted colour \"Hired by…\" uses, both schemes (review #34 finding 103)",
+    JSON.stringify(hire));
 } catch (e) {
   console.error(`  FAIL  ${e.name}: ${e.message}`);
   failed = true;
