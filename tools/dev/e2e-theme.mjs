@@ -732,6 +732,116 @@ try {
     "a locked background's Details headings are not core's 28px", JSON.stringify({ light: lightC.bgH3, dark: darkC.bgH3 }));
   verdict(darkC.goldBorder && darkC.goldBorder !== "rgb(117, 0, 3)" && lightC.goldBorder !== "rgb(117, 0, 3)",
     "the overburdened-gold border is the theme's peril red, not core's fixed maroon", JSON.stringify({ light: lightC.goldBorder, dark: darkC.goldBorder }));
+
+  // A HOVERED BUTTON KEEPS ITS INK (review #34 finding 187). Core's hover is a
+  // PAIR: `button:hover { background: var(--button-hover-background-color);
+  // color: var(--button-hover-text-color) }` in @layer elements.forms, warm-2
+  // ground under light-1 ink. A system rule that restates one half leaves
+  // core's other half landing. Four buttons set `background: none` and no ink,
+  // so core's near-white hover ink fell on parchment in the light scheme; the
+  // notes pencil set its hover ink and kept core's orange hover ground. Each is
+  // rendered FRESH in each scheme (a window keeps the paint it was rendered
+  // under), hovered with the real mouse, and its ink, opacity included, read
+  // against its actual backdrop at this probe's text floor. `hovered` is the
+  // precondition: the pointer really is over it.
+  const hoverInk = (sel) => page.evaluate(async (sel) => {
+    const el = document.querySelector(sel);
+    if (!el) return null;
+    await window.__abWarm(el.closest(".application") ?? el);
+    const parse = (s) => {
+      const m = /rgba?\(([^)]+)\)/.exec(s || "");
+      if (!m) return null;
+      const p = m[1].split(/[,\s/]+/).filter(Boolean).map(Number);
+      return { r: p[0], g: p[1], b: p[2], a: p.length > 3 ? p[3] : 1 };
+    };
+    const srgb = (c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
+    const lum = (c) => 0.2126 * srgb(c.r / 255) + 0.7152 * srgb(c.g / 255) + 0.0722 * srgb(c.b / 255);
+    const bg = window.__abBackdrop(el);
+    const ink = parse(getComputedStyle(el).color);
+    let a = ink.a;
+    for (let n = el; n && !n.matches(".application"); n = n.parentElement) a *= Number(getComputedStyle(n).opacity);
+    const fg = { r: ink.r * a + bg.r * (1 - a), g: ink.g * a + bg.g * (1 - a), b: ink.b * a + bg.b * (1 - a) };
+    const [hi, lo] = [lum(fg), lum(bg)].sort((x, y) => y - x);
+    const hoverHost = el.closest("[data-ab-hover]");
+    return { hovered: !!hoverHost?.matches(":hover"), ratio: Math.round(((hi + 0.05) / (lo + 0.05)) * 100) / 100,
+      ink: getComputedStyle(el).color, ground: getComputedStyle(hoverHost ?? el).backgroundColor };
+  }, sel);
+  const hoverPass = async (scheme) => {
+    await setScheme(page, scheme);
+    await page.waitForTimeout(300);
+    const out = {};
+    // Tag the first VISIBLE match, so a hidden tab's copy is never the one hovered.
+    const hover = async (key, sel, inkChild = "") => {
+      const tagged = await page.evaluate((sel) => {
+        document.querySelectorAll("[data-ab-hover]").forEach((n) => n.removeAttribute("data-ab-hover"));
+        const el = [...document.querySelectorAll(sel)].find((n) => n.getBoundingClientRect().width > 0);
+        el?.setAttribute("data-ab-hover", "1");
+        return !!el;
+      }, sel);
+      if (!tagged) { out[key] = null; return; }
+      await page.mouse.move(1, 1);
+      await page.hover('[data-ab-hover="1"]');
+      await page.waitForTimeout(400);   // core transitions a button's colours
+      out[key] = await hoverInk(`[data-ab-hover="1"]${inkChild ? ` ${inkChild}` : ""}`);
+      await page.mouse.move(1, 1);
+    };
+    const sleep = (ms) => page.waitForTimeout(ms);
+
+    await page.evaluate(async () => {
+      foundry.applications.instances.get("cairn-warden-dashboard")?.close();
+      const { openWardenDashboard } = await import("/systems/air-bladder/module/warden-dashboard.js");
+      await openWardenDashboard();
+      for (let i = 0; i < 40 && !document.querySelector("#cairn-warden-dashboard .cairn-show-btn"); i++) {
+        await new Promise((r) => setTimeout(r, 100));
+      }
+    });
+    await sleep(300);
+    await hover("eye", "#cairn-warden-dashboard .cairn-dashboard-pair > .cairn-show-btn");
+    await page.evaluate(() => foundry.applications.instances.get("cairn-warden-dashboard")?.close());
+
+    const ids = await page.evaluate(async () => {
+      // An NPC, not a character: a character's picker has no Game-Icons pane
+      // (`gameIcons: type !== "character"`), and its notes tab wears the same pencil.
+      const a = await CONFIG.Actor.documentClass.create({ name: "ZZ Theme Hover", type: "npc", system: { role: "npc" } });
+      await a.sheet.render(true);
+      for (let i = 0; i < 40 && !a.sheet.element; i++) await new Promise((r) => setTimeout(r, 100));
+      await new Promise((r) => setTimeout(r, 500));
+      a.sheet.element.querySelector('.tabs .item[data-tab="notes"]')?.click();
+      await new Promise((r) => setTimeout(r, 400));
+      return { actorId: a.id, sheetId: a.sheet.element.id };
+    });
+    await hover("pencil", `#${ids.sheetId} .tab[data-tab="notes"] prose-mirror.inactive > button.icon.toggle:enabled`);
+    await page.evaluate(async (id) => {
+      const a = game.actors.get(id);
+      a.sheet._pickPortrait(new Event("click"));
+      for (let i = 0; i < 40 && !document.querySelector(".cairn-portrait-tab"); i++) await new Promise((r) => setTimeout(r, 100));
+    }, ids.actorId);
+    await sleep(300);
+    await hover("tab", ".cairn-portrait-tab:not(.active)");
+    await page.evaluate(() => document.querySelector('.cairn-portrait-tab[data-tab="gameicons"]')?.click());
+    await sleep(300);
+    await hover("folder", '[data-pane="gameicons"] .cairn-icon-folder', "span");
+    await page.evaluate(() => document.querySelector('[data-pane="gameicons"] .cairn-icon-folder[data-category="weapons"]')?.click());
+    await sleep(300);
+    await hover("back", '[data-pane="gameicons"] .cairn-icon-back');
+    await page.evaluate(async (id) => {
+      for (const app of [...foundry.applications.instances.values()]) {
+        if (app.element?.querySelector(".cairn-portrait-gallery")) await app.close();
+      }
+      await game.actors.get(id)?.sheet.close();
+      await game.actors.get(id)?.delete();
+    }, ids.actorId);
+    return out;
+  };
+  const hoverLight = await hoverPass("light");
+  const hoverDark = await hoverPass("dark");
+  await restoreScheme(page);
+  for (const [key, label] of [["eye", "a Dashboard eye"], ["pencil", "the notes pencil"],
+    ["tab", "an art picker tab"], ["folder", "an art picker folder tile"], ["back", "the art picker's Back"]]) {
+    const pair = { light: hoverLight[key], dark: hoverDark[key] };
+    verdict(["light", "dark"].every((s) => pair[s]?.hovered && pair[s].ratio >= TEXT_MIN),
+      `${label} keeps readable ink under the pointer, both schemes (review #34 finding 187)`, JSON.stringify(pair));
+  }
 } catch (e) {
   console.error(`  FAIL  ${e.name}: ${e.message}`);
   failed = true;
