@@ -183,6 +183,9 @@ const dialog = await page.evaluate(async ({ xss }) => {
   r.cardHazard = label?.dataset.hazard ?? null;
   r.cardTargets = row?.querySelector(".apply-dmg")?.dataset.targets ?? null;
   r.cardTargetIsToken = r.cardTargets === tok.id;
+  // The splat is icon-only; its name is its tooltip (review #34 finding 189).
+  r.splatName = row?.querySelector(".apply-dmg")?.getAttribute("aria-label") ?? "";
+  r.splatTip = row?.querySelector(".apply-dmg")?.dataset.tooltip ?? "";
   // The Warden's own words stand: the attack-line rewrite must not turn this
   // into "<Warden> attacks ZZ Hazard Victim with !".
   r.labelText = (label?.textContent ?? "").trim();
@@ -252,6 +255,12 @@ check("and marked a hazard", dialog.cardHazard === "1",
   `data-hazard=${JSON.stringify(dialog.cardHazard)}`);
 check("targets come from the TARGETED token", dialog.targeted === 1 && dialog.cardTargetIsToken,
   `targeted=${dialog.targeted} data-targets=${dialog.cardTargets} — aiming is a gesture the Warden made, unlike the canvas selection the picker was ruled never to read`);
+// data-tooltip names nothing (core's TooltipManager sets aria-describedby only
+// while hovered, tooltip-manager.mjs:248); the rule since review #21 is a
+// localized aria-label beside it.
+check("the card's Apply splat is named as its tooltip reads (review #34 finding 189)",
+  !!dialog.splatName && !dialog.splatName.startsWith("CAIRN.") && dialog.splatName === dialog.splatTip,
+  `aria-label=${JSON.stringify(dialog.splatName)} tooltip=${JSON.stringify(dialog.splatTip)}`);
 check("the Warden's words stand", dialog.labelText === HAZARD_XSS,
   `"${dialog.labelText}" — the attack line stands off a hazard card, or this would read "<Warden> attacks ZZ Hazard Victim with !"`);
 check("and are never parsed as HTML", dialog.labelTags?.length === 0 && dialog.xssFired === false,
@@ -337,6 +346,10 @@ const builder = await page.evaluate(async () => {
 
   let f = await open();
   r.uiOpened = !!f;
+  // The ✕ is icon-only and the one real <button> of its kind in the tab order
+  // (review #34 finding 200).
+  r.uiClearName = q(".wd-clear")?.getAttribute("aria-label") ?? "";
+  r.uiClearTip = q(".wd-clear")?.dataset.tooltip ?? "";
   q(".wd-clear")?.click();
   r.uiCleared = f?.value ?? null;                                    // "" — ✕ empties, never re-fills
   r.uiEnabledAfterClear = q(".wd-die[data-die='6']")?.disabled === false;
@@ -411,6 +424,9 @@ check("the parser refuses what the buttons can't say", builder.pArith === null
 check("with the notation OFF, the parser reads `+` as the sum it rolls", builder.pSumOff === JSON.stringify({ sizes: [6, 6], mode: "sum" })
   && builder.pSumOffCount === JSON.stringify({ sizes: [6, 6, 8], mode: "sum" }),
   `d6 + d6 → ${builder.pSumOff}; 2d6 + d8 → ${builder.pSumOffCount} — keep-highest checked over a sum was the old reading`);
+check("the ✕ is named as its tooltip reads (review #34 finding 200)",
+  !!builder.uiClearName && !builder.uiClearName.startsWith("CAIRN.") && builder.uiClearName === builder.uiClearTip,
+  `aria-label=${JSON.stringify(builder.uiClearName)} tooltip=${JSON.stringify(builder.uiClearTip)}`);
 check("clicks reach the field", builder.uiOpened && builder.uiCleared === ""
   && builder.uiTwoD6 === "2d6",
   `✕→"${builder.uiCleared}" then d6,d6→"${builder.uiTwoD6}" — the leg that catches listeners wired on the built nodes, which serialization discards`);

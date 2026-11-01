@@ -143,6 +143,27 @@ try {
     ? ok("every button is type=button, so none submits the form")
     : fail("every button is type=button", `${opened.notButtons} would submit`);
 
+  // EVERY ICON-ONLY CONTROL HAS A NAME (review #34 finding 102). data-tooltip
+  // names nothing: core's TooltipManager sets aria-describedby only while the
+  // element is hovered (tooltip-manager.mjs:248). The rule since review #21 is
+  // a localized aria-label beside the tooltip, and Today's Weather's eye was
+  // the one eye without. The whole window is scanned, every tab, so the next
+  // unnamed control is caught as well; the weather eye being among those
+  // scanned is the precondition.
+  const names = await page.evaluate(() => {
+    const el = document.querySelector("#cairn-warden-dashboard");
+    const iconOnly = [...(el?.querySelectorAll("button, a[data-action]") ?? [])].filter((b) => !b.textContent.trim());
+    return {
+      scanned: iconOnly.length,
+      weatherEye: iconOnly.some((b) => b.id === "cairn-warden-dashboard-show-weather"),
+      unnamed: iconOnly.filter((b) => { const a = b.getAttribute("aria-label") ?? ""; return !a || a.startsWith("CAIRN."); })
+        .map((b) => b.id || b.dataset.action || b.className),
+    };
+  });
+  names.weatherEye && names.unnamed.length === 0
+    ? ok("every icon-only control on the window carries a localized aria-label", `${names.scanned} scanned`)
+    : fail("an icon-only control with no accessible name", JSON.stringify(names));
+
   /* ---- 1a. the shape of a tab, after the readability pass -------------- */
 
   const tabShape = await page.evaluate(async () => {

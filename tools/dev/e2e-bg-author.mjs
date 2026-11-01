@@ -248,6 +248,16 @@ try {
     const optItem = bg.system.tables?.[0]?.options?.[0]?.items?.[0];
     out.optionSnapshot = { name: optItem?.name, hasItemData: !!optItem?.itemData };
 
+    // Every icon-only control on the form has a name. The option chip's × had
+    // none while its two sibling ×s carry title = CAIRN.Remove (review #34
+    // finding 189); the chip just dropped is the precondition that one exists.
+    await new Promise((r) => setTimeout(r, 200));
+    const iconOnly = [...sheetRoot(sheet).querySelectorAll("a[data-action], button")].filter((a) => !a.textContent.trim());
+    out.iconNames = {
+      optionRemove: iconOnly.some((a) => a.classList.contains("bg-option-item-remove")),
+      unnamed: iconOnly.filter((a) => !(a.getAttribute("aria-label") || a.title)).map((a) => a.className || a.dataset.action),
+    };
+
     // Give option 0 the ONLY nonempty description + a gold grant so the d6 roll,
     // whatever it lands on, has a defined answer.
     const tables = foundry.utils.deepClone(bg.system.tables);
@@ -773,6 +783,8 @@ const checks = [
   ["gear drop → snapshot w/ itemData", result.gearSnapshot?.hasItemData === true && result.gearSnapshot?.name === SWORD],
   ["gear snapshot kept type+bulky", result.gearSnapshot?.type === "weapon" && result.gearSnapshot?.bulky === true],
   ["option drop → snapshot w/ itemData", result.optionSnapshot?.hasItemData === true],
+  ["every icon-only control on the form is named (review #34 finding 189)",
+    result.iconNames?.optionRemove === true && result.iconNames?.unnamed?.length === 0],
   ["generation resolved snapshot gear (not in any pack)", result.genHasSnapshotGear === true],
   ["\"Grants two bonds\" box on the authoring form", result.hasSecondBondBox === true],
   ["one bond by default, two with the box ticked", result.bondsDefault === 1 && result.bondsWithFlag === 2],

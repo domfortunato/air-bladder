@@ -1407,6 +1407,7 @@ const untargeted = await page.evaluate(async () => {
   // ask; an empty attribute would be a datum claiming to hold ids.
   r.anchorHasTargets = anchor?.hasAttribute("data-targets") ?? null;
   r.anchorTooltip = anchor?.dataset.tooltip ?? null;
+  r.anchorName = anchor?.getAttribute("aria-label") ?? "";
   r.anchorGlyph = anchor
     ? (() => { const c = getComputedStyle(anchor.querySelector("i"), "::before").content;
       return c && c !== "none" && c !== '""' ? c : null; })()
@@ -2735,6 +2736,12 @@ check("with no data-targets", untargeted.anchorHasTargets === false,
   `hasAttribute=${untargeted.anchorHasTargets} — its ABSENCE is what the handler reads to ask; an empty attribute would be a datum claiming to hold ids`);
 check("its own tooltip", untargeted.anchorTooltip === "Apply damage — choose who takes it",
   `"${untargeted.anchorTooltip}" — a different tooltip from the targeted card's, because the rule is meant to be readable from the card`);
+// Built in JS on every render and never stored, so the template's name cannot
+// reach it (review #34 finding 201): data-tooltip names nothing, and the rule
+// since review #21 is a localized aria-label beside it.
+check("and an accessible name that reads as the tooltip does", !!untargeted.anchorName
+  && untargeted.anchorName === untargeted.anchorTooltip,
+  `aria-label=${JSON.stringify(untargeted.anchorName)}`);
 check("and it draws a glyph", !!untargeted.anchorGlyph,
   `renders ${untargeted.anchorGlyph ?? "NOTHING"}`);
 // `offerUntargetedApply` builds its anchor with NO data-targets on purpose, so
