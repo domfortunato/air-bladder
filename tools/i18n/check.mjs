@@ -130,7 +130,8 @@ if (GLOSSARY) {
  *     nothing can ever ask for. Mechanically recoverable, and the replacement is
  *     printed.                                   ERROR
  *   - **dropped**  — the English exists nowhere. Editing English prose orphans
- *     its translation, and CLAUDE.md records that as the expected cost of the
+ *     its translation, and docs/working-notes/content-translation-chat-cards.md
+ *     records that as the expected cost of the
  *     source-string scheme, not as a bug.        warning
  *
  * `entity` was split out of `dropped` in review #10, and the split is the whole

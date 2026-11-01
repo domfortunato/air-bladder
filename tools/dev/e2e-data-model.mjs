@@ -290,7 +290,7 @@ const npcFields = await page.evaluate(async () => {
   await a.delete();
   return { defaults, persisted, closed };
 });
-// `role` initial is `hireling` since the 2026-08-20 split (CLAUDE.md: a
+// `role` initial is `hireling` since the 2026-08-20 split (docs/working-notes/documents-and-roles.md: a
 // document that states no role predates the split, and every one of those is
 // a hireling by ruling). This leg said "npc" until the 0.1.18 pre-tag battery
 // — the probe was outside the split's neighbor set.

@@ -160,4 +160,4 @@ and by gates that fail when they drift:
 | Which upstream file each pack came from | `tools/import/README.md` |
 | Shipped tables still match the Cairn SRD | `npm run check:warden` |
 | No world-specific or fork-era provenance stamps ship | `npm run check:fields` |
-| Design decisions and their reasons | `git log`, `CLAUDE.md` |
+| Design decisions and their reasons | `git log`, `CLAUDE.md`, `docs/working-notes/` |

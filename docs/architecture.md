@@ -323,8 +323,9 @@ reads as verification, which is exactly how such disagreements survive review.
 There is at least one recorded case here of a stale comment naming a mechanism
 that had been deleted a month earlier.
 
-The same applies to `CLAUDE.md`, which is 85 KB of the same material and has
-carried stale claims for weeks at a time. Both are valuable precisely because
+The same applies to `CLAUDE.md` and the subsystem notes it points to in
+`docs/working-notes/`, which are the same material and have carried stale claims
+for weeks at a time. Both are valuable precisely because
 they record reversals, but neither is authoritative about the current state. The
 code is.
 

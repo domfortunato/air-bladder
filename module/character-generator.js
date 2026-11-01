@@ -229,7 +229,7 @@ export const getCustomPortraitPaths = () => {
  * second folder setting is a second folder to scan on every Warden's login
  * (the scan is one server request per directory, capped at 200), and the
  * picker already renders subfolders as tiles. Nothing here adds a register()
- * call, so the counts in CLAUDE.md stand.
+ * call, so the settings counts (docs/working-notes/settings.md) stand.
  *
  * THE GENERAL POOL EXCLUDES THE RESERVED FOLDERS, and that is a ruling rather
  * than an implementation detail. If it did not, a Warden who filed only

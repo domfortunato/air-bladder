@@ -249,7 +249,8 @@ const AUDIT_ACTIONS = new Set(["CAIRN.Rest", "CAIRN.RestoreAbilities"]);
  * actor's owners AND every Warden, so it has as many readers as the table has
  * languages — and it stored the acting client's rendering, so a Spanish
  * player's slot edit reached the English Warden's log as "Fuerza: 10 → 8".
- * The class rule (CLAUDE.md, "A STORED CHAT LINE"): the flag carries a KIND
+ * The class rule (docs/working-notes/content-translation-chat-cards.md, "A stored
+ * chat card is rebuilt per viewer"): the flag carries a KIND
  * per line and the values that made it, never text, and each client renders.
  * The stored content is still the composer's rendering, for a client without
  * the hook.
