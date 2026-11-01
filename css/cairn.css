@@ -886,6 +886,23 @@
     content: none;
 }
 
+/* ...and restate the two states core drew on that ::before (review #34 finding
+   199). Its focus ring is `:focus-visible::before { outline: 2px solid
+   var(--input-focus-outline-color); outline-offset: -2px }` after `:focus {
+   outline: none }`; its disabled look recolours the glyph and drops the
+   pointer. Here the same ring sits on the box itself, and a disabled box (a
+   sheet the viewer cannot edit: core's _toggleDisabled) dims as the sheet's
+   own disabled buttons do (`.character-sheet-section-buttons
+   .strict-size-button:disabled`) and stops pointing. */
+.cairn :is(.deprived-check, .panicked-check, .for-hire-check, .omen-enable, .scar-enable, .scar-check):focus-visible {
+    outline: 2px solid var(--input-focus-outline-color);
+    outline-offset: -2px;
+}
+.cairn :is(.deprived-check, .panicked-check, .for-hire-check, .omen-enable, .scar-enable, .scar-check):disabled {
+    opacity: 0.45;
+    cursor: default;
+}
+
 /* Omen / Scars checkboxes precede their label text: a small gap instead. "For Hire"
    is NOT here on purpose -- its label is a flex row with its own `gap`, so a margin
    would double the space. */
