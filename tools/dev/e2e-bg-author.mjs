@@ -251,8 +251,11 @@ try {
     // Every icon-only control on the form has a name. The option chip's × had
     // none while its two sibling ×s carry title = CAIRN.Remove (review #34
     // finding 189); the chip just dropped is the precondition that one exists.
+    // Core's own editor pencil is not ours to name: `<prose-mirror>` builds it
+    // with no label (client prosemirror-editor.mjs:151-154).
     await new Promise((r) => setTimeout(r, 200));
-    const iconOnly = [...sheetRoot(sheet).querySelectorAll("a[data-action], button")].filter((a) => !a.textContent.trim());
+    const iconOnly = [...sheetRoot(sheet).querySelectorAll("a[data-action], button")]
+      .filter((a) => !a.textContent.trim() && !a.matches("prose-mirror > button.toggle"));
     out.iconNames = {
       optionRemove: iconOnly.some((a) => a.classList.contains("bg-option-item-remove")),
       unnamed: iconOnly.filter((a) => !(a.getAttribute("aria-label") || a.title)).map((a) => a.className || a.dataset.action),
