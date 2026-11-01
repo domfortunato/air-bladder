@@ -337,8 +337,10 @@
 }
 
 /* The three buttons stack flush as one evenly-spaced set. They are a touch
-   shorter than a counter row (32px) so the fixed 112px stack has a little slack
-   at its foot rather than crowding the tabs below. */
+   shorter than a counter row (32px) so the stack has a little slack at its foot
+   rather than crowding the tabs below. Row 2 is `auto`, not a fixed 112px (see
+   the grid note above), but the three ability rows beside it still size it to
+   about 112px (3 x 36px + 2 x 2px). */
 .character-sheet-section-buttons {
     display: flex;
     flex-direction: column;
@@ -701,9 +703,11 @@
 .cairn .tab[data-tab="notes"] prose-mirror.inactive .editor-content,
 .cairn .npc-description-section prose-mirror.inactive .editor-content,
 .cairn.sheet.item prose-mirror.inactive .editor-content {
-    /* Core pads the display half right-only (0.5rem, unlayered —
-       foundry2.css:13592), which jams text against the new border. */
-    padding: 0 10px !important;
+    /* Core pads the display half right-only (0.5rem, foundry2.css:13592, in
+       @layer compatibility), which jams text against the new border. Every
+       core layer comes before `system`, the layer this file is served in, so
+       a plain declaration wins (review #34 finding 100). */
+    padding: 0 10px;
 }
 
 /* The pencil is core's ONLY affordance for a toggled editor, and core keeps it
@@ -712,20 +716,21 @@
    editor is inactive, in palette colours that survive dark mode. `:enabled`
    is load-bearing: activation disables the button, and without the guard the
    `display` override would beat core's `[disabled] { display: none }` and
-   leave a dead pencil floating over the open editor. !important throughout —
-   core's rules are unlayered, this file is @layer system. */
+   leave a dead pencil floating over the open editor. No !important: core's
+   rules are in @layer compatibility, which `system` outranks (review #34
+   finding 100). */
 .cairn .tab[data-tab="notes"] prose-mirror.inactive > button.icon.toggle:enabled,
 .cairn .npc-description-section prose-mirror.inactive > button.icon.toggle:enabled,
 .cairn.sheet.item prose-mirror.inactive > button.icon.toggle:enabled {
-    display: block !important;
-    color: var(--ab-muted) !important;
-    top: 6px !important;
-    right: 6px !important;
+    display: block;
+    color: var(--ab-muted);
+    top: 6px;
+    right: 6px;
 }
 .cairn .tab[data-tab="notes"] prose-mirror.inactive > button.icon.toggle:enabled:hover,
 .cairn .npc-description-section prose-mirror.inactive > button.icon.toggle:enabled:hover,
 .cairn.sheet.item prose-mirror.inactive > button.icon.toggle:enabled:hover {
-    color: var(--ab-accent) !important;
+    color: var(--ab-accent);
 }
 
 /* The two generation buttons carry TEXT, unlike Foundry's own frame buttons.
@@ -2691,22 +2696,22 @@ textarea.omen-input {
    the whisper surface is the system's own warm tint, and the teal stripe does
    the "private" signalling. */
 .chat-message.whisper {
-    /* !important is load-bearing: core sets these vars element-scoped and
-       UNLAYERED on .chat-message (foundry2.css:508-514), and this file is in
-       @layer system — unlayered normal beats layered normal, and !important
-       inverts it. */
-    --color-whisper-background: var(--ab-whisper-bg) !important;
-    --color-whisper-border: var(--ab-whisper-border) !important;
+    /* Core sets these vars element-scoped on .chat-message (foundry2.css:508-514)
+       in @layer variables, which `system`, the layer this file is served in,
+       outranks: no !important (review #34 finding 100). */
+    --color-whisper-background: var(--ab-whisper-bg);
+    --color-whisper-border: var(--ab-whisper-border);
     /* Core carries a second spelling for inline GM-roll links
        (--color-whisper-bg, foundry2.css:127, applied :12367) — override it too
        so a gmroll link inside a whisper tile agrees with its tile. */
-    --color-whisper-bg: var(--ab-whisper-bg) !important;
-    /* Inset shadow, NOT border-left: core's `border: 2px` shorthand on this
-       element (foundry2.css:10006) is unlayered and would win a border war;
-       core sets no box-shadow on .chat-message, so a layered declaration
-       lands. --ab-whisper-stripe, never --ab-accent: the tile under it is
-       parchment in both client themes, and the dark-scheme accent is tuned
-       for near-black backdrops — on parchment it washes out. */
+    --color-whisper-bg: var(--ab-whisper-bg);
+    /* Inset shadow, NOT border-left: the stripe is drawn inside core's own 2px
+       border (foundry2.css:10006, @layer applications) and takes no width,
+       where a border-left would replace that border's left side. Core sets no
+       box-shadow on .chat-message. --ab-whisper-stripe, never --ab-accent:
+       the tile under it is parchment in both client themes, and the
+       dark-scheme accent is tuned for near-black backdrops — on parchment it
+       washes out. */
     box-shadow: inset 3px 0 0 var(--ab-whisper-stripe);
 }
 
@@ -3191,9 +3196,10 @@ ol.combat-tracker li.combatant.cairn-drop-below {
     padding: 4px;
 }
 
-/* `height`/`min-height` are !important because core pins EVERY button to
-   `var(--button-size)` (foundry2.css:4043, @layer elements.forms) and our
-   @layer system loses to it. A tile is an image beside a caption, not a control
+/* `height`/`min-height` are stated because core pins EVERY button to
+   `var(--button-size)` (foundry2.css:4043, @layer elements.forms). That layer
+   comes before `system`, so a plain declaration wins: no !important (review
+   #34 finding 100). A tile is an image beside a caption, not a control
    of standard height: at 32px a two-line caption rendered OUTSIDE the border,
    overlapping the tiles above and below, which is what a Warden's nested folder
    names produce. Nothing here is decoration — remove either line and the box
@@ -3203,8 +3209,8 @@ ol.combat-tracker li.combatant.cairn-drop-below {
     align-items: center;
     gap: 8px;
     width: auto;
-    height: auto !important;
-    min-height: 44px !important;
+    height: auto;
+    min-height: 44px;
     padding: 6px 8px;
     background: none;
     border: 1px solid var(--ab-rule);
@@ -3739,10 +3745,12 @@ ol.combat-tracker li.combatant.cairn-drop-below {
    the ABOVE-the-prose-mirror note in the template).
 
    SHARED with the table banner (module/table-banner.js), the same shape one
-   sheet over: an aside sitting above the content it explains. The selector is
-   three classes deep on purpose — core's `.standard-form .hint` (the sheet's
-   content carries standard-form) sets margin, colour and size at (0,2,0), and
-   a bare class would lose to it. */
+   sheet over: an aside sitting above the content it explains. Core's
+   `.standard-form .hint` (the sheet's content carries standard-form) sets
+   margin, colour and size too, but in @layer blocks (foundry2.css:5460), which
+   `system` outranks whatever either selector's specificity (review #34
+   finding 190). The roll-table classes scope the banner to that sheet; they
+   are not there to win against core. */
 .bg-tab-hint,
 .application.roll-table-sheet .ab-table-role,
 .application.roll-table-sheet .ab-table-duplicate {
@@ -3763,10 +3771,10 @@ ol.combat-tracker li.combatant.cairn-drop-below {
     border-radius: 3px;
     background: var(--ab-wash);
     /* Inset shadow, not border-left, and --ab-rule-strong, not --ab-accent —
-       both for the reasons already recorded at .chat-message.whisper above: a
-       border shorthand loses to core's unlayered one, and the teal accent is
-       tuned for near-black backdrops. This panel sits on the sheet surface,
-       which is parchment in light mode, where the accent washes out. */
+       as at .chat-message.whisper above: the shadow is drawn inside the box
+       and takes no width, and the teal accent is tuned for near-black
+       backdrops. This panel sits on the sheet surface, which is parchment in
+       light mode, where the accent washes out. */
     box-shadow: inset 3px 0 0 var(--ab-rule-strong);
 }
 
@@ -4513,9 +4521,13 @@ ol.combat-tracker li.combatant.cairn-drop-below {
    TWO SELECTORS PER SCHEME, and the order is core's rather than a guess.
    Configure UI has TWO dropdowns and `configureUI` (client/game.mjs:1852-1875)
    sends them to different elements: Applications lands on <body>, INTERFACE
-   lands on #interface. Core lets the interface theme win — `.themed.theme-light
-   #players` (1,2,0) outranks `body.theme-light #players` (1,1,1) — and the
-   pairs below keep that ordering at (0,3,0) over (0,2,1). Get it backwards and
+   lands on #interface. Core lets the interface theme win by SUBLAYER order,
+   not specificity: `body.theme-light #players` sits in @layer
+   variables.themes.general and `.themed.theme-light #players` in
+   variables.themes.specific, which is declared after it (foundry2.css :986 and
+   :1315 in 14.365), so the `.themed` rule wins whatever either selector weighs
+   (review #34 finding 202). This file is one layer, so the pairs below get the
+   same ordering from specificity instead, (0,3,0) over (0,2,1). Get it backwards and
    a Warden running Interface dark with Applications light gets a white clock
    over a dark player list. `dev:theme` measures the clock as a STRICT surface
    now: a finding in EITHER scheme fails, because nothing inside this panel is
@@ -4548,9 +4560,9 @@ ol.combat-tracker li.combatant.cairn-drop-below {
     font-size: var(--font-size-14);
 }
 
-/* The two schemes, stated the way core states them for #players. The dark pair
-   restates the base so an INTERFACE dark under an APPLICATIONS light still wins
-   on specificity; see the note above. */
+/* The two schemes, in the order core gives them for #players (core by
+   sublayer, these by specificity; see the note above). The dark pair restates
+   the base so an INTERFACE dark under an APPLICATIONS light still wins. */
 body.theme-dark .cairn-watch-clock,
 .themed.theme-dark .cairn-watch-clock {
     --ab-clock-bg: var(--color-cool-5-75);
@@ -4574,9 +4586,10 @@ body.theme-light .cairn-watch-clock,
    the Warden calls the weather, because that is the only way to know. */
 /* Under Vald this element is a real <button>, so its chrome is stated away
    explicitly — otherwise the panel would have a button drawn inside itself.
-   Core pins a button's HEIGHT from a later layer, which is why `height: auto`
-   and `min-height: 0` are here; the colours need no `!important` (measured —
-   see the calendar's day cell for the full note). */
+   Core pins a button's HEIGHT (foundry2.css:4043, @layer elements.forms),
+   which is why `height: auto` and `min-height: 0` are here; that layer comes
+   before `system`, so neither they nor the colours need `!important` (the
+   colours measured — see the calendar's day cell for the full note). */
 .cairn-watch-clock .cairn-watch-inner {
     display: flex;
     flex-direction: column;
@@ -4719,9 +4732,11 @@ body.theme-light .cairn-watch-clock,
 
    NO `!important` HERE, and that is a measured result rather than an omission.
    These declarations were shipped with `!important` for a day on the reading
-   that core's chrome, being in a later cascade layer, was winning — which is
-   true of a button's HEIGHT (see the dashboard grid above) and was NOT true of
-   its colours. The evidence had looked conclusive and was an artefact: an app
+   that core's chrome, being in a later cascade layer, was winning. No core
+   layer is later than `system` (review #34 finding 100): core does pin a
+   button's HEIGHT, so it has to be restated (see the dashboard grid above),
+   but a plain declaration restates it, and the colours never needed even
+   that much. The evidence had looked conclusive and was an artefact: an app
    rendered under one theme keeps its RESOLVED colours when the body's theme
    class changes, so every reading taken without re-rendering was the previous
    scheme's paint. `dev:theme` re-renders now and carries the note. A correct

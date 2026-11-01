@@ -338,10 +338,11 @@
             </div>
 
             {{!-- The NPC wording of the Deprived rule: the shared string opens "A PC
-                  that lacks a crucial need", which is wrong on a wolf. Named directly
-                  rather than resolved, because this template only ever serves
-                  non-player actors. Panicked/Rest/Restore keep the shared strings --
-                  those already say "character" and "the party". --}}
+                  that lacks a crucial need", which is wrong on a wolf. deprivedTipKey
+                  and panickedTipKey resolve the …Npc variant through _wording, as the
+                  Rest and Restore buttons above do while deprived. Rest and Restore's
+                  ordinary tips keep the shared strings, which already say "character"
+                  and "the party". --}}
             <div class="resource-counter long-counter deprived-counter">
                 <label data-tooltip="{{ localize deprivedTipKey }}">{{ localize 'CAIRN.Deprived' }}</label>
                 <div class="resource-input-wrapper">
