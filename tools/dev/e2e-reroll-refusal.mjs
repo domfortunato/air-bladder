@@ -35,7 +35,9 @@
  *      renamed o_…, and its tokens on two scenes follow while a third, named
  *      on purpose, keeps its name.
  *   B. Alice, Background unchecked, gear + STR: the same, through the
- *      background-scoped path.
+ *      background-scoped path. Also leg A's CONTROL: its mule is placed on both
+ *      scenes and her writes held back the same, but her page's wait for its
+ *      token renames is defeated, so the held write must be REFUSED.
  *   C. The Warden changes the background of a PC no player owns (a world being
  *      prepared): its real granted mule is orphaned, not deleted, and renamed;
  *      a second whose name already starts o_ is not prefixed again; a mule
@@ -220,7 +222,7 @@ try {
   await joinAs(alice, "Alice");
   await dismissChrome(alice);
 
-  const runLeg = (states, { slowTokens = false } = {}) => alice.evaluate(async ({ actorId, states, slowTokens }) => {
+  const runLeg = (states, { slowTokens = false, defeatWait = false } = {}) => alice.evaluate(async ({ actorId, states, slowTokens, defeatWait }) => {
     const actor = game.actors.get(actorId);
     if (!actor) return { error: "Alice cannot see the test character" };
     if (!actor.isOwner) return { error: "Alice does not own the test character" };
@@ -253,6 +255,13 @@ try {
         return origUpdate.call(this, embeddedName, ...rest);
       };
     }
+    // CONTROL: the wait for this page's token renames defeated HERE only, so
+    // the held writes race the Warden's ownership write as they did before
+    // the wait existed. The module's own class, the one orphanContainers calls.
+    const { CairnActor } = await import("/systems/air-bladder/module/actor/actor.js");
+    const origSettled = CairnActor.tokenRenamesSettled;
+    const hadWait = typeof origSettled === "function";
+    if (defeatWait && hadWait) CairnActor.tokenRenamesSettled = async () => {};
     const strBefore = actor.system.abilities.STR.max;
     try {
       root?.closest(".application")?.querySelector('.window-header button[data-action="rollActor"]')?.click();
@@ -277,12 +286,13 @@ try {
         if (ownUpdate) SceneCls.prototype.updateEmbeddedDocuments = origUpdate;
         else delete SceneCls.prototype.updateEmbeddedDocuments;
       }
+      if (defeatWait && hadWait) CairnActor.tokenRenamesSettled = origSettled;
     }
     const res = { warns: [...warns], strBefore, strAfter: actor.system.abilities.STR.max,
-      rerollingCleared: sheet._rerolling === false, delayedTokenWrites };
+      rerollingCleared: sheet._rerolling === false, delayedTokenWrites, hadWait };
     await sheet.close();
     return res;
-  }, { actorId: setup.pcId, states, slowTokens });
+  }, { actorId: setup.pcId, states, slowTokens, defeatWait });
 
   console.log("\nA. Alice, all-checked — the gesture applies and her granted mule is orphaned");
   const a = await runLeg({ background: true }, { slowTokens: true });
@@ -323,7 +333,13 @@ try {
   // it (the name rides the Background line), and an orphan carries the name
   // its character had when it was orphaned. The first green run compared
   // against the setup's name and reddened on an orphan that was right.
-  const legB = await gm.evaluate(async ({ pcId }) => {
+  // Leg B is also leg A's CONTROL. Mule B is placed on both scenes too, and
+  // Alice's writes are held back the same way, but her page's wait for its
+  // token renames is defeated: the renames must then be REFUSED once the
+  // Warden's client takes her Owner, so leg A's pass is the wait's doing, not
+  // a hold too short to race. The refusal's console lines are expected here
+  // and cleared, but only after they are counted.
+  const legB = await gm.evaluate(async ({ pcId, sceneIds }) => {
     const L = CONST.DOCUMENT_OWNERSHIP_LEVELS;
     const pc = game.actors.get(pcId);
     const alice = game.users.getName("Alice");
@@ -334,12 +350,16 @@ try {
       system: { role: "companion", containerClass: "mule", connectedTo: pc.uuid, generationEnabled: false },
       flags: { "air-bladder": { grantSource: "background" } },
     });
+    for (const id of sceneIds) {
+      await game.scenes.get(id).createEmbeddedDocuments("Token", [(await m.getTokenDocument({ x: 500, y: 100 })).toObject()]);
+    }
     return { id: m.id, pcName: pc.name };
-  }, { pcId: setup.pcId });
+  }, { pcId: setup.pcId, sceneIds });
   const allOff = { background: false, gear: false, question0: false, question1: false, bonds: false,
     STR: false, DEX: false, WIL: false, hp: false, gold: false, age: false, traits: false,
     portrait: false, omen: false, name: false };
-  const b = await runLeg({ ...allOff, gear: true, STR: true });
+  const errorsBeforeB = aliceErrors.length;
+  const b = await runLeg({ ...allOff, gear: true, STR: true }, { slowTokens: true, defeatWait: true });
   if (b.error) fail(`leg B: ${b.error}`);
   else {
     b.strAfter !== b.strBefore
@@ -352,6 +372,21 @@ try {
     s.name === `${O}ZZ RerollRef Mule B`
       ? ok(`…and renamed "${s.name}"`)
       : fail(`leg B: the orphan is named "${s.name}", not "${O}ZZ RerollRef Mule B"`);
+    // Core's error toast is echoed to the console when it DISPLAYS, behind a
+    // queue — settle before reading.
+    await new Promise((r) => setTimeout(r, 2500));
+    const tokens = await tokenNames(sceneIds);
+    const stale = tokens.filter((n) => n === "ZZ RerollRef Mule B").length;
+    const expected = [/lacks permission to update Token/, /token rename after actor rename failed/];
+    const mine = aliceErrors.slice(errorsBeforeB);
+    const refusals = mine.filter((e) => expected.some((re) => re.test(e)));
+    b.hadWait && b.delayedTokenWrites >= 1 && stale >= 1 && refusals.length >= 1
+      ? ok(`CONTROL: with the wait defeated, ${stale} of mule B's tokens keep the old name — the held write was refused`
+        + ` (${refusals.length} console line(s) say so), so leg A is the wait's doing`)
+      : fail(`leg B control: wait present ${b.hadWait}, held writes ${b.delayedTokenWrites}, tokens ${JSON.stringify(tokens)},`
+        + ` refusals logged ${refusals.length}`);
+    // Clear exactly those lines; anything else this leg logged still fails the run.
+    aliceErrors.splice(errorsBeforeB, mine.length, ...mine.filter((e) => !refusals.includes(e)));
   }
 
   /* --- Alice plants, then the Warden re-rolls (finding 120) -------------------- */
