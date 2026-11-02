@@ -84,8 +84,9 @@ number after `x` is the cap and the number after `=` is the face that
 explodes. Write `x2` on its own and Foundry reads it as "explode on a 2", so
 keep the `=` if you type a cap yourself. One limit goes with it: a keep-highest roll of
 **different** dice, `d6 + d8`, is left alone, because keeping the highest and
-then exploding it cannot be written for mixed dice. Every other die explodes,
-however small — a d4 weapon and an Impaired roll's d4 included. A pair written
+then exploding it cannot be written for mixed dice. Every other die from a d4
+up explodes — a d4 weapon and an Impaired roll's d4 included; a d2 or d3 never
+does. A pair written
 with a plus sign, `d6 + d6`, explodes only while **Use Cairn dice notation:
 'd6+d6' as keep highest** is on; with it off, the pair is plain addition and
 rolls as written.

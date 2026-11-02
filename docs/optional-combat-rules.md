@@ -52,9 +52,10 @@ rolled again.
 dice and keep the higher. If both come up 6, that is **one** six, so it explodes
 once — you do not get two chains.
 
-**Every die explodes, however small.** An **Impaired** roll is a d4 and explodes
-like any other die; so does a d4 weapon, if you write one, and so does an
-**Enhanced** roll's d12. There is no smallest die.
+**Down to the d4, every die explodes.** An **Impaired** roll is a d4 and
+explodes like any other die; so does a d4 weapon, if you write one, and so does
+an **Enhanced** roll's d12. A d2 or d3 never explodes: half its faces less one
+is none.
 
 **Every explosion is announced.** The damage card gains a line — *A d6 exploded!*
 — once for each time the die went again, so a chain that went twice says so
