@@ -8,7 +8,8 @@ import {
   CANONICAL_GEAR_PACKS, SPELL_PACKS,
 } from "./gear.js";
 import { containerClass, iconForTransport } from "./icons.js";
-import { connectionHeadroom, maxConnections, connectedOwnershipShape, OWNERSHIP_SYNC_FLAG } from "./connections.js";
+import { connectionHeadroom, maxConnections, connectedOwnershipShape, brokenOwnershipShape, keepOthersOwners,
+  ownersGivenBy, OWNERSHIP_SYNC_FLAG } from "./connections.js";
 import { SETTINGS_NS } from "./settings.js";
 import { glogEnabled, GLOG_SPELL_PACKS } from "./glog.js";
 import { PERSON_ROLES } from "./data-models.js";
@@ -1717,84 +1718,92 @@ export const requestPcGeneration = async () => {
   });
 };
 
-/**
- * May the current user run a (re)generation that could create or delete this
- * actor's container Actors? Deleting an Actor requires an Assistant GM+ (Foundry
- * gates it by ROLE, with no player-grantable permission — unlike ACTOR_CREATE), so
- * a plain player cannot. This is the UP-FRONT guard: (re)generation deletes items
- * BEFORE it touches containers, so a mid-way permission throw corrupts the
- * character — better to refuse before mutating anything, with a clear notice.
- *
- * A container op is only in play when there is an existing granted container to
- * DELETE. Creation is brokered (see below), and there is no "containers feature"
- * switch any more — `show-containers-tab` was the display toggle this comment
- * used to call one, and it is gone. Pass `source` to scope the delete check to
- * one grant source (a single question's containers) rather than all of them.
- * @param {CairnActor} actor @param {String|null} source
- * @returns {Boolean} true to proceed
- */
-export const canRegenerateContainers = (actor, source = null, warnKey = "CAIRN.Notify.NoContainerRegen") => {
-  if (game.user.isGM) return true; // isGM === role >= ASSISTANT, exactly what Actor delete needs
-  // CREATION is no longer a reason to refuse: a player's grants are brokered to
-  // the Warden's client over the system socket (requestGrantedActors). Only a
-  // DELETE still needs Assistant+, because there is no broker for it and there
-  // should not be -- a socket that deletes actors on request is a very different
-  // thing from one that creates the ones a background just rolled.
-  //
-  // This used to read `show-containers-tab` as `mayCreate`, which is how a
-  // DISPLAY setting came to decide a permission: with the tab on, every non-GM
-  // was refused whether or not anything needed deleting. That coupling is gone.
-  const existing = grantedContainersOf(actor);
-  const mustDelete = source
-    ? existing.some((c) => c.getFlag(FLAG_SCOPE, "grantSource") === source)
-    : existing.length > 0;
-  if (!mustDelete) return true;
-  // The refusal is shared; the SENTENCE is not. This guard began as the
-  // regenerate check and its message says "ask them to re-roll it for you" —
-  // correct there, and wrong the moment the background swap started calling it,
-  // because that instructs a player to request an operation that discards their
-  // abilities, HP and traits when all they touched was a background. Callers that
-  // refuse a different operation pass their own key.
-  ui.notifications.warn(game.i18n.localize(warnKey));
-  return false;
-};
+/* `canRegenerateContainers` stood here and is GONE (user ruling 2026-11-01,
+   review #34 finding 183). It REFUSED a player any re-roll that would remove a
+   granted container, because removing one meant DELETING an Actor and Foundry
+   gates that on ASSISTANT — so a player whose background gave them a mule had
+   to ask the Warden to re-roll for them. The ruling: "Players should not need
+   the Warden to re-roll for them. A re-roll may just orphan actors assigned by
+   the first question, in which case the Warden will delete them." A re-roll
+   now ORPHANS the old grant's containers (`orphanContainers`, below), on
+   everyone's re-roll, the Warden's included, and nothing refuses. Its two
+   sentences (NoContainerRegen, NoContainerBackground) went with it. */
 
 /**
- * Delete container Actors — ONE batched operation, not a per-actor loop
- * (review #13 #20). The loop was N sequential server round trips, and a
- * throw mid-loop left the earlier deletes committed with nothing recording
- * where it stopped; a batch is one request that the caller sees succeed or
- * fail whole. Returns the targets on success, re-raises on failure.
+ * Orphan container Actors a re-roll took from `actor` — never delete one
+ * (finding 183's ruling). Each is unlinked, stamped `formerlyBelongedTo` with
+ * the character's name (the field the sheet reads as "Formerly connected
+ * to"), loses its `grantSource` flag so no later re-roll mistakes it for a
+ * grant, and takes the BROKEN ownership; everything stowed on it stays on it.
+ * The Warden deletes it, or the party adopts it.
  *
- * It used to prune the keeper's `system.containers` uuid array in the same
- * breath — ahead of the delete, so CairnActor._onDeleteOperation's own prune
- * found nothing to do, and putting uuids back if a delete threw so a failure
- * could not orphan a live Actor. That array went with the `container` type
- * (2026-07-31): the link is one field on the CHILD now, so deleting the child
- * IS the whole operation and there is no second half to keep in step.
- * @param {CairnActor} actor @param {CairnActor[]} targets
- * @returns {Promise<CairnActor[]>}
+ * ONE batched update (review #13 #20's rule for the delete this replaces: a
+ * per-actor loop that dies midway leaves part of the set done with nothing
+ * recording where it stopped). On a Warden's client the ownership rides the
+ * same write, taking Owner only from the character's own players
+ * (`keepOthersOwners`, findings 107/121). A player cannot write ownership, so
+ * theirs sets the sync flag and asks the active GM's client — the relay
+ * connections.js already runs for a player's break — whose break branch takes
+ * Owner from the requester alone: a co-owner of the character keeps the old
+ * mule, which a Warden's own re-roll would have taken.
+ *
+ * A player touches only what they may update. A re-roll deletes items BEFORE
+ * it reaches the containers, so a write the server refuses would leave the
+ * character half re-rolled — the reason the old refusal existed. A granted
+ * container this player cannot write (a character shared through `default`,
+ * whose connected shape named no one) is left as it is.
+ * @param {CairnActor} actor  the character being re-rolled
+ * @param {CairnActor[]} targets  from `grantedContainersOf`
+ * @returns {Promise<CairnActor[]>}  the containers orphaned
  * @private
  */
-const deleteContainers = async (actor, targets) => {
-  if (!targets.length) return [];
-  await CairnActor.deleteDocuments(targets.map((c) => c.id));
-  return targets;
+const orphanContainers = async (actor, targets) => {
+  const mine = game.user.isGM ? targets : targets.filter((c) => c.isOwner);
+  if (!mine.length) return [];
+  const ops = foundry.data.operators;
+  const gave = ownersGivenBy(actor);
+  await CairnActor.updateDocuments(mine.map((c) => {
+    const changes = {
+      _id: c.id,
+      "system.connectedTo": "",
+      "system.formerlyBelongedTo": actor.name,
+      [`flags.${FLAG_SCOPE}.grantSource`]: new ops.ForcedDeletion(),
+    };
+    // Monsters excluded, as from every ownership write; a grant's role is
+    // clamped to the container line, so this is belt and braces.
+    if (c.npcRole !== "monster") {
+      if (game.user.isGM) {
+        changes.ownership = ops.ForcedReplacement.create(keepOthersOwners(brokenOwnershipShape(c), c, gave));
+      } else {
+        changes[`flags.${FLAG_SCOPE}.${OWNERSHIP_SYNC_FLAG}`] = true;
+      }
+    }
+    return changes;
+  }));
+  if (!game.user.isGM) {
+    for (const c of mine) {
+      if (c.npcRole !== "monster") {
+        game.socket.emit(`system.${game.system.id}`, { action: "ownershipSync", childUuid: c.uuid });
+      }
+    }
+  }
+  return mine;
 };
 
 /**
- * Delete every generation-granted container this actor keeps (a regenerate
- * re-rolls the background's options, so last roll's donkey has to go).
+ * Orphan every generation-granted container this actor keeps (a regenerate
+ * or a background change re-deals the background and its questions, so last
+ * roll's donkey is no longer this character's).
  * @param {CairnActor} actor
  */
 export const clearGrantedContainers = async (actor) => {
   // Nothing else to tidy: the keeper's notes no longer carry a bullet per grant
-  // (removed 2026-08-16, 08925b3b), so the delete is the whole of it.
-  await deleteContainers(actor, grantedContainersOf(actor));
+  // (removed 2026-08-16, 08925b3b), so the orphaning is the whole of it.
+  await orphanContainers(actor, grantedContainersOf(actor));
 };
 
 /**
- * Swap the containers granted by ONE source (a re-rolled question): delete just
+ * Swap the containers granted by ONE source (a re-rolled question): orphan just
  * that source's, mint the new option's. Containers from other questions, and any
  * the player bought, are untouched — the Actor-side twin of the sheet's
  * _replaceGrantedItems.
@@ -1803,7 +1812,7 @@ export const clearGrantedContainers = async (actor) => {
  */
 export const replaceGrantedContainers = async (actor, source, specs) => {
   const stale = grantedContainersOf(actor).filter((c) => c.getFlag(FLAG_SCOPE, "grantSource") === source);
-  await deleteContainers(actor, stale);
+  await orphanContainers(actor, stale);
   return grantContainers(actor, (specs ?? []).map((c) => ({ ...c, grantSource: source })));
 };
 
@@ -3509,10 +3518,12 @@ const replaceFailedCareerKeepsake = async (actor, careerName, { handBuilt = isHa
  * detour through Fieldwarden left a second bond stored forever.
  * A null `newBg` picks a random one, never the current.
  *
- * Returns false on a refusal, true on a completed swap (review #21). Both
- * refusals fire BEFORE the first delete, so a caller that aborts on false —
- * the Roll Character checklist, whose gesture must apply whole or not at all
- * — leaves the character exactly as it was. The sheet dice ignore it.
+ * Returns false on a refusal, true on a completed swap (review #21). The one
+ * refusal left — an empty background pool — fires BEFORE the first delete, so
+ * a caller that aborts on false — the Roll Character checklist, whose gesture
+ * must apply whole or not at all — leaves the character exactly as it was. The
+ * sheet dice ignore it. (The container-permission refusal went with finding
+ * 183: the old grant's containers are orphaned, which any owner may do.)
  * @param {CairnActor} actor
  * @param {CairnItem|null} [newBg]
  * @param {{ignoreHandBuilt?: Boolean}} [options]  `ignoreHandBuilt` deals the
@@ -3522,12 +3533,11 @@ const replaceFailedCareerKeepsake = async (actor, careerName, { handBuilt = isHa
  *   than before it is asked (review #26) — clearing first meant a refusal here
  *   left the character silently no longer hand-built, with nothing on screen
  *   saying so, and the next background picked by hand handing over the full
- *   loadout. Both refusals below fire before the first write, so an aborted
+ *   loadout. The refusal below fires before the first write, so an aborted
  *   gesture must leave the flag alone too.
  * @returns {Promise<Boolean>}
  */
 export const changeBackground = async (actor, newBg = null, { ignoreHandBuilt = false } = {}) => {
-  if (!canRegenerateContainers(actor)) return false; // bail before deleting anything
   const source = actor.system.contentSource || "2e";
   let bg = newBg;
   if (!bg) {
@@ -3722,12 +3732,9 @@ export const resolveActorBackground = async (actor) => {
  * no tag at all — the dialog never touches untagged gear beyond the legacy
  * name match).
  * @param {CairnActor} actor
- * @returns {Promise<Boolean>} false when refused or the background is gone
+ * @returns {Promise<Boolean>} false when the background is gone
  */
 export const redealBackgroundGear = async (actor) => {
-  // A background can grant a container outright; bail before deleting anything
-  // if this user can't manage those.
-  if (!canRegenerateContainers(actor, "background", "CAIRN.Notify.NoContainerBackground")) return false;
   const bg = await resolveActorBackground(actor);
   if (!bg) {
     // Say why (review #21): an unmatched Kettlewright import stores no
@@ -3743,7 +3750,7 @@ export const redealBackgroundGear = async (actor) => {
   // before this line, and it was the worst of the three: the sheet ended up
   // holding background-tagged items and a granted container while still
   // claiming to be hand-built, so the very next background pick deleted the
-  // lot and granted nothing back. After both refusals above, exactly as the
+  // lot and granted nothing back. After the refusal above, exactly as the
   // Background box does.
   await clearHandBuilt(actor);
 
@@ -3948,8 +3955,9 @@ export const updateActorWithCharacter = async (actor, characterData) => {
   // their own pack. The data update below already carries the flag.
   await actor.deleteEmbeddedDocuments("Item", [], { deleteAll: true, render: false, abNoStatusCard: true });
   // Containers are Actors, so re-rolling the inventory has to clear them by hand.
-  // Only GENERATION-granted ones (they carry a grantSource flag) are deleted —
-  // a bought mule or a hand-made chest survives a regenerate.
+  // Only GENERATION-granted ones (`grantedContainersOf`) are touched, and they
+  // are ORPHANED, never deleted (finding 183) — a bought mule or a hand-made
+  // chest is not touched at all.
   await clearGrantedContainers(actor);
   if (items.length) await actor.createEmbeddedDocuments("Item", items, { render: false, abNoStatusCard: true });
   // `characterToActorData` clears `critical` unconditionally, and regenerating is
@@ -4258,7 +4266,6 @@ export const createCharacter = async ({ folder = null, ownership = null, source 
  * @returns {Promise<CairnActor>}
  */
 export const regenerateActor = async (actor) => {
-  if (!canRegenerateContainers(actor)) return actor; // bail before wiping items
   // A whole new character is a ROLLED one, whatever this sheet used to be.
   // (Nothing below reads the mark; clearing it is the point, not an ordering.)
   await clearHandBuilt(actor);

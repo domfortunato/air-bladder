@@ -431,14 +431,14 @@ const grants = await page.evaluate(async (prefix) => {
   await settle(regen);
 
   // (i) THE CONTRACT BEHIND THE ORDERING FIX (review #26). Clearing the mark
-  // used to happen BEFORE changeBackground was even asked, so its two
-  // refusals — both of which fire before the first write — left a character
-  // that had silently stopped being hand-built. The clear moved out to the
-  // caller and `ignoreHandBuilt` took its place, so the invariant to pin is:
-  // this call deals the gear and does NOT touch the flag. A refusal cannot be
-  // staged from a GM session (canRegenerateContainers short-circuits on isGM
-  // and an empty pool needs a world setting), so the contract is what gets
-  // tested; the caller's half is the "way out" leg above.
+  // used to happen BEFORE changeBackground was even asked, so a refusal —
+  // which fires before the first write — left a character that had silently
+  // stopped being hand-built. The clear moved out to the caller and
+  // `ignoreHandBuilt` took its place, so the invariant to pin is: this call
+  // deals the gear and does NOT touch the flag. The one refusal left, an empty
+  // background pool, needs a world setting to stage (the container refusal
+  // went with review #34 finding 183), so the contract is what gets tested;
+  // the caller's half is the "way out" leg above.
   const contract = await cg.createBlankActor("character");
   await contract.update({ name: `${prefix} contract` });
   const dealt = await cg.changeBackground(contract, null, { ignoreHandBuilt: true });

@@ -1,5 +1,5 @@
 import { dieIconOrGeneric } from "../utils.js";
-import { canRegenerateContainers, drawBond, bondRecordFrom, withGrantSource, bondEntitlement, resolveRefs, replaceGrantedContainers, promptBackground, changeBackground, promptFailedCareer, rollFailedCareerName, buildFailedCareerItem, getPortraitManifest, pairedTokenFor, randomPortraitInSameFolder, portraitCategoryFor, regenerateNpc, regenerateHireling, rerollNpcBackground, rerollHirelingCareer, rerollNpcName, rerollNpcFaction, promptHirelingCareer, promptNpcBackground, promptNpcFaction, promptPickOmen, promptPickBond, promptPickQuestionOption, promptPickName, findOmensTable, rollNameFromTable, rollAge, rollTextItems, effectiveAgeFormula, effectivePcAbilityFormula, effectivePcGoldFormula, effectivePcHpFormula, rollPcHitProtection, resolveActorBackground, redealBackgroundGear, rerollAllBonds, reorderInventory, postGenerationRolls, isHandBuilt, clearHandBuilt, isBackgroundDisabled, equipIfArms, FLAG_SCOPE } from "../character-generator.js";
+import { drawBond, bondRecordFrom, withGrantSource, bondEntitlement, resolveRefs, replaceGrantedContainers, promptBackground, changeBackground, promptFailedCareer, rollFailedCareerName, buildFailedCareerItem, getPortraitManifest, pairedTokenFor, randomPortraitInSameFolder, portraitCategoryFor, regenerateNpc, regenerateHireling, rerollNpcBackground, rerollHirelingCareer, rerollNpcName, rerollNpcFaction, promptHirelingCareer, promptNpcBackground, promptNpcFaction, promptPickOmen, promptPickBond, promptPickQuestionOption, promptPickName, findOmensTable, rollNameFromTable, rollAge, rollTextItems, effectiveAgeFormula, effectivePcAbilityFormula, effectivePcGoldFormula, effectivePcHpFormula, rollPcHitProtection, resolveActorBackground, redealBackgroundGear, rerollAllBonds, reorderInventory, postGenerationRolls, isHandBuilt, clearHandBuilt, isBackgroundDisabled, equipIfArms, FLAG_SCOPE } from "../character-generator.js";
 import { promptMonsterTier, regenerateMonster } from "../monster-generator.js";
 import { openMarketplace, TRANSPORTS_CATEGORY } from "../marketplace.js";
 import { evaluateFormula, cairnSavePasses, cleanDescription, concealSecrets, holdsProse, bindEditorClickAwaySave, formatCount, sourceLabel, askDamageQuality, damageFormulaFor, damageQualityLabel, damageQualityKind, d20CardBody, d20CardFlavor, D20_CARD_ABILITIES, combatOption, combatDamageFormula, askImprovisedAttack, IMPROVISED_FORMULA } from "../utils.js";
@@ -2429,7 +2429,6 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       }));
       return null;
     }
-    if (!this._mayChangeBackground()) return null;
     // The picker's own refusal (review #34 finding 51): the drop is the same
     // operation as the magnifier and the die, both wrapped in `mayRandomize`,
     // so with the Warden's Character Creation tools switched off for players a
@@ -2475,41 +2474,6 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     if (!ok) return null;
     await changeBackground(this.actor, bg);
     return null;
-  }
-
-  /**
-   * May this user swap this character's background at all? Ask BEFORE offering the
-   * swap, not after.
-   *
-   * `changeBackground` already refuses when the answer is no, and warns — but it
-   * refuses at the very top, after the UI has already asked. So a player in a
-   * containers-on world was shown "change this character's background to X? this
-   * deletes its granted gear", answered yes, and got a warning and no change. A
-   * destructive question that cannot be honoured is worse than a plain refusal: it
-   * tells the player the swap is theirs to make, and then takes it back.
-   *
-   * The refusal itself is correct and is not the bug — containers are Actors and
-   * Foundry gates Actor deletion on ASSISTANT, so no player can regenerate them
-   * (see `canRegenerateContainers`). Note how blunt that guard is: with the
-   * Containers tab ON it refuses for EVERY non-GM, whatever the character is
-   * carrying, because a fresh roll might mint one. So this is not rare — it is
-   * every player in such a world, every time.
-   *
-   * Both places the sheet offers the swap call this first: the drop, above, and the
-   * magnifier's picker, which otherwise let a player browse the whole background
-   * list before refusing the one they chose. `#onRollBackground` deliberately does
-   * NOT — it asks nothing, so `changeBackground`'s own guard is the first and only
-   * refusal, and a second copy here would be dead code that reads as protection.
-   * The warning key is passed explicitly. `canRegenerateContainers` was written for
-   * the REGENERATE path and its default sentence ends "ask them to re-roll it for
-   * you" — which, on a background swap, tells a player to request an operation that
-   * would discard their abilities, HP and traits when all they did was try to change
-   * a background. Same refusal, different thing being refused, so a different
-   * sentence.
-   * @returns {Boolean} false, having already warned, if the swap would be refused
-   */
-  _mayChangeBackground() {
-    return canRegenerateContainers(this.actor, null, "CAIRN.Notify.NoContainerBackground");
   }
 
   /**
@@ -3492,15 +3456,10 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       if (!(await changeBackground(actor, null, { ignoreHandBuilt: true }))) return;
       await clearHandBuilt(actor);
     } else {
-      // Pre-flight the container permission for every checked part before the
-      // FIRST delete: these run in sequence, and a refusal after the gear has
-      // re-dealt is the same half-applied gesture (an Outrider's horse is
-      // question-granted, so the scoped checks really do diverge). Each
-      // callee still asks again — an earlier ask, not a second authority.
-      if (parts.gear && !canRegenerateContainers(actor, "background", "CAIRN.Notify.NoContainerBackground")) return;
-      for (const idx of qIdx) {
-        if (!canRegenerateContainers(actor, `question:${idx}`)) return;
-      }
+      // No container pre-flight any more (finding 183): a re-roll orphans the
+      // old grant's containers, which any owner may do, so nothing here can be
+      // refused for them. The remaining bails (a background gone, a question
+      // with no options) each fire before their own first write.
       if (parts.gear && !(await redealBackgroundGear(actor))) return;
       for (const idx of qIdx) {
         if (!(await this._rerollQuestionByIndex(idx))) return;
@@ -5074,7 +5033,6 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    */
   static async #onPickBackground(event) {
     event.preventDefault();
-    if (!this._mayChangeBackground()) return;   // don't offer a list we can't act on
     if (this._rerolling) return;   // refuse UP FRONT too — see #onPickBond (review #34 finding 237)
     const result = await promptBackground(
       this.actor.system.contentSource || "2e",
@@ -5342,17 +5300,16 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
   /**
    * The question die's core, shared with the Roll Character checklist (which
    * holds `_rerolling` across its whole run): roll the table's d6 and apply.
-   * Callers hold the guard. Returns false on a refusal — both bails fire
-   * BEFORE anything is replaced, so the checklist can abort its whole gesture
-   * on the signal (review #21); the die ignores it.
+   * Callers hold the guard. Returns false on a refusal — its one bail, a
+   * question with no options, fires BEFORE anything is replaced, so the
+   * checklist can abort its whole gesture on the signal (review #21); the die
+   * ignores it. (The container bail went with finding 183: the old answer's
+   * containers are orphaned, which any owner may do.)
    * @param {Number} idx  which question
    * @returns {Promise<Boolean>}  true when the question was re-rolled
    * @private
    */
   async _rerollQuestionByIndex(idx) {
-    // A question's option can grant a container (an Actor); bail before replacing
-    // anything if this user can't manage those (see canRegenerateContainers).
-    if (!canRegenerateContainers(this.actor, `question:${idx}`)) return false;
     const bg = this.actor.system.backgroundUuid
       ? await fromUuid(this.actor.system.backgroundUuid)
       : null;
@@ -5371,9 +5328,8 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
   /**
    * Magnifier beside a question's die (2026-09-01, user ask): choose which of
    * the background's answers this character gives — for a player recreating a
-   * book-rolled character. Same container bail as the die, BEFORE offering a
-   * list we can't act on (#onPickBackground's rule); the Random row defers to
-   * the die's own handler; the apply is the die's, under the same guard.
+   * book-rolled character. The Random row defers to the die's own handler;
+   * the apply is the die's, under the same guard.
    * @this {CairnActorSheet}
    */
   static async #onPickQuestion(event, target) {
@@ -5382,7 +5338,6 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // whose choice the guarded apply below would drop.
     if (this._rerolling) return;
     const idx = Number(target.dataset.index);
-    if (!canRegenerateContainers(this.actor, `question:${idx}`)) return;
     const bg = this.actor.system.backgroundUuid
       ? await fromUuid(this.actor.system.backgroundUuid)
       : null;
