@@ -2394,6 +2394,17 @@ const migrateHirelingSplit = async () => {
   // the split first ran. A document with no stamp (packed before Foundry kept
   // one) counts as old.
   //
+  // THE LIMIT, STATED (review #34 finding 234, ruled 2026-11-01). Only THIS
+  // code writes `started`. A world whose split had been failing under
+  // 0.1.18–0.1.25 holds the marker false and no start at all (the setting did
+  // not exist), so its first load of this code records THAT load as the
+  // start, and every NPC the Warden made since the old first attempt is
+  // converted into a hireling, once. Nothing the world holds dates that
+  // attempt reliably — an existing hireling, the 0.1.18 date and the NPC-only
+  // fields each misjudge some world — so it is said here rather than guessed,
+  // and dev:role-migration pins it. A world whose split succeeded, or whose
+  // first attempt is made by this code, is not reached by it.
+  //
   // ON THE CLOCK THAT STAMPED THE DOCUMENTS. This read `game.time.serverTime`,
   // which despite its name is the server's UPTIME in ms (the server's
   // `Activity#serverTime` is `Date.now()` minus the world's launch,

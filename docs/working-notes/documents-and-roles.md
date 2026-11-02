@@ -24,7 +24,12 @@ Moved word for word from CLAUDE.md (2026-11-01); CLAUDE.md points here.
 - Hireling-split traps: `migrateData` must NOT convert stored "hireling"; the
   `migrateHirelingSplit` migration SELECTS and its `hireling-split` marker is the
   only thing stopping it converting every genuine NPC; the schema initial is
-  `hireling`. Test via raw-socket plant (`dev:role-migration`).
+  `hireling`. Test via raw-socket plant (`dev:role-migration`). A retry selects
+  only what existed at the first attempt (`hireling-split-pending.started`, the
+  server's own stamp of a Setting write — `game.time.serverTime` is UPTIME).
+  **Residual, stated (review #34 F234):** a world whose split FAILED under
+  0.1.18–0.1.25 has no `started`, so its first load of the fixed code converts
+  every NPC made since, once; `dev:role-migration` pins it.
 - Generated NPC: statblock ROLLED (`Cairn.npcGenerator.ability`/`.hitProtection`);
   `Cairn.npcGenerator.backgroundGear` maps to a Barebones background resolved via
   `resolveStartingGear` (not `resolveRefs`); Lord and Politician grant nothing, kit
