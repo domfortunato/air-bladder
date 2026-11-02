@@ -111,8 +111,8 @@
                         {{this.name}}
                         {{#if this.hidden}}
                             <i class="fa-solid fa-eye-slash cairn-calendar-secret"
-                               data-tooltip="{{localize 'CAIRN.Calendar.EventHidden'}}"
-                               aria-label="{{localize 'CAIRN.Calendar.EventHidden'}}"></i>
+                               data-tooltip="{{#if this.partly}}{{localize 'CAIRN.Calendar.EventPartlyHidden'}}{{else}}{{localize 'CAIRN.Calendar.EventHidden'}}{{/if}}"
+                               aria-label="{{#if this.partly}}{{localize 'CAIRN.Calendar.EventPartlyHidden'}}{{else}}{{localize 'CAIRN.Calendar.EventHidden'}}{{/if}}"></i>
                         {{/if}}
                     </h4>
                     {{#if this.span}}<p class="cairn-calendar-span">{{this.span}}</p>{{/if}}

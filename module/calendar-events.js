@@ -325,7 +325,13 @@ const partySees = (page) => {
 
 /**
  * Every event page this client may SEE, each with whether it is `hidden`: the
- * party cannot see it (`partySees`).
+ * party cannot see it (`partySees`) — and, of the hidden ones, whether it is
+ * only `partly` hidden: some player can see it, just not the whole party
+ * (review #34 finding 230, ruled 2026-11-01). The calendar marks the two
+ * differently ("Not visible to the party" / "…to the entire party"). Neither
+ * string says "you", so a player's own client, which sees the page only by
+ * being a player who may, always reads the partial one. The weather log
+ * leaves out every `hidden` mark, partial ones included: it is read by all.
  *
  * Read LIVE from `game.journal`, which is in memory — there is nothing to await
  * and nothing to cache.
@@ -341,7 +347,8 @@ const eventPages = () => {
     for (const page of entry?.pages ?? []) {
       if (!page.flags?.["air-bladder"]?.wardenEvent) continue;
       if (!page.testUserPermission(game.user, "OBSERVER")) continue;
-      out.push({ page, hidden: !partySees(page) });
+      const hidden = !partySees(page);
+      out.push({ page, hidden, partly: hidden && game.users.some((u) => !u.isGM && page.testUserPermission(u, "OBSERVER")) });
     }
   }
   return out;
@@ -366,7 +373,7 @@ export const marksByDay = async (year) => {
   // into the cached festival list and appear again next render.
   for (const [key, list] of map) map.set(key, [...list]);
 
-  for (const { page, hidden } of eventPages()) {
+  for (const { page, hidden, partly } of eventPages()) {
     const f = page.flags["air-bladder"];
     const month = Number(f.valdMonth);
     const day = Number(f.valdDay);
@@ -394,6 +401,7 @@ export const marksByDay = async (year) => {
         warden: true,
         watch,
         hidden,
+        partly,
         uuid: page.uuid,
       }),
     });
