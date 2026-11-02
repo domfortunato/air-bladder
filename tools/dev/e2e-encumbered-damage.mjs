@@ -2130,7 +2130,7 @@ const rebuilt = await (async () => {
  * record the one save per card (finding 86), and the press rolled whatever came
  * back: `false` — another presser got there first — was thrown away, so the
  * one-save rule held only where the asker's own copy already carried the flag.
- * Alice owns the planted PC; her client's query is answered false in-page, and
+ * Alice owns the planted PC; her client's query is answered "already spent" in-page, and
  * her press must post no save. CONTROL: the same press with the real query
  * rolls exactly one, so "nothing posted" is not a dead button.
  * ------------------------------------------------------------------------- */
@@ -2169,7 +2169,11 @@ const strRefused = { ran: false };
       if (!button() || button().disabled) return { button: false };
       const gm = game.users.activeGM;
       const origQuery = gm.query;
-      gm.query = async () => false;
+      // The Warden's real "already spent" reply. It was a bare `false` until
+      // review #34 finding 166 gave handleChoiceQuery a reason to carry
+      // (`{recorded, reason}`); a stand-in in the old shape is an answer no
+      // Warden's client sends any more.
+      gm.query = async () => ({ recorded: false, reason: "answered" });
       try {
         button().click();
         await sleep(1500);
