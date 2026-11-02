@@ -299,10 +299,12 @@ class ValdCalendarApp extends foundry.applications.api.HandlebarsApplicationMixi
         ? game.i18n.format("CAIRN.Calendar.SpanDay", { name: t("journal.pageName", f.name), day: f.day, total: f.total })
         : "",
       // The Warden's own: which watch it happens in, whether the party can see
-      // it, and the controls that only the Warden gets.
+      // it — none of them, or only some (`partly`, review #34 finding 230) —
+      // and the controls that only the Warden gets.
       warden: f.warden,
       watch: f.warden ? watchLineFor(f.watch) : "",
       hidden: f.hidden,
+      partly: f.partly,
       uuid: f.uuid,
     }));
     // ENRICHED the way core's own page view enriches it (review #34 finding
