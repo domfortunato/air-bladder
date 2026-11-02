@@ -567,7 +567,7 @@
   "CAIRN.MonsterGen.DescQuirk": "<strong>Quirk:</strong> {quirk}",
   "CAIRN.MonsterGen.DescWeakness": "<strong>Weakness:</strong> {weakness}",
   "CAIRN.MonsterGen.Name": "{physique} {feature} Creature",
-  "CAIRN.MonsterGen.RegeneratePrompt": "Pick a tier. Its abilities, HP, attack, armor and description will be re-rolled; its name and portrait stay. This cannot be undone.",
+  "CAIRN.MonsterGen.RegeneratePrompt": "Pick a tier. Everything it is carrying will be deleted, and its abilities, HP, attack, armor and description re-rolled; its name and portrait stay. This cannot be undone.",
   "CAIRN.MonsterGen.RegenerateTitle": "Roll this monster again?",
   "CAIRN.MonsterGen.TierHardier": "Hardier",
   "CAIRN.MonsterGen.TierPrompt": "How dangerous is it?",
