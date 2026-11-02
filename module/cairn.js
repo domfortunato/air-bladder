@@ -18,7 +18,7 @@ import { createCairnMacro, rollItemMacro } from "./macros.js";
 import { Damage, DAMAGE_APPLIED_FLAG, DAMAGE_SOURCE_FLAG, localizeDamageCard } from "./damage.js";
 import { registerWardenDamageControl } from "./warden-damage.js";
 import { registerWardenDashboardControl, refreshDashboardTime, localizeDashboardCard } from "./warden-dashboard.js";
-import { handlePileQuery, localizePileCard, PILE_DROP_QUERY, askWhatToDrop, dropItemToPile, partyFolderId, stripPlantedPileFlags } from "./party-pile.js";
+import { handlePileQuery, localizePileCard, PILE_DROP_QUERY, askWhatToDrop, dropItemToPile, partyFolderId, stripPlantedPileFlags, findDroppedPile } from "./party-pile.js";
 import { mustDropForFatigue } from "./gear.js";
 import { installWorldCalendar, checkWorldCalendar } from "./game-time.js";
 import { renderWatchClock, refreshWatchClock } from "./watch-clock.js";
@@ -1171,35 +1171,66 @@ async function handleGrantActors(msg, senderId) {
  * request-and-reply channel the pile uses; `user` is the server-authenticated
  * asker, and OWNING THE CARD'S ACTOR is the authorization, nothing in the
  * payload.
- * @param {Object} data            `{messageId, kind}`
+ *
+ * THE FATIGUE BARGAIN CLAIMS FIRST (review #34 finding 166, ruled 2026-11-01:
+ * "claim first, give it back if the drop fails"). Overburdened, Take a Fatigue
+ * costs an item, and the item used to go first — a drop query, its "Dropped
+ * …" card — with the choice recorded by a SECOND query after it. A Mark
+ * Critical Damage landing between the two left the item gone, no Fatigue,
+ * the card sealed as Critical Damage, and a toast saying no Warden was
+ * connected. So the drop rides THIS query (`data.drop`), behind the claim:
+ * the choice is recorded, then the item dropped through `handlePileQuery` —
+ * the pile's own broker, its authorization and clamping included — and on a
+ * failed drop the claim is given back. ONE query, so no release endpoint
+ * exists for a crafted client to call. Every session of the Warden answers a
+ * query and one wins the drop's claim (movePileItem); a session that lost it
+ * reads the pile for the asker's claim id before it gives anything back, as
+ * `dropItemToPile` does on the asker's side.
+ * @param {Object} data            `{messageId, kind, drop?: {itemId, place, claimId}}`
  * @param {Object} ctx             `{user}` — the requesting User
- * @return {Promise<Boolean>}      whether the choice was recorded
+ * @return {Promise<{recorded: Boolean, reason?: String}>}  whether the choice
+ *   was recorded, and if not why: "answered" (the card's choice is already
+ *   made), "dropFailed" (the bargain's drop did not land; nothing kept), or
+ *   "refused" (not this asker's to answer)
  */
 const handleChoiceQuery = async (data, { user } = {}) => {
-  if (!game.user.isGM || !user) return false;
+  const no = (reason) => ({ recorded: false, reason });
+  if (!game.user.isGM || !user) return no("refused");
   const message = game.messages.get(String(data?.messageId ?? ""));
   const kind = ["fatigue", "critical", "strSave"].includes(data?.kind) ? data.kind : null;
-  if (!message || !kind) return false;
+  if (!message || !kind) return no("refused");
   const speaker = message.speaker ?? {};
   const actor = speakerActor(speaker, game.scenes.get(speaker.scene)?.tokens.get(speaker.token));
-  if (!actor || !actor.testUserPermission(user, "OWNER")) return false;
+  if (!actor || !actor.testUserPermission(user, "OWNER")) return no("refused");
   // The Roll STR save's one-shot stamp rides the same channel (review #34
   // finding 86): the detail card is the Warden's, its owner presses the save.
   const flag = kind === "strSave" ? STR_SAVE_FLAG : CRAWLER_CHOICE_FLAG;
-  if (message.getFlag(FLAG_SCOPE, flag)) return false;       // already spent
+  // Only the Fatigue bargain carries a drop.
+  const drop = kind === "fatigue" && data?.drop ? data.drop : null;
+  if (message.getFlag(FLAG_SCOPE, flag)) return no("answered");
   // CHECK-THEN-SET IS NOT ATOMIC (review #34 finding 132): the flag lands on
   // this client only when the server replies, so two queries arriving inside
   // that round trip both read it unset and both said yes. Claimed synchronously,
   // before the first await, as the Apply-damage card claims its own.
   const claim = `${message.id}:${flag}`;
-  if (choiceQueryInFlight.has(claim)) return false;
+  if (choiceQueryInFlight.has(claim)) return no("answered");
   choiceQueryInFlight.add(claim);
   try {
     await message.setFlag(FLAG_SCOPE, flag, kind === "strSave" ? true : kind);
+    if (drop) {
+      const claimId = String(drop.claimId ?? "");
+      const dropped = await handlePileQuery(
+        { actorUuid: actor.uuid, itemId: drop.itemId, announce: true, place: drop.place, claimId }, { user })
+        || (!!claimId && !!findDroppedPile()?.items.has(claimId));
+      if (!dropped) {
+        await message.unsetFlag(FLAG_SCOPE, flag);
+        return no("dropFailed");
+      }
+    }
   } finally {
     choiceQueryInFlight.delete(claim);
   }
-  return true;
+  return { recorded: true };
 };
 /** Choice queries being written on this (the Warden's) client — see above. */
 const choiceQueryInFlight = new Set();
@@ -3981,14 +4012,14 @@ Hooks.on("renderChatMessageHTML", (message, html, data) => {
             if (message.isAuthor || game.user.isGM) {
               await message.setFlag(FLAG_SCOPE, STR_SAVE_FLAG, true);
             } else if (game.users.activeGM) {
-              let recorded = null;
+              let answer = null;
               try {
-                recorded = await game.users.activeGM.query(CHOICE_QUERY,
+                answer = await game.users.activeGM.query(CHOICE_QUERY,
                   { messageId: message.id, kind: "strSave" }, { timeout: 15000 });
               } catch (err) {
                 console.warn("Air Bladder | the Warden's client did not record the STR save:", err);
               }
-              if (recorded === false) return;   // spent, by the Warden's own copy
+              if (answer && !answer.recorded) return;   // spent, by the Warden's own copy
             }
             await Damage._rollStrSave(token, html);
           } finally {
@@ -4060,27 +4091,39 @@ Hooks.on("renderChatMessageHTML", (message, html, data) => {
     // silently mislabel history on precisely the cards nothing ever repairs. The
     // `data-panic` rule — a shape older than the datum is not guessed at.
     const spent = () => !!message.getFlag(FLAG_SCOPE, CRAWLER_CHOICE_FLAG);
+    /** Say why a choice was not recorded — the real reason (review #34 finding
+     *  166). It used to say "no Warden is connected" for every refusal, the
+     *  Warden's own earlier answer to the card included. */
+    const refusedBecause = (reason) => ui.notifications.warn(game.i18n.localize(
+      reason === "answered" ? "CAIRN.Crawler.ChoiceAlreadyMade"
+        : reason === "dropFailed" ? "CAIRN.Pile.DropRefused"
+          : "CAIRN.Crawler.NoWardenForChoice"));
     /**
      * Record the choice on the message: directly where this user may write it,
-     * through the Warden's client otherwise. Returns whether it was recorded —
-     * a `false` leaves the card live, nothing taken, and says why.
+     * through the Warden's client otherwise — with the Fatigue bargain's
+     * `drop` riding the same query, behind the claim (`handleChoiceQuery`).
+     * Returns whether it was recorded; a `false` leaves the card live, nothing
+     * taken, and has said why. The direct path does not take a `drop`: its
+     * caller claims, drops and gives back itself.
      */
-    const spend = async (kind) => {
+    const spend = async (kind, drop = null) => {
       if (message.isAuthor || game.user.isGM) {
         await message.setFlag(FLAG_SCOPE, CRAWLER_CHOICE_FLAG, kind);
         return true;
       }
       const gm = game.users.activeGM;
-      let recorded = false;
+      let answer = null;
       if (gm) {
         try {
-          recorded = await gm.query(CHOICE_QUERY, { messageId: message.id, kind }, { timeout: 15000 }) === true;
+          answer = await gm.query(CHOICE_QUERY, { messageId: message.id, kind, ...(drop ? { drop } : {}) },
+            { timeout: 15000 });
         } catch (err) {
           console.warn("Air Bladder | the Warden's client did not record the choice:", err);
         }
       }
-      if (!recorded) ui.notifications.warn(game.i18n.localize("CAIRN.Crawler.NoWardenForChoice"));
-      return recorded;
+      if (answer?.recorded === true) return true;
+      refusedBecause(answer?.reason ?? "noWarden");
+      return false;
     };
     const seal = () => {
       critBtn?.setAttribute("disabled", "disabled");
@@ -4184,26 +4227,38 @@ Hooks.on("renderChatMessageHTML", (message, html, data) => {
             ? await askWhatToDrop(critActor, { windowId: windowIdOf(b) })
             : { id: null, place: "" };
           if (chose === null) return;
-          if (spent()) return;             // re-asked: the dialog is seconds wide
+          // Re-asked: the dialog is seconds wide, and the Warden may have
+          // answered the card meanwhile.
+          if (spent()) { refusedBecause("answered"); return; }
           if (chose === "critical") {
             if (await takeCritical()) markChoiceTaken(critBtn);
             return;
           }
-          // THE DROP MUST HAVE HAPPENED (review #33). Its result was thrown
-          // away here, so with no Warden connected — or a refusal on the
-          // Warden's side — the Fatigue still landed and the card sealed over a
-          // bargain nobody had paid. `dropItemToPile` now answers truthfully
-          // (a real reply from the Warden's client), and a `false` stops here
-          // with the card live and nothing taken.
-          if (chose.id) {
-            const dropped = await dropItemToPile(critActor, chose.id, { announce: true, place: chose.place });
-            if (!dropped) {
-              ui.notifications.warn(game.i18n.localize("CAIRN.Pile.DropRefused"));
-              return;
+          // CLAIM FIRST, AND GIVE IT BACK IF THE DROP FAILS (review #34
+          // finding 166, ruled 2026-11-01). The item used to go first and the
+          // choice after, so a Mark Critical Damage landing between the two
+          // took the item for nothing. THE DROP MUST STILL HAVE HAPPENED
+          // (review #33): `dropItemToPile` and the broker answer truthfully,
+          // and a failed drop leaves the card live and nothing taken.
+          if (message.isAuthor || game.user.isGM) {
+            // This client writes the choice itself: claim, drop, give back.
+            await message.setFlag(FLAG_SCOPE, CRAWLER_CHOICE_FLAG, "fatigue");
+            if (chose.id) {
+              const dropped = await dropItemToPile(critActor, chose.id, { announce: true, place: chose.place });
+              if (!dropped) {
+                await message.unsetFlag(FLAG_SCOPE, CRAWLER_CHOICE_FLAG);
+                ui.notifications.warn(game.i18n.localize("CAIRN.Pile.DropRefused"));
+                return;
+              }
             }
+          } else {
+            // The Warden's client writes it: ONE query claims and drops, and
+            // gives the claim back on its own side if the drop fails. The
+            // claim id is minted here, once per gesture, as dropItemToPile's is.
+            const drop = chose.id
+              ? { itemId: chose.id, place: chose.place, claimId: foundry.utils.randomID() } : null;
+            if (!(await spend("fatigue", drop))) return;
           }
-          // The choice is recorded BEFORE the Fatigue, as takeCritical does.
-          if (!(await spend("fatigue"))) return;
           // Fatigue is a COST the rules impose, never a purchase, so it lands
           // past a full pack — `ignoreCapacity` is the flag that exists for
           // exactly this. With a drop in front of it the bargain NETS TO ZERO:

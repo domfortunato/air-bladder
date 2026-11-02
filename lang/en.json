@@ -235,6 +235,7 @@
   "CAIRN.CriticalDamageBanner": "can only crawl — stabilize with aid, or die within the hour.",
   "CAIRN.CriticalDamagePlaceholder": "Click here to describe this weapon's critical damage.",
   "CAIRN.Crawler.FatigueButton": "Take a Fatigue instead",
+  "CAIRN.Crawler.ChoiceAlreadyMade": "This card's choice has already been made.",
   "CAIRN.Crawler.FatigueButtonTip": "Take Critical Damage, or take a Fatigue instead. If you are already overburdened, you are asked to drop something first.",
   "CAIRN.Crawler.NoWardenForChoice": "No Warden is connected, so your choice cannot be recorded right now.",
   "CAIRN.Ranged": "Ranged",
