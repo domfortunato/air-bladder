@@ -60,14 +60,19 @@ for the wizard in detail.
 
 ## Share one — Export / Import Data
 
-For a one-off, use Foundry's per-document JSON:
+For a one-off, use Foundry's per-document JSON. A compendium window offers
+neither Export nor Import Data, so both sides go through the **Items** sidebar:
 
-1. Open your *Custom 2e Backgrounds* compendium, right-click the background →
-   **Export Data**. This saves a `.json` you can send.
-2. The recipient imports it into a world *Custom 2e Backgrounds* compendium
-   (right-click a background → **Import Data**, or create the compendium first if
-   they have none). As long as it lands in a **world** compendium with the Custom
-   source on, it shows up in their picker.
+1. Open your *Custom 2e Backgrounds* compendium and drag the background into the
+   **Items** sidebar (or right-click it → **Import Entry**). Right-click that copy
+   → **Export Data**. This saves a `.json` you can send; delete the sidebar copy
+   afterwards if you like.
+2. The recipient creates a new background in their **Items** sidebar,
+   right-clicks it → **Import Data** and picks the file. Import Data **replaces**
+   the item it is run on, which is why it goes onto a fresh one. Then they open
+   it and press **Duplicate into Custom 2e Backgrounds**, which copies it into
+   their world compendium. With the Custom source on, it shows up in their
+   picker.
 
 ## Notes & caveats
 
