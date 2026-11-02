@@ -1604,14 +1604,48 @@ export const grantContainers = async (actor, specs) => {
 };
 
 /**
- * Every container connected to this actor that GENERATION granted (it carries
- * a grantSource flag). Bought and hand-made containers have no such flag and are
- * never returned, so a regenerate cannot delete a player's mule.
+ * Is `candidate` really one of `keeper`'s granted containers, or only wearing
+ * the marks? `connectedTo` and the `grantSource` flag are both writable by any
+ * owner of the candidate, so a player could aim their own npc — or a party
+ * mule the Warden shared with everyone — at someone's character and have a
+ * re-roll of it take that actor (review #34 finding 120). A FLAG ALONE IS NOT
+ * IDENTITY, the lesson party-pile.js paid for. Counted only when no player can
+ * have faked it (user ruling 2026-11-01), on facts a player cannot write:
+ *
+ * - its `default` is below OWNER — not something shared with the whole table;
+ * - every player who owns it (by `testUserPermission`, so `default` folds in)
+ *   owns the keeper — a real grant wears the keeper's connected shape and no
+ *   one else's Owner;
+ * - its last writer, server-stamped, is a Warden or an owner of the keeper. A
+ *   `lastModifiedBy` naming nobody (a deleted user) is unknown, and unknown is
+ *   not counted.
+ * @param {CairnActor} candidate
+ * @param {CairnActor} keeper
+ * @returns {Boolean}
+ */
+const wearsKeepersGrant = (candidate, keeper) => {
+  const L = CONST.DOCUMENT_OWNERSHIP_LEVELS;
+  if ((candidate.ownership?.default ?? L.NONE) >= L.OWNER) return false;
+  for (const u of game.users) {
+    if (u.isGM) continue;
+    if (candidate.testUserPermission(u, "OWNER") && !keeper.testUserPermission(u, "OWNER")) return false;
+  }
+  const writer = game.users.get(candidate._stats?.lastModifiedBy ?? "");
+  return !!writer && (writer.isGM || keeper.testUserPermission(writer, "OWNER"));
+};
+
+/**
+ * Every container connected to this actor that GENERATION granted: it carries
+ * a grantSource flag AND passes `wearsKeepersGrant` (finding 120). Bought and
+ * hand-made containers have no such flag and are never returned, and neither
+ * is an actor someone only pointed at this character — so a re-roll can touch
+ * neither a player's own mule nor one a stranger aimed here.
  * @param {CairnActor} actor @returns {CairnActor[]}
  */
 export const grantedContainersOf = (actor) =>
   (game.actors ?? []).filter(
     (a) => a.system?.connectedTo === actor.uuid && a.getFlag(FLAG_SCOPE, "grantSource")
+      && wearsKeepersGrant(a, actor)
   );
 
 /**
