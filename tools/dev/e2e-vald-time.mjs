@@ -2063,8 +2063,8 @@ try {
     // them. (a) A page in the SHARED journal set to None through its page
     // ownership: off the party's calendar, yet named in the log they read.
     // (b) The hidden journal raised to Observer, the reveal the guide
-    // describes: on the party's calendar, yet still marked "Only you can see
-    // this one." for the Warden AND for Alice, and left out of the log. Both on
+    // describes: on the party's calendar, yet still marked hidden for the
+    // Warden AND for Alice, and left out of the log. Both on
     // TODAY; the precondition is that the Warden's mark lookup sees both, or
     // "absent from the line" proves nothing. Each planted id is recorded on the
     // page as it is made, so the finally below cleans up after a partial plant.
@@ -2167,6 +2167,104 @@ try {
     byOwnership.alice.parleySeen && !byOwnership.alice.parleyMarked && !byOwnership.alice.ambushSeen
       ? ok("...and Alice sees the revealed one unmarked, and not the page-hidden one")
       : fail("the player's marks after a reveal", JSON.stringify(byOwnership.alice));
+
+    /* ---- an event SOME players see says so (review #34 finding 230, ruled 2026-11-01) ---- */
+
+    // "Hidden" is "the whole party cannot see it", so an event shown to one
+    // player by name is hidden too, and it carried "Only you can see this
+    // one.", which is false for the Warden and for that player. The user's two
+    // tooltips: "Not visible to the party" when no player can see it, "Not
+    // visible to the entire party" when some can. Both plants go on TODAY in
+    // the hidden journal, one with no grant and one granted to Alice by name,
+    // and the marks are read off the RENDERED calendar — the tooltip a Warden
+    // hovers — on the Warden's client, then on Alice's, where only hers shows.
+    // The names carry this run's stamp, so a leftover from an earlier run can
+    // never answer for them; each must be on the panel exactly once.
+    const f230Stamp = Date.now().toString(36);
+    let partial = null;
+    try {
+      const readMarks = async (p, names) => withValdOn(p, async (gt, { names: n }) => {
+        const vc = await import("/systems/air-bladder/module/vald-calendar.js");
+        await vc.openValdCalendar();
+        const app = foundry.applications.instances.get("cairn-vald-calendar");
+        app.reset();
+        await app.render();
+        await new Promise((r) => setTimeout(r, 200));
+        const out = {};
+        for (const [key, name] of Object.entries(n)) {
+          const hits = [...app.element.querySelectorAll(".cairn-calendar-festival")]
+            .filter((a) => a.querySelector("h4")?.innerText.trim().startsWith(name));
+          const mark = hits[0]?.querySelector("h4 .cairn-calendar-secret");
+          out[key] = { count: hits.length, tooltip: mark?.dataset.tooltip ?? null, aria: mark?.getAttribute("aria-label") ?? null };
+        }
+        out.want = {
+          nobody: game.i18n.localize("CAIRN.Calendar.EventHidden"),
+          some: game.i18n.localize("CAIRN.Calendar.EventPartlyHidden"),
+        };
+        await app.close();
+        return out;
+      }, { names });
+      const names = await withValdOn(page, async (gt, { stamp }) => {
+        const L = CONST.DOCUMENT_OWNERSHIP_LEVELS;
+        const cal = await import("/systems/air-bladder/module/calendar-events.js");
+        const made = globalThis.__abF230b = { journals: [], pages: [] };
+        const c = game.time.components;
+        const flags = { wardenEvent: true, valdMonth: c.month + 1, valdDay: c.dayOfMonth + 1,
+          valdDays: 1, valdYear: (c.year ?? 0) + (game.time.calendar?.years?.yearZero ?? 0), valdWatch: null };
+        let hidden = game.journal.find((j) => j.flags?.["air-bladder"]?.calendarEvents === "hidden" && cal.isWardenJournal(j));
+        if (!hidden) {
+          hidden = await JournalEntry.create({ name: "ZZ Hidden Events", ownership: { default: L.NONE },
+            flags: { "air-bladder": { calendarEvents: "hidden" } } });
+          made.journals.push(hidden.id);
+        }
+        const aliceId = game.users.getName("Alice")?.id;
+        const n = { nobody: `ZZ F230 Nobody ${stamp}`, some: `ZZ F230 Alice ${stamp}` };
+        const plant = async (name, ownership) => {
+          const [pg] = await hidden.createEmbeddedDocuments("JournalEntryPage", [{
+            name, type: "text", text: { content: "" }, ownership, flags: { "air-bladder": flags } }]);
+          made.pages.push([hidden.id, pg.id]);
+        };
+        await plant(n.nobody, { default: L.INHERIT });
+        await plant(n.some, { default: L.INHERIT, [aliceId]: L.OBSERVER });
+        return { ...n, aliceId: aliceId ?? null };
+      }, { stamp: f230Stamp });
+      const warden = await readMarks(page, { nobody: names.nobody, some: names.some });
+      // Alice's client learns of her grant from the server; poll until her
+      // panel has it rather than trust a fixed wait.
+      let aliceMarks = null;
+      for (let i = 0; i < 20; i++) {
+        aliceMarks = await readMarks(alice, { nobody: names.nobody, some: names.some });
+        if (aliceMarks.some.count) break;
+        await new Promise((r) => setTimeout(r, 250));
+      }
+      partial = { aliceId: names.aliceId, warden, alice: aliceMarks };
+    } finally {
+      await page.evaluate(async () => {
+        const made = globalThis.__abF230b;
+        if (!made) return;
+        for (const [entryId, pageId] of made.pages) {
+          if (!made.journals.includes(entryId)) await game.journal.get(entryId)?.pages.get(pageId)?.delete().catch(() => {});
+        }
+        for (const id of made.journals) await game.journal.get(id)?.delete().catch(() => {});
+        delete globalThis.__abF230b;
+      });
+    }
+
+    const w = partial?.warden;
+    partial?.aliceId && w?.nobody.count === 1 && w?.some.count === 1
+      ? ok("the Warden's panel shows both planted events once (precondition)")
+      : fail("the planted events on the Warden's panel", JSON.stringify(partial));
+    w?.nobody.tooltip === w?.want.nobody && w?.nobody.aria === w?.want.nobody
+      ? ok("an event no player can see is marked \"Not visible to the party\"")
+      : fail("the mark on an event no player can see", JSON.stringify(w));
+    w?.some.tooltip === w?.want.some && w?.some.aria === w?.want.some && w?.want.some !== "CAIRN.Calendar.EventPartlyHidden"
+      && w?.want.some !== w?.want.nobody
+      ? ok("...and one shown to Alice by name is marked \"Not visible to the entire party\", tooltip and name")
+      : fail("the mark on an event some players can see", JSON.stringify(w));
+    const a = partial?.alice;
+    a?.some.count === 1 && a?.nobody.count === 0 && a?.some.tooltip === a?.want.some
+      ? ok("...and Alice sees only hers, with the same partial mark")
+      : fail("the partial mark on Alice's calendar", JSON.stringify(a));
 
     /* ---- a player's DECOY is not the log (review #27) -------------------- */
 
