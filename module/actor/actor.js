@@ -3,7 +3,7 @@ import { iconForItem, iconForTransport, containerClass, containerClassRole, cont
 import { THING_ROLES, PERSON_ROLES, CONTAINER_LINE_ROLES } from "../data-models.js";
 import {
   atConnectionLimit, maxConnections, connectionsUiEnabled,
-  connectedOwnershipShape, brokenOwnershipShape, OWNERSHIP_SYNC_FLAG,
+  connectedOwnershipShape, brokenOwnershipShape, keepOthersOwners, ownersGivenBy, OWNERSHIP_SYNC_FLAG,
 } from "../connections.js";
 import { actorDisplayName, t, itemNamespaces, MONSTER_ITEM_NAMESPACES, ITEM_NAMESPACES } from "../i18n-content.js";
 import { concealmentWhisper, formatCount, itemSlotCost } from "../utils.js";
@@ -1323,8 +1323,9 @@ export class CairnActor extends Actor {
     // always may, a player may when they own both ends. Round 2's Warden-only
     // reading retired with it (2026-08-01) — connection drives ownership now,
     // and a player dropping her own sack risks nobody else's documents. What
-    // she risks is HER OWN standing: the broken shape strips the
-    // connection-granted OWNER, so she cannot reconnect it alone. By design.
+    // she risks is HER OWN standing: the broken shape strips her Owner, and
+    // only hers (`keepOthersOwners`), so she cannot reconnect it alone. By
+    // design.
     if (!game.user.isGM && !(this.isOwner && actor.isOwner)) {
       ui.notifications.warn(game.i18n.localize("CAIRN.Notify.ConnectionOwnBothEnds"));
       return;
@@ -1524,7 +1525,9 @@ export class CairnActor extends Actor {
     // may when they own BOTH ends. This replaced the Warden-only gate the day
     // connection started driving ownership — with the graph flat and the
     // shapes automated, a player wiring her own mule to her own PC risks
-    // nobody else's documents.
+    // nobody else's documents — because the Warden's client keeps every Owner
+    // the edge did not give (`keepOthersOwners`, review #34 finding 121; until
+    // then a shared mule's other owners were stripped by the connect).
     if (!game.user.isGM && !(this.isOwner && target.isOwner)) {
       ui.notifications.warn(game.i18n.localize("CAIRN.Notify.ConnectionOwnBothEnds"));
       return false;
@@ -2432,13 +2435,21 @@ export class CairnActor extends Actor {
         // in the same update as the break. Actor deletion is Assistant+, so
         // the acting client here always holds isGM and may write ownership
         // directly — no relay needed. Monsters excluded, as everywhere.
+        //
+        // Owner leaves only those the edge gave it to — the deleted actor's
+        // own owners, read off `d`, still in memory (review #34 finding 121).
+        // `connectedTo` is player-writable, so this hook used to strip every
+        // player from a shared mule pointed at tonight's goblin when the
+        // Warden deleted the goblin, and a dead PC's mule lost the Warden's
+        // own grant to another player along with its owner's.
         const changes = {
           _id: child.id,
           "system.formerlyBelongedTo": d.name,
           "system.connectedTo": "",
         };
         if (child.npcRole !== "monster") {
-          changes.ownership = foundry.data.operators.ForcedReplacement.create(brokenOwnershipShape(child));
+          changes.ownership = foundry.data.operators.ForcedReplacement.create(
+            keepOthersOwners(brokenOwnershipShape(child), child, ownersGivenBy(d)));
         }
         updates.push(changes);
       }
