@@ -2644,6 +2644,161 @@ try {
         ? ok("a save card naming a character its author does not own marks nothing on the Warden's press")
         : fail(`forged save card: ${JSON.stringify(forgedPress)}`);
 
+      /* ---- review #34 finding 166: the bargain applies whole or not at all ---- */
+      // The Take-a-Fatigue handler dropped the item (posting "Dropped … to make
+      // room for a Fatigue.") and only THEN recorded the choice — through the
+      // Warden's client, for an owner who is not the card's author. If the
+      // Warden pressed Mark Critical Damage inside that round trip, the record
+      // was refused: the item was gone, no Fatigue came, the card sealed as
+      // Critical Damage, and she was told no Warden was connected. Ruled
+      // 2026-11-01: claim first, give it back if the drop fails, and say the
+      // real reason. The Warden's press is made to land INSIDE her round trip by
+      // arming the Warden's client in page: the first air-bladder query that
+      // arrives, whatever its name, writes `critical` on the card before the
+      // real handler runs — so the leg holds for any shape of the fix.
+      const bargainSeed = await page.evaluate(async ({ aliceId }) => {
+        const L = CONST.DOCUMENT_OWNERSHIP_LEVELS;
+        const utils = await import("/systems/air-bladder/module/utils.js");
+        await game.settings.set("air-bladder", "fatigue-for-critical-damage", true);
+        const pad = Array.from({ length: 8 }, (_, i) => ({ name: `ZZ Barg Pad ${i}`, type: "item" }));
+        const pc = await getDocumentClass("Actor").create({
+          name: "ZZ Pile Alice Bargain", type: "character",
+          ownership: { default: L.NONE, [aliceId]: L.OWNER },
+          flags: { "air-bladder": { probeFixture: "combat-options" } },
+        });
+        await pc.createEmbeddedDocuments("Item", [...pad, { name: "ZZ Barg Rope", type: "item" }, { name: "Fatigue", type: "item" }]);
+        const card = { kind: "save", ability: "STR", formula: "d20cs<=10", rolled: 17, failed: true, crit: true, fatigue: true };
+        const m = await ChatMessage.create({
+          speaker: ChatMessage.getSpeaker({ actor: pc }),
+          content: utils.d20CardBody(card),
+          flags: { "air-bladder": { d20Card: card } },
+        });
+        // Arm: one shot, every air-bladder query, the card's flag first.
+        const saved = {};
+        for (const [name, fn] of Object.entries(CONFIG.queries)) {
+          if (!name.startsWith("air-bladder.")) continue;
+          saved[name] = fn;
+          CONFIG.queries[name] = async (...args) => {
+            if (globalThis.__abF166?.armed) {
+              globalThis.__abF166.armed = false;
+              globalThis.__abF166.raced = name;
+              await game.messages.get(m.id)?.setFlag("air-bladder", "crawlerChoiceTaken", "critical");
+            }
+            return fn(...args);
+          };
+        }
+        globalThis.__abF166 = { armed: true, raced: null, saved };
+        return { pcId: pc.id, msgId: m.id, encumbered: pc.isEncumbered() };
+      }, seed);
+      let bargainRace = null;
+      try {
+        bargainRace = await alicePage.evaluate(async ({ pcId, msgId }) => {
+          const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+          const pc = game.actors.get(pcId);
+          const before = new Set(game.messages.contents.map((m) => m.id));
+          const fatigues = () => pc.items.filter((i) => i.system?.isFatigue).length;
+          const fatiguesBefore = fatigues();
+          const warns = [];
+          const origWarn = ui.notifications.warn.bind(ui.notifications);
+          ui.notifications.warn = (msg, ...r) => { warns.push(String(msg)); return origWarn(msg, ...r); };
+          let row = null;
+          for (let i = 0; i < 40 && !row; i++) { row = document.querySelector(`[data-message-id="${msgId}"]`); if (!row) await sleep(200); }
+          const out = { row: !!row };
+          try {
+            row?.querySelector(".take-fatigue-instead")?.click();
+            let dlg = null;
+            for (let i = 0; i < 60 && !dlg; i++) { dlg = document.querySelector("dialog.dialog.cairn-drop-dialog"); if (!dlg) await sleep(150); }
+            out.asked = !!dlg;
+            out.picked = dlg?.querySelector('input[name="dropped"]:checked')?.value ?? null;
+            dlg?.querySelector('button[data-action="drop"]')?.click();
+            await sleep(5000);
+          } finally {
+            ui.notifications.warn = origWarn;
+          }
+          out.itemKept = !!out.picked && !!pc.items.get(out.picked);
+          out.fatigueGained = fatigues() - fatiguesBefore;
+          out.flag = game.messages.get(msgId)?.getFlag("air-bladder", "crawlerChoiceTaken") ?? null;
+          // The drop card is known by its flag (party-pile.js PILE_DROP_FLAG), not
+          // its sentence, which each client rebuilds in its own language.
+          out.dropCards = game.messages.contents.filter((m) => !before.has(m.id)
+            && m.getFlag("air-bladder", "pileDrop") !== undefined).length;
+          out.warns = warns;
+          out.want = game.i18n.localize("CAIRN.Crawler.ChoiceAlreadyMade");
+          return out;
+        }, bargainSeed);
+      } finally {
+        bargainRace = { ...(bargainRace ?? {}), ...await page.evaluate(async ({ msgId }) => {
+          const f = globalThis.__abF166;
+          for (const [name, fn] of Object.entries(f?.saved ?? {})) CONFIG.queries[name] = fn;
+          delete globalThis.__abF166;
+          try { await game.messages.get(msgId)?.delete(); } catch { /* gone */ }
+          return { raced: f?.raced ?? null };
+        }, bargainSeed) };
+      }
+      bargainRace.row && bargainSeed.encumbered && bargainRace.asked && bargainRace.raced && bargainRace.flag === "critical"
+        ? ok(`precondition: overburdened, she was asked what to drop, and the Warden's Mark Critical Damage landed inside her round trip (on ${bargainRace.raced})`)
+        : fail(`the bargain race's precondition: ${JSON.stringify({ encumbered: bargainSeed.encumbered, ...bargainRace })}`);
+      bargainRace.itemKept && bargainRace.fatigueGained === 0 && bargainRace.dropCards === 0
+        ? ok("a bargain the Warden answered first costs her NOTHING: the item stays, no Fatigue, no \"Dropped …\" card")
+        : fail(`the half-paid bargain: ${JSON.stringify(bargainRace)}`);
+      bargainRace.want !== "CAIRN.Crawler.ChoiceAlreadyMade" && bargainRace.warns?.includes(bargainRace.want)
+        && !bargainRace.warns.some((w) => /No Warden is connected/.test(w))
+        ? ok(`...and she is told the real reason ("${bargainRace.want}"), not that no Warden is connected`)
+        : fail(`the bargain's toast: ${JSON.stringify(bargainRace.warns)} — want ${JSON.stringify(bargainRace.want)}`);
+
+      /* ---- review #34 finding 165: a refused Drop says so ----------------- */
+      // `#onItemDrop` threw `dropItemToPile`'s false away, so a drop the
+      // Warden's client refused, failed or timed out closed the dialog and left
+      // the item on her sheet with no word. The Warden's client is made to
+      // refuse in page (its pile query answers false), and her Drop must toast
+      // the approved sentence naming the item.
+      await page.evaluate(() => {
+        globalThis.__abF165 = CONFIG.queries["air-bladder.pileDrop"];
+        CONFIG.queries["air-bladder.pileDrop"] = async () => false;
+      });
+      let refusedDrop = null;
+      try {
+        refusedDrop = await alicePage.evaluate(async ({ mineUuid }) => {
+          const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+          const mine = await fromUuid(mineUuid);
+          const [item] = await mine.createEmbeddedDocuments("Item", [{ name: "ZZ Alice Refused Rope", type: "item" }]);
+          await mine.sheet.render(true);
+          for (let i = 0; i < 30 && !(mine.sheet.element instanceof HTMLElement); i++) await sleep(100);
+          mine.sheet.element?.querySelector('[data-action="tab"][data-tab="items"]')?.click();
+          await sleep(400);
+          const ctl = mine.sheet.element?.querySelector(`[data-item-id="${item.id}"] [data-action="itemDrop"]`);
+          const warns = [];
+          const origWarn = ui.notifications.warn.bind(ui.notifications);
+          ui.notifications.warn = (msg, ...r) => { warns.push(String(msg)); return origWarn(msg, ...r); };
+          try {
+            const clicking = ctl ? mine.sheet.options.actions.itemDrop.call(mine.sheet, { preventDefault() {} }, ctl) : null;
+            let yes = null;
+            for (let i = 0; i < 40 && !yes; i++) { yes = document.querySelector('dialog.dialog button[data-action="drop"]'); if (!yes) await sleep(150); }
+            yes?.click();
+            await clicking;
+            await sleep(1500);
+          } finally {
+            ui.notifications.warn = origWarn;
+          }
+          const out = {
+            control: !!ctl, kept: !!mine.items.get(item.id), warns,
+            want: game.i18n.format("CAIRN.Pile.DropFailed", { name: item.name }),
+          };
+          await mine.sheet.close();
+          try { await item.delete(); } catch { /* gone */ }
+          return out;
+        }, seed);
+      } finally {
+        await page.evaluate(() => {
+          if (globalThis.__abF165) CONFIG.queries["air-bladder.pileDrop"] = globalThis.__abF165;
+          delete globalThis.__abF165;
+        });
+      }
+      refusedDrop?.control && refusedDrop.kept && refusedDrop.want !== "CAIRN.Pile.DropFailed"
+        && refusedDrop.warns.includes(refusedDrop.want)
+        ? ok(`a Drop the Warden's client refused says so ("${refusedDrop.want}"), and the item stays`)
+        : fail(`the refused Drop: ${JSON.stringify(refusedDrop)}`);
+
       player.clamped === 25
         ? ok("...and a 40-character note sent through the broker lands clamped to 25 — the enforcement is on the GM's side, where the write is, because maxlength binds the field and not the wire")
         : fail(`brokered note length: ${player.clamped} — a crafted emit is not bound by the field's maxlength`);
