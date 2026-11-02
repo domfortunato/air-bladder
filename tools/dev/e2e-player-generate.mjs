@@ -777,6 +777,13 @@ try {
         const want = game.i18n.format("CAIRN.Notify.PcGenFailedFor", { player: "Alice" });
         return { want, shown: [...document.querySelectorAll(".notification")].some((n) => n.textContent.includes(want)) };
       });
+      // The Warden's toast is an ERROR notification, and core writes those to
+      // the console too: the one console error this leg provokes on purpose.
+      // Taken out of the closing zero-errors count by its exact text and
+      // nothing else (the first green run reddened that count on it).
+      for (let i = gmErrors.length - 1; i >= 0; i--) {
+        if (gmErrors[i].includes(wardenTold.want)) gmErrors.splice(i, 1);
+      }
       const leftover = await sweep(emptyBefore);
       answer?.failed === true && !answer?.uuid
         ? ok("an empty create is answered as a FAILURE (failed: true), not a cancel")
