@@ -600,6 +600,64 @@ check("a second client reads the same order", second.ran && !second.error
   && JSON.stringify(second.first) === JSON.stringify(gmNow),
   second.error ?? `alice=${JSON.stringify(second.first)} gm=${JSON.stringify(gmNow)}`);
 
+/* ---------------------------------------------------------------------------
+ * 6. A natural 1 saves even against 0; a paralysed combatant still acts last
+ *    (review #34 finding 239, ruled 2026-11-01).
+ *
+ * The shipped Saves rule: "A 1 is always a success, and a 20 is always a
+ * failure." 63562e02 made a 1 pass only against 1 or more, to keep a DEX-0
+ * combatant out of the first bucket, and that silently changed every save.
+ * The ruling: by the book everywhere, and paralysis decided where the book
+ * decides it — "Complete DEX and WIL loss renders the character unable to
+ * act" — in initiative alone. So the rule itself, a sheet save at WIL 0 on a
+ * natural 1, and an initiative roll at DEX 0 on a natural 1 (the case the
+ * exception was made for, which must still act last). The die is pinned to
+ * a 1: u 0.999, so ceil((1 − u) × 20) = 1.
+ * ------------------------------------------------------------------------- */
+console.log("\na natural 1 saves even at 0 — and DEX 0 still acts last");
+const zero = await page.evaluate(async () => {
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const flags = { "air-bladder": { probeFixture: "combat-order" } };
+  const pinnedOne = async (fn) => { const o = CONFIG.Dice.randomUniform; CONFIG.Dice.randomUniform = () => 0.999; try { return await fn(); } finally { CONFIG.Dice.randomUniform = o; } };
+  const { cairnSavePasses } = await import("/systems/air-bladder/module/utils.js");
+  const out = { unit: { oneAtZero: cairnSavePasses(1, false, 0), twentyAtTwenty: cairnSavePasses(20, true, 20) } };
+
+  const pc = await CONFIG.Actor.documentClass.create({ name: "ZZ Init Zero WIL", type: "character", flags,
+    system: { abilities: { WIL: { value: 0, max: 10 } } } });
+  await pc.sheet.render(true);
+  for (let i = 0; i < 40 && !pc.sheet.element; i++) await sleep(100);
+  await sleep(500);
+  const before = new Set(game.messages.contents.map((m) => m.id));
+  await pinnedOne(async () => {
+    pc.sheet.element.querySelector('[data-action="rollAbility"][data-ability="WIL"]')?.click();
+    for (let i = 0; i < 40 && !game.messages.contents.some((m) => !before.has(m.id) && m.speaker?.actor === pc.id); i++) await sleep(100);
+  });
+  const card = game.messages.contents.find((m) => !before.has(m.id) && m.speaker?.actor === pc.id);
+  out.sheet = { found: !!card, rolled: card?.flags?.["air-bladder"]?.d20Card?.rolled ?? null,
+    failed: card?.flags?.["air-bladder"]?.d20Card?.failed ?? null };
+  await pc.sheet.close();
+
+  const combat = game.combats.find((c) => c.getFlag("air-bladder", "probeFixture") === "combat-order");
+  const scene = combat ? game.scenes.get(combat.scene?.id ?? combat._source.scene) : null;
+  if (combat && scene) {
+    const a = await CONFIG.Actor.documentClass.create({ name: "ZZ Init Zero DEX", type: "character", flags,
+      system: { abilities: { DEX: { value: 0, max: 10 } } }, prototypeToken: { disposition: 1 } });
+    const [t] = await scene.createEmbeddedDocuments("Token", [await a.getTokenDocument({ x: 1200, y: 300 })]);
+    const [c] = await combat.createEmbeddedDocuments("Combatant", [{ actorId: a.id, tokenId: t.id, sceneId: scene.id }]);
+    await pinnedOne(() => combat.rollInitiative([c.id]));
+    out.initiative = combat.combatants.get(c.id)?.initiative ?? "missing";
+  } else {
+    out.initiative = "no probe combat";
+  }
+  return out;
+});
+check("the rule: a natural 1 saves against 0, a 20 fails against 20",
+  zero.unit?.oneAtZero === true && zero.unit?.twentyAtTwenty === false, JSON.stringify(zero.unit));
+check("a sheet save at WIL 0 passes on a natural 1",
+  zero.sheet?.found && zero.sheet.rolled === 1 && zero.sheet.failed === false, JSON.stringify(zero.sheet));
+check("DEX 0 on a natural 1 still acts last (unable to act)", zero.initiative === -1,
+  `initiative=${zero.initiative}`);
+
 } catch (e) {
   fail("probe threw", `${e.name}: ${e.message}`);
 } finally {
