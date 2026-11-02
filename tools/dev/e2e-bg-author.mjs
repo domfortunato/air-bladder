@@ -251,13 +251,15 @@ try {
     // Every icon-only control on the form has a name. The option chip's × had
     // none while its two sibling ×s carry title = CAIRN.Remove (review #34
     // finding 189); the chip just dropped is the precondition that one exists.
-    // Core's own editor pencil is not ours to name: `<prose-mirror>` builds it
-    // with no label (client prosemirror-editor.mjs:151-154).
+    // Core's own editor pencil counts too (user ruling 2026-11-01): `<prose-mirror>`
+    // builds it with no label (client prosemirror-editor.mjs:151-154), and the
+    // sheet names it with core's own "Edit" after every render.
     await new Promise((r) => setTimeout(r, 200));
     const iconOnly = [...sheetRoot(sheet).querySelectorAll("a[data-action], button")]
-      .filter((a) => !a.textContent.trim() && !a.matches("prose-mirror > button.toggle"));
+      .filter((a) => !a.textContent.trim());
     out.iconNames = {
       optionRemove: iconOnly.some((a) => a.classList.contains("bg-option-item-remove")),
+      pencils: iconOnly.filter((a) => a.matches("prose-mirror > button.toggle")).length,
       unnamed: iconOnly.filter((a) => !(a.getAttribute("aria-label") || a.title)).map((a) => a.className || a.dataset.action),
     };
 
@@ -272,6 +274,50 @@ try {
   }, SWORD);
   Object.assign(result, ed.out);
   const bgId = ed.bgId;
+
+  // CORE'S EDITOR PENCIL HAS A NAME ON EVERY SHEET (user ruling 2026-11-01).
+  // Two `_onRender`s draw every editor in the system, the actor sheet's and
+  // the item sheet's, so one sheet of each kind: a character's Description
+  // tab and a weapon. Each pencil must carry core's "Edit"
+  // (`CONTROLS.CommonEdit`) as its tooltip AND its accessible name, and keep
+  // it after the editor is opened and saved — core puts the same button node
+  // back on save (prosemirror-editor.mjs replaceChildren), and the save's own
+  // write re-renders the sheet. Both documents are made here and deleted in
+  // the evaluate's own finally.
+  result.pencils = await page.evaluate(async () => {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const sheetRoot = (app) => (app.element instanceof HTMLElement ? app.element : app.element?.[0]);
+    const want = game.i18n.localize("CONTROLS.CommonEdit");
+    const read = (root) => [...root.querySelectorAll("prose-mirror > button.toggle")]
+      .map((b) => ({ aria: b.getAttribute("aria-label"), tip: b.dataset.tooltip ?? null }));
+    const out = { want };
+    const actor = await getDocumentClass("Actor").create({ name: "ZZ Probe Pencil PC", type: "character" });
+    const item = await getDocumentClass("Item").create({ name: "ZZ Probe Pencil Blade", type: "weapon" });
+    try {
+      for (const [key, doc, tab] of [["actor", actor, "description"], ["item", item, null]]) {
+        await doc.sheet.render(true);
+        for (let i = 0; i < 40 && !doc.sheet.element; i++) await sleep(100);
+        await sleep(400);
+        if (tab) { sheetRoot(doc.sheet).querySelector(`.tabs .item[data-tab="${tab}"]`)?.click(); await sleep(300); }
+        out[key] = { before: read(sheetRoot(doc.sheet)) };
+        const editor = sheetRoot(doc.sheet).querySelector("prose-mirror[toggled]");
+        const pencil = editor?.querySelector(":scope > button.toggle");
+        if (editor && pencil) {
+          pencil.click();
+          for (let i = 0; i < 30 && !editor.classList.contains("active"); i++) await sleep(100);
+          out[key].opened = editor.classList.contains("active");
+          await editor.save();
+          await sleep(800);
+          out[key].after = read(sheetRoot(doc.sheet));
+        }
+        await doc.sheet.close();
+      }
+    } finally {
+      await actor.delete().catch(() => {});
+      await item.delete().catch(() => {});
+    }
+    return out;
+  });
 
   // TYPE A NAME, THEN PRESS ADD (review #34 finding 73). The name's `change`
   // fires at mousedown and Add gear's action at click, and Add rebuilt the
@@ -788,6 +834,15 @@ const checks = [
   ["option drop → snapshot w/ itemData", result.optionSnapshot?.hasItemData === true],
   ["every icon-only control on the form is named (review #34 finding 189)",
     result.iconNames?.optionRemove === true && result.iconNames?.unnamed?.length === 0],
+  ["...core's editor pencil included, which the scan reaches (precondition: one is drawn)",
+    result.iconNames?.pencils > 0 && result.iconNames?.unnamed?.length === 0, JSON.stringify(result.iconNames)],
+  ...["actor", "item"].map((k) => {
+    const p = result.pencils?.[k];
+    const named = (list) => list?.length > 0 && list.every((b) => b.aria === result.pencils.want && b.tip === result.pencils.want);
+    return [`a${k === "actor" ? " character" : "n item"} sheet's editor pencil is named core's "Edit", and keeps it after an open and a save`,
+      !!result.pencils?.want && result.pencils.want !== "CONTROLS.CommonEdit" && named(p?.before) && p?.opened === true && named(p?.after),
+      JSON.stringify({ want: result.pencils?.want, ...p })];
+  }),
   ["generation resolved snapshot gear (not in any pack)", result.genHasSnapshotGear === true],
   ["\"Grants two bonds\" box on the authoring form", result.hasSecondBondBox === true],
   ["one bond by default, two with the box ticked", result.bondsDefault === 1 && result.bondsWithFlag === 2],
