@@ -3161,10 +3161,12 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       // said an NPC keeps its gear and statblock, and the NPC confirm promised
       // the kit was kept too: review #34 finding 194.)
       //
-      // The unsuffixed CAIRN.NpcRegenerator* pair is the HIRELING's now. Not
-      // renamed to say so: its text is still exactly right for that role and
-      // renaming would orphan a translation that is still correct, for a
-      // reader the comment can serve instead.
+      // The unsuffixed CAIRN.NpcRegenerator* pair is the HIRELING's now, not
+      // renamed to say so: renaming would orphan its translation, for a
+      // reader this comment can serve instead. Its confirm names everything
+      // regenerateHireling replaces or clears (review #34 finding 211: it once
+      // listed only the carried items, abilities, HP, career and day rate,
+      // while the age, traits, pronouns, coins and status marks went too).
       const metNpc = this.actor.npcRole === "npc";
       const titleKey = metNpc ? "CAIRN.NpcRoleRegeneratorTitle" : "CAIRN.NpcRegeneratorTitle";
       const confirmKey = metNpc ? "CAIRN.NpcRoleRegeneratorConfirm" : "CAIRN.NpcRegeneratorConfirm";

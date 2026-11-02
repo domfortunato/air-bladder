@@ -117,7 +117,9 @@ no dice on it.
 Roll NPC asks first, and it asks two different questions:
 
 - On a **hireling**: everything it is carrying will be deleted, and its
-  abilities, HP, Career and day rate replaced. A whole new working person.
+  abilities, HP, Career, day rate, traits and age replaced. Its pronouns,
+  coins and status marks are cleared, and it is marked For Hire. A whole new
+  working person.
 - On an **NPC**: its Background, stat block, traits and age are replaced, and
   so is everything generation gave it — the Background's gear AND the kit,
   because this is a different person. Its pronouns, coins and status marks

@@ -702,7 +702,7 @@
     "WardenOnly": "Only the Warden can do that."
   },
   "CAIRN.Npc": "NPC",
-  "CAIRN.NpcRegeneratorConfirm": "Are you sure you want to roll this NPC again?</p><p>Everything it is carrying will be deleted, and its abilities, HP, career and day rate will be replaced. This cannot be undone.",
+  "CAIRN.NpcRegeneratorConfirm": "Are you sure you want to roll this NPC again?</p><p>Everything it is carrying will be deleted. Its abilities, HP, career, day rate, traits and age will be replaced, its pronouns, coins and status marks cleared, and it is marked For Hire. Its name, portrait and notes are kept. This cannot be undone.",
   "CAIRN.NpcRegeneratorTitle": "Roll this NPC again?",
   "CAIRN.NpcRoleRegeneratorConfirm": "Are you sure you want to roll this NPC again?</p><p>Its Background, abilities, HP, traits and age will be replaced, along with everything generation gave it to carry — its Background's gear and its kit — and its pronouns, coins and status marks cleared. Its name, portrait, notes and anything else it is carrying are kept. This cannot be undone.",
   "CAIRN.NpcRoleRegeneratorTitle": "Roll this NPC again?",
