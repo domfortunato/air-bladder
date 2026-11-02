@@ -1,57 +1,97 @@
 #!/usr/bin/env node
 /**
- * The Roll Character checklist refuses WHOLE, or not at all (review #21
- * finding 1).
+ * A re-roll ORPHANS the containers the old grant gave, and never deletes one
+ * (user ruling 2026-11-01, review #34 finding 183) — and only containers that
+ * really are the character's are touched (review #34 finding 120).
  *
  *   node tools/dev/e2e-reroll-refusal.mjs   (needs Foundry running, world
- *   launched, and `npm run dev:players` — the leg needs Alice)
+ *   launched, and `npm run dev:players` — the legs need Alice)
  *
- * `canRegenerateContainers` refuses a non-GM whose character holds a granted
- * container (a container is an Actor, and Foundry gates Actor deletion on
- * ASSISTANT). The checklist rides the same per-field paths as the sheet dice,
- * and before the fix it DISCARDED their refusal signals: a player's
- * all-checked run kept the background (refused) while re-dealing the bonds,
- * re-rolling the statline, swapping the portrait and clearing armorOverride —
- * a half-applied gesture no one asked for. A GM passes every ownership check
- * and can never reproduce this, so the probe joins as Alice.
+ * The name is historical. Until the ruling, `canRegenerateContainers` REFUSED a
+ * player whose character held a granted container, because removing one meant
+ * deleting an Actor and Foundry gates that on ASSISTANT; this probe proved the
+ * refusal was whole (review #21 finding 1). The ruling: "Players should not
+ * need the Warden to re-roll for them. A re-roll may just orphan actors
+ * assigned by the first question, in which case the Warden will delete them."
+ * — on everyone's re-roll, the Warden's included. Orphaned = unlinked, stamped
+ * `formerlyBelongedTo` with the character's name, its grant flag gone, the
+ * broken (loot-pile) ownership, and everything stowed on it still there.
  *
- * Legs, each snapshot-compared (dice seeded to max faces so "nothing changed"
- * can only pass by NOT rolling, never by rolling the same numbers):
- *   A. All-checked (Background checked): the container refusal warns
- *      (CAIRN.Notify.NoContainerRegen) and NOTHING changes — no bond
- *      re-deal, no statline, no portrait, no armorOverride wipe.
- *   B. Background unchecked, gear + STR checked: the scoped refusal warns
- *      (CAIRN.Notify.NoContainerBackground) and nothing changes — before the
- *      fix the gear was refused but STR still re-rolled.
+ * A container counts as the character's only if no player can have faked it
+ * (finding 120): its default is below OWNER, every player who owns it owns the
+ * character, and its last writer is a Warden or one of those owners. Two
+ * plants the old marks alone accepted must be left exactly as they are.
  *
- * Red-first record: both legs failed on the unfixed build (warn fired but the
- * snapshot moved) — the refusal-signal plumbing is what makes them pass.
- * World state (one setting, every planted actor) is restored from Node.
+ * Legs (dice seeded to max faces so a re-roll that happens SHOWS):
+ *   A. Alice, all-checked: the gesture applies — STR moves — and her granted
+ *      mule is orphaned, not deleted, and is no longer hers to own.
+ *   B. Alice, Background unchecked, gear + STR: the same, through the
+ *      background-scoped path.
+ *   C. The Warden changes the background of a PC no player owns (a world being
+ *      prepared): its real granted mule is orphaned, not deleted; a mule Alice
+ *      pointed at it from her own npc, and a party mule shared with everyone
+ *      that she pointed at it too, are untouched — still there, still owned.
+ *
+ * Every actor the Warden's client creates is swept from the finally
+ * (`trackCreatedActors`), the relay's new grants included.
  * Exits non-zero on any failed assertion or console error.
  */
 import { chromium } from "playwright";
-import { VIEWPORT, joinAsGM, joinAs, watchErrors, dismissChrome, watchdog } from "./lib.mjs";
+import { VIEWPORT, joinAsGM, joinAs, watchErrors, dismissChrome, watchdog,
+  trackCreatedActors, sweepCreatedActors } from "./lib.mjs";
 
 let failed = false;
 const ok = (m) => console.log(`  ok    ${m}`);
 const fail = (m) => { console.error(`  FAIL  ${m}`); failed = true; };
 
 const browser = await chromium.launch();
-watchdog(300000, "reroll refusal probe");
+watchdog(300000, "reroll orphaning probe");
 
 const gm = await browser.newContext({ viewport: VIEWPORT }).then((c) => c.newPage());
 const gmErrors = watchErrors(gm);
 await joinAsGM(gm);
 await dismissChrome(gm);
+await trackCreatedActors(gm);
 
 let saved = null;
 let aliceErrors = [];
+
+/** What a container looks like now, read on the Warden's client. */
+const stateOf = (id) => gm.evaluate((id) => {
+  const a = game.actors.get(id);
+  if (!a) return { exists: false };
+  const alice = game.users.getName("Alice");
+  return {
+    exists: true,
+    connectedTo: a.system?.connectedTo ?? "",
+    formerlyBelongedTo: a.system?.formerlyBelongedTo ?? "",
+    grantSource: a.getFlag("air-bladder", "grantSource") ?? null,
+    aliceOwns: !!alice && a.testUserPermission(alice, "OWNER"),
+    sharedWithAll: (a.ownership?.default ?? 0) >= CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER,
+    items: a.items.size,
+  };
+}, id);
+
+/** Poll until the Warden's client has applied the orphan's ownership. */
+const settled = async (id) => {
+  let s = null;
+  for (let i = 0; i < 50; i++) {
+    s = await stateOf(id);
+    if (!s.exists || (!s.connectedTo && !s.aliceOwns)) return s;
+    await new Promise((r) => setTimeout(r, 200));
+  }
+  return s;
+};
+
+const orphaned = (s, keeperName) => s.exists && s.connectedTo === "" && s.formerlyBelongedTo === keeperName
+  && s.grantSource === null && !s.aliceOwns;
 
 try {
   /* --- setup, as GM ---------------------------------------------------------- */
 
   const setup = await gm.evaluate(async () => {
     const NS = "air-bladder";
+    const L = CONST.DOCUMENT_OWNERSHIP_LEVELS;
     const gen = await import("/systems/air-bladder/module/character-generator.js");
     // A stale actor from an aborted run would satisfy every precondition below
     // without this run having established any of them.
@@ -60,11 +100,7 @@ try {
     const alice = game.users.getName("Alice");
     if (!alice) return { error: 'no user named "Alice" — run `npm run dev:players` first' };
 
-    const out = {
-      saved: { playerRandomization: game.settings.get(NS, "allow-player-randomization") },
-      regenWarning: game.i18n.localize("CAIRN.Notify.NoContainerRegen"),
-      bgWarning: game.i18n.localize("CAIRN.Notify.NoContainerBackground"),
-    };
+    const out = { saved: { playerRandomization: game.settings.get(NS, "allow-player-randomization") } };
     // Alice needs the Roll Character button at all.
     await game.settings.set(NS, "allow-player-randomization", true);
 
@@ -72,41 +108,51 @@ try {
     if (!pack) return { error: "no backgrounds-2e pack in this world" };
     const bgs = await pack.getDocuments();
     const fieldwarden = bgs.find((b) => b.name === "Fieldwarden");
-    if (!fieldwarden) return { error: "Fieldwarden background missing" };
+    const other = bgs.find((b) => b.name !== "Fieldwarden");
+    if (!fieldwarden || !other) return { error: "Fieldwarden, or a second 2e background, is missing" };
+    out.otherBgUuid = other.uuid;
 
-    const pc = await CONFIG.Actor.documentClass.create({
+    const Cls = CONFIG.Actor.documentClass;
+    const pc = await Cls.create({
       name: "ZZ RerollRef PC", type: "character",
       system: { generationEnabled: true },
-      ownership: { [alice.id]: CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER },
+      ownership: { [alice.id]: L.OWNER },
     });
-    // A real background with real grants, so the checklist has children worth
-    // keeping. As GM this cannot be refused.
     await gen.changeBackground(pc, fieldwarden);
-    // Distinct scalars AFTER the swap (it trades question gold), so any
-    // re-roll shows. Seeded dice land 18/18/18 and age 50, never these.
-    await pc.update({
-      "system.abilities.STR": { value: 10, max: 10 },
-      "system.abilities.DEX": { value: 10, max: 10 },
-      "system.abilities.WIL": { value: 10, max: 10 },
-      "system.hp": { value: 4, max: 4 },
-      "system.gold": 7,
-      "system.age": "30",
-      "system.armorOverride": 1,
-    });
+    // Distinct scalars AFTER the swap, so a re-roll shows: seeded dice land 18.
+    await pc.update({ "system.abilities.STR": { value: 10, max: 10 } });
 
-    // THE PRECONDITION: a granted container. `grantSource: "background"`
-    // reaches both the unscoped check (leg A) and the "background"-scoped one
-    // (leg B).
-    await CONFIG.Actor.documentClass.create({
-      name: "ZZ RerollRef Granted Mule", type: "npc",
-      system: { role: "mount", containerClass: "mule", connectedTo: pc.uuid, generationEnabled: false },
-      flags: { [NS]: { grantSource: "background" } },
-    });
+    // A granted mule as generation leaves one: connected to the PC, wearing the
+    // connected shape (the world may look, the PC's player owns it), with a
+    // stowed item so "orphaned with everything on it" is a real claim.
+    const mule = async (name, keeper, ownership) => {
+      const m = await Cls.create({
+        name, type: "npc", ownership,
+        system: { role: "companion", containerClass: "mule", connectedTo: keeper.uuid, generationEnabled: false },
+        flags: { [NS]: { grantSource: "background" } },
+      });
+      await m.createEmbeddedDocuments("Item", [{ name: "ZZ RerollRef Saddlebag Rope", type: "item" }]);
+      return m.id;
+    };
+    out.pcId = pc.id;
+    out.pcName = pc.name;
+    out.muleA = await mule("ZZ RerollRef Mule A", pc, { default: L.OBSERVER, [alice.id]: L.OWNER });
 
-    out.actorId = pc.id;
-    out.granted = game.actors.filter(
-      (a) => a.system?.connectedTo === pc.uuid && a.getFlag(NS, "grantSource")).length;
-    out.items = pc.items.size;
+    // A PC no player owns — a world the Warden is still preparing — with its
+    // own real granted mule (the connected shape of an unowned keeper).
+    const victim = await Cls.create({ name: "ZZ RerollRef Unowned PC", type: "character" });
+    await gen.changeBackground(victim, fieldwarden);
+    out.victimId = victim.id;
+    out.victimUuid = victim.uuid;
+    out.victimName = victim.name;
+    out.muleV = await mule("ZZ RerollRef Mule V", victim, { default: L.OBSERVER });
+
+    // Two actors Alice may write, for her plants: her own npc, and a party
+    // mule the Warden shared with everyone (default OWNER).
+    out.alicePlant = (await Cls.create({ name: "ZZ RerollRef Alice Npc", type: "npc",
+      system: { role: "npc" }, ownership: { [alice.id]: L.OWNER } })).id;
+    out.partyMule = (await Cls.create({ name: "ZZ RerollRef Party Mule", type: "npc",
+      system: { role: "companion", containerClass: "mule" }, ownership: { default: L.OWNER } })).id;
     return out;
   });
 
@@ -115,17 +161,12 @@ try {
     throw new Error(setup.error);
   }
   saved = setup.saved;
-  console.log(`\nsetup: Alice's character holds ${setup.granted} granted container(s), ${setup.items} item(s)`);
-  if (!setup.granted) {
-    fail("no granted container — canRegenerateContainers has nothing to refuse, "
-      + "so neither leg can fail and neither is evidence");
-  }
-  if (!setup.items) {
-    fail("the background swap granted no items — a 'nothing changed' snapshot of an "
-      + "empty inventory is weak evidence");
-  }
+  const muleA0 = await stateOf(setup.muleA);
+  muleA0.exists && muleA0.connectedTo && muleA0.grantSource === "background" && muleA0.aliceOwns && muleA0.items === 1
+    ? ok("precondition: Alice's character keeps a granted mule she owns, with a rope stowed on it")
+    : fail(`precondition: the granted mule ${JSON.stringify(muleA0)}`);
 
-  /* --- the legs, as Alice ----------------------------------------------------- */
+  /* --- the player's legs, as Alice -------------------------------------------- */
 
   const alice = await browser.newContext({ viewport: VIEWPORT }).then((c) => c.newPage());
   aliceErrors = watchErrors(alice);
@@ -142,26 +183,16 @@ try {
       while (Date.now() - t0 < ms) { const v = test(); if (v) return v; await wait(100); }
       return false;
     };
-
     const sheet = actor.sheet;
     await sheet.render(true);
     await wait(800);
     const root = sheet.element instanceof HTMLElement ? sheet.element : sheet.element?.[0];
-
-    const snapshot = () => JSON.stringify({
-      name: actor.name,
-      img: actor.img,
-      system: actor.toObject().system,
-      items: actor.items.map((i) => `${i.id}:${i.name}:${i.sort}`).sort(),
-      flags: actor.flags?.["air-bladder"] ?? {},
-    });
-
     const warns = [];
     const origWarn = ui.notifications.warn.bind(ui.notifications);
     ui.notifications.warn = (m, ...r) => { warns.push(String(m)); return origWarn(m, ...r); };
     const origUniform = CONFIG.Dice.randomUniform;
     CONFIG.Dice.randomUniform = () => 0;   // max faces: a roll that happens SHOWS
-    const before = snapshot();
+    const strBefore = actor.system.abilities.STR.max;
     try {
       root?.closest(".application")?.querySelector('.window-header button[data-action="rollActor"]')?.click();
       const dlg = await waitFor(() => document.querySelector(".reroll-dialog"), 10000);
@@ -182,55 +213,94 @@ try {
       CONFIG.Dice.randomUniform = origUniform;
       ui.notifications.warn = origWarn;
     }
-    const res = {
-      warns: [...warns],
-      unchanged: snapshot() === before,
-      rerollingCleared: sheet._rerolling === false,
-    };
+    const res = { warns: [...warns], strBefore, strAfter: actor.system.abilities.STR.max, rerollingCleared: sheet._rerolling === false };
     await sheet.close();
     return res;
-  }, { actorId: setup.actorId, states });
+  }, { actorId: setup.pcId, states });
 
-  console.log("\nA. all-checked — the unscoped container refusal must stop the whole gesture");
+  console.log("\nA. Alice, all-checked — the gesture applies and her granted mule is orphaned");
   const a = await runLeg({ background: true });
   if (a.error) fail(`leg A: ${a.error}`);
   else {
-    a.warns.some((w) => w === setup.regenWarning)
-      ? ok(`refused in the regenerate wording ("${setup.regenWarning.slice(0, 40)}…")`)
-      : fail(`leg A warns: ${JSON.stringify(a.warns)}`);
-    a.unchanged
-      ? ok("and NOTHING changed — no bonds, no statline, no portrait, no armorOverride wipe")
-      : fail("leg A: the refused gesture still changed the character (the half-applied defect)");
+    a.strAfter !== a.strBefore
+      ? ok(`the re-roll applied (STR ${a.strBefore} → ${a.strAfter}), with no refusal`)
+      : fail(`leg A: nothing re-rolled — refused? warns ${JSON.stringify(a.warns)}`);
+    const s = await settled(setup.muleA);
+    orphaned(s, setup.pcName) && s.items === 1
+      ? ok("the old mule is orphaned, not deleted: unlinked, \"formerly\" the PC's, no grant flag, not Alice's, rope still on it")
+      : fail(`leg A: the old granted mule ${JSON.stringify(s)}`);
     a.rerollingCleared ? ok("the sheet's guard is released") : fail("leg A: _rerolling stayed latched");
   }
 
-  console.log("\nB. Background unchecked, gear + STR checked — the scoped refusal, same rule");
-  // Re-establish the baseline leg A may have wrecked (on the unfixed build it
-  // left STR at the seeded 18 and armorOverride null — exactly the values leg
-  // B's seeded re-roll would land on, which made leg B pass vacuously on the
-  // first red run).
-  await gm.evaluate(async (actorId) => {
-    await game.actors.get(actorId)?.update({
-      "system.abilities.STR": { value: 10, max: 10 },
-      "system.armorOverride": 1,
+  console.log("\nB. Alice, Background unchecked, gear + STR — the scoped path orphans too");
+  const muleB = await gm.evaluate(async ({ pcId }) => {
+    const L = CONST.DOCUMENT_OWNERSHIP_LEVELS;
+    const pc = game.actors.get(pcId);
+    const alice = game.users.getName("Alice");
+    await pc.update({ "system.abilities.STR": { value: 10, max: 10 } });
+    const m = await CONFIG.Actor.documentClass.create({
+      name: "ZZ RerollRef Mule B", type: "npc",
+      ownership: { default: L.OBSERVER, [alice.id]: L.OWNER },
+      system: { role: "companion", containerClass: "mule", connectedTo: pc.uuid, generationEnabled: false },
+      flags: { "air-bladder": { grantSource: "background" } },
     });
-  }, setup.actorId);
+    return m.id;
+  }, { pcId: setup.pcId });
   const allOff = { background: false, gear: false, question0: false, question1: false, bonds: false,
     STR: false, DEX: false, WIL: false, hp: false, gold: false, age: false, traits: false,
     portrait: false, omen: false, name: false };
   const b = await runLeg({ ...allOff, gear: true, STR: true });
   if (b.error) fail(`leg B: ${b.error}`);
   else {
-    b.warns.some((w) => w === setup.bgWarning)
-      ? ok("refused in the background swap's own words")
-      : fail(`leg B warns: ${JSON.stringify(b.warns)}`);
-    b.unchanged
-      ? ok("and nothing changed — the refused gear row did not leave STR re-rolled")
-      : fail("leg B: the gesture half-applied (gear refused, statline moved)");
+    b.strAfter !== b.strBefore
+      ? ok(`the re-roll applied (STR ${b.strBefore} → ${b.strAfter}), with no refusal`)
+      : fail(`leg B: nothing re-rolled — refused? warns ${JSON.stringify(b.warns)}`);
+    const s = await settled(muleB);
+    orphaned(s, setup.pcName)
+      ? ok("the background's mule is orphaned, not deleted")
+      : fail(`leg B: the background's granted mule ${JSON.stringify(s)}`);
   }
 
+  /* --- Alice plants, then the Warden re-rolls (finding 120) -------------------- */
+
+  const planted = await alice.evaluate(async ({ ids, victimUuid }) => {
+    const out = {};
+    for (const [k, id] of Object.entries(ids)) {
+      const a = game.actors.get(id);
+      if (!a?.isOwner) { out[k] = "not owned"; continue; }
+      await a.update({ "system.connectedTo": victimUuid, "flags.air-bladder.grantSource": "background" });
+      out[k] = a.system.connectedTo === victimUuid && a.getFlag("air-bladder", "grantSource") === "background";
+    }
+    return out;
+  }, { ids: { alicePlant: setup.alicePlant, partyMule: setup.partyMule }, victimUuid: setup.victimUuid });
+  planted.alicePlant === true && planted.partyMule === true
+    ? ok("precondition: Alice pointed her own npc and the shared party mule at the unowned PC, grant flag and all")
+    : fail(`precondition: Alice's plants ${JSON.stringify(planted)}`);
+
   await alice.context().close();
+
+  console.log("\nC. the Warden changes the unowned PC's background — its real mule orphaned, the plants left alone");
+  await gm.evaluate(async ({ victimId, otherBgUuid }) => {
+    const gen = await import("/systems/air-bladder/module/character-generator.js");
+    await gen.changeBackground(game.actors.get(victimId), await fromUuid(otherBgUuid));
+    await new Promise((r) => setTimeout(r, 800));
+  }, { victimId: setup.victimId, otherBgUuid: setup.otherBgUuid });
+  const v = await settled(setup.muleV);
+  v.exists && v.connectedTo === "" && v.formerlyBelongedTo === setup.victimName && v.grantSource === null && v.items === 1
+    ? ok("the unowned PC's own granted mule is orphaned, not deleted, rope still on it")
+    : fail(`leg C: the real granted mule ${JSON.stringify(v)}`);
+  const p1 = await stateOf(setup.alicePlant);
+  p1.exists && p1.connectedTo === setup.victimUuid && p1.aliceOwns
+    ? ok("Alice's planted npc is untouched: still there, still pointed, still hers")
+    : fail(`leg C: Alice's planted npc ${JSON.stringify(p1)}`);
+  const p2 = await stateOf(setup.partyMule);
+  p2.exists && p2.connectedTo === setup.victimUuid && p2.sharedWithAll
+    ? ok("the shared party mule is untouched: still there, still shared with everyone")
+    : fail(`leg C: the shared party mule ${JSON.stringify(p2)}`);
+} catch (e) {
+  fail(`${e.name}: ${e.message}`);
 } finally {
+  await sweepCreatedActors(gm);
   await gm.evaluate(async (saved) => {
     const NS = "air-bladder";
     for (const a of game.actors.filter((a) => a.name?.startsWith("ZZ RerollRef"))) {
@@ -243,6 +313,6 @@ try {
 const errors = [...gmErrors, ...aliceErrors];
 if (errors.length) { console.log(""); for (const e of errors) fail(`console error: ${e}`); }
 
-console.log(`\n${failed ? "REROLL REFUSAL PROBE FAILED" : "Reroll refusal probe passed."}`);
+console.log(`\n${failed ? "REROLL ORPHANING PROBE FAILED" : "Reroll orphaning probe passed."}`);
 await browser.close();
 process.exit(failed ? 1 : 0);
