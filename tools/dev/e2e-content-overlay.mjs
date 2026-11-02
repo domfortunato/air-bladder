@@ -1587,6 +1587,81 @@ try {
 
 /* -------------------------------------------- */
 
+// An orphan's name is its old one with "o_" in front (review #34 finding 183,
+// ruled 2026-11-02): a fixed marker, the same in every language, so the
+// overlay must translate the name AFTER it — "o_Mule" reads "o_Mula" — or a
+// Spanish table sees every orphan in English. Read where a Warden finds them:
+// the Actors tab row and the sheet's name field; an untouched submit must keep
+// the stored English. CONTROLS on the same live overlay: a PC with the very
+// same name is never localized, and an o_ name whose rest the overlay does
+// not know reads verbatim.
+console.log("\nan orphan's o_ name under a content overlay");
+
+const orphanLeg = await page.evaluate(async () => {
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const i18n = await import("/systems/air-bladder/module/i18n-content.js");
+  const EN = "ZZ Overlay Orphan Mule";
+  const ES = "ZZ-MULA-HUERFANA";
+  const Cls = CONFIG.Actor.documentClass;
+  const out = { ids: [], EN, ES };
+  const rowOf = (id) => document.querySelector(`#actors [data-entry-id="${id}"] .entry-name`)?.textContent.trim() ?? null;
+  try {
+    const orphan = await Cls.create({ name: `o_${EN}`, type: "npc", system: { role: "companion", containerClass: "mule" } });
+    out.ids.push(orphan.id);
+    const pc = await Cls.create({ name: `o_${EN}`, type: "character" });
+    out.ids.push(pc.id);
+    const stray = await Cls.create({ name: "o_ZZ Overlay Unknown", type: "npc", system: { role: "companion", containerClass: "mule" } });
+    out.ids.push(stray.id);
+
+    i18n._setOverlay({ "monster.name": { [EN]: ES } });
+    await ui.actors.render(true);
+    await sleep(600);
+    out.rows = { orphan: rowOf(orphan.id), pc: rowOf(pc.id), stray: rowOf(stray.id) };
+
+    await orphan.sheet.render(true);
+    for (let i = 0; i < 60 && !orphan.sheet.element; i++) await sleep(100);
+    await sleep(400);
+    const input = orphan.sheet.element?.querySelector('input[name="name"]');
+    out.fieldShown = input?.value ?? null;
+    // Commit the field AS SHOWN — the whole form serializes on any change, so
+    // this is every submitOnChange on the sheet.
+    if (input) { input.dispatchEvent(new Event("change", { bubbles: true })); await sleep(700); }
+    out.storedAfterSubmit = orphan.name;
+    await orphan.sheet.close();
+  } catch (e) {
+    out.error = `${e.name}: ${e.message}`;   // the ids still come home for the sweep
+  } finally {
+    i18n._setOverlay(null);
+    await ui.actors.render(true);
+  }
+  return out;
+});
+
+try {
+  if (orphanLeg.error) fail("the orphan-name leg ran", orphanLeg.error);
+  orphanLeg.rows?.orphan === `o_${orphanLeg.ES}`
+    ? ok("an orphan's Actors row translates the name after o_", orphanLeg.rows.orphan)
+    : fail("an orphan's Actors row translates the name after o_", `row reads ${JSON.stringify(orphanLeg.rows?.orphan)}`);
+  orphanLeg.fieldShown === `o_${orphanLeg.ES}`
+    ? ok("…and so does its sheet's name field", orphanLeg.fieldShown)
+    : fail("…and so does its sheet's name field", `got ${JSON.stringify(orphanLeg.fieldShown)}`);
+  orphanLeg.storedAfterSubmit === `o_${orphanLeg.EN}`
+    ? ok("…and a submit of the field as shown keeps the stored English", orphanLeg.storedAfterSubmit)
+    : fail("…and a submit of the field as shown keeps the stored English", `got ${JSON.stringify(orphanLeg.storedAfterSubmit)}`);
+  orphanLeg.rows?.pc === `o_${orphanLeg.EN}`
+    ? ok("CONTROL: a PC with the same o_ name is NOT localized", orphanLeg.rows.pc)
+    : fail("CONTROL: a PC with the same o_ name is NOT localized", `row reads ${JSON.stringify(orphanLeg.rows?.pc)}`);
+  orphanLeg.rows?.stray === "o_ZZ Overlay Unknown"
+    ? ok("CONTROL: an o_ name the overlay does not know reads verbatim", orphanLeg.rows.stray)
+    : fail("CONTROL: an o_ name the overlay does not know reads verbatim", `row reads ${JSON.stringify(orphanLeg.rows?.stray)}`);
+} finally {
+  await page.evaluate(async (ids) => {
+    for (const id of ids) await game.actors.get(id)?.delete().catch(() => {});
+  }, orphanLeg.ids);
+}
+
+/* -------------------------------------------- */
+
 // Search must match what the eye reads (review #9 finding 4): the render hook
 // rewrites .entry-name to the translation, but core's _matchSearchEntries tests
 // the query against collection.index names — never the DOM — so typing the

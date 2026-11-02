@@ -17,6 +17,13 @@
  * `formerlyBelongedTo` with the character's name, its grant flag gone, the
  * broken (loot-pile) ownership, and everything stowed on it still there.
  *
+ * And NAMED so the Warden can find it (ruled 2026-11-02): `o_` in front of its
+ * name, never twice, and the tokens still wearing the old name follow — from
+ * the player's own client on her re-roll, where the Warden's client takes her
+ * Owner away straight after and a token write that lands later is refused.
+ * Leg A holds her token writes back 1.5 s each, in her page, so the ordering
+ * is tested on every run rather than whenever the network is slow.
+ *
  * A container counts as the character's only if no player can have faked it
  * (finding 120): its default is below OWNER, every player who owns it owns the
  * character, and its last writer is a Warden or one of those owners. Two
@@ -24,13 +31,17 @@
  *
  * Legs (dice seeded to max faces so a re-roll that happens SHOWS):
  *   A. Alice, all-checked: the gesture applies — STR moves — and her granted
- *      mule is orphaned, not deleted, and is no longer hers to own.
+ *      mule is orphaned, not deleted, and is no longer hers to own; it is
+ *      renamed o_…, and its tokens on two scenes follow while a third, named
+ *      on purpose, keeps its name.
  *   B. Alice, Background unchecked, gear + STR: the same, through the
  *      background-scoped path.
  *   C. The Warden changes the background of a PC no player owns (a world being
- *      prepared): its real granted mule is orphaned, not deleted; a mule Alice
- *      pointed at it from her own npc, and a party mule shared with everyone
- *      that she pointed at it too, are untouched — still there, still owned.
+ *      prepared): its real granted mule is orphaned, not deleted, and renamed;
+ *      a second whose name already starts o_ is not prefixed again; a mule
+ *      Alice pointed at it from her own npc, and a party mule shared with
+ *      everyone that she pointed at it too, are untouched — still there,
+ *      still owned, still named as they were.
  *
  * Every actor the Warden's client creates is swept from the finally
  * (`trackCreatedActors`), the relay's new grants included.
@@ -54,7 +65,12 @@ await dismissChrome(gm);
 await trackCreatedActors(gm);
 
 let saved = null;
+let sceneIds = [];
 let aliceErrors = [];
+
+/** The prefix a re-roll gives an orphan's name. Spelled out, not imported: the
+ *  probe states the ruling, so a changed constant reds here. */
+const O = "o_";
 
 /** What a container looks like now, read on the Warden's client. */
 const stateOf = (id) => gm.evaluate((id) => {
@@ -63,6 +79,7 @@ const stateOf = (id) => gm.evaluate((id) => {
   const alice = game.users.getName("Alice");
   return {
     exists: true,
+    name: a.name,
     connectedTo: a.system?.connectedTo ?? "",
     formerlyBelongedTo: a.system?.formerlyBelongedTo ?? "",
     grantSource: a.getFlag("air-bladder", "grantSource") ?? null,
@@ -86,6 +103,10 @@ const settled = async (id) => {
 const orphaned = (s, keeperName) => s.exists && s.connectedTo === "" && s.formerlyBelongedTo === keeperName
   && s.grantSource === null && !s.aliceOwns;
 
+/** Every token name on the probe's scenes, sorted, read on the Warden's client. */
+const tokenNames = (ids) => gm.evaluate((ids) =>
+  ids.flatMap((id) => game.scenes.get(id)?.tokens.map((t) => t.name) ?? []).sort(), ids);
+
 try {
   /* --- setup, as GM ---------------------------------------------------------- */
 
@@ -94,8 +115,10 @@ try {
     const L = CONST.DOCUMENT_OWNERSHIP_LEVELS;
     const gen = await import("/systems/air-bladder/module/character-generator.js");
     // A stale actor from an aborted run would satisfy every precondition below
-    // without this run having established any of them.
-    for (const a of game.actors.filter((a) => a.name?.startsWith("ZZ RerollRef"))) await a.delete();
+    // without this run having established any of them. An orphan of one wears
+    // the prefix.
+    for (const a of game.actors.filter((a) => /^(o_)?ZZ RerollRef/.test(a.name ?? ""))) await a.delete();
+    for (const s of game.scenes.filter((s) => s.name?.startsWith("ZZ RerollRef"))) await s.delete();
 
     const alice = game.users.getName("Alice");
     if (!alice) return { error: 'no user named "Alice" — run `npm run dev:players` first' };
@@ -138,6 +161,22 @@ try {
     out.pcName = pc.name;
     out.muleA = await mule("ZZ RerollRef Mule A", pc, { default: L.OBSERVER, [alice.id]: L.OWNER });
 
+    // Two scenes with the mule placed: both tokens wearing its name must follow
+    // the orphan's new one, and a third, named on purpose, must keep its own.
+    // One scene per create, so nothing is read off a batch by position.
+    const muleA = game.actors.get(out.muleA);
+    const td = async (x, overrides = {}) => ({ ...(await muleA.getTokenDocument({ x, y: 100 })).toObject(), ...overrides });
+    out.scenes = [];
+    for (const n of [1, 2]) {
+      const scene = await getDocumentClass("Scene").create({
+        name: `ZZ RerollRef Scene ${n}`, width: 1000, height: 1000, grid: { size: 100 },
+      });
+      out.scenes.push(scene.id);
+      await scene.createEmbeddedDocuments("Token", n === 1
+        ? [await td(100), await td(300, { name: "ZZ RerollRef Hand-Named Mule" })]
+        : [await td(100)]);
+    }
+
     // A PC no player owns — a world the Warden is still preparing — with its
     // own real granted mule (the connected shape of an unowned keeper).
     const victim = await Cls.create({ name: "ZZ RerollRef Unowned PC", type: "character" });
@@ -146,6 +185,9 @@ try {
     out.victimUuid = victim.uuid;
     out.victimName = victim.name;
     out.muleV = await mule("ZZ RerollRef Mule V", victim, { default: L.OBSERVER });
+    // A grant whose name already wears the prefix (a Warden's own naming, or an
+    // orphan adopted back by hand): orphaned again, it must not read o_o_.
+    out.muleW = await mule(`o_ZZ RerollRef Mule W`, victim, { default: L.OBSERVER });
 
     // Two actors Alice may write, for her plants: her own npc, and a party
     // mule the Warden shared with everyone (default OWNER).
@@ -161,10 +203,15 @@ try {
     throw new Error(setup.error);
   }
   saved = setup.saved;
+  sceneIds = setup.scenes;
   const muleA0 = await stateOf(setup.muleA);
   muleA0.exists && muleA0.connectedTo && muleA0.grantSource === "background" && muleA0.aliceOwns && muleA0.items === 1
     ? ok("precondition: Alice's character keeps a granted mule she owns, with a rope stowed on it")
     : fail(`precondition: the granted mule ${JSON.stringify(muleA0)}`);
+  const tokens0 = await tokenNames(sceneIds);
+  JSON.stringify(tokens0) === JSON.stringify(["ZZ RerollRef Hand-Named Mule", "ZZ RerollRef Mule A", "ZZ RerollRef Mule A"])
+    ? ok("precondition: the mule is placed on two scenes, plus one token named on purpose")
+    : fail(`precondition: the planted tokens ${JSON.stringify(tokens0)}`);
 
   /* --- the player's legs, as Alice -------------------------------------------- */
 
@@ -173,7 +220,7 @@ try {
   await joinAs(alice, "Alice");
   await dismissChrome(alice);
 
-  const runLeg = (states) => alice.evaluate(async ({ actorId, states }) => {
+  const runLeg = (states, { slowTokens = false } = {}) => alice.evaluate(async ({ actorId, states, slowTokens }) => {
     const actor = game.actors.get(actorId);
     if (!actor) return { error: "Alice cannot see the test character" };
     if (!actor.isOwner) return { error: "Alice does not own the test character" };
@@ -192,6 +239,20 @@ try {
     ui.notifications.warn = (m, ...r) => { warns.push(String(m)); return origWarn(m, ...r); };
     const origUniform = CONFIG.Dice.randomUniform;
     CONFIG.Dice.randomUniform = () => 0;   // max faces: a roll that happens SHOWS
+    // Every token write from this page held back 1.5 s: the Warden's client
+    // takes Alice's Owner on the orphan away as soon as she asks it to, and a
+    // token write landing after that is refused — so only a rename that
+    // FINISHES before she asks gets the second scene's token renamed.
+    const SceneCls = CONFIG.Scene.documentClass;
+    const ownUpdate = Object.prototype.hasOwnProperty.call(SceneCls.prototype, "updateEmbeddedDocuments");
+    const origUpdate = SceneCls.prototype.updateEmbeddedDocuments;
+    let delayedTokenWrites = 0;
+    if (slowTokens) {
+      SceneCls.prototype.updateEmbeddedDocuments = async function (embeddedName, ...rest) {
+        if (embeddedName === "Token") { delayedTokenWrites++; await wait(1500); }
+        return origUpdate.call(this, embeddedName, ...rest);
+      };
+    }
     const strBefore = actor.system.abilities.STR.max;
     try {
       root?.closest(".application")?.querySelector('.window-header button[data-action="rollActor"]')?.click();
@@ -212,14 +273,19 @@ try {
     } finally {
       CONFIG.Dice.randomUniform = origUniform;
       ui.notifications.warn = origWarn;
+      if (slowTokens) {
+        if (ownUpdate) SceneCls.prototype.updateEmbeddedDocuments = origUpdate;
+        else delete SceneCls.prototype.updateEmbeddedDocuments;
+      }
     }
-    const res = { warns: [...warns], strBefore, strAfter: actor.system.abilities.STR.max, rerollingCleared: sheet._rerolling === false };
+    const res = { warns: [...warns], strBefore, strAfter: actor.system.abilities.STR.max,
+      rerollingCleared: sheet._rerolling === false, delayedTokenWrites };
     await sheet.close();
     return res;
-  }, { actorId: setup.pcId, states });
+  }, { actorId: setup.pcId, states, slowTokens });
 
   console.log("\nA. Alice, all-checked — the gesture applies and her granted mule is orphaned");
-  const a = await runLeg({ background: true });
+  const a = await runLeg({ background: true }, { slowTokens: true });
   if (a.error) fail(`leg A: ${a.error}`);
   else {
     a.strAfter !== a.strBefore
@@ -229,6 +295,26 @@ try {
     orphaned(s, setup.pcName) && s.items === 1
       ? ok("the old mule is orphaned, not deleted: unlinked, \"formerly\" the PC's, no grant flag, not Alice's, rope still on it")
       : fail(`leg A: the old granted mule ${JSON.stringify(s)}`);
+    s.name === `${O}ZZ RerollRef Mule A`
+      ? ok(`its name gains the prefix: "${s.name}"`)
+      : fail(`leg A: the orphan is named "${s.name}", not "${O}ZZ RerollRef Mule A"`);
+    // The token writes trail the actor's; poll for them, then read once more.
+    const want = JSON.stringify(["ZZ RerollRef Hand-Named Mule", `${O}ZZ RerollRef Mule A`, `${O}ZZ RerollRef Mule A`]);
+    let tokens = [];
+    for (let i = 0; i < 50; i++) {
+      tokens = await tokenNames(sceneIds);
+      if (JSON.stringify(tokens) === want) break;
+      await new Promise((r) => setTimeout(r, 200));
+    }
+    tokens.filter((n) => n === `${O}ZZ RerollRef Mule A`).length === 2
+      ? ok("both tokens that wore its old name follow — on scene 1 AND scene 2, from Alice's client")
+      : fail(`leg A: tokens after the orphaning ${JSON.stringify(tokens)}`);
+    tokens.includes("ZZ RerollRef Hand-Named Mule")
+      ? ok("the token named on purpose keeps its name")
+      : fail(`leg A: the hand-named token was renamed ${JSON.stringify(tokens)}`);
+    a.delayedTokenWrites === 2
+      ? ok("witness: Alice's two token writes (one per scene) were each held back 1.5 s")
+      : fail(`leg A: ${a.delayedTokenWrites} token write(s) were held back, not 2 — the ordering went untested`);
     a.rerollingCleared ? ok("the sheet's guard is released") : fail("leg A: _rerolling stayed latched");
   }
 
@@ -263,6 +349,9 @@ try {
     orphaned(s, legB.pcName)
       ? ok("the background's mule is orphaned, not deleted")
       : fail(`leg B: the background's granted mule ${JSON.stringify(s)}`);
+    s.name === `${O}ZZ RerollRef Mule B`
+      ? ok(`…and renamed "${s.name}"`)
+      : fail(`leg B: the orphan is named "${s.name}", not "${O}ZZ RerollRef Mule B"`);
   }
 
   /* --- Alice plants, then the Warden re-rolls (finding 120) -------------------- */
@@ -293,25 +382,35 @@ try {
   v.exists && v.connectedTo === "" && v.formerlyBelongedTo === setup.victimName && v.grantSource === null && v.items === 1
     ? ok("the unowned PC's own granted mule is orphaned, not deleted, rope still on it")
     : fail(`leg C: the real granted mule ${JSON.stringify(v)}`);
+  v.name === `${O}ZZ RerollRef Mule V`
+    ? ok(`…and renamed "${v.name}" on the Warden's re-roll too`)
+    : fail(`leg C: the orphan is named "${v.name}", not "${O}ZZ RerollRef Mule V"`);
+  const w = await settled(setup.muleW);
+  w.exists && w.connectedTo === "" && w.grantSource === null && w.name === `${O}ZZ RerollRef Mule W`
+    ? ok(`a grant already named "${O}…" is orphaned and keeps ONE prefix ("${w.name}")`)
+    : fail(`leg C: the already-prefixed grant ${JSON.stringify(w)}`);
   const p1 = await stateOf(setup.alicePlant);
-  p1.exists && p1.connectedTo === setup.victimUuid && p1.aliceOwns
-    ? ok("Alice's planted npc is untouched: still there, still pointed, still hers")
+  p1.exists && p1.connectedTo === setup.victimUuid && p1.aliceOwns && p1.name === "ZZ RerollRef Alice Npc"
+    ? ok("Alice's planted npc is untouched: still there, still pointed, still hers, still named as it was")
     : fail(`leg C: Alice's planted npc ${JSON.stringify(p1)}`);
   const p2 = await stateOf(setup.partyMule);
-  p2.exists && p2.connectedTo === setup.victimUuid && p2.sharedWithAll
-    ? ok("the shared party mule is untouched: still there, still shared with everyone")
+  p2.exists && p2.connectedTo === setup.victimUuid && p2.sharedWithAll && p2.name === "ZZ RerollRef Party Mule"
+    ? ok("the shared party mule is untouched: still there, still shared with everyone, still named as it was")
     : fail(`leg C: the shared party mule ${JSON.stringify(p2)}`);
 } catch (e) {
   fail(`${e.name}: ${e.message}`);
 } finally {
   await sweepCreatedActors(gm);
-  await gm.evaluate(async (saved) => {
+  await gm.evaluate(async ({ saved, sceneIds }) => {
     const NS = "air-bladder";
-    for (const a of game.actors.filter((a) => a.name?.startsWith("ZZ RerollRef"))) {
+    for (const a of game.actors.filter((a) => /^(o_)?ZZ RerollRef/.test(a.name ?? ""))) {
       try { await a.delete(); } catch { /* already gone */ }
     }
+    for (const id of sceneIds) {
+      try { await game.scenes.get(id)?.delete(); } catch { /* already gone */ }
+    }
     if (saved) await game.settings.set(NS, "allow-player-randomization", saved.playerRandomization);
-  }, saved).catch((e) => fail(`could not restore world state: ${e.message}`));
+  }, { saved, sceneIds }).catch((e) => fail(`could not restore world state: ${e.message}`));
 }
 
 const errors = [...gmErrors, ...aliceErrors];
