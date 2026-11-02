@@ -273,6 +273,7 @@
   "CAIRN.Pile.ConfirmDrop": "Drop {name}? It goes to the party's {pile}, and the Warden hands it back.",
   "CAIRN.Pile.DropTitle": "Drop {name}",
   "CAIRN.Pile.NoWarden": "No Warden is connected, so nothing can be dropped into the pile right now.",
+  "CAIRN.Pile.DropFailed": "The drop did not go through, so {name} is still on this sheet.",
   "CAIRN.Pile.DropRefused": "The drop did not go through, so no Fatigue was taken. Try again, or take the Critical Damage.",
   "CAIRN.Pile.DeleteWarning": "The pile still holds {n} items the party dropped, and they will be deleted too.",
   "CAIRN.Pile.DeleteWarning_one": "The pile still holds {n} item the party dropped, and it will be deleted too.",

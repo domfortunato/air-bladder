@@ -4006,7 +4006,17 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       modal: true,
     });
     if (!answer || typeof answer !== "object") return;
-    await dropItemToPile(this.actor, item.id, { place: answer.place });
+    const dropped = await dropItemToPile(this.actor, item.id, { place: answer.place });
+    // A DROP THAT DID NOT LAND SAYS SO (review #34 finding 165). The answer
+    // was thrown away, so a drop the Warden's client refused, failed or never
+    // answered closed the dialog and left the item where it was with no word.
+    // Not when no Warden is connected — `dropItemToPile` has said that already
+    // (CAIRN.Pile.NoWarden) — and not when the item is gone anyway, which the
+    // sentence would misreport.
+    if (!dropped && (game.user.isGM || game.users.activeGM) && this.actor.items.has(item.id)) {
+      ui.notifications.warn(game.i18n.format("CAIRN.Pile.DropFailed",
+        { name: t(this._itemNamespaces().nameNs, item.name) }));
+    }
   }
 
   /**
