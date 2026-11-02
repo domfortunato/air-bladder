@@ -3152,10 +3152,14 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       // 2026-08-20 split one string could not: the shipped wording promises
       // that "everything it is carrying will be deleted" and that "abilities,
       // HP, career and day rate will be replaced", which is exactly
-      // regenerateHireling and none of regenerateNpc — an NPC keeps its gear
-      // and its statblock and gets a new Background, traits, pronouns and age.
-      // A Warden who cancelled to save gear that was never at risk was talked
-      // out of the feature by its own dialog.
+      // regenerateHireling and not regenerateNpc — an NPC gets a new
+      // Background, statblock, traits, pronouns and age, but loses only what
+      // generation gave it to carry (its Background's gear and its kit,
+      // `npcGrantedItemIds`) and keeps anything else, the Warden's own gifts
+      // included. A Warden who cancelled to save gear that was never at risk
+      // was talked out of the feature by its own dialog. (This comment once
+      // said an NPC keeps its gear and statblock, and the NPC confirm promised
+      // the kit was kept too: review #34 finding 194.)
       //
       // The unsuffixed CAIRN.NpcRegenerator* pair is the HIRELING's now. Not
       // renamed to say so: its text is still exactly right for that role and
@@ -3175,7 +3179,8 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       if (!confirm) return;
       // Two person roles since 2026-08-20, and they regenerate differently: a
       // hireling gets a whole new career, statblock and loadout, an NPC a new
-      // Background and traits with their gear left alone. Keyed on the ROLE,
+      // Background, statblock and traits, its generated gear re-dealt and
+      // anything else it carries left alone. Keyed on the ROLE,
       // not the type — a `hireling`-TYPED document reads role hireling through
       // npcRole whatever it stores, so the alias is covered by the same test.
       if (metNpc) await regenerateNpc(this.actor);
