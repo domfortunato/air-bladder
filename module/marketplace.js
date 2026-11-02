@@ -6,6 +6,7 @@ import { actorDisplayName, localizeNameDesc, t } from "./i18n-content.js";
 import { formatCount, concealSecrets } from "./utils.js";
 import { capacityVerdict } from "./gear.js";
 import { SETTINGS_NS } from "./settings.js";
+import { THING_ROLES } from "./data-models.js";
 
 /**
  * Is the shop closed to THIS user? The Warden's allow-player-marketplace
@@ -514,7 +515,7 @@ export const acquireTransport = async (actor, doc, pay) => {
       ? (s.transportKind === "mount" ? "companion"
         : s.transportKind === "vehicle" ? "transport" : "container")
       : "companion");
-  const isThing = role === "transport" || role === "container";
+  const isThing = THING_ROLES.includes(role);
   // An npc, not a `container`. What is bought is now the same kind of document as
   // what the compendium ships, so a Horse bought from the shop and a Horse
   // dragged out of Mounts & Transports are the same thing -- which they were not

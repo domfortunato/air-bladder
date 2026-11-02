@@ -24,7 +24,7 @@ import { installWorldCalendar, checkWorldCalendar } from "./game-time.js";
 import { renderWatchClock, refreshWatchClock } from "./watch-clock.js";
 import { refreshValdCalendar } from "./vald-calendar.js";
 import { registerSettings, SETTINGS_NS, SETTING_GROUPS, migrateSettingsNamespace } from "./settings.js";
-import { ACTOR_DATA_MODELS, ITEM_DATA_MODELS, deriveNpcRole } from "./data-models.js";
+import { ACTOR_DATA_MODELS, ITEM_DATA_MODELS, deriveNpcRole, CONTAINER_LINE_ROLES } from "./data-models.js";
 import { connectionHeadroom, connectedOwnershipShape, syncPendingOwnership, OWNERSHIP_SYNC_FLAG } from "./connections.js";
 import { loadContentOverlay, t, translationOf, contentLocalized, tokenDisplayName, actorDisplayName, speakerDisplayName, LOCALIZED_DIRECTORIES, localizeJournalBlocks } from "./i18n-content.js";
 import { injectEncounterButton, localizeEncounterQty, resolveTable } from "./encounters.js";
@@ -994,15 +994,15 @@ Hooks.on("setup", () => {
  * still loading. `game.socket` exists from Game.connect, well before init ends.
  */
 
-/** The only roles a grant payload may claim — the non-keeping ones. A payload
- *  saying anything else falls back to deriving from its class/legacy fields,
- *  clamped to `container` if even that derives a keeper. */
-const GRANTABLE_ROLES = ["companion", "transport", "container"];
+/** The only roles a grant payload may claim — the container line
+ *  (`CONTAINER_LINE_ROLES`), the non-keeping ones. A payload saying anything
+ *  else falls back to deriving from its class/legacy fields, clamped to
+ *  `container` if even that derives a keeper. */
 const grantableRole = (sys) => {
   const claimed = String(sys?.role ?? "");
-  if (GRANTABLE_ROLES.includes(claimed)) return claimed;
+  if (CONTAINER_LINE_ROLES.includes(claimed)) return claimed;
   const derived = deriveNpcRole(sys ?? {});
-  return GRANTABLE_ROLES.includes(derived) ? derived : "container";
+  return CONTAINER_LINE_ROLES.includes(derived) ? derived : "container";
 };
 
 /** Requesters with a generatePC currently running on this client. One request
@@ -3139,7 +3139,7 @@ Hooks.on("renderActorDirectory", (app, html) => {
     //
     // The `show-container-actors` hide rule that lived beside this is GONE
     // (2026-08-02, by ruling): every container actor is always listed.
-    const containerLine = actor.isThing || actor.npcRole === "companion";
+    const containerLine = CONTAINER_LINE_ROLES.includes(actor.npcRole);
     a.classList.toggle('cairn-grayscale-portrait', containerLine);
   });
 });

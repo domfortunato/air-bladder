@@ -6,7 +6,7 @@ import { evaluateFormula, cairnSavePasses, cleanDescription, concealSecrets, hol
 import { resultText, resultPlainText, compendiumInfoFromString } from "../compendium.js";
 import { SETTINGS_NS } from "../settings.js";
 import { CONTAINER_ART_CHOICES, CONTAINER_CLASSES } from "../icons.js";
-import { NPC_ROLES, PERSON_ROLES } from "../data-models.js";
+import { NPC_ROLES, PERSON_ROLES, CONTAINER_LINE_ROLES } from "../data-models.js";
 
 /**
  * The roles with something to randomize: the two people and the monster.
@@ -1031,7 +1031,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       // which is why Monsters never saw it: a job is a person's, and a monster
       // has a side without one.
       context.showFaction = GENERATING_ROLES.includes(role);
-      context.showKind = ["companion", "transport", "container"].includes(role);
+      context.showKind = CONTAINER_LINE_ROLES.includes(role);
       // The Type select's rows: the CONTAINER_CLASSES table filtered to the
       // current role, so a class added there appears here with nothing else to
       // keep in step. STRICT since 2026-08-02 — the free-text input lives
@@ -3657,7 +3657,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // A thing-role npc is a container in every sense that matters here, and a
     // MOUNT wants the horse/mule glyphs, not 80 human portraits — so all three
     // container-line roles get the container gallery.
-    const isContainerish = this.actor.isThing || this.actor.npcRole === "companion";
+    const isContainerish = CONTAINER_LINE_ROLES.includes(this.actor.npcRole);
     return isContainerish
       ? this._pickContainerArt(event)
       : this._pickPortrait(event);

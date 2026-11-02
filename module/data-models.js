@@ -76,6 +76,17 @@ export const NPC_ROLES = ["npc", "hireling", "monster", "companion", "transport"
 export const THING_ROLES = ["transport", "container"];
 
 /**
+ * The CONTAINER LINE: the companion and the two things. What a background
+ * grant may mint, what wears a Kind on its sheet, what keeps no purse, and
+ * what takes the container gallery and the grey thumbnail. A named set rather
+ * than a predicate-plus-one (`isThing || npcRole === "companion"`), because a
+ * role predicate that quietly grows is how three earlier bugs happened (the
+ * split's lesson) — and this one was spelled seven ways before it had a name
+ * (review #34 finding 115).
+ */
+export const CONTAINER_LINE_ROLES = ["companion", ...THING_ROLES];
+
+/**
  * The roles that are a PERSON: somebody with pronouns, an age, a biography and
  * a name a player will remember. Two of them since the 2026-08-20 split.
  *

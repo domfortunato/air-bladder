@@ -562,7 +562,7 @@ check("and what missed is still readable afterwards, or silence is just forgetti
 
 /* ---------------------------------------------------------------------------
  * 4. The player path: Alice's grant goes through the broker (players lack
- *    ACTOR_CREATE) and GRANTABLE_ROLES must speak the new role — reverted to
+ *    ACTOR_CREATE) and the grant clamp (CONTAINER_LINE_ROLES) must speak the new role — reverted to
  *    "mount", the payload falls back to class derivation and the clamp hands
  *    her a CONTAINER-role raven.
  * ------------------------------------------------------------------------- */
@@ -621,7 +621,7 @@ check("the player leg ran", alice.ran && !alice.isGM && alice.returnedCount === 
   `ran=${alice.ran} returned=${alice.returnedCount} (needs npm run dev:players and a GM client open — this probe's own)`);
 check("the broker mints her raven as a COMPANION", alice.minted && alice.role === "companion"
   && alice.DEX === 11 && alice.WIL === 13,
-  `role=${alice.role} DEX=${alice.DEX} WIL=${alice.WIL} — GRANTABLE_ROLES must name the new role, or the clamp derives and hands her a container`);
+  `role=${alice.role} DEX=${alice.DEX} WIL=${alice.WIL} — CONTAINER_LINE_ROLES must name the new role, or the clamp derives and hands her a container`);
 check("and she owns it", alice.owned, "connection drives ownership, monsters never touched");
 // The KIND crosses the broker too (review #34 finding 62): ec1d17a3 dropped
 // containerClass from the whitelist, so a player's granted raven arrived with a

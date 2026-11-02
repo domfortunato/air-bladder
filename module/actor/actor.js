@@ -1,6 +1,6 @@
 import { SETTINGS_NS } from "../settings.js";
 import { iconForItem, iconForTransport, containerClass, containerClassRole, containerClassSlots, CONTAINER_CLASSES, ICON_DIR } from "../icons.js";
-import { THING_ROLES, PERSON_ROLES } from "../data-models.js";
+import { THING_ROLES, PERSON_ROLES, CONTAINER_LINE_ROLES } from "../data-models.js";
 import {
   atConnectionLimit, maxConnections, connectionsUiEnabled,
   connectedOwnershipShape, brokenOwnershipShape, OWNERSHIP_SYNC_FLAG,
@@ -845,12 +845,12 @@ export class CairnActor extends Actor {
     // (`iconForActor` existed for this and was called from nowhere in `module/`;
     // only the pack importer used it.) An explicit `img` always wins: the
     // marketplace passes the transport's own art. An npc qualifies only when
-    // its creation data SAYS it is a container-line thing (a Kind, or a
-    // mount/transport/container role) — a hand-made npc is as often a monster,
+    // its creation data SAYS it is on the container line (a Kind, or a
+    // CONTAINER_LINE_ROLES role) — a hand-made npc is as often a monster,
     // and monsters keep mystery-man.
     const artRole = data.system?.role;
     const isContainerish = ["npc", "hireling"].includes(data.type) && (data.system?.containerClass
-      || THING_ROLES.includes(artRole) || artRole === "companion");
+      || CONTAINER_LINE_ROLES.includes(artRole));
     // A Kind the table does not know (blank, or a Warden's own word) falls
     // back to NAME inference, whose last resort is the chest — "a bare
     // container" — so a hand-made companion named Wolf, or a transport named
@@ -1017,7 +1017,7 @@ export class CairnActor extends Actor {
     // the stored value and the coins-take-slots rule are untouched, so a chest
     // that held 25gp still holds it (and it still weighs) — the sheet just
     // stops offering a purse on something that has no pockets to manage.
-    this.system.showGold = !this.isThing && this.npcRole !== "companion";
+    this.system.showGold = !CONTAINER_LINE_ROLES.includes(this.npcRole);
     // The Items tab's Fatigue +/- header. A THING cannot be tired: a sack, cart
     // or crate has no STR to burn and no save to fail, so the control was pure
     // nonsense on one. (A GLOG grimoire is an ITEM flag, not an npc role, so

@@ -39,6 +39,7 @@ import { t, actorDisplayName, itemNamespaces } from "./i18n-content.js";
 import { FATIGUE_NAME } from "./item/item.js";
 import { findMatchingStack, capacityVerdict, slotsNeeded, landingNeed } from "./gear.js";
 import { windowIdOf } from "./utils.js";
+import { PERSON_ROLES } from "./data-models.js";
 
 const SCOPE = "air-bladder";
 const FLAG = "itemOffer";
@@ -311,7 +312,7 @@ export const promptOfferTarget = async (giver, item, { windowId } = {}) => {
   // not a word a player reads.
   const GROUPS = [
     ["CAIRN.Offer.GroupCharacters", (a) => a.type === "character"],
-    ["CAIRN.Offer.GroupPeople", (a) => ["npc", "hireling"].includes(a.npcRole)],
+    ["CAIRN.Offer.GroupPeople", (a) => PERSON_ROLES.includes(a.npcRole)],
     ["CAIRN.Offer.GroupCompanions", (a) => a.npcRole === "companion"],
     ["CAIRN.Offer.GroupThings", (a) => a.isThing],
     ["CAIRN.Offer.GroupMonsters", (a) => a.npcRole === "monster"],
