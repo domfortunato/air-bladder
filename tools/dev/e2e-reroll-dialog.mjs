@@ -208,6 +208,10 @@ try {
         out.notes2e = {
           questions: dlg.querySelector(".reroll-note-questions")?.textContent?.trim() ?? "",
           pick: dlg.querySelector(".reroll-note-pick")?.textContent?.trim() ?? "",
+          // Fieldwarden's two bonds: the bonds note must show (review #34 finding 210).
+          bonds: dlg.querySelector(".reroll-note-bonds")?.textContent?.trim() ?? "",
+          bondCount: (actor.system.bonds ?? []).length,
+          bondsWant: game.i18n.localize("CAIRN.Reroll.BondsNote"),
         };
         // Chosen background → Background unchecked, its children live.
         const s = dialogState(dlg);
@@ -228,6 +232,20 @@ try {
         const f = dialogState(dlg);
         out.gatedOff = { name: f.name, gear: f.gear, bonds: f.bonds };
         await closeDialog(dlg);
+
+        // With ONE bond the bonds note must not show — the first bond always
+        // survives the trim. The second bond is taken off for one opening and
+        // put back, so every later leg sees Fieldwarden's two.
+        const twoBonds = foundry.utils.deepClone(actor.system.bonds ?? []);
+        if (twoBonds.length >= 2) {
+          await actor.update({ "system.bonds": [twoBonds[0]] });
+          dlg = await openDialog(sheet);
+          out.oneBondNote = dlg ? !!dlg.querySelector(".reroll-note-bonds") : "the checklist did not open";
+          if (dlg) await closeDialog(dlg);
+          await actor.update({ "system.bonds": twoBonds });
+        } else {
+          out.oneBondNote = `precondition: ${twoBonds.length} bond(s), not 2`;
+        }
       }
 
       // ---- 1b. show-traits OFF removes the age and traits rows ------------
@@ -395,6 +413,81 @@ try {
         await closeDialog(dlg);
       }
       await bsheet.close();
+
+      // ---- 1c. The failed career follows its switch (review #34 findings
+      // 221, 253, ruled 2026-11-01) — and the bonds note shows on Barebones.
+      // With the Knave failed career OFF the sheet hides the career, so the
+      // checklist must not offer to re-roll it (traits' and omens' own rule
+      // here), and a background change onto the hidden career's name must not
+      // swap its keepsake. Its own Barebones character, generated with the
+      // switch ON so it HAS a career and a keepsake; the switch is turned off
+      // by a read shadow, restored in a finally. The control, with the switch
+      // on, swaps a second character's keepsake the same way.
+      {
+        const keepsakeOf = (a) => a.items.find((i) => i.getFlag(NS, "grantSource") === "failed-career")?.id ?? null;
+        const fresh = async () => {
+          const a = track(await gen.createActorWithCharacter(await gen.generateBarebonesCharacter(null)));
+          for (const c of game.actors.filter((x) => x.system?.connectedTo === a.uuid)) made.push(c);
+          await a.update({ "system.generationEnabled": true });
+          return a;
+        };
+        const bbBgs = await gen.getBarebonesBackgrounds();
+        const onto = async (a) => {
+          const bg = bbBgs.find((b) => b.name === a.system.failedCareer);
+          if (!bg) return "no background named after the career";
+          await gen.changeBackground(a, bg);
+          for (const c of game.actors.filter((x) => x.system?.connectedTo === a.uuid)) made.push(c);
+          return true;
+        };
+        const fc = await fresh();
+        out.fcOff = { career: fc.system.failedCareer, keepsake: keepsakeOf(fc) };
+        const origGetF = game.settings.get;
+        game.settings.get = function (ns, key, ...rest) {
+          if (rest[0]?.document) return foundry.helpers.ClientSettings.prototype.get.call(this, ns, key, ...rest);
+          if (key === "barebones-failed-career") return false;
+          return origGetF.call(this, ns, key, ...rest);
+        };
+        try {
+          await fc.sheet.render(true);
+          await wait(800);
+          dlg = await openDialog(fc.sheet);
+          out.fcOff.rows = dlg ? [...dlg.querySelectorAll(".reroll-row")].map((row) => row.dataset.part) : null;
+          if (dlg) await closeDialog(dlg);
+          await fc.sheet.close();
+          out.fcOff.swap = await onto(fc);
+          out.fcOff.careerAfter = fc.system.failedCareer;
+          out.fcOff.keepsakeAfter = keepsakeOf(fc);
+        } finally {
+          game.settings.get = origGetF;
+        }
+
+        const fcOn = await fresh();
+        out.fcOn = { career: fcOn.system.failedCareer, keepsake: keepsakeOf(fcOn) };
+        out.fcOn.swap = await onto(fcOn);
+        out.fcOn.careerAfter = fcOn.system.failedCareer;
+        out.fcOn.keepsakeAfter = keepsakeOf(fcOn);
+
+        // The bonds note on Barebones. Barebones generation deals no bonds
+        // (2e's alone since 2026-08-09), but a character can still carry
+        // older lent ones, and the trim is not edition-bound — so two are
+        // PLANTED, copies of the 2e character's under new ids, and taken off
+        // again after the one opening.
+        const bondsWere = foundry.utils.deepClone(fcOn.system.bonds ?? []);
+        const lent = (actor.system.bonds ?? []).slice(0, 2)
+          .map((b) => ({ ...foundry.utils.deepClone(b), id: foundry.utils.randomID() }));
+        if (lent.length === 2) {
+          await fcOn.update({ "system.bonds": lent });
+          await fcOn.sheet.render(true);
+          await wait(800);
+          dlg = await openDialog(fcOn.sheet);
+          out.bondsNoteBb2 = dlg ? (dlg.querySelector(".reroll-note-bonds")?.textContent?.trim() ?? "") : null;
+          if (dlg) await closeDialog(dlg);
+          await fcOn.sheet.close();
+          await fcOn.update({ "system.bonds": bondsWere });
+        } else {
+          out.bondsNoteBb2 = `precondition: the 2e character has ${lent.length} bond(s) to lend, not 2`;
+        }
+      }
 
       // ---- 6b. The per-field provenance writes ----------------------------
       // Unset first, so the assertion can only pass if changeBackground itself
@@ -798,6 +891,33 @@ try {
     r.notesBb && !r.notesBb.questions && r.notesBb.pick
       ? ok("…and carries the pick note but not the questions note")
       : fail(`barebones notes: ${JSON.stringify(r.notesBb)}`);
+
+    // ---- the bonds note (review #34 finding 210, wording approved 2026-11-01) ----
+    r.notes2e?.bondCount >= 2 && r.notes2e.bondsWant !== "CAIRN.Reroll.BondsNote"
+      && r.notes2e.bonds === r.notes2e.bondsWant
+      ? ok("a two-bond 2e character's checklist warns the Background can take a bond")
+      : fail(`the 2e bonds note: ${JSON.stringify(r.notes2e)}`);
+    r.oneBondNote === false
+      ? ok("…a one-bond character's does not (the first bond always survives)")
+      : fail(`the one-bond character's checklist: ${JSON.stringify(r.oneBondNote)}`);
+    r.bondsNoteBb2 === r.notes2e?.bondsWant && r.notes2e?.bondsWant !== "CAIRN.Reroll.BondsNote"
+      ? ok("…and a two-bond Barebones character's does too (the trim is not edition-bound)")
+      : fail(`the Barebones bonds note: ${JSON.stringify(r.bondsNoteBb2)}`);
+
+    // ---- the failed career follows its switch (review #34 findings 221, 253) ----
+    r.fcOff?.career && r.fcOff.keepsake && r.fcOn?.career && r.fcOn.keepsake
+      ? ok("precondition: both Barebones characters have a failed career and its keepsake")
+      : fail(`failed-career precondition: ${JSON.stringify({ off: r.fcOff, on: r.fcOn })}`);
+    Array.isArray(r.fcOff?.rows) && r.fcOff.rows.includes("STR")
+      && !r.fcOff.rows.includes("failedCareer") && !r.fcOff.rows.includes("keepsake")
+      ? ok("with the switch OFF the checklist offers no failed career or keepsake (STR survives)")
+      : fail(`switch-off rows: ${JSON.stringify(r.fcOff?.rows)}`);
+    r.fcOff?.swap === true && r.fcOff.careerAfter === r.fcOff.career && r.fcOff.keepsakeAfter === r.fcOff.keepsake
+      ? ok("…and a background change onto the hidden career's name leaves career and keepsake alone")
+      : fail(`switch-off background change: ${JSON.stringify(r.fcOff)}`);
+    r.fcOn?.swap === true && r.fcOn.careerAfter !== r.fcOn.career && r.fcOn.keepsakeAfter !== r.fcOn.keepsake
+      ? ok("control: with the switch ON the same change re-rolls the career and swaps the keepsake")
+      : fail(`switch-on background change: ${JSON.stringify(r.fcOn)}`);
 
     // ---- 2. defaults ----
     r.provenanceGenerated === true
