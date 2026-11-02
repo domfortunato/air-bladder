@@ -195,6 +195,11 @@ try {
       out.provenanceGenerated = actor.getFlag(NS, "backgroundChosen");
 
       // ---- 1. The 2e rows and the notes -----------------------------------
+      // Fieldwarden's two bonds, snapshotted where leg 1 has just proved there
+      // are two, for 1c to lend a Barebones character. Read off the character
+      // at 1c instead, they were not there (one, on the first run): leg 5's
+      // all-checked re-roll deals it a new background and new bonds between.
+      let lendableBonds = [];
       let dlg = await openDialog(sheet);
       out.opened2e = !!dlg;
       if (dlg) {
@@ -238,6 +243,7 @@ try {
         // put back, so every later leg sees Fieldwarden's two.
         const twoBonds = foundry.utils.deepClone(actor.system.bonds ?? []);
         if (twoBonds.length >= 2) {
+          lendableBonds = foundry.utils.deepClone(twoBonds.slice(0, 2));
           await actor.update({ "system.bonds": [twoBonds[0]] });
           dlg = await openDialog(sheet);
           out.oneBondNote = dlg ? !!dlg.querySelector(".reroll-note-bonds") : "the checklist did not open";
@@ -470,10 +476,10 @@ try {
         // The bonds note on Barebones. Barebones generation deals no bonds
         // (2e's alone since 2026-08-09), but a character can still carry
         // older lent ones, and the trim is not edition-bound — so two are
-        // PLANTED, copies of the 2e character's under new ids, and taken off
-        // again after the one opening.
+        // PLANTED, copies of the 2e character's (as leg 1 found them) under new
+        // ids, and taken off again after the one opening.
         const bondsWere = foundry.utils.deepClone(fcOn.system.bonds ?? []);
-        const lent = (actor.system.bonds ?? []).slice(0, 2)
+        const lent = lendableBonds
           .map((b) => ({ ...foundry.utils.deepClone(b), id: foundry.utils.randomID() }));
         if (lent.length === 2) {
           await fcOn.update({ "system.bonds": lent });
@@ -485,7 +491,7 @@ try {
           await fcOn.sheet.close();
           await fcOn.update({ "system.bonds": bondsWere });
         } else {
-          out.bondsNoteBb2 = `precondition: the 2e character has ${lent.length} bond(s) to lend, not 2`;
+          out.bondsNoteBb2 = `precondition: leg 1 snapshotted ${lent.length} bond(s) to lend, not 2`;
         }
       }
 
