@@ -30,8 +30,8 @@ git grep -n "_prepareContext" -- module/
 `system.json` names exactly one JavaScript file, `module/cairn.js`. Everything
 that runs in the browser is reachable from that file's imports; nothing else in
 the repository executes at all. It imports 30 of the system's 39 JavaScript
-files, registers the document classes, sheets and settings, subscribes about
-nineteen Foundry hooks and one socket channel, and then gets out of the way.
+files, registers the document classes, sheets and settings, subscribes 26
+Foundry hooks and one socket channel, and then gets out of the way.
 Play happens inside two document classes, two sheet classes, a combat tracker,
 and a set of feature files that mostly do not know about each other.
 
@@ -41,22 +41,26 @@ and a set of feature files that mostly do not know about each other.
 
 | | |
 |---|---|
-| `module/`, physical lines | **~31,000** |
-| `module/`, code lines | **~13,100** |
-| Comment and blank share | **~57%** |
+| `module/`, physical lines | **~40,200** |
+| `module/`, code lines | **~16,600** |
+| Comment and blank share | **~59%** |
 | JavaScript files | 39 |
-| Handlebars templates | 21 files, ~3,200 lines |
-| Stylesheet | 1 file, ~4,500 lines |
+| Handlebars templates | 21 files, ~3,400 lines |
+| Stylesheet | 1 file, ~5,100 lines |
 | Compendium source documents | ~1,140 YAML files across 29 packs |
 | Interface translations | 7 languages, plus 1 content overlay |
-| Development tooling | ~59,800 lines, none of it shipped to a browser |
+| Development tooling | ~81,500 lines, none of it shipped to a browser |
 
-Rounded on purpose, measured 2026-09-12. An exact line count in prose drifts with
-every commit, and this table did, the day after it was written (review #27).
+Rounded on purpose, every row measured 2026-11-01 (review #34). An exact line
+count in prose drifts with every commit, and this table did, the day after it
+was written (review #27) — and again when one row was re-measured and the rest
+kept the old date (review #34 finding 261). A **code line** is a line carrying
+at least one token outside a comment, by a JavaScript tokenizer (acorn), so a
+`//` inside a string or a regex is not taken for a comment.
 
 **Do not size a job here with `wc -l`.** More than half of `module/` is prose.
-`connections.js` is 237 physical lines of which 67 are code; `compendium.js` is
-188 of which 54; `art-picker.js` is 603 of which 159. The ratio is not uniform,
+`connections.js` is 278 physical lines of which 74 are code; `compendium.js` is
+305 of which 83; `art-picker.js` is 611 of which 309. The ratio is not uniform,
 either, so scaling a page count by half is also wrong.
 
 The code figure counts non-blank lines outside comments, with quotes and
@@ -149,6 +153,7 @@ learning:
 | 8 | `icons.js` | the class-art table |
 | 7 | `config.js` | `CONFIG.Cairn`: the declared tables and dice tiers |
 | 7 | `gear.js` | gear resolution, loadout order and capacity verdicts |
+| 6 | `data-models.js` | the schemas, and the named role lists (`NPC_ROLES` and its three subsets) |
 | 6 | `game-time.js` | watches and the calendar |
 | 6 | `item/item.js` | the Item document class |
 
@@ -162,12 +167,12 @@ that a player's client never fetches it.
 
 Six things carry roughly half the logic, and nothing routes around them.
 
-1. **`module/cairn.js` — the boot and the switchboard.** Registration, about
-   nineteen hook subscriptions, the socket handler, and the world migrations.
+1. **`module/cairn.js` — the boot and the switchboard.** Registration, 34
+   subscriptions to 26 hooks, the socket handler, and the world migrations.
    It is the third-largest file in the system, and it is really
    four unrelated jobs sharing an address.
 
-2. **`module/settings.js` — the switches.** 45 setting registrations, grouped
+2. **`module/settings.js` — the switches.** 46 setting registrations, grouped
    into four submenus by one declaration (`SETTING_GROUPS`) that both the
    registration code and the tests read. Seventeen files import it. If a
    behaviour has an "unless the Warden turned it off" clause, it is here.
@@ -183,14 +188,14 @@ Six things carry roughly half the logic, and nothing routes around them.
    where Foundry's document model has to be understood properly rather than
    worked around.
 
-5. **`module/actor/actor-sheet.js` — the character sheet.** 2,216 code lines,
-   about 17% of all the logic in the system, in one class. It is the largest
+5. **`module/actor/actor-sheet.js` — the character sheet.** 2,491 code lines,
+   about 15% of all the logic in the system, in one class. It is the largest
    single thing to learn and the one most changes touch.
 
 6. **`module/i18n-content.js` and `module/compendium.js` — content in and out.**
    Every compendium lookup goes through one; every user-visible *content* name
    goes through the other. Between them they are imported by more files than
-   anything else, and both are small. `compendium.js` is 54 lines of code with
+   anything else, and both are small. `compendium.js` is 83 lines of code with
    no classes, no interface and no state, which makes it the best first real
    file in the repository.
 
@@ -242,7 +247,7 @@ them line by line wastes days.
   most of the dashboard's 45 buttons, and `VALD_CALENDAR_CONFIG` in
   `game-time.js` is a calendar written out as data.
 
-The inverse also holds. `item-offer.js` is only 463 code lines and is one of
+The inverse also holds. `item-offer.js` is only 519 code lines and is one of
 the hardest things here.
 
 ---
@@ -259,7 +264,7 @@ the hardest things here.
    browser window and write a whole document into it. Self-contained, and
    unlike anything else in the system.
 
-3. **The socket handler and the migrations in `cairn.js`** — one 348-line
+3. **The socket handler and the migrations in `cairn.js`** — one 429-line
    listener that dispatches every cross-client message, and the world
    migrations: the `phase` chain in the GM's `ready` hook, whose list is the
    one to read. Most record a done-marker setting and run once;
@@ -293,7 +298,7 @@ Worth knowing before anyone counts lines and draws a conclusion.
 
 - **Five JSON manifests live inside `module/`** and look like source: the
   game-icons manifest alone is 2,471 lines. All five are generated by
-  `tools/import/` and fetched at runtime. Together, 3,584 lines.
+  `tools/import/` and fetched at runtime. Together, 3,616 lines.
 - **Everything under `src/packs/` and `packs/`** is game content — about 1,140
   YAML documents compiled into 29 compendium packs (the table above is the one
   place the figure is kept; this line used to carry its own copy, which drifted
@@ -302,9 +307,9 @@ Worth knowing before anyone counts lines and draws a conclusion.
 - **`art/` and `icons/`** are images: roughly 2,900 gallery images plus 25
   interface icons. Provenance for every set is in
   [`provenance.md`](provenance.md).
-- **`tools/`** never reaches a browser. It holds 108 automated probes, 26
-  importer scripts, and the translation tooling — around 59,800 lines, more
-  than the system itself. [`release-testing.md`](release-testing.md) lists what
+- **`tools/`** never reaches a browser. It holds 105 browser probes, 26
+  importer scripts, and the offline gates and translation tooling — around
+  81,500 lines, twice the system itself. [`release-testing.md`](release-testing.md) lists what
   each probe covers.
 
 ---

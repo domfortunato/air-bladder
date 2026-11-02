@@ -77,8 +77,9 @@ is permanent. Full model in `docs/git-flow.md`; summary in `CONTRIBUTING.md`.
 ## Architecture
 
 Entry point `module/cairn.js` (registers document classes and sheets on `init`).
-~13,100 lines of hand-written JS in `module/`. **`docs/architecture.md` is the map**
-(import graph in nine tiers, spine files, leaf features). It names functions, never
+Hand-written JS in `module/`. **`docs/architecture.md` is the map** (its size
+table, the import graph in tiers, spine files, leaf features) and the one place
+those counts are kept. It names functions, never
 line numbers — a number or line in prose is a copy that drifts; that lesson applies
 to every count in this file. `docs/provenance.md` records who authored what.
 
