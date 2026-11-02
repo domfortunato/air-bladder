@@ -15,8 +15,9 @@ world. If you want to return to the released version afterwards, you need the ba
 
 Either:
 
-- **In Foundry:** Game Settings → Return to Setup, then on the Worlds tab use the
-  world's ⋮ menu → **Export** (gives you a `.zip`), **or**
+- **In Foundry:** Game Settings → Return to Setup, then on the Worlds tab
+  right-click the world → **Take Backup**. Foundry keeps it in its own Backups
+  folder, and **Restore Latest Backup** on the same menu brings it back, **or**
 - **Copy the folder:** copy `Data/worlds/<your-world>` somewhere safe.
 
 Easiest of all: make a **brand new empty world** and test in that. Then your real
