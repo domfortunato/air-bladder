@@ -144,7 +144,13 @@ export class CairnCombat extends Combat {
       const die = roll.dice[0];
       const natural = die?.faces === 20 && roll.dice.length === 1 && die.results.length === 1
         ? die.results[0].result : null;
-      const pass = cairnSavePasses(natural, roll.total <= dex, dex);
+      // EXCEPT AT DEX 0, which no die decides (review #34 finding 239): "If
+      // their DEX is reduced to 0, they are paralyzed", and "Complete DEX and
+      // WIL loss renders the character unable to act" — a paralysed combatant
+      // does not act first on a lucky 1. The save rule itself is the book's,
+      // a 1 passing even at 0; the exception lives here, where acting is the
+      // question. The roll and its card still show as for anyone else.
+      const pass = dex > 0 && cairnSavePasses(natural, roll.total <= dex);
       updates.push({ _id: id, initiative: pass ? 1 : -1 });
 
       const messageData = foundry.utils.mergeObject({

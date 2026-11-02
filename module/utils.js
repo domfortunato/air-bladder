@@ -32,10 +32,14 @@ export const evaluateFormula = async (formula, data) => {
  * the attribute — a `d20cs<=X` total of 1, or `total <= X` — and the natural
  * die overrides it at both ends.
  *
- * NOT AT AN ATTRIBUTE OF 0. Zero is not a low score but a state — STR 0 is
- * death, DEX 0 paralysis, WIL 0 delirium — and a paralysed character does not
- * act first on a lucky 1. So the natural 1 passes only against an attribute
- * of 1 or more; the natural 20 fails against anything.
+ * EVEN AT AN ATTRIBUTE OF 0 (review #34 finding 239, ruled 2026-11-01: by the
+ * book). 63562e02 let a 1 pass only against 1 or more, to keep a DEX-0
+ * combatant out of the first bucket, and so changed every save to do it.
+ * Paralysis is decided where the book decides it — "If their DEX is reduced
+ * to 0, they are paralyzed", "Complete DEX and WIL loss renders the character
+ * unable to act" — in initiative alone (combat.js), not by bending this rule.
+ * There is no attribute parameter any more, so no caller can switch the rule
+ * off by leaving one out.
  *
  * ONE copy for every save (review #34 finding 50): the sheet's ability
  * rolls, the damage flow's STR save and the initiative DEX save each read
@@ -43,12 +47,11 @@ export const evaluateFormula = async (formula, data) => {
  * monsters have STR 20) could never fail.
  * @param {number} natural         the d20's face
  * @param {boolean} passedByTarget whether the roll met the attribute
- * @param {number} target          the attribute saved against
  * @returns {boolean}
  */
-export const cairnSavePasses = (natural, passedByTarget, target) =>
+export const cairnSavePasses = (natural, passedByTarget) =>
   natural === 20 ? false
-    : natural === 1 && Number(target) >= 1 ? true
+    : natural === 1 ? true
     : !!passedByTarget;
 
 /* -------------------------------------------- */

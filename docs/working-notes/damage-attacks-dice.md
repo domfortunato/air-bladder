@@ -23,6 +23,10 @@ Moved word for word from CLAUDE.md (2026-11-01); CLAUDE.md points here.
   `dieIconOrGeneric(table.formula)` off the resolved table.
 - **Dice notation**: see CLAUDE.md, Rules encoded. `evaluateFormula` rewrites `a + b` to
   `{a,b}kh` only when every term is a bare die.
+- **Saves** — one rule, `cairnSavePasses(natural, passedByTarget)`: a natural 1 always
+  saves, even against an attribute of 0, and a 20 always fails (by the book, ruled
+  2026-11-01, review #34 F239). DEX 0 is decided in initiative alone (`combat.js`):
+  paralysed, unable to act, so it fails without the die deciding. Gate `dev:combat`.
 - **Optional combat rules** (Hacks submenu): `exploding-damage-dice`,
   `fatigue-for-critical-damage`, `maneuver-on-max-damage`. Off by default, never
   greyed, read at roll time, **PCs only** (`type === "character"`). Read through

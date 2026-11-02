@@ -4569,8 +4569,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     const roll = await evaluateFormula(dataset.roll, this.actor.getRollData());
     const rolled = roll.terms[0].results[0].result;
     // A 1 passes and a 20 fails, whatever the ability (cairnSavePasses).
-    const failed = !cairnSavePasses(rolled, roll.total !== 0,
-      this.actor.system.abilities?.[dataset.ability]?.value);
+    const failed = !cairnSavePasses(rolled, roll.total !== 0);
     const str = this.actor.system.abilities?.STR;
     // A compendium document's roll offers nothing to mark (review #34 finding
     // 170). The card's buttons resolve their actor in the WORLD by the
