@@ -729,6 +729,12 @@ try {
   // This leg plants exactly that shape and a genuine NPC, and asserts what the
   // code comment and the working notes now say: it IS converted. If this ever
   // goes red, the residual was closed — update the comment, the notes and this.
+  //
+  // It is also the ONLY leg in which the split dates its first attempt itself
+  // (the ones above plant `started`), and its first run was red for exactly
+  // that: the start was taken from `game.time.serverTime`, the server's
+  // UPTIME, so no stamped document read as made before it and nothing at all
+  // was converted. A red here can be either cause; the message says both.
   const upgraded = await page.evaluate(async ({ late3 }) => {
     for (const a of game.actors.filter((a) => a.name === late3)) await a.delete();
     const a = await CONFIG.Actor.documentClass.create({ name: late3, type: "npc", system: { role: "npc" } });
@@ -749,8 +755,9 @@ try {
   const upgradedAfter = await rawRole(upgraded.id);
   upgradedAfter === "hireling"
     ? ok("RESIDUAL, as documented: on that shape a genuine NPC made since the last load IS converted, once")
-    : fail(`the documented residual no longer holds (role ${JSON.stringify(upgradedAfter)}) — `
-      + "if it was closed on purpose, update migrateHirelingSplit's comment, documents-and-roles.md and this leg");
+    : fail(`the documented residual no longer holds (role ${JSON.stringify(upgradedAfter)}) — either the split `
+      + "dated its first attempt on a clock other than the documents' creation stamps (so it converted nothing), or "
+      + "the residual was closed on purpose: then update migrateHirelingSplit's comment, documents-and-roles.md and this leg");
 } catch (e) {
   fail(`threw: ${e.message}`);
 } finally {

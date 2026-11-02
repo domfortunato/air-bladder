@@ -2341,8 +2341,25 @@ const migrateHirelingSplit = async () => {
   // below asks `createdBefore` too, so a retry reaches only what existed when
   // the split first ran. A document with no stamp (packed before Foundry kept
   // one) counts as old.
+  //
+  // ON THE CLOCK THAT STAMPED THE DOCUMENTS. This read `game.time.serverTime`,
+  // which despite its name is the server's UPTIME in ms (the server's
+  // `Activity#serverTime` is `Date.now()` minus the world's launch,
+  // dist/components/activity.mjs), so beside an epoch `createdTime` it read as
+  // the first hour of 1970: no stamped document was ever "created before", and
+  // the split's first run converted nothing (finding 234's pin caught it; the
+  // finding-3 legs plant their own start and never ran this line). Nor the
+  // client's `Date.now()`, which is not the server's clock. The server's own
+  // stamp of a write is: record an unfinished start, and take the Setting's
+  // `_stats.modifiedTime`. A load that dies between the two writes leaves the
+  // placeholder, which is not finite, so the next load re-takes it — and an
+  // unchanged placeholder is no write at all, which keeps the dead load's
+  // stamp: the first attempt's, as it should be.
   if (!Number.isFinite(pending.started)) {
-    pending.started = game.time.serverTime;
+    const marked = await game.settings.set(SETTINGS_NS, "hireling-split-pending",
+      { ...pending, started: "unset" }, { document: true });
+    const stamp = marked?._stats?.modifiedTime;
+    pending.started = Number.isFinite(stamp) ? stamp : Date.now();
     await game.settings.set(SETTINGS_NS, "hireling-split-pending", pending);
   }
   const createdBefore = (doc) => {
