@@ -1,7 +1,7 @@
 # Running the probes on the fleet
 
 The probe fleet runs this repo's whole e2e suite on the homelab cluster, eleven probes at a time:
-103 probes in about five minutes, against an hour or more one by one on CT 123. This page covers
+104 probes in about five minutes, against an hour or more one by one on CT 123. This page covers
 starting a run from here, reading what it found, and where the suite stands.
 
 The fleet's machinery (the probe boxes, their baseline world, the runner) belongs to the ops repo,
@@ -20,7 +20,7 @@ a probe, the dev world or the system is this repo's to fix.
 - **A run** rolls every box back to its `pristine` snapshot and deploys the ref under test into the box's
   system folder. It then runs several probes per box in turn, **with no reset between them**.
 - **Which probes run:** every `dev:` script in `package.json` whose command runs a `tools/dev/e2e-*.mjs`
-  file, so a new probe joins the fleet just by being declared there. That is 103 of the 108 `dev:` scripts:
+  file, so a new probe joins the fleet just by being declared there. That is 104 of the 109 `dev:` scripts:
   the ops registry leaves out `dev:upgrade`, and `dev:smoke`, `dev:site`, `dev:actors` and `dev:players`
   are not probes.
 - **`pristine` holds a copy of CT 123's dev world as it stood on 2026-10-21**, launched once at 14.369 on
@@ -81,10 +81,14 @@ in a batch. A red on a different box in each run, with the same message every ti
 baseline world. A red that follows one box's queue points at an earlier probe on that box that leaked
 something.
 
-## Where things stand (2026-10-30)
+## Where things stand (2026-11-02)
 
-**103/103 on Foundry 14.369 at `review-34` `8be613b5`**, in five minutes, with no re-run (run
-`20261030T205104Z-air-bladder-review-34`).
+**104 probes on Foundry 14.369 at `review-34`: 101/104 at `9f76958e`** (run
+`20261102T035401Z-air-bladder-9f76958e`), and the three reds green on a re-run at `b26c7e92`
+(`20261102T040901Z`). Two were legs still asserting what review #34's rulings changed (a re-roll
+deleting a granted beast; the Warden's choice reply as a bare `false`); the third, content-overlay's
+10-minute hang, was a closing DialogV2 taken for the one it was waiting on. Before that, 103/103 at
+`8be613b5` (`20261030T205104Z-air-bladder-review-34`).
 
 - **The 25 probes that never ran here now do.** Their files did not match `e2e-*.mjs`. They are renamed
   after their `dev:` scripts (`e2e-combat-options.mjs`, …), and each has a `watchdog()` (`3301fafc`).
