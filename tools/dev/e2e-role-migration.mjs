@@ -53,6 +53,7 @@ const SPLIT = "ZZ Role Pre-Split Person";
 const SURVIVOR = "ZZ Role Real NPC";
 const LATE = "ZZ Role Late NPC";
 const LATE2 = "ZZ Role Late NPC Two";
+const LATE3 = "ZZ Role Upgraded Late NPC";
 const PACK_LABEL = "zz-role-split-pack";
 const PACK_PERSON = "ZZ Role Pack Person";
 const DELTA_BASE = "ZZ Role Delta Base";
@@ -716,6 +717,40 @@ try {
   packEnd.locked === true && packEnd.pending && Object.keys(packEnd.pending).length === 0
     ? ok("the pack is locked again and nothing is left pending")
     : fail("after the pack retry", JSON.stringify(packEnd));
+
+  // THE DOCUMENTED RESIDUAL — A PIN, NOT A RED LEG (review #34 finding 234,
+  // ruled 2026-11-01: "state the limit honestly"). The legs above plant
+  // `{started}`, a shape only the NEW code writes. A world whose split had been
+  // failing under 0.1.18–0.1.25 holds the marker FALSE and no pending start at
+  // all (the setting did not exist), so its first load of the fixed code
+  // records "now" as the start, and every NPC made since that world's last
+  // load is converted, one last time. Nothing the world holds dates the old
+  // first attempt reliably, so the user chose to state it rather than guess.
+  // This leg plants exactly that shape and a genuine NPC, and asserts what the
+  // code comment and the working notes now say: it IS converted. If this ever
+  // goes red, the residual was closed — update the comment, the notes and this.
+  const upgraded = await page.evaluate(async ({ late3 }) => {
+    for (const a of game.actors.filter((a) => a.name === late3)) await a.delete();
+    const a = await CONFIG.Actor.documentClass.create({ name: late3, type: "npc", system: { role: "npc" } });
+    if (game.settings.settings.has("air-bladder.hireling-split-pending")) {
+      await game.settings.set("air-bladder", "hireling-split-pending", {});
+    }
+    await game.settings.set("air-bladder", "hireling-split", false);
+    return { id: a.id, marker: game.settings.get("air-bladder", "hireling-split") };
+  }, { late3: LATE3 });
+  const upgradedBefore = await rawRole(upgraded.id);
+  upgradedBefore === "npc" && upgraded.marker === false
+    ? ok("precondition: an upgraded failing world's shape — marker false, no pending start — and a genuine NPC")
+    : fail("precondition: the upgraded-world plant", `role=${JSON.stringify(upgradedBefore)} marker=${upgraded.marker}`);
+  await page.reload({ waitUntil: "networkidle", timeout: 60000 });
+  await page.waitForFunction(() => globalThis.game?.ready === true, null, { timeout: 90000 });
+  await dismissChrome(page);
+  await page.waitForFunction(() => game.settings.get("air-bladder", "hireling-split") === true, null, { timeout: 20000 }).catch(() => {});
+  const upgradedAfter = await rawRole(upgraded.id);
+  upgradedAfter === "hireling"
+    ? ok("RESIDUAL, as documented: on that shape a genuine NPC made since the last load IS converted, once")
+    : fail(`the documented residual no longer holds (role ${JSON.stringify(upgradedAfter)}) — `
+      + "if it was closed on purpose, update migrateHirelingSplit's comment, documents-and-roles.md and this leg");
 } catch (e) {
   fail(`threw: ${e.message}`);
 } finally {
@@ -733,7 +768,7 @@ try {
       await p.configure({ locked: false }).catch(() => {});   // a locked pack refuses its delete
       await p.deleteCompendium().catch(() => {});
     }
-  }, { names: [SPLIT, SURVIVOR, LATE, LATE2, DELTA_BASE], label: PACK_LABEL, sceneName: DELTA_SCENE }).catch(() => {});
+  }, { names: [SPLIT, SURVIVOR, LATE, LATE2, LATE3, DELTA_BASE], label: PACK_LABEL, sceneName: DELTA_SCENE }).catch(() => {});
   // EVERYTHING the split reached, back as it was found, then both settings —
   // here, so a throw anywhere above still leaves the Warden's world whole.
   if (splitSnap) {
