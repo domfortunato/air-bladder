@@ -110,11 +110,7 @@ re-roll only when their own line is checked. Even unchecked, a new background
 keeps only as many bonds as it allows: any past that are removed, with their
 items and coins. A background you picked by hand starts unchecked, so a full
 re-roll keeps it unless you say otherwise. What the list never offers it never touches: notes,
-scars, pronouns, and anything bought or given stay yours. A companion, cart or
-pack that the old background or a question granted is never deleted by a
-re-roll. It is unlinked from the character, its sheet says **Formerly
-connected to** them, and it stays in the world with everything stowed on it
-until the Warden deletes it. While the mode is
+scars, pronouns, and anything bought or given stay yours. While the mode is
 on, the STR/DEX/WIL save dice are grayed out — turn it off to roll saves. This
 is the intended loop: generate, re-roll or pick the parts that don't sit
 right, then flip the toggle off and play.

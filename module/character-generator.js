@@ -1732,10 +1732,12 @@ export const requestPcGeneration = async () => {
 /**
  * Orphan container Actors a re-roll took from `actor` — never delete one
  * (finding 183's ruling). Each is unlinked, stamped `formerlyBelongedTo` with
- * the character's name (the field the sheet reads as "Formerly connected
- * to"), loses its `grantSource` flag so no later re-roll mistakes it for a
- * grant, and takes the BROKEN ownership; everything stowed on it stays on it.
- * The Warden deletes it, or the party adopts it.
+ * the character's name, loses its `grantSource` flag so no later re-roll
+ * mistakes it for a grant, and takes the BROKEN ownership; everything stowed
+ * on it stays on it. The Warden deletes it, or the party adopts it. NOTHING ON
+ * SCREEN SAYS SO TODAY: the sheet's "Formerly connected to" line is the
+ * connection line, and that is parked with the Connections UI
+ * (`connections-ui-enabled`, off), so an orphan reads like any other actor.
  *
  * ONE batched update (review #13 #20's rule for the delete this replaces: a
  * per-actor loop that dies midway leaves part of the set done with nothing
