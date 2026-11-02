@@ -436,6 +436,87 @@ crafted.signed?.dflt === 2 && crafted.signed?.aliceLevel === 3 && crafted.signed
   ? ok("   control: the same requester on HER OWN PC is signed", JSON.stringify(crafted.signed))
   : fail("   control: the same requester on her own PC", JSON.stringify(crafted.signed));
 
+/* ---- 6c. an automatic rewrite takes Owner only from those the edge gave it to -- */
+
+// Review #34 findings 107 and 121, ruled 2026-11-01: an AUTOMATIC ownership
+// rewrite removes Owner only from the users the connection gave it to (the
+// keeper's owners, and whoever asked), never from anyone else, and never
+// lowers a default of OWNER. Three paths broke that: a player-requested
+// CONNECT replaced every other owner (F121), a player-requested BREAK
+// preserved explicit co-owners but not owners through `default` (F107), and a
+// GM deleting ANY actor re-owned every actor whose writable `connectedTo`
+// named it (F121). Driven as 6b is — calling syncPendingOwnership with a
+// requester, and deleting on the GM page — so no other browser can answer.
+// Bob is the bystander whose access must not move. The relay legs above are
+// the controls: a plain connect still lands the connected shape, a plain
+// break still strips the breaker; (iv) is the delete hook's own.
+console.log("\nan automatic rewrite takes Owner only from those the connection gave it to");
+const others = await gmPage.evaluate(async ({ pcUuid, aliceId }) => {
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const L = CONST.DOCUMENT_OWNERSHIP_LEVELS;
+  const conn = await import("/systems/air-bladder/module/connections.js");
+  const Cls = CONFIG.Actor.documentClass;
+  const alice = game.users.get(aliceId);
+  let bob = game.users.getName("Bob");
+  if (!bob) bob = await User.create({ name: "Bob", role: CONST.USER_ROLES.PLAYER });
+  const owns = (a, u) => !!a && a.testUserPermission(u, "OWNER");
+  const sackSys = { role: "container", containerClass: "sack", hp: { value: 0, max: 0 }, generationEnabled: false };
+  const out = { bob: !!bob && !bob.isGM };
+
+  // (i) F121: Alice connects a party-wide hireling to her own PC.
+  const hire = await Cls.create({ name: "ZZ Conn F121 Party Hireling", type: "hireling",
+    ownership: { default: L.OWNER } });
+  await hire.update({ "system.connectedTo": pcUuid, "flags.air-bladder.ownershipSyncPending": true });
+  await conn.syncPendingOwnership(hire, { requester: alice });
+  out.connect = { bobOwns: owns(hire, bob), aliceOwns: owns(hire, alice), dflt: hire.ownership.default,
+    linked: hire.system.connectedTo === pcUuid };
+
+  // (ii) F107: Bob breaks a party-wide npc that is connected to nothing.
+  const npc = await Cls.create({ name: "ZZ Conn F107 Party Sack", type: "npc",
+    ownership: { default: L.OWNER }, system: sackSys });
+  await npc.update({ "flags.air-bladder.ownershipSyncPending": true });
+  await conn.syncPendingOwnership(npc, { requester: bob });
+  out.brk = { aliceOwns: owns(npc, alice), dflt: npc.ownership.default };
+
+  // (iii) F121: a party-wide mule pointed at a monster; the Warden deletes the monster.
+  const goblin = await Cls.create({ name: "ZZ Conn F121 Goblin", type: "npc", system: { role: "monster" } });
+  const mule = await Cls.create({ name: "ZZ Conn F121 Party Mule", type: "npc",
+    ownership: { default: L.OWNER }, system: { ...sackSys, connectedTo: goblin.uuid } });
+  await goblin.delete();
+  for (let i = 0; i < 30 && mule.system.connectedTo; i++) await sleep(100);
+  out.monsterDeleted = { unlinked: !mule.system.connectedTo, aliceOwns: owns(mule, alice), bobOwns: owns(mule, bob),
+    dflt: mule.ownership.default };
+
+  // (iv) a dead PC's mule: Alice's by the connection, Bob's by the Warden's own grant.
+  const deadPc = await Cls.create({ name: "ZZ Conn F121 Dead PC", type: "character",
+    ownership: { default: 0, [aliceId]: L.OWNER } });
+  const deadMule = await Cls.create({ name: "ZZ Conn F121 Dead PC Mule", type: "npc",
+    ownership: { default: L.OBSERVER, [aliceId]: L.OWNER, [bob.id]: L.OWNER },
+    system: { ...sackSys, connectedTo: deadPc.uuid } });
+  await deadPc.delete();
+  for (let i = 0; i < 30 && deadMule.system.connectedTo; i++) await sleep(100);
+  out.keeperDeleted = { unlinked: !deadMule.system.connectedTo, formerly: deadMule.system.formerlyBelongedTo,
+    aliceOwns: owns(deadMule, alice), bobOwns: owns(deadMule, bob), dflt: deadMule.ownership.default };
+  return out;
+}, scene);
+others.bob
+  ? ok("precondition: Bob is a player, the bystander")
+  : fail("precondition: no player Bob", JSON.stringify(others));
+others.connect?.linked && others.connect.bobOwns && others.connect.aliceOwns && others.connect.dflt >= 3
+  ? ok("a player's connect of a party-wide hireling leaves it party-wide", JSON.stringify(others.connect))
+  : fail("a player's connect of a party-wide hireling", JSON.stringify(others.connect));
+others.brk?.aliceOwns && others.brk.dflt >= 3
+  ? ok("a player's break of a party-wide npc leaves everyone else's Owner", JSON.stringify(others.brk))
+  : fail("a player's break of a party-wide npc", JSON.stringify(others.brk));
+others.monsterDeleted?.unlinked && others.monsterDeleted.aliceOwns && others.monsterDeleted.bobOwns
+  && others.monsterDeleted.dflt >= 3
+  ? ok("deleting a monster a shared mule pointed at strips nobody", JSON.stringify(others.monsterDeleted))
+  : fail("deleting a monster a shared mule pointed at", JSON.stringify(others.monsterDeleted));
+others.keeperDeleted?.unlinked && others.keeperDeleted.formerly === "ZZ Conn F121 Dead PC"
+  && !others.keeperDeleted.aliceOwns && others.keeperDeleted.bobOwns && others.keeperDeleted.dflt === 1
+  ? ok("a dead PC's mule: its player loses it, the Warden's own grant to Bob survives", JSON.stringify(others.keeperDeleted))
+  : fail("a dead PC's mule after the PC is deleted", JSON.stringify(others.keeperDeleted));
+
 /* ---- 4. the GM-ready sweep -------------------------------------------------- */
 
 // The flag must be processable with NO GM client alive when it was set: the
