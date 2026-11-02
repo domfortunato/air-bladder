@@ -77,6 +77,7 @@ await withSettings(page, async () => {
       const dom = {
         forHire: !!s.element?.querySelector(".for-hire-check"),
         dayRate: !!s.element?.querySelector(".day-rate-input"),
+        kind: !!s.element?.querySelector(".kind-select"),
       };
       await s.close();
       return {
@@ -88,6 +89,7 @@ await withSettings(page, async () => {
         showCareer: c.showCareer === true,
         showBackground: c.showBackground === true,
         showBiography: c.showBiography === true,
+        showKind: c.showKind === true,
       };
     };
 
@@ -185,18 +187,30 @@ await withSettings(page, async () => {
       // (showKind), the purse (showGold), the class icon a bare create is
       // stamped with, and the greyed directory thumbnail. Today's answers are
       // the oracle; the refactor onto one named list must leave them exactly.
+      //
+      // The class icon is read as "one of CONTAINER_ART", not "not mystery-man":
+      // a person role is handed a PORTRAIT at create, which is art but no class
+      // icon. And each line role is NAMED for a class of its own role, because
+      // the art site also requires the name's inferred class to fit the role
+      // (finding 75) — a bare name infers the chest, which fits only a
+      // container, and the pin would read the name rule, not the role set. The
+      // other roles carry a companion's name ("Horse") and must still get none.
+      // The first run read both of these wrong (and `showKind`, which ctxOf did
+      // not return): an oracle fault, corrected before the refactor landed.
       const { NPC_ROLES } = await import("/systems/air-bladder/module/data-models.js");
-      const BARE = "icons/svg/mystery-man.svg";
+      const { CONTAINER_ART } = await import("/systems/air-bladder/module/icons.js");
+      const NAMED = { companion: "Horse", transport: "Cart", container: "Sack" };
       out.containerLine = {};
       for (const role of NPC_ROLES) {
-        const a = await Cls.create({ name: `ZZ Split Line ${role}`, type: "npc", system: { role } });
+        const a = await Cls.create({ name: `ZZ Split Line ${role} ${NAMED[role] ?? "Horse"}`, type: "npc",
+          system: { role } });
         const c = await ctxOf(a);
         await ui.actors.render(true);
         await sleep(300);
         const thumb = document.querySelector(`#actors .actor[data-entry-id="${a.id}"]`);
         out.containerLine[role] = {
-          kind: !!c.showKind, gold: !!a.system.showGold, art: !!a.img && a.img !== BARE,
-          grey: !!thumb && thumb.classList.contains("cairn-grayscale-portrait"), listed: !!thumb,
+          kind: c.showKind, kindDrawn: c.dom.kind, gold: !!a.system.showGold, art: CONTAINER_ART.includes(a.img),
+          img: a.img, grey: !!thumb && thumb.classList.contains("cairn-grayscale-portrait"), listed: !!thumb,
         };
         await a.sheet.close();
       }
@@ -715,7 +729,8 @@ console.log("\ncompanion + things, one set (review #34 finding 115 — a pin)");
   for (const role of roles) {
     const g = R.containerLine[role];
     const inLine = LINE.includes(role);
-    check(g.listed && g.kind === inLine && g.gold === !inLine && g.art === inLine && g.grey === inLine,
+    check(g.listed && g.kind === inLine && g.kindDrawn === inLine && g.gold === !inLine && g.art === inLine
+      && g.grey === inLine,
       `${role}: ${inLine ? "Type select, no purse, class icon, grey thumbnail" : "no Type select, a purse, no class icon, colour"}`,
       JSON.stringify(g));
   }
