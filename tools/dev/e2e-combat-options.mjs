@@ -2559,6 +2559,65 @@ try {
         ? ok("...and a Warden's own write to it afterwards does not make it the pile")
         : fail(`a Warden's write laundered the plant into the pile: ${JSON.stringify(launder)}`);
 
+      // THE READY SWEEP MUST NOT STRIP A DEMOTED WARDEN'S REAL PILE (review #34
+      // finding 233, ruled 2026-11-01). On a GM load the sweep reads the pile's
+      // last writer's CURRENT role; demote the account that made it (a
+      // co-Warden set back to Player) and the next load unset the real pile's
+      // flag for good, so the next drop minted a second pile. The F005 plant
+      // needs the writer's own key BELOW Owner (else it is player-owned and
+      // refused anyway); a demoted maker holds the Owner key the server
+      // stamped on its create. Simulated IN PAGE, with no account demoted: two
+      // flagged actors made by this Warden, one keeping its stamped Owner key
+      // (the maker's shape) and one lowered to Observer (the plant's shape),
+      // then the sweep's no-writer pass is run on EACH ONE ALONE while
+      // `game.users.get` answers this Warden's id with a stand-in whose isGM
+      // is false. One actor at a time, never the whole world: the world's real
+      // pile must not meet the stand-in. Both are deleted before the evaluate
+      // returns.
+      const demoted = await page.evaluate(async () => {
+        const L = CONST.DOCUMENT_OWNERSHIP_LEVELS;
+        const pp = await import("/systems/air-bladder/module/party-pile.js");
+        const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+        const Cls = getDocumentClass("Actor");
+        const me = game.user;
+        const mk = (name) => Cls.create({ name, type: "npc",
+          system: { role: "container", containerClass: "sack" },
+          ownership: { default: L.OBSERVER },
+          flags: { "air-bladder": { droppedItemPile: true, probeFixture: "combat-options" } } });
+        const maker = await mk("ZZ Pile Demoted Maker");
+        const plant = await mk("ZZ Pile Lowered Plant");
+        const out = {};
+        try {
+          await plant.update({ [`ownership.${me.id}`]: L.OBSERVER });
+          out.shape = { makerKey: maker.ownership[me.id] ?? null, plantKey: plant.ownership[me.id] ?? null,
+            makerWriter: maker._stats.lastModifiedBy === me.id, plantWriter: plant._stats.lastModifiedBy === me.id };
+          const realGet = game.users.get.bind(game.users);
+          const standIn = new Proxy(me, { get: (t, p) => (p === "isGM" ? false : Reflect.get(t, p)) });
+          game.users.get = (id, ...rest) => (id === me.id ? standIn : realGet(id, ...rest));
+          try {
+            pp.stripPlantedPileFlags(maker);
+            pp.stripPlantedPileFlags(plant);
+            await sleep(1500);
+          } finally {
+            game.users.get = realGet;
+          }
+          out.makerKept = !!maker.getFlag("air-bladder", "droppedItemPile");
+          out.plantStripped = !plant.getFlag("air-bladder", "droppedItemPile");
+        } finally {
+          for (const a of [maker, plant]) { try { await a.delete(); } catch { /* gone */ } }
+        }
+        return out;
+      });
+      demoted.shape?.makerKey === 3 && demoted.shape?.plantKey === 2 && demoted.shape?.makerWriter && demoted.shape?.plantWriter
+        ? ok("precondition: the maker's shape keeps its stamped Owner key, the plant's is lowered, both last written here")
+        : fail(`demoted-maker shapes: ${JSON.stringify(demoted.shape)}`);
+      demoted.makerKept
+        ? ok("the ready sweep leaves a pile whose maker was demoted (it holds Owner) — no second pile, nothing lost for good")
+        : fail(`a demoted Warden's pile lost its flag on the ready sweep: ${JSON.stringify(demoted)}`);
+      demoted.plantStripped
+        ? ok("...while the F005 shape (writer's own key lowered below Owner) is still stripped")
+        : fail(`the lowered-key plant kept its flag: ${JSON.stringify(demoted)}`);
+
       /* ---- review #33: the choice belongs to the OWNER, whoever rolled ---- */
       // The Roll STR save button is bound for the owner OR the Warden, so when
       // the Warden rolls Alice's save the card is the WARDEN's — and a message's
