@@ -918,7 +918,7 @@
       "label": "Give Barebones Characters a failed career (like Knave 2e)"
     },
     "ChangeLog": {
-      "hint": "Whisper a chat card to the actor's owners, observers and the Warden whenever someone hand-changes stats, gold, traits, Panicked/Deprived, scars, features or inventory. Rolled generation, damage and other automatic changes are never logged. The shipped 'Toggle Change Log' macro flips this.",
+      "hint": "Whisper a chat card to the actor's owners, observers and the Warden whenever someone hand-changes stats, gold, traits, Panicked/Deprived, scars or inventory. Rolled generation, damage and other automatic changes are never logged. The shipped 'Toggle Change Log' macro flips this.",
       "label": "Log manual changes to chat"
     },
     "CharacterInventoryLimit": {
@@ -962,10 +962,10 @@
     },
     "GroupGeneral": "General Settings",
     "GroupGeneralButton": "Configure General Settings",
-    "GroupGeneralHint": "Panic, dice notation, item icons, grant tags, omens, the Warden title, the change log and scars.",
+    "GroupGeneralHint": "Panic, dice notation, item icons, grant tags, traits, omens, the watch clock, the weather log, the Warden title, the change log and scars.",
     "GroupGeneration": "Character Generation",
     "GroupGenerationButton": "Configure Character Generation",
-    "GroupGenerationHint": "Which content sources are offered, what players may generate or randomize, the portrait folder and the age formula.",
+    "GroupGenerationHint": "Which content sources are offered, the Roll buttons, what players may generate or randomize, showing generation rolls in chat, the portrait folder, and the dice for abilities, HP, gold and age.",
     "GroupHacks": "GLOG & Other Hacks",
     "GroupHacksButton": "Configure Hacks",
     "GroupHacksHint": "Optional rule hacks: GLOG Magic, the Vald calendar, three optional combat rules, and a Knave-style failed career for Barebones characters.",
