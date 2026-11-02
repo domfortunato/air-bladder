@@ -125,9 +125,14 @@ const CORE_RESOLVED = [/^TYPES\./];
  * title ("Delete {type}"), which the inventory's trash confirm now wears the
  * way core's token and placeable deletes do (tokens.mjs, placeables-layer.mjs);
  * present in core's en.json.
+ * `CONTROLS.CommonEdit` (review #34, ruled 2026-11-01) is core's "Edit",
+ * which `nameEditorToggles` (utils.js) puts on core's own ProseMirror pencil;
+ * present in core's en.json (14.369). The gate was red on it from the commit
+ * that introduced it (583309d2) until this line.
  */
 const CORE_SUPPLIED = new Set(["COMBATANT.Ping", "COMBATANT.PanTo", "COMBAT.InitiativeRoll",
-  "COMMON.Yes", "COMMON.No", "COMMON.AreYouSure", "SIDEBAR.DeleteWarning", "DOCUMENT.Delete"]);
+  "COMMON.Yes", "COMMON.No", "COMMON.AreYouSure", "SIDEBAR.DeleteWarning", "DOCUMENT.Delete",
+  "CONTROLS.CommonEdit"]);
 
 /** Literal keys, plus the PREFIXES of keys built by interpolation. */
 const collectKeys = () => {
