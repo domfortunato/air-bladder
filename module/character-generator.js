@@ -1,5 +1,5 @@
 import { CairnActor } from "./actor/actor.js";
-import { rollTablePlainText, resultText, resultPlainText, findTableByName, findDeclaredTable, warmPackDocuments } from "./compendium.js";
+import { rollTablePlainText, resultPlainText, findTableByName, findDeclaredTable, warmPackDocuments } from "./compendium.js";
 import { Cairn } from "./config.js";
 import { evaluateFormula, formatCount, concealSecrets } from "./utils.js";
 import {

@@ -320,7 +320,7 @@ class ValdCalendarApp extends foundry.applications.api.HandlebarsApplicationMixi
       // synchronously"). A pack page carries no secrets for anyone, so it
       // enriches with none.
       let page = null;
-      try { page = f.uuid ? fromUuidSync(f.uuid) : null; } catch { page = null; }
+      try { page = f.uuid ? foundry.utils.fromUuidSync(f.uuid) : null; } catch { page = null; }
       f.text = await TextEditor.enrichHTML(f.text ?? "", { relativeTo: page ?? undefined, secrets: !!page?.isOwner });
     }
 

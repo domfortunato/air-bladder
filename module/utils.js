@@ -1725,7 +1725,7 @@ export const holdsProse = (html) => {
   const tpl = document.createElement("template");
   tpl.innerHTML = String(html);
   if (tpl.content.querySelector("img, video, audio, iframe, table, hr")) return true;
-  return tpl.content.textContent.replace(/ /g, " ").trim().length > 0;
+  return tpl.content.textContent.replace(/\u00a0/g, " ").trim().length > 0;
 };
 
 /* -------------------------------------------- */

@@ -578,7 +578,7 @@ const wrapCompendiumDocumentSearch = (app) => {
           const el = li.querySelector("a[data-name]");
           if (!el || el.children.length) continue;
           let entry = null;
-          try { entry = fromUuidSync(li.dataset.uuid); } catch { entry = null; }
+          try { entry = foundry.utils.fromUuidSync(li.dataset.uuid); } catch { entry = null; }
           const ns = packEntryNamespace(foundry.utils.parseUuid(li.dataset.uuid)?.collection?.metadata, entry);
           if (!ns) continue;
           const english = el.textContent.trim();
