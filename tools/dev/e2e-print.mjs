@@ -297,6 +297,12 @@ const r = await page.evaluate(async ({ xssName }) => {
   out.omenHeader = [...(doc?.querySelectorAll("h2") ?? [])].some((h) => h.textContent.trim() === game.i18n.localize("CAIRN.Omen"));
   out.traitsProse = [...(doc?.querySelectorAll("section p") ?? [])]
     .map((p) => p.textContent).find((s) => s.includes("Physique")) ?? "";
+  // A VOWEL-INITIAL PHYSIQUE (review #34 finding 185, wording approved
+  // 2026-11-01). The clause was "a {value} Physique", so the shipped 2e
+  // table's first row printed "You have a Athletic Physique". Built by the
+  // sheet's own composer — the one the page shares — from the table's own row.
+  out.vowelProse = (game.actors.get(pc.id) ?? pc).sheet._buildTraitSentence(
+    { physique: "Athletic", skin: "Scarred", hair: "Braided" }, "");
   out.statsText = doc?.querySelector(".stats")?.textContent.replace(/\s+/g, " ") ?? "";
   // Deprived/Panicked print as ALWAYS-PRESENT mark boxes (user ask
   // 2026-08-10) — EMPTY here, on an actor with neither condition: the ask's
@@ -1045,6 +1051,9 @@ check("a disabled omen is OMITTED", r.omenOmitted && !r.omenHeader,
 check("traits compose to prose, age included",
   /Towering Physique/.test(r.traitsProse) && /40 years old/.test(r.traitsProse),
   `"${r.traitsProse}" — the sheet's own _buildTraitSentence, not a second composer`);
+check("a vowel-initial physique reads as English (review #34 finding 185)",
+  /Athletic Physique/.test(r.vowelProse ?? "") && !/\ba Athletic\b/i.test(r.vowelProse ?? ""),
+  `"${r.vowelProse}" — the 2e Physique table's first row`);
 // SECOND PERSON on a character's page, and it has to be asserted here because
 // the printed page is the OTHER caller of that builder (2026-08-20). The
 // sentence went third-person for the two npc person roles in the same change,

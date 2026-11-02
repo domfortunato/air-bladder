@@ -296,6 +296,18 @@ try {
       : problems.forEach((m) => fail(`shape: ${m}`));
     if (born.originalName === "Monster") fail("the generated name fell back to \"Monster\" — the appearance tables did not roll");
 
+    // A VOWEL-INITIAL APPEARANCE (review #34 finding 185, wording approved
+    // 2026-11-01). The bullet was "A {physique} creature with {feature}", and
+    // four of the shipped Physique table's twenty rows start with a vowel, so
+    // about one monster in five was written "A albino creature with tusks".
+    // monster-generator.js formats this one key with the lowercased rolls and
+    // nothing else, so the key, fed the table's own row, is the unit.
+    const appearance = await page.evaluate(() =>
+      game.i18n.format("CAIRN.MonsterGen.DescAppearance", { physique: "albino", feature: "tusks" }));
+    /\balbino\b/.test(appearance) && /\btusks\b/.test(appearance) && !/\bA albino\b/i.test(appearance)
+      ? ok(`a vowel-initial appearance reads as English ("${appearance}")`)
+      : fail(`the appearance bullet for the Albino row: "${appearance}"`);
+
     /* --- the sheet: no Connections tab, and the header button ------------ */
 
     const sheet = await page.evaluate(async (id) => {
