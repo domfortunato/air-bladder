@@ -925,7 +925,7 @@
       "label": "Set the equipment limit per-character instead of globally"
     },
     "ContentSource2e": {
-      "hint": "Offer the 20 Cairn 2e backgrounds when generating a character. With more than one source enabled, Create PC asks which to use.",
+      "hint": "Offer the 20 Cairn 2e backgrounds when generating a character. With Barebones also offered, Create PC asks which to use; custom 2e backgrounds join the 2e pool.",
       "label": "Offer canon Cairn 2e backgrounds"
     },
     "ContentSourceBarebones": {

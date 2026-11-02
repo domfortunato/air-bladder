@@ -10,8 +10,9 @@ come after.
 The **Create PC** button sits above the Actors sidebar. Clicking it asks one
 question, then rolls everything a Cairn 2e character starts with — abilities,
 Hit Protection, a background with its gear and questions, traits, age, and a
-bond — and opens the finished sheet. With more than one content source enabled
-(Custom 2e, Barebones), the same window asks which table to deal from.
+bond — and opens the finished sheet. With Barebones offered alongside Cairn 2e,
+the same window asks which to deal from; custom 2e backgrounds join the 2e pool
+rather than adding a choice.
 
 ## Start from an empty sheet
 
