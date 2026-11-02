@@ -654,6 +654,12 @@ try {
       await actor.sheet.render(true);
       for (let i = 0; i < 60 && !actor.sheet.element; i++) await new Promise((r) => setTimeout(r, 100));
 
+      // The confirm is found by ID DIFFERENCE, never as "a DialogV2": the picker
+      // leg above cancels a DialogV2 a moment earlier, and a closing dialog
+      // LINGERS in the instances map for its animation. Taking that one closed
+      // the corpse, left the real confirm open, and the await below hung the
+      // probe for its whole watchdog (full suite 20261102T035401Z).
+      const pre = new Set(foundry.applications.instances.keys());
       const p = actor.sheet._onDropBackground(bg);
       p.catch(() => {});
       // Poll, never sleep: a fixed wait is an assertion about someone else's timing,
@@ -661,16 +667,18 @@ try {
       let dlg = null;
       for (let i = 0; i < 60 && !dlg; i++) {
         await new Promise((r) => setTimeout(r, 100));
-        dlg = [...foundry.applications.instances.values()].find((a) => a.constructor.name === "DialogV2");
+        dlg = [...foundry.applications.instances.values()]
+          .find((a) => a.constructor.name === "DialogV2" && !pre.has(a.id) && a.rendered);
       }
       // .dialog-content only — the window frame text carries the Yes/No labels, and
       // an English button label in the haystack would break the "no English" half.
       out.text = (dlg?.element?.querySelector(".dialog-content") ?? dlg?.element)?.textContent
         ?.replace(/\s+/g, " ").trim() ?? null;
       // rejectClose is false on this dialog, so closing settles to null rather than
-      // throwing — the swap is refused and nothing is changed.
+      // throwing — the swap is refused and nothing is changed. Bounded, so a confirm
+      // this leg failed to find fails the leg instead of hanging the run.
       dlg?.close();
-      await p.catch(() => {});
+      await Promise.race([p.catch(() => {}), new Promise((r) => setTimeout(r, 5000))]);
     } finally {
       i18n._setOverlay(null);
       await actor.sheet?.close().catch(() => {});
