@@ -17,10 +17,12 @@ is an independent system with its own `id`, content and history — **not** a gi
 
 ## Version reality
 
-- **Minimum Foundry 14.365, `verified` 14.368.** `system.json`:
-  `compatibility: {minimum: "14.365", verified: "14.368"}`. The AppV2 sheets use
-  `_getFrameButtons`, `_canDetach`, `_onDetach`/`_onAttach`, confirmed only against
-  14.365. A minimum nobody has tested is a claim, not a fact.
+- **Minimum Foundry 14.368, `verified` 14.368.** `system.json`:
+  `compatibility: {minimum: "14.368", verified: "14.368"}`. 14.365 was dropped on
+  2026-11-02 (user ruling): nothing tested it any more, and a minimum nobody has
+  tested is a claim, not a fact. **Every supported build stays installed on every
+  probe box** (same ruling), so moving `verified` to a new build never takes the
+  old one out of testing; a build leaves the boxes only when the minimum passes it.
 - **The minimum is stated in six places** — `README.md`, `README.es.md`,
   `CONTRIBUTING.md`, `site/index.html`, `docs/testing-dev-branch.md` and here.
   Change the minimum, change all six. Moving `verified` alone does NOT touch them

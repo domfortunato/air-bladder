@@ -3,7 +3,7 @@
 This gets you the in-progress code instead of the released version, so you can
 test things before they ship.
 
-It takes about 5 minutes. You need **Git**, **Node 24**, and **Foundry v14.365 or newer**.
+It takes about 5 minutes. You need **Git**, **Node 24**, and **Foundry v14.368 or newer**.
 
 ---
 
