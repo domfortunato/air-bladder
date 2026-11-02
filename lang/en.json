@@ -281,7 +281,7 @@
   "CAIRN.Pile.FatiguePrompt": "You are already overburdened. Choose something to drop to make room for this Fatigue.",
   "CAIRN.Pile.FatigueConfirm": "Drop it and take the Fatigue",
   "CAIRN.Pile.FatigueDropCard": "Dropped {item} to make room for a Fatigue.",
-  "CAIRN.Pile.FatigueDropCardAt": "Dropped {item} at {place} to make room for a Fatigue.",
+  "CAIRN.Pile.FatigueDropCardAt": "Dropped {item} to make room for a Fatigue ({place}).",
   "CAIRN.Pile.FatigueRefuse": "No — take the Critical Damage",
   "CAIRN.Pile.Frees": "frees {slots}",
   "CAIRN.Pile.Uses": "{value} of {max} uses",
