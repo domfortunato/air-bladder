@@ -32,7 +32,9 @@ players, so opening it changes nothing about who moves the clock.
 You can turn it off in **Configure Settings → Air Bladder → Configure General**,
 under **Show the watch clock**. That is one switch for the whole table, not a
 per-player preference: whether your game tracks watches at all is your call as
-Warden.
+Warden. The clock also carries today's weather, and with the Vald calendar on
+it is how players open the calendar, so switching it off takes both away from
+them. You can still open the calendar from **Calendar** on the Dashboard.
 
 Only you can move the clock. Players can read it and nothing else.
 
@@ -78,7 +80,8 @@ doing. The season's own six rows are offered as suggestions, so the ordinary
 case is still one keystroke and a pick. **Leave the field empty and the weather
 clears**, which is how you undo a mistake. Nothing is posted to
 chat: the clock carries it to everyone already, and the Vald calendar too when
-it is on.
+it is on. With the clock switched off, players see it only if you **Keep a
+weather log**.
 
 ## Keeping a weather log
 
@@ -160,7 +163,8 @@ one while it is off.
 
 Click the watch clock, or press **Calendar** on the Dashboard, and the month
 opens: twenty-four days in six columns, today circled, and the day you last
-looked at highlighted. Everyone can open it.
+looked at highlighted. Everyone can open it while the watch clock is shown;
+with the clock switched off, only you can, from the Dashboard.
 
 - **Each day is tinted with its season**, and the day a season *begins* carries
   that season's mark. Vald's seasons turn over in the middle of a month, so this

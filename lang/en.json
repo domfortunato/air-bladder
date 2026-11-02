@@ -1014,7 +1014,7 @@
       "label": "Show rolled traits and age on character sheets"
     },
     "ShowWatchClock": {
-      "hint": "A day in Cairn is three watches — morning, afternoon and night — and the last is usually spent making camp. This puts the current watch on screen for everyone, just above the player list. The Warden moves it on from the Dashboard.",
+      "hint": "A day in Cairn is three watches — morning, afternoon and night — and the last is usually spent making camp. This puts the current watch on screen for everyone, just above the player list. The Warden moves it on from the Dashboard. The clock also carries today's weather, and with the Vald calendar on it is how players open the calendar, so switching it off takes both away from them.",
       "label": "Show the watch clock"
     },
     "UseCairnDiceNotation": {
