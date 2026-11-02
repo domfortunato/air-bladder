@@ -677,7 +677,7 @@
     "Overloaded": "{name} added — you are now over capacity (HP 0 until you free a slot).",
     "PackLocked": "{pack} is locked — unlock the compendium to edit this document.",
     "PageBound": "That spell is a bound page of a Grimoire — pages never leave the book. Move the book instead.",
-    "PcGenCancelled": "Your character was not generated — the Warden cancelled it.",
+    "PcGenBlankRefused": "Empty sheets are no longer available, because the Warden has switched off Character Creation tools for players. Nothing was created; choose again.",
     "PcGenDisabled": "The Warden has switched off character generation.",
     "PcGenFailed": "Your character could not be generated — ask the Warden, then try again.",
     "PcGenFailedFor": "Generating a character for {player} failed — see the console.",

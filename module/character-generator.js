@@ -4266,7 +4266,9 @@ export const prewarmGenerationPacks = async () => {
  * @param {boolean} [options.blank=false]  open an empty sheet instead of
  *   rolling. Set by the interactive wrapper, and carried over the wire by the
  *   player relay so a Warden's client honours the checkbox the player ticked.
- * @returns {Promise<CairnActor|null>}
+ * @returns {Promise<CairnActor|null>}  null (or undefined) when nothing could be
+ *   made — an empty pool, a create that wrote no document. A FAILURE, never a
+ *   cancel: nothing here asks anything (review #34 finding 178).
  */
 export const createCharacter = async ({ folder = null, ownership = null, source = null, blank = false, blankName = null, roller = null, waitForDice = true } = {}) => {
   const chosenSource = source ?? resolveContentSource();

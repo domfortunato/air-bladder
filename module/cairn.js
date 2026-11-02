@@ -1387,9 +1387,7 @@ Hooks.once("init", () => {
         const source = enabled.includes(msg.source) ? msg.source : (enabled[0] ?? "2e");
         // The empty-sheet choice the player made on their own client. Coerced
         // rather than passed through: the wire is not trusted, and anything
-        // other than a literal true means roll, which is the safe reading —
-        // a rolled character can be emptied by hand, a silently empty one
-        // looks like generation broke.
+        // other than a literal true means roll.
         //
         // AND ONLY WHERE THE PLAYER COULD FILL IT IN (review #27). The box
         // is withheld on the clicking client from a player whose sheet would
@@ -1399,8 +1397,22 @@ Hooks.once("init", () => {
         // one place a crafted or stale client cannot script around, as the
         // allow-player-generate refusal above already says. A character is
         // the only kind this relay mints, so the test is that one switch.
+        //
+        // A BLANK IT CANNOT HONOUR IS REFUSED WHOLE (review #34 finding 246,
+        // ruled 2026-11-01). It used to be rolled into a character instead —
+        // one she never asked for, from a stale dialog opened while the
+        // switch was on and answered after the Warden turned it off — and
+        // the answer echoed the request, so her sheet opened over the
+        // still-rolling dice and nothing told her. Now nothing is made, and
+        // `blankRefused` tells her why so she can choose again.
         const blank = msg.blank === true
           && game.settings.get(SETTINGS_NS, "allow-player-randomization") === true;
+        if (msg.blank === true && !blank) {
+          game.socket.emit(`system.${game.system.id}`, {
+            action: "pcGenerated", userId: senderId, uuid: null, blankRefused: true,
+          });
+          return;
+        }
         const actor = await createCharacter({
           source,
           // THE PARTY FOLDER, which only `createActorInteractive` applied until
@@ -1429,31 +1441,38 @@ Hooks.once("init", () => {
           // gives the dice their two seconds (the pcGenerated handler below).
           waitForDice: false,
         });
-        // A null actor is a real outcome (the Warden dismissed the
-        // content-source picker); answer anyway, or the player's "rolling
-        // your character…" toast is the last they ever hear of it.
-        if (actor) {
-          ui.notifications.info(game.i18n.format("CAIRN.Notify.PcGeneratedFor", {
-            name: actor.name, player: user.name,
-          }));
+        // A NULL ACTOR IS A FAILURE (review #34 finding 178). This said "the
+        // Warden dismissed the content-source picker", but the relay always
+        // passes a source, so no picker opens and nothing here can be
+        // cancelled: a null is an empty pool or a create that wrote nothing.
+        // It was answered as neither refused nor failed, so her client said
+        // the Warden had cancelled it and the Warden was told nothing. It is
+        // answered as the throw below is, on both screens.
+        if (!actor) {
+          ui.notifications.error(game.i18n.format("CAIRN.Notify.PcGenFailedFor", { player: user.name }));
+          game.socket.emit(`system.${game.system.id}`, {
+            action: "pcGenerated", userId: senderId, uuid: null, failed: true,
+          });
+          return;
         }
+        ui.notifications.info(game.i18n.format("CAIRN.Notify.PcGeneratedFor", {
+          name: actor.name, player: user.name,
+        }));
         game.socket.emit(`system.${game.system.id}`, {
           // WHETHER A CARD WAS POSTED travels BACK (review #26; review #34
           // finding 220), or the asking client polls ten times at 150ms for a
           // message that can never arrive: ~1.5s of dead wait between the
           // toast and their own sheet opening. None is posted for an empty
           // sheet, which rolled nothing, nor with "Show character generation
-          // dice rolls" off (postGenerationRolls). What THIS client did, not
-          // what was asked: a blank the randomization switch refused above was
-          // rolled, and its card is there to wait for.
-          action: "pcGenerated", userId: senderId, uuid: actor?.uuid ?? null,
+          // dice rolls" off (postGenerationRolls). What THIS client made: a
+          // blank the randomization switch refuses never gets this far.
+          action: "pcGenerated", userId: senderId, uuid: actor.uuid,
           noCard: blank || !game.settings.get(SETTINGS_NS, "show-generation-rolls"),
         });
       } catch (err) {
         console.error(`Air Bladder | generatePC failed for ${user.name}:`, err);
         ui.notifications.error(game.i18n.format("CAIRN.Notify.PcGenFailedFor", { player: user.name }));
-        // `failed` distinguishes this from the Warden dismissing the picker:
-        // the player is told to ask again, not told it was cancelled.
+        // `failed`: the player is told to ask again.
         game.socket.emit(`system.${game.system.id}`, {
           action: "pcGenerated", userId: senderId, uuid: null, failed: true,
         });
@@ -1469,11 +1488,13 @@ Hooks.once("init", () => {
       if (msg.userId !== game.user.id) return;
       if (!game.users.get(senderId)?.isGM) return;
       if (!msg.uuid) {
+        // Three answers, each its own reason. There is no "cancelled": the
+        // relay always names a source, so nothing on it can be (finding 178).
         ui.notifications.warn(game.i18n.localize(msg.refused
           ? "CAIRN.Notify.PcGenDisabled" // the Warden's switch is off
-          : msg.failed
-            ? "CAIRN.Notify.PcGenFailed"
-            : "CAIRN.Notify.PcGenCancelled"));
+          : msg.blankRefused
+            ? "CAIRN.Notify.PcGenBlankRefused" // an empty sheet, with the tools off (finding 246)
+            : "CAIRN.Notify.PcGenFailed"));
         return;
       }
       // The custom emit can outrun the document broadcast that carries the
