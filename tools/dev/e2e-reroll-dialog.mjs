@@ -372,6 +372,16 @@ try {
 
       // ---- 5b. Background-only (2026-09-03): the name rides the swap, the
       // bonds and the statline do not — the tie and the untie in one run.
+      // What it proves of bonds is that an UNCHECKED Bond(s) row is not
+      // re-dealt, so it holds ONE bond: the swap trims bonds past the new
+      // background's entitlement from the end (finding 210's note says so),
+      // and leg 5's full re-roll deals a random background — a two-bond deal
+      // landing on a one-bond background would be trimmed by design and red
+      // this leg at random. The first bond always survives the trim.
+      if ((actor.system.bonds?.length ?? 0) > 1) {
+        await actor.update({ "system.bonds": [foundry.utils.deepClone(actor.system.bonds[0])] });
+      }
+      out.bgOnlyBondCount = actor.system.bonds?.length ?? 0;
       const keepBonds = JSON.stringify(actor.system.bonds);
       const keepSTR = actor.system.abilities.STR.value;
       dlg = await openDialog(sheet);
@@ -996,9 +1006,9 @@ try {
     B.nameFromNewBg
       ? ok("background-only: the landed name is one of the NEW background's own")
       : fail(`background-only name: not in the new background's list (${JSON.stringify(B)})`);
-    B.bondsKept && B.strKept
-      ? ok("background-only: bonds and the statline survive by value")
-      : fail(`background-only kept: ${JSON.stringify(B)}`);
+    B.bondsKept && B.strKept && r.bgOnlyBondCount === 1
+      ? ok("background-only: its one bond and the statline survive by value")
+      : fail(`background-only kept: ${JSON.stringify({ ...B, bondCount: r.bgOnlyBondCount })}`);
 
     // ---- 6. provenance ----
     r.provenanceDie === false

@@ -3316,10 +3316,20 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       list += row("omen", L("CAIRN.Omen"));
     }
 
+    // The background swap trims bonds to what the new background allows
+    // (`changeBackground`, ruled 2026-08-02), from the END — the first always
+    // survives — so with two or more a checked Background can take one even
+    // with Bond(s) unchecked, which "uncheck what you want to keep" alone
+    // would never say (review #34 finding 210). Both sources: Barebones deals
+    // no bonds, but a character can carry older ones, and the trim is not
+    // edition-bound.
+    const bondsNote = (actor.system.bonds?.length ?? 0) >= 2
+      ? `<p class="reroll-note reroll-note-bonds">${L("CAIRN.Reroll.BondsNote")}</p>` : "";
     const content = `<div class="reroll-dialog">
       <p class="reroll-lead">${L("CAIRN.Reroll.Lead")}</p>
       <div class="reroll-list">${list}</div>
       ${is2e ? `<p class="reroll-note reroll-note-questions">${L("CAIRN.Reroll.QuestionsNote")}</p>` : ""}
+      ${bondsNote}
       <p class="reroll-note reroll-note-pick">${L("CAIRN.Reroll.PickNote")}</p>
     </div>`;
 

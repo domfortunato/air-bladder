@@ -105,9 +105,10 @@ way. **Roll Character** opens a checklist of everything that can be re-rolled,
 all checked to begin with: uncheck what you want to keep, and only the rest is
 re-rolled. The name, starting gear and the two Background Questions ride the
 Background line — a new background deals its own, name included — while bonds
-re-roll only when their own line is checked, and a
-background you picked by hand starts unchecked, so a full re-roll keeps it
-unless you say otherwise. What the list never offers it never touches: notes,
+re-roll only when their own line is checked. Even unchecked, a new background
+keeps only as many bonds as it allows: any past that are removed, with their
+items and coins. A background you picked by hand starts unchecked, so a full
+re-roll keeps it unless you say otherwise. What the list never offers it never touches: notes,
 scars, pronouns, and anything bought or given stay yours. A companion, cart or
 pack that the old background or a question granted is never deleted by a
 re-roll. It is unlinked from the character, its sheet says **Formerly

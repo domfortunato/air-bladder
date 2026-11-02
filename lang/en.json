@@ -161,7 +161,7 @@
   "CAIRN.Career": "Career",
   "CAIRN.ChangeBackground": "Change background",
   "CAIRN.ChangeBackgroundQ": "Change this character's background to {name}?",
-  "CAIRN.ChangeBackgroundTip": "The old background's starting gear and the items its questions granted are removed, and the new background's are rolled in their place. Bonds, portrait and notes are kept.",
+  "CAIRN.ChangeBackgroundTip": "The old background's starting gear and the items its questions granted are removed, and the new background's are rolled in their place. Portrait and notes are kept, and so are bonds, up to the number the new background allows: any past that are removed, with their items and coins.",
   "CAIRN.ChangeBackgroundTitle": "Change background",
   "CAIRN.ChangeFailedCareer": "Change failed career",
   "CAIRN.ChangeLog": {
@@ -825,6 +825,7 @@
   "CAIRN.RemoveFatigue": "Remove fatigue",
   "CAIRN.ReorderHint": "Drag an item to reorder your inventory.",
   "CAIRN.Reroll.Bonds": "Bond(s)",
+  "CAIRN.Reroll.BondsNote": "Re-rolling the Background keeps only as many bonds as the new one allows, even with Bond(s) unchecked. Any past that are removed, with their items and coins.",
   "CAIRN.Reroll.Button": "Re-roll",
   "CAIRN.Reroll.DEX": "DEX (Dexterity)",
   "CAIRN.Reroll.FailedCareer": "Failed career",
