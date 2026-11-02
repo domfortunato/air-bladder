@@ -17,8 +17,8 @@ is an independent system with its own `id`, content and history — **not** a gi
 
 ## Version reality
 
-- **Minimum Foundry 14.368, `verified` 14.368.** `system.json`:
-  `compatibility: {minimum: "14.368", verified: "14.368"}`. 14.365 was dropped on
+- **Minimum Foundry 14.368, `verified` 14.369.** `system.json`:
+  `compatibility: {minimum: "14.368", verified: "14.369"}`. 14.365 was dropped on
   2026-11-02: nothing tested it any more, and a minimum nobody has tested is a
   claim, not a fact. **THE TEST WINDOW (user ruling 2026-11-02): the newest stable
   Foundry build and the two before it**, each installed on every probe box and
@@ -29,9 +29,10 @@ is an independent system with its own `id`, content and history — **not** a gi
   `CONTRIBUTING.md`, `site/index.html`, `docs/testing-dev-branch.md` and here.
   Change the minimum, change all six. Moving `verified` alone does NOT touch them
   (they state the floor, "or higher").
-- **`verified` = the newest build actually proven green** (14.368, via `dev:upgrade`
-  then `dev:smoke` on `foundry/app-14368` — the upgrade leg never leaves Setup, so
-  the world launch is smoke's), never whatever Foundry has released since. It is
+- **`verified` = the newest build actually proven green** (14.369, via `dev:upgrade`
+  0.1.24→0.1.25 then `dev:smoke` on `foundry/app-14369` — the upgrade leg never
+  leaves Setup, so the world launch is smoke's — and the whole probe suite on the
+  fleet), never whatever Foundry has released since. It is
   submitted by `npm run publish:foundry` and shown on the Marketplace listing.
 - Latest release **0.1.25**. `system.json`'s `version` is bumped by `npm run
   release` on `master` only, so on `dev` it lags — read the tag, not the file.

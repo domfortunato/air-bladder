@@ -450,7 +450,7 @@ export function watchErrors(page) {
  *
  * TWO SHAPES (measured 2026-10-04, the 0.1.24 post-publish leg). 14.365 — CT
  * 123 and every probe run before that day — renders a `<select name="userid">`
- * of every user. 14.368, the build `verified` names, replaced it with a typed
+ * of every user. 14.368, the build `verified` named then, replaced it with a typed
  * `username` field inside `#join-game-form` and no list at all, so the helper
  * waited thirty seconds for a select that never came and smoke could not log
  * in. The page still carries `game.users`, so the name is read from there:
