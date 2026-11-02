@@ -16,7 +16,8 @@
  *   2. Generating an Outrider mints a container Actor keeper-linked to the
  *      character, with the capacity the rolled option specified, kind `mount`,
  *      and the buyer's ownership. A mount costs its keeper no slots.
- *   3. Regenerating replaces it — the old one is gone, exactly one remains — and
+ *   3. Regenerating replaces it — the old one is ORPHANED, never deleted (review
+ *      #34 finding 183, ruled 2026-11-01), exactly one granted remains — and
  *      a container the PLAYER made (no grantSource flag) survives untouched.
  *   4. Re-rolling just that question swaps the beast and leaves the rest alone.
  *   4b. A background can also grant a container OUTRIGHT rather than from a
@@ -98,6 +99,9 @@ try {
 
     const kept = keptBy(actor);
     const horse = kept[0];
+    // Swept by the finally whatever happens to it: a regenerate ORPHANS it now
+    // (finding 183), so it is no longer kept by anyone to be found again.
+    if (horse) made.push(horse);
     const spec = (outrider.system.tables ?? [])
       .flatMap((t) => t.options ?? [])
       .flatMap((o) => o.containers ?? [])
@@ -155,18 +159,28 @@ try {
     made.push(mine);
 
     const beforeUuid = horse?.uuid;
+    // The name the orphan is stamped with is the character's AT the orphaning,
+    // which a regenerate re-rolls afterwards.
+    const nameBefore = actor.name;
     await gen.regenerateActor(actor);
     const after = keptBy(actor);
     made.push(...after);
     const regen = {
       // exactly one granted beast + the player's chest
       grantedNow: after.filter((a) => a.getFlag("air-bladder", "grantSource")).length,
-      oldGone: !game.actors.get(beforeUuid?.split(".").pop()),
+      // ORPHANED, never deleted (review #34 finding 183, ruled 2026-11-01):
+      // unlinked, stamped with its keeper's name, its grant flag gone. This
+      // read `oldGone` until the ruling.
+      old: (() => {
+        const o = game.actors.get(beforeUuid?.split(".").pop());
+        return o ? { connectedTo: o.system?.connectedTo ?? "", formerly: o.system?.formerlyBelongedTo ?? "",
+          grant: o.getFlag("air-bladder", "grantSource") ?? null, want: nameBefore } : null;
+      })(),
       mineSurvives: !!game.actors.get(mine.id),
       mineStillListed: actor.connectedActors().some((c) => c.id === mine.id),
       // Nothing can dangle now — the list IS the set of live actors pointing
       // here — so the assertion that has teeth is that the chest's own link
-      // still resolves to this character after the granted beast was deleted.
+      // still resolves to this character after the granted beast was orphaned.
       noDangling: game.actors.get(mine.id)?.system.connectedTo === actor.uuid,
     };
 
@@ -346,9 +360,11 @@ try {
       : fail(`the mount charged the rider: ${r.grant.slotsWithout} -> ${r.grant.slotsUsed}, ${r.grant.wornRows} worn rows`);
 
     r.regen.grantedNow === 1 ? ok("regenerate leaves exactly one granted beast") : fail(`after regenerate: ${r.regen.grantedNow} granted containers`);
-    r.regen.oldGone ? ok("the previous beast was deleted") : fail("the previous beast is still around");
+    r.regen.old && !r.regen.old.connectedTo && r.regen.old.formerly === r.regen.old.want && r.regen.old.grant === null
+      ? ok("the previous beast is orphaned, not deleted: unlinked, \"formerly\" its keeper's, no grant flag")
+      : fail(`the previous beast after a regenerate: ${JSON.stringify(r.regen.old)}`);
     r.regen.mineSurvives && r.regen.mineStillListed ? ok("a container the PLAYER made survives a regenerate") : fail("regenerate destroyed a player-made container");
-    r.regen.noDangling ? ok("no dangling container uuids after the delete") : fail("the keeper's container list has a dangling uuid");
+    r.regen.noDangling ? ok("no dangling container uuids after the regenerate") : fail("the keeper's container list has a dangling uuid");
 
     r.reroll.grantedNow === 1 ? ok(`re-rolling question ${r.reroll.questionIndex} swapped the beast ("${r.reroll.name}")`) : fail(`after re-roll: ${r.reroll.grantedNow} granted containers`);
     r.reroll.mineSurvives && r.reroll.noDangling ? ok("the player's container and the uuid list are intact after a re-roll") : fail("re-roll damaged the player's container / the uuid list");
