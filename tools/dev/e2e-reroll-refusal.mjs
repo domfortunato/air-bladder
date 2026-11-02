@@ -233,7 +233,11 @@ try {
   }
 
   console.log("\nB. Alice, Background unchecked, gear + STR — the scoped path orphans too");
-  const muleB = await gm.evaluate(async ({ pcId }) => {
+  // The character's name as leg B finds it: leg A's all-checked run re-rolled
+  // it (the name rides the Background line), and an orphan carries the name
+  // its character had when it was orphaned. The first green run compared
+  // against the setup's name and reddened on an orphan that was right.
+  const legB = await gm.evaluate(async ({ pcId }) => {
     const L = CONST.DOCUMENT_OWNERSHIP_LEVELS;
     const pc = game.actors.get(pcId);
     const alice = game.users.getName("Alice");
@@ -244,7 +248,7 @@ try {
       system: { role: "companion", containerClass: "mule", connectedTo: pc.uuid, generationEnabled: false },
       flags: { "air-bladder": { grantSource: "background" } },
     });
-    return m.id;
+    return { id: m.id, pcName: pc.name };
   }, { pcId: setup.pcId });
   const allOff = { background: false, gear: false, question0: false, question1: false, bonds: false,
     STR: false, DEX: false, WIL: false, hp: false, gold: false, age: false, traits: false,
@@ -255,8 +259,8 @@ try {
     b.strAfter !== b.strBefore
       ? ok(`the re-roll applied (STR ${b.strBefore} → ${b.strAfter}), with no refusal`)
       : fail(`leg B: nothing re-rolled — refused? warns ${JSON.stringify(b.warns)}`);
-    const s = await settled(muleB);
-    orphaned(s, setup.pcName)
+    const s = await settled(legB.id);
+    orphaned(s, legB.pcName)
       ? ok("the background's mule is orphaned, not deleted")
       : fail(`leg B: the background's granted mule ${JSON.stringify(s)}`);
   }
