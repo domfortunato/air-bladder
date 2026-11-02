@@ -1,5 +1,5 @@
 import { dieIconOrGeneric } from "../utils.js";
-import { drawBond, bondRecordFrom, withGrantSource, bondEntitlement, resolveRefs, replaceGrantedContainers, promptBackground, changeBackground, promptFailedCareer, rollFailedCareerName, buildFailedCareerItem, getPortraitManifest, pairedTokenFor, randomPortraitInSameFolder, portraitCategoryFor, regenerateNpc, regenerateHireling, rerollNpcBackground, rerollHirelingCareer, rerollNpcName, rerollNpcFaction, promptHirelingCareer, promptNpcBackground, promptNpcFaction, promptPickOmen, promptPickBond, promptPickQuestionOption, promptPickName, findOmensTable, rollNameFromTable, rollAge, rollTextItems, effectiveAgeFormula, effectivePcAbilityFormula, effectivePcGoldFormula, effectivePcHpFormula, rollPcHitProtection, resolveActorBackground, redealBackgroundGear, rerollAllBonds, reorderInventory, postGenerationRolls, isHandBuilt, clearHandBuilt, isBackgroundDisabled, equipIfArms, FLAG_SCOPE } from "../character-generator.js";
+import { drawBond, bondRecordFrom, withGrantSource, bondEntitlement, resolveRefs, replaceGrantedContainers, promptBackground, changeBackground, promptFailedCareer, rollFailedCareerName, buildFailedCareerItem, getPortraitManifest, pairedTokenFor, randomPortraitInSameFolder, portraitCategoryFor, regenerateNpc, regenerateHireling, rerollNpcBackground, rerollHirelingCareer, rerollNpcName, rerollNpcFaction, promptHirelingCareer, promptNpcBackground, promptNpcFaction, promptPickOmen, promptPickBond, promptPickQuestionOption, promptPickName, findOmensTable, rollNameFromTable, rollAge, rollTextItems, effectiveAgeFormula, effectivePcAbilityFormula, effectivePcGoldFormula, effectivePcHpFormula, rollPcHitProtection, resolveActorBackground, redealBackgroundGear, rerollAllBonds, reorderInventory, postGenerationRolls, isHandBuilt, clearHandBuilt, isBackgroundDisabled, equipIfArms, failedCareerActive, FLAG_SCOPE } from "../character-generator.js";
 import { promptMonsterTier, regenerateMonster } from "../monster-generator.js";
 import { openMarketplace, TRANSPORTS_CATEGORY } from "../marketplace.js";
 import { evaluateFormula, cairnSavePasses, cleanDescription, concealSecrets, holdsProse, bindEditorClickAwaySave, formatCount, sourceLabel, askDamageQuality, damageFormulaFor, damageQualityLabel, damageQualityKind, d20CardBody, d20CardFlavor, D20_CARD_ABILITIES, combatOption, combatDamageFormula, askImprovisedAttack, IMPROVISED_FORMULA, nameEditorToggles } from "../utils.js";
@@ -1706,9 +1706,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // t("bg.name")/t("item.name") labels): the stored value stays the English
     // match key; only these display copies translate.
     context.failedCareer = t("bg.name", this.actor.system.failedCareer ?? "");
-    context.showFailedCareer =
-      this.actor.system.contentSource === "barebones" &&
-      game.settings.get(SETTINGS_NS, "barebones-failed-career");
+    context.showFailedCareer = failedCareerActive(this.actor);
     // The single keepsake item the failed career left (grantSource
     // "failed-career") — shown on its own line under the career, with a re-roll
     // dice. It also appears in the inventory tagged "Failed Career" + "Petty".
@@ -2924,10 +2922,8 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
           : sys.contentSource === "2e" ? ""
             : sourceLabel(sys.contentSource),
       // Barebones only, below the background, labelled per the user's exact
-      // wording (2026-08-08). Same gate as the sheet: contentSource AND the
-      // world setting, read live.
-      failedCareer: isChar && sys.contentSource === "barebones"
-        && game.settings.get(SETTINGS_NS, "barebones-failed-career")
+      // wording (2026-08-08). Same gate as the sheet, `failedCareerActive`.
+      failedCareer: isChar && failedCareerActive(actor)
         ? t("bg.name", sys.failedCareer ?? "") : "",
       pronouns: showsBiography ? sys.pronouns : "",
       stats: {
@@ -3282,8 +3278,11 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     }
     list += `<div class="reroll-children" data-parent="background">${children}</div>`;
     if (is2e) list += row("bonds", L("CAIRN.Reroll.Bonds"));
-    if (!is2e && (actor.system.failedCareer
-      || game.settings.get(SETTINGS_NS, "barebones-failed-career"))) {
+    // Offered only while the career counts — the sheet's own gate
+    // (`failedCareerActive`, review #34 findings 221 and 253). It used to show
+    // whenever the character HAD a career, so a career the sheet hid could be
+    // re-rolled from here, keepsake and all.
+    if (failedCareerActive(actor)) {
       list += row("failedCareer", L("CAIRN.Reroll.FailedCareer"));
       list += `<div class="reroll-children" data-parent="failedCareer">${row("keepsake", L("CAIRN.Reroll.Keepsake"))}</div>`;
     }
@@ -3466,13 +3465,16 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
         if (!(await this._rerollQuestionByIndex(idx))) return;
       }
     }
-    if (parts.failedCareer) {
+    // The same gate as the rows, on the apply side too: an unoffered row has
+    // no checkbox, but a part that names it is refused here as well.
+    const careerOn = failedCareerActive(actor);
+    if (careerOn && parts.failedCareer) {
       const name = await rollFailedCareerName(actor.system.background);
       if (name) {
         await actor.update({ "system.failedCareer": name }, { abNoStatusCard: true });
         await this._grantFailedCareerItem(name);
       }
-    } else if (parts.keepsake && actor.system.failedCareer) {
+    } else if (careerOn && parts.keepsake && actor.system.failedCareer) {
       await this._grantFailedCareerItem(actor.system.failedCareer);
     }
     // Bonds re-deal only when THEIR box asked (untied from Background,

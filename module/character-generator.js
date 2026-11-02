@@ -3448,6 +3448,23 @@ export const rollFailedCareerName = async (exclude = "") => {
  * @param {CairnItem} bg  a Barebones background Item
  * @returns {Promise<Object|null>}
  */
+/**
+ * Does this character's failed career count right now? A Barebones character,
+ * with the Warden's Knave failed-career switch ON — read live, so switching it
+ * off hides an already-generated career rather than only skipping the next.
+ * ONE predicate for the four places that ask (review #34 findings 221 and 253,
+ * ruled 2026-11-01: "follow the switch everywhere"): the sheet's line, the
+ * print, the Roll Character checklist's rows, and `changeBackground`'s
+ * collision re-roll. The checklist used to offer the career whenever the
+ * character HAD one, and the swap re-rolled it whatever the switch said, so a
+ * career the sheet hid could still be re-rolled and its keepsake swapped. The
+ * stored career and keepsake are left alone while it is off.
+ * @param {CairnActor} actor
+ * @returns {boolean}
+ */
+export const failedCareerActive = (actor) => actor?.system?.contentSource === "barebones"
+  && game.settings.get(SETTINGS_NS, "barebones-failed-career");
+
 const failedCareerItemFromBg = async (bg) => {
   const gear = bg?.system?.startingGear ?? [];
   if (!gear.length) return null;
@@ -3693,8 +3710,10 @@ export const changeBackground = async (actor, newBg = null, { ignoreHandBuilt = 
   // changeBackground, not in the sheet handlers, so roll, pick and drop are
   // all covered. A hand-PICKED collision on the failed-career line itself
   // stays allowed — that is a deliberate player choice; this hook only fires
-  // when the collision arrives from the background side.
-  if (source === "barebones" && actor.system.failedCareer && actor.system.failedCareer === bg.name) {
+  // when the collision arrives from the background side. Only while the
+  // career counts (`failedCareerActive`): with the switch off it is hidden,
+  // and a hidden career is not re-rolled behind the player's back.
+  if (failedCareerActive(actor) && actor.system.failedCareer && actor.system.failedCareer === bg.name) {
     const fresh = await rollFailedCareerName(bg.name);
     await actor.update({ "system.failedCareer": fresh }, { abNoStatusCard: true });
     await replaceFailedCareerKeepsake(actor, fresh, { handBuilt });
