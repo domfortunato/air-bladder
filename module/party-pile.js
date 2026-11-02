@@ -188,16 +188,31 @@ const wardenWrote = (actor) => {
  * Every write the real pile receives is a Warden's, so a player's write to a
  * flagged actor is a plant by definition — or a pile the Warden handed a player,
  * which that hand-over already un-piled.
+ *
+ * THE READY PASS ASKS ONE THING MORE (review #34 finding 233, ruled
+ * 2026-11-01). It reads the last writer's role NOW, not when they wrote, and a
+ * real pile's maker is a Warden whose account can be demoted: the server
+ * stamped them an explicit OWNER key when they made it, so the next GM load
+ * found a flagged actor "a player" wrote and stripped it for good — promoting
+ * them back could not restore it, and the next drop minted a second pile. So
+ * the no-writer pass strips only when that writer's OWN key is below OWNER,
+ * which is the plant's shape (a planter who still owns it is refused at use
+ * time anyway, by `playerOwned`, so nothing is lost). The stated residual:
+ * while its maker is demoted, the pile counts as handed to a player and the
+ * next drop starts a new one; promote them back and the original works again,
+ * and the drop after that folds the two into one (`reconcilePiles`).
  * @param {Actor} actor
  * @param {string} [userId]  the writer, as the document hook reports it
  */
 export const stripPlantedPileFlags = (actor, userId) => {
   if (!game.user.isGM || game.users.activeGM !== game.user) return;
   const targets = actor ? [actor] : (game.actors?.contents ?? []);
+  const OWNER = CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER;
   for (const a of targets) {
     if (!a.getFlag(FLAG_SCOPE, PILE_FLAG)) continue;
     const writer = game.users.get(userId ?? a._stats?.lastModifiedBy);
     if (!writer || writer.isGM) continue;
+    if (!userId && (a.ownership?.[writer.id] ?? 0) >= OWNER) continue;
     a.unsetFlag(FLAG_SCOPE, PILE_FLAG).catch((err) =>
       console.error("Air Bladder | could not strip a planted pile flag", err));
   }
