@@ -993,7 +993,7 @@
       "label": "Hit Protection formula for player characters"
     },
     "ShowGenerateHeader": {
-      "label": "Show a Roll Character button on the character sheet header"
+      "label": "Show the Roll Character, Roll NPC and Roll Monster buttons in sheet headers"
     },
     "ShowGenerationRolls": {
       "hint": "Post HP, STR, DEX, WIL and Gold as one chat message whenever a player or the Warden generates or regenerates a character. Dice So Nice animates them when installed; otherwise the core dice sound plays. Name, background and portrait re-rolls are never posted.",
@@ -1028,7 +1028,7 @@
       "label": "Show Item type icons (weapon, armor, fatigue) beside inventory"
     },
     "UsePanic": {
-      "label": "Use the 2e \"Panicked\" condition for all player characters"
+      "label": "Use the 2e \"Panicked\" condition on every sheet"
     },
     "UseWardenTitle": {
       "hint": "Relabel the Gamemaster role as \"Warden\" wherever Foundry names it, and rename the default Gamemaster account to match. Turning this off restores the account's original name. Takes effect after a reload.",
