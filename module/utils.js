@@ -1280,6 +1280,23 @@ export const labelIconControl = (el, text) => {
 };
 
 /**
+ * Name core's editor pencil with core's own "Edit" (`CONTROLS.CommonEdit`;
+ * user ruling 2026-11-01). `<prose-mirror toggled>` builds its toggle as a
+ * bare `fa-edit` glyph with neither a tooltip nor an accessible name (client
+ * applications/elements/prosemirror-editor.mjs:151-154), so every editor in
+ * the system was an unnamed icon control — the one the review #34 icon scan
+ * had to skip. Core rebuilds the button whenever the element connects, which
+ * is every render, so each sheet's `_onRender` calls this; across an open and
+ * a save core puts the SAME node back (`replaceChildren`, :328), so the name
+ * holds until the next render names it again.
+ * @param {HTMLElement} root  a rendered sheet
+ */
+export const nameEditorToggles = (root) => {
+  const text = game.i18n.localize("CONTROLS.CommonEdit");
+  for (const btn of root?.querySelectorAll("prose-mirror > button.toggle") ?? []) labelIconControl(btn, text);
+};
+
+/**
  * Ask the Warden who takes an UNTARGETED damage roll.
  *
  * A roll made with nothing targeted used to carry no Apply control at all, so the

@@ -2,7 +2,7 @@ import { resolveGearItem } from "../gear.js";
 import { previewBackground, duplicateBackgroundToWorld } from "../character-generator.js";
 import { t, itemNamespaces } from "../i18n-content.js";
 import { TRANSPORT_KINDS } from "../icons.js";
-import { bindEditorClickAwaySave, cleanDescription, formatCount, sourceLabel } from "../utils.js";
+import { bindEditorClickAwaySave, cleanDescription, formatCount, sourceLabel, nameEditorToggles } from "../utils.js";
 import { pickArt } from "../art-picker.js";
 import { glogEnabled } from "../glog.js";
 
@@ -617,6 +617,8 @@ export class CairnItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     await super._onRender(context, options);
     // The row layout these rows were drawn from — see `_serialRowWrite`.
     this._renderedRowEpoch = this._rowEpoch ?? 0;
+    // Before the editable bail, so a pencil is never left unnamed.
+    nameEditorToggles(this.element);   // core's pencil carries no name of its own
     if (!this.isEditable) return;
     const el = this.element;
 
