@@ -121,16 +121,21 @@ try {
     out.startBackground = pc.system.background;
     out.startItems = pc.items.size;
 
-    // ESTABLISH the precondition rather than hope for it. The refusal this leg
-    // tests fires only when the character HOLDS a granted container to delete
-    // (`canRegenerateContainers`); it no longer keys on any setting — a display
-    // toggle deciding a permission was the original defect, and that toggle is
-    // gone entirely. Whether the setup swap granted one is a d6 roll on
+    // ESTABLISH the precondition rather than hope for it. The orphaning this
+    // leg tests needs the character to HOLD a granted container (once, the
+    // refusal it replaced did too — `canRegenerateContainers`, gone with
+    // finding 183; before that, a display toggle deciding a permission was the
+    // original defect, and that toggle is gone entirely). Whether the setup swap granted one is a d6 roll on
     // whichever background the pack index happened to hand back first, so this
     // leg had quietly become "nothing granted, nothing refused, background
     // changes" and was failing on CONTENT rather than on the code under test.
     // (Confirmed by baselining it against HEAD: it failed the same way there.)
-    // So mint one, flagged the way generation flags them.
+    // So mint one, the way generation leaves one: flagged "background", and
+    // wearing the CONNECTED shape — the world may look, the PC's player owns
+    // it. It used to be flagged "probe" with no player owner, a shape no grant
+    // has had since connection started driving ownership; a player's re-roll
+    // orphans only what she may write (review #34 finding 183), so that plant
+    // could never have been hers to orphan.
     const countGranted = () => game.actors.filter(
       (a) => (a.system?.connectedTo === pc.uuid || a.system?.keeper === pc.uuid)
         && a.getFlag("air-bladder", "grantSource")).length;
@@ -139,8 +144,9 @@ try {
       await CONFIG.Actor.documentClass.create({
         name: "ZZ BGOrder Granted Mule",
         type: "npc",
-        system: { role: "mount", containerClass: "mule", connectedTo: pc.uuid, generationEnabled: false },
-        flags: { "air-bladder": { grantSource: "probe" } },
+        ownership: { default: CONST.DOCUMENT_OWNERSHIP_LEVELS.OBSERVER, [alice.id]: CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER },
+        system: { role: "companion", containerClass: "mule", connectedTo: pc.uuid, generationEnabled: false },
+        flags: { "air-bladder": { grantSource: "background" } },
       });
     }
     out.grantedContainers = countGranted();
