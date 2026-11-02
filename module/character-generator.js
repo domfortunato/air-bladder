@@ -13,7 +13,7 @@ import { connectionHeadroom, maxConnections, connectedOwnershipShape, brokenOwne
 import { SETTINGS_NS } from "./settings.js";
 import { glogEnabled, GLOG_SPELL_PACKS } from "./glog.js";
 import { PERSON_ROLES } from "./data-models.js";
-import { t } from "./i18n-content.js";
+import { t, ORPHAN_PREFIX } from "./i18n-content.js";
 
 // Foundry validates a document flag's scope against real package ids, so flags
 // use the system id "air-bladder" (NOT the internal "cairn" JS/settings namespace,
@@ -1734,10 +1734,17 @@ export const requestPcGeneration = async () => {
  * (finding 183's ruling). Each is unlinked, stamped `formerlyBelongedTo` with
  * the character's name, loses its `grantSource` flag so no later re-roll
  * mistakes it for a grant, and takes the BROKEN ownership; everything stowed
- * on it stays on it. The Warden deletes it, or the party adopts it. NOTHING ON
- * SCREEN SAYS SO TODAY: the sheet's "Formerly connected to" line is the
- * connection line, and that is parked with the Connections UI
- * (`connections-ui-enabled`, off), so an orphan reads like any other actor.
+ * on it stays on it. The Warden deletes it, or the party adopts it.
+ *
+ * And its name gains ORPHAN_PREFIX, once (ruled 2026-11-02): that is the only
+ * mark an orphan carries on screen. The sheet's "Formerly connected to" line
+ * is the connection line, parked with the Connections UI
+ * (`connections-ui-enabled`, off), so without the prefix an orphan read like
+ * any other actor and nothing pointed the Warden at the ones to delete. Sorted
+ * by name, they now sit together. Re-roll orphans only: a dead character's
+ * mule (the keeper's delete, actor.js) and a hand unlink are someone's
+ * deliberate act, and keep their names. Tokens still wearing the old name
+ * follow through the actor's rename rule (`#renameMatchingTokens`).
  *
  * ONE batched update (review #13 #20's rule for the delete this replaces: a
  * per-actor loop that dies midway leaves part of the set done with nothing
@@ -1747,7 +1754,9 @@ export const requestPcGeneration = async () => {
  * theirs sets the sync flag and asks the active GM's client — the relay
  * connections.js already runs for a player's break — whose break branch takes
  * Owner from the requester alone: a co-owner of the character keeps the old
- * mule, which a Warden's own re-roll would have taken.
+ * mule, which a Warden's own re-roll would have taken. The player's token
+ * renames are waited on first (`CairnActor.tokenRenamesSettled`): once that
+ * Owner is gone, a token write still on its way is refused.
  *
  * A player touches only what they may update. A re-roll deletes items BEFORE
  * it reaches the containers, so a write the server refuses would leave the
@@ -1767,6 +1776,7 @@ const orphanContainers = async (actor, targets) => {
   await CairnActor.updateDocuments(mine.map((c) => {
     const changes = {
       _id: c.id,
+      name: c.name.startsWith(ORPHAN_PREFIX) ? c.name : ORPHAN_PREFIX + c.name,
       "system.connectedTo": "",
       "system.formerlyBelongedTo": actor.name,
       [`flags.${FLAG_SCOPE}.grantSource`]: new ops.ForcedDeletion(),
@@ -1783,6 +1793,7 @@ const orphanContainers = async (actor, targets) => {
     return changes;
   }));
   if (!game.user.isGM) {
+    await CairnActor.tokenRenamesSettled(mine.map((c) => c.id));
     for (const c of mine) {
       if (c.npcRole !== "monster") {
         game.socket.emit(`system.${game.system.id}`, { action: "ownershipSync", childUuid: c.uuid });

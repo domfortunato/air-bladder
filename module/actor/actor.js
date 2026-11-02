@@ -1993,8 +1993,10 @@ export class CairnActor extends Actor {
     this._synchronizeOwnerSheets(stash.formerOwners ?? []);
     this.#announceStatusChange(stash, options, userId);
     this.#postChangeLog(stash, options, userId);
-    this.#renameMatchingTokens(stash, userId)
+    const rename = this.#renameMatchingTokens(stash, userId)
       .catch((e) => console.error("Air Bladder | token rename after actor rename failed", e));
+    CairnActor.#tokenRenames.set(this.id, rename);
+    rename.then(() => { if (CairnActor.#tokenRenames.get(this.id) === rename) CairnActor.#tokenRenames.delete(this.id); });
     this.#restampMatchingTokenArt(stash, userId)
       .catch((e) => console.error("Air Bladder | token art change after prototype art change failed", e));
   }
@@ -2016,6 +2018,26 @@ export class CairnActor extends Actor {
    * own. The three re-roll paths that used to rename the ACTIVE scene's
    * tokens by hand ride this instead.
    */
+  /** This client's token renames still running, by actor id (`_onUpdate`). */
+  static #tokenRenames = new Map();
+
+  /**
+   * Resolves once every token rename this client started for these actors has
+   * finished. `_onUpdate` starts the rename without waiting for it, and so does
+   * the update's caller — which is right until the caller's next step takes the
+   * writer's permission away. A player's re-roll does exactly that: it renames
+   * an orphan, then asks the Warden's client to take their Owner on it
+   * (`orphanContainers`), and the rename writes one scene at a time, so a later
+   * scene's token write landing after the ownership write is refused. Waited on
+   * between the two, it keeps them in order. An actor with nothing running
+   * resolves at once.
+   * @param {string[]} ids
+   * @returns {Promise<void>}
+   */
+  static async tokenRenamesSettled(ids) {
+    await Promise.all(ids.map((id) => CairnActor.#tokenRenames.get(id)));
+  }
+
   async #renameMatchingTokens(stash, userId) {
     const former = stash.formerName;
     if (former === undefined || former === this.name) return;

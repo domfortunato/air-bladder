@@ -114,6 +114,15 @@ export const refreshLocalizedApps = () => {
 export const contentLocalized = () => OVERLAY !== null;
 
 /**
+ * What a re-roll puts in front of the name of a container it orphans (review
+ * #34 finding 183, ruled 2026-11-02): sorted by name, the orphans gather in one
+ * place for the Warden to delete. A fixed marker rather than a word, the same
+ * in every language and stored like any name, so the overlay translates the
+ * name AFTER it (`lookup`) — "o_Mule" reads "o_Mula".
+ */
+export const ORPHAN_PREFIX = "o_";
+
+/**
  * Translate one source string within a namespace. Returns the English source on
  * ANY miss (no overlay, unknown namespace, unknown string, or null input). The
  * load-bearing invariant: a miss is the English source verbatim — never blank,
@@ -124,8 +133,22 @@ export const contentLocalized = () => OVERLAY !== null;
  */
 export const t = (ns, en) => {
   if (OVERLAY === null || en == null) return en;
-  const hit = Array.isArray(ns) ? firstHit(ns, en) : OVERLAY[ns]?.[normalizeKey(en)];
+  const hit = lookup(ns, en);
   return hit == null ? en : hit;
+};
+
+/**
+ * The overlay's answer for one string, or undefined: t() and translationOf()
+ * differ only in what a miss returns. An actor name wearing ORPHAN_PREFIX that
+ * misses whole is asked again without it, and the prefix put back; only
+ * `monster.name`, the one namespace a name the prefix is written onto is read
+ * under (a character's name never reaches here — `actorDisplayName`).
+ */
+const lookup = (ns, en) => {
+  const hit = Array.isArray(ns) ? firstHit(ns, en) : OVERLAY[ns]?.[normalizeKey(en)];
+  if (hit != null || ns !== "monster.name" || !String(en).startsWith(ORPHAN_PREFIX)) return hit;
+  const rest = OVERLAY[ns]?.[normalizeKey(String(en).slice(ORPHAN_PREFIX.length))];
+  return rest == null ? undefined : ORPHAN_PREFIX + rest;
 };
 
 const firstHit = (list, en) => {
@@ -145,7 +168,7 @@ const firstHit = (list, en) => {
  */
 export const translationOf = (ns, en) => {
   if (OVERLAY === null || en == null) return undefined;
-  const hit = Array.isArray(ns) ? firstHit(ns, en) : OVERLAY[ns]?.[normalizeKey(en)];
+  const hit = lookup(ns, en);
   return hit == null ? undefined : hit;
 };
 
