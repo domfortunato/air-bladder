@@ -386,8 +386,10 @@ try {
       console.warn = realWarn;
     }
     for (const c of containersOf(bbActor)) made.push(c);
-    // The grant tags that count as the background's gear.
-    const BG_TAGS = ["background"];
+    // The grant tags that count as the background's gear: BOTH, as the
+    // generator's own sweeps ask (BG_GRANT_SOURCES) — light and rations come
+    // chip-less as "background-mundane" (leg 7b).
+    const BG_TAGS = ["background", "background-mundane"];
     const bbSwap = {
       background: bbActor.system.background,
       keptName: bbActor.name === bbBefore.name,
