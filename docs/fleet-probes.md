@@ -96,14 +96,20 @@ something.
 `7e2a5b65` and `05e12621` (`20261102T225542Z`, `20261102T230147Z`); the first 14.368 run, with
 `--refresh` at `be3cb71c`, went 103/104 (`20261103T011106Z`).
 
-- **One open intermittent, `bg-picker`:** "an instruction row was dropped: 1 items for 2 references". A
-  Barebones Merchant swapped in got its Stylus but nothing from its "Random Additional Gear" row, and
-  nothing was warned. Seen three times, on both builds (`20261101T121856Z` on 14.369, gnoll; on 14.368
-  `20261103T011106Z`, CT 130, and `20261103T020137Z`, troll), green on every re-run. The table is not
-  the cause (the shipped copy, 100 rows, none drawn, rolled healthy right after a red), nor a world
-  table, a pinned die or an earlier probe on the box. On its next red the probe records, in the FAIL
-  line's `diag`, what each roll resolved to on the generator's own path (`54a53cef`). Read that before
-  theorising.
+- **`bg-picker`'s intermittent was the probe's own count, and is fixed (`26f225b8`).** It read "an
+  instruction row was dropped: 1 items for 2 references" in 3 of 31 runs, on both builds
+  (`20261101T121856Z`, `20261103T011106Z`, `20261103T020137Z`). No grant was lost. Light and rations come
+  from a background chip-less, tagged `background-mundane`, and the probe counted `background` alone, so
+  a Merchant whose Additional Gear roll came up a Lantern, a Torch or rations (about one swap in twenty)
+  read as short. Twenty traced swaps caught it (`20261103T030339Z`); a leg now pins that roll onto the
+  Lantern, red with the old count (`68b29f14`, `20261103T030759Z`) and green with both tags. At the fix:
+  104/104 on 14.369 (`20261103T031149Z`).
+- **One unexplained red on 14.368 at the fix (`20261103T031739Z`, 103/104):** `combat-options` opened a
+  second browser to join as Alice, and the join page drew no user control in 30 s. It had passed in both
+  earlier 14.368 runs and passed three solo re-runs on the same box (`20261103T032406Z`, `…032741Z`,
+  `…033117Z`). There was no screenshot and the box's logs were rolled back, so the join helper now says
+  what the page showed when its control never comes (`tools/dev/lib.mjs`, `chooseJoinUser`). A repeat
+  will name its cause; until then it is a one-off with no evidence either way.
 
 ## Before that (2026-11-02)
 

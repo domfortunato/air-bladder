@@ -498,9 +498,22 @@ const BUSY_WAIT_MS = 20000;
 async function chooseJoinUser(page, name, { secondSession = false } = {}) {
   const deadline = Date.now() + BUSY_WAIT_MS;
   for (;;) {
-    await page.waitForSelector(
-      `${JOIN_SELECT} option[value]:not([value=""]), #join-game-form input[name="username"]`,
-      { state: "attached", timeout: 30000 });
+    // A join page that never drew its form went unexplained once
+    // (dev:combat-options' Alice, fleet 20261103T031739Z on 14.368, green on
+    // three solo re-runs): say what the page WAS showing, so a repeat names
+    // its cause instead of a bare timeout.
+    try {
+      await page.waitForSelector(
+        `${JOIN_SELECT} option[value]:not([value=""]), #join-game-form input[name="username"]`,
+        { state: "attached", timeout: 30000 });
+    } catch (e) {
+      const seen = await page.evaluate(() => ({
+        title: document.title,
+        body: (document.body?.innerText ?? "").replace(/\s+/g, " ").trim().slice(0, 300),
+        forms: [...document.querySelectorAll("form")].map((f) => f.id || f.className || "form").slice(0, 5),
+      })).catch((err) => ({ unreadable: String(err).slice(0, 120) }));
+      throw new Error(`join: no user control on ${page.url()} after 30 s: ${JSON.stringify(seen)} (${e.message.split("\n")[0]})`);
+    }
     const r = await page.evaluate(({ name, select, secondSession }) => {
       const raw = globalThis.game?.users;
       const users = raw?.contents ?? (Array.isArray(raw) ? raw : []);
