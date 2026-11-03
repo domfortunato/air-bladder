@@ -458,6 +458,73 @@ try {
       bbSwap.diag = diag;
     }
 
+    // 7b. The Merchant swap, again and again. Its Additional Gear row came back
+    //     empty in 3 of 18 runs from review #34 finding 207 on (67e1fdd7, the
+    //     gear fetch batched per pack) and in none of the 13 before it, so one
+    //     swap a run is too few to see it. Each swap must tag one item per
+    //     reference. While they run, the page records what the generator's own
+    //     path did — every roll of that table, what each row's uuid resolved to,
+    //     every compendium fetch that came back empty, every warning — so a
+    //     failed swap names its cause. In-page shadows only, put back in the
+    //     finally; nothing is written but the swaps themselves.
+    const REPEAT = 20;
+    const bbRepeat = { swaps: 0, failures: [] };
+    {
+      const trace = [];
+      const warnsNow = [];
+      const RT = CONFIG.RollTable.documentClass.prototype;
+      const CC = foundry.documents.collections.CompendiumCollection.prototype;
+      const hadOwnRoll = Object.prototype.hasOwnProperty.call(RT, "roll");
+      const realRoll = RT.roll;
+      const realGetDocument = CC.getDocument;
+      const realFromUuid = globalThis.fromUuid;
+      const realWarn2 = console.warn;
+      RT.roll = async function (...args) {
+        const out = await realRoll.apply(this, args);
+        if (/Additional Gear/.test(this.name)) {
+          const x = out?.results?.[0];
+          trace.push(`roll ${out?.roll?.total} ${x ? `${x.type} "${x.name || x.description || ""}" ${x.documentUuid ?? ""}` : "(no result)"}`.slice(0, 120));
+        }
+        return out;
+      };
+      CC.getDocument = async function (id, ...rest) {
+        const d = await realGetDocument.call(this, id, ...rest);
+        if (!d) trace.push(`getDocument ${this.collection} ${id} -> ${d}`);
+        return d;
+      };
+      globalThis.fromUuid = async (uuid, ...rest) => {
+        try {
+          const d = await realFromUuid(uuid, ...rest);
+          if (!d) trace.push(`fromUuid ${uuid} -> ${d}`);
+          else if (d.documentName === "Item") trace.push(`fromUuid -> Item/${d.type} ${d.pack ?? "WORLD"} "${d.name}"`);
+          return d;
+        } catch (e) {
+          trace.push(`fromUuid ${uuid} THREW ${String(e).slice(0, 60)}`);
+          throw e;
+        }
+      };
+      console.warn = (...a) => { warnsNow.push(a.map(String).join(" ").slice(0, 160)); realWarn2.apply(console, a); };
+      try {
+        for (let i = 0; i < REPEAT && bbRepeat.failures.length < 2; i++) {
+          trace.length = 0;
+          warnsNow.length = 0;
+          await gen.changeBackground(bbActor, merchant);
+          for (const c of containersOf(bbActor)) made.push(c);
+          bbRepeat.swaps++;
+          const tagged = bbActor.items.filter((it) => it.getFlag("air-bladder", "grantSource") === "background").map((it) => it.name);
+          if (tagged.length !== bbSwap.refCount) {
+            bbRepeat.failures.push({ swap: i + 1, tagged, warns: [...warnsNow], rolls: trace.filter((l) => l.startsWith("roll")).length,
+              trace: trace.slice(0, 120) });
+          }
+        }
+      } finally {
+        if (hadOwnRoll) RT.roll = realRoll; else delete RT.roll;
+        CC.getDocument = realGetDocument;
+        globalThis.fromUuid = realFromUuid;
+        console.warn = realWarn2;
+      }
+    }
+
     // Barebones renders the single-column variant.
     const pick2 = gen.promptBackground("barebones", bbActor.system.backgroundUuid);
     await waitFor(() => document.querySelector(".bg-picker"));
@@ -537,7 +604,7 @@ try {
     await sheet.close();
 
     for (const a of made) { try { await a.delete(); } catch { /* already gone */ } }
-    return { grouping, tagline, dialogInfo, disable, swap, containers, randomRepeated: repeated, bbSwap, bbDialog, bondRace };
+    return { grouping, tagline, dialogInfo, disable, swap, containers, randomRepeated: repeated, bbSwap, bbRepeat, bbDialog, bondRace };
   });
 
   if (r.error) {
@@ -634,6 +701,15 @@ try {
       ? ok(`its SRD "Random Additional Gear" row resolved to a real item (${r.bbSwap.taggedCount}/${r.bbSwap.refCount} granted)`)
       : fail(`an instruction row was dropped: ${r.bbSwap.taggedCount} items for ${r.bbSwap.refCount} references `
         + JSON.stringify({ refs: r.bbSwap.refs, tagged: r.bbSwap.taggedNames, warns: r.bbSwap.swapWarns, diag: r.bbSwap.diag }));
+    if (r.bbRepeat.failures.length === 0) {
+      ok(`and on every one of ${r.bbRepeat.swaps} more Merchant swaps`);
+    } else {
+      fail(`${r.bbRepeat.failures.length} of ${r.bbRepeat.swaps} more Merchant swaps dropped the Additional Gear row`);
+      for (const f of r.bbRepeat.failures) {
+        console.log(`      swap ${f.swap}: tagged ${JSON.stringify(f.tagged)}, ${f.rolls} roll(s), warns ${JSON.stringify(f.warns)}`);
+        for (const line of f.trace) console.log(`        ${line}`);
+      }
+    }
 
     const B = r.bbDialog;
     B.noEyes ? ok("Barebones rows carry no eye toggle (all-or-nothing by ruling)") : fail("a Barebones row has an eye toggle");
