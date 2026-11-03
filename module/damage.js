@@ -1,6 +1,6 @@
 import { findDeclaredTable, findCompendiumItem, resultText } from './compendium.js'
 import { SETTINGS_NS } from './settings.js'
-import { evaluateFormula, askDamageTargets, concealmentWhisper, d20CardBody, d20CardFlavor, combatOption } from './utils.js'
+import { evaluateFormula, askDamageTargets, concealmentWhisper, d20CardBody, d20CardFlavor, combatOption, cairnSavePasses, windowIdOf } from './utils.js'
 import { postStatusCard } from './actor/actor.js'
 
 // The system's flag namespace, imported rather than re-declared: a second
@@ -252,13 +252,23 @@ export class Damage {
         }
 
         const armor = token.actor.system.armor;
-        // HP comes from SOURCE, not the derived value. _prepareCharacterData zeroes
-        // system.hp.value whenever the actor is encumbered or panicked, and this
-        // result is written straight back with update() — so reading the derived 0
-        // and persisting it destroyed the stored Hit Protection, even when armor
-        // absorbed the hit entirely (dmg 0 <= hp 0 still writes 0). Armor and STR
-        // are safe to read derived; only HP is overwritten during data prep.
-        const hp = token.actor.toObject().system.hp.value;
+        // THE HIT IS JUDGED AGAINST THE HP EVERYONE SEES (review #34 finding 46,
+        // user ruling 2026-10-31). _prepareCharacterData zeroes system.hp.value
+        // whenever the actor is encumbered (for whoever `livesByPlayerRules`) or
+        // panicked, and a hit on 0 HP goes to STR — so that is where it goes. From
+        // review #1 until this ruling the hit was judged against the STORED HP
+        // underneath, and a character showing 0 took a hit as hidden HP loss with
+        // no STR damage and no STR save.
+        //
+        // Review #1's own bug stays fixed, more strongly: reading the derived 0
+        // and writing it back destroyed the stored Hit Protection, even when armor
+        // absorbed the whole hit. While the rule zeroes HP, HP is NOT WRITTEN at
+        // all, so the stored value comes back intact when the load or the panic
+        // lifts. Armor and STR are safe to read derived; only HP is overwritten
+        // during data prep.
+        const storedHp = token.actor.toObject().system.hp.value;
+        const hp = token.actor.system.hp.value;
+        const zeroedByRule = hp === 0 && storedHp !== 0;
         const str = token.actor.system.abilities.STR.value;
 
         let { dmg, newHp, newStr } = this._calculateHpAndStr(damage, armor, hp, str);
@@ -270,7 +280,9 @@ export class Damage {
         // reading "Dead" above the "Damage: 5" that caused it. _showDetails posts
         // it instead, in order. See postStatusCard.
         await token.actor.update(
-            { 'system.hp.value': newHp, 'system.abilities.STR.value': newStr },
+            zeroedByRule
+                ? { 'system.abilities.STR.value': newStr }
+                : { 'system.hp.value': newHp, 'system.abilities.STR.value': newStr },
             { abNoStatusCard: true });
 
         return { token, pool: "hp", dmg, damage, armor, hp, str, newHp, newStr };
@@ -356,22 +368,38 @@ export class Damage {
             // -- two HP/STR passes, two Scar draws. The finally releases it
             // however this exits, so a cancelled dialog or a throw cannot wedge
             // the card out of ever applying. Keyed on the card; a null-message
-            // caller takes no lock.
-            if (message && damageApplyInFlight.has(message.id)) {
-                ui.notifications.warn(game.i18n.localize("CAIRN.Notify.DamageAlreadyApplied"));
-                return;
-            }
+            // caller takes no lock. SILENT (review #34 finding 184): nothing has
+            // landed yet — the picker may sit open, or be cancelled — so "This
+            // card's damage has already been applied" was untrue; the encounter
+            // button's twin lock returns silently too.
+            if (message && damageApplyInFlight.has(message.id)) return;
             if (message) damageApplyInFlight.add(message.id);
             try {
                 // An UNTARGETED roll: ask who takes it. AFTER the once-only check
                 // above and not before -- a card that has already been spent must not
                 // open a picker, or the Warden chooses targets and is then refused.
                 if (!targetsList.length) {
-                    targetsList = await askDamageTargets(scene);
+                    targetsList = await askDamageTargets(scene, { windowId: windowIdOf(event?.currentTarget ?? event?.target) });
                     if (!targetsList.length) return; // dismissed, cancelled, or nothing ticked
                 }
 
-                const dmg = parseInt(html.querySelector(".dice-total").textContent);
+                // THE ROLL THE CARD SHOWS, read off the message, never its HTML
+                // (review #34 findings 85, 180). The flavor AND the content are
+                // the card author's: a hidden `.dice-total` planted in the flavor
+                // was what the Warden's Apply read, whatever the card showed, and
+                // moving the read into `.message-content` did not close it —
+                // content an author writes is kept verbatim (core renders the
+                // rolls only into EMPTY content), and the flavor fallback still
+                // reached a card whose content had no total. `message.rolls[0]` is
+                // what core prints as the visible total. The DOM read stays only
+                // for a caller that hands no message.
+                const dmg = message
+                    ? Number(message.rolls?.[0]?.total)
+                    : parseInt((html.querySelector(".message-content .dice-total")
+                        ?? html.querySelector(".dice-total"))?.textContent);
+                // A card with no roll has no damage to apply; NaN must not reach
+                // the HP write.
+                if (!Number.isFinite(dmg)) return;
                 // Where it came from, read off the card that was clicked. Both halves
                 // are already here and neither has to be captured at roll time: the
                 // attacker is the message's own speaker, and the weapon is the datum
@@ -385,6 +413,12 @@ export class Damage {
                 // the sentence is built per viewer at render — see DAMAGE_SOURCE_FLAG.
                 const label = html.querySelector(".dmg-label");
                 const source = {
+                    // THE ROLL CARD ITSELF (review #34 finding 125), so each
+                    // viewer's rebuild can ask whether THEY could read the card
+                    // that named the attacker — a private or blind roll shows
+                    // players "privately rolled some dice", and the public detail
+                    // card must not then tell them who it was. See nameDamageSource.
+                    sourceMessage: message?.id ?? null,
                     token: message?.speaker?.token ?? null,
                     actor: message?.speaker?.actor ?? null,
                     alias: message?.speaker?.alias ?? "",
@@ -415,8 +449,15 @@ export class Damage {
                 // in the dialog that made it: the Warden may spend this card minutes
                 // later, or on a second creature, and a poison must still be poison.
                 // `||` and not `??` — an empty attribute is not a pool.
+                //
+                // ONLY ON A WARDEN'S CARD (review #34 finding 85). The pool is
+                // displayed nowhere, and the card's author owns its flavor, so a
+                // player could add `data-pool="WIL"` to an ordinary dagger card and
+                // the Warden's routine Apply skipped armour and HP. Only
+                // `openWardenDamage` mints a pool, and it refuses non-GMs.
+                const pool = message?.author?.isGM ? (label?.dataset.pool || "hp") : "hp";
                 const applied = await this.applyToTargets(
-                    targetsList, dmg, scene, source, label?.dataset.pool || "hp");
+                    targetsList, dmg, scene, source, pool);
                 // Only a GM reaches this line (the guard at the top), so the write
                 // needs no socket relay. Token ids, not names: the summary is
                 // rendered per VIEWER so it localizes and so a concealed token is
@@ -484,7 +525,7 @@ export class Damage {
             // problem the missed-target warning exists for. It is a statement of
             // state rather than an announcement, which is why it is posted here
             // and not by the update hook.
-            await postStatusCard(token?.actor, "dead");
+            await postStatusCard(token?.actor, "dead", token);
             return;
         }
 
@@ -579,7 +620,7 @@ export class Damage {
         // AFTER the damage card, and that ordering is the whole reason this is
         // posted here rather than from CairnActor's update hook -- see
         // postStatusCard's docblock.
-        if (died) await postStatusCard(token?.actor, "dead");
+        if (died) await postStatusCard(token?.actor, "dead", token);
     }
 
     /**
@@ -634,7 +675,7 @@ export class Damage {
         // abNoStatusCard on the write: DEX 0 is paralyzed, WIL 0 is delirious,
         // STR 0 is death, and a bar posted from the update hook would land above
         // the card that explains it.
-        if (zeroed) await postStatusCard(token?.actor, POOL_ZERO_STATUS[pool]);
+        if (zeroed) await postStatusCard(token?.actor, POOL_ZERO_STATUS[pool], token);
     }
 
     /**
@@ -715,7 +756,17 @@ export class Damage {
         // Costs the dice sound (`sound: roll ? CONFIG.sounds.dice : null`, :64),
         // which is right -- nothing is rolled visibly here and the damage card that
         // triggered this already made the noise.
-        await table.toMessage(drawn.results, { messageData });
+        //
+        // THE MODE IS STATED (review #34 finding 84). `RollTable#toMessage`
+        // applies the poster's chat dropdown when none is given
+        // (roll-table.mjs `messageOptions.messageMode ??=`), and its default,
+        // Public, EMPTIES the whisper (`ChatMessage.applyMode`) — so a hidden
+        // creature's scar went out to the table under its name after its damage
+        // card had been withheld. "gm" keeps a whisper that is already set;
+        // "public" is what the visible creature's damage card beside it is.
+        await table.toMessage(drawn.results, {
+            messageData, messageOptions: { messageMode: whisper ? "gm" : "public" },
+        });
 
         // Record the drawn scar on the sheet as well, when the Warden turned
         // the switch on ("auto-record-scars", default off — the one automated
@@ -768,7 +819,8 @@ export class Damage {
     static async _rollStrSave(token, html) {
         const roll = await evaluateFormula("d20cs<=@STR", token.actor.getRollData());
         const rolled = roll.terms[0].results[0].result;
-        const failed = roll.total === 0;
+        // A 1 passes and a 20 fails (cairnSavePasses).
+        const failed = !cairnSavePasses(rolled, roll.total !== 0);
         // A failed Critical Damage save means the character is taking Critical
         // Damage. STR was already reduced when the damage was applied, so this
         // only offers to flag the status (set by the button; not automatic, per
@@ -786,12 +838,18 @@ export class Damage {
             fatigue: failed && token.actor?.type === "character"
                 && combatOption("fatigue-for-critical-damage"),
         };
-        roll.toMessage({
+        // A concealed creature's save is concealed like its damage card, and for
+        // the scar card's reason the mode is then STATED: the poster's dropdown
+        // on Public would empty the whisper. A visible creature's save keeps
+        // the dropdown, as it always has.
+        const whisper = concealmentWhisper(token);
+        await roll.toMessage({
             speaker: ChatMessage.getSpeaker({ token: token }),
             flavor: d20CardFlavor(card.kind, card.ability),
             content: d20CardBody(card),
             flags: { [FLAG_SCOPE]: { d20Card: card } },
-        });
-        html.querySelector(".roll-str-save").setAttribute('disabled', 'disabled')
+            ...(whisper ? { whisper } : {}),
+        }, whisper ? { messageMode: "gm" } : {});
+        html.querySelector(".roll-str-save")?.setAttribute('disabled', 'disabled')
     }
 }

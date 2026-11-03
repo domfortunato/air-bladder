@@ -25,6 +25,35 @@ export const evaluateFormula = async (formula, data) => {
   return roll.evaluate();
 };
 
+/**
+ * Did a Cairn save pass? "Roll a d20 equal to or under the attribute. A 1 is
+ * always a success, and a 20 is always a failure" (the Saves rule, Core Rules
+ * for Players in journals-2e). `passedByTarget` is what the roll says against
+ * the attribute — a `d20cs<=X` total of 1, or `total <= X` — and the natural
+ * die overrides it at both ends.
+ *
+ * EVEN AT AN ATTRIBUTE OF 0 (review #34 finding 239, ruled 2026-11-01: by the
+ * book). 63562e02 let a 1 pass only against 1 or more, to keep a DEX-0
+ * combatant out of the first bucket, and so changed every save to do it.
+ * Paralysis is decided where the book decides it — "If their DEX is reduced
+ * to 0, they are paralyzed", "Complete DEX and WIL loss renders the character
+ * unable to act" — in initiative alone (combat.js), not by bending this rule.
+ * There is no attribute parameter any more, so no caller can switch the rule
+ * off by leaving one out.
+ *
+ * ONE copy for every save (review #34 finding 50): the sheet's ability
+ * rolls, the damage flow's STR save and the initiative DEX save each read
+ * `roll ≤ ability` and nothing else, so an ability of 20 (four shipped
+ * monsters have STR 20) could never fail.
+ * @param {number} natural         the d20's face
+ * @param {boolean} passedByTarget whether the roll met the attribute
+ * @returns {boolean}
+ */
+export const cairnSavePasses = (natural, passedByTarget) =>
+  natural === 20 ? false
+    : natural === 1 ? true
+    : !!passedByTarget;
+
 /* -------------------------------------------- */
 /*  Dice-formula composer / parser              */
 /* -------------------------------------------- */
@@ -85,10 +114,19 @@ export const composeDiceFormula = (sizes, mode, { cairnNotation = true } = {}) =
  * unrepresentable: the builder's keep-highest terms are single dice, and
  * max(2d6, d8) is not something its controls can say.
  *
+ * THE DIALECT DECIDES WHAT `+` MEANS, here as in `evaluateFormula` (review #34
+ * finding 49): with the notation setting off, `d6 + d6` is a SUM, 2-12. This
+ * read every `+` as keep-highest, so the builder checked Keep highest over a
+ * roll that would sum, and the next die click rewrote the typed sum into a
+ * real keep-highest pool. Off, a `+` of bare dice reads as the sum it is,
+ * counts and all.
+ *
  * @param {String} formula
+ * @param {Object} [options]
+ * @param {Boolean} [options.cairnNotation=true]  the world's dialect
  * @return {{sizes: Number[], mode: "sum"|"kh"|null} | null}
  */
-export const parseDiceFormula = (formula) => {
+export const parseDiceFormula = (formula, { cairnNotation = true } = {}) => {
   const f = String(formula ?? "").trim();
   if (!f) return { sizes: [], mode: null };
   const single = /^(\d*)d(\d+)$/i.exec(f);
@@ -114,10 +152,12 @@ export const parseDiceFormula = (formula) => {
     const sizes = [];
     for (const t of terms) {
       const m = /^(\d*)d(\d+)$/i.exec(t);
-      if (!m || (m[1] && m[1] !== "1")) return null;
-      sizes.push(Number(m[2]));
+      if (!m) return null;
+      if (cairnNotation && m[1] && m[1] !== "1") return null;
+      const n = Math.max(1, Number(m[1] || 1));
+      for (let i = 0; i < n; i++) sizes.push(Number(m[2]));
     }
-    return { sizes, mode: "kh" };
+    return { sizes, mode: cairnNotation ? "kh" : "sum" };
   }
   return null;
 };
@@ -203,13 +243,18 @@ const KEEP_DIE = /^(\d*)d(\d+)k[hl]?\d*$/i;
  * Answers `{formula, faces, count}` or null:
  *   - a bare die (`d4`, `1d6`, `2d10`) or a keep form (`2d6k`, `2d8kh`,
  *     `3d6kh1`) is itself;
- *   - a same-size `+` pool (`d6 + d6`, `2d6 + d6`) is its KEEP form (`2d6k`,
- *     `3d6k`). Cairn's `+` means keep-highest (`evaluateFormula` above), and
+ *   - a same-size `+` pool of SINGLE dice (`d6 + d6`, `d6 + d6 + d6`) is its
+ *     KEEP form (`2d6k`, `3d6k`). Cairn's `+` means keep-highest (`evaluateFormula` above), and
  *     the keep form is the same roll written as ONE Die term, which is what
  *     both consumers need: `kx` explodes only the kept die, and the card can
  *     read `active` off one term where a PoolTerm's losing member may ALSO
  *     have rolled its maximum and nothing can tell kept from dropped without
  *     walking `PoolTerm#results`;
+ *   - a `+` term with a COUNT (`2d6 + d6`) is null: `evaluateFormula` reads
+ *     it as max(2d6, d6), the higher of a SUM and a die, and no single Die
+ *     term says that. It used to be added up into `3d6k` — the highest of
+ *     three single d6, 1-6 where the weapon rolls 2-12 — so switching on an
+ *     optional rule silently changed the weapon (review #34 finding 48);
  *   - mixed sizes (`d6 + d8`), arithmetic (`2d20 + 10`), anything already
  *     carrying a modifier we did not write (`1d6x`) and anything unrecognised
  *     are null — left alone by both halves, a stated limit rather than an
@@ -257,7 +302,8 @@ export const judgedDie = (formula) => {
   if (!game.settings.get(SETTINGS_NS, "use-cairn-dice-notation")) return null;
   const parsed = f.split("+").map((term) => BARE_DIE.exec(term.trim()));
   if (parsed.some((m) => !m)) return null;
-  // Each term may carry its own count: `2d6 + d6` is three d6 kept highest.
+  // Every term a SINGLE die — see the docblock for why a counted one is null.
+  if (parsed.some((m) => Number(m[1] || 1) !== 1)) return null;
   const faces = new Set(parsed.map((m) => m[2]));
   if (faces.size !== 1) return null;                   // mixed sizes — see above
   const count = parsed.reduce((n, m) => n + Math.max(1, Number(m[1] || 1)), 0);
@@ -586,7 +632,7 @@ export const buildDiceBuilder = () => {
   const clear = document.createElement("button");
   clear.setAttribute("type", "button");
   clear.className = "wd-clear";
-  clear.setAttribute("data-tooltip", game.i18n.localize("CAIRN.WardenDamage.Clear"));
+  labelIconControl(clear, game.i18n.localize("CAIRN.WardenDamage.Clear"));
   const clearIcon = document.createElement("i");
   clearIcon.className = "fa-solid fa-xmark";
   clear.append(clearIcon);
@@ -632,7 +678,7 @@ export const buildDiceBuilder = () => {
  *
  * The DIALECT is read from the setting ONCE here and passed as an argument —
  * `composeDiceFormula` itself reads nothing, which is what lets a probe drive
- * both dialects with zero world writes against a `requiresReload` setting.
+ * both dialects with zero world writes to the notation setting.
  */
 export const wireDiceBuilder = (root) => {
   const field = root.querySelector('input[name="formula"]');
@@ -644,7 +690,7 @@ export const wireDiceBuilder = (root) => {
 
   const mode = () => radios.find((r) => r.checked)?.value ?? "sum";
   const refresh = () => {
-    const parsed = parseDiceFormula(field.value);
+    const parsed = parseDiceFormula(field.value, { cairnNotation });
     const off = parsed === null;
     for (const el of [...dice, ...radios]) el.disabled = off;
     // The string decides the mode where it can (2d6 is a sum, d6 + d6 a keep-
@@ -654,7 +700,7 @@ export const wireDiceBuilder = (root) => {
 
   for (const btn of dice) {
     btn.addEventListener("click", () => {
-      const parsed = parseDiceFormula(field.value);
+      const parsed = parseDiceFormula(field.value, { cairnNotation });
       if (parsed === null) return; // disabled anyway; a race is not a crash
       parsed.sizes.push(Number(btn.dataset.die));
       field.value = composeDiceFormula(parsed.sizes, mode(), { cairnNotation });
@@ -663,7 +709,7 @@ export const wireDiceBuilder = (root) => {
   }
   for (const r of radios) {
     r.addEventListener("change", () => {
-      const parsed = parseDiceFormula(field.value);
+      const parsed = parseDiceFormula(field.value, { cairnNotation });
       if (parsed === null || !parsed.sizes.length) return;
       field.value = composeDiceFormula(parsed.sizes, mode(), { cairnNotation });
       refresh();
@@ -1057,13 +1103,16 @@ export const damageDiceIcons = (formula) => {
  * @return {Promise<"impaired"|"standard"|"enhanced"|null>} null = dismissed, and
  *   a dismissal must roll NOTHING — a ✕ is an instruction, not a default.
  */
-export const askDamageQuality = async (standardFormula, weaponName = "") => {
+export const askDamageQuality = async (standardFormula, weaponName = "", { windowId } = {}) => {
   const opt = (action, key, formula) => ({
     action,
     label: game.i18n.format(key, { formula }),
     icon: dieIcon(formula),
   });
   const chosen = await foundry.applications.api.DialogV2.wait({
+    // The launching sheet's own window when it is popped out (review #34
+    // finding 1; the reasoning is at `_confirmAction` in actor-sheet.js).
+    renderOptions: { window: { windowId } },
     // Scopes the stacking and default-cue rules. `classes` CONCATENATES with
     // ApplicationV2's own (application.mjs:477) rather than replacing them, so
     // `dialog.dialog` still matches — worth knowing before adding one, since a
@@ -1192,6 +1241,65 @@ export const concealmentWhisper = (token) => {
 };
 
 /**
+ * A label a REQUESTER's client composed in its own language and sent over a
+ * relay, for text the answering Warden's client writes into the requester's
+ * own document (review #34 finding 244): a plain string, whitespace folded,
+ * capped, or null for anything else — the caller then composes its own. The
+ * requester owns the result and could type any name into it anyway, so this
+ * trusts them with nothing new; the cap and the coercion are the wire's wall.
+ * @param {*} v
+ * @returns {string|null}
+ */
+export const relayedLabel = (v) => {
+  if (typeof v !== "string") return null;
+  const s = v.replace(/\s+/g, " ").trim().slice(0, 80);
+  return s || null;
+};
+
+/**
+ * The detached window an element sits in, for a dialog it opens (review #34
+ * finding 119): a card control in a popped-out chat log, or any control in a
+ * popped-out window, must open its dialog THERE, or it opens in a screen the
+ * user is not looking at. The form core's own `<file-picker>` uses
+ * (elements/file-picker.mjs `#onClickButton`). Undefined in the main window,
+ * which is where a dialog with no window goes.
+ * @param {Element} el
+ * @returns {string|undefined}
+ */
+export const windowIdOf = (el) => el?.ownerDocument?.defaultView?.id || undefined;
+
+/**
+ * Label an icon-only control: its tooltip and its accessible name, together.
+ * data-tooltip names nothing (core's TooltipManager sets aria-describedby only
+ * while the element is hovered, tooltip-manager.mjs:248), so the same text is
+ * its aria-label too, the rule since review #21 (review #34 findings 189, 200,
+ * 201). One call for both, so rewriting one cannot leave the other stale.
+ * @param {HTMLElement} el
+ * @param {string} text   already localized
+ */
+export const labelIconControl = (el, text) => {
+  el.dataset.tooltip = text;
+  el.setAttribute("aria-label", text);
+};
+
+/**
+ * Name core's editor pencil with core's own "Edit" (`CONTROLS.CommonEdit`;
+ * user ruling 2026-11-01). `<prose-mirror toggled>` builds its toggle as a
+ * bare `fa-edit` glyph with neither a tooltip nor an accessible name (client
+ * applications/elements/prosemirror-editor.mjs:151-154), so every editor in
+ * the system was an unnamed icon control — the one the review #34 icon scan
+ * had to skip. Core rebuilds the button whenever the element connects, which
+ * is every render, so each sheet's `_onRender` calls this; across an open and
+ * a save core puts the SAME node back (`replaceChildren`, :328), so the name
+ * holds until the next render names it again.
+ * @param {HTMLElement} root  a rendered sheet
+ */
+export const nameEditorToggles = (root) => {
+  const text = game.i18n.localize("CONTROLS.CommonEdit");
+  for (const btn of root?.querySelectorAll("prose-mirror > button.toggle") ?? []) labelIconControl(btn, text);
+};
+
+/**
  * Ask the Warden who takes an UNTARGETED damage roll.
  *
  * A roll made with nothing targeted used to carry no Apply control at all, so the
@@ -1227,11 +1335,13 @@ export const concealmentWhisper = (token) => {
  * viewer may not be told about.
  *
  * @param {Scene} [scene]  the scene the CARD was spoken in, never the viewer's
+ * @param {object} [options]
+ * @param {string} [options.windowId]  the window the card was clicked in (`windowIdOf`)
  * @return {Promise<String[]>}  token ids; EMPTY on dismissal, on Cancel, and on
  *   an empty tick list — all three mean "apply nothing", per the same rule
  *   `askDamageQuality` follows: a ✕ is an instruction, not a default.
  */
-export const askDamageTargets = async (scene) => {
+export const askDamageTargets = async (scene, { windowId } = {}) => {
   const listed = nameableTokens((scene?.tokens?.contents ?? []).map((tk) => tk.id), scene);
   if (!listed.length) {
     // A legacy card whose scene was deleted, or one whose creatures are all gone.
@@ -1296,6 +1406,7 @@ export const askDamageTargets = async (scene) => {
   const picked = await foundry.applications.api.DialogV2.wait({
     classes: ["cairn-damage-targets"],
     window: { title: game.i18n.localize("CAIRN.DamageTargets.Title") },
+    renderOptions: { window: { windowId } },   // the card's own window (review #34 finding 119)
     content,
     buttons: [
       {
@@ -1568,6 +1679,53 @@ export const cleanDescription = (text) => {
   const first = tpl.content.firstElementChild;
   if (first?.tagName === "P") first.replaceWith(...first.childNodes);
   return tpl.innerHTML;
+};
+
+/**
+ * A description as a viewer may see it: with every unrevealed ProseMirror
+ * Secret block (`<section class="secret">`) removed unless that viewer owns
+ * the document. Core's rule, exactly — its sheets enrich with
+ * `secrets: document.isOwner` (base-sheet.mjs) and enrichHTML's only removal
+ * step is this selector (text-editor.mjs) — for the surfaces that put a
+ * description on screen WITHOUT enrichHTML: the Marketplace rows, an inventory
+ * row's panel, the GLOG cast card's rebuild and the background picker (review
+ * #34 finding 126). cleanHTML keeps `section` and `class`, so cleaning alone
+ * printed a Warden's notes to the table. Concealment, not protection: the raw
+ * description is on every client that holds the document, as core's is.
+ * Parsed in an inert <template>, as cleanDescription is.
+ *
+ * @param {String} [html]
+ * @param {Boolean} owner  does the VIEWER own the document the text belongs to
+ * @return {String}
+ */
+export const concealSecrets = (html, owner) => {
+  if (owner || !html) return String(html ?? "");
+  const tpl = document.createElement("template");
+  tpl.innerHTML = String(html);
+  tpl.content.querySelectorAll("section.secret:not(.revealed)").forEach((s) => s.remove());
+  return tpl.innerHTML;
+};
+
+/**
+ * Whether a stored rich-text field holds anything a reader would see: text, or
+ * an image or other embedded element. Not the same question as "is it a
+ * non-empty string" — a ProseMirror editor its user emptied saves the one empty
+ * paragraph, `<p></p>` (prosemirror-editor.mjs `_getValue` serialises the doc),
+ * so a truthiness test keeps an empty box on screen and prints an empty heading
+ * on paper. ONE test for the character sheet's Description editor and the
+ * printed Description section (review #34 finding 55), so the two cannot
+ * disagree about the same field. Parsed in a <template>, inert, for the reason
+ * `cleanDescription` gives: no network for a yes/no question.
+ *
+ * @param {String} [html]
+ * @return {Boolean}
+ */
+export const holdsProse = (html) => {
+  if (!html) return false;
+  const tpl = document.createElement("template");
+  tpl.innerHTML = String(html);
+  if (tpl.content.querySelector("img, video, audio, iframe, table, hr")) return true;
+  return tpl.content.textContent.replace(/\u00a0/g, " ").trim().length > 0;
 };
 
 /* -------------------------------------------- */

@@ -172,8 +172,9 @@ under "Merging a pull request" — it applies to every pull request, not just tr
 
 The dev world loads this working tree through a directory junction, so `git checkout`
 swaps the system underneath a running Foundry. If the branches differ in `src/packs/`,
-`packs/` is left stale and must be rebuilt — and `npm run build:packs` fails with a
-LevelDB `EPERM` while a world is open.
+`packs/` is left stale and must be rebuilt — and `npm run build:packs` refuses while a
+world is open: its guard cannot read a locked pack, and an unreadable pack is treated
+as unknown.
 
 So when a switch crosses a content change: stop Foundry, check out, rebuild, restart.
 Most switches do not need it; content changes are rare but large when they happen.

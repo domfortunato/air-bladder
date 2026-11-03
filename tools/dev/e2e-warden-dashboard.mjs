@@ -27,9 +27,17 @@
  * Creates chat messages and one actor, and deletes exactly the ids it added.
  */
 import { chromium } from "playwright";
-import { VIEWPORT, joinAsGM, joinAs, watchErrors, dismissChrome } from "./lib.mjs";
+import { VIEWPORT, joinAsGM, joinAs, watchErrors, dismissChrome, watchdog, holdAsideWorldTables } from "./lib.mjs";
 
 const browser = await chromium.launch();
+
+// The fleet's hang guard (review #34 finding 25): without it a hang runs to
+
+// the runner's 65-minute cap, skips every restore, and the box is never
+
+// marked suspect. A bound on a hang, not a timing claim.
+
+watchdog(600000, "warden-dashboard probe", () => browser.close());
 const page = await browser.newContext({ viewport: VIEWPORT }).then((c) => c.newPage());
 const errors = watchErrors(page);
 let failed = false;
@@ -39,6 +47,13 @@ const note = (m) => console.log(`  note  ${m}`);
 
 try {
   await joinAsGM(page);
+  // The Warden's OWN world tables of the shipped names are held aside in-page
+  // (review #34 finding 149): the buttons resolve world-first and DRAW, and
+  // core marks a drawn row on a no-replacement world table, so every run
+  // crossed rows off the Warden's tables. Held aside, the draws reach the pack,
+  // where core never marks. Nothing is written.
+  await holdAsideWorldTables(page, await page.evaluate(() =>
+    [...new Set(game.tables.filter((t) => /^Warden: /.test(t.name)).map((t) => t.name))]));
   await dismissChrome(page);
 
   // Everything this probe creates is deleted at the end by ID DIFFERENCE, so
@@ -66,8 +81,9 @@ try {
     const settings = game.settings;
     window.__abRealGet = settings.get.bind(settings);
     window.__abPrevCalendar = [CONFIG.time.worldCalendarConfig, CONFIG.time.worldCalendarClass];
-    settings.get = (ns, key, ...rest) =>
-      (ns === "air-bladder" && key === "enable-vald-calendar" ? false : window.__abRealGet(ns, key, ...rest));
+    settings.get = (ns, key, ...rest) => rest[0]?.document
+      ? foundry.helpers.ClientSettings.prototype.get.call(game.settings, ns, key, ...rest)   // review #34 finding 29
+      : (ns === "air-bladder" && key === "enable-vald-calendar" ? false : window.__abRealGet(ns, key, ...rest));
     // `earthCalendarConfig` IS core's Simplified Gregorian and nothing here
     // ever touches it, so it is the one handle on core's own calendar that
     // survives a world which already installed Vald.
@@ -126,6 +142,27 @@ try {
   opened.notButtons === 0
     ? ok("every button is type=button, so none submits the form")
     : fail("every button is type=button", `${opened.notButtons} would submit`);
+
+  // EVERY ICON-ONLY CONTROL HAS A NAME (review #34 finding 102). data-tooltip
+  // names nothing: core's TooltipManager sets aria-describedby only while the
+  // element is hovered (tooltip-manager.mjs:248). The rule since review #21 is
+  // a localized aria-label beside the tooltip, and Today's Weather's eye was
+  // the one eye without. The whole window is scanned, every tab, so the next
+  // unnamed control is caught as well; the weather eye being among those
+  // scanned is the precondition.
+  const names = await page.evaluate(() => {
+    const el = document.querySelector("#cairn-warden-dashboard");
+    const iconOnly = [...(el?.querySelectorAll("button, a[data-action]") ?? [])].filter((b) => !b.textContent.trim());
+    return {
+      scanned: iconOnly.length,
+      weatherEye: iconOnly.some((b) => b.id === "cairn-warden-dashboard-show-weather"),
+      unnamed: iconOnly.filter((b) => { const a = b.getAttribute("aria-label") ?? ""; return !a || a.startsWith("CAIRN."); })
+        .map((b) => b.id || b.dataset.action || b.className),
+    };
+  });
+  names.weatherEye && names.unnamed.length === 0
+    ? ok("every icon-only control on the window carries a localized aria-label", `${names.scanned} scanned`)
+    : fail("an icon-only control with no accessible name", JSON.stringify(names));
 
   /* ---- 1a. the shape of a tab, after the readability pass -------------- */
 
@@ -607,8 +644,9 @@ try {
     const gt = await import("/systems/air-bladder/module/game-time.js");
     const settings = game.settings;
     const realGet = settings.get.bind(settings);
-    settings.get = (ns, key, ...rest) =>
-      (ns === "air-bladder" && key === "enable-vald-calendar" ? true : realGet(ns, key, ...rest));
+    settings.get = (ns, key, ...rest) => rest[0]?.document
+      ? foundry.helpers.ClientSettings.prototype.get.call(game.settings, ns, key, ...rest)   // review #34 finding 29
+      : (ns === "air-bladder" && key === "enable-vald-calendar" ? true : realGet(ns, key, ...rest));
     try {
       const app = foundry.applications.instances.get("cairn-warden-dashboard");
       await app.render();
@@ -855,6 +893,77 @@ try {
       ? ok("...and so does its flavor line")
       : fail("the single draw's flavor is the stored sentence", JSON.stringify(drawViewer));
   }
+
+  /* ---- 7b2. a card is a RECORD of what was drawn and shown (review #34
+   * findings 232, 241). Both cards were rebuilt per viewer from the LIVE
+   * table: a rename relabelled every past draw card's sender and flavor, and
+   * rows added after a reveal appeared on the old "copy in the chat log".
+   * A world table wearing a shipped name (world-first: the Travel tab's
+   * buttons resolve to it) is drawn and shown, then renamed and given a third
+   * row; both cards are re-rendered as a fresh client would.
+   * -------------------------------------------------------------------- */
+  const record = await page.evaluate(async () => {
+    const NAME = "Warden: Travel - Path Difficulty";
+    const app = document.querySelector("#cairn-warden-dashboard");
+    const table = await RollTable.create({
+      name: NAME, formula: "1d2",
+      flags: { "air-bladder": { probeFixture: "warden-dashboard" } },
+      results: [
+        { type: "text", description: "ZZ Record Row One", range: [1, 1] },
+        { type: "text", description: "ZZ Record Row Two", range: [2, 2] },
+      ],
+    });
+    const out = {};
+    try {
+      app.querySelector('[data-action="tab"][data-tab="travel"]').click();
+      await new Promise((r) => setTimeout(r, 200));
+      const post = async (sel) => {
+        const had = new Set(game.messages.map((m) => m.id));
+        app.querySelector(sel)?.click();
+        for (let i = 0; i < 60 && !game.messages.some((m) => !had.has(m.id)); i++) {
+          await new Promise((r) => setTimeout(r, 100));
+        }
+        await new Promise((r) => setTimeout(r, 400));
+        return game.messages.find((m) => !had.has(m.id)) ?? null;
+      };
+      const drawMsg = await post(`button[data-action="rollTable"][data-table="${NAME}"]`);
+      const showMsg = await post(`button[data-action="showTable"][data-table="${NAME}"]`);
+      for (const a of foundry.applications.instances.values()) {
+        if (a.id?.startsWith("cairn-shown-table-")) await a.close();
+      }
+      const read = async () => {
+        if (drawMsg) await ui.chat.updateMessage(drawMsg);
+        if (showMsg) await ui.chat.updateMessage(showMsg);
+        await new Promise((r) => setTimeout(r, 900));
+        const d = document.querySelector(`[data-message-id="${drawMsg?.id}"]`);
+        const s = document.querySelector(`[data-message-id="${showMsg?.id}"]`);
+        return {
+          sender: d?.querySelector(".message-sender")?.textContent?.trim() ?? null,
+          flavor: d?.querySelector(".flavor-text")?.textContent?.trim() ?? null,
+          rows: s?.querySelectorAll(".cairn-show-row").length ?? null,
+          title: s?.querySelector(".cairn-show-title")?.textContent?.trim() ?? null,
+        };
+      };
+      out.posted = { draw: !!drawMsg?.getFlag("air-bladder", "dashboardDraw"),
+        show: !!showMsg?.getFlag("air-bladder", "dashboardShown") };
+      out.before = await read();
+      await table.createEmbeddedDocuments("TableResult",
+        [{ type: "text", description: "ZZ Record Row Three", range: [3, 3] }]);
+      await table.update({ name: "ZZ Path Renamed", formula: "1d3" });
+      out.after = await read();
+    } finally {
+      await table.delete();
+    }
+    return out;
+  });
+  record.posted?.draw && record.posted.show && record.before?.rows === 2
+    && record.after?.sender === record.before.sender && record.after.flavor === record.before.flavor
+    && !/ZZ Path Renamed/.test(`${record.after.sender} ${record.after.flavor}`)
+    ? ok("a renamed table leaves its past draw cards under the name they were drawn with (review #34 finding 241)")
+    : fail("a past draw card follows the table's rename", JSON.stringify(record));
+  record.before?.rows === 2 && record.after?.rows === 2 && record.after.title === record.before.title
+    ? ok("...and a shown table's card keeps the rows that were shown, not rows added since (review #34 finding 232)")
+    : fail("a past shown-table card shows the table as it is now", JSON.stringify(record));
 
   /* ---- 7c. a SIDEBAR draw's flavor names the table through the overlay --
    * Core stamps TABLE.DrawFlavor with the table's raw name and stores it, so

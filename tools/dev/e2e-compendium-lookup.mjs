@@ -31,13 +31,21 @@
  */
 
 import { chromium } from "playwright";
-import { VIEWPORT, joinAsGM, watchErrors } from "./lib.mjs";
+import { VIEWPORT, joinAsGM, watchErrors, watchdog } from "./lib.mjs";
 
 let failures = 0;
 const ok = (l, d = "") => console.log(`  ok    ${l.padEnd(40)} ${d}`);
 const fail = (l, d = "") => { console.log(`  FAIL  ${l.padEnd(40)} ${d}`); failures++; };
 
 const browser = await chromium.launch();
+
+// The fleet's hang guard (review #34 finding 25): without it a hang runs to
+
+// the runner's 65-minute cap, skips every restore, and the box is never
+
+// marked suspect. A bound on a hang, not a timing claim.
+
+watchdog(600000, "compendium-lookup probe", () => browser.close());
 const page = await browser.newContext({ viewport: VIEWPORT }).then((c) => c.newPage());
 const errors = watchErrors(page);
 
@@ -107,7 +115,7 @@ try {
     await attempt("missingPack", () => c.findCompendiumItem("air-bladder.no-such-pack", "Anything"));
     await attempt("missingItem", () => c.findCompendiumItem("air-bladder.utils", "ZZ No Such Table"));
     await attempt("drawMissing", () => c.rollTable("air-bladder.utils;ZZ No Such Table"));
-    await attempt("textMissing", () => c.rollTableText("air-bladder.utils;ZZ No Such Table"));
+    await attempt("textMissing", () => c.rollTablePlainText("air-bladder.utils;ZZ No Such Table"));
     // ...and the happy path still works, so "never throws" cannot pass by never working.
     await attempt("drawReal", async () => {
       const d = await c.rollTable("air-bladder.utils;Scars");
@@ -127,8 +135,8 @@ try {
     ? ok("rollTable on a missing table → undefined")
     : fail("rollTable on a missing table → undefined", JSON.stringify(guards.drawMissing));
   guards.textMissing && !guards.textMissing.threw && guards.textMissing.value === ""
-    ? ok("rollTableText on a missing table → \"\"")
-    : fail("rollTableText on a missing table → \"\"", JSON.stringify(guards.textMissing));
+    ? ok("rollTablePlainText on a missing table → \"\"")
+    : fail("rollTablePlainText on a missing table → \"\"", JSON.stringify(guards.textMissing));
   guards.drawReal && !guards.drawReal.threw && guards.drawReal.value > 0
     ? ok("a real table still rolls", `${guards.drawReal.value} result(s)`)
     : fail("a real table still rolls", JSON.stringify(guards.drawReal));

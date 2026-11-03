@@ -111,15 +111,22 @@ try {
   }, charRegen.id);
 
   stage("npc regenerate fires createItem hooks");
+  // Re-rolled until the NPC is handed something: a Lord or a Politician is
+  // handed nothing by ruling, and "hooks 0, items 0" is then no evidence either
+  // way (fleet run 20261030T202049Z). Hooks are counted per attempt.
   const npcRegen = await page.evaluate(async () => {
     const cg = game.cairn.characterGenerator;
     const h = await cg.createNpc();
     await h.update({ name: "ZZ Lifecycle NPC" });
     let hooks = 0;
+    let tries = 0;
     const hid = Hooks.on("createItem", (doc) => { if (doc.parent === h) hooks++; });
-    await cg.regenerateNpc(h);
-    Hooks.off("createItem", hid);
-    return { hooks, items: h.items.size };
+    try {
+      do { hooks = 0; tries++; await cg.regenerateNpc(h); } while (!h.items.size && tries < 8);
+    } finally {
+      Hooks.off("createItem", hid);
+    }
+    return { hooks, items: h.items.size, tries };
   });
 
   stage("deleting a keeper unlinks its children before the delete resolves");
@@ -198,7 +205,7 @@ try {
       `created ${updateRoute.created}, hooks ${updateRoute.hooks}`],
     ["npc regenerate fires one createItem per item",
       npcRegen.hooks > 0 && npcRegen.hooks === npcRegen.items,
-      `hooks ${npcRegen.hooks}, items ${npcRegen.items}`],
+      `hooks ${npcRegen.hooks}, items ${npcRegen.items}, ${npcRegen.tries} roll(s)`],
     ["deleting a keeper unlinks and stamps both children, before the delete resolves",
       bulk.linked === 2 && bulk.state.every((s) => s.link === "" && s.former === "ZZ Lifecycle Keeper"),
       `linked ${bulk.linked}, after ${JSON.stringify(bulk.state)}`],

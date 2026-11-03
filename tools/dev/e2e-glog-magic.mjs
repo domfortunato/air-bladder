@@ -274,6 +274,18 @@ try {
     planted = await page.evaluate(async ({ NAME, canonText, ALIAS }) => {
       const mkBook = (name, desc) => ({ name, type: "spellbook", system: { description: desc, scroll: false, glog: false } });
       const out = {};
+      // A LEFTOVER of a killed run first (review #34 finding 148). Both world
+      // packs are created under fixed names, the server refuses a second pack
+      // of an existing name, and only the Node finally removed them — which a
+      // watchdog exit skips — so one aborted run made every later run throw
+      // here, after it had already planted three world spellbooks. Swept by
+      // label, as dev:art-paths sweeps its own.
+      for (const label of ["zz-glog-pack", "zz-glog-actor-pack"]) {
+        for (const p of game.packs.filter((x) => x.metadata.packageType === "world" && x.metadata.label === label)) {
+          await p.configure({ locked: false }).catch(() => {});
+          await p.deleteCompendium();
+        }
+      }
       const wi = await Item.create(mkBook(NAME, canonText));
       out.worldItemId = wi.id;
       // The create seam's OFF direction: with the setting off, a created book
@@ -316,6 +328,16 @@ try {
       out.packItemId = pb.id;
       await pack.configure({ locked: true });
       out.packLockedAtPlant = game.packs.get(out.packId)?.locked === true;
+
+      // A world ACTOR pack holding a caster with a canon book (review #34
+      // finding 96): the sweep walked Item packs only, and the arrival seam
+      // never sees items nested inside an Actor import.
+      const apack = await foundry.documents.collections.CompendiumCollection.createCompendium({ label: "zz-glog-actor-pack", type: "Actor" });
+      out.actorPackId = apack.collection;
+      const caster = await Actor.create({ name: "zz-glog-pack-caster", type: "character" }, { pack: apack.collection });
+      const [cb] = await caster.createEmbeddedDocuments("Item", [mkBook(NAME, canonText)]);
+      out.packActorId = caster.id;
+      out.packActorBookId = cb.id;
       return out;
     }, { NAME, canonText: pre.canonText, ALIAS });
 
@@ -421,7 +443,10 @@ try {
       } : null;
       const pack = game.packs.get(p.packId);
       const packItem = pack ? await pack.getDocument(p.packItemId).catch(() => null) : null;
+      const apack = game.packs.get(p.actorPackId);
+      const packActor = apack ? await apack.getDocument(p.packActorId).catch(() => null) : null;
       return {
+        packActorBook: shape(packActor?.items.get(p.packActorBookId)),
         world: shape(game.items.get(p.worldItemId)),
         unique: shape(game.items.get(p.uniqueId)),
         alias: shape(game.items.get(p.aliasItemId)),
@@ -442,7 +467,7 @@ try {
     let state = null, waited = 0;
     for (; waited < 90000; waited += 500) {
       state = await readPlanted();
-      const done = [state.world, state.ownedBook, state.ownedScroll, state.tokenBook, state.packBook, state.unique, state.alias]
+      const done = [state.world, state.ownedBook, state.ownedScroll, state.tokenBook, state.packBook, state.packActorBook, state.unique, state.alias]
         .every((s) => s && s.scroll === true)
         && state.world.desc === pre.glogText
         && state.packLocked === true;
@@ -465,6 +490,7 @@ try {
     swept("owned SPENT scroll (uses untouched)", state.ownedScroll, { wantGlog: true, wantDesc: pre.glogText, wantUsesValue: 0 });
     swept("unlinked-token delta book", state.tokenBook, { wantGlog: true, wantDesc: pre.glogText });
     swept("locked world-pack book", state.packBook, { wantGlog: true, wantDesc: pre.glogText });
+    swept("a world ACTOR pack caster's book (review #34 finding 96)", state.packActorBook, { wantGlog: true, wantDesc: pre.glogText });
     swept("no-counterpart custom spell (form only, own words kept)", state.unique,
       { wantGlog: false, wantDesc: "<p>zz unique wording with no GLOG counterpart</p>" });
     swept(`renamed-pair book "${ALIAS.name}" (swapped via the alias)`, state.alias,
@@ -498,6 +524,35 @@ try {
       ? ok("idempotent: a second runGlogConversion() modified nothing (all _stats.modifiedTime unchanged)")
       : fail(`a second sweep WROTE again — modifiedTimes moved: ${JSON.stringify(idem.beforeTimes)} -> ${JSON.stringify(idem.afterTimes)}`);
 
+    /* --- 5a. the sweep is MARKED done, and RESUMED at ready if it was not --- */
+    // Review #34 finding 219. The one-way world conversion ran only from the
+    // setting's onChange, which core does not await, with no completion marker
+    // and nothing to run it again — and the GLOG & Other Hacks menu raises its
+    // reload prompt from the same Save whenever the Vald switch changes, so a
+    // Warden pressing Yes could cut the sweep off for good. Now the sweep
+    // records `glog-converted` when it lands, and the active Warden's ready
+    // hook resumes it while GLOG is on and the marker is unset. The marker is
+    // set back to false here (withSettings restores it at the end), the
+    // routine the ready hook calls is run, and the marker must be true again.
+    const resumed = await page.evaluate(async () => {
+      const out = {};
+      try { out.afterFlip = game.settings.get("air-bladder", "glog-converted"); } catch (e) { out.afterFlip = `unregistered: ${e.message}`; }
+      try {
+        await game.settings.set("air-bladder", "glog-converted", false);
+        const glog = await import("/systems/air-bladder/module/glog.js");
+        out.hasResume = typeof glog.resumeGlogConversion === "function";
+        if (out.hasResume) await glog.resumeGlogConversion();
+        out.afterResume = game.settings.get("air-bladder", "glog-converted");
+      } catch (e) { out.error = e.message; }
+      return out;
+    });
+    resumed.afterFlip === true
+      ? ok("the sweep records itself done (glog-converted) once its writes land")
+      : fail(`the sweep left no completion marker: ${JSON.stringify(resumed.afterFlip)}`);
+    resumed.hasResume && resumed.afterResume === true
+      ? ok("with GLOG on and the marker unset, the ready routine resumes the sweep and records it")
+      : fail(`nothing resumes an unfinished sweep: ${JSON.stringify(resumed)}`);
+
     /* --- 5b. the CREATE seam: what ARRIVES after the flip converts too ------ */
     // The sweep converts what EXISTS; CairnItem._preCreate converts what
     // ARRIVES (there are no spellbooks in GLOG — 2026-08-09 ruling, made when
@@ -515,11 +570,16 @@ try {
 
       // (a) a canon BOOK arriving on a character — the Create dialog / import
       // / world-drag path. Must land an UNSPENT scroll wearing the GLOG text.
+      // `img` STATED as the spellbook art, the way the Create Item dialog and
+      // every canon pack document supply it (review #34 finding 74): the
+      // scroll it becomes must wear the scroll's art, as the sweep's does.
       const [canonArr] = await carrier.createEmbeddedDocuments("Item", [
-        { name: NAME, type: "spellbook", system: { description: canonText, scroll: false, glog: false } },
+        { name: NAME, type: "spellbook", img: "systems/air-bladder/icons/spellbook.svg",
+          system: { description: canonText, scroll: false, glog: false } },
       ]);
       out.canon = shape(canonArr);
       out.canonSwapped = canonArr.system.description === glogText;
+      out.canonImg = canonArr.img;
 
       // (b) the reported repro: a GLOG-pack drag, via the same fromCompendium
       // data a real drop builds. This leg pins the OUTCOME, not the mechanism:
@@ -557,6 +617,41 @@ try {
       out.pageDiffNull = glogMod.glogConversionDiff(
         { name: NAME, system: { bound: true, scroll: false, glog: false, description: canonText } }, map,
       ) === null;
+
+      // (f) a canon book riding INSIDE an Actor.create payload (review #34
+      // finding 175): an Adventure import, a compendium actor brought in whole.
+      // The client pre-creates only an operation's top-level documents, so
+      // the item seam above never saw it and it arrived a book.
+      const canonSrc = () => ({ name: NAME, type: "spellbook", img: "systems/air-bladder/icons/spellbook.svg",
+        system: { description: canonText, scroll: false, glog: false } });
+      let whole = null;
+      try {
+        whole = await CONFIG.Actor.documentClass.create({ name: "zz-seam-payload-carrier", type: "character",
+          items: [canonSrc()] });
+        const b = whole.items.find((i) => i.type === "spellbook");
+        out.payload = b ? shape(b) : null;
+        out.payloadSwapped = b?.system.description === glogText;
+        out.payloadImg = b?.img;
+      } finally {
+        await whole?.delete();
+      }
+
+      // (g) Import Data onto a character (review #34 finding 249): core commits
+      // the file as ONE parent update (diff false, recursive false), which no
+      // item seam sees either. The file is the target's own export with a
+      // canon book for its inventory.
+      let target = null;
+      try {
+        target = await CONFIG.Actor.documentClass.create({ name: "zz-seam-import-target", type: "character" });
+        const file = target.toObject();
+        file.items = [canonSrc()];
+        await target.importFromJSON(JSON.stringify(file));
+        const b = target.items.find((i) => i.type === "spellbook");
+        out.imported = b ? shape(b) : null;
+        out.importedSwapped = b?.system.description === glogText;
+      } finally {
+        await target?.delete();
+      }
       return out;
     }, { NAME, canonText: pre.canonText, glogText: pre.glogText, GLOG,
       carrierId: planted.carrierId, uniqueWords: "<p>zz seam unique wording, no counterpart</p>" });
@@ -565,6 +660,9 @@ try {
     unspentScroll(seam.canon) && seam.canon.glog === true && seam.canonSwapped
       ? ok(`create seam: a canon "${NAME}" book ARRIVING under GLOG lands as an unspent scroll wearing the GLOG wording, glog: true`)
       : fail(`create seam: canon-book arrival wrong — ${JSON.stringify(seam.canon)} (swapped ${seam.canonSwapped})`);
+    /spellscroll\.svg$/.test(seam.canonImg ?? "")
+      ? ok("create seam: ...and it wears the SCROLL's art, as the sweep's conversion does", seam.canonImg)
+      : fail(`create seam: the arriving book became a scroll still wearing ${JSON.stringify(seam.canonImg)}`);
     seam.packEntryFound
       ? (unspentScroll(seam.fromPack) && seam.fromPack.desc === pre.glogText
         ? ok("create seam: the GLOG-pack drag (the reported repro) lands as an unspent scroll, wording intact")
@@ -580,6 +678,13 @@ try {
     seam.pageDiffNull && seam.mapSize > 0
       ? ok("sweep immunity: glogConversionDiff(bound page) is null — a flip can never turn a Grimoire page back into a scroll")
       : fail(`sweep immunity: glogConversionDiff returned a diff for a bound page (map size ${seam.mapSize}) — a flip would unbind every Grimoire in the world`);
+    unspentScroll(seam.payload) && seam.payload.glog === true && seam.payloadSwapped
+      && /spellscroll\.svg$/.test(seam.payloadImg ?? "")
+      ? ok("create seam: a canon book INSIDE an Actor.create payload arrives the same unspent GLOG scroll, scroll art")
+      : fail(`create seam: a canon book in an Actor.create payload arrived ${JSON.stringify(seam.payload)} (swapped ${seam.payloadSwapped}, img ${seam.payloadImg})`);
+    unspentScroll(seam.imported) && seam.imported.glog === true && seam.importedSwapped
+      ? ok("import seam: Import Data onto a character lands a canon book as the same unspent GLOG scroll")
+      : fail(`import seam: Import Data landed ${JSON.stringify(seam.imported)} (swapped ${seam.importedSwapped})`);
 
     /* --- 6. the invariant, world-wide --------------------------------------- */
 
@@ -605,6 +710,12 @@ try {
         await tryDel("renamed-pair item", () => game.items.get(p.aliasItemId)?.delete());
         await tryDel("world pack", async () => {
           const pk = game.packs.get(p.packId);
+          if (!pk) return;
+          await pk.configure({ locked: false });
+          await pk.deleteCompendium();
+        });
+        await tryDel("world actor pack", async () => {
+          const pk = game.packs.get(p.actorPackId);
           if (!pk) return;
           await pk.configure({ locked: false });
           await pk.deleteCompendium();

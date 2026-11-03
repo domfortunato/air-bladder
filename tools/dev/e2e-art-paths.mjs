@@ -24,6 +24,9 @@
  *   7. an img already under art/ in the OLD FORMAT (the re-encode rule, which
  *      the prefix table structurally cannot reach) — ONE PER RE-ENCODED
  *      GALLERY, since they are separate rules and one entry proves only itself
+ *   8. a world RollTable's own img, a token (texture and delta) in a LOCKED
+ *      world Scene compendium, and an Actor inside a LOCKED world Adventure
+ *      (review #34 finding 158: none was ever swept; generation 3)
  *
  * NEGATIVE CONTROL, in-page and in both directions. `icons/` deliberately did
  * NOT move, and an external URL must never be touched: both are planted too and
@@ -38,7 +41,7 @@
  * Usage: npm run dev:art-paths
  */
 import { chromium } from "playwright";
-import { VIEWPORT, joinAsGM, watchErrors, dismissChrome } from "./lib.mjs";
+import { VIEWPORT, joinAsGM, watchErrors, dismissChrome, watchdog } from "./lib.mjs";
 
 // One planted path per surface. The right-hand side is what the migration must
 // produce; writing both out rather than deriving the expectation means a broken
@@ -117,15 +120,34 @@ const UNTOUCHED = [
   "systems/air-bladder/art/lydia-comer/portraits/Femme00.webp",
 ];
 
+// cairn.js's ART_MIGRATION_GENERATION, written out by hand like every other
+// expectation here (cairn.js is the entry point and cannot be imported into a
+// page that already ran it). 3 since review #34 finding 158 added surfaces.
+const ART_GENERATION = 3;
+
 let failed = false;
 const ok = (m, d = "") => console.log(`  ok    ${m.padEnd(52)} ${d}`);
 const fail = (m, d = "") => { console.error(`  FAIL  ${m.padEnd(52)} ${d}`); failed = true; };
 
 const browser = await chromium.launch();
+
+// The fleet's hang guard (review #34 finding 25): without it a hang runs to
+
+// the runner's 65-minute cap, skips every restore, and the box is never
+
+// marked suspect. A bound on a hang, not a timing claim.
+
+watchdog(600000, "art-paths probe", () => browser.close());
 const page = await browser.newContext({ viewport: VIEWPORT }).then((c) => c.newPage());
 const errors = watchErrors(page);
 let planted = null;
 
+// The generation marker, read before it is put back to 0 and restored from the
+// FINALLY when the migration did not re-stamp it (review #34 finding 26): a
+// reload that timed out left it at 0, re-opening the sweep on every later load.
+let genBefore = null;
+// The arrival leg's result; its documents' ids live on the page (deleted from the finally).
+let arrived = null;
 try {
   await joinAsGM(page);
   await dismissChrome(page);
@@ -136,25 +158,35 @@ try {
     const old = MOVES.map(([from]) => from);
     const ActorCls = CONFIG.Actor.documentClass;
     const ItemCls = CONFIG.Item.documentClass;
+    // PLANTED AS AN OLDER WORLD STORED IT. Every create here would otherwise be
+    // repointed on arrival (module/art-paths.js `registerArtArrival`, review #34
+    // finding 158) and this probe would plant nothing stale. `noHook` skips the
+    // preCreate hooks and only them: the document classes' own `_preCreate`
+    // still run, and nothing is written but the fixtures themselves.
+    // A FUNCTION, not one shared object: core writes into the options it is
+    // handed (parent, pack, timestamps), and a reused object carried one
+    // create's parent into the next ("actors is not a valid embedded
+    // Document within the ActorDelta Document").
+    const STALE = () => ({ noHook: true });
 
-    const item = await ItemCls.create({ name: "zz-art-path-item", type: "item", img: old[3] });
+    const item = await ItemCls.create({ name: "zz-art-path-item", type: "item", img: old[3] }, STALE());
 
     // The surfaces the PREFIX table cannot reach: already under art/, wrong
     // FORMAT. A world made between the restructure and the WebP conversion
     // looks exactly like this. One document per re-encoded gallery.
     const reencs = [];
     for (const [i, [from]] of REENCODED.entries()) {
-      reencs.push(await ItemCls.create({ name: `zz-art-path-reenc-${i}`, type: "item", img: from }));
+      reencs.push(await ItemCls.create({ name: `zz-art-path-reenc-${i}`, type: "item", img: from }, STALE()));
     }
     const renamed = [];
     for (const [i, [from]] of RENAMED.entries()) {
-      renamed.push(await ItemCls.create({ name: `zz-art-path-renamed-${i}`, type: "item", img: from }));
+      renamed.push(await ItemCls.create({ name: `zz-art-path-renamed-${i}`, type: "item", img: from }, STALE()));
     }
     // The generation-2 surfaces: art/-era, right format, wrong FOLDER — only
     // the filename-pinned monster moves can touch these.
     const movedMon = [];
     for (const [i, [from]] of MOVED_MONSTERS.entries()) {
-      movedMon.push(await ItemCls.create({ name: `zz-art-path-monster-${i}`, type: "item", img: from }));
+      movedMon.push(await ItemCls.create({ name: `zz-art-path-monster-${i}`, type: "item", img: from }, STALE()));
     }
 
     const actor = await ActorCls.create({
@@ -164,17 +196,17 @@ try {
       img: old[0],
       prototypeToken: { texture: { src: old[1] } },
       items: [{ name: "zz-art-path-owned", type: "item", img: old[2] }],
-    });
+    }, STALE());
     const owned = actor.items.find((i) => i.name === "zz-art-path-owned");
 
     // A scene of our own, so no existing map is touched and the token is ours to
     // delete. actorLink false: an unlinked token carries its own texture, which
     // is the whole reason this surface needs covering separately.
-    const scene = await Scene.create({ name: "zz-art-path-scene", width: 1000, height: 1000 });
+    const scene = await Scene.create({ name: "zz-art-path-scene", width: 1000, height: 1000 }, STALE());
     const [token] = await scene.createEmbeddedDocuments("Token", [{
       name: "zz-art-path-token", x: 100, y: 100, actorId: actor.id, actorLink: false,
       texture: { src: old[4] },
-    }]);
+    }], STALE());
 
     // The token's ActorDELTA — a second copy of the art the scene-token loop
     // cannot reach (review 2026-08-04). Writing through the synthetic actor
@@ -183,12 +215,15 @@ try {
     await token.actor.update({ img: old[0] });
     const [deltaItem] = await token.actor.createEmbeddedDocuments("Item", [
       { name: "zz-art-path-delta-item", type: "item", img: old[2] },
-    ]);
+    ], STALE());
 
     // A WORLD compendium pack, LOCKED — a Warden's curated compendium is the
     // copy-at-creation case with no second chance, and the lock must be
     // restored after the write. Swept first in case a prior aborted run left one.
     for (const p of game.packs.filter((p) => p.metadata.label === "zz-art-path-pack")) {
+      // Unlocked first, as the finally below does: a left-over pack is LOCKED
+      // (this leg locks it), and core refuses to delete a locked pack.
+      await p.configure({ locked: false }).catch(() => {});
       await p.deleteCompendium().catch(() => {});
     }
     const pack = await foundry.documents.collections.CompendiumCollection.createCompendium({
@@ -196,7 +231,7 @@ try {
     });
     const packActor = await ActorCls.create(
       { name: "zz-art-path-pack-actor", type: "npc", system: { role: "monster" }, img: old[0] },
-      { pack: pack.collection },
+      { pack: pack.collection, ...STALE() },
     );
     await pack.configure({ locked: true });
 
@@ -204,15 +239,43 @@ try {
     // is one of the five shims that go in v15 (see dev:table-results), and v13
     // split `TableResult#text` into two differently-named halves — this probe
     // cares about `img` alone, so it touches neither and cannot rot on either.
-    const table = await RollTable.create({ name: "zz-art-path-table" });
+    // ...and the table's OWN icon, which the world pass never read while the
+    // pack pass did (review #34 finding 158).
+    const table = await RollTable.create({ name: "zz-art-path-table", img: old[0] }, STALE());
+
+    // A world SCENE compendium and a world ADVENTURE compendium, both LOCKED
+    // (review #34 finding 158): neither type was ever swept, and both are
+    // copy-at-creation — a placed token copies its texture, an Adventure holds
+    // its actors as plain data — so a scene filed away before the move came
+    // back out of the compendium pointing at nothing. Swept first by label.
+    const CC = foundry.documents.collections.CompendiumCollection;
+    for (const p of game.packs.filter((p) => ["zz-art-path-scenes", "zz-art-path-adventures"].includes(p.metadata.label))) {
+      await p.configure({ locked: false }).catch(() => {});
+      await p.deleteCompendium().catch(() => {});
+    }
+    const scenePack = await CC.createCompendium({ label: "zz-art-path-scenes", type: "Scene" });
+    const packScene = await Scene.create({
+      name: "zz-art-path-pack-scene", width: 1000, height: 1000,
+      tokens: [{ name: "zz-art-path-pack-token", x: 100, y: 100, actorId: actor.id, actorLink: false,
+        texture: { src: old[4] }, delta: { img: old[0] } }],
+    }, { pack: scenePack.collection, ...STALE() });
+    const packToken = packScene?.tokens.contents[0];
+    await scenePack.configure({ locked: true });
+    const advPack = await CC.createCompendium({ label: "zz-art-path-adventures", type: "Adventure" });
+    const advActorId = foundry.utils.randomID();
+    const adventure = await getDocumentClass("Adventure").create({
+      name: "zz-art-path-adventure",
+      actors: [{ _id: advActorId, name: "zz-art-path-adv-actor", type: "npc", system: { role: "monster" }, img: old[0] }],
+    }, { pack: advPack.collection, ...STALE() });
+    await advPack.configure({ locked: true });
     const [result] = await table.createEmbeddedDocuments("TableResult", [
       { img: old[0], range: [1, 1] },
-    ]);
+    ], STALE());
 
     // The control documents, planted the same way so they take the same path.
     const controls = [];
     for (const [i, src] of UNTOUCHED.entries()) {
-      controls.push((await ItemCls.create({ name: `zz-art-path-control-${i}`, type: "item", img: src })).id);
+      controls.push((await ItemCls.create({ name: `zz-art-path-control-${i}`, type: "item", img: src }, STALE())).id);
     }
 
     return {
@@ -229,6 +292,12 @@ try {
       packActorId: packActor?.id ?? null,
       tableId: table.id,
       resultId: result.id,
+      scenePackId: scenePack.collection,
+      packSceneId: packScene?.id ?? null,
+      packTokenId: packToken?.id ?? null,
+      advPackId: advPack.collection,
+      adventureId: adventure?.id ?? null,
+      advActorId,
       controlIds: controls,
       // What actually landed — Foundry can reject or normalise an img on create,
       // and a planted value that never stuck would make every later leg vacuous.
@@ -246,6 +315,12 @@ try {
         packActor: packActor?.img,
         packLocked: pack.locked,
         result: result.img,
+        tableImg: table.img,
+        packToken: packToken?.texture?.src,
+        packTokenDelta: packToken?.delta?.img,
+        advActor: adventure?.actors.find((a) => a._id === advActorId)?.img,
+        scenePackLocked: scenePack.locked,
+        advPackLocked: advPack.locked,
         controls: controls.map((id) => game.items.get(id)?.img),
       },
     };
@@ -255,6 +330,7 @@ try {
     item: MOVES[3][0], actor: MOVES[0][0], proto: MOVES[1][0],
     owned: MOVES[2][0], token: MOVES[4][0], result: MOVES[0][0],
     deltaImg: MOVES[0][0], deltaItem: MOVES[2][0], packActor: MOVES[0][0],
+    tableImg: MOVES[0][0], packToken: MOVES[4][0], packTokenDelta: MOVES[0][0], advActor: MOVES[0][0],
   };
   // Seven KINDS of surface, more documents than that — the re-encode kind is
   // planted once per gallery, the moved-monster kind once per folder half.
@@ -285,6 +361,7 @@ try {
     await game.settings.set(NS, "art-migration-generation", 0);
     return { before };
   });
+  genBefore = gen.before;
 
   await page.reload({ waitUntil: "networkidle", timeout: 60000 });
   await page.waitForFunction(() => globalThis.game?.ready === true, null, { timeout: 90000 });
@@ -294,10 +371,23 @@ try {
   // two others that each make server round trips. A fixed wait here is a race
   // with a comfortable margin, which is what the icons probe learned the hard way.
   let waited = 0;
-  const read = () => page.evaluate((p) => {
+  const read = () => page.evaluate(async (p) => {
     const a = game.actors.get(p.actorId);
     const scene = game.scenes.get(p.sceneId);
     const table = game.tables.get(p.tableId);
+    // The Scene and Adventure packs hold their art inside each document, not on
+    // the index, so the document is read. From the CACHE, never cleared here:
+    // this poll runs while the sweep writes, core applies the sweep's update to
+    // the cached document, and a `clear()` mid-write left core's reply with no
+    // document to apply it to — the sweep threw and never re-stamped its marker
+    // (fleet 20261031T185237Z).
+    const fresh = async (packId, id) => {
+      const pk = game.packs.get(packId);
+      if (!pk || !id) return null;
+      return pk.getDocument(id);
+    };
+    const packToken = (await fresh(p.scenePackId, p.packSceneId))?.tokens.get(p.packTokenId);
+    const adventure = await fresh(p.advPackId, p.adventureId);
     return {
       item: game.items.get(p.itemId)?.img ?? null,
       reencs: p.reencIds.map((id) => game.items.get(id)?.img ?? null),
@@ -314,6 +404,12 @@ try {
       packActor: game.packs.get(p.packId)?.index.get(p.packActorId)?.img ?? null,
       packLocked: game.packs.get(p.packId)?.locked ?? null,
       result: table?.results.get(p.resultId)?.img ?? null,
+      tableImg: table?.img ?? null,
+      packToken: packToken?.texture?.src ?? null,
+      packTokenDelta: packToken?.delta?.img ?? null,
+      advActor: adventure?.actors.find((x) => x._id === p.advActorId)?.img ?? null,
+      scenePackLocked: game.packs.get(p.scenePackId)?.locked ?? null,
+      advPackLocked: game.packs.get(p.advPackId)?.locked ?? null,
       controls: p.controlIds.map((id) => game.items.get(id)?.img ?? null),
       // The generation marker: re-stamped only after the sweep's last write,
       // so it is the one "done" signal that cannot be read too early.
@@ -342,7 +438,7 @@ try {
   // folder prefix — those folders now hold the CHARACTER set, whose paths are
   // legitimate; a prefix test would read the Femme00 control as permanently
   // stale and this poll would never finish. Hand-written like every other
-  // expectation here, so a broken LYDIA_MOVED_MONSTERS list in cairn.js
+  // expectation here, so a broken LYDIA_MOVED_MONSTERS list in art-paths.js
   // cannot make this file agree with it.
   const STALE_MONSTER = new RegExp("systems/air-bladder/art/lydia-comer/(portraits|tokens)/("
     + "Bad-Bunny|Bandit-Leader|Black-Pudding|Dire-Bear|Dire-Fish|Dire-Marsupial|Dire-Wolf"
@@ -352,7 +448,8 @@ try {
   // finally AFTER its last document write, as a settings round-trip. A poll
   // that stops when the PATHS are right reads the lock inside that window and
   // reports the re-lock missing — this probe's own trap, third appearance.
-  const done = (s) => s.packLocked === true && s.generation >= 2 && Object.values(s).flat()
+  const done = (s) => s.packLocked === true && s.scenePackLocked === true && s.advPackLocked === true
+    && s.generation >= ART_GENERATION && Object.values(s).flat()
     .every((v) => v === null || v === true
       || (!STALE_PREFIX.test(String(v)) && !STALE_FORMAT.test(String(v))
         && !STALE_SPACED.test(String(v)) && !STALE_MONSTER.test(String(v))));
@@ -373,6 +470,10 @@ try {
     ["a delta-only Item on that token", "deltaItem", MOVES[2][1]],
     ["an Actor in a LOCKED world compendium", "packActor", MOVES[0][1]],
     ["a RollTable result's img snapshot", "result", MOVES[0][1]],
+    ["a world RollTable's own icon", "tableImg", MOVES[0][1]],
+    ["a token in a LOCKED world Scene compendium", "packToken", MOVES[4][1]],
+    ["that pack token's DELTA portrait", "packTokenDelta", MOVES[0][1]],
+    ["an Actor inside a LOCKED world Adventure", "advActor", MOVES[0][1]],
   ]) {
     after[key] === want
       ? ok(`migrated: ${label}`, want.replace("systems/air-bladder/art/", ""))
@@ -413,10 +514,14 @@ try {
   after.packLocked === true
     ? ok("the world pack's LOCK was restored", "locked again after the write")
     : fail("the world pack's LOCK was restored", `locked=${after.packLocked}`);
+  after.scenePackLocked === true && after.advPackLocked === true
+    ? ok("the Scene and Adventure packs' LOCKS were restored", "locked again after the write")
+    : fail("the Scene and Adventure packs' LOCKS were restored",
+      `scenes locked=${after.scenePackLocked}, adventures locked=${after.advPackLocked}`);
   // The gate, re-closed by the sweep itself: the marker is back at the current
-  // generation (the value it held before this probe re-opened it, or 2 on a
-  // world that had never stamped one), so the world ends where it began.
-  after.generation >= 2 && (gen.before === 0 || after.generation === gen.before)
+  // generation — the value it held before this probe re-opened it, or the
+  // current one when the world held an older stamp, as any GM load would leave it.
+  after.generation >= ART_GENERATION && after.generation >= gen.before
     ? ok("the generation marker is re-stamped after the sweep", `was ${gen.before}, re-opened to 0, now ${after.generation}`)
     : fail("the generation marker is re-stamped after the sweep", `was ${gen.before}, now ${after.generation}`);
 
@@ -425,12 +530,102 @@ try {
     ? ok("control: icons/, an external URL, a character path untouched", UNTOUCHED.length + " unchanged")
     : fail("control: icons/, an external URL, a character path untouched", JSON.stringify(after.controls));
 
+  /* --- AFTER the sweep: what ARRIVES is repointed too --------------------- */
+
+  // The sweep runs once per generation and reads only what the world holds, so
+  // a document that comes in later — imported from a MODULE's compendium, out
+  // of an Adventure, or an Import Data file from an older world — kept its old
+  // path for good (review #34 finding 158). Here the gate is closed again (the
+  // marker was re-stamped above) and documents ARRIVE carrying old paths: six
+  // creates, one per type the sweep covers, then Import Data on an Item and an
+  // Actor (core commits those `diff: false, recursive: false` with `noHook`, so
+  // only the document class sees them). A control path arrives too and must
+  // land as it was sent.
+  arrived = await page.evaluate(async ({ MOVES, UNTOUCHED }) => {
+    const old = MOVES.map(([from]) => from);
+    const ActorCls = CONFIG.Actor.documentClass;
+    const ItemCls = CONFIG.Item.documentClass;
+    // On the page as they are made, so the finally can delete them even when
+    // this leg throws before it returns.
+    const ids = globalThis.__abArrivedIds = { items: [], actors: [], scenes: [], tables: [], macros: [] };
+    const item = await ItemCls.create({ name: "zz-art-arrive-item", type: "item", img: old[3] });
+    ids.items.push(item.id);
+    const control = await ItemCls.create({ name: "zz-art-arrive-control", type: "item", img: UNTOUCHED[0] });
+    ids.items.push(control.id);
+    const actor = await ActorCls.create({
+      name: "zz-art-arrive-actor", type: "npc", system: { role: "monster" }, img: old[0],
+      prototypeToken: { texture: { src: old[1] } },
+      items: [{ name: "zz-art-arrive-owned", type: "item", img: old[2] }],
+    });
+    ids.actors.push(actor.id);
+    const scene = await Scene.create({
+      name: "zz-art-arrive-scene", width: 1000, height: 1000,
+      tokens: [{ name: "zz-art-arrive-token", x: 100, y: 100, actorId: actor.id, actorLink: false, texture: { src: old[4] } }],
+    });
+    ids.scenes.push(scene.id);
+    const table = await RollTable.create({ name: "zz-art-arrive-table", img: old[0], results: [{ img: old[0], range: [1, 1] }] });
+    ids.tables.push(table.id);
+    const macro = await Macro.create({ name: "zz-art-arrive-macro", type: "script", img: old[3], command: "" });
+    ids.macros.push(macro.id);
+
+    // Import Data, as the sidebar's context menu runs it: a file from an older
+    // world, onto a document of this one.
+    const jItem = await ItemCls.create({ name: "zz-art-arrive-json-item", type: "item", img: UNTOUCHED[0] });
+    ids.items.push(jItem.id);
+    await jItem.importFromJSON(JSON.stringify({ ...jItem.toObject(), img: old[3] }));
+    const jActor = await ActorCls.create({ name: "zz-art-arrive-json-actor", type: "npc", system: { role: "monster" } });
+    ids.actors.push(jActor.id);
+    await jActor.importFromJSON(JSON.stringify({
+      ...jActor.toObject(), img: old[0], prototypeToken: { ...jActor.toObject().prototypeToken, texture: { src: old[1] } },
+      items: [{ _id: foundry.utils.randomID(), name: "zz-art-arrive-json-owned", type: "item", img: old[2] }],
+    }));
+    return {
+      ids,
+      seen: {
+        item: item.img, control: control.img,
+        actor: actor.img, proto: actor.prototypeToken.texture.src, owned: actor.items.contents[0]?.img ?? null,
+        token: scene.tokens.contents[0]?.texture.src ?? null,
+        table: table.img, result: table.results.contents[0]?.img ?? null,
+        macro: macro.img,
+        jsonItem: game.items.get(jItem.id)?.img ?? null,
+        jsonActor: game.actors.get(jActor.id)?.img ?? null,
+        jsonProto: game.actors.get(jActor.id)?.prototypeToken.texture.src ?? null,
+        jsonOwned: game.actors.get(jActor.id)?.items.contents[0]?.img ?? null,
+      },
+    };
+  }, { MOVES, UNTOUCHED });
+  for (const [label, key, want] of [
+    ["arriving: a created Item", "item", MOVES[3][1]],
+    ["arriving: a created Actor's img", "actor", MOVES[0][1]],
+    ["arriving: ...its prototype token", "proto", MOVES[1][1]],
+    ["arriving: ...its owned Item", "owned", MOVES[2][1]],
+    ["arriving: a created Scene's token", "token", MOVES[4][1]],
+    ["arriving: a created RollTable's icon", "table", MOVES[0][1]],
+    ["arriving: ...its result", "result", MOVES[0][1]],
+    ["arriving: a created Macro", "macro", MOVES[3][1]],
+    ["arriving: Import Data onto an Item", "jsonItem", MOVES[3][1]],
+    ["arriving: Import Data onto an Actor", "jsonActor", MOVES[0][1]],
+    ["arriving: ...its prototype token", "jsonProto", MOVES[1][1]],
+    ["arriving: ...its owned Item", "jsonOwned", MOVES[2][1]],
+    ["arriving control: an icons/ path lands as sent", "control", UNTOUCHED[0]],
+  ]) {
+    arrived.seen[key] === want
+      ? ok(label, want.replace("systems/air-bladder/art/", ""))
+      : fail(label, `got "${arrived.seen[key]}", wanted "${want}"`);
+  }
+
   console.log(`\nconsole errors: ${errors.length}`);
   for (const e of errors.slice(0, 8)) console.log(`  ${e}`);
   if (errors.length) failed = true;
 } catch (err) {
   fail("probe threw", err.message);
 } finally {
+  if (genBefore !== null) {
+    await page.evaluate(async (g) => {
+      const NS = "air-bladder";
+      if (game.settings.get(NS, "art-migration-generation") < g) await game.settings.set(NS, "art-migration-generation", g);
+    }, genBefore).catch((e) => fail("restoring the art-migration generation", e.message));
+  }
   // From NODE, off the ids the page returned, so a throw partway through still
   // tidies. Every delete is independent — one failure must not strand the rest.
   if (planted) {
@@ -441,13 +636,15 @@ try {
         for (const id of p.reencIds) await drop(() => game.items.get(id)?.delete());
         for (const id of p.renamedIds) await drop(() => game.items.get(id)?.delete());
         for (const id of p.movedMonIds) await drop(() => game.items.get(id)?.delete());
-        // The world pack: unlock first or the delete is refused.
-        await drop(async () => {
-          const pk = game.packs.get(p.packId);
-          if (!pk) return;
-          if (pk.locked) await pk.configure({ locked: false });
-          await pk.deleteCompendium();
-        });
+        // The world packs: unlock first or the delete is refused.
+        for (const id of [p.packId, p.scenePackId, p.advPackId]) {
+          await drop(async () => {
+            const pk = game.packs.get(id);
+            if (!pk) return;
+            if (pk.locked) await pk.configure({ locked: false });
+            await pk.deleteCompendium();
+          });
+        }
         await drop(() => game.actors.get(p.actorId)?.delete());
         await drop(() => game.scenes.get(p.sceneId)?.delete());
         await drop(() => game.tables.get(p.tableId)?.delete());
@@ -455,6 +652,18 @@ try {
       }, planted);
     } catch { /* the browser may already be gone */ }
   }
+  try {
+    await page.evaluate(async () => {
+      const ids = globalThis.__abArrivedIds;
+      if (!ids) return;
+      const drop = async (fn) => { try { await fn(); } catch { /* keep going */ } };
+      for (const id of ids.items) await drop(() => game.items.get(id)?.delete());
+      for (const id of ids.scenes) await drop(() => game.scenes.get(id)?.delete());
+      for (const id of ids.actors) await drop(() => game.actors.get(id)?.delete());
+      for (const id of ids.tables) await drop(() => game.tables.get(id)?.delete());
+      for (const id of ids.macros) await drop(() => game.macros.get(id)?.delete());
+    });
+  } catch { /* the browser may already be gone */ }
   await browser.close();
 }
 

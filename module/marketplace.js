@@ -1,10 +1,12 @@
-import { findTableItems, resultText, MARKETPLACE_PACK, compendiumInfoFromString } from "./compendium.js";
+import { findTableItems, warmResultDocuments, resultText, MARKETPLACE_PACK, compendiumInfoFromString } from "./compendium.js";
 import { Cairn } from "./config.js";
 import { iconForTransport, TRANSPORT_KINDS } from "./icons.js";
 import { atConnectionLimit, maxConnections, connectedOwnershipShape, OWNERSHIP_SYNC_FLAG } from "./connections.js";
 import { actorDisplayName, localizeNameDesc, t } from "./i18n-content.js";
-import { formatCount } from "./utils.js";
+import { formatCount, concealSecrets } from "./utils.js";
+import { capacityVerdict } from "./gear.js";
 import { SETTINGS_NS } from "./settings.js";
+import { THING_ROLES } from "./data-models.js";
 
 /**
  * Is the shop closed to THIS user? The Warden's allow-player-marketplace
@@ -50,9 +52,9 @@ const playerMarketClosed = () =>
  */
 
 /** The catalog category holding packs, mounts and vehicles. Exported because the
- *  sheet scopes the shop by it from both directions: the Containers tab shows
- *  ONLY this category, and a container's own shop EXCLUDES it (no buying a cart
- *  to put inside a cart). */
+ *  sheet scopes the shop by it: an actor that cannot keep a connection (a
+ *  container among them) shops EXCLUDING it — no buying a cart to put inside a
+ *  cart — and the table banner names the aisle by it. */
 export const TRANSPORTS_CATEGORY = "Transports & Containers";
 
 // Shopper-facing category order; a table whose stripped name isn't listed falls
@@ -62,6 +64,9 @@ const CATEGORY_ORDER = ["Weapons", "Armor", "Gear", TRANSPORTS_CATEGORY];
  *  name is always English here — the content overlay translates for display and
  *  never for storage, which is the same reason `CATEGORY_ORDER` is English. */
 const MARKET_PREFIX = /^Market:\s*/i;
+
+const stripPrefix = (name) => String(name).replace(MARKET_PREFIX, "").trim();
+const displayName = (fullName) => t("table.name", fullName).replace(/^[^:]+:\s*/, "").trim();
 
 /**
  * An aisle's two names: `name` is the ENGLISH identity the catalog filters and
@@ -76,8 +81,6 @@ const MARKET_PREFIX = /^Market:\s*/i;
  * @param {string} name  a table's stored name
  * @returns {{name: string, label: string}|null}  null when the name is not an aisle
  */
-const stripPrefix = (name) => String(name).replace(MARKET_PREFIX, "").trim();
-const displayName = (fullName) => t("table.name", fullName).replace(/^[^:]+:\s*/, "").trim();
 export const marketAisle = (name) =>
   (MARKET_PREFIX.test(name ?? "") ? { name: stripPrefix(name), label: displayName(name) } : null);
 
@@ -125,12 +128,21 @@ export const keptAlphabetical = (table) =>
  * compendium document's own object BY REFERENCE, and the shop then writes the
  * buyer's quantity into the pack.
  */
+/** Shop payload -> does the viewer own its source document (see the catalog). */
+const PAYLOAD_OWNED = new WeakMap();
+
 const ownedPayload = (doc) => ({
   name: doc.name,
   type: doc.type,
   documentName: doc.documentName,
   img: doc.img,
   system: doc.system.toObject(),
+  // An ACTOR row carries its embedded items and its token too (review #34
+  // finding 87): what is bought must be the document the compendium ships,
+  // and a statted mount's attacks and worn armour are items, not system data.
+  ...(doc.documentName === "Actor"
+    ? { items: doc.items.map((i) => i.toObject()), prototypeToken: doc.prototypeToken.toObject() }
+    : {}),
 });
 
 /**
@@ -236,6 +248,9 @@ export const getMarketplaceCatalog = async () => {
   };
   // The heading is `marketAisle`'s label — translate, then strip; see there.
   tables.sort((a, b) => orderOf(a.name) - orderOf(b.name) || a.name.localeCompare(b.name));
+  // Every aisle's rows in ONE request per pack, before the aisles are read one
+  // by one (review #34 finding 191, `warmResultDocuments`).
+  await warmResultDocuments(tables.flatMap((t) => [...t.results]));
 
   const categories = [];
   for (const table of tables) {
@@ -270,7 +285,14 @@ export const getMarketplaceCatalog = async () => {
           + `"${table.name}" — a shop can stock Items and npc Actors.`);
         return false;
       })
-      .map(ownedPayload);
+      .map((doc) => {
+        // Whether THIS viewer owns the row's source, for its Secret blocks
+        // (review #34 finding 126). Beside the payload, not in it: the payload
+        // is what Buy creates, and a field here would ride into the purchase.
+        const payload = ownedPayload(doc);
+        PAYLOAD_OWNED.set(payload, doc.isOwner === true);
+        return payload;
+      });
     if (items.length) categories.push({ name: stripPrefix(table.name), label: displayName(table.name), items });
   }
   return { categories };
@@ -362,13 +384,18 @@ const acquire = async (actor, data, pay) => {
   // the retired `container` TYPE — the same correction review #5 made to the
   // nesting guard below, which this pair was missed in, so an npc sack took
   // stock past its capacity and equipped it.
-  if (actor.isThing) {
+  //
+  // A COMPANION OR MONSTER is strict too (review #34 finding 47): it never
+  // overflows, and the offer route has always refused it as `full`
+  // (`capacityVerdict`, gear.js). It was falling through to the person branch
+  // below and taking a bulky item to 11/10. Only a THING stows unequipped.
+  if (!actor.livesByPlayerRules) {
     const need = slotCost(data.system);
-    if ((actor.system.slotsUsed ?? 0) + need > (actor.system.slotsMax ?? 0)) {
+    if (capacityVerdict(actor, need) === "full") {
       ui.notifications.warn(game.i18n.format("CAIRN.Notify.ContainerFull", { name: shown }));
       return false;
     }
-    data.system.equipped = false;
+    if (actor.isThing) data.system.equipped = false;
   } else if (actor.isEncumbered() && !data.system?.weightless) {
     // Shopping is ORDINARY ACQUISITION, so a full pack refuses it — the same
     // rule and the same words as `createOwnedItem` and a drop onto a full
@@ -385,14 +412,24 @@ const acquire = async (actor, data, pay) => {
   // NO flag on the create: the item arriving IS the change log's record of the
   // purchase. The gold deduction is flagged so a Buy is one ledger line, not
   // two — the price is on the item line's other side of the same click.
-  await actor.createEmbeddedDocuments("Item", [data]);
+  //
+  // PAID ONLY FOR WHAT LANDED (review #34 finding 164). A create every seam
+  // refuses resolves EMPTY rather than throwing — the one-book wall's
+  // `_preCreate`, a module's preCreateItem veto — and this charged the gold
+  // and said "Bought" for nothing. The refusing seam says why (the wall's own
+  // toast), so this says nothing more; a THROW still reaches AcquireFailed.
+  const [created] = await actor.createEmbeddedDocuments("Item", [data]);
+  if (!created) return false;
   if (pay) {
     await actor.update({ "system.gold": (actor.system.gold ?? 0) - cost }, { abNoStatusCard: true });
     ui.notifications.info(game.i18n.format("CAIRN.Notify.Bought", { name: shown, cost }));
   } else {
     ui.notifications.info(game.i18n.format("CAIRN.Notify.Took", { name: shown }));
   }
-  if (!actor.isThing && actor.isEncumbered()) {
+  // "HP 0 until you free a slot" is true only where the rule zeroes HP: a
+  // companion or monster filled to capacity keeps its HP (review #34 finding
+  // 129). `livesByPlayerRules`, the test the HP write itself asks.
+  if (actor.livesByPlayerRules && actor.isEncumbered()) {
     ui.notifications.warn(game.i18n.format("CAIRN.Notify.Overloaded", { name: shown }));
   }
   return true;
@@ -478,7 +515,7 @@ export const acquireTransport = async (actor, doc, pay) => {
       ? (s.transportKind === "mount" ? "companion"
         : s.transportKind === "vehicle" ? "transport" : "container")
       : "companion");
-  const isThing = role === "transport" || role === "container";
+  const isThing = THING_ROLES.includes(role);
   // An npc, not a `container`. What is bought is now the same kind of document as
   // what the compendium ships, so a Horse bought from the shop and a Horse
   // dragged out of Mounts & Transports are the same thing -- which they were not
@@ -487,12 +524,24 @@ export const acquireTransport = async (actor, doc, pay) => {
   // getDocumentClass, not the global `Actor` — the global is not
   // CONFIG.Actor.documentClass, so it reaches the same _preCreate defaults only
   // by way of `implementation`; naming the configured class says what runs.
+  //
+  // THE WHOLE STAT BLOCK, for an Actor row (review #34 finding 87). This copied
+  // a hand-picked subset — hp, armorOverride, the token's art — so a statted
+  // companion stocked from Mounts & Transports (the Falcon's STR 5 / DEX 16 /
+  // WIL 4, a Warden's warhorse with its attacks) was sold as 10/10/10 with no
+  // armour and no items, contradicting the sentence above. The source's system,
+  // items and token come across, and the fields below are laid OVER them. A
+  // legacy transport ITEM row has an item's schema, so only the subset applies.
+  const fromActor = doc.documentName === "Actor";
   const payload = {
     type: "npc",
     name: doc.name,
     img: art,
-    prototypeToken: { texture: { src: art } },
+    prototypeToken: foundry.utils.mergeObject(fromActor ? (doc.prototypeToken ?? {}) : {},
+      { texture: { src: art } }, { inplace: false }),
+    ...(fromActor ? { items: doc.items ?? [] } : {}),
     system: {
+      ...(fromActor ? s : {}),
       // Connected at CREATION, so there is no window in which it exists
       // unattached -- which, under the container rule, would be a loot pile
       // flickering into the world between two awaits.
@@ -582,11 +631,14 @@ export const openMarketplace = async (actor, opts = {}) => {
   // the same noun the background tagline already formats this way, so the two
   // surfaces cannot disagree; the retired MarketplaceSlot/MarketplaceSlots
   // keys left en.json and es.json with this change.
-  const descHtmlOf = (text) => {
+  const descHtmlOf = (text, owner) => {
     // Descriptions may be ProseMirror HTML; pull out plain text (tags stripped,
     // entities decoded) via DOMParser — which runs no scripts and loads no
     // resources — then re-escape for safe insertion into the dialog markup.
-    const plain = new DOMParser().parseFromString(String(text ?? ""), "text/html").body.textContent ?? "";
+    // Secret blocks go FIRST, for a viewer who does not own the source (review
+    // #34 finding 126): textContent flattened a Warden's note into every
+    // player's shop row.
+    const plain = new DOMParser().parseFromString(concealSecrets(text, owner), "text/html").body.textContent ?? "";
     const d = plain.trim();
     return d ? esc(d) : `<em class="mkt-nodesc">${game.i18n.localize("CAIRN.NoDescription")}</em>`;
   };
@@ -612,13 +664,13 @@ export const openMarketplace = async (actor, opts = {}) => {
         const cap = data.system.slots ?? 0;
         const tags = transportChips(data).map((c) => `<span class="mkt-chip">${esc(c)}</span>`).join("");
         const metaHtml = `<span class="mkt-slots mkt-capacity" title="${game.i18n.localize("CAIRN.TransportCapacity")}">+${esc(formatCount("CAIRN.NSlot", cap))}</span>`;
-        return rowHtml({ idx, cost: data.system.cost ?? 0, name: d.name, tagsHtml: tags, metaHtml, descHtml: descHtmlOf(d.system.description) });
+        return rowHtml({ idx, cost: data.system.cost ?? 0, name: d.name, tagsHtml: tags, metaHtml, descHtml: descHtmlOf(d.system.description, PAYLOAD_OWNED.get(data) === true) });
       }
       const idx = built.push(data) - 1;
       const slots = slotCost(data.system);
       const tags = chips(data).map((c) => `<span class="mkt-chip">${esc(c)}</span>`).join("");
       const metaHtml = `<span class="mkt-slots">${esc(formatCount("CAIRN.NSlot", slots))}</span>`;
-      return rowHtml({ idx, cost: data.system.cost ?? 0, name: d.name, tagsHtml: tags, metaHtml, descHtml: descHtmlOf(d.system.description) });
+      return rowHtml({ idx, cost: data.system.cost ?? 0, name: d.name, tagsHtml: tags, metaHtml, descHtml: descHtmlOf(d.system.description, PAYLOAD_OWNED.get(data) === true) });
     }).join("");
     return `<div class="mkt-cat"><div class="mkt-cat-name">${esc(cat.label ?? cat.name)}</div>${rows}</div>`;
   }).join("");
@@ -643,17 +695,21 @@ export const openMarketplace = async (actor, opts = {}) => {
     buttons: [{ action: "close", label: game.i18n.localize("CAIRN.Close"), default: true }],
   });
 
-  // Warn once, on leaving, if they walk out over capacity.
+  // Warn once, on leaving, if they walk out over capacity — and only an actor
+  // whose HP that zeroes, since the words say so: a sack or a mule filled to
+  // the brim is in its normal state (review #34 finding 129).
   const origClose = dialog.close.bind(dialog);
   let warnedLeave = false;
   dialog.close = (...a) => {
-    if (!warnedLeave && actor.isEncumbered()) {
+    if (!warnedLeave && actor.livesByPlayerRules && actor.isEncumbered()) {
       warnedLeave = true;
       ui.notifications.warn(game.i18n.localize("CAIRN.Notify.LeftOverloaded"));
     }
     return origClose(...a);
   };
 
+  // ONE PURCHASE AT A TIME — see the click handler below (review #34 finding 91).
+  let busy = false;
   const refresh = () => {
     const root = dialog.element;
     if (!root) return;
@@ -669,7 +725,12 @@ export const openMarketplace = async (actor, opts = {}) => {
     // about to turn down. `acquire` still refuses on its own: this is the
     // affordance, not the enforcement, and a stale dialog must not become a way
     // through.
-    const full = !actor.isThing && actor.isEncumbered();
+    // The SAME two tests `acquire` refuses on (review #34 finding 128): a
+    // person with no free slot, and for anyone else the row's own slots
+    // through `capacityVerdict`. This read `!actor.isThing && isEncumbered()`,
+    // so a full Sack's every row stayed live and each click was refused at the
+    // till — the shop offering what it was about to turn down.
+    const personFull = actor.livesByPlayerRules && actor.isEncumbered();
     root.querySelectorAll(".mkt-row").forEach((row) => {
       const cost = Number(row.dataset.cost);
       const buy = row.querySelector(".mkt-buy");
@@ -680,24 +741,39 @@ export const openMarketplace = async (actor, opts = {}) => {
       // you FIX being full, so refusing it at the till would be perverse), and
       // a PETTY item costs no slot at all.
       const needsRoom = data && !isCarrier(data) && !data.system?.weightless;
-      const noRoom = full && !!needsRoom;
-      buy.disabled = noRoom || gold < cost;
-      take.disabled = noRoom;
+      const noRoom = !!needsRoom && (actor.livesByPlayerRules
+        ? personFull
+        : capacityVerdict(actor, slotCost(data.system)) === "full");
+      buy.disabled = busy || noRoom || gold < cost;
+      take.disabled = busy || noRoom;
     });
   };
 
-  dialog.render(true).then(() => {
+  // The launching sheet's own window when it is popped out (review #34
+  // finding 1; the reasoning is at `_confirmAction` in actor-sheet.js).
+  dialog.render({ force: true, window: { windowId: opts.windowId } }).then(() => {
     const root = dialog.element;
     const list = root.querySelector(".mkt-list");
 
     // Buy / Take, and click a name to expand its description.
+    // ONE PURCHASE AT A TIME in this shop (review #34 finding 91). Only the
+    // clicked button was disabled, so a Buy on a second row inside one round
+    // trip ran beside the first: both passed the gold and slot checks against
+    // the pre-purchase actor, and the second's gold write could overwrite the
+    // first's payment or take the balance negative. Every Buy and Take greys
+    // until the one in flight is done; `refresh()` re-derives them after, and
+    // holds them grey while one is in flight. It runs on first render and after
+    // each purchase, and on nothing else: no hook re-runs it on an actor update
+    // (review #34 finding 192 — this line once said it did).
     list.addEventListener("click", async (ev) => {
       const btn = ev.target.closest(".mkt-buy, .mkt-take");
       if (btn) {
         ev.preventDefault();
+        if (busy) return;
         const data = built[Number(btn.dataset.idx)];
         if (!data) return;
-        btn.disabled = true;
+        busy = true;
+        for (const b of list.querySelectorAll(".mkt-buy, .mkt-take")) b.disabled = true;
         const pay = btn.classList.contains("mkt-buy");
         // try/finally, because refresh() is the ONLY thing that re-enables the
         // row: a rejected acquire (a permissions wall mid-write is recorded
@@ -710,8 +786,11 @@ export const openMarketplace = async (actor, opts = {}) => {
           else await acquire(actor, foundry.utils.deepClone(data), pay);
         } catch (err) {
           console.error("Air Bladder | marketplace acquire failed:", err);
-          ui.notifications.error(game.i18n.localize("CAIRN.Notify.DropFailed"));
+          // Its own toast (review #34 finding 167): a Buy/Take adds to the
+          // sheet; DropFailed's "Couldn't move that item" described a drag.
+          ui.notifications.error(game.i18n.localize("CAIRN.Notify.AcquireFailed"));
         } finally {
+          busy = false;
           refresh();
         }
         return;

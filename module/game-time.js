@@ -490,6 +490,12 @@ export const describeTime = () => {
     // Foundry's Gregorian calendar. A Cairn table does not care that it is
     // March the 14th.
     const day = dayCount();
+    // TODAY'S WEATHER UNDER EITHER CALENDAR (review #34 finding 80, user ruling
+    // 2026-10-31). Watches and weather are core Cairn; only the calendar is the
+    // hack. This branch returned `weather: ""`, so with Vald off — the default
+    // — Roll Today's Weather and Set the Weather… stored a day's weather that
+    // no surface showed. Read through the overlay for the reason given below.
+    const weather = t("table.result", todayWeather());
     return {
       vald: false,
       watch,
@@ -501,8 +507,9 @@ export const describeTime = () => {
       dateLong: game.i18n.format("CAIRN.Time.DayCount", { day }),
       seasonLine: "",
       seasonIcon: "",
-      weather: "",
-      tooltip: game.i18n.format("CAIRN.Time.Plain", { day, watch }),
+      weather,
+      // Joined the way the Vald tooltip joins its parts, so the two read alike.
+      tooltip: [game.i18n.format("CAIRN.Time.Plain", { day, watch }), weather].filter(Boolean).join(" — "),
     };
   }
 
@@ -574,13 +581,10 @@ const CAIRN_WEATHER_BY_SEASON = {
 /**
  * The weather table for the season the world is actually in.
  *
- * THIS IS THE ONE PLACE the Vald setting arbitrates between the two weather
- * sets, and that is the honest place for it: the button must pick a single
- * table, and picking it is the whole reason the calendar earns its keep. The
- * two groups of BUTTONS sit side by side on the Dashboard (user ruling
- * 2026-09-10) because Cairn's four are a severity ladder feeding
- * `Warden: Weather - Difficulty` while Vald's four are descriptive — a Vald
- * table wants both.
+ * Under the Vald hack this picks the season's Vald table; otherwise Cairn's.
+ * It is not the only place the hack decides weather: the Dashboard drops
+ * Cairn's weather group under Vald (`VALD_WEATHER_GROUP`, warden-dashboard.js
+ * — the 2026-09-10 side-by-side ruling was reversed the next day).
  *
  * `undefined` under a calendar we do not recognise, so the button hides rather
  * than rolling the wrong season's weather.

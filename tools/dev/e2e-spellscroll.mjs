@@ -477,6 +477,12 @@ const planted = await page.evaluate(async () => {
     folder: folder.id,
     ownership: { default: CONST.DOCUMENT_OWNERSHIP_LEVELS.OBSERVER },
   });
+  // A REFUSED CONVERSION KEEPS ITS SCROLL (review #34 finding 177). The
+  // migration created the replacement and then deleted every legacy id
+  // whatever the create returned; core skips a refused or invalid document
+  // without throwing, so that scroll was simply gone. Its replacement is
+  // vetoed by a preCreateItem hook the reloaded page registers first.
+  const vetoed = await getDocumentClass("Item").create(legacy("Spellscroll — ZZ Vetoed"));
 
   const actor = await getDocumentClass("Actor").create({ name: "zz-scroll-migrate", type: "character" });
   await actor.createEmbeddedDocuments("Item", [legacy("Spellscroll — Bafflement")]);
@@ -497,6 +503,7 @@ const planted = await page.evaluate(async () => {
   return {
     worldBefore,
     worldItemId: worldItem.id,
+    vetoedId: vetoed.id,
     folderId: folder.id,
     filed: worldItem.folder?.id === folder.id,
     shared: worldItem.ownership?.default === CONST.DOCUMENT_OWNERSHIP_LEVELS.OBSERVER,
@@ -516,6 +523,15 @@ planted.filed && planted.shared
   ? ok("and the world one is filed in a folder and shared at OBSERVER, so there is something to lose")
   : fail(`the world plant did not take (filed ${planted.filed}, shared ${planted.shared}) — the folder/ownership legs below would pass on nothing`);
 
+// The veto, live before the ready hook runs: an init script waits for the
+// Hooks global and registers it, so the migration's create meets it.
+await page.addInitScript(() => {
+  const iv = setInterval(() => {
+    if (!globalThis.Hooks) return;
+    clearInterval(iv);
+    Hooks.on("preCreateItem", (doc) => (doc.name === "ZZ Vetoed" ? false : undefined));
+  }, 5);
+});
 await page.reload({ waitUntil: "networkidle", timeout: 60000 });
 await page.waitForFunction(() => globalThis.game?.ready === true, null, { timeout: 90000 });
 
@@ -538,7 +554,7 @@ for (; waited < 30000; waited += 250) {
     const a = game.actors.get(p.actorId);
     const t = game.scenes.get(p.sceneId)?.tokens.get(p.tokenId);
     return !game.items.get(p.worldItemId)
-      && ![...game.items].some(isLegacy)
+      && ![...game.items].some((i) => i.id !== p.vetoedId && isLegacy(i))
       && ![...(a?.items ?? [])].some(isLegacy)
       && ![...(t?.actor?.items ?? [])].some(isLegacy);
   }, planted);
@@ -562,7 +578,8 @@ const after = await page.evaluate(async (p) => {
   const before = new Set(p.worldBefore);
   const made = [...game.items].filter((i) => !before.has(i.id));
   const out = {
-    world: made.map(shape),
+    world: made.filter((i) => i.id !== p.vetoedId).map(shape),
+    vetoedKept: game.items.get(p.vetoedId)?.name ?? null,
     owned: [...(a?.items ?? [])].map(shape),
     token: [...(t?.actor?.items ?? [])].map(shape),
     baseStillEmpty: (ta?.items.size ?? -1) === 0,
@@ -604,6 +621,9 @@ filed?.folder === planted.folderId
 filed?.ownerDefault === 2
   ? ok("world item: still shared at OBSERVER — whoever could see it still can")
   : fail(`world item: ownership lost — default is ${filed?.ownerDefault}, want 2 (OBSERVER)`);
+after.vetoedKept === "Spellscroll — ZZ Vetoed"
+  ? ok("a scroll whose replacement was refused is KEPT, still in its old shape")
+  : fail(`a refused conversion deleted the scroll anyway (now ${JSON.stringify(after.vetoedKept)})`);
 check("owned item", after.owned, "Bafflement");
 check("unlinked token delta", after.token, "Charm");
 after.baseStillEmpty

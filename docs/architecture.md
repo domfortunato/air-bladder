@@ -29,9 +29,9 @@ git grep -n "_prepareContext" -- module/
 
 `system.json` names exactly one JavaScript file, `module/cairn.js`. Everything
 that runs in the browser is reachable from that file's imports; nothing else in
-the repository executes at all. It imports 27 of the system's 37 JavaScript
-files, registers the document classes, sheets and settings, subscribes about
-nineteen Foundry hooks and one socket channel, and then gets out of the way.
+the repository executes at all. It imports 30 of the system's 39 JavaScript
+files, registers the document classes, sheets and settings, subscribes 26
+Foundry hooks and one socket channel, and then gets out of the way.
 Play happens inside two document classes, two sheet classes, a combat tracker,
 and a set of feature files that mostly do not know about each other.
 
@@ -41,22 +41,26 @@ and a set of feature files that mostly do not know about each other.
 
 | | |
 |---|---|
-| `module/`, physical lines | **~31,000** |
-| `module/`, code lines | **~13,100** |
-| Comment and blank share | **~57%** |
-| JavaScript files | 37 |
-| Handlebars templates | 21 files, ~3,200 lines |
-| Stylesheet | 1 file, ~4,500 lines |
+| `module/`, physical lines | **~40,200** |
+| `module/`, code lines | **~16,600** |
+| Comment and blank share | **~59%** |
+| JavaScript files | 39 |
+| Handlebars templates | 21 files, ~3,400 lines |
+| Stylesheet | 1 file, ~5,100 lines |
 | Compendium source documents | ~1,140 YAML files across 29 packs |
 | Interface translations | 7 languages, plus 1 content overlay |
-| Development tooling | ~59,800 lines, none of it shipped to a browser |
+| Development tooling | ~81,500 lines, none of it shipped to a browser |
 
-Rounded on purpose, measured 2026-09-12. An exact line count in prose drifts with
-every commit, and this table did, the day after it was written (review #27).
+Rounded on purpose, every row measured 2026-11-01 (review #34). An exact line
+count in prose drifts with every commit, and this table did, the day after it
+was written (review #27) — and again when one row was re-measured and the rest
+kept the old date (review #34 finding 261). A **code line** is a line carrying
+at least one token outside a comment, by a JavaScript tokenizer (acorn), so a
+`//` inside a string or a regex is not taken for a comment.
 
 **Do not size a job here with `wc -l`.** More than half of `module/` is prose.
-`connections.js` is 237 physical lines of which 67 are code; `compendium.js` is
-188 of which 54; `art-picker.js` is 603 of which 159. The ratio is not uniform,
+`connections.js` is 278 physical lines of which 74 are code; `compendium.js` is
+305 of which 83; `art-picker.js` is 611 of which 309. The ratio is not uniform,
 either, so scaling a page count by half is also wrong.
 
 The code figure counts non-blank lines outside comments, with quotes and
@@ -110,22 +114,30 @@ Two traps recorded in the code and worth carrying into any new work:
 
 ## The import graph, in tiers
 
-Sorting the 37 files by the longest chain of internal imports beneath each one
+Sorting the 39 files by the longest chain of internal imports beneath each one
 gives this. Tier says **how much has to exist before a file can load** — not how
-complicated it is. `art-picker.js` sits at tier 7 and is 159 lines of code.
+complicated it is. `art-picker.js` sits at tier 8 and is 159 lines of code.
 
 | Tier | Files |
 |---|---|
-| **0** — no internal imports at all | `compendium.js`, `config.js`, `damage.js`, `i18n-content.js`, `icons.js`, `settings-menus.js` |
-| **1** | `settings.js`, `data-models.js`, `combat.js`, `faction-generator.js` |
-| **2** | `utils.js`, `game-time.js`, `connections.js` |
-| **3** | `glog.js`, `macros.js`, `marketplace.js`, `warden-damage.js`, `calendar-events.js` |
-| **4** | `gear.js`, `item/item.js`, `vald-calendar.js`, `weather-log.js` |
-| **5** | `actor/actor.js`, `grimoire.js`, `item-offer.js`, `watch-clock.js`, `warden-dashboard.js` |
-| **6** | `character-generator.js` |
-| **7** | `monster-generator.js`, `kettlewright-import.js`, `encounters.js`, `art-picker.js`, `take-over.js` |
-| **8** | `actor/actor-sheet.js`, `item/item-sheet.js`, `table-banner.js` |
-| **9** | `cairn.js` |
+| **0** — no internal imports at all | `art-paths.js`, `compendium.js`, `config.js`, `i18n-content.js`, `icons.js`, `settings-menus.js` |
+| **1** | `settings.js`, `data-models.js` |
+| **2** | `utils.js`, `connections.js` |
+| **3** | `combat.js`, `game-time.js`, `glog.js`, `macros.js` |
+| **4** | `calendar-events.js`, `gear.js`, `item/item.js` |
+| **5** | `grimoire.js`, `item-offer.js`, `marketplace.js`, `party-pile.js`, `vald-calendar.js`, `weather-log.js` |
+| **6** | `actor/actor.js`, `watch-clock.js` |
+| **7** | `character-generator.js` |
+| **8** | `art-picker.js`, `damage.js`, `encounters.js`, `faction-generator.js`, `kettlewright-import.js`, `monster-generator.js`, `take-over.js` |
+| **9** | `actor/actor-sheet.js`, `item/item-sheet.js`, `table-banner.js`, `warden-damage.js` |
+| **10** | `warden-dashboard.js` |
+| **11** | `cairn.js` |
+
+Measured over static `import` and `export … from`, in BOTH quote styles.
+Dynamic `import()` is left out, because it does not have to exist before a file
+loads. `damage.js` is the one module that writes its imports in single quotes.
+An earlier measurement missed them and put it in tier 0, along with the two
+files above it (review #34).
 
 The other measure worth having is the reverse one — how many files import each
 file. It identifies the shared vocabulary, which is the part you cannot avoid
@@ -133,12 +145,15 @@ learning:
 
 | Imported by | File | What it is |
 |---|---|---|
-| 19 | `i18n-content.js` | the content-translation overlay; every displayed name goes through it |
-| 16 | `settings.js` | every behavioural switch |
-| 11 | `utils.js` | dice formulas, damage helpers, drag-and-drop plumbing |
-| 8 | `compendium.js` | every lookup into a compendium pack |
+| 22 | `i18n-content.js` | the content-translation overlay; every displayed name goes through it |
+| 18 | `utils.js` | dice formulas, damage helpers, drag-and-drop plumbing |
+| 17 | `settings.js` | every behavioural switch |
+| 12 | `compendium.js` | every lookup into a compendium pack |
+| 10 | `character-generator.js` | generation, and the helpers other features borrow from it |
 | 8 | `icons.js` | the class-art table |
-| 7 | `character-generator.js` | also called from four other features |
+| 7 | `config.js` | `CONFIG.Cairn`: the declared tables and dice tiers |
+| 7 | `gear.js` | gear resolution, loadout order and capacity verdicts |
+| 6 | `data-models.js` | the schemas, and the named role lists (`NPC_ROLES` and its three subsets) |
 | 6 | `game-time.js` | watches and the calendar |
 | 6 | `item/item.js` | the Item document class |
 
@@ -152,14 +167,14 @@ that a player's client never fetches it.
 
 Six things carry roughly half the logic, and nothing routes around them.
 
-1. **`module/cairn.js` — the boot and the switchboard.** Registration, about
-   nineteen hook subscriptions, the socket handler, and seven one-shot world
-   migrations. It is the third-largest file in the system, and it is really
+1. **`module/cairn.js` — the boot and the switchboard.** Registration, 34
+   subscriptions to 26 hooks, the socket handler, and the world migrations.
+   It is the third-largest file in the system, and it is really
    four unrelated jobs sharing an address.
 
-2. **`module/settings.js` — the switches.** 38 setting registrations, grouped
+2. **`module/settings.js` — the switches.** 46 setting registrations, grouped
    into four submenus by one declaration (`SETTING_GROUPS`) that both the
-   registration code and the tests read. Sixteen files import it. If a
+   registration code and the tests read. Seventeen files import it. If a
    behaviour has an "unless the Warden turned it off" clause, it is here.
 
 3. **`module/data-models.js` — what a document *is*.** Nine schema classes over
@@ -173,14 +188,14 @@ Six things carry roughly half the logic, and nothing routes around them.
    where Foundry's document model has to be understood properly rather than
    worked around.
 
-5. **`module/actor/actor-sheet.js` — the character sheet.** 2,216 code lines,
-   about 17% of all the logic in the system, in one class. It is the largest
+5. **`module/actor/actor-sheet.js` — the character sheet.** 2,491 code lines,
+   about 15% of all the logic in the system, in one class. It is the largest
    single thing to learn and the one most changes touch.
 
 6. **`module/i18n-content.js` and `module/compendium.js` — content in and out.**
    Every compendium lookup goes through one; every user-visible *content* name
    goes through the other. Between them they are imported by more files than
-   anything else, and both are small. `compendium.js` is 54 lines of code with
+   anything else, and both are small. `compendium.js` is 83 lines of code with
    no classes, no interface and no state, which makes it the best first real
    file in the repository.
 
@@ -197,10 +212,13 @@ on its own once the spine is familiar:
 `monster-generator.js` · `table-banner.js` ·
 `warden-dashboard.js` · `watch-clock.js` · `weather-log.js`
 
-Three more form a small cluster of their own around timekeeping —
-`vald-calendar.js`, `calendar-events.js` and `warden-damage.js` are imported by
-the dashboard and the clock as well as by the boot file — and
-`settings-menus.js` is a leaf of `settings.js` rather than of the system.
+Three more are shared by a few features rather than the system:
+`vald-calendar.js` (imported by the boot file, the dashboard and the clock),
+`calendar-events.js` (by the Vald calendar, the weather log and the party pile)
+and `warden-damage.js` (by the boot file and the dashboard). `settings-menus.js`
+is a leaf of `settings.js` rather than of the system. `party-pile.js` is NOT a
+leaf: the Actor class and its sheet import it as well as the boot file, because
+the pile's identity test (`isDroppedPile`) and the drop sit under every actor.
 `marketplace.js` and `take-over.js` left this list on 2026-09-15, when
 `table-banner.js` began importing both: the aisle helper, the alphabetical
 predicate and the re-sort from the first, the button-to-table lookup from the
@@ -218,7 +236,7 @@ estimating the blast radius of any change.
 Several of the biggest files are repetitive rather than complex, and reading
 them line by line wastes days.
 
-- **`settings.js`** is 38 near-identical registration calls. Read two of them
+- **`settings.js`** is 45 near-identical registration calls. Read two of them
   and you have read the file; the interesting part is `SETTING_GROUPS` at the
   top and the menu registration at the bottom.
 - **`data-models.js`** is nine schemas assembled from the same handful of field
@@ -229,7 +247,7 @@ them line by line wastes days.
   most of the dashboard's 45 buttons, and `VALD_CALENDAR_CONFIG` in
   `game-time.js` is a calendar written out as data.
 
-The inverse also holds. `item-offer.js` is only 463 code lines and is one of
+The inverse also holds. `item-offer.js` is only 519 code lines and is one of
 the hardest things here.
 
 ---
@@ -246,13 +264,14 @@ the hardest things here.
    browser window and write a whole document into it. Self-contained, and
    unlike anything else in the system.
 
-3. **The socket handler and the migrations in `cairn.js`** — one 348-line
-   listener that dispatches every cross-client message, and seven one-shot
-   world migrations (`migrateIconsToSvg`, `migrateArtPaths`,
-   `migrateScrollsToSpellbooks`, `migrateNpcRoles`, `migrateHirelingSplit`,
-   `migrateMountToCompanion`, `migrateGrimoirePages`). The migrations have the
-   highest consequence per line in the repository: they rewrite documents in
-   somebody's world, once, with no undo.
+3. **The socket handler and the migrations in `cairn.js`** — one 429-line
+   listener that dispatches every cross-client message, and the world
+   migrations: the `phase` chain in the GM's `ready` hook, whose list is the
+   one to read. Most record a done-marker setting and run once;
+   `migrateIconsToSvg`, `migrateScrollsToSpellbooks` and `removeGrantNotes`
+   keep none and re-check on every GM load, finding nothing left to change.
+   The migrations have the highest consequence per line in the repository:
+   they rewrite documents in somebody's world, with no undo.
 
 4. **The document lifecycle in `actor/actor.js`** — in particular the rename
    that propagates to placed tokens. An unlinked token's rename travels through
@@ -279,7 +298,7 @@ Worth knowing before anyone counts lines and draws a conclusion.
 
 - **Five JSON manifests live inside `module/`** and look like source: the
   game-icons manifest alone is 2,471 lines. All five are generated by
-  `tools/import/` and fetched at runtime. Together, 3,584 lines.
+  `tools/import/` and fetched at runtime. Together, 3,616 lines.
 - **Everything under `src/packs/` and `packs/`** is game content — about 1,140
   YAML documents compiled into 29 compendium packs (the table above is the one
   place the figure is kept; this line used to carry its own copy, which drifted
@@ -288,9 +307,9 @@ Worth knowing before anyone counts lines and draws a conclusion.
 - **`art/` and `icons/`** are images: roughly 2,900 gallery images plus 25
   interface icons. Provenance for every set is in
   [`provenance.md`](provenance.md).
-- **`tools/`** never reaches a browser. It holds 108 automated probes, 26
-  importer scripts, and the translation tooling — around 59,800 lines, more
-  than the system itself. [`release-testing.md`](release-testing.md) lists what
+- **`tools/`** never reaches a browser. It holds 105 browser probes, 26
+  importer scripts, and the offline gates and translation tooling — around
+  81,500 lines, twice the system itself. [`release-testing.md`](release-testing.md) lists what
   each probe covers.
 
 ---
@@ -309,8 +328,9 @@ reads as verification, which is exactly how such disagreements survive review.
 There is at least one recorded case here of a stale comment naming a mechanism
 that had been deleted a month earlier.
 
-The same applies to `CLAUDE.md`, which is 85 KB of the same material and has
-carried stale claims for weeks at a time. Both are valuable precisely because
+The same applies to `CLAUDE.md` and the subsystem notes it points to in
+`docs/working-notes/`, which are the same material and have carried stale claims
+for weeks at a time. Both are valuable precisely because
 they record reversals, but neither is authoritative about the current state. The
 code is.
 

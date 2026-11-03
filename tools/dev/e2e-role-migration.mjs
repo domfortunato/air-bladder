@@ -51,6 +51,13 @@ const LEGACY = "ZZ Role Legacy NPC";
 const PLANTED = "ZZ Role Planted Hireling";
 const SPLIT = "ZZ Role Pre-Split Person";
 const SURVIVOR = "ZZ Role Real NPC";
+const LATE = "ZZ Role Late NPC";
+const LATE2 = "ZZ Role Late NPC Two";
+const LATE3 = "ZZ Role Upgraded Late NPC";
+const PACK_LABEL = "zz-role-split-pack";
+const PACK_PERSON = "ZZ Role Pack Person";
+const DELTA_BASE = "ZZ Role Delta Base";
+const DELTA_SCENE = "ZZ Role Delta Scene";
 const RATE = 5;
 
 let failed = false;
@@ -58,7 +65,7 @@ const ok = (m) => console.log(`  ok    ${m}`);
 const fail = (m) => { console.error(`  FAIL  ${m}`); failed = true; };
 
 const browser = await chromium.launch();
-watchdog(300000, "role migration probe");
+watchdog(420000, "role migration probe");
 const page = await browser.newContext({ viewport: VIEWPORT }).then((c) => c.newPage());
 const errors = watchErrors(page);
 await joinAsGM(page);
@@ -86,8 +93,18 @@ const rawSystem = (id) => page.evaluate(async (actorId) => {
   return res?.result?.[0]?.system ?? null;
 }, id);
 const rawRole = async (id) => (await rawSystem(id))?.role ?? null;
+/** The same raw read, of a document inside a compendium pack. */
+const rawPackRole = (collection, id) => page.evaluate(async ({ collection, id }) => {
+  const res = await foundry.helpers.SocketInterface.dispatch("modifyDocument", {
+    type: "Actor", action: "get", operation: { pack: collection, query: { _id__in: [id] }, broadcast: false },
+  });
+  return res?.result?.[0]?.system?.role ?? null;
+}, { collection, id });
 
 let ids = null;
+// What the split can reach that this probe did not plant, captured before the
+// marker is cleared and put back from the FINALLY (review #34 finding 30).
+let splitSnap = null;
 
 try {
   /* --- the shim, on unsaved documents ----------------------------------- */
@@ -468,9 +485,50 @@ try {
 
   console.log("\nthe npc -> hireling split");
 
-  const splitState = await page.evaluate(async ({ name, rate }) => {
-    for (const s of game.actors.filter((a) => a.name === name)) await s.delete();
+  // THE SNAPSHOT FIRST (review #34 finding 30). The split writes three
+  // places — world actors, unlinked-token deltas on every scene, and every
+  // world Actor pack — and both its settings. This used to capture world
+  // actors only, restore them only on the success path, and leave the marker
+  // false in the world if anything threw before the reload.
+  splitSnap = await page.evaluate(async () => {
+    const npc = (d) => d?._source?.system?.role === "npc";
+    const actors = game.actors.filter((a) => ["npc", "hireling"].includes(a.type) && npc(a)).map((a) => a.id);
+    const deltas = [];
+    for (const scene of game.scenes) {
+      for (const t of scene.tokens) {
+        if (!t.actorLink && t.actor && npc(t.delta)) deltas.push({ scene: scene.id, token: t.id });
+      }
+    }
+    const packs = [];
+    for (const pack of game.packs) {
+      if (pack.metadata.packageType !== "world" || pack.metadata.type !== "Actor") continue;
+      const docs = await pack.getDocuments();
+      const ids2 = docs.filter((d) => ["npc", "hireling"].includes(d.type) && npc(d)).map((d) => d.id);
+      if (ids2.length) packs.push({ collection: pack.collection, ids: ids2 });
+    }
+    return {
+      actors, deltas, packs,
+      marker: game.settings.get("air-bladder", "hireling-split"),
+      // Guarded: on the unfixed code (a red run) the setting does not exist.
+      pending: game.settings.settings.has("air-bladder.hireling-split-pending")
+        ? foundry.utils.deepClone(game.settings.get("air-bladder", "hireling-split-pending") ?? {}) : null,
+    };
+  });
+
+  const splitState = await page.evaluate(async ({ name, late, rate, deltaBase, deltaScene }) => {
+    for (const s of game.actors.filter((a) => [name, late, deltaBase].includes(a.name))) await s.delete();
+    for (const s of game.scenes.filter((x) => x.name === deltaScene)) await s.delete();
     const Cls = CONFIG.Actor.documentClass;
+    // AN UNLINKED TOKEN'S DELTA storing "npc" (review #34 finding 24: the
+    // split's delta walk ran in no probe). Written through the synthetic
+    // actor, which stores the difference from its base in the delta — the
+    // shape a pre-split world holds for a token re-roled on the canvas.
+    const base = await Cls.create({ name: deltaBase, type: "npc" });
+    const scene = await Scene.create({ name: deltaScene, width: 1000, height: 1000 });
+    const td = (await base.getTokenDocument({ x: 100, y: 100, actorLink: false })).toObject();
+    const [tok] = await scene.createEmbeddedDocuments("Token", [td]);
+    await tok.actor.update({ "system.role": "npc" });
+    const deltaPlanted = tok.delta?._source?.system?.role ?? null;
     const doc = await Cls.create({ name, type: "npc", system: { profession: "Torchbearer", dayRate: rate } });
     await foundry.helpers.SocketInterface.dispatch("modifyDocument", {
       type: "Actor", action: "update",
@@ -479,18 +537,32 @@ try {
         diff: false, recursive: true, noHook: false, render: false, modifiedTime: Date.now(),
       },
     });
-    // EVERY OTHER role-npc actor in this world, so the reload below cannot cost
-    // the Warden anything. Clearing the marker re-arms a migration that
-    // converts all of them, which is correct behaviour and still a real write
-    // to documents this probe did not create. Snapshot, then put them back.
-    const bystanders = game.actors
-      .filter((a) => a.id !== doc.id && ["npc", "hireling"].includes(a.type)
-        && a._source?.system?.role === "npc")
-      .map((a) => a.id);
+    // A FAILED FIRST ATTEMPT, and an NPC the Warden made after it (review #34
+    // finding 3). The attempt's start is recorded between the two creation
+    // stamps; the late NPC stores the same "npc" the split selects on, and is
+    // a genuine NPC — the retry below must leave it alone.
+    await new Promise((r) => setTimeout(r, 60));
+    const lateDoc = await Cls.create({ name: late, type: "npc", system: { role: "npc" } });
+    const started = doc._source._stats.createdTime + 1;
+    if (game.settings.settings.has("air-bladder.hireling-split-pending")) {
+      await game.settings.set("air-bladder", "hireling-split-pending", { started });
+    }
     await game.settings.set("air-bladder", "hireling-split", false);
-    return { id: doc.id, bystanders };
-  }, { name: SPLIT, rate: RATE });
+    return {
+      id: doc.id, lateId: lateDoc.id, started,
+      splitCreated: doc._source._stats.createdTime, lateCreated: lateDoc._source._stats.createdTime,
+      sceneId: scene.id, tokenId: tok.id, deltaPlanted,
+    };
+  }, { name: SPLIT, late: LATE, rate: RATE, deltaBase: DELTA_BASE, deltaScene: DELTA_SCENE });
 
+  splitState.deltaPlanted === "npc"
+    ? ok('precondition: an unlinked token\'s delta stores role "npc"')
+    : fail("precondition: the delta plant", `delta holds ${JSON.stringify(splitState.deltaPlanted)}`);
+
+  splitState.splitCreated < splitState.started && splitState.started < splitState.lateCreated
+    ? ok("precondition: the recorded start falls between the two creations",
+      `${splitState.splitCreated} < ${splitState.started} < ${splitState.lateCreated}`)
+    : fail("precondition: the recorded start falls between the two creations", JSON.stringify(splitState));
   const splitBefore = await rawRole(splitState.id);
   if (splitBefore === "npc") {
     ok('planted a genuine pre-split person — the database holds role "npc"');
@@ -498,9 +570,9 @@ try {
     fail(`the split plant did not land — the database holds ${JSON.stringify(splitBefore)}; `
       + "the assertions below would pass on a document that was never in the old state");
   }
-  if (splitState.bystanders.length) {
-    console.log(`  note  ${splitState.bystanders.length} other role-npc actor(s) will be converted and restored`);
-  }
+  const reach = splitSnap.actors.length + splitSnap.deltas.length
+    + splitSnap.packs.reduce((n, p) => n + p.ids.length, 0);
+  if (reach) console.log(`  note  ${reach} other role-npc document(s) will be converted and restored`);
 
   const splitLog = [];
   page.on("console", (mm) => {
@@ -515,6 +587,23 @@ try {
   const splitAfter = await rawRole(splitState.id);
   if (splitAfter === "hireling") ok("the pre-split person is a HIRELING in the database now");
   else fail(`the database still holds ${JSON.stringify(splitAfter)} — the split did not convert it`);
+
+  const deltaAfter = await page.evaluate(({ sceneId, tokenId }) =>
+    game.scenes.get(sceneId)?.tokens.get(tokenId)?.delta?._source?.system?.role ?? null, splitState);
+  deltaAfter === "hireling"
+    ? ok("the unlinked token's delta is a HIRELING now — the delta walk ran")
+    : fail(`the token's delta still holds ${JSON.stringify(deltaAfter)} — the split skipped the delta walk`);
+
+  const lateAfter = await rawRole(splitState.lateId);
+  lateAfter === "npc"
+    ? ok("an NPC made AFTER the first attempt began survives the retry as an npc")
+    : fail(`a genuine NPC made after the first attempt was converted to ${JSON.stringify(lateAfter)} — `
+      + "the retry re-ran the selection over documents the first attempt never saw");
+  const pendingAfter = await page.evaluate(() => (game.settings.settings.has("air-bladder.hireling-split-pending")
+    ? game.settings.get("air-bladder", "hireling-split-pending") : "not registered"));
+  pendingAfter && Object.keys(pendingAfter).length === 0
+    ? ok("with nothing left to retry, the pending record is cleared")
+    : fail("the pending record outlived a complete split", JSON.stringify(pendingAfter));
 
   if (splitLog.length) ok(`the split named itself as the writer — "${splitLog[0]}"`);
   else fail("the stored role changed but the split logged nothing — something else wrote it");
@@ -556,21 +645,119 @@ try {
     ? ok("a REAL npc made after the split survives a reload as an npc — the marker holds")
     : fail(`a genuine npc was converted to ${JSON.stringify(survived)} — the split ran twice`);
 
-  // Put the bystanders back before anything else can observe them converted.
-  const restored = await page.evaluate(async (ids2) => {
-    let n = 0;
-    for (const id of ids2) {
-      const a = game.actors.get(id);
-      if (!a || a._source.system.role !== "hireling") continue;
-      await a.update({ "system.role": "npc" }, { diff: false });
-      n += 1;
+  // A FAILED PACK RETRIES ALONE (review #34 finding 3). With the marker set and
+  // one world pack recorded as failed, the next load converts that pack — and
+  // its lock comes back — while a genuine NPC in the world, which a re-run of
+  // the world selection would convert, is not touched.
+  const packLeg = await page.evaluate(async ({ label, person, late2 }) => {
+    // UNLOCKED first: core refuses to delete a locked pack (`#assertUserCanManage`),
+    // and this leg's pack is left locked by design.
+    for (const p of game.packs.filter((p) => p.metadata.label === label)) {
+      await p.configure({ locked: false }).catch(() => {});
+      await p.deleteCompendium().catch(() => {});
     }
-    const left = ids2.filter((id) => game.actors.get(id)?._source.system.role !== "npc").length;
-    return { n, left };
-  }, splitState.bystanders);
-  restored.left === 0
-    ? ok(`restored ${restored.n} bystander(s) the split converted`, "the world is as it was found")
-    : fail(`${restored.left} bystander(s) are still hirelings — this probe changed the Warden's world`);
+    for (const a of game.actors.filter((a) => a.name === late2)) await a.delete();
+    const Cls = CONFIG.Actor.documentClass;
+    const pack = await foundry.documents.collections.CompendiumCollection.createCompendium({ label, type: "Actor" });
+    const inPack = await Cls.create({ name: person, type: "npc", system: { profession: "Linkboy" } }, { pack: pack.collection });
+    await foundry.helpers.SocketInterface.dispatch("modifyDocument", {
+      type: "Actor", action: "update",
+      operation: {
+        pack: pack.collection,
+        updates: [{ _id: inPack.id, system: { role: "npc" } }],
+        diff: false, recursive: true, noHook: false, render: false, modifiedTime: Date.now(),
+      },
+    });
+    const late = await Cls.create({ name: late2, type: "npc", system: { role: "npc" } });
+    await pack.configure({ locked: true });
+    // The start from the document's OWN server stamp, not `game.time.serverTime`:
+    // that is an estimate, and can sit a few ms before a stamp the server just
+    // wrote — reading the pack's person as made AFTER the attempt.
+    if (game.settings.settings.has("air-bladder.hireling-split-pending")) {
+      await game.settings.set("air-bladder", "hireling-split-pending", {
+        started: inPack._source._stats.createdTime + 1, packs: [pack.collection],
+      });
+    }
+    return { collection: pack.collection, inPackId: inPack.id, lateId: late.id,
+      marker: game.settings.get("air-bladder", "hireling-split") };
+  }, { label: PACK_LABEL, person: PACK_PERSON, late2: LATE2 });
+
+  const packBefore = await rawPackRole(packLeg.collection, packLeg.inPackId);
+  packBefore === "npc" && packLeg.marker === true
+    ? ok("precondition: a pre-split person in a world pack, with the marker set and the pack recorded as failed")
+    : fail("precondition: the pack plant", `role=${JSON.stringify(packBefore)} marker=${packLeg.marker}`);
+
+  await page.reload({ waitUntil: "networkidle", timeout: 60000 });
+  await page.waitForFunction(() => globalThis.game?.ready === true, null, { timeout: 90000 });
+  await dismissChrome(page);
+  // Until the ready-time migration is DONE, not a fixed pause: the phases run
+  // in sequence and the split is not the first, so a read 3 s in raced it (the
+  // first green run read the pack as untouched and the cleared record a moment
+  // later). The record empties as the split's last act; the unfixed code never
+  // empties it, and times out here into the red reads below.
+  await page.waitForFunction(() => {
+    const has = game.settings.settings.has("air-bladder.hireling-split-pending");
+    const v = has ? game.settings.get("air-bladder", "hireling-split-pending") : null;
+    return has && v && Object.keys(v).length === 0;
+  }, null, { timeout: 20000 }).catch(() => {});
+
+  const packAfter = await rawPackRole(packLeg.collection, packLeg.inPackId);
+  packAfter === "hireling"
+    ? ok("the failed pack is converted on the retry")
+    : fail(`the recorded pack still holds ${JSON.stringify(packAfter)} — a set marker skipped its retry`);
+  const late2After = await rawRole(packLeg.lateId);
+  late2After === "npc"
+    ? ok("...and the world's genuine NPC is untouched — the world selection did not run again")
+    : fail(`a genuine world NPC was converted to ${JSON.stringify(late2After)} by a PACK retry`);
+  const packEnd = await page.evaluate((c) => ({
+    locked: game.packs.get(c)?.locked ?? null,
+    pending: game.settings.settings.has("air-bladder.hireling-split-pending")
+      ? game.settings.get("air-bladder", "hireling-split-pending") : "not registered",
+  }), packLeg.collection);
+  packEnd.locked === true && packEnd.pending && Object.keys(packEnd.pending).length === 0
+    ? ok("the pack is locked again and nothing is left pending")
+    : fail("after the pack retry", JSON.stringify(packEnd));
+
+  // THE DOCUMENTED RESIDUAL — A PIN, NOT A RED LEG (review #34 finding 234,
+  // ruled 2026-11-01: "state the limit honestly"). The legs above plant
+  // `{started}`, a shape only the NEW code writes. A world whose split had been
+  // failing under 0.1.18–0.1.25 holds the marker FALSE and no pending start at
+  // all (the setting did not exist), so its first load of the fixed code
+  // records "now" as the start, and every NPC made since that world's last
+  // load is converted, one last time. Nothing the world holds dates the old
+  // first attempt reliably, so the user chose to state it rather than guess.
+  // This leg plants exactly that shape and a genuine NPC, and asserts what the
+  // code comment and the working notes now say: it IS converted. If this ever
+  // goes red, the residual was closed — update the comment, the notes and this.
+  //
+  // It is also the ONLY leg in which the split dates its first attempt itself
+  // (the ones above plant `started`), and its first run was red for exactly
+  // that: the start was taken from `game.time.serverTime`, the server's
+  // UPTIME, so no stamped document read as made before it and nothing at all
+  // was converted. A red here can be either cause; the message says both.
+  const upgraded = await page.evaluate(async ({ late3 }) => {
+    for (const a of game.actors.filter((a) => a.name === late3)) await a.delete();
+    const a = await CONFIG.Actor.documentClass.create({ name: late3, type: "npc", system: { role: "npc" } });
+    if (game.settings.settings.has("air-bladder.hireling-split-pending")) {
+      await game.settings.set("air-bladder", "hireling-split-pending", {});
+    }
+    await game.settings.set("air-bladder", "hireling-split", false);
+    return { id: a.id, marker: game.settings.get("air-bladder", "hireling-split") };
+  }, { late3: LATE3 });
+  const upgradedBefore = await rawRole(upgraded.id);
+  upgradedBefore === "npc" && upgraded.marker === false
+    ? ok("precondition: an upgraded failing world's shape — marker false, no pending start — and a genuine NPC")
+    : fail("precondition: the upgraded-world plant", `role=${JSON.stringify(upgradedBefore)} marker=${upgraded.marker}`);
+  await page.reload({ waitUntil: "networkidle", timeout: 60000 });
+  await page.waitForFunction(() => globalThis.game?.ready === true, null, { timeout: 90000 });
+  await dismissChrome(page);
+  await page.waitForFunction(() => game.settings.get("air-bladder", "hireling-split") === true, null, { timeout: 20000 }).catch(() => {});
+  const upgradedAfter = await rawRole(upgraded.id);
+  upgradedAfter === "hireling"
+    ? ok("RESIDUAL, as documented: on that shape a genuine NPC made since the last load IS converted, once")
+    : fail(`the documented residual no longer holds (role ${JSON.stringify(upgradedAfter)}) — either the split `
+      + "dated its first attempt on a clock other than the documents' creation stamps (so it converted nothing), or "
+      + "the residual was closed on purpose: then update migrateHirelingSplit's comment, documents-and-roles.md and this leg");
 } catch (e) {
   fail(`threw: ${e.message}`);
 } finally {
@@ -581,9 +768,52 @@ try {
   }
   // The split leg names its actors rather than holding ids, so it can clean up
   // even when it threw before the ids came back.
-  await page.evaluate(async (names) => {
+  await page.evaluate(async ({ names, label, sceneName }) => {
+    for (const s of game.scenes.filter((x) => x.name === sceneName)) await s.delete();
     for (const n of names) for (const a of game.actors.filter((x) => x.name === n)) await a.delete();
-  }, [SPLIT, SURVIVOR]).catch(() => {});
+    for (const p of game.packs.filter((p) => p.metadata.label === label)) {
+      await p.configure({ locked: false }).catch(() => {});   // a locked pack refuses its delete
+      await p.deleteCompendium().catch(() => {});
+    }
+  }, { names: [SPLIT, SURVIVOR, LATE, LATE2, LATE3, DELTA_BASE], label: PACK_LABEL, sceneName: DELTA_SCENE }).catch(() => {});
+  // EVERYTHING the split reached, back as it was found, then both settings —
+  // here, so a throw anywhere above still leaves the Warden's world whole.
+  if (splitSnap) {
+    const restored = await page.evaluate(async (snap) => {
+      const back = (d) => d?._source?.system?.role === "hireling";
+      let n = 0;
+      for (const id of snap.actors) {
+        const a = game.actors.get(id);
+        if (back(a)) { await a.update({ "system.role": "npc" }, { diff: false }); n += 1; }
+      }
+      for (const { scene, token } of snap.deltas) {
+        const t = game.scenes.get(scene)?.tokens.get(token);
+        if (t?.actor && back(t.delta)) { await t.actor.update({ "system.role": "npc" }, { diff: false }); n += 1; }
+      }
+      for (const { collection, ids: pids } of snap.packs) {
+        const pack = game.packs.get(collection);
+        if (!pack) continue;
+        const docs = (await pack.getDocuments()).filter((d) => pids.includes(d.id) && back(d));
+        if (!docs.length) continue;
+        const wasLocked = pack.locked;
+        try {
+          if (wasLocked) await pack.configure({ locked: false });
+          await CONFIG.Actor.documentClass.updateDocuments(
+            docs.map((d) => ({ _id: d.id, "system.role": "npc" })), { pack: collection, diff: false });
+          n += docs.length;
+        } finally {
+          if (wasLocked) await pack.configure({ locked: true });
+        }
+      }
+      await game.settings.set("air-bladder", "hireling-split", snap.marker);
+      if (snap.pending !== null) await game.settings.set("air-bladder", "hireling-split-pending", snap.pending);
+      const left = snap.actors.filter((id) => game.actors.get(id)?._source.system.role !== "npc").length;
+      return { n, left, marker: game.settings.get("air-bladder", "hireling-split") };
+    }, splitSnap).catch((e) => ({ error: String(e?.message ?? e) }));
+    !restored.error && restored.left === 0 && restored.marker === splitSnap.marker
+      ? ok(`restored ${restored.n} document(s) the split converted, and both settings`, "the world is as it was found")
+      : fail("the split's restore", `${JSON.stringify(restored)} — this probe changed the Warden's world`);
+  }
 }
 
 if (errors.length) { console.log(""); for (const e of errors) fail(`console error: ${e}`); }

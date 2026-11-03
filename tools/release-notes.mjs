@@ -23,9 +23,12 @@
  * One trap, handled in release.mjs and worth knowing if a tag is ever made by
  * hand: git's DEFAULT tag-message cleanup (`--cleanup=strip`) drops every line
  * that starts with `#` as a comment, headings included, silently. The tag is
- * made with `--cleanup=whitespace`, which keeps them. Proven in a throwaway
- * clone on 2026-09-15: the same file under each mode, the heading present in one
- * body and gone from the other.
+ * made with `--cleanup=verbatim`. Proven in a throwaway clone on 2026-09-15:
+ * the same file under each mode, the heading present in one body and gone from
+ * the other. `--cleanup=whitespace` keeps the headings too, but it strips a
+ * Markdown hard break's two trailing spaces and collapses blank lines, which is
+ * why release.mjs moved to verbatim (4cc71911). A hand-made tag needs the same
+ * flag (review #34 finding 18).
  */
 
 /** A `## X.Y.Z` heading; trailing text on the line (a date, say) is allowed. */

@@ -40,7 +40,7 @@
  * real space and never buys a near-empty page.
  */
 import { chromium } from "playwright";
-import { FOUNDRY_URL, VIEWPORT, dismissChrome, joinAsGM, watchErrors, watchdog } from "./lib.mjs";
+import { FOUNDRY_URL, VIEWPORT, dismissChrome, joinAsGM, watchErrors, watchdog, withSettings } from "./lib.mjs";
 
 let failures = 0;
 const ok = (l, d = "") => console.log(`  ok    ${l.padEnd(38)} ${d}`);
@@ -297,6 +297,12 @@ const r = await page.evaluate(async ({ xssName }) => {
   out.omenHeader = [...(doc?.querySelectorAll("h2") ?? [])].some((h) => h.textContent.trim() === game.i18n.localize("CAIRN.Omen"));
   out.traitsProse = [...(doc?.querySelectorAll("section p") ?? [])]
     .map((p) => p.textContent).find((s) => s.includes("Physique")) ?? "";
+  // A VOWEL-INITIAL PHYSIQUE (review #34 finding 185, wording approved
+  // 2026-11-01). The clause was "a {value} Physique", so the shipped 2e
+  // table's first row printed "You have a Athletic Physique". Built by the
+  // sheet's own composer — the one the page shares — from the table's own row.
+  out.vowelProse = (game.actors.get(pc.id) ?? pc).sheet._buildTraitSentence(
+    { physique: "Athletic", skin: "Scarred", hair: "Braided" }, "");
   out.statsText = doc?.querySelector(".stats")?.textContent.replace(/\s+/g, " ") ?? "";
   // Deprived/Panicked print as ALWAYS-PRESENT mark boxes (user ask
   // 2026-08-10) — EMPTY here, on an actor with neither condition: the ask's
@@ -678,6 +684,50 @@ const r = await page.evaluate(async ({ xssName }) => {
   } finally { i18n._setOverlay(null); }
   out.overlayRemoved = !i18n.contentLocalized();
 
+  // A RE-ROLED PERSON (review #34 finding 114). A role change keeps stored
+  // biography on purpose, so a person re-roled to Monster still carries its
+  // pronouns, traits, age and scars; the sheet hides that block for a
+  // non-person and print showed it. And an NPC re-roled to hireling still
+  // stores a Quirk and a Goal, which the trait sentence named although no row
+  // of the hireling's offers them. The witness prints the same actor while it
+  // is still a person, so the plant is proved to reach paper first.
+  {
+    const pageText = async (actor) => {
+      await actor.sheet.render(true);
+      await sleep(400);
+      const calls = [];
+      let popup = null;
+      window.open = (...a) => {
+        popup = origOpen.apply(window, a);
+        Object.defineProperty(popup, "print", { configurable: true, value: () => calls.push(1) });
+        return popup;
+      };
+      actor.sheet.element.querySelector('[data-action="printSheet"]')?.click();
+      for (let i = 0; i < 60 && !calls.length; i++) await sleep(150);
+      window.open = origOpen;
+      const text = popup?.document?.body?.textContent ?? "";
+      popup?.close();
+      await actor.sheet.close();
+      return text;
+    };
+    const bio = { pronouns: "zz/zir", traits: { physique: "ZZ-TRAIT-PHYS", quirk: "ZZ-TRAIT-QUIRK", goal: "ZZ-TRAIT-GOAL" },
+      age: "77", scars: ["ZZ-SCAR-ROW"] };
+    const has = (s) => ({ pron: s.includes("zz/zir"), phys: s.includes("ZZ-TRAIT-PHYS"), scar: s.includes("ZZ-SCAR-ROW") });
+    const reroled = await Actor.create({ name: "ZZ Print Reroled", type: "npc", system: { role: "npc", ...bio } });
+    try {
+      out.reroleAsPerson = has(await pageText(reroled));
+      await reroled.update({ "system.role": "monster" });
+      out.reroleAsMonster = has(await pageText(reroled));
+      await reroled.update({ "system.role": "hireling" });
+      await reroled.sheet.render(true);
+      await sleep(600);
+      out.reroleHirelingSentence = reroled.sheet.element?.querySelector(".trait-sentence")?.textContent ?? null;
+      await reroled.sheet.close();
+    } finally {
+      await reroled.delete();
+    }
+  }
+
   // Things print too (user ruling 2026-08-11, superseding 2026-08-08's "a
   // cart prints on its keeper's page" — the Warden had forgotten containers
   // hold gear worth handing across the table). A thing's page is its CARGO:
@@ -1001,6 +1051,9 @@ check("a disabled omen is OMITTED", r.omenOmitted && !r.omenHeader,
 check("traits compose to prose, age included",
   /Towering Physique/.test(r.traitsProse) && /40 years old/.test(r.traitsProse),
   `"${r.traitsProse}" — the sheet's own _buildTraitSentence, not a second composer`);
+check("a vowel-initial physique reads as English (review #34 finding 185)",
+  /Athletic Physique/.test(r.vowelProse ?? "") && !/\ba Athletic\b/i.test(r.vowelProse ?? ""),
+  `"${r.vowelProse}" — the 2e Physique table's first row`);
 // SECOND PERSON on a character's page, and it has to be asserted here because
 // the printed page is the OTHER caller of that builder (2026-08-20). The
 // sentence went third-person for the two npc person roles in the same change,
@@ -1173,6 +1226,18 @@ check("a hireling's printed Career asks npc.career, the sheet header's namespace
 check("and an NPC's printed Background still asks table.result",
   (r.personSub ?? "").includes("ZZ-ORIGEN-TRADUCIDO"),
   `subtitle="${r.personSub}" — the other half of the role split must keep its own namespace`);
+
+console.log("\na re-roled person (review #34 finding 114)");
+const asP = r.reroleAsPerson ?? {};
+check("witness: a person's page prints its pronouns, traits and scars", asP.pron && asP.phys && asP.scar,
+  JSON.stringify(asP));
+const asM = r.reroleAsMonster ?? {};
+check("re-roled to Monster, the page prints none of them — the sheet hides that block",
+  r.reroleAsMonster && !asM.pron && !asM.phys && !asM.scar, JSON.stringify(asM));
+check("re-roled to hireling, the trait sentence names no Quirk or Goal",
+  typeof r.reroleHirelingSentence === "string" && r.reroleHirelingSentence.includes("ZZ-TRAIT-PHYS")
+    && !r.reroleHirelingSentence.includes("ZZ-TRAIT-QUIRK") && !r.reroleHirelingSentence.includes("ZZ-TRAIT-GOAL"),
+  `sentence=${JSON.stringify(r.reroleHirelingSentence)} — no row of a hireling's offers either, so nothing could clear them`);
 
 console.log("\nthe thing's page");
 check("a container prints its cargo with the AUTHORED slot fraction",
@@ -1360,6 +1425,69 @@ check("control: the body's print padding brings the blank page back", paperContr
 check("the 9mm roof still lands on page 1", paper.roof?.top === 0 && paper.roof?.h > 30,
   `${JSON.stringify(paper.roof)} — the frame's thead is what replaced the body padding, so it must be `
   + "the first thing on the paper, not merely present on continuation pages");
+
+/* ------------------------------------------- the Panicked rule off ---- */
+// A FIELD THE WARDEN HAS HIDDEN DOES NOT REAPPEAR ON PAPER (review #34
+// finding 222; the show-omens ruling). With "Use the 2e Panicked condition"
+// off the sheets draw no Panicked control, but the printed character page
+// drew its Panicked mark box (filled, for a stored true — a Kettlewright
+// import writes one) and an NPC page's status line printed "Panicked". The
+// setting is a real write for this leg only: withSettings restores it from a
+// Node-level finally. The Deprived box is the witness that the marks row
+// still prints.
+console.log("\nthe Panicked rule off");
+const panicOff = await withSettings(page, () => page.evaluate(async () => {
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const origOpen = window.open;
+  const pageOf = async (actor) => {
+    await actor.sheet.render(true);
+    await sleep(400);
+    const calls = [];
+    let popup = null;
+    window.open = (...a) => {
+      popup = origOpen.apply(window, a);
+      Object.defineProperty(popup, "print", { configurable: true, value: () => calls.push(1) });
+      return popup;
+    };
+    actor.sheet.element.querySelector('[data-action="printSheet"]')?.click();
+    for (let i = 0; i < 60 && !calls.length; i++) await sleep(150);
+    window.open = origOpen;
+    const doc = popup?.document;
+    const out = {
+      marks: doc?.querySelector(".cond-marks")?.textContent ?? null,
+      status: doc?.querySelector(".statusline")?.textContent ?? "",
+    };
+    popup?.close();
+    await actor.sheet.close();
+    return out;
+  };
+  const made = [];
+  try {
+    await game.settings.set("air-bladder", "use-panic", false);
+    const pc = await Actor.create({ name: "ZZ Print Panic PC", type: "character", system: { panicked: true, deprived: true } });
+    const npc = await Actor.create({ name: "ZZ Print Panic NPC", type: "npc", system: { role: "npc", panicked: true } });
+    made.push(pc, npc);
+    for (const a of made) a.reset();
+    const panicLabel = game.i18n.localize("CAIRN.Panicked");
+    const pcPage = await pageOf(pc);
+    const npcPage = await pageOf(npc);
+    return {
+      usePanic: pc.system.usePanic, panicLabel,
+      deprivedLabel: game.i18n.localize("CAIRN.Deprived"),
+      pcMarks: pcPage.marks, npcStatus: npcPage.status,
+    };
+  } finally {
+    for (const a of made) { try { await a.delete(); } catch { /* gone */ } }
+  }
+}));
+check("precondition: the rule reads off on the planted actors", panicOff.usePanic === false,
+  `usePanic=${panicOff.usePanic}`);
+check("witness: the character's mark-later row still prints its Deprived box",
+  (panicOff.pcMarks ?? "").includes(panicOff.deprivedLabel), JSON.stringify(panicOff.pcMarks));
+check("a character page prints no Panicked box while the rule is off",
+  panicOff.pcMarks !== null && !panicOff.pcMarks.includes(panicOff.panicLabel), JSON.stringify(panicOff.pcMarks));
+check("an NPC page's status line prints no Panicked while the rule is off",
+  !panicOff.npcStatus.includes(panicOff.panicLabel), JSON.stringify(panicOff.npcStatus));
 
 /* ----------------------------------------------------------- teardown ---- */
 await page.evaluate(async ({ ids, itemIds, pagerId: pid }) => {

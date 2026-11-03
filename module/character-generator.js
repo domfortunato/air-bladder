@@ -1,18 +1,19 @@
 import { CairnActor } from "./actor/actor.js";
-import { rollTableText, resultText, findTableByName, findDeclaredTable } from "./compendium.js";
+import { rollTablePlainText, resultPlainText, findTableByName, findDeclaredTable, warmPackDocuments } from "./compendium.js";
 import { Cairn } from "./config.js";
-import { evaluateFormula, formatCount } from "./utils.js";
+import { evaluateFormula, formatCount, concealSecrets } from "./utils.js";
 import {
-  resolveGearItem, itemDataFromDocument, GEAR_ALIASES, spellScrollItem,
+  resolveGearItem, warmGearItems, itemDataFromDocument, GEAR_ALIASES, spellScrollItem,
   orderGrantedItems, isLightGear, RATIONS_RE,
   CANONICAL_GEAR_PACKS, SPELL_PACKS,
 } from "./gear.js";
 import { containerClass, iconForTransport } from "./icons.js";
-import { connectionHeadroom, maxConnections, connectedOwnershipShape, OWNERSHIP_SYNC_FLAG } from "./connections.js";
+import { connectionHeadroom, maxConnections, connectedOwnershipShape, brokenOwnershipShape, keepOthersOwners,
+  ownersGivenBy, OWNERSHIP_SYNC_FLAG } from "./connections.js";
 import { SETTINGS_NS } from "./settings.js";
 import { glogEnabled, GLOG_SPELL_PACKS } from "./glog.js";
 import { PERSON_ROLES } from "./data-models.js";
-import { t } from "./i18n-content.js";
+import { t, ORPHAN_PREFIX } from "./i18n-content.js";
 
 // Foundry validates a document flag's scope against real package ids, so flags
 // use the system id "air-bladder" (NOT the internal "cairn" JS/settings namespace,
@@ -38,11 +39,15 @@ export const FLAG_SCOPE = "air-bladder";
  * moment the first item was typed, so the second background picked would behave
  * differently from the first with nothing on screen to say why.
  *
- * **The way out is Roll Character with Background checked** — the checklist's
- * own default. That clears the mark BEFORE it re-deals, so the character
- * becomes a rolled one and grants resume. A bare background die does NOT clear
- * it: pressing that die is still choosing a background, which is the gesture
- * the ruling is about.
+ * **The ways out** are the gestures that ask the dice for the thing itself:
+ * Roll Character with Background ticked, which re-deals with `ignoreHandBuilt`
+ * and clears the mark only AFTER changeBackground returns true (clearing first
+ * left an aborted swap's character silently un-hand-built, review #26 — see
+ * `_applyRerollParts`); ticking Starting gear (`redealBackgroundGear`); and a
+ * full regenerate (`regenerateActor`, `regenerateHireling`, `regenerateNpc`,
+ * monster-generator.js `regenerateMonster`). The character becomes a rolled one and grants
+ * resume. A bare background die does NOT clear it: pressing that die is still
+ * choosing a background, which is the gesture the ruling is about.
  */
 export const HAND_BUILT_FLAG = "handBuilt";
 
@@ -59,19 +64,22 @@ export const clearHandBuilt = async (actor) => {
  * Cairn 2e character generation.
  *
  * Gear is NEVER inlined here: a background's starting gear, a bond's item, and a
- * choice-table option's items are all BY-NAME references into the editable gear
+ * choice-table option's items are all BY-NAME references into the shipped gear
  * pool. `resolveGearItem` (module/gear.js) turns each reference into a fresh
- * owned-item payload cloned from the current pack document — so editing a pool
- * item flows into every character generated afterwards. That single-source-of-
+ * owned-item payload cloned from the current pack document — so a fix to a pool
+ * item reaches every character generated afterwards. That single-source-of-
  * truth is the whole reason this system was rebuilt off the fork's inlined model.
+ * The shipped packs are TEMPLATES, not a Warden's workbench: a system update
+ * replaces them wholesale, so an edit made to one in Foundry does not survive it.
  */
 
 /* -------------------------------------------------------------------------- */
 /*  Portrait / token art                                                       */
 /* -------------------------------------------------------------------------- */
 
-// The manifest is a list of paired basenames that live in BOTH
-// character_portraits/ and character_tokens/ (see tools/import/portraits.mjs).
+// The manifest is a list of paired basenames that live in BOTH of its own
+// `portraitDir` and `tokenDir` — art/jon-aspeheim/portraits and /tokens (see
+// tools/import/portraits.mjs).
 // Fetched lazily and cached so neither generation nor the gallery needs the
 // FILES_BROWSE permission that listing a server folder would require -- both run
 // player-side.
@@ -165,21 +173,27 @@ const lydiaSetPortraits = (set) =>
 // --- Custom portraits (GM-curated, per-world local pool) --------------------
 // A folder of the GM's own portraits, scanned into a world setting so players
 // (who lack FILES_BROWSE) can still see and pick them. When non-empty it REPLACES
-// the shipped art for auto-assignment; empty, everything falls back to Aspeheim.
+// the shipped art for auto-assignment; empty, everything falls back to the
+// default pool (`defaultPortraitPool`: tlomdev's `humanoid` folder since
+// 2026-08-18).
 // Custom portraits have no paired token file, so each image doubles as its token.
 
 const IMAGE_RE = /\.(?:webp|png|jpe?g|gif|svg|avif|bmp)$/i;
 
 // How far the custom-portrait scan walks, and how many folders it will visit.
-// Both exist because the scan is one HTTP round trip per folder, run on the
+// Both exist because the scan is one server request per folder, run on the
 // Warden's client while they wait, and the setting is a free-text path — point
 // it at the data root by mistake and an uncapped walk would crawl the whole
 // install. Six levels is deeper than anyone files portraits; 200 folders is far
 // above a portrait collection and far below a Foundry data directory. Hitting
 // either is warned about rather than passed over in silence, because a short
-// list looks exactly like a small collection.
+// list looks exactly like a small collection. A level's folders are asked
+// side by side, `SCAN_PARALLEL` at a time (review #34 finding 208): they do not
+// depend on each other, and a cap keeps a wide level from landing 200
+// requests on the server at once.
 const MAX_SCAN_DEPTH = 6;
 const MAX_SCAN_DIRS = 200;
+const SCAN_PARALLEL = 8;
 
 /**
  * The FilePicker implementation. Named in full, not resolved through a
@@ -214,9 +228,9 @@ export const getCustomPortraitPaths = () => {
  * Reserved by CONVENTION rather than by four more settings, deliberately: it
  * would be four more rows in the Character Generation submenu, a
  * second folder setting is a second folder to scan on every Warden's login
- * (the scan is one HTTP round trip per directory, capped at 200), and the
+ * (the scan is one server request per directory, capped at 200), and the
  * picker already renders subfolders as tiles. Nothing here adds a register()
- * call, so the counts in CLAUDE.md stand.
+ * call, so the settings counts (docs/working-notes/settings.md) stand.
  *
  * THE GENERAL POOL EXCLUDES THE RESERVED FOLDERS, and that is a ruling rather
  * than an implementation detail. If it did not, a Warden who filed only
@@ -266,6 +280,30 @@ export const reservedPortraitCategory = (segment) => {
 };
 
 /**
+ * A folder root in the form the SERVER hands paths back in (review #34 finding
+ * 97). Browse returns every file through `toClientPath` — percent-encoded per
+ * segment by `foundry.utils.encodeURL`, unless already encoded
+ * (dist/files/local.mjs) — so a root typed with a space or an accent ("My
+ * Portraits", "Retratos/Niños") never prefixed its own files: every image fell
+ * to LOOSE in the picker and to GENERAL here, and a reserved `monster/` folder's
+ * faces went to the PC pool. Encoded the same way, core's own already-encoded
+ * test included. "" for no root.
+ * @param {string} root
+ * @returns {string}  the prefix, with its trailing slash
+ */
+export const clientPathPrefix = (root) => {
+  const trimmed = String(root ?? "").replace(/\/+$/, "");
+  if (!trimmed) return "";
+  let encoded;
+  try {
+    encoded = decodeURIComponent(trimmed) !== trimmed ? trimmed : foundry.utils.encodeURL(trimmed);
+  } catch {
+    encoded = foundry.utils.encodeURL(trimmed);
+  }
+  return `${encoded}/`;
+};
+
+/**
  * The flat cached list, bucketed into the four reserved categories plus
  * `general`. Derived on every call rather than cached: the list changes under
  * a Warden's Refresh and there is no invalidation hook worth owning for a walk
@@ -277,8 +315,7 @@ export const reservedPortraitCategory = (segment) => {
  * @returns {Object<String, String[]>}
  */
 const customBuckets = () => {
-  const root = customPortraitFolder().replace(/\/+$/, "");
-  const prefix = root ? `${root}/` : "";
+  const prefix = clientPathPrefix(customPortraitFolder());
   const buckets = { general: [] };
   for (const cat of PORTRAIT_CATEGORIES) buckets[cat] = [];
   for (const p of getCustomPortraitPaths()) {
@@ -403,26 +440,42 @@ export const refreshCustomPortraits = async () => {
     // cost the Warden every other portrait they have. `seen` guards against a
     // directory link that points back up its own tree — the walk is over paths,
     // so a cycle would otherwise never terminate.
+    //
+    // ONE LEVEL AT A TIME, ITS FOLDERS SIDE BY SIDE (review #34 finding 208).
+    // Each folder used to wait for the one before it, so Refresh, the folder
+    // setting's toast and the login scan waited for the sum of every round
+    // trip. A level's replies are merged in the order its folders were listed,
+    // so the list (and which folder the 200th visit cuts off) is the one the
+    // one-at-a-time walk made.
+    const browseOrSkip = async (path) => {
+      try { return await FP.browse("data", path); } catch (e) {
+        console.warn(`Air Bladder | could not scan custom portrait subfolder ${path}:`, e);
+        return null;
+      }
+    };
     const seen = new Set([dir]);
-    const queue = (root?.dirs ?? []).map((path) => ({ path, depth: 1 }));
+    let level = root?.dirs ?? [];
     let scanned = 0;
     let truncated = false;
-    while (queue.length) {
-      const { path, depth } = queue.shift();
-      if (seen.has(path)) continue;
-      seen.add(path);
-      if (++scanned > MAX_SCAN_DIRS) { truncated = true; break; }
-      let res;
-      try {
-        res = await FP.browse("data", path);
-      } catch (e) {
-        console.warn(`Air Bladder | could not scan custom portrait subfolder ${path}:`, e);
-        continue;
+    for (let depth = 1; level.length; depth++) {
+      const batch = [];
+      for (const path of level) {
+        if (seen.has(path)) continue;
+        seen.add(path);
+        if (++scanned > MAX_SCAN_DIRS) { truncated = true; break; }
+        batch.push(path);
       }
-      files.push(...(res?.files ?? []).filter((f) => IMAGE_RE.test(f)));
-      const subs = res?.dirs ?? [];
-      if (depth < MAX_SCAN_DEPTH) queue.push(...subs.map((p) => ({ path: p, depth: depth + 1 })));
-      else if (subs.length) truncated = true;
+      const next = [];
+      for (let i = 0; i < batch.length; i += SCAN_PARALLEL) {
+        for (const res of await Promise.all(batch.slice(i, i + SCAN_PARALLEL).map(browseOrSkip))) {
+          if (!res) continue;
+          files.push(...(res.files ?? []).filter((f) => IMAGE_RE.test(f)));
+          const subs = res.dirs ?? [];
+          if (depth < MAX_SCAN_DEPTH) next.push(...subs);
+          else if (subs.length) truncated = true;
+        }
+      }
+      level = scanned > MAX_SCAN_DIRS ? [] : next;
     }
     if (truncated) {
       console.warn(`Air Bladder | custom portrait scan stopped early in "${dir}" — `
@@ -830,14 +883,17 @@ export const rollPcHitProtection = async () => {
 
 /**
  * Roll one text result from each declared table (the eight 2e traits, the NPC
- * traits). WORLD FIRST since 2026-09-13, through `rollTableText`: a Warden's
- * own table of the same name is what comes up, and the roll marks nothing.
+ * traits). WORLD FIRST since 2026-09-13, through `rollTablePlainText`: a
+ * Warden's own table of the same name is what comes up, and the roll marks
+ * nothing. PLAIN text, because the value is stored as a trait string and shown
+ * escaped: a document row on a Warden's table stored `@UUID[...]{name}` through
+ * the chat-text reader (review #34 finding 131).
  * @param {Object<string,string>} items  key -> "pack;TableName"
  * @returns {Promise<Object<string,string>>}
  */
 export const rollTextItems = async (items) => {
   const data = {};
-  for (const [key, value] of Object.entries(items)) data[key] = await rollTableText(value);
+  for (const [key, value] of Object.entries(items)) data[key] = await rollTablePlainText(value);
   return data;
 };
 
@@ -855,7 +911,7 @@ export const rollNameFromTable = async (config, fallback) => {
   const table = config ? await findDeclaredTable(config) : null;
   if (!table) return fallback;
   const { results } = await table.roll();
-  return resultText(results[0]).trim() || fallback;
+  return resultPlainText(results[0]) || fallback;
 };
 
 /* -------------------------------------------------------------------------- */
@@ -910,6 +966,21 @@ export const withGrantSource = (item, source) => ({
   ...item,
   flags: { ...(item.flags ?? {}), [FLAG_SCOPE]: { ...(item.flags?.[FLAG_SCOPE] ?? {}), grantSource: source } },
 });
+
+/**
+ * A weapon or armour a background's QUESTION or a BOND grants arrives
+ * EQUIPPED, as the starting gear does (review #34 finding 224), so Armor derives
+ * to what the prose promises. The pack document's own `equipped` is copied
+ * verbatim by itemDataFromDocument and the shipped data is mixed — every
+ * Fletchwind's question-2 bow is stored unequipped, a Kettlewright's Gambeson
+ * equipped and its Tin Helm not — and nobody chose that per grant. A new
+ * object, never a write into the resolved data it was given.
+ * @param {Object} item  item data
+ * @returns {Object}
+ */
+export const equipIfArms = (item) => (item?.type === "weapon" || item?.type === "armor"
+  ? { ...item, system: { ...(item.system ?? {}), equipped: true } }
+  : item);
 
 /**
  * Mundane background gear that needs no "Background" source chip — light and
@@ -1065,11 +1136,11 @@ export const drawBond = async (tableName, { avoid = [] } = {}) => {
     const { results } = await table.roll();
     result = results[0] ?? null;
     if (!result) return null;
-    if (!taken.has(bondKey(resultText(result)))) break;
+    if (!taken.has(bondKey(resultPlainText(result)))) break;
   }
   if (!result) return null;
   return {
-    description: resultText(result),
+    description: resultPlainText(result),
     gold: result.getFlag(FLAG_SCOPE, "gold") ?? 0,
     // Items are unflagged here; bondRecordFrom tags them with the bond's id.
     items: await resolveRefs(result.getFlag(FLAG_SCOPE, "items") ?? []),
@@ -1088,7 +1159,7 @@ export const bondRecordFrom = (drawn) => {
   const id = foundry.utils.randomID();
   return {
     bond: { id, description: drawn.description ?? "", gold: drawn.gold ?? 0 },
-    items: (drawn.items ?? []).map((it) => withGrantSource(it, `bond:${id}`)),
+    items: (drawn.items ?? []).map((it) => equipIfArms(withGrantSource(it, `bond:${id}`))),
   };
 };
 
@@ -1150,7 +1221,7 @@ export const applyChoiceTables = async (bg) => {
     const roll = await evaluateFormula(`1d${options.length}`);
     const opt = options[roll.total - 1] ?? options[0];
     const gold = opt.bonusGold ?? 0;
-    const items = (await resolveRefs(opt.items)).map((it) => withGrantSource(it, `question:${i}`));
+    const items = (await resolveRefs(opt.items)).map((it) => equipIfArms(withGrantSource(it, `question:${i}`)));
     out.items.push(...items);
     // The option's own prose rides along with the container spec. What the
     // background PROMISED about this beast — "4 HP. +6 slots (only +2 slots if
@@ -1207,6 +1278,14 @@ export const previewBackground = async (bg, n = 10) => {
   if (sys.source !== "2e") problems.push({ level: "warn", msg: game.i18n.localize("CAIRN.BgAuthor.LintSource") });
   if (!sys.archetype) problems.push({ level: "warn", msg: game.i18n.localize("CAIRN.BgAuthor.LintArchetype") });
   if (!(sys.names ?? []).some((s) => String(s).trim())) problems.push({ level: "warn", msg: game.i18n.localize("CAIRN.BgAuthor.LintNames") });
+
+  // Every name this lint resolves, in one request per pack first (review #34
+  // finding 207, `warmGearItems`); classifyRef then reads the cache.
+  const named = (ref) => !ref?.itemData && String(ref?.name ?? "").trim()
+    && !INSTRUCTION_ROWS.has(String(ref.name).trim().toLowerCase());
+  await warmGearItems([...(sys.startingGear ?? []),
+    ...(sys.tables ?? []).flatMap((t) => (t.options ?? []).flatMap((o) => o.items ?? []))]
+    .filter(named).map((ref) => ref.name));
 
   const gear = [];
   for (const ref of sys.startingGear ?? []) {
@@ -1340,9 +1419,10 @@ const containerKindFor = (name) => (/\b(wagon|cart|sled|sledge)\b/i.test(name) ?
  * produces (marketplace.js acquireTransport), so a granted donkey and a bought
  * one behave identically.
  *
- * The spec's name is resolved against the editable Mounts & Transports Actor
- * pack first, so a Warden who retunes "Donkey" there changes every donkey granted
- * afterwards; the grant's own `slots` still wins, because that number is the
+ * The spec's name is resolved against the shipped Mounts & Transports Actor
+ * pack first, so the pack's "Donkey" is every donkey granted (a template, like
+ * every shipped pack: an edit made there does not survive a system update);
+ * the grant's own `slots` still wins, because that number is the
  * background's (a Rivertooth is +6 where a Blacklegged Dandy is +4). A name with
  * no pack document — the one-off beasts — is minted from the spec alone.
  *
@@ -1353,7 +1433,11 @@ const containerKindFor = (name) => (/\b(wagon|cart|sled|sledge)\b/i.test(name) ?
  * @returns {Promise<CairnActor[]>}  the containers created
  */
 export const grantContainers = async (actor, specs) => {
-  if (!actor || !specs?.length) return [];
+  // A compendium character keeps no connections (canKeepConnected, review #34
+  // finding 163): a granted beast would be a WORLD actor connected to a pack
+  // uuid. Nothing to mint, and nothing to say — the headroom toast below would
+  // name a limit it never reached.
+  if (!actor || actor.pack || !specs?.length) return [];
   // The connection ceiling, CLAMPED rather than refused outright: a background
   // granting three beasts to a keeper with room for one still owes the
   // character that one. What was dropped is SAID — a silent clamp reads as
@@ -1385,7 +1469,7 @@ export const grantContainers = async (actor, specs) => {
   // (review #5, critical: the pack was stocked by nothing).
   const pack = game.packs.get("air-bladder.mounts-transports");
   const docs = pack ? await pack.getDocuments() : [];
-  // Resolve a spec against that editable pack (art/stats/description), with
+  // Resolve a spec against that pack (art/stats/description), with
   // sensible fallbacks for one-off beasts the pack doesn't carry. `kind` only
   // matters on the no-document path (icon + class inference by name); a resolved
   // Actor carries its class outright.
@@ -1430,9 +1514,9 @@ export const grantContainers = async (actor, specs) => {
    * needs ACTOR_CREATE, which players do not have, so the item branch was a
    * permissions workaround wearing a display setting's name. Hence the broker
    * below. */
-  /* Resolved ONCE, because the keeper's notes need the same answers the payload
-   * does: what this thing IS (role + Kind) and, where the granting option said
-   * nothing itself, the stock description off its pack document. */
+  /* Resolved once per spec: what this thing IS (role + Kind) and, where the
+   * granting option said nothing itself, the stock description off its pack
+   * document. */
   const entries = specs.map((spec) => {
     const { doc, kind, art } = resolve(spec);
     return {
@@ -1521,14 +1605,48 @@ export const grantContainers = async (actor, specs) => {
 };
 
 /**
- * Every container connected to this actor that GENERATION granted (it carries
- * a grantSource flag). Bought and hand-made containers have no such flag and are
- * never returned, so a regenerate cannot delete a player's mule.
+ * Is `candidate` really one of `keeper`'s granted containers, or only wearing
+ * the marks? `connectedTo` and the `grantSource` flag are both writable by any
+ * owner of the candidate, so a player could aim their own npc — or a party
+ * mule the Warden shared with everyone — at someone's character and have a
+ * re-roll of it take that actor (review #34 finding 120). A FLAG ALONE IS NOT
+ * IDENTITY, the lesson party-pile.js paid for. Counted only when no player can
+ * have faked it (user ruling 2026-11-01), on facts a player cannot write:
+ *
+ * - its `default` is below OWNER — not something shared with the whole table;
+ * - every player who owns it (by `testUserPermission`, so `default` folds in)
+ *   owns the keeper — a real grant wears the keeper's connected shape and no
+ *   one else's Owner;
+ * - its last writer, server-stamped, is a Warden or an owner of the keeper. A
+ *   `lastModifiedBy` naming nobody (a deleted user) is unknown, and unknown is
+ *   not counted.
+ * @param {CairnActor} candidate
+ * @param {CairnActor} keeper
+ * @returns {Boolean}
+ */
+const wearsKeepersGrant = (candidate, keeper) => {
+  const L = CONST.DOCUMENT_OWNERSHIP_LEVELS;
+  if ((candidate.ownership?.default ?? L.NONE) >= L.OWNER) return false;
+  for (const u of game.users) {
+    if (u.isGM) continue;
+    if (candidate.testUserPermission(u, "OWNER") && !keeper.testUserPermission(u, "OWNER")) return false;
+  }
+  const writer = game.users.get(candidate._stats?.lastModifiedBy ?? "");
+  return !!writer && (writer.isGM || keeper.testUserPermission(writer, "OWNER"));
+};
+
+/**
+ * Every container connected to this actor that GENERATION granted: it carries
+ * a grantSource flag AND passes `wearsKeepersGrant` (finding 120). Bought and
+ * hand-made containers have no such flag and are never returned, and neither
+ * is an actor someone only pointed at this character — so a re-roll can touch
+ * neither a player's own mule nor one a stranger aimed here.
  * @param {CairnActor} actor @returns {CairnActor[]}
  */
 export const grantedContainersOf = (actor) =>
   (game.actors ?? []).filter(
     (a) => a.system?.connectedTo === actor.uuid && a.getFlag(FLAG_SCOPE, "grantSource")
+      && wearsKeepersGrant(a, actor)
   );
 
 /**
@@ -1594,90 +1712,111 @@ export const requestPcGeneration = async () => {
   ui.notifications.info(game.i18n.localize("CAIRN.Notify.PcGenRequested"));
   game.socket.emit(`system.${game.system.id}`, {
     action: "generatePC", source: answer.choice, blank: answer.blank,
+    // An empty sheet's name in THIS client's language: the Warden's client
+    // mints it (review #34 finding 244, createBlankActor).
+    blankName: answer.blank ? game.i18n.localize(BLANK_KINDS.character.name) : undefined,
   });
 };
 
-/**
- * May the current user run a (re)generation that could create or delete this
- * actor's container Actors? Deleting an Actor requires an Assistant GM+ (Foundry
- * gates it by ROLE, with no player-grantable permission — unlike ACTOR_CREATE), so
- * a plain player cannot. This is the UP-FRONT guard: (re)generation deletes items
- * BEFORE it touches containers, so a mid-way permission throw corrupts the
- * character — better to refuse before mutating anything, with a clear notice.
- *
- * A container op is only in play when there is an existing granted container to
- * DELETE. Creation is brokered (see below), and there is no "containers feature"
- * switch any more — `show-containers-tab` was the display toggle this comment
- * used to call one, and it is gone. Pass `source` to scope the delete check to
- * one grant source (a single question's containers) rather than all of them.
- * @param {CairnActor} actor @param {String|null} source
- * @returns {Boolean} true to proceed
- */
-export const canRegenerateContainers = (actor, source = null, warnKey = "CAIRN.Notify.NoContainerRegen") => {
-  if (game.user.isGM) return true; // isGM === role >= ASSISTANT, exactly what Actor delete needs
-  // CREATION is no longer a reason to refuse: a player's grants are brokered to
-  // the Warden's client over the system socket (requestGrantedActors). Only a
-  // DELETE still needs Assistant+, because there is no broker for it and there
-  // should not be -- a socket that deletes actors on request is a very different
-  // thing from one that creates the ones a background just rolled.
-  //
-  // This used to read `show-containers-tab` as `mayCreate`, which is how a
-  // DISPLAY setting came to decide a permission: with the tab on, every non-GM
-  // was refused whether or not anything needed deleting. That coupling is gone.
-  const existing = grantedContainersOf(actor);
-  const mustDelete = source
-    ? existing.some((c) => c.getFlag(FLAG_SCOPE, "grantSource") === source)
-    : existing.length > 0;
-  if (!mustDelete) return true;
-  // The refusal is shared; the SENTENCE is not. This guard began as the
-  // regenerate check and its message says "ask them to re-roll it for you" —
-  // correct there, and wrong the moment the background swap started calling it,
-  // because that instructs a player to request an operation that discards their
-  // abilities, HP and traits when all they touched was a background. Callers that
-  // refuse a different operation pass their own key.
-  ui.notifications.warn(game.i18n.localize(warnKey));
-  return false;
-};
+/* `canRegenerateContainers` stood here and is GONE (user ruling 2026-11-01,
+   review #34 finding 183). It REFUSED a player any re-roll that would remove a
+   granted container, because removing one meant DELETING an Actor and Foundry
+   gates that on ASSISTANT — so a player whose background gave them a mule had
+   to ask the Warden to re-roll for them. The ruling: "Players should not need
+   the Warden to re-roll for them. A re-roll may just orphan actors assigned by
+   the first question, in which case the Warden will delete them." A re-roll
+   now ORPHANS the old grant's containers (`orphanContainers`, below), on
+   everyone's re-roll, the Warden's included, and nothing refuses. Its two
+   sentences (NoContainerRegen, NoContainerBackground) went with it. */
 
 /**
- * Delete container Actors — ONE batched operation, not a per-actor loop
- * (review #13 #20). The loop was N sequential server round trips, and a
- * throw mid-loop left the earlier deletes committed with nothing recording
- * where it stopped; a batch is one request that the caller sees succeed or
- * fail whole. Returns the targets on success, re-raises on failure.
+ * Orphan container Actors a re-roll took from `actor` — never delete one
+ * (finding 183's ruling). Each is unlinked, stamped `formerlyBelongedTo` with
+ * the character's name, loses its `grantSource` flag so no later re-roll
+ * mistakes it for a grant, and takes the BROKEN ownership; everything stowed
+ * on it stays on it. The Warden deletes it, or the party adopts it.
  *
- * It used to prune the keeper's `system.containers` uuid array in the same
- * breath — ahead of the delete, so CairnActor._onDeleteOperation's own prune
- * found nothing to do, and putting uuids back if a delete threw so a failure
- * could not orphan a live Actor. That array went with the `container` type
- * (2026-07-31): the link is one field on the CHILD now, so deleting the child
- * IS the whole operation and there is no second half to keep in step.
- * @param {CairnActor} actor @param {CairnActor[]} targets
- * @returns {Promise<CairnActor[]>}
+ * And its name gains ORPHAN_PREFIX, once (ruled 2026-11-02): that is the only
+ * mark an orphan carries on screen. The sheet's "Formerly connected to" line
+ * is the connection line, parked with the Connections UI
+ * (`connections-ui-enabled`, off), so without the prefix an orphan read like
+ * any other actor and nothing pointed the Warden at the ones to delete. Sorted
+ * by name, they now sit together. Re-roll orphans only: a dead character's
+ * mule (the keeper's delete, actor.js) and a hand unlink are someone's
+ * deliberate act, and keep their names. Tokens still wearing the old name
+ * follow through the actor's rename rule (`#renameMatchingTokens`).
+ *
+ * ONE batched update (review #13 #20's rule for the delete this replaces: a
+ * per-actor loop that dies midway leaves part of the set done with nothing
+ * recording where it stopped). On a Warden's client the ownership rides the
+ * same write, taking Owner only from the character's own players
+ * (`keepOthersOwners`, findings 107/121). A player cannot write ownership, so
+ * theirs sets the sync flag and asks the active GM's client — the relay
+ * connections.js already runs for a player's break — whose break branch takes
+ * Owner from the requester alone: a co-owner of the character keeps the old
+ * mule, which a Warden's own re-roll would have taken. The player's token
+ * renames are waited on first (`CairnActor.tokenRenamesSettled`): once that
+ * Owner is gone, a token write still on its way is refused.
+ *
+ * A player touches only what they may update. A re-roll deletes items BEFORE
+ * it reaches the containers, so a write the server refuses would leave the
+ * character half re-rolled — the reason the old refusal existed. A granted
+ * container this player cannot write (a character shared through `default`,
+ * whose connected shape named no one) is left as it is.
+ * @param {CairnActor} actor  the character being re-rolled
+ * @param {CairnActor[]} targets  from `grantedContainersOf`
+ * @returns {Promise<CairnActor[]>}  the containers orphaned
  * @private
  */
-const deleteContainers = async (actor, targets) => {
-  if (!targets.length) return [];
-  await CairnActor.deleteDocuments(targets.map((c) => c.id));
-  return targets;
+const orphanContainers = async (actor, targets) => {
+  const mine = game.user.isGM ? targets : targets.filter((c) => c.isOwner);
+  if (!mine.length) return [];
+  const ops = foundry.data.operators;
+  const gave = ownersGivenBy(actor);
+  await CairnActor.updateDocuments(mine.map((c) => {
+    const changes = {
+      _id: c.id,
+      name: c.name.startsWith(ORPHAN_PREFIX) ? c.name : ORPHAN_PREFIX + c.name,
+      "system.connectedTo": "",
+      "system.formerlyBelongedTo": actor.name,
+      [`flags.${FLAG_SCOPE}.grantSource`]: new ops.ForcedDeletion(),
+    };
+    // Monsters excluded, as from every ownership write; a grant's role is
+    // clamped to the container line, so this is belt and braces.
+    if (c.npcRole !== "monster") {
+      if (game.user.isGM) {
+        changes.ownership = ops.ForcedReplacement.create(keepOthersOwners(brokenOwnershipShape(c), c, gave));
+      } else {
+        changes[`flags.${FLAG_SCOPE}.${OWNERSHIP_SYNC_FLAG}`] = true;
+      }
+    }
+    return changes;
+  }));
+  if (!game.user.isGM) {
+    await CairnActor.tokenRenamesSettled(mine.map((c) => c.id));
+    for (const c of mine) {
+      if (c.npcRole !== "monster") {
+        game.socket.emit(`system.${game.system.id}`, { action: "ownershipSync", childUuid: c.uuid });
+      }
+    }
+  }
+  return mine;
 };
 
 /**
- * Delete every generation-granted container this actor keeps (a regenerate
- * re-rolls the background's options, so last roll's donkey has to go).
+ * Orphan every generation-granted container this actor keeps (a regenerate
+ * or a background change re-deals the background and its questions, so last
+ * roll's donkey is no longer this character's).
  * @param {CairnActor} actor
  */
 export const clearGrantedContainers = async (actor) => {
-  // The bullets those grants left go with them, but NOT from here: the delete
-  // itself is what removes them (CairnActor._onDeleteOperation → pruneGrantNotes),
-  // so every route that ends a grant cleans up the same way — this one, a
-  // re-rolled question, a changed background, and a Warden deleting the mule
-  // straight out of the directory.
-  await deleteContainers(actor, grantedContainersOf(actor));
+  // Nothing else to tidy: the keeper's notes no longer carry a bullet per grant
+  // (removed 2026-08-16, 08925b3b), so the orphaning is the whole of it.
+  await orphanContainers(actor, grantedContainersOf(actor));
 };
 
 /**
- * Swap the containers granted by ONE source (a re-rolled question): delete just
+ * Swap the containers granted by ONE source (a re-rolled question): orphan just
  * that source's, mint the new option's. Containers from other questions, and any
  * the player bought, are untouched — the Actor-side twin of the sheet's
  * _replaceGrantedItems.
@@ -1686,10 +1825,7 @@ export const clearGrantedContainers = async (actor) => {
  */
 export const replaceGrantedContainers = async (actor, source, specs) => {
   const stale = grantedContainersOf(actor).filter((c) => c.getFlag(FLAG_SCOPE, "grantSource") === source);
-  // The previous answer's bullet goes with the beast it described — carried by
-  // the delete, not by this function (see clearGrantedContainers) — and the new
-  // one is added by grantContainers below.
-  await deleteContainers(actor, stale);
+  await orphanContainers(actor, stale);
   return grantContainers(actor, (specs ?? []).map((c) => ({ ...c, grantSource: source })));
 };
 
@@ -1725,13 +1861,21 @@ export const generate2eCharacter = async (chosenBg = null) => {
   // A chosen background (from a picker / persisted across regenerate) is used
   // as-is; otherwise pick at random. Everything else derives from it.
   const bg = chosenBg ?? backgrounds[Math.floor(Math.random() * backgrounds.length)];
-  const names = bg.system.names ?? [];
+  // Blank names are skipped (review #34 finding 63): the authoring form's Add
+  // name appends "", and an Actor's name may not be blank, so a background
+  // holding ["Ada", ""] failed core's validation about half the time and
+  // created no character at all. The sheet's name die already guards this.
+  const names = (bg.system.names ?? []).map((n) => String(n ?? "").trim()).filter(Boolean);
   const name = names.length ? names[Math.floor(Math.random() * names.length)] : bg.name;
 
-  // Starting gear: resolve each reference against the editable pool, tag it
+  // Starting gear: resolve each reference against the shipped pool, tag it
   // "background", and equip weapons/armor so Armor derives to its intended value
-  // (pool items are equipped:false).
-  const gear = tagBackgroundGear(await resolveRefs(bg.system.startingGear));
+  // (pool items are equipped:false). Through resolveStartingGear, the ONE
+  // resolver a background swap and an NPC use too (review #34 finding 64): a
+  // bare resolveRefs dropped the instruction rows ("Spellbook", "Random
+  // Additional Gear") that Test x10 calls rolled, so a duplicated Acolyte
+  // generated a spellbook short while a swap onto it dealt one.
+  const gear = tagBackgroundGear(await resolveStartingGear(bg));
   for (const it of gear) {
     if (it.type === "weapon" || it.type === "armor") it.system.equipped = true;
   }
@@ -1973,7 +2117,7 @@ export const randomScrollItem = async () => {
  */
 const resolveBarebonesResult = async (result) => {
   if (!result) return null;
-  const name = resultText(result).trim();
+  const name = resultPlainText(result);
   const doc = result.type === CONST.TABLE_RESULT_TYPES.DOCUMENT
     ? await fromUuid(result.documentUuid)
     : null;
@@ -2019,12 +2163,6 @@ const rollBarebonesTable = async (tableName) => {
   return resolveBarebonesResult(results[0]);
 };
 
-/**
- * Roll one item off the Additional Gear table (creation step 6), rerolling a
- * name already held — the SRD lets you reroll duplicate gear — and rerolling a
- * transport, which is a container Actor and cannot be an extra item here.
- * @param {Set<string>} avoid  lowercased names already granted
- */
 /** The starting-gear rows the SRD writes as an INSTRUCTION rather than an item.
  *  Kept as one list so the dispatch below and the duplicate-guard that seeds
  *  `avoid` can never disagree about what counts as a literal item. */
@@ -2032,6 +2170,12 @@ const INSTRUCTION_ROWS = new Set([
   "random additional gear", "scroll of random spellbook", "spellbook", "random spellbook",
 ]);
 
+/**
+ * Roll one item off the Additional Gear table (creation step 6), rerolling a
+ * name already held — the SRD lets you reroll duplicate gear — and rerolling a
+ * transport, which is a container Actor and cannot be an extra item here.
+ * @param {Set<string>} avoid  lowercased names already granted
+ */
 const rollAdditionalGear = async (avoid = new Set()) => {
   for (let tries = 0; tries < 50; tries++) {
     const got = await rollBarebonesTable("Barebones: Creation - Additional Gear");
@@ -2052,8 +2196,10 @@ const rollAdditionalGear = async (avoid = new Set()) => {
  * Acolyte. The importer skips the same rows; see `META` in
  * tools/import/barebones.mjs.
  *
- * 2e backgrounds carry no such rows, so this is a pass-through for them; it is
- * shared so that generation and a background swap can never disagree.
+ * The SHIPPED 2e backgrounds carry no such rows, but a Warden's own can (one
+ * typed in, or a Barebones background Duplicated, which forces source 2e).
+ * This is shared so that generation and a background swap can never disagree
+ * — 2e generation went round it until review #34 finding 64.
  * @param {CairnItem} bg
  * @param {Set<string>} [avoid]  names already granted, for the Additional Gear roll
  * @returns {Promise<Object[]>}
@@ -2081,19 +2227,36 @@ export const resolveStartingGear = async (bg, avoid = new Set()) => {
     if (alias) avoid.add(alias.toLowerCase());
   }
 
+  // Every by-name row's document in one request per pack, so the loop below
+  // reads the cache (review #34 finding 207, `warmGearItems`).
+  await warmGearItems(refs.filter((r) => !r.itemData
+    && !INSTRUCTION_ROWS.has(String(r.name).trim().toLowerCase())).map((r) => r.name));
   for (const ref of refs) {
-    const lower = String(ref.name).trim().toLowerCase();
-    let item = null;
-    // A snapshot travels inside the background (custom-authored gear), so it
-    // resolves without ever touching the canonical packs or the instruction rows.
-    if (ref.itemData) item = ownedFromSnapshot(ref.itemData, { quantity: ref.quantity ?? 1, uses: ref.uses });
-    else if (lower === "random additional gear") item = await rollAdditionalGear(avoid);
-    else if (lower === "scroll of random spellbook") item = await randomScrollItem();
-    else if (lower === "spellbook" || lower === "random spellbook") item = await randomSpellbookItem();
-    else item = await resolveGearItem(ref.name, { quantity: ref.quantity ?? 1, uses: ref.uses });
+    const item = await resolveGearRow(ref, avoid);
     if (item) { out.push(item); avoid.add(item.name.toLowerCase()); }
   }
   return out;
+};
+
+/**
+ * Resolve ONE starting-gear row: a snapshot, an instruction row dealt by its
+ * roll, or a by-name reference. The one dispatch for those rows, shared by
+ * resolveStartingGear and the failed-career keepsake — the keepsake went round
+ * it with the bare resolveRef, so one drawn on "Spellbook" was nothing (review
+ * #34 finding 130).
+ * @param {Object} ref  a startingGear entry
+ * @param {Set<string>} [avoid]  names already granted, for the Additional Gear roll
+ * @returns {Promise<Object|null>}
+ */
+const resolveGearRow = async (ref, avoid = new Set()) => {
+  const lower = String(ref.name).trim().toLowerCase();
+  // A snapshot travels inside the background (custom-authored gear), so it
+  // resolves without ever touching the canonical packs or the instruction rows.
+  if (ref.itemData) return ownedFromSnapshot(ref.itemData, { quantity: ref.quantity ?? 1, uses: ref.uses });
+  if (lower === "random additional gear") return rollAdditionalGear(avoid);
+  if (lower === "scroll of random spellbook") return randomScrollItem();
+  if (lower === "spellbook" || lower === "random spellbook") return randomSpellbookItem();
+  return resolveGearItem(ref.name, { quantity: ref.quantity ?? 1, uses: ref.uses });
 };
 
 /**
@@ -2140,9 +2303,9 @@ const rollBarebonesEquipment = async (avoid = new Set()) => {
  * Rations and Torch, a rolled Armor and Weapon (equipped), and one roll on
  * Additional Gear (a second if Armor came up None).
  *
- * Two GM-gated extras: a bond, which REPLACES the Additional Gear step because a
- * bond already grants an item and rolling both overloads a ten-slot inventory;
- * and a "failed career", a second background name as pure flavor (no items).
+ * No bond: bonds are 2e's alone (the setting that lent one to Barebones was
+ * removed 2026-08-09). One GM-gated extra, the "failed career": a second
+ * background name plus one weightless keepsake drawn from that career's gear.
  *
  * @param {CairnItem|null} chosenBg  a Barebones background Item, or null for random
  * @returns {Promise<Object|null>}
@@ -2320,6 +2483,33 @@ const BLANK_KINDS = {
 };
 
 /**
+ * Would an empty sheet of this kind be FILLABLE by the user about to make one?
+ *
+ * The empty sheet's whole premise is that Character Creation Mode renders the
+ * pickers, which are the only hand-entry path to a bond or a question answer —
+ * both read-only prose. But the sheet derives that mode as the actor's flag AND
+ * `_mayRandomize`, and for a non-GM that reads `allow-player-randomization` on
+ * a character and is FLATLY false on every npc type (the 2026-08-21 ruling that
+ * the randomization surface there is the Warden's alone).
+ *
+ * So with generation allowed and randomization off — a combination the settings
+ * support on purpose — a player who cleared the box got a character with no
+ * background, no gear and NO CONTROL ON THE SHEET that could fill any of it in,
+ * and no way to recover it without the Warden deleting the actor (review #26).
+ * The checkbox is simply not offered to someone it would strand.
+ *
+ * Read on the CLICKING client, which is the one whose sheet is in question —
+ * the relay asks here too, before the request is ever sent.
+ * @param {"character"|"npc"|"hireling"|"monster"} kind
+ * @returns {Boolean}
+ */
+const blankIsFillableBy = (kind) => {
+  if (game.user.isGM) return true;
+  if (kind !== "character") return false; // _mayRandomize refuses any player on npc types
+  return game.settings.get(SETTINGS_NS, "allow-player-randomization") === true;
+};
+
+/**
  * The creation dialog: an optional dropdown, the roll checkbox, its hint, and
  * Cancel / Create.
  *
@@ -2354,35 +2544,9 @@ const BLANK_KINDS = {
  * @returns {Promise<{blank: Boolean, choice: String|null, manual?: Object}|null>}
  *   null = declined; `manual` is present only when the option was given
  */
-/**
- * Would an empty sheet of this kind be FILLABLE by the user about to make one?
- *
- * The empty sheet's whole premise is that Character Creation Mode renders the
- * pickers, which are the only hand-entry path to a bond or a question answer —
- * both read-only prose. But the sheet derives that mode as the actor's flag AND
- * `_mayRandomize`, and for a non-GM that reads `allow-player-randomization` on
- * a character and is FLATLY false on every npc type (the 2026-08-21 ruling that
- * the randomization surface there is the Warden's alone).
- *
- * So with generation allowed and randomization off — a combination the settings
- * support on purpose — a player who cleared the box got a character with no
- * background, no gear and NO CONTROL ON THE SHEET that could fill any of it in,
- * and no way to recover it without the Warden deleting the actor (review #26).
- * The checkbox is simply not offered to someone it would strand.
- *
- * Read on the CLICKING client, which is the one whose sheet is in question —
- * the relay asks here too, before the request is ever sent.
- * @param {"character"|"npc"|"hireling"|"monster"} kind
- * @returns {Boolean}
- */
-const blankIsFillableBy = (kind) => {
-  if (game.user.isGM) return true;
-  if (kind !== "character") return false; // _mayRandomize refuses any player on npc types
-  return game.settings.get(SETTINGS_NS, "allow-player-randomization") === true;
-};
-
 export const promptCreation = async (kind, {
   choices = null, choiceLabel = null, lockChoiceWhenBlank = false, title = null, hint: hintKey = null, manual = null,
+  windowId = null,
 } = {}) => {
   // `?? {}` for a kind with no empty-sheet spec (faction), which must then
   // pass its own `title` and `hint`. BLANK_KINDS stays four entries, so
@@ -2449,6 +2613,7 @@ export const promptCreation = async (kind, {
   }
 
   const picked = await foundry.applications.api.DialogV2.wait({
+    renderOptions: { window: { windowId } },   // the caller's own window (review #34 finding 161)
     window: { title: game.i18n.localize(title ?? spec.title) },
     // 400 is CORE'S OWN width for a question dialog — `DialogV2.confirm` and
     // `DialogV2.prompt` both merge `position: {width: 400}` over the config
@@ -2570,8 +2735,16 @@ const promptCharacterCreation = async () => {
  * @param {"character"|"npc"|"hireling"|"monster"} kind
  * @returns {Promise<CairnActor|null>} null = declined, and nothing is created
  */
-export const createActorInteractive = async (kind, { folder = null } = {}) => {
+export const createActorInteractive = async (kind, { folder = null, windowId = null } = {}) => {
   if (kind === "character") {
+    // THE WARDEN'S SWITCH, ENFORCED (review #34 finding 250). Both entry
+    // points hide their affordance while it is off (the directory's button,
+    // the switchboard's row); this is the refusal behind them, in the
+    // sentence the generatePC broker already answers with.
+    if (!game.user.isGM && !game.settings.get(SETTINGS_NS, "allow-player-generate")) {
+      ui.notifications.warn(game.i18n.localize("CAIRN.Notify.PcGenDisabled"));
+      return null;
+    }
     const answer = await promptCharacterCreation();
     if (!answer) return null;
     // PLAYER CHARACTERS LAND IN THE PARTY FOLDER (2026-10-02, user ask), made on
@@ -2593,13 +2766,13 @@ export const createActorInteractive = async (kind, { folder = null } = {}) => {
     // module, so a static import back is a cycle — the same reason _preCreate
     // and the switchboard reach for their generators dynamically.
     const { promptMonsterCreation, createMonster } = await import("./monster-generator.js");
-    const answer = await promptMonsterCreation();
+    const answer = await promptMonsterCreation({ windowId });
     if (!answer) return null;
     return answer.blank
       ? createBlankActor("monster", { folder })
       : createMonster({ folder, tier: answer.choice ?? "random" });
   }
-  const answer = await promptCreation(kind);
+  const answer = await promptCreation(kind, { windowId });
   if (!answer) return null;
   if (answer.blank) return createBlankActor(kind, { folder });
   return kind === "hireling" ? createHireling({ folder }) : createNpc({ folder });
@@ -2644,11 +2817,13 @@ export const createActorInteractive = async (kind, { folder = null } = {}) => {
  * @param {"character"|"npc"|"hireling"|"monster"} kind
  * @returns {Promise<CairnActor|null>}
  */
-export const createBlankActor = async (kind, { folder = null, ownership = null, source = null } = {}) => {
+export const createBlankActor = async (kind, { folder = null, ownership = null, source = null, name = null } = {}) => {
   const spec = BLANK_KINDS[kind];
   if (!spec) return null;
   const data = {
-    name: game.i18n.localize(spec.name),
+    // `name`: composed by a relay's REQUESTER in their language (review #34
+    // finding 244); else this client's.
+    name: name ?? game.i18n.localize(spec.name),
     // `hireling` mints TYPE npc with ROLE hireling, like createHireling: the
     // hireling TYPE is a registered alias kept only so existing documents keep
     // their ids, and nothing new is ever created under it.
@@ -2656,7 +2831,7 @@ export const createBlankActor = async (kind, { folder = null, ownership = null, 
     system: { hp: { value: BLANK_HP, max: BLANK_HP }, generationEnabled: true },
     // HAND-BUILT: from here on, a background, a question, a bond and the failed
     // career all record the choice and grant NOTHING. See HAND_BUILT_FLAG for
-    // why, and for the one way back out.
+    // why, and for the ways back out.
     flags: { [FLAG_SCOPE]: { [HAND_BUILT_FLAG]: true } },
   };
   if (kind === "character") data.system.contentSource = source ?? resolveContentSource();
@@ -2778,7 +2953,20 @@ export const isBackgroundDisabled = (bg, offIds = disabledBackgroundIds()) => of
  * @param {String} uuid
  * @returns {Promise<Set<String>|null>}  the new set, or null if refused
  */
-export const toggleBackgroundDisabled = async (uuid) => {
+export const toggleBackgroundDisabled = (uuid) => {
+  // ONE AT A TIME (review #34 finding 134). The body below is a read-modify-
+  // write of one world setting with a pool build in the middle, so two eyes
+  // pressed together each wrote their own stale snapshot and the later write
+  // dropped the earlier, while both rows showed the slashed eye. Chained, each
+  // toggle reads the setting only after the previous one's write has landed —
+  // the shape weather-log.js uses for its own find-and-append.
+  const run = toggleChain.then(() => toggleBackgroundDisabledNow(uuid));
+  toggleChain = run.catch(() => {});
+  return run;
+};
+let toggleChain = Promise.resolve();
+
+const toggleBackgroundDisabledNow = async (uuid) => {
   const off = disabledBackgrounds();
   const id = idOfUuid(uuid);
   const stored = [...off].filter((u) => idOfUuid(u) === id);
@@ -2823,6 +3011,12 @@ const customOnly = () =>
  * source-"2e" backgrounds, so admitting (potentially large, third-party) module
  * item packs costs a cheap index read, not a full load. Only called when the custom
  * toggle is on.
+ *
+ * ONE REQUEST PER PACK (review #34 finding 206): the matched ids are fetched
+ * together (`warmPackDocuments`), then read from the cache in index order. The
+ * per-background `getDocument` this replaced was 27 requests in series once the
+ * 2e take-over had filled the world pack. It stays only as the fallback for
+ * what the warm could not cache (an invalid document; core caches none).
  * @returns {Promise<CairnItem[]>}
  */
 const getCustomBackgrounds = async () => {
@@ -2832,11 +3026,11 @@ const getCustomBackgrounds = async () => {
     const pt = pack.metadata.packageType;
     if (pt !== "world" && pt !== "module") continue;
     const index = await pack.getIndex({ fields: ["system.source"] });
-    for (const entry of index) {
-      if (entry.type === "background" && entry.system?.source === "2e") {
-        const doc = await pack.getDocument(entry._id);
-        if (doc) out.push(doc);
-      }
+    const ids = [...index].filter((e) => e.type === "background" && e.system?.source === "2e").map((e) => e._id);
+    await warmPackDocuments(pack, ids);
+    for (const id of ids) {
+      const doc = pack.get(id) ?? await pack.getDocument(id);
+      if (doc) out.push(doc);
     }
   }
   return out;
@@ -2845,19 +3039,18 @@ const getCustomBackgrounds = async () => {
 /**
  * The 2e background pool: the shipped pack and/or the world's custom backgrounds,
  * each gated by its own toggle and unioned de-duped by id. Shipped-off + custom-on
- * is a homebrew-only game. An empty union (everything off, or custom-on with no
- * world backgrounds yet) falls back to the shipped pack so the picker is never
- * empty — the same "can never do nothing" invariant promptContentSource holds at
- * the source level.
- * @returns {Promise<CairnItem[]>}
- */
-/**
+ * is a homebrew-only game. An empty union falls back to the shipped pack —
+ * EXCEPT for a custom-only game, which gets nothing: the caller says so and
+ * generates nothing, rather than dealing from content the Warden switched off
+ * (see the refusal in the body below).
+ *
  * One fetch, both answers: the 2e pool AND which ids the CUSTOM toggle
  * admitted. `pack.getDocuments()` is a server round trip on EVERY call
  * (~1.7s warm for the 20-doc pack, measured 2026-08-04), so the picker must
  * not build the pool twice just to learn which entries are custom — that
  * doubled cost is what pushed the picker's open past the probe's wait and
  * looked like a hang.
+ * @returns {Promise<{docs: CairnItem[], customIds: Set<string>}>}
  */
 const build2ePool = async ({ includeDisabled = false } = {}) => {
   const byId = new Map();
@@ -3041,7 +3234,7 @@ const BG_RANDOM = "__random__";
  * @param {String|null} currentUuid  pre-checked, so the dialog opens on the current pick
  * @returns {Promise<{bg: CairnItem|null}|false>}  bg null = random; false = cancelled
  */
-export const promptBackground = async (source, currentUuid = null) => {
+export const promptBackground = async (source, currentUuid = null, { windowId } = {}) => {
   const groups = await getBackgroundsByArchetype(source);
   const all = groups.flatMap((g) => g.backgrounds);
   if (!all.length) return false;
@@ -3072,7 +3265,9 @@ export const promptBackground = async (source, currentUuid = null) => {
     for (const bg of g.backgrounds) {
       // Display-only, exactly as the sheet renders the same two fields — the radio
       // VALUE stays the uuid, so what gets chosen is unaffected by language.
-      descs[bg.uuid] = t("bg.desc", bg.system.description ?? "");
+      // Secret blocks off for a viewer who does not own the background (review
+      // #34 finding 126) — a player choosing, from a Warden's world pack.
+      descs[bg.uuid] = concealSecrets(t("bg.desc", bg.system.description ?? ""), bg.isOwner);
       // A disabled row cannot be checked — including the pre-check on the
       // character's current background, which Random takes instead (above).
       const isOff = off.has(bg.id);
@@ -3122,7 +3317,9 @@ export const promptBackground = async (source, currentUuid = null) => {
     });
     const origClose = dialog.close.bind(dialog);
     dialog.close = (...a) => { finish(false); return origClose(...a); };
-    dialog.render(true).then(() => {
+    // The launching sheet's own window when it is popped out (review #34
+    // finding 1; the reasoning is at `_confirmAction` in actor-sheet.js).
+    dialog.render({ force: true, window: { windowId } }).then(() => {
       // DialogV2 serializes content to innerHTML, so listeners go on the LIVE
       // nodes here, after render — never on the built string's nodes.
       // The eye toggles (Warden only). The row is a <label>, so the click must
@@ -3177,10 +3374,17 @@ export const promptBackground = async (source, currentUuid = null) => {
  * one function would mean one of the two callers passing a flag saying "but don't
  * actually do the thing", which is how the system this descends from ended up with
  * four near-identical background swappers.
+ * The RANDOM row rolls exactly what the die beside it rolls —
+ * `rollFailedCareerName`, avoiding the character's real background (review #34
+ * finding 66). It drew from every background, so about one Random pick in a
+ * hundred landed ON the background, the collision the 2026-08-08 ruling allows
+ * only for a hand pick; the named rows stay the player's to choose freely.
  * @param {String|null} [currentName]
+ * @param {Object} [options]
+ * @param {String} [options.exclude]  the character's real background
  * @returns {Promise<{name: String}|false>}  false when cancelled
  */
-export const promptFailedCareer = async (currentName = null) => {
+export const promptFailedCareer = async (currentName = null, { windowId, exclude = "" } = {}) => {
   const backgrounds = await getBarebonesBackgrounds();
   if (!backgrounds.length) return false;
   // Same display-name sort as promptBackground's groups (review #9).
@@ -3223,10 +3427,12 @@ export const promptFailedCareer = async (currentName = null) => {
     });
     const origClose = dialog.close.bind(dialog);
     dialog.close = (...a) => { finish(false); return origClose(...a); };
-    dialog.render(true);
-  }).then((choice) => {
+    // The launching sheet's own window when it is popped out (review #34
+    // finding 1; the reasoning is at `_confirmAction` in actor-sheet.js).
+    dialog.render({ force: true, window: { windowId } });
+  }).then(async (choice) => {
     if (!choice) return false;
-    if (choice === BG_RANDOM) return { name: sorted[Math.floor(Math.random() * sorted.length)].name };
+    if (choice === BG_RANDOM) return { name: await rollFailedCareerName(exclude) };
     return { name: choice };
   });
 };
@@ -3255,11 +3461,29 @@ export const rollFailedCareerName = async (exclude = "") => {
  * @param {CairnItem} bg  a Barebones background Item
  * @returns {Promise<Object|null>}
  */
+/**
+ * Does this character's failed career count right now? A Barebones character,
+ * with the Warden's Knave failed-career switch ON — read live, so switching it
+ * off hides an already-generated career rather than only skipping the next.
+ * ONE predicate for the four places that ask (review #34 findings 221 and 253,
+ * ruled 2026-11-01: "follow the switch everywhere"): the sheet's line, the
+ * print, the Roll Character checklist's rows, and `changeBackground`'s
+ * collision re-roll. The checklist used to offer the career whenever the
+ * character HAD one, and the swap re-rolled it whatever the switch said, so a
+ * career the sheet hid could still be re-rolled and its keepsake swapped. The
+ * stored career and keepsake are left alone while it is off.
+ * @param {CairnActor} actor
+ * @returns {boolean}
+ */
+export const failedCareerActive = (actor) => actor?.system?.contentSource === "barebones"
+  && game.settings.get(SETTINGS_NS, "barebones-failed-career");
+
 const failedCareerItemFromBg = async (bg) => {
   const gear = bg?.system?.startingGear ?? [];
   if (!gear.length) return null;
   const ref = gear[Math.floor(Math.random() * gear.length)];
-  const item = await resolveRef(ref);
+  // An instruction row deals as starting gear deals it (review #34 finding 130).
+  const item = await resolveGearRow(ref);
   if (!item) return null;
   item.system = { ...(item.system ?? {}), weightless: true, bulky: false };
   return withGrantSource(item, "failed-career");
@@ -3324,10 +3548,12 @@ const replaceFailedCareerKeepsake = async (actor, careerName, { handBuilt = isHa
  * detour through Fieldwarden left a second bond stored forever.
  * A null `newBg` picks a random one, never the current.
  *
- * Returns false on a refusal, true on a completed swap (review #21). Both
- * refusals fire BEFORE the first delete, so a caller that aborts on false —
- * the Roll Character checklist, whose gesture must apply whole or not at all
- * — leaves the character exactly as it was. The sheet dice ignore it.
+ * Returns false on a refusal, true on a completed swap (review #21). The one
+ * refusal left — an empty background pool — fires BEFORE the first delete, so
+ * a caller that aborts on false — the Roll Character checklist, whose gesture
+ * must apply whole or not at all — leaves the character exactly as it was. The
+ * sheet dice ignore it. (The container-permission refusal went with finding
+ * 183: the old grant's containers are orphaned, which any owner may do.)
  * @param {CairnActor} actor
  * @param {CairnItem|null} [newBg]
  * @param {{ignoreHandBuilt?: Boolean}} [options]  `ignoreHandBuilt` deals the
@@ -3337,12 +3563,11 @@ const replaceFailedCareerKeepsake = async (actor, careerName, { handBuilt = isHa
  *   than before it is asked (review #26) — clearing first meant a refusal here
  *   left the character silently no longer hand-built, with nothing on screen
  *   saying so, and the next background picked by hand handing over the full
- *   loadout. Both refusals below fire before the first write, so an aborted
+ *   loadout. The refusal below fires before the first write, so an aborted
  *   gesture must leave the flag alone too.
  * @returns {Promise<Boolean>}
  */
 export const changeBackground = async (actor, newBg = null, { ignoreHandBuilt = false } = {}) => {
-  if (!canRegenerateContainers(actor)) return false; // bail before deleting anything
   const source = actor.system.contentSource || "2e";
   let bg = newBg;
   if (!bg) {
@@ -3379,7 +3604,14 @@ export const changeBackground = async (actor, newBg = null, { ignoreHandBuilt = 
       if (BG_GRANT_SOURCES.includes(src)) claimedNames.set(i.name, (claimedNames.get(i.name) ?? 0) + 1);
     }
   }
-  for (const g of oldBg?.system?.startingGear ?? []) {
+  // NOT ON A HAND-BUILT SHEET (review #34 finding 61), whatever
+  // `ignoreHandBuilt` says. The name-matcher exists for characters made before
+  // grants were tagged; a hand-built sheet was never handed an untagged grant
+  // (the flag is cleared before any grant lands), so every untagged item on it
+  // is the owner's own transcription — and the matcher was deleting one per
+  // old-background ref, silently, with nothing granted back.
+  const legacyRefs = isHandBuilt(actor) ? [] : (oldBg?.system?.startingGear ?? []);
+  for (const g of legacyRefs) {
     const n = claimedNames.get(g.name) ?? 0;
     if (n > 0) { claimedNames.set(g.name, n - 1); continue; }
     const hit = actor.items.find(
@@ -3470,6 +3702,14 @@ export const changeBackground = async (actor, newBg = null, { ignoreHandBuilt = 
   // Write bonds only when the clamp bit — preservation stays the default, and
   // an untouched array is not re-written wholesale for nothing.
   if (bonds.length !== (actor.system.bonds ?? []).length) update["system.bonds"] = bonds;
+  // A SWAP ARRANGES THE WHOLE INVENTORY, at every door (review #34 finding
+  // 173). Only the Roll Character checklist re-arranged after this; the die,
+  // the picker and a background drop stopped here, and the new loadout rode
+  // the append seam in background-list order — a sword below the rations.
+  // HERE, so all four doors share it, as applyHirelingCareer and
+  // applyNpcBackground do on the NPC side; and BEFORE the rendering update
+  // below, which is what shows it (review #21).
+  await reorderInventory(actor);
   await actor.update(update, { abNoStatusCard: true });
 
   // A background change may not land ON the failed career (ruled 2026-08-08).
@@ -3483,8 +3723,10 @@ export const changeBackground = async (actor, newBg = null, { ignoreHandBuilt = 
   // changeBackground, not in the sheet handlers, so roll, pick and drop are
   // all covered. A hand-PICKED collision on the failed-career line itself
   // stays allowed — that is a deliberate player choice; this hook only fires
-  // when the collision arrives from the background side.
-  if (source === "barebones" && actor.system.failedCareer && actor.system.failedCareer === bg.name) {
+  // when the collision arrives from the background side. Only while the
+  // career counts (`failedCareerActive`): with the switch off it is hidden,
+  // and a hidden career is not re-rolled behind the player's back.
+  if (failedCareerActive(actor) && actor.system.failedCareer && actor.system.failedCareer === bg.name) {
     const fresh = await rollFailedCareerName(bg.name);
     await actor.update({ "system.failedCareer": fresh }, { abNoStatusCard: true });
     await replaceFailedCareerKeepsake(actor, fresh, { handBuilt });
@@ -3522,12 +3764,9 @@ export const resolveActorBackground = async (actor) => {
  * no tag at all — the dialog never touches untagged gear beyond the legacy
  * name match).
  * @param {CairnActor} actor
- * @returns {Promise<Boolean>} false when refused or the background is gone
+ * @returns {Promise<Boolean>} false when the background is gone
  */
 export const redealBackgroundGear = async (actor) => {
-  // A background can grant a container outright; bail before deleting anything
-  // if this user can't manage those.
-  if (!canRegenerateContainers(actor, "background", "CAIRN.Notify.NoContainerBackground")) return false;
   const bg = await resolveActorBackground(actor);
   if (!bg) {
     // Say why (review #21): an unmatched Kettlewright import stores no
@@ -3543,7 +3782,7 @@ export const redealBackgroundGear = async (actor) => {
   // before this line, and it was the worst of the three: the sheet ended up
   // holding background-tagged items and a granted container while still
   // claiming to be hand-built, so the very next background pick deleted the
-  // lot and granted nothing back. After both refusals above, exactly as the
+  // lot and granted nothing back. After the refusal above, exactly as the
   // Background box does.
   await clearHandBuilt(actor);
 
@@ -3711,7 +3950,8 @@ export const createActorWithCharacter = async (characterData, { folder = null, o
     data.prototypeToken.texture = { src: pair.token };
   }
   // The createDialog switchboard threads the folder "+"'s destination through
-  // here (2026-08-02); the directory button passes nothing and lands at root.
+  // here (2026-08-02), and the directory button's Party folder too
+  // (createActorInteractive); a caller that passes nothing lands at root.
   if (folder) data.folder = folder;
   // The generatePC relay mints on the Warden's client FOR a player, so the
   // requester's OWNER must be in the CREATE data, not patched on after:
@@ -3747,8 +3987,9 @@ export const updateActorWithCharacter = async (actor, characterData) => {
   // their own pack. The data update below already carries the flag.
   await actor.deleteEmbeddedDocuments("Item", [], { deleteAll: true, render: false, abNoStatusCard: true });
   // Containers are Actors, so re-rolling the inventory has to clear them by hand.
-  // Only GENERATION-granted ones (they carry a grantSource flag) are deleted —
-  // a bought mule or a hand-made chest survives a regenerate.
+  // Only GENERATION-granted ones (`grantedContainersOf`) are touched, and they
+  // are ORPHANED, never deleted (finding 183) — a bought mule or a hand-made
+  // chest is not touched at all.
   await clearGrantedContainers(actor);
   if (items.length) await actor.createEmbeddedDocuments("Item", items, { render: false, abNoStatusCard: true });
   // `characterToActorData` clears `critical` unconditionally, and regenerating is
@@ -3976,7 +4217,7 @@ export const findGenerationRollMessage = (actor) => {
  * dev:monster-gen rule: a probe-side copy is a list that goes stale).
  *
  * `documents` are the packs generation loads WHOLE (`getDocuments()` on
- * every run — deliberately uncached in this module, see resolveBackgrounds).
+ * every run — deliberately uncached in this module).
  * `indexes` are the gear and spell packs, where resolveGearItem matches on
  * the pack INDEX and materializes single documents — the index build is the
  * once-per-session cost worth paying early (gear.js measured it at ~1.8s
@@ -4038,11 +4279,13 @@ export const prewarmGenerationPacks = async () => {
  * @param {boolean} [options.blank=false]  open an empty sheet instead of
  *   rolling. Set by the interactive wrapper, and carried over the wire by the
  *   player relay so a Warden's client honours the checkbox the player ticked.
- * @returns {Promise<CairnActor|null>}
+ * @returns {Promise<CairnActor|null>}  null (or undefined) when nothing could be
+ *   made — an empty pool, a create that wrote no document. A FAILURE, never a
+ *   cancel: nothing here asks anything (review #34 finding 178).
  */
-export const createCharacter = async ({ folder = null, ownership = null, source = null, blank = false, roller = null, waitForDice = true } = {}) => {
+export const createCharacter = async ({ folder = null, ownership = null, source = null, blank = false, blankName = null, roller = null, waitForDice = true } = {}) => {
   const chosenSource = source ?? resolveContentSource();
-  if (blank) return createBlankActor("character", { folder, ownership, source: chosenSource });
+  if (blank) return createBlankActor("character", { folder, ownership, source: chosenSource, name: blankName });
   const characterData = await generateCharacter(null, chosenSource);
   const actor = await createActorWithCharacter(characterData, { folder, ownership });
   await postGenerationRolls(actor, characterData, roller, { waitForDice });
@@ -4057,10 +4300,8 @@ export const createCharacter = async ({ folder = null, ownership = null, source 
  * @returns {Promise<CairnActor>}
  */
 export const regenerateActor = async (actor) => {
-  if (!canRegenerateContainers(actor)) return actor; // bail before wiping items
   // A whole new character is a ROLLED one, whatever this sheet used to be.
-  // Cleared BEFORE the re-deal, or the generation below would be suppressed by
-  // a mark that is about to stop being true.
+  // (Nothing below reads the mark; clearing it is the point, not an ordering.)
   await clearHandBuilt(actor);
   let bg = actor.system.backgroundUuid ? await fromUuid(actor.system.backgroundUuid) : null;
   // A Barebones character made before backgrounds had uuids is keyed by name.
@@ -4082,9 +4323,9 @@ export const regenerateActor = async (actor) => {
  * armor included). No bonds/omens/scars/traits/questions -- generated NPCs are
  * deliberately simple.
  *
- * Its gear is BY-NAME REFERENCES into the editable pool, exactly like a
+ * Its gear is BY-NAME REFERENCES into the shipped pool, exactly like a
  * background's starting gear: resolveGearItem clones the current pool document,
- * so editing an item flows into every NPC generated afterwards.
+ * so a fix to an item reaches every NPC generated afterwards.
  * ======================================================================== */
 
 /** The 2e careers catalogue (shipped runtime data), fetched once and cached. */
@@ -4163,8 +4404,8 @@ export const generateHireling = async () => {
     abilities: h?.abilities ?? { STR: 10, DEX: 10, WIL: 10 },
     hp: h?.hp ?? 6,
     // A person, not just a statblock (2026-08-01): the biography the PC
-    // generator rolls, through the SAME paths — rollAge honours the Warden's
-    // minimum-age floor, rollTextItems draws the eight tables-2e trait tables.
+    // generator rolls, through the SAME paths — rollAge reads the Warden's age
+    // formula, rollTextItems draws the eight tables-2e trait tables.
     // PRONOUNS ARE NEVER ROLLED (2026-08-20, user ruling). They were a uniform
     // pick of three from 2026-08-01 until now, on the reasoning that a
     // generated stranger needs an answer on arrival. They do not: pronouns are
@@ -4394,7 +4635,7 @@ export const rerollNpcFaction = async (actor) => {
   const table = tableName ? await findTableByName(tableName) : null;
   if (!table) return actor;
   const { results } = await table.roll();
-  const raw = resultText(results[0]).trim();
+  const raw = resultPlainText(results[0]);
   if (raw) await actor.update({ "system.faction": t("table.result", raw) });
   return actor;
 };
@@ -4408,18 +4649,17 @@ export const rerollNpcFaction = async (actor) => {
  * four traits — Quirk, Goal, Virtue, Vice — off that book's NPC tables, which
  * have shipped in `warden-npcs` all along with nothing reading them.
  *
- * Two deliberate absences, and both are the point rather than an omission:
+ * What else it gets (these were once deliberate ABSENCES; both were added
+ * later, and the code below is the authority):
  *
- *   - NO GEAR. An NPC arrives with an empty inventory. Slots are NOT written
- *     either, so `calcCurrentMaxSlots` falls through to the Warden's
- *     `max-equip-slots` setting (ten by default) — writing 10 here would
- *     override a Warden who chose eight, to say the thing their setting
- *     already says.
- *   - NO ROLLED STATS. Abilities and HP take the schema defaults (10/10/10,
- *     6 HP). The Warden's Guide gives NPCs no stat line, and a generator that
- *     invented one would be making up rules — the house position everywhere
- *     else in this system. A Warden fills them in if the innkeeper ends up in
- *     a fight.
+ *   - A ROLLED STATBLOCK, from `Cairn.npcGenerator.ability` and
+ *     `.hitProtection`.
+ *   - GEAR: the background's own, through `Cairn.npcGenerator.backgroundGear`
+ *     to a Barebones background resolved by `resolveStartingGear` (Lord and
+ *     Politician grant nothing, kit included), plus the Barebones kit
+ *     (`rollBarebonesEquipment`, tagged `npc-kit`). Slots are NOT written, so
+ *     `calcCurrentMaxSlots` falls through to the Warden's `max-equip-slots`
+ *     setting — writing 10 here would override a Warden who chose eight.
  *
  * Faction is likewise not rolled, matching hirelings: it stays the sheet's own
  * die, because a campaign's factions are the Warden's to hand out.
@@ -4453,8 +4693,8 @@ const rollNpcTraits = async () => ({
 
 /**
  * The gear an NPC's Background hands them, resolved the same way a Barebones
- * character's and a hireling's are: by-NAME references into the editable gear
- * pool, so a Warden editing an item changes what every NPC generated afterwards
+ * character's and a hireling's are: by-NAME references into the shipped gear
+ * pool, so a fix to an item changes what every NPC generated afterwards
  * carries.
  *
  * The items come from the nearest BAREBONES background
@@ -4598,7 +4838,13 @@ export const reorderInventory = async (actor) => {
  *  same name, world first — or "" when it is missing. */
 const rollNpcBackground = async () => {
   const decl = CONFIG.Cairn?.npcGenerator?.background ?? "";
-  return decl ? rollTableText(decl) : "";
+  // PLAIN TEXT, not chat text (review #34 finding 65): the value is a match
+  // key into `Cairn.npcGenerator.backgroundGear` and the sheet's text field.
+  // The chat-text reader rendered a DOCUMENT row as `@UUID[...]{name}`, which a
+  // Warden's own world table can hold — the NPC's Background then read the
+  // literal link, matched nothing, and lost its kit. The picker beside the die
+  // has always listed plain names.
+  return decl ? rollTablePlainText(decl) : "";
 };
 
 /** Generate a full NPC person. @returns {Promise<Object>} */
@@ -4621,8 +4867,8 @@ export const generateNpc = async () => {
     },
     hp: hpRoll.total,
     // Same paths a hireling's biography uses, so the two cannot diverge on
-    // anything that is not the point of the split: rollAge honours the Warden's
-    // min/max age settings, and pronouns are left BLANK for the Warden to
+    // anything that is not the point of the split: rollAge reads the Warden's
+    // age formula, and pronouns are left BLANK for the Warden to
     // state — see generateHireling for the ruling.
     pronouns: "",
     age: String(await rollAge(Cairn.characterGenerator2e.biography.age)),
@@ -4838,7 +5084,7 @@ const applyNpcBackground = async (actor, rolled) => {
 
 /** One radio-list picker dialog. `rows` are {value, label, tag?}; resolves the
  *  chosen value, BG_RANDOM for the Random row, or false. @private */
-const promptFromRows = (titleKey, rows, current = null) => {
+const promptFromRows = (titleKey, rows, current = null, { windowId } = {}) => {
   // Random takes the check when `current` sits on no row — the
   // :indeterminate rule at promptBackground's list. The NAME picker hits
   // this routinely: a hand-edited name is rarely a bare row value.
@@ -4871,16 +5117,20 @@ const promptFromRows = (titleKey, rows, current = null) => {
     });
     const origClose = dialog.close.bind(dialog);
     dialog.close = (...a) => { finish(false); return origClose(...a); };
-    dialog.render(true);
+    // The launching sheet's own window when it is popped out (review #34
+    // finding 1; the reasoning is at `_confirmAction` in actor-sheet.js).
+    dialog.render({ force: true, window: { windowId } });
   });
 };
 
 /**
  * Pick a hireling's career by name, or Random (which defers to the die's own
- * path so "random" means the same thing both ways). Applies on choice.
+ * path so "random" means the same thing both ways). Applies on choice, inside
+ * `serialize` — the sheet passes its `_rerolling` guard (review #34 finding
+ * 237), so the list runs unguarded and only the swap is held.
  * @param {CairnActor} actor @returns {Promise<CairnActor>}
  */
-export const promptHirelingCareer = async (actor) => {
+export const promptHirelingCareer = async (actor, { windowId, serialize = (apply) => apply() } = {}) => {
   const careers = await getNpcCareers2e();
   if (!careers.length) return actor;
   const current = String(actor.system.profession ?? "").trim();
@@ -4893,10 +5143,15 @@ export const promptHirelingCareer = async (actor) => {
       tag: bgEsc(`${c.rate ?? 0} ${game.i18n.localize("CAIRN.DayRateSuffix")} · `
         + (c.gear ?? []).map((g) => t("item.name", g.name ?? g)).join(", ")),
     }));
-  const choice = await promptFromRows("CAIRN.PickCareer", rows, current);
+  const choice = await promptFromRows("CAIRN.PickCareer", rows, current, { windowId });
   if (!choice) return actor;
-  if (choice === BG_RANDOM) return rerollHirelingCareer(actor);
-  return pickHirelingCareer(actor, choice);
+  if (choice === BG_RANDOM) return serialize(() => rerollHirelingCareer(actor));
+  // CONFIRMING WHAT IS HELD CHANGES NOTHING (review #34 finding 227). The
+  // picker opens on the current career with Choose as its default, and the
+  // apply re-dealt it: HP and abilities reset to the career's, `critical`
+  // cleared. The die's own contract is a DIFFERENT career; so is this.
+  if (choice === current) return actor;
+  return serialize(() => pickHirelingCareer(actor, choice));
 };
 
 /**
@@ -4904,22 +5159,26 @@ export const promptHirelingCareer = async (actor) => {
  * the die's own path. The VALUE is the raw English row text — the stored
  * string is the backgroundGear match key — while the label shows the
  * translation, exactly the read/stored split the sheet input already does.
+ * Applies inside `serialize`, as promptHirelingCareer does.
  * @param {CairnActor} actor @returns {Promise<CairnActor>}
  */
-export const promptNpcBackground = async (actor) => {
+export const promptNpcBackground = async (actor, { windowId, serialize = (apply) => apply() } = {}) => {
   // The SAME resolution the die uses — world first — or the list would show the
   // shipped rows while the die rolled the Warden's own table.
   const decl = CONFIG.Cairn?.npcGenerator?.background ?? "";
   const table = decl ? await findDeclaredTable(decl) : null;
   if (!table) return actor;
   const current = String(actor.system.background ?? "").trim();
-  const rows = table.results.map((r) => String(resultText(r)).trim()).filter(Boolean)
+  const rows = table.results.map((r) => resultPlainText(r)).filter(Boolean)
     .map((text) => ({ value: text, label: t("table.result", text) }))
     .sort((a, b) => a.label.localeCompare(b.label, game.i18n.lang));
-  const choice = await promptFromRows("CAIRN.PickBackground", rows, current);
+  const choice = await promptFromRows("CAIRN.PickBackground", rows, current, { windowId });
   if (!choice) return actor;
-  if (choice === BG_RANDOM) return rerollNpcBackground(actor);
-  return pickNpcBackground(actor, choice);
+  if (choice === BG_RANDOM) return serialize(() => rerollNpcBackground(actor));
+  // Confirming the Background already held re-dealt its gear (review #34
+  // finding 227) — see promptHirelingCareer.
+  if (choice === current) return actor;
+  return serialize(() => pickNpcBackground(actor, choice));
 };
 
 /**
@@ -4929,15 +5188,15 @@ export const promptNpcBackground = async (actor) => {
  * career it is a match key for nothing. Random defers to the die.
  * @param {CairnActor} actor @returns {Promise<CairnActor>}
  */
-export const promptNpcFaction = async (actor) => {
+export const promptNpcFaction = async (actor, { windowId } = {}) => {
   const tableName = CONFIG.Cairn?.npcGenerator?.faction;
   const table = tableName ? await findTableByName(tableName) : null;
   if (!table) return actor;
-  const rows = table.results.map((r) => t("table.result", String(resultText(r)).trim())).filter(Boolean)
+  const rows = table.results.map((r) => t("table.result", resultPlainText(r))).filter(Boolean)
     .map((text) => ({ value: text, label: text }))
     .sort((a, b) => a.label.localeCompare(b.label, game.i18n.lang));
   const current = String(actor.system.faction ?? "").trim();
-  const choice = await promptFromRows("CAIRN.PickFaction", rows, current);
+  const choice = await promptFromRows("CAIRN.PickFaction", rows, current, { windowId });
   if (!choice) return actor;
   if (choice === BG_RANDOM) return rerollNpcFaction(actor);
   await actor.update({ "system.faction": choice });
@@ -4963,12 +5222,12 @@ export const promptNpcFaction = async (actor) => {
  * @param {String} [current]  the actor's stored omen (English)
  * @returns {Promise<{text:String}|{random:true}|false|null>} null = no table
  */
-export const promptPickOmen = async (current = "") => {
+export const promptPickOmen = async (current = "", { windowId } = {}) => {
   const table = await findOmensTable();
   if (!table) return null;
-  const rows = table.results.map((r) => String(resultText(r)).trim()).filter(Boolean)
+  const rows = table.results.map((r) => resultPlainText(r)).filter(Boolean)
     .map((text) => ({ value: text, label: t("table.result", text) }));
-  const choice = await promptFromRows("CAIRN.PickOmen", rows, String(current ?? "").trim() || null);
+  const choice = await promptFromRows("CAIRN.PickOmen", rows, String(current ?? "").trim() || null, { windowId });
   if (!choice) return false;
   if (choice === BG_RANDOM) return { random: true };
   return { text: choice };
@@ -4985,7 +5244,7 @@ export const promptPickOmen = async (current = "") => {
  * @param {CairnActor} actor
  * @returns {Promise<{name:String}|{random:true}|false|null>} null = no source
  */
-export const promptPickName = async (actor) => {
+export const promptPickName = async (actor, { windowId } = {}) => {
   let rows = [];
   if (actor.system.contentSource === "2e" && actor.system.backgroundUuid) {
     const bg = await fromUuid(actor.system.backgroundUuid);
@@ -4997,12 +5256,12 @@ export const promptPickName = async (actor) => {
     // the other.
     const decl = CONFIG.Cairn?.barebonesGenerator?.name ?? "";
     const table = decl ? await findDeclaredTable(decl) : null;
-    rows = (table?.results ?? []).map((r) => String(resultText(r)).trim()).filter(Boolean)
+    rows = (table?.results ?? []).map((r) => resultPlainText(r)).filter(Boolean)
       .map((text) => ({ value: text, label: t("table.result", text) }));
   }
   if (!rows.length) return null;
   const current = String(actor.name ?? "").trim();
-  const choice = await promptFromRows("CAIRN.PickName", rows, current || null);
+  const choice = await promptFromRows("CAIRN.PickName", rows, current || null, { windowId });
   if (!choice) return false;
   if (choice === BG_RANDOM) return { random: true };
   return { name: choice };
@@ -5020,14 +5279,14 @@ export const promptPickName = async (actor) => {
  * @param {String} [current]  the bond's stored description (English)
  * @returns {Promise<{description:String, gold:Number, items:Object[]}|{random:true}|false|null>}
  */
-export const promptPickBond = async (tableName, current = "") => {
+export const promptPickBond = async (tableName, current = "", { windowId } = {}) => {
   const table = await resolveBondsTable(tableName);
   if (!table) return null;
   const rows = table.results
-    .map((result) => ({ result, value: String(resultText(result)).trim() }))
+    .map((result) => ({ result, value: resultPlainText(result) }))
     .filter((row) => row.value)
     .map((row) => ({ ...row, label: t("table.result", row.value) }));
-  const choice = await promptFromRows("CAIRN.PickBond", rows, String(current ?? "").trim() || null);
+  const choice = await promptFromRows("CAIRN.PickBond", rows, String(current ?? "").trim() || null, { windowId });
   if (!choice) return false;
   if (choice === BG_RANDOM) return { random: true };
   const row = rows.find((r) => r.value === choice);
@@ -5049,7 +5308,7 @@ export const promptPickBond = async (tableName, current = "") => {
  * @param {String} [currentAnswer]  the stored answer (English), pre-checks its row
  * @returns {Promise<{option:Object, question:String}|{random:true}|false|null>} null = no options
  */
-export const promptPickQuestionOption = async (bg, idx, currentAnswer = "") => {
+export const promptPickQuestionOption = async (bg, idx, currentAnswer = "", { windowId } = {}) => {
   const table = bg?.system?.tables?.[idx];
   const options = table?.options ?? [];
   if (!options.length) return null;
@@ -5058,7 +5317,7 @@ export const promptPickQuestionOption = async (bg, idx, currentAnswer = "") => {
     label: t("bg.optionDesc", opt.description ?? ""),
   }));
   const cur = options.findIndex((o) => (o.description ?? "") === currentAnswer);
-  const choice = await promptFromRows("CAIRN.PickQuestion", rows, cur >= 0 ? String(cur) : null);
+  const choice = await promptFromRows("CAIRN.PickQuestion", rows, cur >= 0 ? String(cur) : null, { windowId });
   if (!choice) return false;
   if (choice === BG_RANDOM) return { random: true };
   const option = options[Number(choice)];

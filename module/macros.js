@@ -1,6 +1,6 @@
 import { evaluateFormula, getInfoFromDropData, askDamageQuality, damageFormulaFor, damageQualityLabel, damageQualityKind, combatDamageFormula } from "./utils.js";
 import { SETTINGS_NS } from "./settings.js";
-import { t, actorDisplayName } from "./i18n-content.js";
+import { t, actorDisplayName, itemNamespaces } from "./i18n-content.js";
 
 /**
  * @param {Object} data
@@ -32,7 +32,11 @@ export const createCairnMacro = async (data, slot) => {
     return true;
   }
 
-  if (!actor) {
+  // A compendium actor's item too (review #34 finding 171): the macro is keyed
+  // by the actor's id and rollItemMacro looks it up in the WORLD, so it reported
+  // "This macro's actor no longer exists", or rolled the world copy that a
+  // keepId import left wearing the same id.
+  if (!actor || actor.pack) {
     return ui.notifications.warn(game.i18n.localize("CAIRN.Macro.OwnedItemsOnly"));
   }
 
@@ -41,7 +45,18 @@ export const createCairnMacro = async (data, slot) => {
   }
 
   const command = `game.cairn.rollItemMacro("${actor.id}", "${item.id}");`;
-  let macro = game.macros.find((m) => m.name === item.name && m.command === command);
+  // ONLY A MACRO THIS USER AUTHORED is reused (review #34 finding 154, a
+  // security fix). Every world macro reaches every client, a macro's author may
+  // rewrite its command, and assignHotbarMacro checks nothing — so matching on
+  // name and command alone handed the Warden's bar a player-authored script the
+  // player could then edit, run as the Warden on the next click; and the other
+  // way round handed a player the Warden's macro they may not execute. Core
+  // never finds another user's macro by lookup (Hotbar#_onDrop's derived drops
+  // always create one), and `isAuthor` is core's own test
+  // (client/documents/macro.mjs). Script type too: a chat macro with this text
+  // would post the command instead of running it.
+  let macro = game.macros.find((m) => m.isAuthor && m.type === "script"
+    && m.name === item.name && m.command === command);
   if (!macro) {
     macro = await Macro.create({
       name: item.name,
@@ -76,10 +91,9 @@ export const rollItemMacro = async (actorId, itemId) => {
   // Show the weapon's name through the content overlay, exactly as the sheet's
   // damage control does (localizeNameDesc over _itemNamespaces): a Spanish
   // player's hotbar macro must not print the English name the sheet already
-  // localizes — the "one sheet, two answers" tell. Monster-owned items file
-  // under a different namespace than a character's; a character's npcRole is
-  // undefined, so it falls to item.name.
-  const weaponName = t(actor.npcRole === "monster" ? "monster.itemName" : "item.name", item.name);
+  // localizes — the "one sheet, two answers" tell. The owner's namespaces
+  // (`itemNamespaces`): a monster's item, then item.name.
+  const weaponName = t(itemNamespaces(actor).nameNs, item.name);
 
   const usePanic = game.settings.get(SETTINGS_NS, "use-panic");
   const panicked = usePanic && actor.system.panicked;
@@ -96,10 +110,11 @@ export const rollItemMacro = async (actorId, itemId) => {
     quality = await askDamageQuality(item.system.damageFormula, weaponName);
     if (quality === null) return; // dismissed: roll nothing
   }
-  // The second PC damage call site — the hotbar macro. Gated through the SAME
-  // function as the sheet's control (actor-sheet.js `#onRollDamage`,
-  // `combatDamageFormula` in utils.js); the two are the only places a damage
-  // roll can be a player character's, and the Warden's Damage tool is
+  // One of the three PC damage call sites — the hotbar macro. Gated through the
+  // SAME function as the sheet's two (actor-sheet.js `#onRollDamage` and
+  // `#onImprovisedAttack`, both through `combatDamageFormula` in utils.js);
+  // those three are the only places a damage roll can be a player
+  // character's, and the Warden's Damage tool is
   // deliberately NOT one of them (a trap has no actor). No die-size floor since
   // 2026-10-03, and melee and ranged are the same to both options since.
   const base = damageFormulaFor(quality, item.system.damageFormula);

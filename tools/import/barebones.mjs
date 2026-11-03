@@ -500,7 +500,23 @@ const resultYaml = (tid, i, r) => {
     "    drawn: false",
   ];
   if (r.pack) lines.push(`    documentUuid: ${packUuid(r.pack, r.id)}`);
-  lines.push("    flags: {}", `    _key: '!tables.results!${tid}.${rid}'`);
+  lines.push(
+    "    flags: {}",
+    // `_stats` on every embedded record, in Foundry's own extract form (review
+    // #34 findings 13 and 176): without it the server reads the record as
+    // pre-V10 and migrates it on the first world launch after every install.
+    "    _stats:",
+    "      coreVersion: '14.365'",
+    "      systemId: null",
+    "      systemVersion: null",
+    "      createdTime: null",
+    "      modifiedTime: null",
+    "      lastModifiedBy: null",
+    "      compendiumSource: null",
+    "      duplicateSource: null",
+    "      exportSource: null",
+    `    _key: '!tables.results!${tid}.${rid}'`,
+  );
   return lines.join("\n");
 };
 

@@ -19,6 +19,10 @@
  * actor.system.hp.value here would report 0 in both the fixed and broken cases and
  * pass for the wrong reason.
  *
+ * Since review #34 (finding 46, user ruling 2026-10-31) a hit on such an actor is
+ * JUDGED against the 0 it shows: the damage goes to STR and the stored HP is not
+ * written at all. Leg 1 asserts exactly that — stored 4 kept, STR 10 -> 9.
+ *
  *   2b-2d. Encumbrance follows the ROLE (2026-08-01, `livesByPlayerRules`): a
  *      loaded MOUNT keeps its HP and its input submits; a role-npc PERSON at
  *      capacity reads 0 with the stored value intact and the submit stripped —
@@ -114,7 +118,8 @@ const out = await page.evaluate(async () => {
   const prev = canvas.scene;
   if (canvas.scene?.id !== scene.id) await scene.view();
 
-  // Damage 1 against armor 0 — a real hit, so HP must drop by 1 from the STORED 4.
+  // Damage 1 against armor 0 — a real hit on the displayed 0, so it lands on STR
+  // and the STORED 4 is left alone (review #34 finding 46).
   await Damage.applyToTarget(tokenDoc.id, 1);
   results.sourceAfterHit = pc.toObject().system.hp.value;
   results.strAfterHit = pc.toObject().system.abilities.STR.value;
@@ -401,6 +406,109 @@ const out = await page.evaluate(async () => {
   results.missWarning = warns[0] ?? "(none)";
   ui.notifications.warn = origWarn;
 
+  /* 3d. A hazard pool is honoured only on a Warden's card ------------------- */
+  // Review #34 finding 85. `data-pool` sends a card's damage past armour and HP
+  // into an ability, it is displayed nowhere, and the card's author owns its
+  // flavor — so a PLAYER's dagger card carrying `data-pool="WIL"` made the
+  // Warden's routine Apply drain WIL. Posted here with Alice as its author (a
+  // GM may create on another user's behalf); the control is the same card
+  // authored by the Warden, which must still drain the pool.
+  const aliceU = game.users.find((u) => u.name === "Alice");
+  const v4 = await mkVictim(4);
+  const [t4] = await scene3.createEmbeddedDocuments("Token", [await v4.getTokenDocument({ x: 500, y: 500 })]);
+  const postPoolCard = async (author) => {
+    const roll = await evaluateFormula("2", {});
+    const flavor = await foundry.applications.handlebars.renderTemplate(
+      "systems/air-bladder/templates/chat/dmg-roll-card.html",
+      { label: "probe pool", targets: t4.id, pool: "WIL" },
+    );
+    const msg = await roll.toMessage({ speaker: ChatMessage.getSpeaker(), flavor, author });
+    await until(() => document.querySelector(`[data-message-id="${msg.id}"] .apply-dmg i`));
+    return msg;
+  };
+  const wil = () => v4.toObject().system.abilities.WIL.value;
+  const v4hp = () => v4.toObject().system.hp.value;
+  // The Warden's card first: the control, which must still drain the pool.
+  const wardenPool = await postPoolCard(game.user.id);
+  results.poolPlanted = /data-pool="WIL"/.test(wardenPool.flavor ?? "");
+  const wil0 = wil();
+  document.querySelector(`[data-message-id="${wardenPool.id}"] .apply-dmg i`)?.click();
+  results.wardenPoolLanded = await until(() => wil() === wil0 - 2);
+  const playerPool = await postPoolCard(aliceU?.id);
+  results.playerPoolAuthor = playerPool.author?.id === aliceU?.id;
+  const wil1 = wil(), hp1 = v4hp();
+  document.querySelector(`[data-message-id="${playerPool.id}"] .apply-dmg i`)?.click();
+  await until(() => v4hp() !== hp1 || wil() !== wil1);
+  await new Promise((r) => setTimeout(r, 600));
+  results.playerPool = { wil: `${wil1} -> ${wil()}`, hp: `${hp1} -> ${v4hp()}` };
+  results.playerPoolIgnored = wil() === wil1 && v4hp() === Math.max(0, hp1 - 2);
+
+  /* 3d2. Apply takes the total the card SHOWS ------------------------------- */
+  // Review #34 finding 180. Finding 85's fix moved the read into
+  // `.message-content`, but a card whose author writes its own content keeps
+  // it verbatim (core renders the rolls only into empty content), so a hidden
+  // `.dice-total` planted there — or one in the author's flavor, which the
+  // fallback still read when the content had none — was what the Warden's
+  // Apply took, whatever the card showed. Two Alice-authored cards over a
+  // roll of 2, each hiding a 40: the victim must take 2.
+  const forged = {};
+  for (const where of ["content", "flavor"]) {
+    const v = await mkVictim(where === "content" ? 5 : 6);
+    const [t] = await scene3.createEmbeddedDocuments("Token", [await v.getTokenDocument({ x: 600, y: 600 })]);
+    const roll = await evaluateFormula("2", {});
+    const hidden = '<div class="dice-total" hidden>40</div>';
+    const flavor = await foundry.applications.handlebars.renderTemplate(
+      "systems/air-bladder/templates/chat/dmg-roll-card.html", { label: "probe forged", targets: t.id });
+    const msg = await roll.toMessage({
+      speaker: ChatMessage.getSpeaker(), author: aliceU?.id,
+      flavor: where === "flavor" ? flavor + hidden : flavor,
+      // Content with child elements is kept as written: the visible total, and
+      // (first leg) the hidden one ahead of it.
+      content: where === "content" ? `${hidden}<div class="dice-total">2</div>` : '<div class="zz-shown">2</div>',
+    });
+    await until(() => document.querySelector(`[data-message-id="${msg.id}"] .apply-dmg i`));
+    const before = { hp: v.toObject().system.hp.value, str: v.toObject().system.abilities.STR.value };
+    document.querySelector(`[data-message-id="${msg.id}"] .apply-dmg i`)?.click();
+    await until(() => v.toObject().system.hp.value !== before.hp);
+    await new Promise((r) => setTimeout(r, 400));
+    forged[where] = {
+      author: msg.author?.id === aliceU?.id, rollTotal: msg.rolls?.[0]?.total,
+      hp: `${before.hp} -> ${v.toObject().system.hp.value}`,
+      str: `${before.str} -> ${v.toObject().system.abilities.STR.value}`,
+      tookTwo: v.toObject().system.hp.value === before.hp - 2
+        && v.toObject().system.abilities.STR.value === before.str,
+    };
+  }
+  results.forgedTotal = forged;
+
+  /* 3e. Roll STR save is ONE save per card, on every copy ------------------- */
+  // Review #34 finding 86. The button was disabled in the presser's own DOM only,
+  // so a re-render (a reload, a scroll-back, the Warden's copy) put it back live
+  // and the same overflow could be saved twice. Overflow v4: HP to 0 and past.
+  const detailBefore = new Set(game.messages.map((m) => m.id));
+  await Damage.applyToTargets([t4.id], 8, scene3);
+  await until(() => game.messages.contents.some((m) => !detailBefore.has(m.id)
+    && /roll-str-save/.test(String(m.content ?? ""))));
+  const detail = game.messages.contents.find((m) => !detailBefore.has(m.id)
+    && /roll-str-save/.test(String(m.content ?? "")));
+  const saveBtn = () => document.querySelector(`[data-message-id="${detail?.id}"] .roll-str-save`);
+  const saveCards = () => game.messages.contents.filter((m) => !detailBefore.has(m.id)
+    && m.getFlag("air-bladder", "d20Card")?.ability === "STR").length;
+  await until(() => saveBtn() && !saveBtn().disabled);
+  results.strSaveOffered = !!saveBtn() && !saveBtn().disabled;
+  saveBtn()?.click();
+  await until(() => saveCards() === 1);
+  await new Promise((r) => setTimeout(r, 400));
+  // A FRESH copy of the card — what the Warden's client, a co-owner's, the
+  // notification pane or this one after a reload renders. The log's own copy is
+  // not the witness: the press disabled that one element by hand.
+  const copy = await detail.renderHTML();
+  const copyBtn = copy.querySelector(".roll-str-save");
+  results.strSaveSealedAfterRender = copyBtn?.disabled === true;
+  copyBtn?.click();
+  await new Promise((r) => setTimeout(r, 1500));
+  results.strSaveCards = saveCards();
+
   /* 4. Fatigue is never refused at a full pack ------------------------------ */
   // Fatigue is a cost the rules impose, not a purchase: a full pack does not stop
   // a spell being cast, so it lands and the character goes over. The CLICK is
@@ -518,6 +626,10 @@ const scar = await page.evaluate(async () => {
   const mine = await ActorImpl.create({ name: "ZZ Scar Attacker", type: "character" });
   const prevChar = game.user.character;
   await game.user.update({ character: mine.id });
+  // The Warden's OWN user is restored from a finally (review #34 finding 147):
+  // the restore sat after the whole leg, so any throw in between left the
+  // human Warden's assigned character a deleted ZZ actor.
+  try {
 
   // Exactly-to-zero is the Scar trigger: hp 3, armor 0, damage 3.
   const victim = await ActorImpl.create({
@@ -649,11 +761,13 @@ const scar = await page.evaluate(async () => {
   for (const id of [card?.id, ctl?.id, dmgCard?.id].filter(Boolean)) {
     await game.messages.get(id)?.delete();
   }
-  await game.user.update({ character: prevChar?.id ?? null });
   await scene.delete();
   await victim.delete();
-  await mine.delete();
   return r;
+  } finally {
+    await game.user.update({ character: prevChar?.id ?? null });
+    await mine.delete().catch(() => {});
+  }
 });
 
 /* ---------------------------------------------------------------------------
@@ -1157,6 +1271,10 @@ try {
       return {
         rollId: msg.id, detailId: detail?.id ?? null,
         flagged: !!flag, flagWeapon: flag?.weapon ?? null, flagToken: flag?.token ?? null,
+        // The roll card's id rides in the flag (review #34 finding 125), so each
+        // viewer's rebuild can ask whether THEY could read the card that named
+        // the attacker. dev:chat-privacy holds the per-viewer half.
+        flagSourceIsRoll: flag?.sourceMessage === msg.id,
         // The STORED content must not carry the attacker's name: the whole
         // design is that the sentence is built per viewer, so a name appearing
         // in the persisted HTML means it was baked in after all.
@@ -1202,6 +1320,7 @@ try {
     ran: true, gmIsGM: gmWeapon.isGM, aliceIsGM: alWeapon.isGM,
     flagged: fixture.withWeapon.flagged, flagWeapon: fixture.withWeapon.flagWeapon,
     flagToken: fixture.withWeapon.flagToken,
+    flagSourceIsRoll: fixture.withWeapon.flagSourceIsRoll,
     storedHasAttacker: fixture.withWeapon.storedHasAttacker,
     gmText: gmWeapon.text, gmFirst: gmWeapon.isFirst, gmItalic: gmWeapon.italic,
     aliceSawCard: alWeapon.present, aliceText: alWeapon.text,
@@ -1288,6 +1407,7 @@ const untargeted = await page.evaluate(async () => {
   // ask; an empty attribute would be a datum claiming to hold ids.
   r.anchorHasTargets = anchor?.hasAttribute("data-targets") ?? null;
   r.anchorTooltip = anchor?.dataset.tooltip ?? null;
+  r.anchorName = anchor?.getAttribute("aria-label") ?? "";
   r.anchorGlyph = anchor
     ? (() => { const c = getComputedStyle(anchor.querySelector("i"), "::before").content;
       return c && c !== "none" && c !== '""' ? c : null; })()
@@ -1375,6 +1495,32 @@ const untargeted = await page.evaluate(async () => {
   ]);
   r.cancelGaveNothing = Array.isArray(r.cancelResult) ? r.cancelResult.length === 0 : r.cancelResult === "cancel";
   await dialogGone();
+
+  /* A second click while the first's picker is open says nothing (review #34
+   * finding 184). The in-flight refusal read "This card's damage has already
+   * been applied" while nothing had landed, and a cancelled picker then
+   * applied nothing at all. Cancelled here, so the end-to-end leg below opens
+   * the card fresh. */
+  {
+    const warns = [];
+    const origWarn = ui.notifications.warn;
+    ui.notifications.warn = function (m, ...rest) { warns.push(String(m)); return origWarn.call(this, m, ...rest); };
+    try {
+      anchor?.click();
+      const open = await dialogEl();
+      r.busyPickerOpened = !!open;
+      anchor?.click();
+      await sleep(400);
+      r.busyWarned = warns.includes(game.i18n.localize("CAIRN.Notify.DamageAlreadyApplied"));
+      open?.querySelector('button[data-action="cancel"]')?.click();
+      await dialogGone();
+      await sleep(400);
+      r.busyCancelledClean = !msg.getFlag("air-bladder", "damageApplied")
+        && foeTok.actor.toObject().system.hp.value === 9 && pcTok.actor.toObject().system.hp.value === 9;
+    } finally {
+      ui.notifications.warn = origWarn;
+    }
+  }
 
   /* End to end, through the REAL anchor on the REAL card. */
   const hpFoe = () => foeTok.actor.toObject().system.hp.value;
@@ -1774,8 +1920,49 @@ try {
     r.hiddenNamesInHeader = hidCards.every((m) => m.speaker?.alias === "ZZ Concealed Foe");
     r.visibleCardCount = visCards.length;
     r.visibleNoneWhispered = visCards.length > 0 && visCards.every((m) => (m.whisper ?? []).length === 0);
-    r.concealIds = { hidden: hidCards.map((m) => m.id), visible: visCards.map((m) => m.id) };
-    r.concealCleanup = { sceneId: scene.id, actorIds: [hid.a.id, vis.a.id] };
+
+    // A LINKED hidden token (review #34 finding 72). The fixtures above are
+    // unlinked monsters, whose actor is synthetic and carries its own `.token`;
+    // a linked token's actor is the WORLD actor, whose `.token` is null — and
+    // persons are linked by default, so a hidden NPC ambusher is this case. Its
+    // Dead bar was concealed by `actor.token` and so went out public.
+    const linkA = await ActorImpl.create({
+      name: "ZZ Concealed Linked", type: "npc",
+      system: { role: "monster", hp: { value: 4, max: 4 }, armor: 0, abilities: { STR: { value: 2, max: 2 } } },
+    });
+    const [linkT] = await scene.createEmbeddedDocuments("Token",
+      [{ name: "ZZ Concealed Linked", actorId: linkA.id, actorLink: true, x: 300, y: 300, hidden: true }]);
+    r.linkedIsLinked = linkT.actorLink === true && linkT.actor?.token == null;
+    const linkCards = await fresh(() => Damage.applyToTargets([linkT.id], 99, scene));
+    r.linkedDeadBar = linkCards.some((m) => /status-dead/.test(String(m.content ?? "")));
+    r.linkedAllWhispered = linkCards.length > 0 && linkCards.every((m) => (m.whisper ?? []).length > 0);
+
+    // A hidden creature's SCAR (review #34 finding 84): exactly 0 HP with no
+    // overflow, the one branch the 99-damage legs never reach. The scar card
+    // goes through `RollTable#toMessage`, which applies the poster's chat mode,
+    // and Public — the default — empties the whisper. Measured on Public, which
+    // is set for the leg and restored.
+    const modeWas = game.settings.get("core", "messageMode");
+    if (modeWas !== "public") await game.settings.set("core", "messageMode", "public");
+    let scarCards = [];
+    try {
+      const scarA = await ActorImpl.create({
+        name: "ZZ Concealed Scarred", type: "npc",
+        system: { role: "monster", hp: { value: 4, max: 4 }, armor: 0, abilities: { STR: { value: 5, max: 5 } } },
+      });
+      const [scarT] = await scene.createEmbeddedDocuments("Token",
+        [{ name: "ZZ Concealed Scarred", actorId: scarA.id, x: 400, y: 400, hidden: true }]);
+      scarCards = await fresh(() => Damage.applyToTargets([scarT.id], 4, scene));
+      r.scarActorId = scarA.id;
+    } finally {
+      if (modeWas !== "public") await game.settings.set("core", "messageMode", modeWas);
+    }
+    r.scarPosted = scarCards.some((m) => m.getFlag("air-bladder", "scarCard"));
+    r.scarAllWhispered = scarCards.length > 0 && scarCards.every((m) => (m.whisper ?? []).length > 0);
+
+    const moreHidden = [...linkCards, ...scarCards].map((m) => m.id);
+    r.concealIds = { hidden: [...hidCards.map((m) => m.id), ...moreHidden], visible: visCards.map((m) => m.id) };
+    r.concealCleanup = { sceneId: scene.id, actorIds: [hid.a.id, vis.a.id, linkA.id, r.scarActorId].filter(Boolean) };
     return r;
   }));
 
@@ -1937,6 +2124,207 @@ const rebuilt = await (async () => {
 })();
 
 /* ---------------------------------------------------------------------------
+ * A PLAYER'S STR SAVE HONOURS THE WARDEN'S ANSWER (review #34 finding 214).
+ *
+ * An owner who is not the detail card's author asks the active Warden to
+ * record the one save per card (finding 86), and the press rolled whatever came
+ * back: `false` — another presser got there first — was thrown away, so the
+ * one-save rule held only where the asker's own copy already carried the flag.
+ * Alice owns the planted PC; her client's query is answered "already spent" in-page, and
+ * her press must post no save. CONTROL: the same press with the real query
+ * rolls exactly one, so "nothing posted" is not a dead button.
+ * ------------------------------------------------------------------------- */
+const strRefused = { ran: false };
+{
+  const alicePage = await browser.newPage({ viewport: VIEWPORT });
+  let planted = null;
+  try {
+    await joinAs(alicePage, "Alice");
+    planted = await page.evaluate(async () => {
+      const { Damage } = await import("/systems/air-bladder/module/damage.js");
+      const alice = game.users.find((u) => u.name === "Alice");
+      const scene = await Scene.create({ name: "ZZ StrSave Refusal scene", width: 1000, height: 1000 });
+      const pc = await CONFIG.Actor.documentClass.create({
+        name: "ZZ StrSave Refusal PC", type: "character",
+        ownership: { default: 0, [alice.id]: 3 },
+        system: { hp: { value: 2, max: 2 }, armor: 0, abilities: { STR: { value: 10, max: 10 } } },
+      });
+      const [tok] = await scene.createEmbeddedDocuments("Token", [await pc.getTokenDocument({ x: 200, y: 200 })]);
+      const before = new Set(game.messages.map((m) => m.id));
+      await Damage.applyToTargets([tok.id], 6, scene);
+      let detail = null;
+      for (let i = 0; i < 40 && !detail; i++) {
+        detail = game.messages.contents.find((m) => !before.has(m.id) && /roll-str-save/.test(String(m.content ?? "")));
+        if (!detail) await new Promise((r) => setTimeout(r, 150));
+      }
+      return { sceneId: scene.id, pcId: pc.id, messageId: detail?.id ?? null, before: [...before] };
+    });
+    Object.assign(strRefused, { ran: true }, await alicePage.evaluate(async ({ messageId }) => {
+      const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+      const seen = new Set(game.messages.map((m) => m.id));
+      const saves = () => game.messages.contents
+        .filter((m) => !seen.has(m.id) && m.getFlag("air-bladder", "d20Card")?.ability === "STR").length;
+      const button = () => document.querySelector(`[data-message-id="${messageId}"] .roll-str-save`);
+      for (let i = 0; i < 60 && !(button() && !button().disabled); i++) await sleep(150);
+      if (!button() || button().disabled) return { button: false };
+      const gm = game.users.activeGM;
+      const origQuery = gm.query;
+      // The Warden's real "already spent" reply. It was a bare `false` until
+      // review #34 finding 166 gave handleChoiceQuery a reason to carry
+      // (`{recorded, reason}`); a stand-in in the old shape is an answer no
+      // Warden's client sends any more.
+      gm.query = async () => ({ recorded: false, reason: "answered" });
+      try {
+        button().click();
+        await sleep(1500);
+      } finally {
+        gm.query = origQuery;
+      }
+      const refused = saves();
+      button()?.click();
+      for (let i = 0; i < 40 && saves() === refused; i++) await sleep(150);
+      await sleep(400);
+      return { button: true, refused, control: saves() };
+    }, { messageId: planted.messageId }));
+  } catch (e) {
+    strRefused.error = `${e.name}: ${e.message}`;
+  } finally {
+    await page.evaluate(async (p) => {
+      if (!p) return;
+      const before = new Set(p.before);
+      for (const m of game.messages.contents.filter((m) => !before.has(m.id) && m.speaker?.scene === p.sceneId)) {
+        try { await m.delete(); } catch { /* gone */ }
+      }
+      try { await game.actors.get(p.pcId)?.delete(); } catch { /* gone */ }
+      try { await game.scenes.get(p.sceneId)?.delete(); } catch { /* gone */ }
+    }, planted);
+    await alicePage.close();
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * A SAVE CARD'S BUTTONS ACT ON THE ACTOR THE CARD MEANT, OR NOT AT ALL.
+ *
+ * Three ways the card's controls reached an actor nobody pressed for, read on
+ * the Warden's page from FRESH copies (`renderHTML`, what a reload, a popout or
+ * a later-connecting client renders):
+ *   F123 — a player-authored copy of a damage detail card bound Roll STR save
+ *          on the token it names: the damage card is only ever the Warden's.
+ *   F240 — a failed save spoken by an UNLINKED token that has since been
+ *          deleted fell back to the world actor by the speaker's id, which for a
+ *          synthetic actor is the BASE actor's: Mark Critical Damage marked the
+ *          world monster and every token of it.
+ *   F170 — a STR save rolled on a COMPENDIUM actor's sheet offered Critical
+ *          Damage, and the buttons resolve in the WORLD by id; a pack copy of a
+ *          world character shares that id.
+ * ------------------------------------------------------------------------- */
+const cardTargets = await page.evaluate(async () => {
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const { Damage } = await import("/systems/air-bladder/module/damage.js");
+  const utils = await import("/systems/air-bladder/module/utils.js");
+  const alice = game.users.find((u) => u.name === "Alice");
+  const out = {};
+  const made = { actors: [], scenes: [], messages: [] };
+  const before = new Set(game.messages.map((m) => m.id));
+  const newStrSaves = (since) => game.messages.contents
+    .filter((m) => !since.has(m.id) && m.getFlag("air-bladder", "d20Card")?.ability === "STR").length;
+  try {
+    const scene = await Scene.create({ name: "ZZ Card Targets scene", width: 1000, height: 1000 });
+    made.scenes.push(scene);
+
+    // F123: a genuine detail card, then the same card authored by Alice.
+    const pc = await CONFIG.Actor.documentClass.create({ name: "ZZ Card Targets PC", type: "character",
+      system: { hp: { value: 2, max: 2 }, armor: 0, abilities: { STR: { value: 10, max: 10 } } } });
+    made.actors.push(pc);
+    const [pcTok] = await scene.createEmbeddedDocuments("Token", [await pc.getTokenDocument({ x: 200, y: 200 })]);
+    const seen = new Set(game.messages.map((m) => m.id));
+    await Damage.applyToTargets([pcTok.id], 6, scene);
+    let detail = null;
+    for (let i = 0; i < 40 && !detail; i++) {
+      detail = game.messages.contents.find((m) => !seen.has(m.id) && /roll-str-save/.test(String(m.content ?? "")));
+      if (!detail) await sleep(150);
+    }
+    out.detailPlanted = !!detail;
+    if (detail) {
+      const forged = await ChatMessage.create({
+        author: alice.id, speaker: detail.speaker, content: detail.content, flavor: detail.flavor,
+        flags: foundry.utils.deepClone(detail.flags),
+      });
+      out.forgedAuthor = forged.author?.id === alice.id;
+      const copy = await forged.renderHTML();
+      const btn = copy.querySelector(".roll-str-save");
+      const since = new Set(game.messages.map((m) => m.id));
+      if (btn && btn.style.display !== "none") btn.click();
+      await sleep(1500);
+      out.forgedSaves = newStrSaves(since);
+      // CONTROL: the genuine Warden-authored card still binds the save.
+      const real = await detail.renderHTML();
+      const since2 = new Set(game.messages.map((m) => m.id));
+      real.querySelector(".roll-str-save")?.click();
+      for (let i = 0; i < 40 && !newStrSaves(since2); i++) await sleep(150);
+      out.genuineSaves = newStrSaves(since2);
+    }
+
+    // F240: two unlinked tokens of one monster; A's failed save card, A deleted.
+    const base = await CONFIG.Actor.documentClass.create({ name: "ZZ Card Targets Monster", type: "npc",
+      system: { role: "monster", abilities: { STR: { value: 6, max: 10 } } },
+      prototypeToken: { actorLink: false } });
+    made.actors.push(base);
+    // Our own ids, read back by id: a batch comes back in the order the server
+    // finished it, so position cannot say which token is A.
+    const tokAId = foundry.utils.randomID();
+    const tokBId = foundry.utils.randomID();
+    await scene.createEmbeddedDocuments("Token", [
+      await base.getTokenDocument({ _id: tokAId, x: 300, y: 300 }),
+      await base.getTokenDocument({ _id: tokBId, x: 400, y: 400 })], { keepId: true });
+    const tokA = scene.tokens.get(tokAId);
+    const tokB = scene.tokens.get(tokBId);
+    out.unlinked = !tokA.actorLink;
+    const card = { kind: "save", ability: "STR", formula: "d20cs<=6", rolled: 15, failed: true, crit: true };
+    const roll = await new Roll("1d6").evaluate();
+    const save = await roll.toMessage({
+      speaker: ChatMessage.getSpeaker({ token: tokA }),
+      flavor: utils.d20CardFlavor(card.kind, card.ability), content: utils.d20CardBody(card),
+      flags: { "air-bladder": { d20Card: card } },
+    });
+    await tokA.delete();
+    const orphan = await save.renderHTML();
+    orphan.querySelector(".mark-critical-damage")?.click();
+    await sleep(1500);
+    out.baseCritical = base.toObject().system.critical === true;
+    out.survivorCritical = scene.tokens.get(tokB.id)?.actor?.system.critical === true;
+
+    // F170: a pack copy of a world character (same id), STR save rolled on it.
+    const world = await CONFIG.Actor.documentClass.create({ name: "ZZ Card Targets Twin", type: "character",
+      system: { abilities: { STR: { value: 6, max: 10 } } } });
+    made.actors.push(world);
+    const twin = new CONFIG.Actor.documentClass(world.toObject(), { pack: "world.zz-probe-card-targets" });
+    out.twinIsPack = !!twin.pack && twin.id === world.id;
+    const since3 = new Set(game.messages.map((m) => m.id));
+    const origRnd = CONFIG.Dice.randomUniform;
+    CONFIG.Dice.randomUniform = () => 0.5;   // a 10 or 11, a failure against 6 either way round
+    try {
+      await world.sheet.constructor.DEFAULT_OPTIONS.actions.rollAbility.call({ actor: twin },
+        { preventDefault: () => {} }, { dataset: { roll: "d20cs<=@abilities.STR.value", ability: "STR" } });
+    } finally {
+      CONFIG.Dice.randomUniform = origRnd;
+    }
+    let twinCard = null;
+    for (let i = 0; i < 40 && !twinCard; i++) {
+      twinCard = game.messages.contents.find((m) => !since3.has(m.id) && m.getFlag("air-bladder", "d20Card"));
+      if (!twinCard) await sleep(150);
+    }
+    const flag = twinCard?.getFlag("air-bladder", "d20Card");
+    out.twinCard = flag ? { failed: flag.failed, crit: flag.crit, fatigue: !!flag.fatigue } : null;
+    return out;
+  } finally {
+    for (const m of game.messages.contents.filter((m) => !before.has(m.id))) { try { await m.delete(); } catch { /* gone */ } }
+    for (const a of made.actors) { try { await a.delete(); } catch { /* gone */ } }
+    for (const s of made.scenes) { try { await s.delete(); } catch { /* gone */ } }
+  }
+});
+
+/* ---------------------------------------------------------------------------
  * EVERY FATIGUE FILLS A SLOT (2026-10-03, user ruling).
  *
  * For a day a house rule made the first Fatigue free — carried as though it
@@ -2037,10 +2425,17 @@ check("derived HP is 0", out.derivedIsZero, "data prep zeroed the derived value"
 check("source HP is 4", out.sourceBefore === 4, `source=${out.sourceBefore}`);
 
 console.log("\ndamage while encumbered");
-check("stored HP survives", out.sourceAfterHit === 3,
-  `source=${out.sourceAfterHit} (expected 3: stored 4 minus 1 damage)`);
-check("STR untouched", out.strAfterHit === 10,
-  `STR=${out.strAfterHit} (a 1-point hit must not overflow past stored HP)`);
+// JUDGED AGAINST THE 0 EVERYONE SEES (review #34 finding 46, user ruling
+// 2026-10-31, reversing the answer these two legs pinned since review #1). An
+// encumbered or panicked character reads 0 HP, and a hit on 0 HP goes to STR —
+// so the 1 point lands on STR and the STORED 4, which nobody can see, is not
+// written at all: it comes back intact when the load lifts. Review #1's real
+// bug (the derived 0 persisted over the stored value) stays fixed by the same
+// rule, more strongly: HP is not written while the rule zeroes it.
+check("stored HP untouched", out.sourceAfterHit === 4,
+  `source=${out.sourceAfterHit} (expected 4: a hit on the displayed 0 does not touch the hidden HP)`);
+check("the hit lands on STR", out.strAfterHit === 9,
+  `STR=${out.strAfterHit} (expected 9: 1 damage on 0 HP, armor 0)`);
 
 console.log("\nhireling sheet submit");
 check("guard strips HP", !out.submitKeepsHp, "system.hp.value removed from submit data");
@@ -2108,6 +2503,23 @@ check("survivor still damaged", out.mixedSurvivorHit,
   "a mixed batch damages the ids that resolve");
 check("the miss is reported", out.mixedWarned && !/^CAIRN\./.test(out.missWarning),
   `warn: ${out.missWarning}`);
+
+console.log("\na hazard pool, and whose card carries it");
+check("the Warden's pool card drains the pool", out.poolPlanted && out.wardenPoolLanded,
+  "the control: data-pool on a Warden-authored card still lands on WIL");
+check("a PLAYER's card with a planted pool is ordinary damage", out.playerPoolAuthor && out.playerPoolIgnored,
+  `WIL ${out.playerPool?.wil}, HP ${out.playerPool?.hp} (expected WIL unchanged, HP down 2)`);
+check("Apply takes the roll the card shows, not a total hidden in a player's content (review #34 finding 180)",
+  out.forgedTotal?.content?.author && out.forgedTotal.content.tookTwo, JSON.stringify(out.forgedTotal?.content));
+check("...nor one hidden in the flavor when the content has none", out.forgedTotal?.flavor?.author
+  && out.forgedTotal.flavor.tookTwo, JSON.stringify(out.forgedTotal?.flavor));
+
+console.log("\nRoll STR save is one save per card");
+check("the overflow offers Roll STR save", out.strSaveOffered);
+check("re-rendered, the pressed save stays spent", out.strSaveSealedAfterRender,
+  "the stamp is on the MESSAGE, so every copy of the card reads it");
+check("and a second press posts no second save", out.strSaveCards === 1,
+  `${out.strSaveCards} STR save card(s)`);
 
 console.log("\nFatigue is never refused at a full pack");
 check("at the limit first", out.fatEncumberedBefore,
@@ -2292,6 +2704,8 @@ check("the two-client leg ran", dsource.ran && dsource.gmIsGM && !dsource.aliceI
 check("the detail card is flagged", dsource.flagged && dsource.flagWeapon === "ZZ Probe Crossbow"
   && !!dsource.flagToken,
   `weapon=${JSON.stringify(dsource.flagWeapon)} token=${dsource.flagToken} - ids and a raw name, never a finished sentence`);
+check("the flag names the roll card it came from", dsource.flagSourceIsRoll === true,
+  "the per-viewer rebuild names the attacker only to a viewer who could read that card (review #34 finding 125)");
 check("the attacker is NOT in the stored card", dsource.storedHasAttacker === false,
   "the sentence is built per viewer at render, so a name in the persisted HTML means it was baked in after all");
 check("the Warden reads the whole line",
@@ -2326,6 +2740,12 @@ check("with no data-targets", untargeted.anchorHasTargets === false,
   `hasAttribute=${untargeted.anchorHasTargets} — its ABSENCE is what the handler reads to ask; an empty attribute would be a datum claiming to hold ids`);
 check("its own tooltip", untargeted.anchorTooltip === "Apply damage — choose who takes it",
   `"${untargeted.anchorTooltip}" — a different tooltip from the targeted card's, because the rule is meant to be readable from the card`);
+// Built in JS on every render and never stored, so the template's name cannot
+// reach it (review #34 finding 201): data-tooltip names nothing, and the rule
+// since review #21 is a localized aria-label beside it.
+check("and an accessible name that reads as the tooltip does", !!untargeted.anchorName
+  && untargeted.anchorName === untargeted.anchorTooltip,
+  `aria-label=${JSON.stringify(untargeted.anchorName)}`);
 check("and it draws a glyph", !!untargeted.anchorGlyph,
   `renders ${untargeted.anchorGlyph ?? "NOTHING"}`);
 // `offerUntargetedApply` builds its anchor with NO data-targets on purpose, so
@@ -2359,6 +2779,10 @@ check("the picker proposes nobody",
   + `and ${JSON.stringify(untargeted.targeted)} targeted — a wrong default is worse than no default`);
 check("Cancel applies nothing", untargeted.cancelGaveNothing,
   `resolved to ${JSON.stringify(untargeted.cancelResult)} — a ✕ is an instruction, not a default`);
+check("precondition: the first click's picker opened", untargeted.busyPickerOpened === true, "");
+check("a second click while it is open does not say 'already applied' (F184)", untargeted.busyWarned === false,
+  "nothing has landed while the first click's picker is open");
+check("...and the cancelled picker applied nothing", untargeted.busyCancelledClean === true, "");
 check("clicking the real anchor asks", untargeted.clickOpenedPicker,
   "driven through the button rather than the helper, so neither layer alone can look like a landed fix");
 check("both ticked take the FULL roll",
@@ -2476,6 +2900,12 @@ check("a corpse still gets feedback",
 check("a concealed creature's cards are whispered",
   status.hiddenCardCount > 0 && status.hiddenAllWhispered,
   `${status.hiddenCardCount} card(s), all whispered=${status.hiddenAllWhispered}`);
+check("precondition: the linked fixture's actor is the world actor, with no .token",
+  status.linkedIsLinked);
+check("a LINKED hidden token's Dead bar is whispered too", status.linkedDeadBar && status.linkedAllWhispered,
+  `dead bar=${status.linkedDeadBar}, all whispered=${status.linkedAllWhispered}`);
+check("a hidden creature's SCAR card is whispered, on the Public chat mode", status.scarPosted && status.scarAllWhispered,
+  `scar posted=${status.scarPosted}, all whispered=${status.scarAllWhispered}`);
 check("and Alice sees none of them", status.aliceSeesHidden === 0,
   `she can see ${status.aliceSeesHidden} of ${status.hiddenCardCount} — read from HER client, because both concealment`
   + " channels are evaluated against the current user and a GM owns and observes everything");
@@ -2577,6 +3007,29 @@ check("the − control clears one Fatigue",
 check("...and the trash can deletes the row it is on",
   fatigueSlots.afterTrash?.left === 1 && fatigueSlots.afterTrash?.pressedGone === true,
   `left=${fatigueSlots.afterTrash?.left} pressed row gone=${fatigueSlots.afterTrash?.pressedGone} — no redirect to another Fatigue`);
+
+console.log("\na player's STR save honours the Warden's answer");
+check("precondition: Alice's copy offers Roll STR save", strRefused.button === true, JSON.stringify(strRefused));
+check("the Warden's 'already spent' rolls no save", strRefused.refused === 0,
+  `${strRefused.refused} save(s) posted on a false answer`);
+check("...and the same press, answered for real, rolls exactly one", strRefused.control === 1,
+  `${strRefused.control} save(s) in all`);
+
+console.log("\na save card's buttons act on the actor the card meant");
+check("precondition: a genuine detail card offering Roll STR save, and Alice's copy of it",
+  cardTargets.detailPlanted && cardTargets.forgedAuthor, JSON.stringify(cardTargets));
+check("a player-authored damage card binds no Roll STR save (F123)", cardTargets.forgedSaves === 0,
+  `${cardTargets.forgedSaves} save(s) rolled from Alice's copy`);
+check("...while the Warden's own card still does", cardTargets.genuineSaves === 1,
+  `${cardTargets.genuineSaves} save(s)`);
+check("precondition: the monster's tokens are unlinked", cardTargets.unlinked === true, "");
+check("a save card whose unlinked token is gone marks nothing on the world monster (F240)",
+  cardTargets.baseCritical === false && cardTargets.survivorCritical === false,
+  `world actor critical=${cardTargets.baseCritical}, surviving token critical=${cardTargets.survivorCritical}`);
+check("precondition: a pack copy sharing the world character's id", cardTargets.twinIsPack === true, "");
+check("a STR save rolled on a compendium actor offers no Critical Damage (F170)",
+  cardTargets.twinCard?.failed === true && cardTargets.twinCard.crit === false && cardTargets.twinCard.fatigue === false,
+  JSON.stringify(cardTargets.twinCard));
 
 if (errors.length) { bad++; console.log("Console errors:\n" + errors.join("\n")); }
 console.log(bad === 0 ? "\nencumbered-damage e2e passed" : `\nencumbered-damage e2e FAILED — ${bad}`);

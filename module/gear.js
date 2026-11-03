@@ -1,19 +1,24 @@
 import { t } from "./i18n-content.js";
+import { warmPackDocuments } from "./compendium.js";
 
 /**
  * Shared gear resolution for Air Bladder.
  *
- * Gear is the single editable source of truth: it lives in Item compendia that a
- * Warden can unlock and edit. Character generation (2e AND Barebones), hireling
- * loadouts, bonds, and the marketplace all reference an item BY NAME and resolve
- * it here — so editing a pack item once flows everywhere it is granted.
+ * Gear has one source of truth: it lives in the shipped Item compendia.
+ * Character generation (2e AND Barebones), hireling loadouts, bonds, and the
+ * marketplace all reference an item BY NAME and resolve it here — so a fix to a
+ * pack item reaches everywhere it is granted. Those packs are TEMPLATES, not a
+ * Warden's workbench: a system update replaces them wholesale, so an edit made
+ * inside one in Foundry lasts only until then (as core's own unlock warning
+ * says).
  *
  * This is the resolve-time half. The author-time half (turning an inline
  * {name, tags, uses, ...} record into an item's type/system fields) is
  * `buildGearItem`, kept here too so the two halves stay in one place; the
- * tools/import/gear-2e.mjs authoring script carries a byte-identical copy of that
- * inference (Node can't import this browser module across the ESM/CJS boundary,
- * so the copies are kept in sync by hand — see the note there).
+ * tools/import/marketplace.mjs authoring script carries a byte-identical copy of
+ * it and of the aliases (Node can't import this browser module across the
+ * ESM/CJS boundary, so the copies are kept in sync by hand — see the note
+ * there).
  *
  * Nothing here touches Foundry globals at module load; `game`/`foundry` are read
  * only inside resolveGearItem's body.
@@ -368,9 +373,9 @@ export const buildGearItem = (g) => {
  *
  * Still not cached: the match is found in the pack INDEX (names only, kept in
  * memory and updated live when a document changes), then that one document is
- * materialized with `getDocument`. So an in-session edit to an item is reflected
- * on the next resolve — the whole point of the editable-compendium model (edit →
- * regenerate → change appears) — without loading every document in eight packs.
+ * materialized with `getDocument`. So an edit to a pack item is reflected on the
+ * next resolve (until an update replaces the pack — see the module docblock)
+ * without loading every document in eight packs.
  *
  * This runs once per gear name, and `getDocuments()` was walking ~1,000 documents
  * across eight packs each time to read one name off each. Measured on the dev
@@ -379,6 +384,49 @@ export const buildGearItem = (g) => {
  * session) and 0ms warm, against ~1.7s PER NAME before.
  */
 export const resolveGearItem = async (name, { quantity = 1, uses } = {}) => {
+  let found = null;
+  for (const { pack, entry } of await gearEntries(name)) {
+    const doc = await pack.getDocument(entry._id);
+    if (doc) { found = doc; break; }
+  }
+  if (!found) {
+    console.warn(`resolveGearItem: no item named "${name}" in the canonical packs`);
+    return null;
+  }
+
+  return itemDataFromDocument(found, { quantity, uses, grantName: name });
+};
+
+/**
+ * Fetch, ONE REQUEST PER PACK, the documents these grant names resolve to
+ * (review #34 finding 207), so a loop that then resolves them one by one with
+ * `resolveGearItem` reads the cache. That loop's every name was a server
+ * request in series: a background's starting gear on every generation, swap
+ * and re-deal, each Kettlewright item, Test ×10's lint. Each name is looked up
+ * by `gearEntries`, resolveGearItem's own lookup; a miss is left for
+ * resolveGearItem to warn about.
+ * @param {Iterable<string>} names
+ * @returns {Promise<void>}
+ */
+export const warmGearItems = async (names) => {
+  const byPack = new Map();   // pack → [id]
+  for (const name of names ?? []) {
+    const [hit] = await gearEntries(name);
+    if (!hit) continue;
+    if (!byPack.has(hit.pack)) byPack.set(hit.pack, []);
+    byPack.get(hit.pack).push(hit.entry._id);
+  }
+  await Promise.all([...byPack].map(([pack, ids]) => warmPackDocuments(pack, ids)));
+};
+
+/**
+ * Where a grant name lives: every canonical pack whose INDEX carries it, in
+ * pack order, with its entry. The one lookup `resolveGearItem` and
+ * `warmGearItems` share, so the two cannot disagree about a name.
+ * @param {string} name
+ * @returns {Promise<{pack: CompendiumCollection, entry: object}[]>}
+ */
+const gearEntries = async (name) => {
   const spell = spellNameFromGrant(name);
   let targetName = spell ?? GEAR_ALIASES.get(String(name).trim().toLowerCase()) ?? name;
   // Under GLOG only GLOG and custom spells are used (ruling 2026-08-05):
@@ -398,7 +446,7 @@ export const resolveGearItem = async (name, { quantity = 1, uses } = {}) => {
     : CANONICAL_GEAR_PACKS;
   const lower = String(targetName).toLowerCase();
 
-  let found = null;
+  const hits = [];
   for (const key of packs) {
     const pack = game.packs.get(key);
     if (!pack) continue;
@@ -410,16 +458,9 @@ export const resolveGearItem = async (name, { quantity = 1, uses } = {}) => {
     // the armor. check:refs keys its duplicate-name gate the same way.
     const entry = (await pack.getIndex()).find((e) => e.name.toLowerCase() === lower
       && (spell ? e.type === "spellbook" : e.type !== "spellbook"));
-    if (!entry) continue;
-    const doc = await pack.getDocument(entry._id);
-    if (doc) { found = doc; break; }
+    if (entry) hits.push({ pack, entry });
   }
-  if (!found) {
-    console.warn(`resolveGearItem: no item named "${name}" in the canonical packs`);
-    return null;
-  }
-
-  return itemDataFromDocument(found, { quantity, uses, grantName: name });
+  return hits;
 };
 
 /**
@@ -477,8 +518,11 @@ export const itemDataFromDocument = (doc, { quantity = 1, uses, grantName } = {}
  * (review #9). A bound page and the loose book of the same spell are
  * different things (the page is the book's), and a GRIMOIRE never stacks at
  * all: each book carries its own pages, and quantity 2 on one document would
- * make two libraries indistinguishable. Any future flag-style splitter joins
- * this test rather than growing a new merge.
+ * make two libraries indistinguishable. A SPENT scroll and a fresh one of the
+ * same spell are different things too: the merge only adds quantity, so a
+ * fresh scroll dropped on a spent one became uncastable, and a spent one
+ * dropped on a fresh one became castable (review #34 finding 95). Any future
+ * flag-style splitter joins this test rather than growing a new merge.
  * @param {CairnActor} actor  the receiving actor
  * @param {CairnItem|Object} itemLike  the arriving item or its plain data
  * @returns {CairnItem|null}
@@ -489,7 +533,16 @@ export const findMatchingStack = (actor, itemLike) =>
       && !!it.system?.scroll === !!itemLike.system?.scroll
       && !!it.system?.bound === !!itemLike.system?.bound
       && !it.system?.grimoire && !itemLike.system?.grimoire
+      && isSpentScroll(it) === isSpentScroll(itemLike)
   ) ?? null;
+
+/** A spellscroll whose single use is gone (the strike-through row). Plain data
+ *  with no count at all is a fresh scroll: that is what `CairnItem#_preCreate`
+ *  makes of it. */
+const isSpentScroll = (itemLike) => {
+  const value = itemLike.system?.uses?.value;
+  return !!itemLike.system?.scroll && value !== undefined && (Number(value) || 0) < 1;
+};
 
 /**
  * What happens if `need` slots arrive on this actor? THREE verdicts.
@@ -507,7 +560,10 @@ export const findMatchingStack = (actor, itemLike) =>
  *   with no free slot, which sets Hit Protection to 0 until something is
  *   dropped or handed away. This is the case the rules OWE, and an informed
  *   click may buy it: an accepted gift, generation, Fatigue. Ordinary
- *   acquisition still refuses it.
+ *   acquisition (a drop, Create Item, the shop) does NOT ask this verdict for a
+ *   person: it refuses only a person who has no free slot already
+ *   (`isEncumbered`), so a buy at 9/10 lands, bulky or not — a feature by the
+ *   2026-07-18 ruling.
  * - `"full"` — a THING, a companion or a monster has no room. NOBODY may buy
  *   this, on either route. "Overflow is owed, never merely allowed" is a rule
  *   about a person being handed what the rules give them; a sack has no Hit
@@ -552,3 +608,16 @@ export const mustDropForFatigue = (actor) => actor?.isEncumbered?.() === true;
 /** Slots an item wants. Bulky 2, weightless 0, otherwise 1. */
 export const slotsNeeded = (itemLike) =>
   (itemLike?.bulky ? 2 : itemLike?.weightless ? 0 : 1);
+
+/**
+ * The slots one arriving unit adds to `actor`, on the branch it will take: one
+ * more of a matching stack costs what one of THAT stack costs, and anything
+ * else costs its own size (review #34 finding 156 — a one-slot Rope merging
+ * into a Bulky "Rope" adds two, and was priced at one). The `need` to hand
+ * capacityVerdict for anything that lands through findMatchingStack.
+ * @param {CairnActor} actor
+ * @param {Object} itemLike  an item, or its source data
+ * @returns {Number}
+ */
+export const landingNeed = (actor, itemLike) =>
+  slotsNeeded((findMatchingStack(actor, itemLike) ?? itemLike).system);

@@ -17,6 +17,11 @@
  *   7. commits "Release X.Y.Z", creates an annotated tag whose BODY is the notes,
  *      and pushes the branch + tag to `origin`
  *
+ * A REDO is the same command. When system.json already reads X.Y.Z, because
+ * the tag was deleted after a failed build or a refused push, steps 6 and 7's
+ * commit are skipped and the tag goes on HEAD. That HEAD is the first run's
+ * Release commit, or the fix merged on top of it.
+ *
  * The tag originates on `origin` (Gitea), so the Gitea->GitHub push mirror PROTECTS
  * it instead of pruning it — that pruning was the whole reason releases used to
  * vanish. Once the tag reaches GitHub, the "Release Creation" workflow triggers on
@@ -108,23 +113,41 @@ if (lastTag) {
 console.log(`Release notes (CHANGELOG.md, "## ${version}") — the body of the tag and of the GitHub release:\n`);
 console.log(body.split("\n").map((l) => `  ${l}`).join("\n"));
 
+// A REDO (review #34 finding 17). RELEASE.md's "Redoing a version" deletes the
+// tag and runs this again, and by then the first run has already committed
+// "Release X.Y.Z", so the bump below changes nothing. That used to die with
+// "Could not find a version field", which was false: the field was there and
+// already right. A refused push leaves the same state behind. The tag checks
+// above have already proved no tag of this version exists on either side, so
+// a system.json that already reads it means the bump has been made and the
+// tag has not: skip the bump and commit, and tag HEAD.
+const sysPath = path.join(ROOT, "system.json");
+const before = fs.readFileSync(sysPath, "utf8");
+const redo = JSON.parse(before).version === version;
+if (redo) {
+  console.log(`\nsystem.json already reads ${version}: a REDO. No bump, no commit; the tag goes on HEAD:`);
+  console.log(`  ${capture("git log -1 --oneline")}`);
+}
+
 if (dryRun) {
   console.log(`\n(dry run) Nothing written, nothing pushed.\n`);
   process.exit(0);
 }
 
 // 6. Bump system.json version (targeted single-line replace, so the diff stays minimal).
-const sysPath = path.join(ROOT, "system.json");
-const before = fs.readFileSync(sysPath, "utf8");
-const after = before.replace(/("version"\s*:\s*")[^"]*(")/, `$1${version}$2`);
-if (after === before) die(`Could not find a "version" field to update in system.json`);
-fs.writeFileSync(sysPath, after);
-if (JSON.parse(after).version !== version) die(`system.json version did not update cleanly — aborting.`);
-console.log(`\n✓ system.json version → ${version}`);
+if (!redo) {
+  const after = before.replace(/("version"\s*:\s*")[^"]*(")/, `$1${version}$2`);
+  if (after === before) die(`Could not find a "version" field to update in system.json`);
+  fs.writeFileSync(sysPath, after);
+  if (JSON.parse(after).version !== version) die(`system.json version did not update cleanly — aborting.`);
+  console.log(`\n✓ system.json version → ${version}`);
+}
 
 // 7. Commit, tag, push branch + tag to origin.
-run(`git add system.json`);
-run(`git commit -m "Release ${version}"`);
+if (!redo) {
+  run(`git add system.json`);
+  run(`git commit -m "Release ${version}"`);
+}
 // The tag message comes from a file, not `-m`: it is many lines, and a quoted
 // multi-line argument is exactly what PowerShell mangles. `--cleanup=verbatim`
 // is load-bearing — git's default cleanup strips every line beginning with `#` as
@@ -154,7 +177,7 @@ Next:
      from the tag (~1-2 min; watch the Actions tab).
   2. Verify the install manifest returns 200:
      https://github.com/<owner>/<repo>/releases/latest/download/system.json
-  3. Sync the development branch, or the next merge conflicts on the version bump
-     this commit just made:
+  3. Sync the development branch, or the next merge conflicts on this release's
+     version bump:
          git checkout dev && git merge master && git push origin dev
 `);

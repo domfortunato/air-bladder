@@ -68,7 +68,7 @@
  *      the shipped ids in one folder, text rows verbatim, Bonds' gold/items row
  *      flags intact, the Spells table NOT copied, every declaration resolving to
  *      the world copy — control: the Spells declaration still resolves to the pack.
- *      A reworded row is what `rollTableText` returns.
+ *      A reworded row is what `rollTablePlainText` returns.
  *  11. A second backgrounds run keeps a rename, even with the pack locked; red-first
  *      on the plan: the world index shadowed empty → 27 to add.
  *  12. Barebones: six tables under the shipped ids, 38 items, the Weapon table's
@@ -587,6 +587,39 @@ try {
     check(busy.n === 1 && busy.titles[0] === MARKET_TITLE && busy.after.m === false && busy.after.c === false,
       "…a real click on a greyed second door opens nothing, only the first door's confirm is up, and every door is back once the job ends", JSON.stringify(busy));
 
+    // ...and in a DETACHED window too (review #34 finding 2). A popped-out
+    // directory can be detached into its own browser window, and its doors then
+    // live in that window's document, which a bare `document.querySelectorAll`
+    // never reaches. Stood in for in-page by moving the popout's element into an
+    // iframe's document — another document, which is the whole of the point.
+    const detached = await page.evaluate(async (MOD) => {
+      const mod = await import(MOD);
+      await ui.tables.renderPopout();
+      const pop = ui.tables.popout;
+      for (let t = 0; t < 40 && !pop?.element?.querySelector(".cairn-take-over"); t++) {
+        await new Promise((r) => setTimeout(r, 150));
+      }
+      const frame = document.createElement("iframe");
+      document.body.append(frame);
+      frame.contentDocument.body.append(pop.element);
+      const door = (k) => pop.element.querySelector(`.cairn-take-over[data-kind="${k}"]`);
+      const moved = pop.element.ownerDocument !== document && !!door("barebones");
+      const before = new Set(foundry.applications.instances.keys());
+      const first = mod.openTakeOver("marketplace");
+      const during = door("barebones")?.disabled;
+      const confirms = () => [...foundry.applications.instances.values()].filter((x) => !before.has(x.id) && x.element?.querySelector(".cairn-take-over"));
+      for (let t = 0; t < 120 && !confirms().length; t++) await new Promise((r) => setTimeout(r, 250));
+      for (const d of confirms()) await d.close();
+      await first;
+      const after = door("barebones")?.disabled;
+      document.body.append(pop.element);
+      frame.remove();
+      await pop.close();
+      return { moved, during, after };
+    }, MOD);
+    check(detached.moved && detached.during === true && detached.after === false,
+      "a directory in ANOTHER document (a detached window) has its doors greyed during a job and back after", JSON.stringify(detached));
+
     // On a short screen the confirm SCROLLS (review #31: measured at 650px, the
     // Copy button sat below the bottom edge with the overflow hidden).
     await page.setViewportSize({ width: VIEWPORT.width, height: 650 });
@@ -935,6 +968,73 @@ try {
     check(p4.addNames.includes("Dagger") === false && !adoptedRow.twin && adoptedRow.rowUuid === adoptedRow.adoptedUuid,
       "the new Weapons table's Dagger row points at the adopted copy and no twin was created under the shipped id", JSON.stringify({ run4, adoptedRow }));
 
+    /* ------------- 9b. a copy a PLAYER owns is not adopted (review #34 finding 122) */
+    // The adoption above reads `_stats.compendiumSource`, which an owner can
+    // write on their own document and a sidebar Duplicate keeps. The same
+    // adopted Dagger, handed to Alice for the length of one PLAN (a pure read),
+    // must no longer be the shop's: the plan adds a copy of its own.
+    console.log("\n9b. a copy a player owns is not the shop's");
+    const owned = await page.evaluate(async ({ adoptedId }) => {
+      const it = game.items.get(adoptedId);
+      const aliceId = game.users.getName("Alice")?.id;
+      if (!it || !aliceId) return { skipped: !it ? "no adopted Dagger" : "no Alice" };
+      await it.update({ [`ownership.${aliceId}`]: CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER });
+      return { playerOwned: it.hasPlayerOwner, aliceId };
+    }, { adoptedId: adopted.id });
+    const p5 = owned.skipped ? null : await planOf("marketplace");
+    if (!owned.skipped) {
+      await page.evaluate(async ({ adoptedId, aliceId }) => {
+        await game.items.get(adoptedId)?.update({ [`ownership.${aliceId}`]: CONST.DOCUMENT_OWNERSHIP_LEVELS.NONE });
+      }, { adoptedId: adopted.id, aliceId: owned.aliceId });
+    }
+    check(owned.playerOwned === true && p5?.addNames.includes("Dagger"),
+      "plan: a Dagger copy a PLAYER owns is not adopted, the shop gets its own (review #34 finding 122)",
+      JSON.stringify({ owned, add: p5?.addNames }));
+
+    /* ---- 9c. nor one at the SHIPPED id, and the run leaves it as it was (122) */
+    // What a player's own sidebar import leaves: the shipped id (core's Import
+    // keeps it), the stamp, the player as owner. The adopted copy and the
+    // Weapons table go first, so the plan has only that one to consider and
+    // the run must make the shop's Dagger and a Weapons table pointing at it —
+    // and a keepId create at the held id would replace the player's item.
+    console.log("\n9c. a player's copy at the shipped id is not the shop's, and is left alone");
+    const held = await page.evaluate(async ({ adoptedId, shippedId }) => {
+      const aliceId = game.users.getName("Alice")?.id;
+      if (!aliceId) return { skipped: "no Alice" };
+      if (game.items.has(shippedId)) return { skipped: "the shipped id is already held" };
+      await game.items.get(adoptedId)?.delete();
+      await game.tables.find((t) => t.name === "Market: Weapons")?.delete();
+      const pack = game.packs.get("air-bladder.weapons");
+      const it = await game.items.importFromCompendium(pack, shippedId, {}, { keepId: true, renderSheet: false });
+      await it.update({ name: "ZZ Alice Dagger", [`ownership.${aliceId}`]: CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER });
+      return { id: it.id, aliceId, atShipped: it.id === shippedId, playerOwned: it.hasPlayerOwner };
+    }, { adoptedId: adopted.id, shippedId: dagger.shippedId });
+    if (held.skipped) {
+      fail("9c precondition", held.skipped);
+    } else {
+      const p6 = await planOf("marketplace");
+      const run6 = await page.evaluate(async (MOD) => {
+        const mod = await import(MOD);
+        const spec = { key: "marketplace", pack: "air-bladder.marketplace", folder: "CAIRN.TakeOver.Marketplace.Folder" };
+        const r = await mod.runTableTakeOver(await mod.planTableTakeOver(spec));
+        return { added: r.added, kept: r.kept };
+      }, MOD);
+      const after6 = await page.evaluate(async ({ heldId, aliceId }) => {
+        const it = game.items.get(heldId);
+        const weapons = game.tables.find((t) => t.name === "Market: Weapons");
+        const row = weapons?.results.find((r) => r.name === "Dagger");
+        const pointed = row?.documentUuid ? await fromUuid(row.documentUuid).catch(() => null) : null;
+        return { heldName: it?.name ?? null, aliceStillOwns: it?.ownership?.[aliceId] === CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER,
+          rowUuid: row?.documentUuid ?? null, pointedId: pointed?.id ?? null, pointedPlayerOwned: pointed?.hasPlayerOwner ?? null };
+      }, { heldId: held.id, aliceId: held.aliceId });
+      check(held.atShipped && held.playerOwned && p6.addNames.includes("Dagger"),
+        "plan: a player's Dagger at the SHIPPED id is not adopted (review #34 finding 122)", JSON.stringify({ held, add: p6.addNames }));
+      check(after6.heldName === "ZZ Alice Dagger" && after6.aliceStillOwns,
+        "run: the player's Dagger is left as it was — not replaced at its id", JSON.stringify({ run6, after6 }));
+      check(!!after6.pointedId && after6.pointedId !== held.id && after6.pointedPlayerOwned === false,
+        "run: the new Weapons table's Dagger row points at the shop's own copy, under a fresh id", JSON.stringify(after6));
+    }
+
     /* --------------------- 10-pre. an existing pack is named by its own label */
     // The compendium was renamed "Custom 2e Backgrounds" on 2026-09-15, and
     // core cannot rename a world compendium that already exists (the sidebar
@@ -952,7 +1052,7 @@ try {
       // headline ("Create Custom 2e Backgrounds!") carries the key's words
       // too, so the test anchors on the words that introduce the name.
       const strip = (s) => s.replace(/<[^>]+>/g, "");
-      const [pre] = strip(game.i18n.format("CAIRN.TakeOver.Cairn2e.How", { pack: " " })).split(" ");
+      const [pre] = strip(game.i18n.format("CAIRN.TakeOver.Cairn2e.How", { pack: "\u0000" })).split("\u0000");
       return { skipped: false, label, keyText: game.i18n.localize("CAIRN.CustomBackgroundsPack"), live: game.packs.get(WORLD_BG_PACK)?.metadata.label, lead: pre.slice(-24) };
     }, { WORLD_BG_PACK });
     if (literal.skipped) {
@@ -1184,7 +1284,7 @@ try {
       await bonds.deleteEmbeddedDocuments("TableResult", keep);
       await bonds.createEmbeddedDocuments("TableResult", [{ type: CONST.TABLE_RESULT_TYPES.TEXT, description: "A probe owes you a favour.", range: [1, 1], weight: 1 }]);
       await bonds.update({ formula: "1d1" });
-      return cpd.rollTableText("air-bladder.tables-2e;Bonds");
+      return cpd.rollTablePlainText("air-bladder.tables-2e;Bonds");
     }, { CPD, ids: newC2eTables });
     check(/probe owes you a favour/.test(reworded ?? ""), "a reworded row is what a Bonds roll returns", JSON.stringify(reworded));
 

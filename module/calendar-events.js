@@ -23,7 +23,8 @@ import { t } from "./i18n-content.js";
  * WHY TWO WORLD JOURNALS RATHER THAN A FLAG ON THE PAGE: ownership is the one
  * mechanism a player's client applies without being asked, so the party's
  * calendar and the party's sidebar both follow it for free, and nothing here
- * has to remember to filter.
+ * has to remember to filter. The one thing the Warden's own client must ASK is
+ * what to mark hidden, since a GM passes every permission test (`partySees`).
  *
  * WHAT "HIDDEN" IS, EXACTLY, AND IT IS NOT A SECRET. MEASURED, not assumed: a
  * JournalEntry with `ownership.default: NONE` IS STILL SENT to every player —
@@ -46,22 +47,55 @@ const VALD_PACK = "air-bladder.journals-vald";
 let FESTIVALS = null;
 
 /**
+ * The live calendar's month lengths in `year` (the DISPLAY year, the one the
+ * flags store), leap week included when that year has one. `null` = no year
+ * known (a yearless festival): the standard lengths.
+ */
+const monthLengths = (year) => {
+  const cal = game.time.calendar;
+  const values = cal?.months?.values ?? [];
+  const leap = Number.isFinite(year) && !!cal?.isLeapYear?.(year - (cal?.years?.yearZero ?? 0));
+  return values.map((m) => (leap ? (m.leapDays ?? m.days) : m.days) ?? 0);
+};
+
+/**
  * A span is filed on EVERY day it covers, each carrying which day of the run it
  * is, so the grid marks all three days of the Splash Festival rather than only
- * the first. Month lengths come from the live calendar, so a run crossing a
- * month boundary lands where it should even though none does today.
+ * the first. Month lengths come from the live calendar.
+ *
+ * LEAP-AWARE, AND THE YEAR CARRIES (review #34 finding 82). The lengths used to
+ * be the plain `days`, so Reclamation (0 days, 6 in a leap year) had no room: a
+ * six-day event on Recognize filed days 2-6 on Mourning 1-5 of the SAME year,
+ * months before it began; and a run past the year's last day wrapped back to
+ * that same year's Mourning. Now an empty month is stepped over, and a run past
+ * the end goes into the next year — filed only when `keepOffset` asks for it,
+ * because each year's map is built separately (`marksByDay` asks for last
+ * year's spill with offset 1).
  */
-const spread = (map, { month, day, days, make }) => {
-  const months = (game.time.calendar?.months?.values ?? []).map((m) => m.days ?? 0);
+const spread = (map, { month, day, days, make, year = null, keepOffset = 0 }) => {
   const total = Math.max(1, Number(days) || 1);
+  let offset = 0;
+  let lengths = monthLengths(year);
   let m = month;
   let d = day;
   for (let i = 0; i < total; i++) {
-    const key = `${m}/${d}`;
-    if (!map.has(key)) map.set(key, []);
-    map.get(key).push(make(i + 1, total));
+    if (offset === keepOffset) {
+      const key = `${m}/${d}`;
+      if (!map.has(key)) map.set(key, []);
+      map.get(key).push(make(i + 1, total));
+    }
+    if (offset > keepOffset) break;
     d += 1;
-    if (d > (months[m] ?? 0)) { d = 1; m = (m + 1) % Math.max(1, months.length); }
+    // `guard`: a calendar whose every month is empty would otherwise spin.
+    for (let guard = 0; d > (lengths[m] ?? 0) && guard < 64; guard++) {
+      d = 1;
+      m += 1;
+      if (m >= lengths.length) {
+        m = 0;
+        offset += 1;
+        lengths = monthLengths(year === null ? null : year + offset);
+      }
+    }
   }
 };
 
@@ -110,19 +144,39 @@ export const _resetFestivals = () => { FESTIVALS = null; };
 /* -------------------------------------------- */
 
 /**
- * The journal holding events of one kind, or null.
- *
- * FOUND BY ITS OWN FLAG, not by name and not by an id kept in a setting.
- *
- * Not by NAME, because a name goes through the content overlay and a Warden may
- * rename it. Not by a STORED ID either, and that is the more interesting half:
- * awaiting `game.settings.set` does NOT guarantee that the next
- * `game.settings.get` on the same client returns the new value — measured, and
- * intermittent, which is the worst kind. An identity that has to be written and
- * read back is an identity that is occasionally missing for a few hundred
- * milliseconds, and the calendar renders inside that window. The flag is on the
- * document itself and is true the moment it exists.
+ * `isWardenJournal`'s fallback when the last writer cannot be resolved: does
+ * no RESOLVABLE player hold OWNER? See `isWardenJournal` for why, and for the
+ * one shape (a demoted Warden) this cannot tell from a player's decoy.
+ * @param {foundry.abstract.Document} doc
+ * @returns {boolean}
  */
+const noPlayerOwner = (doc) => {
+  const L = CONST.DOCUMENT_OWNERSHIP_LEVELS;
+  const own = doc?.ownership ?? {};
+  if ((own.default ?? L.NONE) >= L.OWNER) return false;
+  for (const [id, level] of Object.entries(own)) {
+    if (id === "default") continue;
+    if (level < L.OWNER) continue;
+    const user = game.users.get(id);
+    // AN UNRESOLVABLE ID IS UNKNOWN HERE TOO — the same rule the caller applies
+    // to `lastModifiedBy`, and without it this whole fallback was dead (review
+    // #29). OURS DO NOT "NAME NOBODY", whatever isWardenJournal's docblock used to say:
+    // the SERVER stamps the requesting user as an explicit OWNER entry on any
+    // document that has an ownership field, with no role test —
+    // `this.ownership && i && !(i.id in this.ownership) && this.updateSource(
+    // {[`ownership.${i.id}`]: OWNER})` (dist/database/backend/server-document.mjs,
+    // ServerDocumentMixin#_preCreate). So every journal we make carries the
+    // creating Warden's id at OWNER, nothing sweeps it when that account goes,
+    // and `!undefined?.isGM` took the reject branch for the exact document this
+    // guard exists to recognise. Delete the Warden account and the fallback
+    // still answered false: events off the grid, a second journal on the next
+    // "Add an event…", a fresh weather log per write — the bug review #28
+    // reported as fixed.
+    if (user && !user.isGM) return false;
+  }
+  return true;
+};
+
 /**
  * Was this document last written by a Gamemaster? `_stats.lastModifiedBy` is
  * stamped by the SERVER from the requesting user and a client cannot forge it
@@ -178,42 +232,56 @@ export const _resetFestivals = () => { FESTIVALS = null; };
  * or dropping the server's creator stamp at creation so ours really do name
  * nobody) — not a wider test here. Handing a world over by DELETING the old
  * account works; handing it over by demoting it does not.
+ *
+ * AND IT MUST CARRY A WARDEN'S KEY (review #34 finding 106). The last writer
+ * alone was laundered by any GM write that never looked at the document: a
+ * Warden dragging a journal in the sidebar re-indexes every sort-0 sibling and
+ * writes each one, so a TRUSTED player's flagged decoy came out last written
+ * by a GM, and "a Warden who edits a decoy by hand has adopted it" did not
+ * describe a re-index. So the document must also hold an explicit OWNER entry
+ * naming a Gamemaster, or an id that no longer resolves (a deleted Warden; see
+ * `noPlayerOwner`). Ours always do: the server stamps the creating user as
+ * OWNER, and core's ownership dialog submits the Warden's own row even while
+ * it hides it. A player's never can: the server deletes every other user's key
+ * from a non-GM's create and refuses a non-GM's change to one after
+ * (dist/database/sanitization.mjs `sanitizeDocumentOwnershipField`). A decoy
+ * that removed its own key names nobody, and is refused too.
  * @param {foundry.abstract.Document} doc
  * @returns {boolean}
  */
-const noPlayerOwner = (doc) => {
-  const L = CONST.DOCUMENT_OWNERSHIP_LEVELS;
-  const own = doc?.ownership ?? {};
-  if ((own.default ?? L.NONE) >= L.OWNER) return false;
-  for (const [id, level] of Object.entries(own)) {
-    if (id === "default") continue;
-    if (level < L.OWNER) continue;
-    const user = game.users.get(id);
-    // AN UNRESOLVABLE ID IS UNKNOWN HERE TOO — the same rule the caller applies
-    // to `lastModifiedBy`, and without it this whole fallback was dead (review
-    // #29). OURS DO NOT "NAME NOBODY", whatever the docblock above used to say:
-    // the SERVER stamps the requesting user as an explicit OWNER entry on any
-    // document that has an ownership field, with no role test —
-    // `this.ownership && i && !(i.id in this.ownership) && this.updateSource(
-    // {[`ownership.${i.id}`]: OWNER})` (dist/database/backend/server-document.mjs,
-    // ServerDocumentMixin#_preCreate). So every journal we make carries the
-    // creating Warden's id at OWNER, nothing sweeps it when that account goes,
-    // and `!undefined?.isGM` took the reject branch for the exact document this
-    // guard exists to recognise. Delete the Warden account and the fallback
-    // still answered false: events off the grid, a second journal on the next
-    // "Add an event…", a fresh weather log per write — the bug review #28
-    // reported as fixed.
-    if (user && !user.isGM) return false;
-  }
-  return true;
-};
-
 export const isWardenJournal = (doc) => {
+  if (!wardenKeyed(doc)) return false;
   const user = game.users.get(doc?._stats?.lastModifiedBy);
   if (user) return user.isGM;
   return noPlayerOwner(doc);
 };
 
+/**
+ * Does an explicit OWNER entry name a Gamemaster, or an id that no longer
+ * resolves? The key only a Warden's document carries; see `isWardenJournal`.
+ * @param {foundry.abstract.Document} doc
+ * @returns {boolean}
+ */
+const wardenKeyed = (doc) => {
+  const L = CONST.DOCUMENT_OWNERSHIP_LEVELS;
+  return Object.entries(doc?.ownership ?? {}).some(([id, level]) =>
+    id !== "default" && level >= L.OWNER && (game.users.get(id)?.isGM ?? true));
+};
+
+/**
+ * The journal holding events of one kind, or null.
+ *
+ * FOUND BY ITS OWN FLAG, not by name and not by an id kept in a setting.
+ *
+ * Not by NAME, because a name goes through the content overlay and a Warden may
+ * rename it. Not by a STORED ID either, and that is the more interesting half:
+ * awaiting `game.settings.set` does NOT guarantee that the next
+ * `game.settings.get` on the same client returns the new value — measured, and
+ * intermittent, which is the worst kind. An identity that has to be written and
+ * read back is an identity that is occasionally missing for a few hundred
+ * milliseconds, and the calendar renders inside that window. The flag is on the
+ * document itself and is true the moment it exists.
+ */
 const eventsJournal = (hidden = false) => {
   const kind = hidden ? "hidden" : "shared";
   return game.journal.find((j) => j.flags?.["air-bladder"]?.calendarEvents === kind && isWardenJournal(j)) ?? null;
@@ -233,7 +301,37 @@ const makeEventsJournal = async (hidden) => {
 };
 
 /**
- * Every event page this client may SEE.
+ * Does the PARTY see this event page? The test each player's own client makes
+ * in `eventPages`, asked here on their behalf (review #34 finding 230): a GM
+ * passes every permission test (`testUserPermission` makes a GM OWNER), so the
+ * Warden's client cannot learn the answer by asking itself. Both halves hold:
+ * - a player with no grant of their own sees it: the page's default level, or
+ *   its journal's where the page INHERITs, core `getUserLevel`'s order
+ *   (common/abstract/document.mjs). So a world with no players yet, or a player
+ *   who joins later, is not handed a hidden event;
+ * - every player there is sees it, so one denied by name is not spoiled.
+ * The journal an event is FILED in is not asked. The Warden's dialog picks the
+ * journal, but core's page eye and ownership dialog move what the party sees
+ * without moving the page.
+ * @param {JournalEntryPage} page
+ * @returns {boolean}
+ */
+const partySees = (page) => {
+  const L = CONST.DOCUMENT_OWNERSHIP_LEVELS;
+  const own = page.ownership?.default ?? L.INHERIT;
+  const level = own === L.INHERIT ? (page.parent?.ownership?.default ?? L.NONE) : own;
+  return level >= L.OBSERVER && game.users.every((u) => u.isGM || page.testUserPermission(u, "OBSERVER"));
+};
+
+/**
+ * Every event page this client may SEE, each with whether it is `hidden`: the
+ * party cannot see it (`partySees`) — and, of the hidden ones, whether it is
+ * only `partly` hidden: some player can see it, just not the whole party
+ * (review #34 finding 230, ruled 2026-11-01). The calendar marks the two
+ * differently ("Not visible to the party" / "…to the entire party"). Neither
+ * string says "you", so a player's own client, which sees the page only by
+ * being a player who may, always reads the partial one. The weather log
+ * leaves out every `hidden` mark, partial ones included: it is read by all.
  *
  * Read LIVE from `game.journal`, which is in memory — there is nothing to await
  * and nothing to cache.
@@ -245,12 +343,12 @@ const makeEventsJournal = async (hidden) => {
  */
 const eventPages = () => {
   const out = [];
-  for (const hidden of [false, true]) {
-    const entry = eventsJournal(hidden);
+  for (const entry of [eventsJournal(false), eventsJournal(true)]) {
     for (const page of entry?.pages ?? []) {
       if (!page.flags?.["air-bladder"]?.wardenEvent) continue;
       if (!page.testUserPermission(game.user, "OBSERVER")) continue;
-      out.push({ page, hidden });
+      const hidden = !partySees(page);
+      out.push({ page, hidden, partly: hidden && game.users.some((u) => !u.isGM && page.testUserPermission(u, "OBSERVER")) });
     }
   }
   return out;
@@ -275,15 +373,22 @@ export const marksByDay = async (year) => {
   // into the cached festival list and appear again next render.
   for (const [key, list] of map) map.set(key, [...list]);
 
-  for (const { page, hidden } of eventPages()) {
+  for (const { page, hidden, partly } of eventPages()) {
     const f = page.flags["air-bladder"];
     const month = Number(f.valdMonth);
     const day = Number(f.valdDay);
     if (!Number.isInteger(month) || !Number.isInteger(day)) continue;
     const stamped = f.valdYear ?? null;
-    if (stamped !== null && Number(stamped) !== Number(year)) continue;
+    // This year's own run, and LAST year's run spilling past the year end —
+    // a yearly event has both; a stamped one has whichever its year gives.
+    const runs = [];
+    if (stamped === null || Number(stamped) === Number(year)) runs.push({ from: Number(year), keepOffset: 0 });
+    if (stamped === null || Number(stamped) === Number(year) - 1) runs.push({ from: Number(year) - 1, keepOffset: 1 });
+    if (!runs.length) continue;
     const watch = Number.isInteger(f.valdWatch) ? f.valdWatch : null;
-    spread(map, {
+    for (const run of runs) spread(map, {
+      year: run.from,
+      keepOffset: run.keepOffset,
       month: month - 1,
       day,
       days: f.valdDays,
@@ -296,6 +401,7 @@ export const marksByDay = async (year) => {
         warden: true,
         watch,
         hidden,
+        partly,
         uuid: page.uuid,
       }),
     });
@@ -313,10 +419,20 @@ export const watchLineFor = (watch) => (Number.isInteger(watch) && WATCH_KEYS[wa
  *
  * Names go through the overlay the way every other list of names here does.
  * What it is written INTO does not — see `weather-log.js`.
+ *
+ * HIDDEN EVENTS ARE LEFT OUT (review #34 finding 79). The log is written on
+ * the active GM's client, where the hidden journal's pages pass the
+ * permission test, and it is a journal every player reads — so the docs' own
+ * example, an ambush hidden on the fourteenth, was written into it by name.
+ * The log lists what the PARTY's calendar shows that day, and nothing more.
+ * "Hidden" is the party's ownership of the page, never the journal it is filed
+ * in (finding 230): a page set to None in the shared journal stays out, and the
+ * hidden journal's events go in once the Warden raises it.
  */
 export const marksOn = async ({ year, month, day }) => {
   const map = await marksByDay(year);
-  return (map.get(`${month}/${day}`) ?? []).map((m) => t("journal.pageName", m.name));
+  return (map.get(`${month}/${day}`) ?? []).filter((m) => !m.hidden)
+    .map((m) => t("journal.pageName", m.name));
 };
 
 /* -------------------------------------------- */
@@ -333,7 +449,7 @@ export const marksOn = async ({ year, month, day }) => {
  *
  * @param {{year: number, month: number, day: number}} at  the day on screen
  */
-export const promptAddEvent = async (at) => {
+export const promptAddEvent = async (at, { windowId } = {}) => {
   if (!game.user.isGM) {
     ui.notifications.warn(game.i18n.localize("CAIRN.Notify.TimeWardenOnly"));
     return null;
@@ -384,6 +500,7 @@ export const promptAddEvent = async (at) => {
     </div>`;
 
   const picked = await foundry.applications.api.DialogV2.wait({
+    renderOptions: { window: { windowId } },   // the caller's own window (review #34 finding 161)
     window: { title: "CAIRN.Calendar.AddEventTitle" },
     // 400, stated: DialogV2.wait merges NO width where confirm and prompt
     // merge 400 (dialog.mjs:353,374), so a wait() dialog inherits
@@ -460,8 +577,9 @@ export const openEvent = async (uuid) => {
   return page?.sheet?.render({ force: true }) ?? null;
 };
 
-/** Take one off the calendar. The page goes with it — there is nothing else to it. */
-export const removeEvent = async (uuid) => {
+/** Take one off the calendar. The page goes with it — there is nothing else to it.
+ *  The confirm opens in the caller's window (review #34 finding 119). */
+export const removeEvent = async (uuid, { windowId } = {}) => {
   if (!game.user.isGM) {
     ui.notifications.warn(game.i18n.localize("CAIRN.Notify.TimeWardenOnly"));
     return null;
@@ -473,6 +591,7 @@ export const removeEvent = async (uuid) => {
     content: `<p>${foundry.utils.escapeHTML(
       game.i18n.format("CAIRN.Calendar.RemoveEventConfirm", { name: page.name }))}</p>`,
     rejectClose: false,
+    renderOptions: { window: { windowId } },
   });
   if (!ok) return null;
   return page.delete();

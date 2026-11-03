@@ -52,9 +52,10 @@ rolled again.
 dice and keep the higher. If both come up 6, that is **one** six, so it explodes
 once — you do not get two chains.
 
-**Every die explodes, however small.** An **Impaired** roll is a d4 and explodes
-like any other die; so does a d4 weapon, if you write one, and so does an
-**Enhanced** roll's d12. There is no smallest die.
+**Down to the d4, every die explodes.** An **Impaired** roll is a d4 and
+explodes like any other die; so does a d4 weapon, if you write one, and so does
+an **Enhanced** roll's d12. A d2 or d3 never explodes: half its faces less one
+is none.
 
 **Every explosion is announced.** The damage card gains a line — *A d6 exploded!*
 — once for each time the die went again, so a chain that went twice says so
@@ -73,7 +74,10 @@ and the Warden's Damage tool for a trap or hazard all roll normally.
 and then exploding only that die has no way to be written for mixed dice, and
 the alternative would quietly give you better odds than the rule above. No
 weapon that ships with the system is written this way. Same-sized dice —
-`2d6k`, `d6 + d6`, and every shipped weapon — explode normally.
+`2d6k`, `d6 + d6`, and every shipped weapon — explode normally. One catch:
+`d6 + d6` means keep the highest only while **Use Cairn dice notation: 'd6+d6'
+as keep highest** is on. With it off, it is plain addition, so it is rolled as
+written and does not explode — the Cutpurse's twin daggers included.
 
 **Two more, for formulas of your own.** A damage formula that **adds** two
 dice — `2d10`, which no shipped weapon uses — shares one cap between them
@@ -150,7 +154,9 @@ of this, is still there and does nothing at the moment.
 **One limit, the same one exploding dice has.** A keep-highest formula out of
 **different** dice — `d6 + d8` — never shows the line. Same-sized dice written as
 `d6 + d6` are rolled in their keep form, `2d6k`, so the card can tell which die
-was kept, and work normally.
+was kept, and work normally — but only while **Use Cairn dice notation:
+'d6+d6' as keep highest** is on. With it off, `d6 + d6` is plain addition and
+never shows the line, the Cutpurse's twin daggers included.
 
 The line appears only if the option was on when the damage was rolled, and only
 to the people who can see the roll: on a private or blind roll, nobody else learns

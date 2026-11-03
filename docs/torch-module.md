@@ -44,8 +44,6 @@ Cairn gives no light radii, so these are a Warden's numbers, in feet on the
 | Glowsnail | dim only, 10 ft, green | never |
 | Sun Stick | 20 / 40 ft, warm | one use each time it goes out |
 | Lightsucker Candle | sheds *darkness* 10 / 20 ft | one use each time it goes out |
-| Heatless Torch (spell) | 20 / 40 ft, cold white | never |
-| Lamp's Hue (spell) | 20 / 40 ft | never |
 
 Left out on purpose: the **Oil Can** (fuel, not a light), **Fire Oil** and
 **Miracle Oil** (not lights), the **Candle of Ward** (a ward that happens to be

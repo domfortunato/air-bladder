@@ -31,12 +31,24 @@
  * as day 0 of the following year. `ValdCalendar` overrides the method core's own
  * docstring nominates for it. Restore core's two lines and legs 12 and 13 red.
  *
- * Creates nothing. Restores everything it touches.
+ * Creates nothing it does not remove. Restores everything it touches — world
+ * time, the day's weather and every journal it made — from the FINALLY, so a
+ * throw anywhere in the run still hands the world back (review #34 finding 34).
+ * A Warden's own weather log is held ASIDE in-page for the race leg, never
+ * deleted.
  */
 import { chromium } from "playwright";
-import { VIEWPORT, joinAsGM, joinAs, watchErrors, dismissChrome } from "./lib.mjs";
+import { VIEWPORT, joinAsGM, joinAs, watchErrors, dismissChrome, watchdog } from "./lib.mjs";
 
 const browser = await chromium.launch();
+
+// The fleet's hang guard (review #34 finding 25): without it a hang runs to
+
+// the runner's 65-minute cap, skips every restore, and the box is never
+
+// marked suspect. A bound on a hang, not a timing claim.
+
+watchdog(600000, "vald-time probe", () => browser.close());
 const page = await browser.newContext({ viewport: VIEWPORT }).then((c) => c.newPage());
 const errors = watchErrors(page);
 let failed = false;
@@ -85,8 +97,9 @@ const withValdOn = (p, body, arg = null) => p.evaluate(async ({ body: src, arg: 
   const realGet = settings.get.bind(settings);
   const prevConfig = CONFIG.time.worldCalendarConfig;
   const prevClass = CONFIG.time.worldCalendarClass;
-  settings.get = (ns, key, ...rest) =>
-    (ns === "air-bladder" && key === "enable-vald-calendar" ? true : realGet(ns, key, ...rest));
+  settings.get = (ns, key, ...rest) => rest[0]?.document
+    ? foundry.helpers.ClientSettings.prototype.get.call(game.settings, ns, key, ...rest)   // review #34 finding 29
+    : (ns === "air-bladder" && key === "enable-vald-calendar" ? true : realGet(ns, key, ...rest));
   CONFIG.time.worldCalendarConfig = gt.VALD_CALENDAR_CONFIG;
   CONFIG.time.worldCalendarClass = gt.ValdCalendar;
   game.time.initializeCalendar();
@@ -103,11 +116,21 @@ const withValdOn = (p, body, arg = null) => p.evaluate(async ({ body: src, arg: 
   }
 }, { body: body.toString(), arg });
 
+// What the run restores, read once before the first leg and put back from the
+// finally (review #34 finding 34). The restore used to sit at the end of the
+// try, so a throw in any of ~1,200 lines of evaluates left worldTime at 0 (leg
+// 10 sets it), the "ZZ Probe" event journals, and the day's weather set.
+let start = null;
 try {
   await joinAsGM(page);
   await dismissChrome(page);
 
-  const startTime = await page.evaluate(() => game.time.worldTime);
+  start = await page.evaluate(() => ({
+    time: game.time.worldTime,
+    weather: foundry.utils.deepClone(game.settings.get("air-bladder", "vald-weather-today") ?? null),
+    journals: game.journal.map((j) => j.id),
+  }));
+  const startTime = start.time;
 
   /* ---- 1. watches ship ungated; Vald does not ------------------------- */
 
@@ -423,8 +446,9 @@ try {
   const readDash = () => page.evaluate(async () => {
     const settings = game.settings;
     const realGet = settings.get.bind(settings);
-    settings.get = (ns, key, ...rest) =>
-      (ns === "air-bladder" && key === "enable-vald-calendar" ? false : realGet(ns, key, ...rest));
+    settings.get = (ns, key, ...rest) => rest[0]?.document
+      ? foundry.helpers.ClientSettings.prototype.get.call(game.settings, ns, key, ...rest)   // review #34 finding 29
+      : (ns === "air-bladder" && key === "enable-vald-calendar" ? false : realGet(ns, key, ...rest));
     const prevConfig = CONFIG.time.worldCalendarConfig;
     const prevClass = CONFIG.time.worldCalendarClass;
     // `earthCalendarConfig` IS the Simplified Gregorian and nothing here ever
@@ -563,6 +587,7 @@ try {
     // the point: inheriting whatever the world happened to have called is how
     // a leg ends up asserting three lines one run and four the next.
     settings.get = (ns, key, ...rest) => {
+      if (rest[0]?.document) return foundry.helpers.ClientSettings.prototype.get.call(game.settings, ns, key, ...rest);   // review #34 finding 29
       if (ns !== "air-bladder") return realGet(ns, key, ...rest);
       if (key === "enable-vald-calendar") return true;
       if (key === "vald-weather-today") return { day: gt.dayCount(), text: "Sleet" };
@@ -780,8 +805,9 @@ try {
     // gone by now. Restored in the finally below, like every other Vald leg.
     const settings = game.settings;
     const realGet = settings.get.bind(settings);
-    settings.get = (ns, key, ...rest) =>
-      (ns === "air-bladder" && key === "enable-vald-calendar" ? true : realGet(ns, key, ...rest));
+    settings.get = (ns, key, ...rest) => rest[0]?.document
+      ? foundry.helpers.ClientSettings.prototype.get.call(game.settings, ns, key, ...rest)   // review #34 finding 29
+      : (ns === "air-bladder" && key === "enable-vald-calendar" ? true : realGet(ns, key, ...rest));
     try {
       const app = foundry.applications.instances.get("cairn-warden-dashboard");
       await app?.render();
@@ -851,8 +877,9 @@ try {
   const doorOff = await page.evaluate(async () => {
     const settings = game.settings;
     const realGet = settings.get.bind(settings);
-    settings.get = (ns, key, ...rest) =>
-      (ns === "air-bladder" && key === "enable-vald-calendar" ? false : realGet(ns, key, ...rest));
+    settings.get = (ns, key, ...rest) => rest[0]?.document
+      ? foundry.helpers.ClientSettings.prototype.get.call(game.settings, ns, key, ...rest)   // review #34 finding 29
+      : (ns === "air-bladder" && key === "enable-vald-calendar" ? false : realGet(ns, key, ...rest));
     try {
       const wc = await import("/systems/air-bladder/module/watch-clock.js");
       await wc.refreshWatchClock();
@@ -1433,8 +1460,9 @@ try {
         const gt = await import("/systems/air-bladder/module/game-time.js");
         const settings = game.settings;
         const realGet = settings.get.bind(settings);
-        settings.get = (ns, key, ...rest) =>
-          (ns === "air-bladder" && key === "enable-vald-calendar" ? true : realGet(ns, key, ...rest));
+        settings.get = (ns, key, ...rest) => rest[0]?.document
+          ? foundry.helpers.ClientSettings.prototype.get.call(game.settings, ns, key, ...rest)   // review #34 finding 29
+          : (ns === "air-bladder" && key === "enable-vald-calendar" ? true : realGet(ns, key, ...rest));
         const prevConfig = CONFIG.time.worldCalendarConfig;
         const prevClass = CONFIG.time.worldCalendarClass;
         CONFIG.time.worldCalendarConfig = gt.VALD_CALENDAR_CONFIG;
@@ -1464,6 +1492,60 @@ try {
       playersAfter === playersBefore
         ? ok("...and the player list did not move", `top ${playersAfter}`)
         : fail("the player list moved", `${playersBefore} -> ${playersAfter}`);
+
+      // WITH THE HACK OFF TOO (review #34 finding 80, user ruling 2026-10-31).
+      // Watches and weather are core Cairn; only the calendar is the hack. Yet
+      // with Vald off — the default — the stored weather was shown NOWHERE:
+      // describeTime's plain branch returned `weather: ""` and the plain clock
+      // had no weather line, so Set the Weather… looked like it did nothing.
+      // Now the clock, its tooltip and the Dashboard band carry it either way.
+      // Vald is switched off by shadowing the settings READ and core's own
+      // calendar in-page, as readDash does; nothing here writes the world.
+      const plainShown = await page.evaluate(async () => {
+        const gt = await import("/systems/air-bladder/module/game-time.js");
+        const wc = await import("/systems/air-bladder/module/watch-clock.js");
+        const dash = await import("/systems/air-bladder/module/warden-dashboard.js");
+        const settings = game.settings;
+        const realGet = settings.get.bind(settings);
+        settings.get = (ns, key, ...rest) => rest[0]?.document
+          ? foundry.helpers.ClientSettings.prototype.get.call(game.settings, ns, key, ...rest)
+          : (ns === "air-bladder" && key === "enable-vald-calendar" ? false : realGet(ns, key, ...rest));
+        const prevConfig = CONFIG.time.worldCalendarConfig;
+        const prevClass = CONFIG.time.worldCalendarClass;
+        CONFIG.time.worldCalendarConfig = CONFIG.time.earthCalendarConfig;
+        CONFIG.time.worldCalendarClass = CONFIG.time.earthCalendarClass;
+        game.time.initializeCalendar();
+        // Leave the Dashboard as this leg found it: later legs read its state.
+        const openedHere = !foundry.applications.instances.get("cairn-warden-dashboard");
+        try {
+          await wc.refreshWatchClock();
+          if (openedHere) await dash.openWardenDashboard();
+          await foundry.applications.instances.get("cairn-warden-dashboard").render();
+          await new Promise((r) => setTimeout(r, 300));
+          const line = (sel) => document.querySelector(sel)?.innerText.replace(/\s+/g, " ").trim() ?? null;
+          return {
+            vald: gt.describeTime().vald,
+            clock: line("#cairn-watch-clock .cairn-watch-weather"),
+            tooltip: document.querySelector("#cairn-watch-clock [data-tooltip]")?.dataset.tooltip ?? null,
+            band: line("#cairn-warden-dashboard .cairn-time-today-weather"),
+          };
+        } finally {
+          settings.get = realGet;
+          CONFIG.time.worldCalendarConfig = prevConfig;
+          CONFIG.time.worldCalendarClass = prevClass;
+          game.time.initializeCalendar();
+          await wc.refreshWatchClock();
+          const app = foundry.applications.instances.get("cairn-warden-dashboard");
+          if (openedHere) await app?.close();
+          else await app?.render();
+        }
+      });
+      !plainShown.vald && /A rain of ash/.test(plainShown.clock ?? "") && /A rain of ash/.test(plainShown.tooltip ?? "")
+        ? ok("with Vald off, the clock carries the weather too", `${plainShown.clock} | tooltip ${JSON.stringify(plainShown.tooltip)}`)
+        : fail("with Vald off, the clock carries the weather too", JSON.stringify(plainShown));
+      /A rain of ash/.test(plainShown.band ?? "")
+        ? ok("...and so does the Dashboard band", plainShown.band)
+        : fail("...and so does the Dashboard band", JSON.stringify(plainShown.band));
 
       // EMPTY MEANS UNCALLED, which is how a Warden undoes a mistake.
       await page.evaluate(async () => {
@@ -1738,6 +1820,84 @@ try {
       ? ok("...and a player cannot add one")
       : fail("a player added a calendar event", JSON.stringify(aliceTried));
 
+    // A SECRET BLOCK IN A SHARED EVENT stays secret on her calendar (review #34
+    // finding 81). The day panel printed the page's raw content, and only core's
+    // enrichment — `secrets` for the page's owners — drops an unrevealed Secret
+    // section, so a Warden's secret paragraph in a SHARED event showed to every
+    // player who opened the day while her journal sheet hid it. Planted on
+    // TODAY, the day the calendar opens on; the open paragraph is the control.
+    const secretPage = await page.evaluate(async (entryId) => {
+      const c = game.time.components;
+      const year = (c.year ?? 0) + (game.time.calendar?.years?.yearZero ?? 0);
+      const [pg] = await game.journal.get(entryId).createEmbeddedDocuments("JournalEntryPage", [{
+        name: "ZZ Probe Fair", type: "text",
+        text: { content: '<p>ZZ-OPEN-LINE</p><section class="secret" id="secret-zzprobe"><p>ZZ-SECRET-LINE</p></section>',
+          format: CONST.JOURNAL_ENTRY_PAGE_FORMATS.HTML },
+        flags: { "air-bladder": { wardenEvent: true, valdMonth: c.month + 1, valdDay: c.dayOfMonth + 1,
+          valdDays: 1, valdYear: year, valdWatch: null } },
+      }]);
+      return pg?.id ?? null;
+    }, evented.entries.shared);
+    const panelRead = await alice.evaluate(async () => {
+      const vc = await import("/systems/air-bladder/module/vald-calendar.js");
+      await vc.openValdCalendar();
+      let text = "";
+      for (let i = 0; i < 40; i++) {
+        text = [...document.querySelectorAll("#cairn-vald-calendar .cairn-calendar-festival-text")]
+          .map((n) => n.textContent).join(" | ");
+        if (/ZZ-OPEN-LINE/.test(text)) break;
+        await new Promise((r) => setTimeout(r, 100));
+      }
+      await vc._calendarApp()?.close();
+      return { open: /ZZ-OPEN-LINE/.test(text), secret: /ZZ-SECRET-LINE/.test(text) };
+    });
+    await page.evaluate(async ({ entryId, pageId }) => {
+      try { await game.journal.get(entryId)?.pages.get(pageId)?.delete(); } catch { /* gone */ }
+    }, { entryId: evented.entries.shared, pageId: secretPage });
+    panelRead.open && !panelRead.secret
+      ? ok("a Secret block in a shared event stays secret in her day panel, the open text shows")
+      : fail("a shared event's Secret block on the player's calendar", JSON.stringify(panelRead));
+
+    // A MULTI-DAY EVENT IN THE LEAP WEEK, AND ONE ACROSS THE YEAR END (review
+    // #34 finding 82). `spread` used the plain month lengths, so Reclamation (0
+    // days, 6 in a leap year) had no room: a six-day event on Recognize filed
+    // days 2-6 on Mourning 1-5 of the SAME year. And a run past the year's last
+    // day wrapped into that same year's Mourning instead of the next year's.
+    // 7728 is a leap year (a new world starts in it); 7729 is not.
+    const spans = await withValdOn(page, async (gt, entryId) => {
+      const ce = await import("/systems/air-bladder/module/calendar-events.js");
+      const entry = game.journal.get(entryId);
+      const months = game.time.calendar.months.values;
+      const last = months.length - 2;   // Sunset, the last month before Reclamation
+      const lastDays = months[last].days;
+      const made = await entry.createEmbeddedDocuments("JournalEntryPage", [
+        { name: "ZZ Probe Leap Week", type: "text", text: { content: "" },
+          flags: { "air-bladder": { wardenEvent: true, valdMonth: months.length, valdDay: 1, valdDays: 6, valdYear: 7728, valdWatch: null } } },
+        { name: "ZZ Probe Year End", type: "text", text: { content: "" },
+          flags: { "air-bladder": { wardenEvent: true, valdMonth: last + 1, valdDay: lastDays, valdDays: 3, valdYear: 7729, valdWatch: null } } },
+      ]);
+      try {
+        const on = async (year, name) => [...(await ce.marksByDay(year)).entries()]
+          .filter(([, list]) => list.some((m) => m.name === name)).map(([k]) => k).sort();
+        return {
+          leap7728: await on(7728, "ZZ Probe Leap Week"),
+          end7729: await on(7729, "ZZ Probe Year End"),
+          end7730: await on(7730, "ZZ Probe Year End"),
+          reclamationIndex: months.length - 1, lastIndex: last, lastDays,
+        };
+      } finally {
+        await entry.deleteEmbeddedDocuments("JournalEntryPage", made.map((p) => p.id));
+      }
+    }, evented.entries.shared);
+    const R = spans.reclamationIndex;
+    JSON.stringify(spans.leap7728) === JSON.stringify([1, 2, 3, 4, 5, 6].map((d) => `${R}/${d}`).sort())
+      ? ok("a six-day event on Recognize covers the six days of the leap week, and no Mourning day", JSON.stringify(spans.leap7728))
+      : fail("a six-day leap-week event", JSON.stringify(spans));
+    JSON.stringify(spans.end7729) === JSON.stringify([`${spans.lastIndex}/${spans.lastDays}`])
+      && JSON.stringify(spans.end7730) === JSON.stringify(["0/1", "0/2"])
+      ? ok("a run past the year end carries into NEXT year's Mourning, not this year's", JSON.stringify(spans))
+      : fail("a run across the year end", JSON.stringify(spans));
+
     /* ---- 29. the weather log ------------------------------------------- */
 
     // THE CONTROL FIRST, and it runs before anything switches the log on so it
@@ -1765,8 +1925,9 @@ try {
     const logged = await page.evaluate(async () => {
       const settings = game.settings;
       const realGet = settings.get.bind(settings);
-      settings.get = (ns, key, ...rest) =>
-        (ns === "air-bladder" && key === "weather-log" ? true : realGet(ns, key, ...rest));
+      settings.get = (ns, key, ...rest) => rest[0]?.document
+        ? foundry.helpers.ClientSettings.prototype.get.call(game.settings, ns, key, ...rest)   // review #34 finding 29
+        : (ns === "air-bladder" && key === "weather-log" ? true : realGet(ns, key, ...rest));
       try {
         const gt = await import("/systems/air-bladder/module/game-time.js");
         // POLL FOR THE JOURNAL, by its flag rather than its name or the stored
@@ -1840,6 +2001,271 @@ try {
       ? ok("...and the whole table can read it")
       : fail("the log did not reach the player", JSON.stringify(aliceReads));
 
+    /* ---- a HIDDEN event stays out of the log (review #34 finding 79) ----- */
+
+    // The log is written on the active Warden's client, where the hidden
+    // events journal's pages pass the permission test — and the log is a
+    // journal the whole table reads. So the guide's own example, an ambush
+    // kept off the party's calendar, was written into it by name. A hidden
+    // event planted on TODAY; the precondition is that the calendar's own
+    // mark lookup sees it, or "it is not in the line" proves nothing.
+    const hiddenMark = await page.evaluate(async () => {
+      const settings = game.settings;
+      const realGet = settings.get.bind(settings);
+      settings.get = (ns, key, ...rest) => rest[0]?.document
+        ? foundry.helpers.ClientSettings.prototype.get.call(game.settings, ns, key, ...rest)   // review #34 finding 29
+        : (ns === "air-bladder" && key === "weather-log" ? true : realGet(ns, key, ...rest));
+      const made = { journalId: null, entryId: null, pageId: null };
+      try {
+        const c = game.time.components;
+        const year = (c.year ?? 0) + (game.time.calendar?.years?.yearZero ?? 0);
+        let entry = game.journal.find((j) => j.flags?.["air-bladder"]?.calendarEvents === "hidden");
+        if (!entry) {
+          entry = await JournalEntry.create({ name: "ZZ Hidden Events", ownership: { default: 0 },
+            flags: { "air-bladder": { calendarEvents: "hidden" } } });
+          made.journalId = entry.id;
+        }
+        made.entryId = entry.id;
+        const [pg] = await entry.createEmbeddedDocuments("JournalEntryPage", [{
+          name: "ZZ Ambush On The Fourteenth", type: "text", text: { content: "" },
+          flags: { "air-bladder": { wardenEvent: true, valdMonth: c.month + 1, valdDay: c.dayOfMonth + 1,
+            valdDays: 1, valdYear: year, valdWatch: null } },
+        }]);
+        made.pageId = pg.id;
+        const cal = await import("/systems/air-bladder/module/calendar-events.js");
+        const marks = await cal.marksByDay(year);
+        const seen = (marks.get(`${c.month}/${c.dayOfMonth + 1}`) ?? [])
+          .some((m) => m.name === "ZZ Ambush On The Fourteenth" && m.hidden);
+        const gt = await import("/systems/air-bladder/module/game-time.js");
+        const log = () => game.journal.contents.find((j) => j.flags?.["air-bladder"]?.weatherLog);
+        const text = () => log()?.pages?.contents?.[0]?.text?.content ?? "";
+        await gt.setTodayWeather("Fog, and something waiting in it");
+        for (let i = 0; i < 60 && !/Fog, and something waiting/.test(text()); i++) await new Promise((r) => setTimeout(r, 100));
+        const line = text().split("<li>").at(-1) ?? "";
+        return { seen, wrote: /Fog, and something waiting/.test(line), leaked: /ZZ Ambush/.test(line), line: line.slice(0, 200) };
+      } finally {
+        settings.get = realGet;
+        try {
+          if (made.journalId) await game.journal.get(made.journalId)?.delete();
+          else if (made.pageId) await game.journal.get(made.entryId)?.pages.get(made.pageId)?.delete();
+        } catch { /* gone */ }
+      }
+    });
+
+    hiddenMark.seen && hiddenMark.wrote && !hiddenMark.leaked
+      ? ok("a HIDDEN event on the day is not written into the log the party reads")
+      : fail("a hidden event in the weather log", JSON.stringify(hiddenMark));
+
+    /* ---- hidden is OWNERSHIP, not the journal it is filed in (review #34 finding 230) ---- */
+
+    // The party's calendar follows ownership; the Warden's mark and the log
+    // asked which journal an event was FILED in. Two of core's own routes split
+    // them. (a) A page in the SHARED journal set to None through its page
+    // ownership: off the party's calendar, yet named in the log they read.
+    // (b) The hidden journal raised to Observer, the reveal the guide
+    // describes: on the party's calendar, yet still marked hidden for the
+    // Warden AND for Alice, and left out of the log. Both on
+    // TODAY; the precondition is that the Warden's mark lookup sees both, or
+    // "absent from the line" proves nothing. Each planted id is recorded on the
+    // page as it is made, so the finally below cleans up after a partial plant.
+    let byOwnership = null;
+    try {
+      await page.evaluate(async () => {
+        const L = CONST.DOCUMENT_OWNERSHIP_LEVELS;
+        const cal = await import("/systems/air-bladder/module/calendar-events.js");
+        const made = globalThis.__abF230 = { journals: [], pages: [], raised: null };
+        const c = game.time.components;
+        const flags = { wardenEvent: true, valdMonth: c.month + 1, valdDay: c.dayOfMonth + 1,
+          valdDays: 1, valdYear: (c.year ?? 0) + (game.time.calendar?.years?.yearZero ?? 0), valdWatch: null };
+        const journalOf = async (kind, name, level) => {
+          let entry = game.journal.find((j) => j.flags?.["air-bladder"]?.calendarEvents === kind && cal.isWardenJournal(j));
+          if (!entry) {
+            entry = await JournalEntry.create({ name, ownership: { default: level },
+              flags: { "air-bladder": { calendarEvents: kind } } });
+            made.journals.push(entry.id);
+          }
+          return entry;
+        };
+        const plant = async (entry, name, extra = {}) => {
+          const [pg] = await entry.createEmbeddedDocuments("JournalEntryPage", [{
+            name, type: "text", text: { content: "" }, ...extra, flags: { "air-bladder": flags } }]);
+          made.pages.push([entry.id, pg.id]);
+        };
+        const shared = await journalOf("shared", "ZZ Shared Events", L.OBSERVER);
+        const hidden = await journalOf("hidden", "ZZ Hidden Events", L.NONE);
+        await plant(shared, "ZZ Page-Hidden Ambush", { ownership: { default: L.NONE } });
+        await plant(hidden, "ZZ Revealed Parley");
+        made.raised = [hidden.id, hidden.ownership.default];
+        await hidden.update({ "ownership.default": L.OBSERVER });
+      });
+      const aliceMarks = await alice.evaluate(async () => {
+        const cal = await import("/systems/air-bladder/module/calendar-events.js");
+        const c = game.time.components;
+        const year = (c.year ?? 0) + (game.time.calendar?.years?.yearZero ?? 0);
+        const day = async () => (await cal.marksByDay(year)).get(`${c.month}/${c.dayOfMonth + 1}`) ?? [];
+        let marks = await day();
+        for (let i = 0; i < 30 && !marks.some((m) => m.name === "ZZ Revealed Parley"); i++) {
+          await new Promise((r) => setTimeout(r, 100));
+          marks = await day();
+        }
+        const parley = marks.find((m) => m.name === "ZZ Revealed Parley");
+        return { parleySeen: !!parley, parleyMarked: !!parley?.hidden,
+          ambushSeen: marks.some((m) => m.name === "ZZ Page-Hidden Ambush") };
+      });
+      const warden = await page.evaluate(async () => {
+        const settings = game.settings;
+        const realGet = settings.get.bind(settings);
+        settings.get = (ns, key, ...rest) => rest[0]?.document
+          ? foundry.helpers.ClientSettings.prototype.get.call(game.settings, ns, key, ...rest)   // review #34 finding 29
+          : (ns === "air-bladder" && key === "weather-log" ? true : realGet(ns, key, ...rest));
+        try {
+          const cal = await import("/systems/air-bladder/module/calendar-events.js");
+          const c = game.time.components;
+          const year = (c.year ?? 0) + (game.time.calendar?.years?.yearZero ?? 0);
+          const marks = (await cal.marksByDay(year)).get(`${c.month}/${c.dayOfMonth + 1}`) ?? [];
+          const ambush = marks.find((m) => m.name === "ZZ Page-Hidden Ambush");
+          const parley = marks.find((m) => m.name === "ZZ Revealed Parley");
+          const gt = await import("/systems/air-bladder/module/game-time.js");
+          const log = () => game.journal.contents.find((j) => j.flags?.["air-bladder"]?.weatherLog);
+          const text = () => log()?.pages?.contents?.[0]?.text?.content ?? "";
+          await gt.setTodayWeather("Drizzle, and a parley in it");
+          for (let i = 0; i < 60 && !/Drizzle, and a parley/.test(text()); i++) await new Promise((r) => setTimeout(r, 100));
+          const line = text().split("<li>").at(-1) ?? "";
+          return {
+            seen: !!ambush && !!parley,
+            ambushMarked: !!ambush?.hidden,
+            parleyMarked: !!parley?.hidden,
+            wrote: /Drizzle, and a parley/.test(line),
+            ambushLogged: /ZZ Page-Hidden Ambush/.test(line),
+            parleyLogged: /ZZ Revealed Parley/.test(line),
+            line: line.slice(0, 200),
+          };
+        } finally {
+          settings.get = realGet;
+        }
+      });
+      byOwnership = { ...warden, alice: aliceMarks };
+    } finally {
+      await page.evaluate(async () => {
+        const made = globalThis.__abF230;
+        if (!made) return;
+        if (made.raised) await game.journal.get(made.raised[0])?.update({ "ownership.default": made.raised[1] }).catch(() => {});
+        for (const [entryId, pageId] of made.pages) {
+          if (!made.journals.includes(entryId)) await game.journal.get(entryId)?.pages.get(pageId)?.delete().catch(() => {});
+        }
+        for (const id of made.journals) await game.journal.get(id)?.delete().catch(() => {});
+        delete globalThis.__abF230;
+      });
+    }
+
+    byOwnership.seen && byOwnership.ambushMarked && byOwnership.wrote && !byOwnership.ambushLogged
+      ? ok("an event hidden by its PAGE's ownership is marked hidden and kept out of the log")
+      : fail("a page-hidden event in the shared journal", JSON.stringify(byOwnership));
+    byOwnership.seen && !byOwnership.parleyMarked && byOwnership.wrote && byOwnership.parleyLogged
+      ? ok("...and an event the hidden journal now SHOWS loses its mark and is logged like any other")
+      : fail("a revealed event kept its hidden mark or left the log", JSON.stringify(byOwnership));
+    byOwnership.alice.parleySeen && !byOwnership.alice.parleyMarked && !byOwnership.alice.ambushSeen
+      ? ok("...and Alice sees the revealed one unmarked, and not the page-hidden one")
+      : fail("the player's marks after a reveal", JSON.stringify(byOwnership.alice));
+
+    /* ---- an event SOME players see says so (review #34 finding 230, ruled 2026-11-01) ---- */
+
+    // "Hidden" is "the whole party cannot see it", so an event shown to one
+    // player by name is hidden too, and it carried "Only you can see this
+    // one.", which is false for the Warden and for that player. The user's two
+    // tooltips: "Not visible to the party" when no player can see it, "Not
+    // visible to the entire party" when some can. Both plants go on TODAY in
+    // the hidden journal, one with no grant and one granted to Alice by name,
+    // and the marks are read off the RENDERED calendar — the tooltip a Warden
+    // hovers — on the Warden's client, then on Alice's, where only hers shows.
+    // The names carry this run's stamp, so a leftover from an earlier run can
+    // never answer for them; each must be on the panel exactly once.
+    const f230Stamp = Date.now().toString(36);
+    let partial = null;
+    try {
+      const readMarks = async (p, names) => withValdOn(p, async (gt, { names: n }) => {
+        const vc = await import("/systems/air-bladder/module/vald-calendar.js");
+        await vc.openValdCalendar();
+        const app = foundry.applications.instances.get("cairn-vald-calendar");
+        app.reset();
+        await app.render();
+        await new Promise((r) => setTimeout(r, 200));
+        const out = {};
+        for (const [key, name] of Object.entries(n)) {
+          const hits = [...app.element.querySelectorAll(".cairn-calendar-festival")]
+            .filter((a) => a.querySelector("h4")?.innerText.trim().startsWith(name));
+          const mark = hits[0]?.querySelector("h4 .cairn-calendar-secret");
+          out[key] = { count: hits.length, tooltip: mark?.dataset.tooltip ?? null, aria: mark?.getAttribute("aria-label") ?? null };
+        }
+        out.want = {
+          nobody: game.i18n.localize("CAIRN.Calendar.EventHidden"),
+          some: game.i18n.localize("CAIRN.Calendar.EventPartlyHidden"),
+        };
+        await app.close();
+        return out;
+      }, { names });
+      const names = await withValdOn(page, async (gt, { stamp }) => {
+        const L = CONST.DOCUMENT_OWNERSHIP_LEVELS;
+        const cal = await import("/systems/air-bladder/module/calendar-events.js");
+        const made = globalThis.__abF230b = { journals: [], pages: [] };
+        const c = game.time.components;
+        const flags = { wardenEvent: true, valdMonth: c.month + 1, valdDay: c.dayOfMonth + 1,
+          valdDays: 1, valdYear: (c.year ?? 0) + (game.time.calendar?.years?.yearZero ?? 0), valdWatch: null };
+        let hidden = game.journal.find((j) => j.flags?.["air-bladder"]?.calendarEvents === "hidden" && cal.isWardenJournal(j));
+        if (!hidden) {
+          hidden = await JournalEntry.create({ name: "ZZ Hidden Events", ownership: { default: L.NONE },
+            flags: { "air-bladder": { calendarEvents: "hidden" } } });
+          made.journals.push(hidden.id);
+        }
+        const aliceId = game.users.getName("Alice")?.id;
+        const n = { nobody: `ZZ F230 Nobody ${stamp}`, some: `ZZ F230 Alice ${stamp}` };
+        const plant = async (name, ownership) => {
+          const [pg] = await hidden.createEmbeddedDocuments("JournalEntryPage", [{
+            name, type: "text", text: { content: "" }, ownership, flags: { "air-bladder": flags } }]);
+          made.pages.push([hidden.id, pg.id]);
+        };
+        await plant(n.nobody, { default: L.INHERIT });
+        await plant(n.some, { default: L.INHERIT, [aliceId]: L.OBSERVER });
+        return { ...n, aliceId: aliceId ?? null };
+      }, { stamp: f230Stamp });
+      const warden = await readMarks(page, { nobody: names.nobody, some: names.some });
+      // Alice's client learns of her grant from the server; poll until her
+      // panel has it rather than trust a fixed wait.
+      let aliceMarks = null;
+      for (let i = 0; i < 20; i++) {
+        aliceMarks = await readMarks(alice, { nobody: names.nobody, some: names.some });
+        if (aliceMarks.some.count) break;
+        await new Promise((r) => setTimeout(r, 250));
+      }
+      partial = { aliceId: names.aliceId, warden, alice: aliceMarks };
+    } finally {
+      await page.evaluate(async () => {
+        const made = globalThis.__abF230b;
+        if (!made) return;
+        for (const [entryId, pageId] of made.pages) {
+          if (!made.journals.includes(entryId)) await game.journal.get(entryId)?.pages.get(pageId)?.delete().catch(() => {});
+        }
+        for (const id of made.journals) await game.journal.get(id)?.delete().catch(() => {});
+        delete globalThis.__abF230b;
+      });
+    }
+
+    const w = partial?.warden;
+    partial?.aliceId && w?.nobody.count === 1 && w?.some.count === 1
+      ? ok("the Warden's panel shows both planted events once (precondition)")
+      : fail("the planted events on the Warden's panel", JSON.stringify(partial));
+    w?.nobody.tooltip === w?.want.nobody && w?.nobody.aria === w?.want.nobody
+      ? ok("an event no player can see is marked \"Not visible to the party\"")
+      : fail("the mark on an event no player can see", JSON.stringify(w));
+    w?.some.tooltip === w?.want.some && w?.some.aria === w?.want.some && w?.want.some !== "CAIRN.Calendar.EventPartlyHidden"
+      && w?.want.some !== w?.want.nobody
+      ? ok("...and one shown to Alice by name is marked \"Not visible to the entire party\", tooltip and name")
+      : fail("the mark on an event some players can see", JSON.stringify(w));
+    const a = partial?.alice;
+    a?.some.count === 1 && a?.nobody.count === 0 && a?.some.tooltip === a?.want.some
+      ? ok("...and Alice sees only hers, with the same partial mark")
+      : fail("the partial mark on Alice's calendar", JSON.stringify(a));
+
     /* ---- a player's DECOY is not the log (review #27) -------------------- */
 
     // The log is found by its flag, and a flag sits on a document any TRUSTED
@@ -1885,21 +2311,36 @@ try {
         });
         return j?.id ?? null;
       });
+      // A WARDEN'S INCIDENTAL WRITE MUST NOT VOUCH FOR IT (review #34 finding
+      // 106). The last-writer test alone was laundered
+      // by any GM write that never looked at the decoy: dragging a journal in
+      // the sidebar re-indexes every sort-0 sibling, and each re-index is a
+      // write stamped with the Warden's id. The Warden makes that write here,
+      // a sort bump, BEFORE the log runs, so the decoy reaches recordWeather
+      // last-written by a GM and the guard must refuse it on what only a
+      // Warden's own document carries: an OWNER key naming a Gamemaster.
       const result = await page.evaluate(async (decoyId) => {
         const settings = game.settings;
         const realGet = settings.get.bind(settings);
-        settings.get = (ns, key, ...rest) =>
-          (ns === "air-bladder" && key === "weather-log" ? true : realGet(ns, key, ...rest));
+        settings.get = (ns, key, ...rest) => rest[0]?.document
+          ? foundry.helpers.ClientSettings.prototype.get.call(game.settings, ns, key, ...rest)   // review #34 finding 29
+          : (ns === "air-bladder" && key === "weather-log" ? true : realGet(ns, key, ...rest));
         try {
           const wl = await import("/systems/air-bladder/module/weather-log.js");
           const logs = () => game.journal.filter((j) => j.flags?.["air-bladder"]?.weatherLog);
+          const planted = game.journal.get(decoyId);
+          const L = CONST.DOCUMENT_OWNERSHIP_LEVELS;
+          const decoyNamesNoGM = !Object.entries(planted?.ownership ?? {})
+            .some(([id, lvl]) => id !== "default" && lvl >= L.OWNER && game.users.get(id)?.isGM);
+          await planted?.update({ sort: (planted.sort ?? 0) + 1 });
           await wl.recordWeather();
           for (let i = 0; i < 40 && logs().length < 2; i++) await new Promise((r) => setTimeout(r, 100));
           const decoyDoc = game.journal.get(decoyId);
           const mine = logs().filter((j) => j.id !== decoyId);
           const out = {
             decoyExists: !!decoyDoc,
-            decoyCreatedByGM: !!game.users.get(decoyDoc?._stats?.lastModifiedBy)?.isGM,
+            decoyNamesNoGM,
+            decoyTouchedByGM: !!game.users.get(decoyDoc?._stats?.lastModifiedBy)?.isGM,
             decoyPages: decoyDoc?.pages?.size ?? -1,
             wardenLogs: mine.length,
             wardenLogPages: mine[0]?.pages?.size ?? 0,
@@ -1917,9 +2358,11 @@ try {
         await rejoin(1).catch((e) => note(`Alice's rejoin after the restore failed: ${e.message}`));
       }
     })();
-    decoy.decoyExists && !decoy.decoyCreatedByGM && decoy.decoyPages === 0
-      && decoy.wardenLogs === 1 && decoy.wardenLogPages === 1 && decoy.wardenLogByGM
-      ? ok("a player's flagged decoy captures nothing: the Warden's line lands in a journal a Warden made")
+    decoy.decoyExists && decoy.decoyNamesNoGM && decoy.decoyTouchedByGM
+      ? ok("witness: the decoy is Alice's, names no Gamemaster, and a Warden's write was its last")
+      : fail("the decoy is not the shape this leg needs", JSON.stringify(decoy));
+    decoy.decoyPages === 0 && decoy.wardenLogs === 1 && decoy.wardenLogPages === 1 && decoy.wardenLogByGM
+      ? ok("a player's flagged decoy captures nothing, even after a Warden's write: the line lands in a journal a Warden made")
       : fail("the log wrote into a player's decoy journal", JSON.stringify(decoy));
 
     /* ---- a writer who no longer exists ----------------------------------- */
@@ -1943,14 +2386,26 @@ try {
       if (!gm || !player) return { skipped: true };
       const GONE = "zzzzGoneUser00000";
       return {
-        // Ours: OBSERVER to the table, nobody named, writer gone.
-        oursGoneWriter: ce.isWardenJournal(
+        // NAMES NOBODY, writer gone (review #34 finding 106). This row used to
+        // be "ours" and expected true, but no journal of ours has this shape
+        // (see the next row), while a PLAYER's decoy can: the server lets a
+        // non-GM remove their own key, so a decoy created OBSERVER-to-all and
+        // then stripped of its creator's key names nobody. Refused.
+        nobodyNamedGoneWriter: ce.isWardenJournal(
           { _stats: { lastModifiedBy: GONE }, ownership: { default: L.OBSERVER } }),
+        // ...and the same two decoys after a Warden's incidental write (a
+        // sidebar re-index stamps every sort-0 sibling): last written by a GM,
+        // and still nobody's but the player's. The last-writer test alone
+        // answered true for both.
+        decoyWardenTouched: ce.isWardenJournal(
+          { _stats: { lastModifiedBy: gm.id }, ownership: { default: L.NONE, [player.id]: L.OWNER } }),
+        nobodyNamedWardenTouched: ce.isWardenJournal(
+          { _stats: { lastModifiedBy: gm.id }, ownership: { default: L.OBSERVER } }),
         // THE SHAPE A REAL JOURNAL ACTUALLY HAS, and the row whose absence let
         // the deleted-GM bug survive the fix that claimed to close it (review
-        // #29). The four rows above and below are hand-built objects, and the
-        // "ours" one names NOBODY — a document shape that never exists in a
-        // world. The SERVER stamps the creating user as an explicit OWNER entry
+        // #29). The rows above and below are hand-built objects, and the "ours"
+        // row then named NOBODY — a shape no journal of ours has, and since
+        // finding 106 a refused one. The SERVER stamps the creating user as an explicit OWNER entry
         // on anything with an ownership field, GM included and with no role
         // test (dist/database/backend/server-document.mjs,
         // ServerDocumentMixin#_preCreate), and nothing sweeps it when the
@@ -1971,14 +2426,16 @@ try {
         decoyLiveOwnerGoneWriter: ce.isWardenJournal(
           { _stats: { lastModifiedBy: GONE },
             ownership: { default: L.OBSERVER, [gm.id]: L.OWNER, [player.id]: L.OWNER } }),
-        // The two the guard already answered, unchanged. NOTE `livePlayer` is
+        // The two the guard already answered. `liveWarden` carries the creating
+        // Warden's stamp, as every real journal does; since finding 106 the
+        // guard requires it. NOTE `livePlayer` is
         // ALSO the demoted-Warden shape, and that ambiguity is precisely why
         // demotion is not covered: after a demotion the ex-Warden is a
         // resolvable non-GM holding OWNER, which is byte-identical to a
-        // player's decoy. See the docblock on `noPlayerOwner`. Do not "fix"
+        // player's decoy. See the docblock on `isWardenJournal`. Do not "fix"
         // this row without deciding that question first.
         liveWarden: ce.isWardenJournal(
-          { _stats: { lastModifiedBy: gm.id }, ownership: { default: L.OBSERVER } }),
+          { _stats: { lastModifiedBy: gm.id }, ownership: { default: L.OBSERVER, [gm.id]: L.OWNER } }),
         livePlayer: ce.isWardenJournal(
           { _stats: { lastModifiedBy: player.id }, ownership: { default: L.OBSERVER } }),
       };
@@ -1986,12 +2443,14 @@ try {
     if (dangling.skipped) {
       fail("the dangling-writer legs need a player user", "run npm run dev:players");
     } else {
-      dangling.oursGoneWriter
-        ? ok("a journal whose writer was deleted is still ours", "unknown is not the same as a player")
-        : fail("a deleted GM orphans the calendar and the weather log",
-          "isWardenJournal answered false for a journal granting OBSERVER and naming nobody");
+      dangling.nobodyNamedGoneWriter === false
+        ? ok("a journal naming nobody is vouched for by nobody", "a player's decoy can drop its own key; ours never lack the Warden's")
+        : fail("a journal naming nobody was adopted", JSON.stringify(dangling));
+      dangling.decoyWardenTouched === false && dangling.nobodyNamedWardenTouched === false
+        ? ok("a Warden's incidental write does not adopt a player's decoy", "no OWNER key names a Gamemaster")
+        : fail("a sidebar re-index launders a player's decoy into a Warden's journal", JSON.stringify(dangling));
       dangling.oursGoneWriterRealShape
-        ? ok("...including one carrying the server's own creator stamp",
+        ? ok("a journal whose writer was deleted is still ours",
           "the shape a real journal has: {default: OBSERVER, <goneWardenId>: OWNER}")
         : fail("a deleted GM STILL orphans the calendar — the real document shape is refused",
           "every journal carries an explicit OWNER entry for its creator (server _preCreate); "
@@ -2032,15 +2491,24 @@ try {
       // value, `current?._id` is undefined, and core CREATES A SECOND Setting
       // document instead of updating the first — 131 of those were swept out of
       // this world once already.
-      settings.get = (ns, key, ...rest) =>
-        (ns === "air-bladder" && key === "weather-log" ? true : realGet(ns, key, ...rest));
+      settings.get = (ns, key, ...rest) => rest[0]?.document
+        ? foundry.helpers.ClientSettings.prototype.get.call(game.settings, ns, key, ...rest)   // review #34 finding 29
+        : (ns === "air-bladder" && key === "weather-log" ? true : realGet(ns, key, ...rest));
+      // Start from no log the WRITER can see, so the create is genuinely
+      // contended. A log that already exists — the Warden's own, quite
+      // possibly — is HELD ASIDE in-page (review #34 finding 34): the writer's
+      // one lookup (`game.journal.find`) is shadowed past it, and the probe's
+      // own reads skip it. It used to be DELETED, and the id-difference sweep
+      // below cannot bring back a document that was there before the run.
+      const all = () => game.journal.contents.filter((j) => j.flags?.["air-bladder"]?.weatherLog);
+      const held = new Set(all().map((j) => j.id));
+      const realFind = game.journal.find;
+      game.journal.find = function (condition, ...rest) {
+        return realFind.call(this, (j, ...a) => !held.has(j.id) && condition(j, ...a), ...rest);
+      };
       try {
         const wl = await import("/systems/air-bladder/module/weather-log.js");
-        const logs = () => game.journal.contents
-          .filter((j) => j.flags?.["air-bladder"]?.weatherLog);
-        // Start from no log at all, so the create is genuinely contended.
-        const existing = logs().map((j) => j.id);
-        if (existing.length) await getDocumentClass("JournalEntry").deleteDocuments(existing);
+        const logs = () => all().filter((j) => !held.has(j.id));
         await new Promise((r) => setTimeout(r, 300));
 
         const a = wl.recordWeather();
@@ -2056,6 +2524,7 @@ try {
           lines: (entry?.pages?.contents?.[0]?.text?.content?.match(/<li>/g) ?? []).length,
         };
       } finally {
+        game.journal.find = realFind;
         settings.get = realGet;
       }
     });
@@ -2077,12 +2546,13 @@ try {
     // THE WEATHER GOES BACK TOO. The log legs above call it several times, and
     // a run that left it set made the NEXT run's "the clock has no weather line
     // yet" leg red for a reason that was entirely this file's own fault.
-    const sweptHere = await page.evaluate(async (b) => {
+    // Back to the value READ at the start, not a blank (review #34 finding 34).
+    const sweptHere = await page.evaluate(async ({ b, weather }) => {
       const ids = game.journal.contents.filter((j) => !b.journals.includes(j.id)).map((j) => j.id);
       if (ids.length) await getDocumentClass("JournalEntry").deleteDocuments(ids);
-      await game.settings.set("air-bladder", "vald-weather-today", { day: 0, text: "" });
+      await game.settings.set("air-bladder", "vald-weather-today", weather ?? { day: 0, text: "" });
       return ids.length;
-    }, journalsBefore);
+    }, { b: journalsBefore, weather: start.weather });
     note(`removed ${sweptHere} journal(s) this probe created`);
 
     // Everything else must still be clean. The two refusals above — the clock
@@ -2113,6 +2583,21 @@ try {
 
   errors.length === 0 ? ok("zero console errors") : fail("console errors", JSON.stringify(errors).slice(0, 400));
 } finally {
+  // THE NET (review #34 finding 34): whatever happened above, the time, the
+  // weather and the journals this run made go back. Idempotent after the
+  // success path's own restore.
+  if (start) {
+    const back = await page.evaluate(async (st) => {
+      foundry.applications.instances.get("cairn-warden-dashboard")?.close();
+      const mine = game.journal.contents.filter((j) => !st.journals.includes(j.id)).map((j) => j.id);
+      if (mine.length) await getDocumentClass("JournalEntry").deleteDocuments(mine);
+      await game.settings.set("air-bladder", "vald-weather-today", st.weather ?? { day: 0, text: "" });
+      if (game.time.worldTime !== st.time) await game.time.set(st.time);
+      return { journals: mine.length, time: game.time.worldTime };
+    }, start).catch((e) => ({ error: String(e?.message ?? e) }));
+    if (back.error) fail("the final restore", back.error);
+    else if (back.journals) note(`the final restore removed ${back.journals} journal(s) left by a failed leg`);
+  }
   await browser.close();
 }
 

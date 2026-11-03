@@ -15,7 +15,7 @@ export const VIEWPORT = { width: 1600, height: 1000 };
  *   await withSettings(page, async () => { ...probe body... });
  *
  * Why this exists, and why the restore has to live HERE rather than inside the
- * probe's `page.evaluate`: on 2026-07-29 `age-override-probe` set `min-age` to 99
+ * probe's `page.evaluate`: on 2026-07-29 `e2e-age-override` set `min-age` to 99
  * to test the age floor, then threw on the next line (an AppV2 casualty —
  * `sheet._onRollAge` had stopped existing). Its restore sat *after* the throw,
  * inside the same evaluate, so it never ran. The setting stayed at 99 in the dev
@@ -300,6 +300,90 @@ export async function writeInPage(page, fn, arg, { timeout = 15000, label = "a w
  * @param {string[]} names
  * @returns {Promise<{id: string, name: string}[]>} what was set aside, for a note
  */
+/**
+ * Record every Actor THIS page's user creates from here on, so a probe can
+ * sweep what it made from its Node `finally` — whatever a leg threw.
+ *
+ * WHY A RECORDER AND NOT A STAMP (review #34 findings 150, 256, 259, the third
+ * sighting of one class). Sixteen probes generated characters through the
+ * real generators, deleted them only on the success path, and stamped nothing,
+ * so a crashed leg left randomly named fixtures nothing could tell from the
+ * Warden's. And a generated 2e character mints its background's containers as
+ * world actors connected to it — a Mountebank's Cart, an Outrider's horse — and
+ * deleting the character alone turns each into a stray "formerly belonged to"
+ * actor: about one in eight random 2e PCs, so a full suite usually left one.
+ * A stamp cannot reach actors a generator mints on the probe's behalf; a
+ * `createActor` hook sees all of them, children included.
+ *
+ * The hook keys on the USER, not the session, so on a world a human Warden is
+ * using at the same time, an actor that Warden creates during the run is
+ * recorded too. The fleet runs probes alone; on the dev world, run probes
+ * while nobody is creating actors there.
+ * @param {import("playwright").Page} page
+ */
+export async function trackCreatedActors(page) {
+  await page.evaluate(() => {
+    if (window.__abProbeCreated) return;
+    window.__abProbeCreated = [];
+    Hooks.on("createActor", (actor, _options, userId) => {
+      if (userId === game.user.id) window.__abProbeCreated.push(actor.id);
+    });
+  });
+}
+
+/**
+ * Delete every actor `trackCreatedActors` recorded that still exists. Never
+ * throws: it runs from a `finally`, after whatever went wrong.
+ * @param {import("playwright").Page} page
+ * @returns {Promise<number>}  how many were deleted
+ */
+export async function sweepCreatedActors(page) {
+  try {
+    return await page.evaluate(async () => {
+      const ids = [...new Set(window.__abProbeCreated ?? [])].filter((id) => game.actors.has(id));
+      // CHILDREN FIRST: deleting a keeper converts its still-connected
+      // children into "formerly belonged to" actors (CairnActor's delete
+      // operation), which must not race their own deletion in one batch.
+      const children = ids.filter((id) => game.actors.get(id)?.system?.connectedTo);
+      const rest = ids.filter((id) => !children.includes(id));
+      if (children.length) await Actor.deleteDocuments(children);
+      const left = rest.filter((id) => game.actors.has(id));
+      if (left.length) await Actor.deleteDocuments(left);
+      window.__abProbeCreated = [];
+      return ids.length;
+    });
+  } catch {
+    return 0;
+  }
+}
+
+/**
+ * Hide world RollTables by id on one page, from EVERY read the shop makes:
+ * iteration (marketplace.js `marketTables` walks `game.tables`), `find` and
+ * `filter`. In-page only: nothing is written, the shadow dies with the page,
+ * and a table planted later is a new id and stays visible. Call it once per
+ * page that reads the tables (review #34 findings 153 and 111).
+ * @param {import("playwright").Page} page
+ * @param {string[]} heldIds
+ */
+export async function hideTablesInPage(page, heldIds) {
+  await page.evaluate((heldIds) => {
+    if (!heldIds.length) return;
+    const ids = new Set(heldIds);
+    const tables = game.tables;
+    const baseIter = tables[Symbol.iterator];
+    tables[Symbol.iterator] = function* () { for (const t of baseIter.call(this)) if (!ids.has(t.id)) yield t; };
+    const baseFind = tables.find;
+    tables.find = function (condition, ...rest) {
+      return baseFind.call(this, (t, ...a) => !ids.has(t.id) && condition(t, ...a), ...rest);
+    };
+    const baseFilter = tables.filter;
+    tables.filter = function (condition, ...rest) {
+      return baseFilter.call(this, (t, ...a) => !ids.has(t.id) && condition(t, ...a), ...rest);
+    };
+  }, heldIds);
+}
+
 export async function holdAsideWorldTables(page, names) {
   return page.evaluate((names) => {
     const held = game.tables.filter((t) => names.includes(t.name));
@@ -366,12 +450,35 @@ export function watchErrors(page) {
  *
  * TWO SHAPES (measured 2026-10-04, the 0.1.24 post-publish leg). 14.365 — CT
  * 123 and every probe run before that day — renders a `<select name="userid">`
- * of every user. 14.368, the build `verified` names, replaced it with a typed
+ * of every user. 14.368, the build `verified` named then, replaced it with a typed
  * `username` field inside `#join-game-form` and no list at all, so the helper
  * waited thirty seconds for a select that never came and smoke could not log
  * in. The page still carries `game.users`, so the name is read from there:
  * the named user, or for the Warden the first GAMEMASTER (the select's first
  * option, which this used to pick, is the same user on a fresh world).
+ *
+ * THE THIRD SHAPE (2026-10-30, review #34). 14.369 — the probe fleet since
+ * 2026-10-28 — brings the dropdown back, named `userId`, so the select is
+ * matched by name without regard to case and one selector serves both
+ * dropdowns. On a dropdown too the Warden is now the role-4 user, never the
+ * first option. And 14.369 DISABLES the option of a user already in the world,
+ * and a disabled option drops out of the form it submits. Measured by DB
+ * Mythic's probes on the same fleet (its `738a598d`, `1571b3cd`): every box's
+ * settle failed on the old selector, then exactly its four second-session
+ * probes failed on the disabled option.
+ *
+ * THAT DISABLED OPTION IS A SIGNAL, NOT AN OBSTACLE (review #34 finding 109).
+ * It is the one pre-join sign that the user already holds a session — a parked
+ * Warden tab, an orphaned probe browser — and once joined, `game.users` cannot
+ * show it (it counts the USER once). This used to re-enable it for every
+ * caller, so every probe joined on top of a parked Warden without a word. Now
+ * a busy user (a disabled option, or `active` on the page's own user list) is
+ * waited for, reloading the join page, because a re-join right after closing
+ * the first session (`dev:connections`, `dev:encumbered-damage`) can beat the
+ * server's release; and if it is still busy after BUSY_WAIT_MS the join
+ * THROWS, naming the user. Only a caller that opens a second session on
+ * purpose (`dev:combat-options`' second Warden) passes `secondSession: true`,
+ * and only then is the option enabled again.
  *
  * Wait for the CONTROL, not the network — the join form is rendered
  * client-side and is routinely still absent at networkidle. That wait was once
@@ -382,42 +489,70 @@ export function watchErrors(page) {
  *
  * @param {import("playwright").Page} page
  * @param {String|null} name  a User name, or null for the Warden
+ * @param {{secondSession?: boolean}} [opts]
  * @return {Promise<String|null>}  the name chosen, or null when there is none
  */
-async function chooseJoinUser(page, name) {
-  await page.waitForSelector(
-    'select[name="userid"] option[value]:not([value=""]), #join-game-form input[name="username"]',
-    { state: "attached", timeout: 30000 });
-  return page.evaluate((name) => {
-    // 14.365: Foundry v14 hides <select> behind custom elements, so
-    // Playwright's selectOption() sees it as invisible. Drive the element.
-    const s = document.querySelector('select[name="userid"]');
-    if (s) {
-      const opt = [...s.options].find((o) => (name ? o.textContent.trim() === name : o.value));
-      if (!opt) return null;
-      s.value = opt.value;
-      s.dispatchEvent(new Event("change", { bubbles: true }));
-      return opt.textContent.trim();
+const JOIN_SELECT = 'select[name="userid" i]';
+const BUSY_WAIT_MS = 20000;
+
+async function chooseJoinUser(page, name, { secondSession = false } = {}) {
+  const deadline = Date.now() + BUSY_WAIT_MS;
+  for (;;) {
+    await page.waitForSelector(
+      `${JOIN_SELECT} option[value]:not([value=""]), #join-game-form input[name="username"]`,
+      { state: "attached", timeout: 30000 });
+    const r = await page.evaluate(({ name, select, secondSession }) => {
+      const raw = globalThis.game?.users;
+      const users = raw?.contents ?? (Array.isArray(raw) ? raw : []);
+      const GM = globalThis.CONST?.USER_ROLES?.GAMEMASTER ?? 4;
+      const warden = users.find((u) => u.role === GM);
+      const userOf = (id) => users.find((u) => (u.id ?? u._id) === id);
+      // 14.365 and 14.369: Foundry v14 hides <select> behind custom elements, so
+      // Playwright's selectOption() sees it as invisible. Drive the element.
+      const s = document.querySelector(select);
+      if (s) {
+        const options = [...s.options].filter((o) => o.value);
+        const opt = name ? options.find((o) => o.textContent.trim() === name)
+          : (warden ? options.find((o) => o.value === (warden.id ?? warden._id)) : options[0]);
+        if (!opt) return { picked: null };
+        const label = opt.textContent.trim();
+        if ((opt.disabled || userOf(opt.value)?.active === true) && !secondSession) return { busy: label };
+        opt.disabled = false;
+        s.value = opt.value;
+        s.dispatchEvent(new Event("change", { bubbles: true }));
+        return { picked: label };
+      }
+      // 14.368: a typed username and no list.
+      const field = document.querySelector('#join-game-form input[name="username"]');
+      const user = name ? users.find((u) => u.name === name) : (warden ?? users[0]);
+      if (!field || !user) return { picked: null };
+      if (user.active === true && !secondSession) return { busy: user.name };
+      field.value = user.name;
+      field.dispatchEvent(new Event("input", { bubbles: true }));
+      field.dispatchEvent(new Event("change", { bubbles: true }));
+      return { picked: user.name };
+    }, { name, select: JOIN_SELECT, secondSession });
+    if (!r.busy) return r.picked;
+    if (Date.now() > deadline) {
+      throw new Error(`join: "${r.busy}" already holds a session in this world and still did after `
+        + `${BUSY_WAIT_MS / 1000} s — a parked tab or an orphaned probe browser (list chrome-headless-shell). `
+        + "Close it and re-run; a probe that opens a second session on purpose passes {secondSession: true}");
     }
-    // 14.368: a typed username and no list.
-    const field = document.querySelector('#join-game-form input[name="username"]');
-    const users = globalThis.game?.users?.contents ?? [];
-    const GM = globalThis.CONST?.USER_ROLES?.GAMEMASTER ?? 4;
-    const user = name ? users.find((u) => u.name === name)
-      : (users.find((u) => u.role === GM) ?? users[0]);
-    if (!field || !user) return null;
-    field.value = user.name;
-    field.dispatchEvent(new Event("input", { bubbles: true }));
-    field.dispatchEvent(new Event("change", { bubbles: true }));
-    return user.name;
-  }, name);
+    await page.waitForTimeout(2000);
+    await page.goto(`${FOUNDRY_URL}/join`, { waitUntil: "networkidle", timeout: 60000 });
+  }
 }
 
-/** Join the world as the first available user (the Gamemaster on a fresh world). */
-export async function joinAsGM(page) {
+/**
+ * Join the world as the Warden: the role-4 user, on every form.
+ * @param {import("playwright").Page} page
+ * @param {{secondSession?: boolean}} [opts]  true only to open a second
+ *   session of a Warden who is already in the world, on purpose
+ */
+export async function joinAsGM(page, opts = {}) {
   noteBrowser(page);
   await page.goto(`${FOUNDRY_URL}/join`, { waitUntil: "networkidle", timeout: 60000 });
-  const picked = await chooseJoinUser(page, null);
+  const picked = await chooseJoinUser(page, null, opts);
   // Fail LOUDLY and immediately. Returning quietly here is what bought the
   // 90-second timeout above; a thrown error names the real problem.
   if (!picked) throw new Error("joinAsGM: the join form never offered a user");
@@ -438,11 +573,12 @@ export async function joinAsGM(page) {
  *
  * @param {import("playwright").Page} page
  * @param {String} name  a User name that already exists in the world
+ * @param {{secondSession?: boolean}} [opts]  as joinAsGM
  */
-export async function joinAs(page, name) {
+export async function joinAs(page, name, opts = {}) {
   noteBrowser(page);
   await page.goto(`${FOUNDRY_URL}/join`, { waitUntil: "networkidle", timeout: 60000 });
-  const picked = await chooseJoinUser(page, name);
+  const picked = await chooseJoinUser(page, name, opts);
   if (!picked) throw new Error(`joinAs: no user named "${name}" — run \`npm run dev:players\` first`);
 
   await page.locator('button[type="submit"][name="join"], form#join-game button[type="submit"]')

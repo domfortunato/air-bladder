@@ -70,11 +70,11 @@ Pre-generated Player Characters are also available on <a href="https://domfortun
 
 ## Status
 
-Early, active development. Send feedback and art! The system is being rebuilt on the original's **editable-compendium** architecture — gear lives in Item compendia that a Warden can edit in one place, and character generation and the marketplace reference those packs by name.
+Early, active development. Send feedback and art! The shipped compendiums are templates: copy what you want to change into your world (the Create Custom… buttons do it in one click), and generation and the marketplace read your world's copy first. An update replaces the shipped compendiums and never touches your copies.
 
 ## Languages
 
-The interface is translated into **Spanish** (98% of the current strings, by [Malecho](https://github.com/fsmalecho)), and game *content* — backgrounds, items, spells, monsters, tables and journals — is translated into Spanish only.
+The interface is translated into **Spanish** (97% of the current strings, by [Malecho](https://github.com/fsmalecho)), and game *content* — backgrounds, items, spells, monsters, tables and journals — is translated into Spanish only.
 
 Danish, French, German, Polish and Brazilian Portuguese interface files are inherited from the original Cairn system. They cover **about 5%** of the current interface, predate most of this system's features, and are **not actively maintained** — a game in those languages is mostly English in practice. Anything untranslated falls back to English string by string, so a partial translation is always usable rather than broken.
 
@@ -84,7 +84,7 @@ The tooling is language-agnostic (`--lang <code>` throughout), so a new language
 
 ## Installation (manual)
 
-**Requires Foundry VTT v14.365 or higher.**
+**Requires Foundry VTT v14.368 or higher.**
 
 1. In the Foundry **Game Systems** menu, click **Install System**.
 2. Enter the manifest URL: `https://github.com/domfortunato/air-bladder/releases/latest/download/system.json`

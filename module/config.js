@@ -34,8 +34,8 @@ export const Cairn = {};
 // `2d6 + 3`'s second term is not a die, so all three roll verbatim. A tier
 // added here must be re-checked against that rule — `d6 + d6 + d6` would
 // silently become max(d6,d6,d6), 1..6 — and must cap at 18, because a save is
-// `d20cs<=@abilities.X.value` and an ability of 20 makes every save against it
-// succeed in silence. (Crawler caps at 15 and floors at 5; it was `2d6 + 6`,
+// `d20cs<=@abilities.X.value` and above 18 only the natural 20 can fail one
+// (`cairnSavePasses`, utils.js). (Crawler caps at 15 and floors at 5; it was `2d6 + 6`,
 // 8..18, until the user changed it on 2026-10-03.)
 //
 // The stored value is the KEY, never the formula, so a label can be reworded
@@ -168,10 +168,11 @@ Cairn.npcGenerator = {
   // table names positions in the world; the Barebones list of 100 names TRADES,
   // and a trade is the only background in this system that carries gear — three
   // items each. So an NPC gets the gear of its nearest Barebones counterpart,
-  // through the same resolveRefs path a Barebones PC and a 2e hireling use.
+  // through `resolveStartingGear` (character-generator.js `buildNpcItems`) —
+  // NOT a bare `resolveRefs`, which drops the instruction rows.
   //
-  // Keyed on the ENGLISH table text, and that is load-bearing: `rollTableText`
-  // returns the raw result, NOT the content overlay's translation, so
+  // Keyed on the ENGLISH table text, and that is load-bearing: `rollTablePlainText`
+  // returns the row's own text, NOT the content overlay's translation, so
   // `system.background` stores English in every language while the SHEET shows
   // `backgroundDisplay`. A map keyed on what the Warden reads would miss on
   // every non-English client. (The read/stored split, module/i18n-content.js.)

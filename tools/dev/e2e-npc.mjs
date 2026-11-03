@@ -5,7 +5,7 @@
  * COPY of the editable pool -- the same reference guarantee as a character's
  * starting gear, not a second inlined loadout.
  *
- *   node tools/dev/npc-probe.mjs     (needs Foundry running, world launched)
+ *   node tools/dev/e2e-npc.mjs     (needs Foundry running, world launched)
  *
  * Steps, driven headless as GM:
  *   1. Load the shipped catalogue; assert 12 statblocks, all gear by-name refs
@@ -54,9 +54,12 @@
  */
 
 import { chromium } from "playwright";
-import { VIEWPORT, joinAsGM, watchErrors, withSettings } from "./lib.mjs";
+import { VIEWPORT, joinAsGM, watchErrors, withSettings, watchdog, trackCreatedActors, sweepCreatedActors } from "./lib.mjs";
 
 const browser = await chromium.launch();
+// The fleet's hang guard (review #34): without it a hang runs to the runner's
+// 65-minute cap and skips every restore. A bound on a hang, not a timing claim.
+watchdog(900000, "dev:npc");
 const page = await browser.newContext({ viewport: VIEWPORT }).then((c) => c.newPage());
 const errors = watchErrors(page);
 let failed = false;
@@ -65,6 +68,7 @@ const ok = (m) => console.log(`  ok    ${m}`);
 
 try {
   await joinAsGM(page);
+  await trackCreatedActors(page);
 
   const r = await withSettings(page, () => page.evaluate(async () => {
     const CG = game.cairn.characterGenerator;
@@ -176,27 +180,32 @@ try {
     if (poolDoc) {
       const pack = game.packs.get(poolDoc.pack);
       const wasLocked = pack.locked;
-      if (wasLocked) await pack.configure({ locked: false });
       const origDesc = poolDoc.system.description ?? "";
       const marker = "NPC-PROBE-MARKER-7";
-      await poolDoc.update({ "system.description": marker });
+      // Restored in a finally (review #34): a throw mid-edit would leave the
+      // shipped item marked for the next probe on the same fleet box.
+      try {
+        if (wasLocked) await pack.configure({ locked: false });
+        await poolDoc.update({ "system.description": marker });
 
-      // Re-roll AWAY first -- the actor currently IS this profession, and its gear
-      // was built before the edit, so a loop that stops on "already there" would
-      // compare the stale pre-edit item and always fail. Then cycle back to it
-      // (re-roll avoids the current profession, so it wanders); bounded so a miss
-      // cannot hang the probe.
-      await CG.rerollHirelingCareer(actor);
-      for (let i = 0; i < 200 && actor.system.profession !== book.name; i++) {
+        // Re-roll AWAY first -- the actor currently IS this profession, and its gear
+        // was built before the edit, so a loop that stops on "already there" would
+        // compare the stale pre-edit item and always fail. Then cycle back to it
+        // (re-roll avoids the current profession, so it wanders); bounded so a miss
+        // cannot hang the probe.
         await CG.rerollHirelingCareer(actor);
+        for (let i = 0; i < 200 && actor.system.profession !== book.name; i++) {
+          await CG.rerollHirelingCareer(actor);
+        }
+        if (actor.system.profession === book.name) {
+          const it = actor.items.find((x) => x.name.toLowerCase() === poolDoc.name.toLowerCase());
+          editFlowed = (it?.system.description ?? "") === marker;
+          editTarget = poolDoc.name;
+        }
+      } finally {
+        await poolDoc.update({ "system.description": origDesc });
+        if (wasLocked) await pack.configure({ locked: true });
       }
-      if (actor.system.profession === book.name) {
-        const it = actor.items.find((x) => x.name.toLowerCase() === poolDoc.name.toLowerCase());
-        editFlowed = (it?.system.description ?? "") === marker;
-        editTarget = poolDoc.name;
-      }
-      await poolDoc.update({ "system.description": origDesc });
-      if (wasLocked) await pack.configure({ locked: true });
     }
 
     // 5. A GM-added item must survive a profession re-roll (it carries no
@@ -259,7 +268,7 @@ try {
       // the person role used to carry the character sheet's "Background &
       // Notes" wording (this actor IS a person, so it exercises exactly the
       // role that changed). The character sheet keeps the long label;
-      // ui-parity-probe.mjs asserts that half.
+      // e2e-ui-parity.mjs asserts that half.
       notesTabLabel: node?.querySelector?.('nav .item[data-tab="notes"]')?.textContent?.trim() ?? null,
       hasProfession: !!node?.querySelector?.(".profession-input"),
       hasDayRate: !!node?.querySelector?.(".day-rate-input"),
@@ -693,6 +702,9 @@ try {
 } catch (e) {
   fail(`${e.name}: ${e.message}`);
 } finally {
+  // Every actor this run created, generated children included (review #34
+  // findings 150, 256, 259) — whatever a leg threw.
+  await sweepCreatedActors(page);
   // Sweep the parity legs' actors FROM NODE, so an aborted run cannot leave a
   // "PROBE …" actor behind for the next run to mistake for its own state.
   try {

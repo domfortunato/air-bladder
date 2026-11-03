@@ -24,13 +24,21 @@
  */
 
 import { chromium } from "playwright";
-import { VIEWPORT, dismissChrome, joinAsGM, joinAs, watchErrors } from "./lib.mjs";
+import { VIEWPORT, dismissChrome, joinAsGM, joinAs, watchErrors, watchdog } from "./lib.mjs";
 
 const ok = (label, detail = "") => console.log(`  ok    ${label.padEnd(32)} ${detail}`);
 const fail = (label, detail = "") => { console.log(`  FAIL  ${label.padEnd(32)} ${detail}`); failures++; };
 let failures = 0;
 
 const browser = await chromium.launch();
+
+// The fleet's hang guard (review #34 finding 25): without it a hang runs to
+
+// the runner's 65-minute cap, skips every restore, and the box is never
+
+// marked suspect. A bound on a hang, not a timing claim.
+
+watchdog(600000, "container-link probe", () => browser.close());
 
 // Separate contexts: Foundry's session cookie is per origin, so two pages in one
 // context would be the same user.
@@ -181,245 +189,258 @@ muleState.connectedTo === ""
 
 console.log("\nplayer buys a transport (ACTOR_CREATE granted)");
 
-await gmPage.evaluate(async () => {
-  const perms = foundry.utils.deepClone(game.settings.get("core", "permissions"));
-  perms.ACTOR_CREATE = [...new Set([...(perms.ACTOR_CREATE ?? []), CONST.USER_ROLES.PLAYER])];
-  await game.settings.set("core", "permissions", perms);
-});
-await alicePage.reload({ waitUntil: "networkidle" });
-await alicePage.waitForFunction(() => globalThis.game?.ready === true, null, { timeout: 90000 });
-await dismissChrome(alicePage);
+// THE GRANT IS RESTORED FROM A NODE-LEVEL FINALLY (review #34 finding 23), to
+// the value captured before it: everything between the grant and the revoke
+// below can throw, and a throw used to exit Node with PLAYER still holding
+// ACTOR_CREATE — the litter that has stopped dev:socket-grant before.
+const priorPerms = await gmPage.evaluate(() => foundry.utils.deepClone(game.settings.get("core", "permissions")));
+let buy = {};   // read by the cleanup after the finally
+try {
+  await gmPage.evaluate(async () => {
+    const perms = foundry.utils.deepClone(game.settings.get("core", "permissions"));
+    perms.ACTOR_CREATE = [...new Set([...(perms.ACTOR_CREATE ?? []), CONST.USER_ROLES.PLAYER])];
+    await game.settings.set("core", "permissions", perms);
+  });
+  await alicePage.reload({ waitUntil: "networkidle" });
+  await alicePage.waitForFunction(() => globalThis.game?.ready === true, null, { timeout: 90000 });
+  await dismissChrome(alicePage);
 
-const buy = await alicePage.evaluate(async (pcId) => {
-  const pc = game.actors.get(pcId);
-  await pc.update({ "system.gold": 500 });
-  const mkt = await import("/systems/air-bladder/module/marketplace.js");
-  // The dev world keeps allow-player-marketplace OFF (the Warden's table
-  // choice), and acquireTransport reads it live on the calling client — so
-  // without this shadow the buy refuses at the shop door and every leg
-  // below reds on world state, not code. This section's subject is the
-  // connect + ownership relay of a LEGITIMATE purchase, so establish the
-  // open-shop precondition in-page; the switch-off refusal is the
-  // marketplace probe's differential, not this one's. Never a world write.
-  const origGet = game.settings.get;
-  game.settings.get = function (ns, key, ...rest) {
-    // A DOCUMENT request is never shadowed (review #27): core's #setWorld asks
-    // get(ns, key, {document: true}) for the Setting document it will update by
-    // id, and a value handed back here makes it CREATE a duplicate instead.
-    if (rest[0]?.document) return foundry.helpers.ClientSettings.prototype.get.call(this, ns, key, ...rest);
-    if (key === "allow-player-marketplace") return true;
-    return origGet.call(this, ns, key, ...rest);
-  };
-  try {
-  const cat = await mkt.getMarketplaceCatalog();
-  const transports = cat.categories.find((c) => c.name === "Transports & Containers")?.items ?? [];
-  const doc = transports.find((d) => (d.system.cost ?? 0) <= 500);
-  if (!doc) return { error: "no affordable transport in the catalogue" };
-  const okBuy = await mkt.acquireTransport(pc, doc, true);
-  await new Promise((r) => setTimeout(r, 600));
-  // Read the DERIVED list. A purchase connects the new actor with a single
-  // `connectedTo` write and nothing is written to the owner at all, so the
-  // tab's contents are computed, never stored.
-  pc.prepareData();
-  const container = (pc.system.containerObjects ?? []).at(-1) ?? null;
-  // A PLAYER's purchase cannot write ownership (server wall), so it rides the
-  // sync flag: the live GM client answers with the CONNECTED shape. Poll for
-  // the settled state — default OBSERVER, Alice OWNER, flag gone — not the
-  // first observable.
-  const L = CONST.DOCUMENT_OWNERSHIP_LEVELS;
-  let shapeSettled = false;
-  for (let i = 0; i < 40 && container && !shapeSettled; i++) {
-    await new Promise((r) => setTimeout(r, 250));
-    shapeSettled = container.ownership.default === L.OBSERVER
-      && container.ownership[game.user.id] === L.OWNER
-      && container.getFlag("air-bladder", "ownershipSyncPending") === undefined;
+  buy = await alicePage.evaluate(async (pcId) => {
+    const pc = game.actors.get(pcId);
+    await pc.update({ "system.gold": 500 });
+    const mkt = await import("/systems/air-bladder/module/marketplace.js");
+    // The dev world keeps allow-player-marketplace OFF (the Warden's table
+    // choice), and acquireTransport reads it live on the calling client — so
+    // without this shadow the buy refuses at the shop door and every leg
+    // below reds on world state, not code. This section's subject is the
+    // connect + ownership relay of a LEGITIMATE purchase, so establish the
+    // open-shop precondition in-page; the switch-off refusal is the
+    // marketplace probe's differential, not this one's. Never a world write.
+    const origGet = game.settings.get;
+    game.settings.get = function (ns, key, ...rest) {
+      // A DOCUMENT request is never shadowed (review #27): core's #setWorld asks
+      // get(ns, key, {document: true}) for the Setting document it will update by
+      // id, and a value handed back here makes it CREATE a duplicate instead.
+      if (rest[0]?.document) return foundry.helpers.ClientSettings.prototype.get.call(this, ns, key, ...rest);
+      if (key === "allow-player-marketplace") return true;
+      return origGet.call(this, ns, key, ...rest);
+    };
+    try {
+    const cat = await mkt.getMarketplaceCatalog();
+    const transports = cat.categories.find((c) => c.name === "Transports & Containers")?.items ?? [];
+    const doc = transports.find((d) => (d.system.cost ?? 0) <= 500);
+    if (!doc) return { error: "no affordable transport in the catalogue" };
+    const okBuy = await mkt.acquireTransport(pc, doc, true);
+    await new Promise((r) => setTimeout(r, 600));
+    // Read the DERIVED list. A purchase connects the new actor with a single
+    // `connectedTo` write and nothing is written to the owner at all, so the
+    // tab's contents are computed, never stored.
+    pc.prepareData();
+    const container = (pc.system.containerObjects ?? []).at(-1) ?? null;
+    // A PLAYER's purchase cannot write ownership (server wall), so it rides the
+    // sync flag: the live GM client answers with the CONNECTED shape. Poll for
+    // the settled state — default OBSERVER, Alice OWNER, flag gone — not the
+    // first observable.
+    const L = CONST.DOCUMENT_OWNERSHIP_LEVELS;
+    let shapeSettled = false;
+    for (let i = 0; i < 40 && container && !shapeSettled; i++) {
+      await new Promise((r) => setTimeout(r, 250));
+      shapeSettled = container.ownership.default === L.OBSERVER
+        && container.ownership[game.user.id] === L.OWNER
+        && container.getFlag("air-bladder", "ownershipSyncPending") === undefined;
+    }
+    return {
+      okBuy,
+      name: doc.name,
+      listed: !!container,
+      keeper: container?.system.connectedTo ?? null,
+      pcUuid: pc.uuid,
+      containerId: container?.id ?? null,
+      // Foundry makes the creating user an owner, which is what carries her
+      // through the window before the GM's shape lands.
+      ownsIt: container?.isOwner ?? null,
+      shapeSettled,
+      shape: container ? { ...container.ownership } : null,
+      goldAfter: pc.system.gold,
+      cost: doc.system.cost ?? 0,
+    };
+    } finally {
+      game.settings.get = origGet;
+    }
+  }, scene.pcId);
+
+  if (buy.error) fail("transport purchase", buy.error);
+  else {
+    buy.okBuy && buy.listed
+      ? ok("purchase succeeded", buy.name)
+      : fail("purchase succeeded", `acquireTransport returned ${buy.okBuy}, listed=${buy.listed}`);
+    buy.keeper === buy.pcUuid
+      ? ok("link complete both ways", "keeper points back at the character")
+      : fail("link complete both ways", `keeper="${buy.keeper}" expected "${buy.pcUuid}"`);
+    buy.ownsIt
+      ? ok("buyer owns the transport", "creating user is an owner")
+      : fail("buyer owns the transport", "the player cannot open what they bought");
+    buy.shapeSettled
+      ? ok("post-buy ownership is the CONNECTED shape", "default OBSERVER + buyer OWNER, via the GM relay")
+      : fail("post-buy ownership is the CONNECTED shape", JSON.stringify(buy.shape));
+    buy.goldAfter === 500 - buy.cost
+      ? ok("gold was actually deducted", `500 -> ${buy.goldAfter} (cost ${buy.cost})`)
+      : fail("gold was actually deducted", `gold is ${buy.goldAfter}, expected ${500 - buy.cost}`);
   }
-  return {
-    okBuy,
-    name: doc.name,
-    listed: !!container,
-    keeper: container?.system.connectedTo ?? null,
-    pcUuid: pc.uuid,
-    containerId: container?.id ?? null,
-    // Foundry makes the creating user an owner, which is what carries her
-    // through the window before the GM's shape lands.
-    ownsIt: container?.isOwner ?? null,
-    shapeSettled,
-    shape: container ? { ...container.ownership } : null,
-    goldAfter: pc.system.gold,
-    cost: doc.system.cost ?? 0,
-  };
-  } finally {
-    game.settings.get = origGet;
-  }
-}, scene.pcId);
 
-if (buy.error) fail("transport purchase", buy.error);
-else {
-  buy.okBuy && buy.listed
-    ? ok("purchase succeeded", buy.name)
-    : fail("purchase succeeded", `acquireTransport returned ${buy.okBuy}, listed=${buy.listed}`);
-  buy.keeper === buy.pcUuid
-    ? ok("link complete both ways", "keeper points back at the character")
-    : fail("link complete both ways", `keeper="${buy.keeper}" expected "${buy.pcUuid}"`);
-  buy.ownsIt
-    ? ok("buyer owns the transport", "creating user is an owner")
-    : fail("buyer owns the transport", "the player cannot open what they bought");
-  buy.shapeSettled
-    ? ok("post-buy ownership is the CONNECTED shape", "default OBSERVER + buyer OWNER, via the GM relay")
-    : fail("post-buy ownership is the CONNECTED shape", JSON.stringify(buy.shape));
-  buy.goldAfter === 500 - buy.cost
-    ? ok("gold was actually deducted", `500 -> ${buy.goldAfter} (cost ${buy.cost})`)
-    : fail("gold was actually deducted", `gold is ${buy.goldAfter}, expected ${500 - buy.cost}`);
-}
+  /* ---- the trash stays the Warden's; unlink is the owner's again ---- */
 
-/* ---- the trash stays the Warden's; unlink is the owner's again ---- */
+  /* Actor deletion is role-gated (Assistant+) with NO player-grantable
+     permission, so a player's trash on the Connected tab promised an action the
+     server always refuses (review #5) — that half stands. UNLINK inverted on
+     2026-08-01 with the one player-usable verb: Alice owns both ends of her
+     purchased row (the connected shape made her OWNER of the mule), so her row
+     offers unlink again — Round 2's Warden-only reading lasted exactly one day
+     past the ownership automation that made it unnecessary.
 
-/* Actor deletion is role-gated (Assistant+) with NO player-grantable
-   permission, so a player's trash on the Connected tab promised an action the
-   server always refuses (review #5) — that half stands. UNLINK inverted on
-   2026-08-01 with the one player-usable verb: Alice owns both ends of her
-   purchased row (the connected shape made her OWNER of the mule), so her row
-   offers unlink again — Round 2's Warden-only reading lasted exactly one day
-   past the ownership automation that made it unnecessary.
-
-   Same template, two users: the GM's trash is what keeps Alice's missing
-   trash load-bearing rather than a row that renders no icons for everybody. */
-console.log("\nthe Connected tab's edge controls");
-const icons = await alicePage.evaluate(async ({ pcId, containerId }) => {
-  const pc = game.actors.get(pcId);
-  // Parked Connections UI (2026-08-09): the rows these controls sit on render
-  // only under the in-page shadow. What the leg measures — per-row unlink for
-  // the owner of both ends, no trash for a player — is unchanged.
-  const origGet = game.settings.get;
-  game.settings.get = function (ns, key, ...rest) {
-    // A DOCUMENT request is never shadowed (review #27): core's #setWorld asks
-    // get(ns, key, {document: true}) for the Setting document it will update by
-    // id, and a value handed back here makes it CREATE a duplicate instead.
-    if (rest[0]?.document) return foundry.helpers.ClientSettings.prototype.get.call(this, ns, key, ...rest);
-    if (key === "connections-ui-enabled") return true;
-    return origGet.call(this, ns, key, ...rest);
-  };
-  try {
-  // CLOSE first, then render, then POLL — do not sleep a fixed interval on an
-  // already-open sheet. Alice's sheet was opened earlier in this probe, BEFORE
-  // the relay made her an owner of the mule, so its DOM holds a row with no
-  // unlink; `render(true)` is asynchronous, and under load (this probe runs
-  // after others in the sweep) a flat 1s wait read that stale row and reported
-  // a missing control that the next, unloaded run rendered fine. That is the
-  // race docs/release-testing.md refuses to let anyone re-run away.
-  await pc.sheet.close();
-  await new Promise((r) => setTimeout(r, 300));
-  pc.prepareData();
-  await pc.sheet.render(true);
-  // The row SHE BOUGHT, by uuid — not the first connected row on the sheet.
-  // This PC is randomly generated, and a rolled Outrider background GRANTS a
-  // named horse (Linden White, Destrier…) as a connected NPC. So the tab can
-  // hold two children, the grant sorts first, and Alice does not own the grant
-  // — the keeper's ownership is applied on the connect TRANSITION and the GM
-  // here makes her an owner of the PC only after generation has run. The
-  // assertion then read a row it was never about and reported a missing
-  // control that is correctly absent. Worse, it depended on the rolled
-  // background, so it passed most runs and failed on Outriders.
-  const sel = `.cairn-items-list-row[data-item-id="Actor.${containerId}"]`;
-  let row = null;
-  for (let i = 0; i < 40 && !row; i++) {
-    await new Promise((r) => setTimeout(r, 250));
-    row = pc.sheet.rendered ? pc.sheet.element?.querySelector(sel) : null;
-  }
-  // The INPUTS to canUnlink, not just its rendered effect: "her row offers no
-  // break" names a symptom and no cause, and this assertion has two ends that
-  // can independently be wrong (her ownership of the PC, and of the row's
-  // actor) plus a relay that may not have settled.
-  const kids = pc.connectedActors();
-  const why = {
-    lookedFor: sel,
-    pcIsOwner: pc.isOwner,
-    kids: kids.map((c) => ({ name: c.name, isOwner: c.isOwner, own: { ...c.ownership } })),
-  };
-  return row ? {
-    rowFound: true,
-    unlink: !!row.querySelector('[data-action="containerUnlink"]'),
-    trash: !!row.querySelector('[data-action="itemDelete"]'),
-    why,
-  } : { rowFound: false, why };
-  } finally {
-    game.settings.get = origGet;
-  }
-}, { pcId: scene.pcId, containerId: buy.containerId });
-const gmIcons = await gmPage.evaluate(async ({ pcId, containerId }) => {
-  const pc = game.actors.get(pcId);
-  // Same shadow as Alice's leg — the rows exist only with the UI restored.
-  const origGet = game.settings.get;
-  game.settings.get = function (ns, key, ...rest) {
-    // A DOCUMENT request is never shadowed (review #27): core's #setWorld asks
-    // get(ns, key, {document: true}) for the Setting document it will update by
-    // id, and a value handed back here makes it CREATE a duplicate instead.
-    if (rest[0]?.document) return foundry.helpers.ClientSettings.prototype.get.call(this, ns, key, ...rest);
-    if (key === "connections-ui-enabled") return true;
-    return origGet.call(this, ns, key, ...rest);
-  };
-  try {
+     Same template, two users: the GM's trash is what keeps Alice's missing
+     trash load-bearing rather than a row that renders no icons for everybody. */
+  console.log("\nthe Connected tab's edge controls");
+  const icons = await alicePage.evaluate(async ({ pcId, containerId }) => {
+    const pc = game.actors.get(pcId);
+    // Parked Connections UI (2026-08-09): the rows these controls sit on render
+    // only under the in-page shadow. What the leg measures — per-row unlink for
+    // the owner of both ends, no trash for a player — is unchanged.
+    const origGet = game.settings.get;
+    game.settings.get = function (ns, key, ...rest) {
+      // A DOCUMENT request is never shadowed (review #27): core's #setWorld asks
+      // get(ns, key, {document: true}) for the Setting document it will update by
+      // id, and a value handed back here makes it CREATE a duplicate instead.
+      if (rest[0]?.document) return foundry.helpers.ClientSettings.prototype.get.call(this, ns, key, ...rest);
+      if (key === "connections-ui-enabled") return true;
+      return origGet.call(this, ns, key, ...rest);
+    };
+    try {
+    // CLOSE first, then render, then POLL — do not sleep a fixed interval on an
+    // already-open sheet. Alice's sheet was opened earlier in this probe, BEFORE
+    // the relay made her an owner of the mule, so its DOM holds a row with no
+    // unlink; `render(true)` is asynchronous, and under load (this probe runs
+    // after others in the sweep) a flat 1s wait read that stale row and reported
+    // a missing control that the next, unloaded run rendered fine. That is the
+    // race docs/release-testing.md refuses to let anyone re-run away.
+    await pc.sheet.close();
+    await new Promise((r) => setTimeout(r, 300));
     pc.prepareData();
     await pc.sheet.render(true);
-    await new Promise((r) => setTimeout(r, 1000));
-    // Same row as Alice's, for the same reason — the two verdicts are only
-    // comparable if they are about the same document.
-    const row = pc.sheet.element?.querySelector(`.cairn-items-list-row[data-item-id="Actor.${containerId}"]`);
-    const trash = !!row?.querySelector('[data-action="itemDelete"]');
-    const unlink = !!row?.querySelector('[data-action="containerUnlink"]');
-    await pc.sheet.close();
-    return { rowFound: !!row, trash, unlink };
-  } finally {
-    game.settings.get = origGet;
-  }
-}, { pcId: scene.pcId, containerId: buy.containerId });
+    // The row SHE BOUGHT, by uuid — not the first connected row on the sheet.
+    // This PC is randomly generated, and a rolled Outrider background GRANTS a
+    // named horse (Linden White, Destrier…) as a connected NPC. So the tab can
+    // hold two children, the grant sorts first, and Alice does not own the grant
+    // — the keeper's ownership is applied on the connect TRANSITION and the GM
+    // here makes her an owner of the PC only after generation has run. The
+    // assertion then read a row it was never about and reported a missing
+    // control that is correctly absent. Worse, it depended on the rolled
+    // background, so it passed most runs and failed on Outriders.
+    const sel = `.cairn-items-list-row[data-item-id="Actor.${containerId}"]`;
+    let row = null;
+    for (let i = 0; i < 40 && !row; i++) {
+      await new Promise((r) => setTimeout(r, 250));
+      row = pc.sheet.rendered ? pc.sheet.element?.querySelector(sel) : null;
+    }
+    // The INPUTS to canUnlink, not just its rendered effect: "her row offers no
+    // break" names a symptom and no cause, and this assertion has two ends that
+    // can independently be wrong (her ownership of the PC, and of the row's
+    // actor) plus a relay that may not have settled.
+    const kids = pc.connectedActors();
+    const why = {
+      lookedFor: sel,
+      pcIsOwner: pc.isOwner,
+      kids: kids.map((c) => ({ name: c.name, isOwner: c.isOwner, own: { ...c.ownership } })),
+    };
+    return row ? {
+      rowFound: true,
+      unlink: !!row.querySelector('[data-action="containerUnlink"]'),
+      trash: !!row.querySelector('[data-action="itemDelete"]'),
+      why,
+    } : { rowFound: false, why };
+    } finally {
+      game.settings.get = origGet;
+    }
+  }, { pcId: scene.pcId, containerId: buy.containerId });
+  const gmIcons = await gmPage.evaluate(async ({ pcId, containerId }) => {
+    const pc = game.actors.get(pcId);
+    // Same shadow as Alice's leg — the rows exist only with the UI restored.
+    const origGet = game.settings.get;
+    game.settings.get = function (ns, key, ...rest) {
+      // A DOCUMENT request is never shadowed (review #27): core's #setWorld asks
+      // get(ns, key, {document: true}) for the Setting document it will update by
+      // id, and a value handed back here makes it CREATE a duplicate instead.
+      if (rest[0]?.document) return foundry.helpers.ClientSettings.prototype.get.call(this, ns, key, ...rest);
+      if (key === "connections-ui-enabled") return true;
+      return origGet.call(this, ns, key, ...rest);
+    };
+    try {
+      pc.prepareData();
+      await pc.sheet.render(true);
+      await new Promise((r) => setTimeout(r, 1000));
+      // Same row as Alice's, for the same reason — the two verdicts are only
+      // comparable if they are about the same document.
+      const row = pc.sheet.element?.querySelector(`.cairn-items-list-row[data-item-id="Actor.${containerId}"]`);
+      const trash = !!row?.querySelector('[data-action="itemDelete"]');
+      const unlink = !!row?.querySelector('[data-action="containerUnlink"]');
+      await pc.sheet.close();
+      return { rowFound: !!row, trash, unlink };
+    } finally {
+      game.settings.get = origGet;
+    }
+  }, { pcId: scene.pcId, containerId: buy.containerId });
 
-if (!icons.rowFound || !gmIcons.rowFound) {
-  fail("connected row rendered for both users", JSON.stringify({ alice: icons.rowFound, gm: gmIcons.rowFound }));
-} else {
-  !icons.trash
-    ? ok("no trash for a player", "the server would refuse it anyway")
-    : fail("no trash for a player", "an affordance for an action players cannot take");
-  icons.unlink
-    ? ok("unlink renders for the owner of both ends", "one verb, player-usable (2026-08-01)")
-    : fail("unlink renders for the owner of both ends",
-      `her own purchased row offers no break — ${JSON.stringify(icons.why)}`);
-  gmIcons.trash && gmIcons.unlink
-    ? ok("the Warden gets both", "and the GM trash keeps the player's missing one load-bearing")
-    : fail("the Warden gets both",
-      `trash=${gmIcons.trash} unlink=${gmIcons.unlink} — if these vanished for everyone, the player assertions prove nothing`);
+  if (!icons.rowFound || !gmIcons.rowFound) {
+    fail("connected row rendered for both users", JSON.stringify({ alice: icons.rowFound, gm: gmIcons.rowFound }));
+  } else {
+    !icons.trash
+      ? ok("no trash for a player", "the server would refuse it anyway")
+      : fail("no trash for a player", "an affordance for an action players cannot take");
+    icons.unlink
+      ? ok("unlink renders for the owner of both ends", "one verb, player-usable (2026-08-01)")
+      : fail("unlink renders for the owner of both ends",
+        `her own purchased row offers no break — ${JSON.stringify(icons.why)}`);
+    gmIcons.trash && gmIcons.unlink
+      ? ok("the Warden gets both", "and the GM trash keeps the player's missing one load-bearing")
+      : fail("the Warden gets both",
+        `trash=${gmIcons.trash} unlink=${gmIcons.unlink} — if these vanished for everyone, the player assertions prove nothing`);
+  }
+
+  // Give ACTOR_CREATE back the moment the last leg needing it is done, not in
+  // the tail cleanup: a run that dies between here and the end used to leave
+  // PLAYER in core.permissions.ACTOR_CREATE, which made dev:socket-grant refuse
+  // to run at all ("this world grants players ACTOR_CREATE") — found as litter
+  // on 2026-08-01. The remaining legs run as the GM and need no grant.
+  // This await can die with Playwright's "Execution context was destroyed", and
+  // the tempting explanation is wrong: **`core.permissions` does NOT reload
+  // clients.** It is `config: false` with an `onChange` that only re-renders the
+  // controls, the sidebar and the canvas cursors — no `requiresReload` anywhere
+  // (`client/game.mjs:1152-1164`, checked against the shipped 14.365). A comment
+  // here said otherwise for one commit on 2026-08-07; the theory sounded right and
+  // this repo has already paid once for a confident comment sitting above code
+  // that contradicts it.
+  //
+  // The real cause is LOAD. A long serial batch degrades the server enough that a
+  // join is still settling when this runs (0.1.11: `Vended World data` 5,059 ms an
+  // hour into a batch versus 418 ms quiet), and the page loses its context to the
+  // harness, not to Foundry. Nothing here is a system defect, which is why the
+  // answer is tolerance rather than a fix to the write.
+  //
+  // Dying here would take the cleanup below with it, stranding the PC, the mule,
+  // the purchased container and the planted grant — and, expensively, leaving
+  // PLAYER holding ACTOR_CREATE, the exact litter this block exists to prevent and
+  // which has previously stopped dev:socket-grant running at all.
+} finally {
+  await gmPage.evaluate((perms) => game.settings.set("core", "permissions", perms), priorPerms)
+    .catch((e) => console.log(`  note  could not restore core.permissions: ${e.message}`));
 }
 
-// Give ACTOR_CREATE back the moment the last leg needing it is done, not in
-// the tail cleanup: a run that dies between here and the end used to leave
-// PLAYER in core.permissions.ACTOR_CREATE, which made dev:socket-grant refuse
-// to run at all ("this world grants players ACTOR_CREATE") — found as litter
-// on 2026-08-01. The remaining legs run as the GM and need no grant.
-// This await can die with Playwright's "Execution context was destroyed", and
-// the tempting explanation is wrong: **`core.permissions` does NOT reload
-// clients.** It is `config: false` with an `onChange` that only re-renders the
-// controls, the sidebar and the canvas cursors — no `requiresReload` anywhere
-// (`client/game.mjs:1152-1164`, checked against the shipped 14.365). A comment
-// here said otherwise for one commit on 2026-08-07; the theory sounded right and
-// this repo has already paid once for a confident comment sitting above code
-// that contradicts it.
-//
-// The real cause is LOAD. A long serial batch degrades the server enough that a
-// join is still settling when this runs (0.1.11: `Vended World data` 5,059 ms an
-// hour into a batch versus 418 ms quiet), and the page loses its context to the
-// harness, not to Foundry. Nothing here is a system defect, which is why the
-// answer is tolerance rather than a fix to the write.
-//
-// Dying here would take the cleanup below with it, stranding the PC, the mule,
-// the purchased container and the planted grant — and, expensively, leaving
-// PLAYER holding ACTOR_CREATE, the exact litter this block exists to prevent and
-// which has previously stopped dev:socket-grant running at all.
-await gmPage.evaluate(() => {
-  const perms = foundry.utils.deepClone(game.settings.get("core", "permissions"));
-  perms.ACTOR_CREATE = (perms.ACTOR_CREATE ?? []).filter((r) => r !== CONST.USER_ROLES.PLAYER);
+// Back to the value FOUND (review #34 finding 257): this stripped PLAYER from
+// ACTOR_CREATE outright, undoing the restore two lines up, so a world whose
+// Warden had granted it lost the grant on every run, green ones included.
+await gmPage.evaluate((perms) => {
   game.settings.set("core", "permissions", perms);
-}).catch((e) => {
+}, priorPerms).catch((e) => {
   if (!/Execution context was destroyed|Target closed|frame was detached/i.test(e.message)) throw e;
 });
 await gmPage.waitForFunction(() => globalThis.game?.ready === true, null, { timeout: 60000 })
@@ -487,12 +508,12 @@ connected.beforeDelete === 1 && connected.afterDelete === 0
 
 /* ---- cleanup -------------------------------- */
 
-await gmPage.evaluate(async ({ pcId, muleId, containerId, decoyId }) => {
-  // Belt over the mid-run restore above — filtering an already-clean list is
-  // a no-op, and a future leg added between the two cannot re-leak the grant.
-  const perms = foundry.utils.deepClone(game.settings.get("core", "permissions"));
-  perms.ACTOR_CREATE = (perms.ACTOR_CREATE ?? []).filter((r) => r !== CONST.USER_ROLES.PLAYER);
-  await game.settings.set("core", "permissions", perms);
+await gmPage.evaluate(async ({ pcId, muleId, containerId, decoyId, priorPerms }) => {
+  // Belt over the mid-run restore above, to the value FOUND (review #34
+  // finding 257) — never a filter, which took a Warden's own grant away.
+  if (JSON.stringify(game.settings.get("core", "permissions")) !== JSON.stringify(priorPerms)) {
+    await game.settings.set("core", "permissions", priorPerms);
+  }
   // The PC's connected children FIRST, while the uuid that identifies them
   // still resolves. Generation grants some of them (an Outrider's named horse),
   // and deleting only the PC left those behind on every Outrider roll — an
@@ -503,7 +524,7 @@ await gmPage.evaluate(async ({ pcId, muleId, containerId, decoyId }) => {
   for (const id of [pcId, muleId, containerId, decoyId]) {
     if (id) await game.actors.get(id)?.delete().catch(() => {});
   }
-}, { ...scene, containerId: buy.containerId });
+}, { ...scene, containerId: buy.containerId, priorPerms });
 
 const errors = [...gmErrors, ...aliceErrors];
 console.log(`\nconsole errors: ${errors.length}`);

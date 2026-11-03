@@ -21,7 +21,7 @@ import { chromium } from "playwright";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { VIEWPORT, joinAsGM, watchErrors, confirmImportOptions } from "./lib.mjs";
+import { VIEWPORT, joinAsGM, watchErrors, confirmImportOptions, watchdog } from "./lib.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 const fixture = path.join(ROOT, "tools", "dev", "fixtures", "kettlewright-solene.json");
@@ -33,6 +33,14 @@ const EXPECTED = {
 const EXPECTED_AGE = "36";
 
 const browser = await chromium.launch();
+
+// The fleet's hang guard (review #34 finding 25): without it a hang runs to
+
+// the runner's 65-minute cap, skips every restore, and the box is never
+
+// marked suspect. A bound on a hang, not a timing claim.
+
+watchdog(600000, "kettlewright-traits probe", () => browser.close());
 const page = await browser.newPage({ viewport: VIEWPORT });
 const errors = watchErrors(page);
 await joinAsGM(page);

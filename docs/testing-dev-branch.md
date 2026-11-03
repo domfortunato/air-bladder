@@ -3,7 +3,7 @@
 This gets you the in-progress code instead of the released version, so you can
 test things before they ship.
 
-It takes about 5 minutes. You need **Git**, **Node 24**, and **Foundry v14.365 or newer**.
+It takes about 5 minutes. You need **Git**, **Node 24**, and **Foundry v14.368 or newer**.
 
 ---
 
@@ -15,8 +15,9 @@ world. If you want to return to the released version afterwards, you need the ba
 
 Either:
 
-- **In Foundry:** Game Settings → Return to Setup, then on the Worlds tab use the
-  world's ⋮ menu → **Export** (gives you a `.zip`), **or**
+- **In Foundry:** Game Settings → Return to Setup, then on the Worlds tab
+  right-click the world → **Take Backup**. Foundry keeps it in its own Backups
+  folder, and **Restore Latest Backup** on the same menu brings it back, **or**
 - **Copy the folder:** copy `Data/worlds/<your-world>` somewhere safe.
 
 Easiest of all: make a **brand new empty world** and test in that. Then your real
@@ -44,15 +45,18 @@ installing underneath a running Foundry gives you half-written compendia.
 
 ## 3. Move any existing Air Bladder aside
 
-If you already have Air Bladder installed, **rename** the folder rather than
-deleting it — that's your instant way back:
+If you already have Air Bladder installed, **move** its folder out of `systems`
+rather than deleting it — that's your instant way back. Foundry reads every
+folder in `systems`, so a renamed copy left there shows up as an error on the
+Setup screen.
 
 ```sh
 cd <your Data folder>/systems
-mv air-bladder air-bladder-RELEASED
+mv air-bladder ../air-bladder-RELEASED
 ```
 
-(Windows: just rename it in Explorer.)
+(Windows: in Explorer, cut the folder, paste it one level up into the Data
+folder, and rename it `air-bladder-RELEASED`.)
 
 ## 4. Download the dev branch
 
@@ -62,8 +66,9 @@ git clone -b dev https://github.com/domfortunato/air-bladder.git
 ```
 
 The folder **must** end up named exactly `air-bladder` — that's what the clone does
-by default, so don't rename it. Foundry matches the folder name to the system id and
-silently ignores it otherwise.
+by default, so don't rename it. Foundry matches the folder name to the system id,
+and a folder named anything else fails to load, with an error on the Setup
+screen.
 
 ## 5. Build the compendium packs
 
@@ -122,8 +127,8 @@ that matters — the same one-way migration rule applies.
 
 ## Going back to the released version
 
-Close Foundry, then delete the `air-bladder` folder and rename
-`air-bladder-RELEASED` back to `air-bladder`.
+Close Foundry, then delete the `air-bladder` folder, move `air-bladder-RELEASED`
+back into `systems`, and rename it `air-bladder`.
 
 **Remember your world was migrated.** If it now misbehaves on the old system, restore
 the world backup from the top of this page — that's what it's for.

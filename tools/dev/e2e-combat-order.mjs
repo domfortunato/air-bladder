@@ -10,8 +10,11 @@
  * reorder WITHIN a bucket (combatSort flags; cross-bucket refuses — changing
  * sides is a re-roll, not a drag), which section 4 covers.
  *
- * THE SAVE IS DETERMINISTIC WITHOUT STUBBING A DIE: DEX 20 cannot fail a d20
- * save and DEX 0 cannot pass one, so every bucket is forced by fixture — no
+ * THE DIE IS PINNED to a 10 (u 0.5) around every initiative roll. This used to
+ * say no die needed stubbing because DEX 20 cannot fail a d20 save — true
+ * until saves honoured Cairn's natural 20 (review #34 finding 50), after which
+ * DEX 20 fails one roll in twenty and the bucket legs would flake. A 10 passes
+ * DEX 20 and fails DEX 0 every time, which forces every bucket by fixture — no
  * dice-decided assertion (the 0.1.12 lesson).
  *
  * The dev world has NO actors; every fixture is created here and removed.
@@ -33,6 +36,29 @@ await page.goto(FOUNDRY_URL);
 await joinAsGM(page);
 await dismissChrome(page);
 
+// THE PROBE'S OWN FIXTURES, stamped and swept by stamp — at entry, and from the
+// finally at the end (review #34 finding 145). The teardown was straight-line
+// at the file's tail, so a throw or the watchdog left the scene, combat and
+// seven actors behind, and leg 1 picked combatants by NAME: a leftover
+// "ZZ Init Pass" was found first and the next run threw at leg 1, leaking
+// another set. The legacy unstamped leftovers of earlier runs go by this
+// probe's own names once.
+const FIXTURE = "combat-order";
+const sweepFixtures = () => page.evaluate(async (fixture) => {
+  const mine = (d) => d.getFlag("air-bladder", "probeFixture") === fixture;
+  for (const c of game.combats.filter((c) => mine(c) || c.combatants.some((x) => /^ZZ Init /.test(x.name ?? "")))) await c.delete();
+  for (const s of game.scenes.filter((s) => mine(s) || s.name === "ZZ Combat Scene")) await s.delete();
+  for (const a of game.actors.filter((a) => mine(a) || /^ZZ Init /.test(a.name))) await a.delete();
+  for (const m of game.messages.contents.filter((m) => /ZZ Init/.test(m.speaker?.alias ?? ""))) await m.delete();
+}, FIXTURE);
+// Which combats were ACTIVE before this run (review #34 finding 143): its own
+// `combat.activate()` makes the server deactivate every other active combat,
+// the Warden's running encounter included. Put back in the finally.
+let priorActive = [];
+let roll = null;
+await sweepFixtures();
+try {
+
 /* ---------------------------------------------------------------------------
  * 1. The roll: buckets, save cards, and ONE batched write.
  *
@@ -44,12 +70,16 @@ await dismissChrome(page);
  * was one batch plus N awaited per-combatant updates.
  * ------------------------------------------------------------------------- */
 console.log("\nthe DEX save decides the bucket");
-const roll = await page.evaluate(async () => {
+// Read in its own evaluate BEFORE the write (review #34 finding 144).
+priorActive = await page.evaluate(() => game.combats.filter((c) => c.active).map((c) => c.id));
+roll = await page.evaluate(async () => {
   const ActorImpl = CONFIG.Actor.documentClass;
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const r = {};
 
-  const scene = await Scene.create({ name: "ZZ Combat Scene", width: 1400, height: 1000 });
+  const flags = { "air-bladder": { probeFixture: "combat-order" } };
+  const made = new Map();
+  const scene = await Scene.create({ name: "ZZ Combat Scene", width: 1400, height: 1000, flags });
   await scene.view();
   await sleep(400);
 
@@ -58,10 +88,11 @@ const roll = await page.evaluate(async () => {
 
   const mk = async (name, type, system, { disposition = 1, ownership = null } = {}, x) => {
     const a = await ActorImpl.create({
-      name, type, system,
+      name, type, system, flags,
       ...(ownership ? { ownership } : {}),
       prototypeToken: { disposition },
     });
+    made.set(name, a.id);
     const [t] = await scene.createEmbeddedDocuments("Token", [await a.getTokenDocument({ x, y: 100 })]);
     return { a, t };
   };
@@ -78,14 +109,15 @@ const roll = await page.evaluate(async () => {
     { ownership: alice ? { default: 0, [alice.id]: 3 } : null }, 850);
   const unrolled = await mk("ZZ Init Unrolled", "character", DEX(20), {}, 1000);
 
-  const combat = await Combat.create({ scene: scene.id });
+  const combat = await Combat.create({ scene: scene.id, flags });
   await combat.activate();
   const specs = [pass, failC, neutral, hostile, hidden, mine, unrolled].map((v) => ({
     actorId: v.a.id, tokenId: v.t.id, sceneId: scene.id,
   }));
   specs[4].hidden = true; // ZZ Init Hidden
   const combatants = await combat.createEmbeddedDocuments("Combatant", specs);
-  const byName = (n) => combatants.find((c) => c.actorId === game.actors.getName(n)?.id);
+  // By THIS run's actor ids, never by name (probe rule 4, review #34 F145).
+  const byName = (n) => combatants.find((c) => c.actorId === made.get(n));
 
   // Count the WRITES while rolling everyone except the two unrolled.
   let batches = 0;
@@ -97,10 +129,11 @@ const roll = await page.evaluate(async () => {
   CombatantCls.prototype.update = function (...a) { perDoc++; return origUpdate.apply(this, a); };
   const before = new Set(game.messages.contents.map((m) => m.id));
   try {
-    await combat.rollInitiative([
+    const pinned = async (fn) => { const o = CONFIG.Dice.randomUniform; CONFIG.Dice.randomUniform = () => 0.5; try { return await fn(); } finally { CONFIG.Dice.randomUniform = o; } };
+    await pinned(() => combat.rollInitiative([
       byName("ZZ Init Pass"), byName("ZZ Init Fail"), byName("ZZ Init Neutral"),
       byName("ZZ Init Foe"), byName("ZZ Init Hidden"),
-    ].map((c) => c.id));
+    ].map((c) => c.id)));
   } finally {
     CombatantCls.prototype.update = origUpdate;
     delete combat.updateEmbeddedDocuments; // the own property; the prototype returns
@@ -184,7 +217,8 @@ const card = await page.evaluate(async (ids) => {
     await game.settings.set("core", "messageMode", "gm");
     const [c] = await combat.createEmbeddedDocuments("Combatant", [{ actorId: a.id, name: a.name }]);
     const before = new Set(game.messages.contents.map((m) => m.id));
-    await combat.rollInitiative([c.id]);
+    const pinned = async (fn) => { const o = CONFIG.Dice.randomUniform; CONFIG.Dice.randomUniform = () => 0.5; try { return await fn(); } finally { CONFIG.Dice.randomUniform = o; } };
+    await pinned(() => combat.rollInitiative([c.id]));
     const msg = game.messages.contents.find((m) => !before.has(m.id) && m.speaker?.alias === "ZZ Init Private");
     r.whisper = msg ? msg.whisper.length : "no card";
     r.blind = msg?.blind ?? "no card";
@@ -242,7 +276,8 @@ const flavorLeg = await page.evaluate(async (ids) => {
   const [c] = await combat.createEmbeddedDocuments("Combatant", [{
     actorId: mule.id, tokenId: tok.id, sceneId: scene.id }]);
   const before = new Set(game.messages.contents.map((m) => m.id));
-  await combat.rollInitiative([c.id]);
+  const pinned = async (fn) => { const o = CONFIG.Dice.randomUniform; CONFIG.Dice.randomUniform = () => 0.5; try { return await fn(); } finally { CONFIG.Dice.randomUniform = o; } };
+  await pinned(() => combat.rollInitiative([c.id]));
   const msg = game.messages.contents.find((m) => !before.has(m.id) && m.speaker?.alias === "ZZ Init Mule");
   const passMsg = game.messages.contents.find((m) => m.speaker?.alias === "ZZ Init Pass"
     && m.getFlag("air-bladder", "save"));
@@ -399,8 +434,9 @@ try {
     const mine = combat.combatants.find((c) => c.name === "ZZ Init Mine");
     const notMine = combat.combatants.find((c) => c.name === "ZZ Init Unrolled");
     let threw = null;
+    const pinned = async (fn) => { const o = CONFIG.Dice.randomUniform; CONFIG.Dice.randomUniform = () => 0.5; try { return await fn(); } finally { CONFIG.Dice.randomUniform = o; } };
     try {
-      await combat.rollInitiative([mine.id, notMine.id]);
+      await pinned(() => combat.rollInitiative([mine.id, notMine.id]));
     } catch (e) {
       threw = `${e.name}: ${e.message}`;
     }
@@ -564,15 +600,85 @@ check("a second client reads the same order", second.ran && !second.error
   && JSON.stringify(second.first) === JSON.stringify(gmNow),
   second.error ?? `alice=${JSON.stringify(second.first)} gm=${JSON.stringify(gmNow)}`);
 
-/* ----------------------------------------------------------- teardown ---- */
-await page.evaluate(async (ids) => {
-  await game.combats.get(ids.combatId)?.delete();
-  for (const m of game.messages.contents.slice().reverse()) {
-    if (/ZZ Init/.test(m.speaker?.alias ?? "") || ids.msgIds.includes(m.id)) await m.delete();
+/* ---------------------------------------------------------------------------
+ * 6. A natural 1 saves even against 0; a paralysed combatant still acts last
+ *    (review #34 finding 239, ruled 2026-11-01).
+ *
+ * The shipped Saves rule: "A 1 is always a success, and a 20 is always a
+ * failure." 63562e02 made a 1 pass only against 1 or more, to keep a DEX-0
+ * combatant out of the first bucket, and that silently changed every save.
+ * The ruling: by the book everywhere, and paralysis decided where the book
+ * decides it — "Complete DEX and WIL loss renders the character unable to
+ * act" — in initiative alone. So the rule itself, a sheet save at WIL 0 on a
+ * natural 1, and an initiative roll at DEX 0 on a natural 1 (the case the
+ * exception was made for, which must still act last). The die is pinned to
+ * a 1: u 0.999, so ceil((1 − u) × 20) = 1.
+ * ------------------------------------------------------------------------- */
+console.log("\na natural 1 saves even at 0 — and DEX 0 still acts last");
+const zero = await page.evaluate(async () => {
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const flags = { "air-bladder": { probeFixture: "combat-order" } };
+  const pinnedOne = async (fn) => { const o = CONFIG.Dice.randomUniform; CONFIG.Dice.randomUniform = () => 0.999; try { return await fn(); } finally { CONFIG.Dice.randomUniform = o; } };
+  const { cairnSavePasses } = await import("/systems/air-bladder/module/utils.js");
+  const out = { unit: { oneAtZero: cairnSavePasses(1, false, 0), twentyAtTwenty: cairnSavePasses(20, true, 20) } };
+
+  const pc = await CONFIG.Actor.documentClass.create({ name: "ZZ Init Zero WIL", type: "character", flags,
+    system: { abilities: { WIL: { value: 0, max: 10 } } } });
+  await pc.sheet.render(true);
+  for (let i = 0; i < 40 && !pc.sheet.element; i++) await sleep(100);
+  await sleep(500);
+  const before = new Set(game.messages.contents.map((m) => m.id));
+  await pinnedOne(async () => {
+    pc.sheet.element.querySelector('[data-action="rollAbility"][data-ability="WIL"]')?.click();
+    for (let i = 0; i < 40 && !game.messages.contents.some((m) => !before.has(m.id) && m.speaker?.actor === pc.id); i++) await sleep(100);
+  });
+  const card = game.messages.contents.find((m) => !before.has(m.id) && m.speaker?.actor === pc.id);
+  out.sheet = { found: !!card, rolled: card?.flags?.["air-bladder"]?.d20Card?.rolled ?? null,
+    failed: card?.flags?.["air-bladder"]?.d20Card?.failed ?? null };
+  await pc.sheet.close();
+
+  const combat = game.combats.find((c) => c.getFlag("air-bladder", "probeFixture") === "combat-order");
+  const scene = combat ? game.scenes.get(combat.scene?.id ?? combat._source.scene) : null;
+  if (combat && scene) {
+    const a = await CONFIG.Actor.documentClass.create({ name: "ZZ Init Zero DEX", type: "character", flags,
+      system: { abilities: { DEX: { value: 0, max: 10 } } }, prototypeToken: { disposition: 1 } });
+    const [t] = await scene.createEmbeddedDocuments("Token", [await a.getTokenDocument({ x: 1200, y: 300 })]);
+    const [c] = await combat.createEmbeddedDocuments("Combatant", [{ actorId: a.id, tokenId: t.id, sceneId: scene.id }]);
+    await pinnedOne(() => combat.rollInitiative([c.id]));
+    out.initiative = combat.combatants.get(c.id)?.initiative ?? "missing";
+  } else {
+    out.initiative = "no probe combat";
   }
-  await game.scenes.get(ids.sceneId)?.delete();
-  for (const id of ids.actorIds) await game.actors.get(id)?.delete();
-}, roll.ids);
+  return out;
+});
+check("the rule: a natural 1 saves against 0, a 20 fails against 20",
+  zero.unit?.oneAtZero === true && zero.unit?.twentyAtTwenty === false, JSON.stringify(zero.unit));
+check("a sheet save at WIL 0 passes on a natural 1",
+  zero.sheet?.found && zero.sheet.rolled === 1 && zero.sheet.failed === false, JSON.stringify(zero.sheet));
+check("DEX 0 on a natural 1 still acts last (unable to act)", zero.initiative === -1,
+  `initiative=${zero.initiative}`);
+
+} catch (e) {
+  fail("probe threw", `${e.name}: ${e.message}`);
+} finally {
+  /* --------------------------------------------------------- teardown ---- */
+  // From the finally, by stamp (review #34 finding 145), and the combats that
+  // were active before this run are made active again (finding 143) — core
+  // deactivated them when this run's combat was activated.
+  try {
+    await page.evaluate(async (ids) => {
+      for (const m of game.messages.contents.slice().reverse()) {
+        if ((ids ?? []).includes(m.id)) await m.delete();
+      }
+    }, roll?.ids?.msgIds ?? []);
+  } catch { /* page gone */ }
+  try { await sweepFixtures(); } catch { /* page gone */ }
+  try {
+    await page.evaluate(async (ids) => {
+      for (const id of ids) await game.combats.get(id)?.update({ active: true });
+    }, priorActive);
+  } catch { /* page gone */ }
+}
 
 const errs = errors.filter((e) => !/ZZ /.test(e));
 check("zero console errors", errs.length === 0, errs.join(" | "));

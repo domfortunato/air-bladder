@@ -232,16 +232,24 @@ if (existsSync(contentDir)) {
   for (const f of readdirSync(contentDir).filter((f) => f.endsWith(".json"))) {
     checkOverlayFile(f, readFileSync(join(contentDir, f), "utf8"), lastTag ? gitShow(lastTag, `lang/content/${f}`) : null, `lang/content/${f}`);
   }
-  // A content file the tag shipped must not vanish outright (PR #14 DELETED
-  // lang/content/es.json; only the tree-fix caught it).
-  if (lastTag) {
-    const lsTree = execFileSync("git", ["ls-tree", "--name-only", lastTag, "lang/content/"], { cwd: ROOT }).toString().split("\n").filter(Boolean);
-    for (const path of lsTree) {
-      const base = path.split("/").pop();
-      existsSync(join(contentDir, base))
-        ? ok(`${path} still shipped`)
-        : fail(`${path} still shipped`, `present at ${lastTag}, gone from the tree — a deleted overlay is a deleted language`);
-    }
+}
+// A content file the tag shipped must not vanish outright (PR #14 DELETED
+// lang/content/es.json; only the tree-fix caught it). OUTSIDE the directory
+// test (review #34 finding 16): `lang/content/` holds one tracked file, and git
+// tracks no directories, so deleting es.json removes the directory too — and
+// this check, gated on the directory existing, skipped its own named case and
+// printed "passed". The same tag-versus-tree test covers `lang/*.json`.
+if (lastTag) {
+  const shippedAt = (dir) => execFileSync("git", ["ls-tree", "--name-only", lastTag, dir], { cwd: ROOT })
+    .toString().split("\n").filter((p) => p.endsWith(".json"));
+  for (const path of shippedAt("lang/content/")) {
+    existsSync(join(ROOT, path))
+      ? ok(`${path} still shipped`)
+      : fail(`${path} still shipped`, `present at ${lastTag}, gone from the tree — a deleted overlay is a deleted language`);
+  }
+  for (const path of shippedAt("lang/")) {
+    if (existsSync(join(ROOT, path))) continue;
+    fail(`${path} still shipped`, `present at ${lastTag}, gone from the tree`);
   }
 }
 

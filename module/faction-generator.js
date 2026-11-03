@@ -25,7 +25,7 @@
  * what happens when nobody says otherwise, and it is meant to be replaced.
  */
 
-import { findTableByName, resultText } from "./compendium.js";
+import { findTableByName, resultPlainText } from "./compendium.js";
 import { t } from "./i18n-content.js";
 import { promptCreation } from "./character-generator.js";
 
@@ -46,7 +46,7 @@ const rollText = async (tableName) => {
   const table = await findTableByName(tableName);
   if (!table) return "";
   const { results } = await table.roll();
-  const raw = resultText(results[0]).trim();
+  const raw = resultPlainText(results[0]);
   return raw ? t("table.result", raw) : "";
 };
 
@@ -87,7 +87,7 @@ const tableRows = async (tableName) => {
   if (!table) return [];
   const rows = new Set();
   for (const r of table.results) {
-    const raw = String(resultText(r)).trim();
+    const raw = resultPlainText(r);
     if (raw) rows.add(t("table.result", raw));
   }
   return [...rows];
@@ -349,9 +349,10 @@ const buildFactionPicks = async () => {
  * (roll everything), or the Warden's picks.
  * @returns {Promise<Object|null>}
  */
-export const promptFactionCreation = async () => {
+export const promptFactionCreation = async ({ windowId = null } = {}) => {
   const manual = await buildFactionPicks();
   const answer = await promptCreation("faction", {
+    windowId,
     title: "CAIRN.Blank.TitleFaction",
     hint: "CAIRN.Blank.HintFaction",
     manual,
@@ -367,8 +368,8 @@ export const promptFactionCreation = async () => {
  * third call site cannot drift the way the Dashboard's once did (review #26).
  * @returns {Promise<JournalEntry|null>} null = declined, nothing created
  */
-export const createFactionInteractive = async () => {
-  const picks = await promptFactionCreation();
+export const createFactionInteractive = async ({ windowId = null } = {}) => {
+  const picks = await promptFactionCreation({ windowId });
   if (!picks) return null;
   return generateFaction(picks);
 };

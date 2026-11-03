@@ -47,6 +47,7 @@
  */
 
 import { t, speakerDisplayName } from "./i18n-content.js";
+import { cairnSavePasses } from "./utils.js";
 
 /**
  * Who makes the DEX save — i.e. who acts with the party (user ruling
@@ -138,7 +139,18 @@ export class CairnCombat extends Combat {
       const dex = combatant.actor?.system?.abilities?.DEX?.value ?? 0;
       const roll = combatant.getInitiativeRoll(formula);
       await roll.evaluate();
-      const pass = roll.total <= dex;
+      // The natural die decides at both ends when the save is a single d20 —
+      // a 1 passes and a 20 fails, whatever the DEX (cairnSavePasses).
+      const die = roll.dice[0];
+      const natural = die?.faces === 20 && roll.dice.length === 1 && die.results.length === 1
+        ? die.results[0].result : null;
+      // EXCEPT AT DEX 0, which no die decides (review #34 finding 239): "If
+      // their DEX is reduced to 0, they are paralyzed", and "Complete DEX and
+      // WIL loss renders the character unable to act" — a paralysed combatant
+      // does not act first on a lucky 1. The save rule itself is the book's,
+      // a 1 passing even at 0; the exception lives here, where acting is the
+      // question. The roll and its card still show as for anyone else.
+      const pass = dex > 0 && cairnSavePasses(natural, roll.total <= dex);
       updates.push({ _id: id, initiative: pass ? 1 : -1 });
 
       const messageData = foundry.utils.mergeObject({
@@ -237,8 +249,11 @@ const BUCKET_HEADER = {
  * save. Word on every row AND the dividers (user ruling): a row stays readable
  * even when the list renders mid-roll.
  *
- * Safe to fork the template: the deploy target is pinned to build 14.365, so
- * the copy cannot drift under us.
+ * The fork is safe only as long as someone checks it: system.json declares no
+ * `compatibility.maximum`, so a later core can change tracker.hbs under the
+ * copy. Byte-identical in 14.365 and 14.369 at the review #34 verified bump;
+ * diff it at every one (review #34 finding 15; the old "the deploy target is
+ * pinned" was never true of the public install).
  */
 export class CairnCombatTracker extends foundry.applications.sidebar.tabs.CombatTracker {
   /** @override */

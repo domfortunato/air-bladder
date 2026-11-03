@@ -33,7 +33,7 @@
  *   npm run dev:faction-gen
  */
 import { chromium } from "playwright";
-import { VIEWPORT, joinAsGM, dismissChrome, watchErrors, watchdog } from "./lib.mjs";
+import { VIEWPORT, joinAsGM, dismissChrome, watchErrors, watchdog, holdAsideWorldTables } from "./lib.mjs";
 
 const browser = await chromium.launch();
 const page = await browser.newPage({ viewport: VIEWPORT });
@@ -163,28 +163,53 @@ const readJournal = (id) => page.evaluate(async (id) => {
   };
 }, id);
 
-const plantTables = (specs) => page.evaluate(async (specs) => {
+// ONLY WHAT THIS PROBE PLANTED (review #34 finding 254). The two sentinel names
+// are SHIPPED table names, and a Warden overriding either keeps a world table
+// by exactly that name (docs/generating-factions.md: "import one into the world
+// and rework it there"). The sweep deleted every world table so named, at entry,
+// after each plant and in the finally — so a run destroyed the Warden's own
+// override. Plants are now stamped and only stamped tables are swept; the
+// Warden's same-name tables are held aside IN-PAGE (holdAsideWorldTables) so
+// the world-first legs read the probe's plant or the pack, never theirs.
+const FIXTURE = "faction-gen";
+const plantTables = (specs) => page.evaluate(async ({ specs, fixture }) => {
   const RT = CONFIG.RollTable.documentClass;
   for (const [name, desc] of specs) {
     await RT.create({
-      name, formula: "1d1",
+      name, formula: "1d1", flags: { "air-bladder": { probeFixture: fixture } },
       results: [{ type: "text", description: desc, range: [1, 1], weight: 1 }],
     });
   }
-}, specs);
+}, { specs, fixture: FIXTURE });
 
-const sweepTables = () => page.evaluate(async (names) => {
-  for (const t of game.tables.filter((x) => names.includes(x.name))) await t.delete();
-}, SENTINEL_TABLES);
+const sweepTables = () => page.evaluate(async ({ names, fixture }) => {
+  for (const t of game.tables.filter((x) => names.includes(x.name)
+    && x.getFlag("air-bladder", "probeFixture") === fixture)) await t.delete();
+}, { names: SENTINEL_TABLES, fixture: FIXTURE });
+// The Type leg compares the dialog's world-first list with the PACK's faction
+// table, so a Warden's copy of that one is held aside too.
+const HELD_ASIDE = [...SENTINEL_TABLES, "Warden: NPC - Faction"];
+let wardensOwn = null;
 
 const minted = [];
 try {
   await joinAsGM(page);
   await dismissChrome(page);
 
-  // Sweep sentinel tables FIRST — a leftover world copy shadows the pack and
-  // corrupts the stock leg below.
+  // A STAND-IN for the Warden's own override, planted UNSTAMPED, so the run
+  // proves it leaves one alone: it must exist, untouched, at the end. Removed
+  // by id in the finally — it is this probe's, though it wears no stamp.
+  wardensOwn = await page.evaluate(async (name) => (await CONFIG.RollTable.documentClass.create({
+    name, formula: "1d1",
+    results: [{ type: "text", description: "ZZ the Warden's own agenda", range: [1, 1], weight: 1 }],
+  })).id, AGENDA_TABLE);
+
+  // Sweep this probe's own leftovers FIRST, then hold aside every same-name
+  // table that is not ours, the stand-in included: a world copy shadows the
+  // pack and corrupts the stock leg below.
   await sweepTables();
+  const held = await holdAsideWorldTables(page, HELD_ASIDE);
+  console.log(`  note  held aside ${held.length} world table(s) by name: ${held.map((h) => h.name).join(", ") || "none"}`);
 
   await page.evaluate(() => ui.sidebar.changeTab?.("actors", "primary") ?? ui.sidebar.activateTab?.("actors"));
   await page.waitForTimeout(600);
@@ -265,6 +290,39 @@ try {
         ? ok("Count 4 → exactly four DISTINCT advantages", advs.join(", "))
         : fail("Count 4 → exactly four DISTINCT advantages", JSON.stringify(advs));
     }
+  }
+
+  /* --- 3b. a row the WARDEN wrote, the way core's editor writes it ------- */
+  // Review #34 finding 92. Core v14's table editor has no inline text field:
+  // `+` makes an empty row and its config sheet offers a Name input and a
+  // ProseMirror Description, which saves `<p>…</p>`. The shipped rows are bare
+  // strings, and so is every row this probe plants elsewhere — so a Warden's
+  // faction typed into Name was missing from the list, and one typed into
+  // Description arrived as literal tags.
+  {
+    // Stamped like plantTables' (review #34 finding 254): the sweep removes only
+    // stamped tables now, and this plant was the one that skipped the helper —
+    // left behind, it was the second world Agenda table every later leg read.
+    await page.evaluate(async ({ name, fixture }) => {
+      await CONFIG.RollTable.documentClass.create({
+        name, formula: "1d2", flags: { "air-bladder": { probeFixture: fixture } },
+        results: [
+          { type: "text", name: "ZZ-NAME-ONLY", description: "", range: [1, 1], weight: 1 },
+          { type: "text", description: "<p>ZZ-PARA-ROW</p>", range: [2, 2], weight: 1 },
+        ],
+      });
+    }, { name: AGENDA_TABLE, fixture: FIXTURE });
+    const id = await openDialog();
+    await clickIn(id, 'input[name="roll"]');
+    const agenda = await page.evaluate((id) => {
+      const sel = document.getElementById(id)?.querySelector('select[name="faction-agenda"]');
+      return sel ? [...sel.options].slice(1).map((o) => o.value) : null;
+    }, id);
+    await clickIn(id, 'button[data-action="cancel"]');
+    await sweepTables();
+    JSON.stringify(agenda) === JSON.stringify(["ZZ-NAME-ONLY", "ZZ-PARA-ROW"])
+      ? ok("a Warden's rows read as plain text: a Name-only row is listed, a <p> row loses its tags", agenda.join(", "))
+      : fail("a Warden's rows read as plain text", JSON.stringify(agenda));
   }
 
   /* --- 4. the MANUAL path: clear the box, pick from the lists ------------ */
@@ -463,18 +521,30 @@ try {
         : fail("a cleared box with nothing picked rolls everything", JSON.stringify({ name: rolled.name, advs }));
     }
   }
+  // The Warden's own same-name table survived the whole run, untouched.
+  const survived = await page.evaluate((id) => {
+    const t = game.tables.get(id);
+    return t ? [...t.results][0]?.description ?? "" : null;
+  }, wardensOwn);
+  survived === "ZZ the Warden's own agenda"
+    ? ok("a Warden's own same-name table survives the run untouched", AGENDA_TABLE)
+    : fail("a Warden's own same-name table survives the run untouched",
+      `${JSON.stringify(survived)} — the probe deleted or rewrote a table it did not plant`);
 } catch (e) {
   fail("probe threw", `${e.name}: ${e.message}`);
 } finally {
-  // Node-side restore: minted journals and any straggler sentinel tables —
-  // even when a leg above aborted mid-way.
-  await page.evaluate(async ({ ids, names }) => {
+  // Node-side restore: minted journals and this probe's own stamped tables —
+  // even when a leg above aborted mid-way. Never a same-name table it did not
+  // plant (review #34 finding 254); the unstamped stand-in goes by id.
+  await page.evaluate(async ({ ids, names, fixture, standIn }) => {
     for (const id of ids) await game.journal.get(id)?.delete().catch(() => {});
-    for (const t of game.tables.filter((x) => names.includes(x.name))) await t.delete();
+    for (const t of game.tables.filter((x) => names.includes(x.name)
+      && x.getFlag("air-bladder", "probeFixture") === fixture)) await t.delete();
+    if (standIn) await game.tables.get(standIn)?.delete();
     for (const app of foundry.applications.instances.values()) {
       if (app instanceof foundry.applications.api.DialogV2) await app.close().catch(() => {});
     }
-  }, { ids: minted, names: SENTINEL_TABLES }).catch(() => {});
+  }, { ids: minted, names: SENTINEL_TABLES, fixture: FIXTURE, standIn: wardensOwn }).catch(() => {});
   console.log(`\nconsole errors: ${errors.length}`);
   for (const e of errors.slice(0, 10)) console.log(`  ${e}`);
   if (errors.length) failures++;

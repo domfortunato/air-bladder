@@ -85,7 +85,10 @@ const until = async (page, fn, arg, ms = 8000) => {
   return last;
 };
 
-const cleanup = { sceneId: null, tableId: null, actorIds: [], messageIds: [], folderId: null, prevSceneId: null };
+const cleanup = { sceneId: null, tableId: null, actorIds: [], messageIds: [], folderId: null, folderIds: [], prevSceneId: null, msgsAtStart: [] };
+// The chat log before this run (review #34 finding 255): every real Add-to-scene
+// quantity roll's flavor starts "Encounter: ", and the sweep took them all.
+cleanup.msgsAtStart = await gm.evaluate(() => game.messages.map((m) => m.id));
 
 try {
   /* ---------------------------------------------------------- fixtures ---- */
@@ -94,7 +97,7 @@ try {
     // becomes a permanent failure.
     for (const a of game.actors.filter((x) => x.name?.startsWith("ZZ Enc"))) await a.delete();
     for (const s of game.scenes.filter((x) => x.name === "ZZ Encounter Scene")) await s.delete();
-    for (const t of game.tables.filter((x) => x.name === "ZZ Encounter Table")) await t.delete();
+    for (const t of game.tables.filter((x) => x.name === "ZZ Encounter Table" || x.name === "ZZ Encounter Copy")) await t.delete();
 
     const out = { prevSceneId: game.scenes.viewed?.id ?? null };
     // The folder is found by flag; remember whether it predates this run.
@@ -186,7 +189,7 @@ try {
     : fail("the same card on Alice's client has no button", JSON.stringify(aliceView));
 
   /* -------------------------------------------------- 2. the goblin click -- */
-  const spawn1 = await gm.evaluate(async ({ msgId, GOBLIN_UUID }) => {
+  const spawn1 = await gm.evaluate(async ({ msgId, GOBLIN_UUID, goblinsBefore }) => {
     document.querySelector(`[data-message-id="${msgId}"] .encounter-spawn`)?.click();
     for (let i = 0; i < 50 && !game.messages.get(msgId)?.getFlag(game.system.id, "encounterSpawned"); i++) {
       await new Promise((r) => setTimeout(r, 200));
@@ -205,10 +208,14 @@ try {
       clustered: toks.every((t) => Math.abs(t.x - c.x) <= 4 * gs && Math.abs(t.y - c.y) <= 4 * gs),
       stacked: new Set(toks.map((t) => `${t.x},${t.y}`)).size === toks.length,
       goblinActors: goblins.map((a) => a.id),
-      goblinInFolder: goblins.every((a) => !a.folder || a.folder.id === folder?.id),
+      // The NEW goblin, in THE folder (review #34 finding 28): this accepted
+      // any goblin with no folder at all, over every goblin in the world, so an
+      // import that dropped `{folder}` stayed green. Read by id difference.
+      goblinInFolder: goblins.filter((a) => !goblinsBefore.includes(a.id)).length > 0
+        && goblins.filter((a) => !goblinsBefore.includes(a.id)).every((a) => !!folder && a.folder?.id === folder.id),
       folderId: folder?.id ?? null,
     };
-  }, { msgId: goblinMsg, GOBLIN_UUID });
+  }, { msgId: goblinMsg, GOBLIN_UUID, goblinsBefore: fx.goblinsBefore });
   cleanup.folderId = spawn1.folderId;
   const newGoblins = spawn1.goblinActors.filter((id) => !fx.goblinsBefore.includes(id));
   cleanup.actorIds.push(...newGoblins);
@@ -334,6 +341,286 @@ try {
     ? ok("the 1d6 row places 1..6, one ogre imported", `${reuse.ogreTokens} tokens`)
     : fail("the 1d6 row places 1..6, one ogre imported", JSON.stringify({ ...reuse, ogresNow }));
 
+  /* --- 4b-4d. whose copy, how many copies, and who hears (review #34 ------
+   * findings 122, 137, 127). Five shipped monsters with NO world copy yet are
+   * picked off the pack, so the legs read this run's imports alone.
+   *   4b (122) the "reuse the world copy" test was `_stats.compendiumSource`,
+   *      which any owner can write: a PLAYER's actor wearing a monster's
+   *      source was placed, and its tokens were theirs to move.
+   *   4b2 (122) and a player's copy holding the SHIPPED id — a sidebar import
+   *      keeps it — once passed over, was REPLACED by core's import at that
+   *      id: their actor overwritten and taken from them.
+   *   4c (137) two cards for one un-imported monster pressed together each
+   *      missed the find and imported it twice (on 14.369 the second import
+   *      writes over the first's id, so the witness is the import count, not
+   *      the actor count); and two cards for two monsters in a world with no
+   *      Encounters folder yet each made a folder.
+   *   4d (127) the quantity roll took the Warden's chat dropdown, so a card
+   *      drawn privately was followed by a public "Encounter: …".
+   * -------------------------------------------------------------------- */
+  const fresh = await gm.evaluate(async ({ tableId }) => {
+    const pack = game.packs.get("air-bladder.monsters");
+    const index = await pack.getIndex();
+    const stamped = new Set(game.actors.map((a) => a._stats?.compendiumSource).filter(Boolean));
+    const free = index.contents.filter((e) => !stamped.has(e.uuid) && !game.actors.has(e._id)).slice(0, 5);
+    if (free.length < 5) return { error: "fewer than five shipped monsters lack a world copy" };
+    const [a, b, c, d, e] = free;
+    const aliceId = game.users.getName("Alice")?.id;
+    const planted = await CONFIG.Actor.documentClass.create({
+      name: "ZZ Enc Planted", type: "character",
+      ownership: { default: 0, ...(aliceId ? { [aliceId]: 3 } : {}) },
+      _stats: { compendiumSource: a.uuid },
+    });
+    // What a player's own sidebar import leaves: the shipped id, the stamp,
+    // the player as owner.
+    const held = await CONFIG.Actor.documentClass.create({
+      _id: e._id, name: "ZZ Enc Shipped Id", type: "character",
+      ownership: { default: 0, ...(aliceId ? { [aliceId]: 3 } : {}) },
+      _stats: { compendiumSource: e.uuid },
+    }, { keepId: true });
+    await game.tables.get(tableId).createEmbeddedDocuments("TableResult", [
+      { type: "text", description: `2 @UUID[${a.uuid}]{Planted} lurk.`, range: [7, 7], weight: 1 },
+      { type: "text", description: `2 @UUID[${b.uuid}]{Twins} lurk.`, range: [8, 8], weight: 1 },
+      { type: "text", description: `1 @UUID[${c.uuid}]{First} lurks.`, range: [9, 9], weight: 1 },
+      { type: "text", description: `1 @UUID[${d.uuid}]{Second} lurks.`, range: [10, 10], weight: 1 },
+      { type: "text", description: `2 @UUID[${e.uuid}]{Held} lurk.`, range: [11, 11], weight: 1 },
+    ]);
+    return { a: a.uuid, b: b.uuid, c: c.uuid, d: d.uuid, e: e.uuid, plantedId: planted.id, heldId: held?.id ?? null,
+      heldAtShipped: held?.id === e._id, aliceId,
+      plantedStamped: planted._stats?.compendiumSource === a.uuid, aliceOwns: planted.hasPlayerOwner };
+  }, { tableId: fx.tableId });
+  if (fresh.error) {
+    fail("the whose-copy legs found their monsters", fresh.error);
+  } else {
+    cleanup.actorIds.push(fresh.plantedId);
+    if (fresh.heldId) cleanup.actorIds.push(fresh.heldId);
+    const press = (ids) => gm.evaluate(async (ids) => {
+      for (const id of ids) document.querySelector(`[data-message-id="${id}"] .encounter-spawn`)?.click();
+      for (let i = 0; i < 60 && !ids.every((id) => game.messages.get(id)?.getFlag(game.system.id, "encounterSpawned")); i++) {
+        await new Promise((r) => setTimeout(r, 200));
+      }
+    }, ids);
+    const copies = (uuid) => gm.evaluate((uuid) =>
+      game.actors.filter((a) => a._stats?.compendiumSource === uuid).map((a) => a.id), uuid);
+
+    // 4b
+    const plantedMsg = await draw(7);
+    await buttonState(gm, plantedMsg);
+    const before4b = await gm.evaluate(() => canvas.scene.tokens.map((t) => t.id));
+    await press([plantedMsg]);
+    const r4b = await gm.evaluate(({ before, plantedId }) => {
+      const added = canvas.scene.tokens.filter((t) => !before.includes(t.id));
+      return { added: added.length, onPlanted: added.filter((t) => t.actorId === plantedId).length };
+    }, { before: before4b, plantedId: fresh.plantedId });
+    const aCopies = await copies(fresh.a);
+    cleanup.actorIds.push(...aCopies.filter((id) => id !== fresh.plantedId && !cleanup.actorIds.includes(id)));
+    fresh.plantedStamped && fresh.aliceOwns && r4b.added === 2 && r4b.onPlanted === 0
+      ? ok("a player's actor wearing a monster's source is never the encounter's copy", "a Warden's copy was imported")
+      : fail("a player's actor wearing a monster's source is never the encounter's copy", JSON.stringify({ ...fresh, ...r4b }));
+
+    // 4b2
+    const heldMsg = await draw(11);
+    await buttonState(gm, heldMsg);
+    const before4b2 = await gm.evaluate(() => canvas.scene.tokens.map((t) => t.id));
+    await press([heldMsg]);
+    const r4b2 = await gm.evaluate(({ before, heldId, aliceId }) => {
+      const added = canvas.scene.tokens.filter((t) => !before.includes(t.id));
+      const held = game.actors.get(heldId);
+      return { added: added.length, onHeld: added.filter((t) => t.actorId === heldId).length,
+        heldName: held?.name ?? null, heldType: held?.type ?? null, aliceStillOwns: held?.ownership?.[aliceId] === 3 };
+    }, { before: before4b2, heldId: fresh.heldId, aliceId: fresh.aliceId });
+    const eCopies = await copies(fresh.e);
+    cleanup.actorIds.push(...eCopies.filter((id) => !cleanup.actorIds.includes(id)));
+    fresh.heldAtShipped && r4b2.added === 2 && r4b2.onHeld === 0
+      && r4b2.heldName === "ZZ Enc Shipped Id" && r4b2.heldType === "character" && r4b2.aliceStillOwns
+      ? ok("a player's copy at the shipped id is left as it was", "the Warden's copy took a fresh id")
+      : fail("a player's copy at the shipped id is left as it was", JSON.stringify({ heldAtShipped: fresh.heldAtShipped, ...r4b2 }));
+
+    // 4c. THE WINDOW IS WIDENED IN-PAGE, or the leg measures luck: two clicks
+    // a tick apart raced only when the second card's find landed inside the
+    // first one's import round trip, and the first fleet run of this leg
+    // passed on unfixed code. The import is held 600ms before it runs — the
+    // real import, unchanged, just late — so both cards are inside it. The
+    // witness is how many imports RAN: the second one writes over the first's
+    // shipped id, so the copy count alone stays 1 on unfixed code (measured,
+    // runs 20261031T171721Z and 20261031T172005Z).
+    const twinA = await draw(8);
+    const twinB = await draw(8);
+    await buttonState(gm, twinA);
+    await buttonState(gm, twinB);
+    const r4c = await gm.evaluate(async ({ ids }) => {
+      const before = canvas.scene.tokens.map((t) => t.id);
+      const real = game.actors.importFromCompendium;
+      let imports = 0;
+      game.actors.importFromCompendium = async function (...a) {
+        imports++;
+        await new Promise((r) => setTimeout(r, 600));
+        return real.apply(this, a);
+      };
+      try {
+        const enc = await import("/systems/air-bladder/module/encounters.js");
+        await Promise.all(ids.map((id) => enc.spawnEncounterFromMessage(game.messages.get(id))));
+      } finally {
+        game.actors.importFromCompendium = real;
+      }
+      return {
+        stamped: ids.every((id) => game.messages.get(id)?.getFlag(game.system.id, "encounterSpawned")),
+        tokens: canvas.scene.tokens.filter((t) => !before.includes(t.id)).length,
+        imports,
+      };
+    }, { ids: [twinA, twinB] });
+    const bCopies = await copies(fresh.b);
+    cleanup.actorIds.push(...bCopies.filter((id) => !cleanup.actorIds.includes(id)));
+    r4c.stamped && r4c.tokens === 4 && bCopies.length === 1 && r4c.imports === 1
+      ? ok("two cards for one monster spawned together import it ONCE", "4 tokens, one import, one copy")
+      : fail("two cards for one monster spawned together import it ONCE", JSON.stringify({ ...r4c, copies: bCopies.length }));
+
+    // 4c, the folder. A world with no Encounters folder yet, held IN-PAGE:
+    // the flagged folders this world already has are hidden from
+    // `game.folders.find` for the length of the press, and each folder create
+    // is the real one, held 600ms, so both cards are inside its round trip.
+    // Two DIFFERENT monsters, so one import each: the per-uuid import lock
+    // cannot be what keeps the second folder from being made.
+    const firstMsg = await draw(9);
+    const secondMsg = await draw(10);
+    await buttonState(gm, firstMsg);
+    await buttonState(gm, secondMsg);
+    const r4cf = await gm.evaluate(async ({ ids }) => {
+      const flagged = () => game.folders
+        .filter((f) => f.type === "Actor" && f.getFlag(game.system.id, "encounters")).map((f) => f.id);
+      const aside = new Set(flagged());
+      const realFind = game.folders.find;
+      const realCreate = Folder.create;
+      game.folders.find = function (fn, ...rest) {
+        return realFind.call(this, (f, ...a) => !aside.has(f.id) && fn(f, ...a), ...rest);
+      };
+      Folder.create = async function (...a) {
+        await new Promise((r) => setTimeout(r, 600));
+        return realCreate.apply(this, a);
+      };
+      try {
+        const enc = await import("/systems/air-bladder/module/encounters.js");
+        await Promise.all(ids.map((id) => enc.spawnEncounterFromMessage(game.messages.get(id))));
+      } finally {
+        delete game.folders.find;
+        if (game.folders.find !== realFind) game.folders.find = realFind;
+        delete Folder.create;
+        if (Folder.create !== realCreate) Folder.create = realCreate;
+      }
+      return {
+        stamped: ids.every((id) => game.messages.get(id)?.getFlag(game.system.id, "encounterSpawned")),
+        made: flagged().filter((id) => !aside.has(id)),
+        aside: aside.size,
+      };
+    }, { ids: [firstMsg, secondMsg] });
+    cleanup.folderIds.push(...r4cf.made);
+    for (const u of [fresh.c, fresh.d]) {
+      const ids = await copies(u);
+      cleanup.actorIds.push(...ids.filter((id) => !cleanup.actorIds.includes(id)));
+    }
+    r4cf.stamped && r4cf.made.length === 1
+      ? ok("two first spawns together make ONE Encounters folder", `${r4cf.aside} held aside`)
+      : fail("two first spawns together make ONE Encounters folder", JSON.stringify(r4cf));
+
+    // 4d
+    const privMsg = await gm.evaluate(async ({ tableId }) => {
+      const before = new Set(game.messages.keys());
+      await game.tables.get(tableId).draw({ roll: new Roll("1"), messageMode: "gm" });
+      return [...game.messages.keys()].find((k) => !before.has(k)) ?? null;
+    }, { tableId: fx.tableId });
+    if (privMsg) cleanup.messageIds.push(privMsg);
+    await buttonState(gm, privMsg);
+    const qtyBefore = await gm.evaluate(() => game.messages.map((m) => m.id));
+    // The Warden's own dropdown on PUBLIC for the press, so the leg cannot
+    // pass on a dev client left on Private (a client setting; put back after).
+    const modeWas = await gm.evaluate(async () => {
+      const was = game.settings.get("core", "messageMode");
+      await game.settings.set("core", "messageMode", "public");
+      return was;
+    });
+    try { await press([privMsg]); } finally {
+      await gm.evaluate((v) => game.settings.set("core", "messageMode", v), modeWas);
+    }
+    const r4d = await gm.evaluate(({ privMsg, qtyBefore }) => {
+      const card = game.messages.get(privMsg);
+      const qty = game.messages.filter((m) => !qtyBefore.includes(m.id) && m.getFlag("air-bladder", "encounterQty"));
+      return { cardWhisper: card?.whisper?.length ?? 0, qty: qty.length,
+        qtyWhispered: qty.every((m) => m.whisper.length > 0) };
+    }, { privMsg, qtyBefore });
+    r4d.cardWhisper > 0 && r4d.qty >= 1 && r4d.qtyWhispered
+      ? ok("a privately drawn card's quantity roll stays private", `${r4d.qty} roll(s), whispered`)
+      : fail("a privately drawn card's quantity roll stays private", JSON.stringify(r4d));
+  }
+
+  /* --- 4e. the table the card DREW (review #34 finding 231) ---------------
+   * Core's flag is the table's bare id, and core's own Import keeps it, so a
+   * Warden's imported-and-edited copy and the shipped table both answer to it;
+   * world-first spawned the copy's creature under a card showing the pack's.
+   * A shipped encounter table whose id no world table holds is copied into the
+   * world UNDER THAT ID, and the copy's first monster row relinked to another
+   * monster, as a Warden's edit would leave it. Read through
+   * `encounterSpecsForMessage`, the button's own derivation:
+   *   - a core draw from the PACK must place the pack's monster;
+   *   - a Dashboard-flagged card with NO content names its table by the uuid
+   *     alone (the content cannot choose here, so only the flag can);
+   *   - control: a draw from the world copy places the copy's monster.
+   * -------------------------------------------------------------------- */
+  const r4e = await gm.evaluate(async ({ GOBLIN_UUID, OGRE_UUID }) => {
+    const enc = await import("/systems/air-bladder/module/encounters.js");
+    const pack = game.packs.get("air-bladder.warden-encounters");
+    const index = await pack.getIndex();
+    const entry = index.contents.find((e) => !game.tables.has(e._id));
+    if (!entry) return { error: "every shipped encounter table's id is held by a world table" };
+    const shipped = await pack.getDocument(entry._id);
+    const row = shipped.results.find((r) => /@UUID\[[^\]]*Actor\./.test(r.description ?? ""));
+    const shippedUuid = row?.description.match(/@UUID\[([^\]]+)\]/)?.[1] ?? null;
+    if (!row || !shippedUuid) return { error: `${shipped.name} has no monster row` };
+    const editedUuid = shippedUuid === OGRE_UUID ? GOBLIN_UUID : OGRE_UUID;
+    const total = row.range[0];
+    const data = shipped.toObject();
+    data.name = "ZZ Encounter Copy";
+    for (const r of data.results) if (r._id === row.id) r.description = r.description.replace(shippedUuid, editedUuid);
+    const copy = await RollTable.create(data, { keepId: true });
+    const made = [];
+    const newMessage = async (fn) => {
+      const before = new Set(game.messages.keys());
+      await fn();
+      const m = game.messages.find((x) => !before.has(x.id)) ?? null;
+      if (m) made.push(m);
+      return m;
+    };
+    const uuidsOf = async (m) => (m ? (await enc.encounterSpecsForMessage(m)).map((s) => s.uuid ?? null) : null);
+    try {
+      const packMsg = await newMessage(() => shipped.draw({ roll: new Roll(String(total)) }));
+      const dashMsg = await newMessage(async () => ChatMessage.create({
+        content: "", rolls: [await new Roll(String(total)).evaluate()],
+        flags: { core: { RollTable: shipped.id }, "air-bladder": { dashboardDraw: shipped.uuid } },
+      }));
+      const worldMsg = await newMessage(() => copy.draw({ roll: new Roll(String(total)) }));
+      return {
+        table: shipped.name, total, shippedUuid, editedUuid, sameId: copy.id === shipped.id,
+        cardShowsUuid: String(packMsg?.content ?? "").includes(shippedUuid),
+        pack: await uuidsOf(packMsg), dash: await uuidsOf(dashMsg), world: await uuidsOf(worldMsg),
+      };
+    } finally {
+      for (const m of made) await m.delete().catch(() => {});
+      await copy.delete().catch(() => {});
+    }
+  }, { GOBLIN_UUID, OGRE_UUID });
+  if (r4e.error) {
+    fail("the drawn-table legs found a shipped table", r4e.error);
+  } else {
+    r4e.sameId && r4e.world?.includes(r4e.editedUuid)
+      ? ok("control: a draw from the world copy places the copy's monster", r4e.table)
+      : fail("control: a draw from the world copy places the copy's monster", JSON.stringify(r4e));
+    r4e.pack?.includes(r4e.shippedUuid) && !r4e.pack.includes(r4e.editedUuid)
+      ? ok("a draw from the PACK places the pack's monster, not the world copy's (review #34 finding 231)", `card shows it: ${r4e.cardShowsUuid}`)
+      : fail("a draw from the PACK places the pack's monster, not the world copy's (review #34 finding 231)", JSON.stringify(r4e));
+    r4e.dash?.includes(r4e.shippedUuid) && !r4e.dash.includes(r4e.editedUuid)
+      ? ok("a Dashboard card names its table by the uuid it drew", "")
+      : fail("a Dashboard card names its table by the uuid it drew", JSON.stringify(r4e));
+  }
+
   /* ------------------------------------------------- 5. plain text is inert */
   const quietMsg = await draw(3);
   await gm.waitForTimeout(1500);
@@ -458,6 +745,14 @@ try {
     try {
       document.querySelector(`[data-message-id="${msgId}"] .encounter-spawn`)?.click();
       for (let i = 0; i < 50 && !out.toasts.length; i++) await new Promise((r) => setTimeout(r, 200));
+      // Core echoes a notification to console when it is DISPLAYED (`#fetch`),
+      // not when it is raised: with MAX_ACTIVE toasts already showing it QUEUES,
+      // and the echo landed after the filter below was taken down, red on the
+      // zero-errors leg (fleet 20261031T043716Z). So the filter stays up until
+      // the toast is on screen.
+      const shown = () => [...document.querySelectorAll("#notifications .notification")]
+        .some((n) => n.textContent.includes(wantText));
+      for (let i = 0; i < 100 && out.toasts.length && !shown(); i++) await new Promise((r) => setTimeout(r, 200));
     } finally {
       SceneCls.prototype.createEmbeddedDocuments = origCreate;
       console.error = origError;
@@ -535,6 +830,89 @@ try {
     ? ok("a rejected button injection is caught at the call site", "named in console, no unhandled rejection")
     : fail("a rejected button injection is caught at the call site", JSON.stringify(inj));
 
+  /* --- 12. no-replacement draws, twenty tokens, and the VIEWED level ------- */
+  // Review #34 findings 88, 89, 90, on the probe's own scene and a table of
+  // its own (swept in this leg's finally):
+  // - a table set to draw WITHOUT replacement marks the drawn row before the
+  //   card renders, and the rows were re-derived through core's drawn filter,
+  //   so the very row the card shows was lost and no button appeared;
+  // - past sixteen tokens the cluster scaled the same sixteen offsets, so a
+  //   row of twenty stacked tokens on sixteen cells;
+  // - with no `level`, every token landed on the scene's INITIAL level, so
+  //   viewing an upper level showed the toast and no tokens.
+  // TWO TABLES, so each finding reads on its own: the no-replacement one is
+  // asked only for its button, and an ordinary one (no row ever marked) is
+  // drawn and spawned for the count and the level — the first draft spawned
+  // from the no-replacement card, so a missing button failed all three.
+  const big = await gm.evaluate(async ({ GOBLIN_UUID, sceneId }) => {
+    const enc = await import("/systems/air-bladder/module/encounters.js");
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const scene = game.scenes.get(sceneId);
+    const out = {};
+    let table = null, crowd = null, upper = null;
+    try {
+      [upper] = await scene.createEmbeddedDocuments("Level", [{ name: "ZZ Enc Upper", elevation: { bottom: 20, top: 40 } }]);
+      await scene.view({ level: upper.id });
+      for (let i = 0; i < 40 && canvas.level?.id !== upper.id; i++) await sleep(150);
+      out.viewing = canvas.level?.id === upper.id;
+      table = await RollTable.create({
+        name: "ZZ Enc NoRepeat", formula: "1d1", replacement: false, displayRoll: true,
+        results: [{ type: "text", description: `20 @UUID[${GOBLIN_UUID}]{Goblins} pour in.`, range: [1, 1], weight: 1 }],
+      });
+      const before = new Set(game.messages.map((m) => m.id));
+      await table.draw();
+      let msg = null;
+      for (let i = 0; i < 40 && !msg; i++) {
+        msg = game.messages.contents.find((m) => !before.has(m.id) && m.getFlag("core", "RollTable") === table.id);
+        if (!msg) await sleep(150);
+      }
+      await sleep(600);
+      out.rowDrawn = table.results.contents[0]?.drawn === true;
+      out.button = !!document.querySelector(`[data-message-id="${msg?.id}"] .encounter-spawn`);
+
+      crowd = await RollTable.create({
+        name: "ZZ Enc Crowd", formula: "1d1", replacement: true, displayRoll: true,
+        results: [{ type: "text", description: `20 @UUID[${GOBLIN_UUID}]{Goblins} pour in.`, range: [1, 1], weight: 1 }],
+      });
+      await crowd.draw();
+      let crowdMsg = null;
+      for (let i = 0; i < 40 && !crowdMsg; i++) {
+        crowdMsg = game.messages.contents.find((m) => !before.has(m.id) && m.getFlag("core", "RollTable") === crowd.id);
+        if (!crowdMsg) await sleep(150);
+      }
+      await sleep(600);
+      out.crowdButton = !!document.querySelector(`[data-message-id="${crowdMsg?.id}"] .encounter-spawn`);
+      const tokensBefore = new Set(scene.tokens.map((t) => t.id));
+      if (crowdMsg) await enc.spawnEncounterFromMessage(crowdMsg);
+      const mine = scene.tokens.contents.filter((t) => !tokensBefore.has(t.id));
+      out.placed = mine.length;
+      out.cells = new Set(mine.map((t) => `${t.x},${t.y}`)).size;
+      out.onUpper = mine.length > 0 && mine.every((t) => t.level === upper.id);
+      await scene.deleteEmbeddedDocuments("Token", mine.map((t) => t.id));
+      for (const m of game.messages.filter((m) => !before.has(m.id))) await m.delete();
+    } finally {
+      if (table) await table.delete();
+      if (crowd) await crowd.delete();
+      if (upper) {
+        await scene.view({ level: scene.initialLevel?.id ?? undefined });
+        await scene.deleteEmbeddedDocuments("Level", [upper.id]);
+      }
+    }
+    return out;
+  }, { GOBLIN_UUID, sceneId: fx.sceneId });
+  big.rowDrawn && big.button
+    ? ok("a draw from a no-replacement table still offers Add to scene", JSON.stringify(big))
+    : fail("a draw from a no-replacement table offers no Add to scene", JSON.stringify(big));
+  big.crowdButton
+    ? ok("precondition: the ordinary table's card offers Add to scene", "the two legs below spawn from it")
+    : fail("precondition: the ordinary table's card offers Add to scene", JSON.stringify(big));
+  big.placed === 20 && big.cells === 20
+    ? ok("twenty tokens land on twenty cells, none stacked", JSON.stringify(big))
+    : fail("tokens past sixteen stack on earlier cells", JSON.stringify(big));
+  big.viewing && big.onUpper
+    ? ok("encounter tokens land on the level being VIEWED", JSON.stringify(big))
+    : fail("encounter tokens landed on another level", JSON.stringify(big));
+
   /* ------------------------------------------------------- console errors -- */
   const gmErrs = gmErrors.filter((e) => !/ZZ Enc/.test(e));
   gmErrs.length === 0 ? ok("zero GM console errors") : fail("zero GM console errors", gmErrs.slice(0, 5).join(" | "));
@@ -564,6 +942,14 @@ try {
         }
         if (folder) { lines.push(`folder ${folder.name} (${folder.id})`); await folder.delete(); }
       }
+      // The folder race's own (4c): made this run, by id difference.
+      for (const id of c.folderIds) {
+        const folder = game.folders.get(id);
+        for (const a of [...(folder?.contents ?? [])]) {
+          lines.push(`actor ${a.name} (${a.id})`); await a.delete();
+        }
+        if (folder) { lines.push(`folder ${folder.name} (${folder.id})`); await folder.delete(); }
+      }
       const scene = game.scenes.get(c.sceneId);
       if (scene) { lines.push(`scene ${scene.name} (${scene.id})`); await scene.delete(); }
       const table = game.tables.get(c.tableId);
@@ -572,7 +958,7 @@ try {
       const mine = game.messages.filter((m) =>
         c.messageIds.includes(m.id)
         || m.getFlag("core", "RollTable") && c.tableId && m.getFlag("core", "RollTable") === c.tableId
-        || /^Encounter: /.test(m.flavor ?? ""));
+        || (!c.msgsAtStart.includes(m.id) && /^Encounter: /.test(m.flavor ?? "")));
       for (const m of mine) await m.delete();
       lines.push(`${mine.length} chat message(s)`);
       return lines;

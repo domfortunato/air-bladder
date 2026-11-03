@@ -1,8 +1,8 @@
 import { resolveGearItem } from "../gear.js";
 import { previewBackground, duplicateBackgroundToWorld } from "../character-generator.js";
-import { t } from "../i18n-content.js";
+import { t, itemNamespaces } from "../i18n-content.js";
 import { TRANSPORT_KINDS } from "../icons.js";
-import { bindEditorClickAwaySave, cleanDescription, formatCount, sourceLabel } from "../utils.js";
+import { bindEditorClickAwaySave, cleanDescription, formatCount, sourceLabel, nameEditorToggles } from "../utils.js";
 import { pickArt } from "../art-picker.js";
 import { glogEnabled } from "../glog.js";
 
@@ -184,7 +184,10 @@ export class CairnItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
 
   /**
    * The overlay namespace this item's NAME is keyed under. A background is
-   * extracted as `bg.*`, everything else as `item.*`.
+   * extracted as `bg.*`; anything else reads as its OWNER's row reads it
+   * (i18n-content.js `itemNamespaces`, review #34 finding 198) — a monster's
+   * Adze is `monster.itemName`, and the sheet read "Adze" under the row's
+   * "Azuela".
    *
    * One accessor because three places need the same answer and they must never
    * disagree: the window title, the name input's display half, and the submit
@@ -194,7 +197,12 @@ export class CairnItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
    * @private
    */
   get #nameNs() {
-    return this.item.type === "background" ? "bg.name" : "item.name";
+    return this.item.type === "background" ? "bg.name" : itemNamespaces(this.item.parent).nameNs;
+  }
+
+  /** The description's namespace, by the same rule as `#nameNs`. @private */
+  get #descNs() {
+    return this.item.type === "background" ? "bg.desc" : itemNamespaces(this.item.parent).descNs;
   }
 
   /**
@@ -377,8 +385,7 @@ export class CairnItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     // the key every gear lookup, background grant and table match resolves on,
     // and check:refs asserts 394 gear names each resolve to exactly one pack.
     context.nameDisplay = t(this.#nameNs, this.item.name);
-    const descNs = this.item.type === "background" ? "bg.desc" : "item.desc";
-    const descSrc = t(descNs, this.item.system.description);
+    const descSrc = t(this.#descNs, this.item.system.description);
     // Every enriched field on this sheet reaches innerHTML via {{{ }}}, so it
     // goes through cleanDescription first — the sheet-XSS sink (cleanDescription
     // in utils.js): a player owns the browser that writes system.description, so
@@ -505,6 +512,59 @@ export class CairnItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
   }
 
   /**
+   * Run one read-modify-write of this background's arrays AFTER every earlier
+   * one has landed (review #34 finding 73). Each field commit and each Add /
+   * Remove rebuilds a WHOLE array from `this.item.system` and writes it back,
+   * and a client's `_source` changes only when the server answers. Clicking
+   * Add gear right after typing a name fired the name's `change` at mousedown
+   * and the action at click, a round trip apart, so the action rebuilt the
+   * array from the pre-commit data and wrote the typed name back to blank —
+   * every time the server was further away than a click. One chain per sheet,
+   * so each step reads what the step before it wrote.
+   * @param {() => Promise<*>} fn
+   * @returns {Promise<*>}
+   * @private
+   */
+  _serialWrite(fn) {
+    const run = (this._writeChain ?? Promise.resolve()).then(fn);
+    this._writeChain = run.catch(() => {});
+    return run;
+  }
+
+  /**
+   * `_serialWrite` for a write that names a ROW by the position this sheet
+   * rendered it at (review #34 finding 236). The queue makes each write read
+   * what the one before it wrote — and a Remove ahead of it moves every row
+   * below up one, so a position read at click time named a different row by
+   * the time its write ran: a double-click on a × removed that row AND the one
+   * below it, and a field committed behind a queued Remove wrote into its
+   * neighbour, or threw on the last row. Each render stamps the row layout it
+   * drew (`_renderedRowEpoch`, `_onRender`); a write that removes a row bumps
+   * the live layout as it runs; a queued write whose layout has moved since
+   * its event is DROPPED, because the row it named is no longer there.
+   * Dropping is the safe failure: the Remove re-renders the form, and the
+   * control is there to press again.
+   * @param {number} epoch  `this._renderedRowEpoch`, read when the event fired
+   * @param {() => Promise<*>} fn
+   * @param {{shifts?: boolean}} [options]  `shifts`: this write removes a row
+   * @returns {Promise<*>}
+   * @private
+   */
+  _serialRowWrite(epoch, fn, { shifts = false } = {}) {
+    return this._serialWrite(async () => {
+      if (epoch !== (this._rowEpoch ?? 0)) return undefined;
+      if (!shifts) return fn();
+      this._rowEpoch = (this._rowEpoch ?? 0) + 1;
+      try {
+        return await fn();
+      } catch (err) {
+        this._rowEpoch -= 1;   // nothing moved; the rendered rows are still true
+        throw err;
+      }
+    });
+  }
+
+  /**
    * A deep clone of the background's tables padded to the fixed 2×6 shape,
    * preserving each option's real items (with their itemData snapshots) and
    * containers. Handlers mutate this and write it back, so editing one field on a
@@ -533,12 +593,6 @@ export class CairnItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
   /* -------------------------------------------- */
 
   /**
-   * Non-click listeners only. Clicks are declared as `actions` in DEFAULT_OPTIONS
-   * and wired by ApplicationV2; everything here is a `change` handler, which the
-   * action system does not cover.
-   * @override
-   */
-  /**
    * Frame-level listeners, bound once. The frame survives re-render, so binding
    * these in `_onRender` would stack a duplicate on every redraw.
    *
@@ -561,6 +615,10 @@ export class CairnItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
 
   async _onRender(context, options) {
     await super._onRender(context, options);
+    // The row layout these rows were drawn from — see `_serialRowWrite`.
+    this._renderedRowEpoch = this._rowEpoch ?? 0;
+    // Before the editable bail, so a pencil is never left unnamed.
+    nameEditorToggles(this.element);   // core's pencil carries no name of its own
     if (!this.isEditable) return;
     const el = this.element;
 
@@ -628,52 +686,72 @@ export class CairnItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     const commit = (data, render = false) => item.update(data, { render });
 
     // --- Example names ---------------------------------------------------------
-    on(".bg-name-input", async (ev) => {
-      const names = [...(item.system.names ?? [])];
-      names[Number(ev.currentTarget.dataset.i)] = ev.currentTarget.value;
-      await commit({ "system.names": names });
+    // Every handler reads the field SYNCHRONOUSLY (`currentTarget` is gone once
+    // the event finishes dispatching) and then queues its write behind the
+    // writes before it: `_serialWrite`. A field addressed by a row position a
+    // Remove can shift — names and gear — queues through `_serialRowWrite`.
+    on(".bg-name-input", (ev) => {
+      const i = Number(ev.currentTarget.dataset.i), value = ev.currentTarget.value;
+      return this._serialRowWrite(this._renderedRowEpoch, async () => {
+        const names = [...(item.system.names ?? [])];
+        names[i] = value;
+        await commit({ "system.names": names });
+      });
     });
 
     // --- Starting gear ---------------------------------------------------------
-    on(".bg-gear-name", async (ev) => {
-      const gear = foundry.utils.deepClone(item.system.startingGear ?? []);
-      const i = Number(ev.currentTarget.dataset.i);
-      gear[i].name = ev.currentTarget.value;
-      // Typing a name over a snapshot converts the row back to a by-name pointer.
-      // That flips `isSnapshot`, which draws the camera badge beside this input,
-      // so THIS commit — alone among the six — has something on screen to
-      // correct and must render. Only on the conversion itself: once the
-      // snapshot is gone, further typing in the same field renders nothing, so
-      // the ordinary case still cannot eat a neighbouring field's keystrokes.
-      const wasSnapshot = !!gear[i].itemData;
-      delete gear[i].itemData;
-      await commit({ "system.startingGear": gear }, wasSnapshot);
+    on(".bg-gear-name", (ev) => {
+      const i = Number(ev.currentTarget.dataset.i), value = ev.currentTarget.value;
+      return this._serialRowWrite(this._renderedRowEpoch, async () => {
+        const gear = foundry.utils.deepClone(item.system.startingGear ?? []);
+        gear[i].name = value;
+        // Typing a name over a snapshot converts the row back to a by-name pointer.
+        // That flips `isSnapshot`, which draws the camera badge beside this input,
+        // so THIS commit — alone among the six — has something on screen to
+        // correct and must render. Only on the conversion itself: once the
+        // snapshot is gone, further typing in the same field renders nothing, so
+        // the ordinary case still cannot eat a neighbouring field's keystrokes.
+        const wasSnapshot = !!gear[i].itemData;
+        delete gear[i].itemData;
+        await commit({ "system.startingGear": gear }, wasSnapshot);
+      });
     });
-    on(".bg-gear-uses", async (ev) => {
-      const gear = foundry.utils.deepClone(item.system.startingGear ?? []);
-      const i = Number(ev.currentTarget.dataset.i);
-      const v = parseInt(ev.currentTarget.value, 10);
-      if (Number.isNaN(v) || v <= 0) delete gear[i].uses;
-      else gear[i].uses = v;
-      await commit({ "system.startingGear": gear });
+    on(".bg-gear-uses", (ev) => {
+      const i = Number(ev.currentTarget.dataset.i), v = parseInt(ev.currentTarget.value, 10);
+      return this._serialRowWrite(this._renderedRowEpoch, async () => {
+        const gear = foundry.utils.deepClone(item.system.startingGear ?? []);
+        if (Number.isNaN(v) || v <= 0) delete gear[i].uses;
+        else gear[i].uses = v;
+        await commit({ "system.startingGear": gear });
+      });
     });
 
     // --- The two d6 tables -----------------------------------------------------
-    on(".bg-table-question", async (ev) => {
-      const tables = this._normalizedTables();
-      tables[Number(ev.currentTarget.dataset.t)].question = ev.currentTarget.value;
-      await commit({ "system.tables": tables });
+    on(".bg-table-question", (ev) => {
+      const ti = Number(ev.currentTarget.dataset.t), value = ev.currentTarget.value;
+      return this._serialWrite(async () => {
+        const tables = this._normalizedTables();
+        tables[ti].question = value;
+        await commit({ "system.tables": tables });
+      });
     });
-    on(".bg-option-desc", async (ev) => {
-      const tables = this._normalizedTables();
-      tables[Number(ev.currentTarget.dataset.t)].options[Number(ev.currentTarget.dataset.o)].description = ev.currentTarget.value;
-      await commit({ "system.tables": tables });
+    on(".bg-option-desc", (ev) => {
+      const ti = Number(ev.currentTarget.dataset.t), o = Number(ev.currentTarget.dataset.o);
+      const value = ev.currentTarget.value;
+      return this._serialWrite(async () => {
+        const tables = this._normalizedTables();
+        tables[ti].options[o].description = value;
+        await commit({ "system.tables": tables });
+      });
     });
-    on(".bg-option-gold", async (ev) => {
-      const tables = this._normalizedTables();
+    on(".bg-option-gold", (ev) => {
+      const ti = Number(ev.currentTarget.dataset.t), o = Number(ev.currentTarget.dataset.o);
       const v = parseInt(ev.currentTarget.value, 10);
-      tables[Number(ev.currentTarget.dataset.t)].options[Number(ev.currentTarget.dataset.o)].bonusGold = Number.isNaN(v) ? 0 : Math.max(0, v);
-      await commit({ "system.tables": tables });
+      return this._serialWrite(async () => {
+        const tables = this._normalizedTables();
+        tables[ti].options[o].bonusGold = Number.isNaN(v) ? 0 : Math.max(0, v);
+        await commit({ "system.tables": tables });
+      });
     });
   }
 
@@ -695,7 +773,7 @@ export class CairnItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       position: { width: 560 },
       content: renderPreviewReport(report),
       buttons: [{ action: "close", label: game.i18n.localize("CAIRN.Close"), default: true }],
-    }).render(true);
+    }).render({ force: true, window: { windowId: this.window?.windowId } });   // the sheet's own window (review #34 finding 119)
   }
 
   /**
@@ -714,6 +792,7 @@ export class CairnItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
   static async #onEditImage(event) {
     event.preventDefault();
     await pickArt({
+      windowId: this.window?.windowId,   // the sheet's own window (review #34 finding 161)
       current: this.item.img,
       title: game.i18n.localize("CAIRN.ChooseItemArt"),
       custom: true,
@@ -739,34 +818,43 @@ export class CairnItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
 
   /** @this {CairnItemSheet} */
   static async #onAddName() {
-    await this.item.update({ "system.names": [...(this.item.system.names ?? []), ""] });
+    await this._serialWrite(() => this.item.update({ "system.names": [...(this.item.system.names ?? []), ""] }));
   }
 
   /** @this {CairnItemSheet} */
   static async #onRemoveName(event, target) {
-    const names = [...(this.item.system.names ?? [])];
-    names.splice(Number(target.dataset.i), 1);
-    await this.item.update({ "system.names": names });
+    const i = Number(target.dataset.i);
+    await this._serialRowWrite(this._renderedRowEpoch, () => {
+      const names = [...(this.item.system.names ?? [])];
+      names.splice(i, 1);
+      return this.item.update({ "system.names": names });
+    }, { shifts: true });
   }
 
   /** @this {CairnItemSheet} */
   static async #onAddGear() {
-    await this.item.update({ "system.startingGear": [...(this.item.system.startingGear ?? []), { name: "" }] });
+    await this._serialWrite(() =>
+      this.item.update({ "system.startingGear": [...(this.item.system.startingGear ?? []), { name: "" }] }));
   }
 
   /** @this {CairnItemSheet} */
   static async #onRemoveGear(event, target) {
-    const gear = foundry.utils.deepClone(this.item.system.startingGear ?? []);
-    gear.splice(Number(target.dataset.i), 1);
-    await this.item.update({ "system.startingGear": gear });
+    const i = Number(target.dataset.i);
+    await this._serialRowWrite(this._renderedRowEpoch, () => {
+      const gear = foundry.utils.deepClone(this.item.system.startingGear ?? []);
+      gear.splice(i, 1);
+      return this.item.update({ "system.startingGear": gear });
+    }, { shifts: true });
   }
 
   /** @this {CairnItemSheet} */
   static async #onRemoveOptionItem(event, target) {
     const { t: ti, o, i } = target.dataset;
-    const tables = this._normalizedTables();
-    tables[Number(ti)].options[Number(o)].items.splice(Number(i), 1);
-    await this.item.update({ "system.tables": tables });
+    await this._serialRowWrite(this._renderedRowEpoch, () => {
+      const tables = this._normalizedTables();
+      tables[Number(ti)].options[Number(o)].items.splice(Number(i), 1);
+      return this.item.update({ "system.tables": tables });
+    }, { shifts: true });
   }
 
   /* -------------------------------------------- */
@@ -807,13 +895,18 @@ export class CairnItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     const snap = snapshotItem(dropped);
     const zone = event.target.closest("[data-drop]");
     if (zone?.dataset.drop === "option") {
-      const tables = this._normalizedTables();
-      tables[Number(zone.dataset.t)].options[Number(zone.dataset.o)].items.push({ name: snap.name, itemData: snap });
-      await this.item.update({ "system.tables": tables });
+      const ti = Number(zone.dataset.t), o = Number(zone.dataset.o);
+      await this._serialWrite(() => {
+        const tables = this._normalizedTables();
+        tables[ti].options[o].items.push({ name: snap.name, itemData: snap });
+        return this.item.update({ "system.tables": tables });
+      });
     } else {
-      const gear = foundry.utils.deepClone(this.item.system.startingGear ?? []);
-      gear.push({ name: snap.name, itemData: snap });
-      await this.item.update({ "system.startingGear": gear });
+      await this._serialWrite(() => {
+        const gear = foundry.utils.deepClone(this.item.system.startingGear ?? []);
+        gear.push({ name: snap.name, itemData: snap });
+        return this.item.update({ "system.startingGear": gear });
+      });
     }
   }
 

@@ -5,7 +5,7 @@
  * rule after that is shared. This proves both halves — that generation follows
  * the SRD procedure, and that it does so through the SAME editable pool 2e uses.
  *
- *   node tools/dev/barebones-probe.mjs   (needs Foundry running, world launched)
+ *   node tools/dev/e2e-barebones.mjs   (needs Foundry running, world launched)
  *
  * Steps, driven headless as GM:
  *   1. The packs are installed: 100 background documents (each of the `background`
@@ -25,13 +25,20 @@
  *      bond-tagged item, no Add-a-bond link (entitlement 0) — while a legacy
  *      lent bond PLANTED on the document still displays. Data survives the
  *      retirement; only the minting is gone.
+ *   10. A failed career's keepsake drawn on one of the SRD's INSTRUCTION rows
+ *      ("Spellbook", "Random Additional Gear", "Scroll of Random Spellbook")
+ *      is dealt as starting gear deals it, never dropped (review #34
+ *      finding 130).
  * Exits non-zero on any failed assertion or console error.
  */
 
 import { chromium } from "playwright";
-import { VIEWPORT, joinAsGM, watchErrors } from "./lib.mjs";
+import { VIEWPORT, joinAsGM, watchErrors, watchdog, trackCreatedActors, sweepCreatedActors } from "./lib.mjs";
 
 const browser = await chromium.launch();
+// The fleet's hang guard (review #34): without it a hang runs to the runner's
+// 65-minute cap and skips every restore. A bound on a hang, not a timing claim.
+watchdog(900000, "dev:barebones");
 const page = await browser.newContext({ viewport: VIEWPORT }).then((c) => c.newPage());
 const errors = watchErrors(page);
 let failed = false;
@@ -40,6 +47,7 @@ const ok = (m) => console.log(`  ok    ${m}`);
 
 try {
   await joinAsGM(page);
+  await trackCreatedActors(page);
 
   const r = await page.evaluate(async () => {
     const gen = await import("/systems/air-bladder/module/character-generator.js");
@@ -124,18 +132,22 @@ try {
     let edit = { skipped: true };
     if (poolWeapon) {
       const wasLocked = wPack.locked;
-      if (wasLocked) await wPack.configure({ locked: false });
       const origDesc = poolWeapon.system.description ?? "";
       const marker = "PROBE-BB-MARKER-5";
-      await poolWeapon.update({ "system.description": marker });
+      // Restored in a finally (review #34): a throw mid-edit would leave the
+      // shipped weapon marked for the next probe on the same fleet box.
+      try {
+        if (wasLocked) await wPack.configure({ locked: false });
+        await poolWeapon.update({ "system.description": marker });
 
-      // Re-resolve directly: regeneration re-rolls the weapon, so asking for this
-      // exact one is the precise test of the reference guarantee.
-      const fresh = await resolveGearItem(poolWeapon.name);
-      edit = { skipped: false, name: poolWeapon.name, flowed: fresh?.system.description === marker };
-
-      await poolWeapon.update({ "system.description": origDesc });
-      if (wasLocked) await wPack.configure({ locked: true });
+        // Re-resolve directly: regeneration re-rolls the weapon, so asking for this
+        // exact one is the precise test of the reference guarantee.
+        const fresh = await resolveGearItem(poolWeapon.name);
+        edit = { skipped: false, name: poolWeapon.name, flowed: fresh?.system.description === marker };
+      } finally {
+        await poolWeapon.update({ "system.description": origDesc });
+        if (wasLocked) await wPack.configure({ locked: true });
+      }
     }
 
     // 4. Regenerate keeps the background, re-rolls the rest.
@@ -334,8 +346,37 @@ try {
     await sheet.close();
     const liveFlip = { on: liveOn, off: liveOff };
 
+    // 10. The keepsake on an INSTRUCTION row (review #34 finding 130). The
+    //     keepsake resolved its drawn row with the bare by-name lookup, so the
+    //     Acolyte's "Spellbook", the Fence's "Random Additional Gear" and the
+    //     Cultist's "Scroll of Random Spellbook" — no item has those names —
+    //     dealt nothing, and the keepsake die then deleted the one the
+    //     character had. Math.random is pinned to the instruction row's index
+    //     for the one build (it picks the row; the dice beneath run on core's
+    //     own generator), and restored before anything is created.
+    const keepsakeRows = {};
+    const origRandom = Math.random;
+    for (const [career, row] of [["Acolyte", "Spellbook"], ["Fence", "Random Additional Gear"],
+      ["Cultist", "Scroll of Random Spellbook"]]) {
+      const gear = bgs.find((b) => b.name === career)?.system.startingGear ?? [];
+      const idx = gear.findIndex((g) => g.name === row);
+      if (idx < 0) { keepsakeRows[career] = `no "${row}" row`; continue; }
+      Math.random = () => (idx + 0.5) / gear.length;
+      let item = null;
+      try {
+        item = await gen.buildFailedCareerItem(career);
+      } finally {
+        Math.random = origRandom;
+      }
+      keepsakeRows[career] = {
+        row, item: item?.name ?? null,
+        tagged: item?.flags?.["air-bladder"]?.grantSource === "failed-career",
+        weightless: item?.system?.weightless === true,
+      };
+    }
+
     for (const a of made) { try { await a.delete(); } catch { /* already gone */ } }
-    return { setup, character, edit, regen, transport, step6, bonds, dupGuard, control, collision, liveFlip };
+    return { setup, character, edit, regen, transport, step6, bonds, dupGuard, control, collision, liveFlip, keepsakeRows };
   });
 
   if (r.error) {
@@ -406,10 +447,21 @@ try {
   lf.on && lf.off
     ? ok("flipping barebones-failed-career re-renders the open sheet, both directions")
     : fail(`stale open sheet: appeared=${lf.on} left=${lf.off} — the toggle is read at render and needs the onChange fan`);
+
+  // Step 10: a keepsake drawn on an instruction row is dealt, not dropped.
+  if (Object.keys(r.keepsakeRows ?? {}).length !== 3) fail(`step 10 ran ${Object.keys(r.keepsakeRows ?? {}).length} of 3 careers`);
+  for (const [career, k] of Object.entries(r.keepsakeRows ?? {})) {
+    k?.item && k.tagged && k.weightless
+      ? ok(`a ${career} keepsake drawn on "${k.row}" deals ${k.item}, tagged and weightless`)
+      : fail(`${career} keepsake on an instruction row: ${JSON.stringify(k)}`);
+  }
   }
 } catch (e) {
   fail(`${e.name}: ${e.message}`);
 } finally {
+  // Every actor this run created, generated children included (review #34
+  // findings 150, 256, 259) — whatever a leg threw.
+  await sweepCreatedActors(page);
   if (errors.length) {
     console.error("\nconsole errors:");
     errors.slice(0, 15).forEach((e) => console.error("  " + e));

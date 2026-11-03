@@ -1,4 +1,4 @@
-import { resolveGearItem, buildGearItem } from "./gear.js";
+import { resolveGearItem, buildGearItem, warmGearItems } from "./gear.js";
 import { resultText } from "./compendium.js";
 import { getBackgroundsFor, withGrantSource, randomPortraitPair, kettlewrightPortraitPath, FLAG_SCOPE } from "./character-generator.js";
 import { CairnActor } from "./actor/actor.js";
@@ -355,9 +355,15 @@ const importItem = async (kw) => {
  * payload plus a `report` of what matched / fell back (for the summary dialog).
  * Async because item and background resolution read compendium packs.
  * @param {Object} json  a parsed Kettlewright character export
+ * @param {Object} [options]
+ * @param {{defaultName?: string|null, traitsLabel?: string|null}} [options.labels]
+ *   the two strings this writes INTO the character, composed by the REQUESTER's
+ *   client in its language (review #34 finding 244): on the importKW relay this
+ *   runs on the Warden's client, whose `localize` is the Warden's language, and
+ *   the player read it on their own character. Absent, this client composes them.
  * @returns {Promise<{ data: Object, report: Object }>}
  */
-export const kettlewrightToActorData = async (json) => {
+export const kettlewrightToActorData = async (json, { labels = null } = {}) => {
   const report = { name: json?.name ?? "", matched: [], fallback: [], fatigue: 0, skipped: [], background: null, containers: [] };
 
   // --- Background: match by name, else keep the raw string ------------------
@@ -383,6 +389,9 @@ export const kettlewrightToActorData = async (json) => {
   // --- Items: flatten every container's contents onto the character ---------
   const FATIGUE = FATIGUE_NAME;
   const items = [];
+  // Every exported name's pack document in one request per pack, so each
+  // `importItem` below reads the cache (review #34 finding 207).
+  await warmGearItems((json.items ?? []).map((kw) => kw?.name).filter(Boolean));
   for (const kw of json.items ?? []) {
     // "Carrying X" markers are Kettlewright's container-load bookkeeping; with
     // containers flattened they mean nothing here.
@@ -486,7 +495,7 @@ export const kettlewrightToActorData = async (json) => {
     report.traits = Object.keys(traits).length;
     report.age = age;
     if (!report.traits && !age) {
-      const label = game.i18n.localize("CAIRN.KWImport.TraitsLabel");
+      const label = labels?.traitsLabel ?? game.i18n.localize("CAIRN.KWImport.TraitsLabel");
       notes = (notes ? `${notes}\n\n` : "") + `${label} ${traitText}`;
       report.traitsUnparsed = true;
     }
@@ -497,7 +506,7 @@ export const kettlewrightToActorData = async (json) => {
   const armorN = parseInt(json.armor, 10);
   const armorOverride = Number.isFinite(armorN) && armorN > 0 ? armorN : null;
 
-  const name = json.name || game.i18n.localize("CAIRN.KWImport.DefaultName");
+  const name = json.name || (labels?.defaultName ?? game.i18n.localize("CAIRN.KWImport.DefaultName"));
   const data = {
     name,
     system: {
@@ -793,7 +802,7 @@ const promptImportOptions = async () => {
  * genuine export passes through unchanged in meaning; what cannot pass is a
  * payload smuggling extra keys toward Actor.create, or an items array built
  * to grind the Warden's client (each item is a sequential await against the
- * gear packs, ~25s cold for a NORMAL inventory).
+ * gear packs: seconds for a normal inventory, so thousands would be minutes).
  *
  * Returns null when the payload is not plausibly a character export — the
  * one refusal that is a judgement rather than a coercion — so the broker can
@@ -882,9 +891,17 @@ export const sanitizeKettlewrightExport = (json) => {
  *   the generatePC relay records at createActorWithCharacter.
  * @returns {Promise<{actor: CairnActor|null, report: Object}>}
  */
-export const performKettlewrightImport = async (json, { ownership = null } = {}) => {
-  const { data, report } = await kettlewrightToActorData(json);
+export const performKettlewrightImport = async (json, { ownership = null, labels = null } = {}) => {
+  const { data, report } = await kettlewrightToActorData(json, { labels });
   if (ownership) data.ownership = ownership;
+  // THE PARTY FOLDER (review #34 finding 174), where Create PC beside this
+  // button files a new character — `createActorInteractive` on the direct
+  // path, the generatePC relay on the other (review #33). Both of this
+  // import's doors run this function, so they file here, made on demand; a
+  // player who may not make the folder gets the root, as Create PC does.
+  // Dynamic, as character-generator.js reaches party-pile.js.
+  const { partyFolderId } = await import("./party-pile.js");
+  data.folder = await partyFolderId();
   const actor = await CairnActor.create(data);
   return { actor: actor ?? null, report };
 };
@@ -983,6 +1000,12 @@ export const importKettlewrightCharacter = async () => {
   // every other client's JS heap is no place for it.
   game.socket.emit(`system.${game.system.id}`, {
     action: "importKW", json,
+    // In THIS client's language, for the text the Warden's client writes into
+    // this player's character (review #34 finding 244, kettlewrightToActorData).
+    labels: {
+      defaultName: game.i18n.localize("CAIRN.KWImport.DefaultName"),
+      traitsLabel: game.i18n.localize("CAIRN.KWImport.TraitsLabel"),
+    },
   }, { recipients: [gm.id] });
   return null;
 };

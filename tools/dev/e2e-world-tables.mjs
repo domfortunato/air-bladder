@@ -3,7 +3,7 @@
  * WORLD-FIRST TABLES (2026-09-13): every table a generator declares resolves to
  * a RollTable in the Warden's world of the same name before the shipped pack.
  *
- *   node tools/dev/world-tables-probe.mjs   (needs Foundry running, world launched)
+ *   node tools/dev/e2e-world-tables.mjs   (needs Foundry running, world launched)
  *
  * What it holds, and why each leg is there:
  *   1. THE RESOLVER, over every declaration — read IN-PAGE off CONFIG.Cairn (a
@@ -43,9 +43,12 @@
  */
 
 import { chromium } from "playwright";
-import { VIEWPORT, joinAsGM, watchErrors } from "./lib.mjs";
+import { VIEWPORT, joinAsGM, watchErrors, watchdog, holdAsideWorldTables } from "./lib.mjs";
 
 const browser = await chromium.launch();
+// The fleet's hang guard (review #34): without it a hang runs to the runner's
+// 65-minute cap and skips every restore. A bound on a hang, not a timing claim.
+watchdog(900000, "dev:world-tables");
 const page = await browser.newContext({ viewport: VIEWPORT }).then((c) => c.newPage());
 const errors = watchErrors(page);
 let failed = false;
@@ -73,10 +76,9 @@ try {
     ? console.log(`  --    swept leftovers first: ${pre.tables.length} table(s) ${pre.tables.join(", ")}, ${pre.actors} actor(s), ${pre.messages} card(s)`)
     : ok("nothing planted left behind by an earlier run — the legs below start clean");
 
-  /* ---- 1. the resolver, every declaration --------------------------------- */
-  console.log("\nthe resolver, over every declared table");
-  const r = await page.evaluate(async ({ MARK, FLAG }) => {
-    const comp = await import("/systems/air-bladder/module/compendium.js");
+  // Every declaration, read IN-PAGE off CONFIG.Cairn (a probe-side list is a
+  // copy that goes stale).
+  const declList = await page.evaluate(async () => {
     const C = CONFIG.Cairn;
     const decls = new Set([
       ...Object.values(C.characterGenerator2e.biography.items),
@@ -89,6 +91,23 @@ try {
     // The Barebones creation tables are looked up by name inside the generator
     // and declared nowhere in CONFIG, so read the pack's own index for them.
     for (const e of await game.packs.get("air-bladder.tables-barebones").getIndex()) decls.add(`air-bladder.tables-barebones;${e.name}`);
+    return [...decls];
+  });
+  // The baseline says every declaration resolves to the PACK, and every leg
+  // after it needs the planted table to win. A Warden's own copies of the same
+  // names (the 2e door's eight traits and Scars, in the fleet's baseline world,
+  // run 20261030T202049Z) are the first world tables of those names and would
+  // win instead: set them aside in-page, nothing written. Held by id before the
+  // plant, so the planted tables stay visible.
+  const declName = (d) => (d.includes(";") ? d.split(";")[1] : d).trim();
+  const held = await holdAsideWorldTables(page, [...new Set(declList.map(declName))]);
+  if (held.length) console.log(`  --    set aside the world's own ${held.map((t) => t.name).join(", ")}`);
+
+  /* ---- 1. the resolver, every declaration --------------------------------- */
+  console.log("\nthe resolver, over every declared table");
+  const r = await page.evaluate(async ({ MARK, FLAG, declList }) => {
+    const comp = await import("/systems/air-bladder/module/compendium.js");
+    const decls = new Set(declList);
     const nameOf = (d) => (d.includes(";") ? d.split(";")[1] : d).trim();
     const packOf = (d) => (d.includes(";") ? d.split(";")[0] : null);
 
@@ -127,7 +146,7 @@ try {
       if (old?.pack && old.id !== mine?.id) out.control++; else out.controlMiss.push(d);
     }
     return out;
-  }, { MARK, FLAG });
+  }, { MARK, FLAG, declList });
 
   r.baselinePack === r.count && r.baselineMiss.length === 0
     ? ok(`${r.count} declared tables, every one resolving to a PACK document before anything is planted`)
@@ -216,6 +235,38 @@ try {
   !dr.hasUuid && dr.hasItem
     ? ok(`a document row reads as its NAME in a generated monster: "${dr.name}"`)
     : fail(`a document row on the feature table produced "${dr.name}" — @UUID: ${dr.hasUuid}, item name: ${dr.hasItem}`);
+
+  /* ---- 2c. a DOCUMENT row on a Warden's trait table (review #34 F131) ------ */
+  // The trait reader is generation's, the Roll Character checklist's and the
+  // per-trait die's (rollTextItems), and it stored a document row as chat
+  // text: the trait sentence printed `@UUID[...]{name}` raw, and the pick-list
+  // beside the die, which lists plain names, could not select it.
+  console.log("\na document row on a world trait table");
+  const tr = await page.evaluate(async ({ MARK, FLAG }) => {
+    const cg = await import("/systems/air-bladder/module/character-generator.js");
+    const [key, decl] = Object.entries(CONFIG.Cairn.characterGenerator2e.biography.items)[0];
+    const name = decl.includes(";") ? decl.split(";")[1] : decl;
+    const item = await CONFIG.Item.documentClass.create({
+      name: `${MARK}Trait Doc`, type: "item", flags: { "air-bladder": { [FLAG]: true } },
+    });
+    const table = game.tables.find((x) => x.name === name && x.getFlag("air-bladder", FLAG));
+    const swap = async (rows) => {
+      await table.deleteEmbeddedDocuments("TableResult", table.results.map((r) => r.id));
+      await table.createEmbeddedDocuments("TableResult", rows);
+    };
+    let value = null;
+    try {
+      await swap([{ type: "document", documentUuid: item.uuid, name: item.name, range: [1, 20], weight: 1 }]);
+      value = (await cg.rollTextItems({ [key]: decl }))[key];
+    } finally {
+      await swap([{ type: "text", description: `${MARK}${name}`, range: [1, 20], weight: 1 }]);   // the later legs read the marker
+      await item.delete();
+    }
+    return { table: name, value, want: `${MARK}Trait Doc` };
+  }, { MARK, FLAG });
+  tr.value === tr.want
+    ? ok(`a document row on the world ${tr.table} table stores as its NAME: "${tr.value}"`)
+    : fail(`a document row on the world ${tr.table} table stored ${JSON.stringify(tr.value)}, not "${tr.want}"`);
 
   /* ---- 3. the picker ------------------------------------------------------- */
   console.log("\nthe NPC Background pick-list");
@@ -333,6 +384,45 @@ try {
   sd.card?.includes(MARK)
     ? ok("a scar row a hand draw marked `drawn` still scars — the damage flow selects by range, never through roll()'s drawn filter")
     : fail(`no scar from a drawn row: ${sd.card === null ? "no card posted" : sd.card.slice(0, 120)}`);
+
+  /* ---- 4b. a WARDEN-WRITTEN row reads as its text (review #34 F225) ------- */
+  // Core v14's table editor has no inline text field: `+` makes an empty row
+  // whose config offers a Name input and a ProseMirror Description, which saves
+  // `<p>…</p>`. F092's fix taught the generators to read either; the bond draw,
+  // the Omen die and the trait readers still read the description raw, so a
+  // row typed into Name drew a BLANK bond (and the die did nothing), and one
+  // written into Description stored a literal "<p>…</p>". The Warden's own
+  // Bonds and Omens are held aside in-page; the plants carry this probe's flag.
+  console.log("\na row the Warden typed into Name, or into the Description editor");
+  await holdAsideWorldTables(page, ["Bonds", "Omens"]);
+  const wr = await page.evaluate(async ({ FLAG }) => {
+    const gen = await import("/systems/air-bladder/module/character-generator.js");
+    const RT = CONFIG.RollTable.documentClass;
+    const flags = { "air-bladder": { [FLAG]: true } };
+    await RT.create({ name: "Bonds", formula: "1d1", replacement: true, flags,
+      results: [{ type: "text", name: "ZZ Name-only bond", description: "", range: [1, 1], weight: 1 }] });
+    await RT.create({ name: "Omens", formula: "1d1", replacement: true, flags,
+      results: [{ type: "text", name: "", description: "<p>ZZ Paragraph omen</p>", range: [1, 1], weight: 1 }] });
+    const bond = await gen.drawBond("Bonds");
+    const pc = await Actor.create({ name: "ZZ World-table Omen PC", type: "character", flags,
+      system: { generationEnabled: true, omenEnabled: true } });
+    await pc.sheet.render(true);
+    for (let i = 0; i < 40 && !pc.sheet.element; i++) await new Promise((r) => setTimeout(r, 100));
+    await new Promise((r) => setTimeout(r, 500));
+    pc.sheet.element.querySelector('.tabs .item[data-tab="description"]')?.click();
+    await new Promise((r) => setTimeout(r, 300));
+    const die = pc.sheet.element.querySelector('[data-action="rollOmen"]');
+    die?.click();
+    for (let i = 0; i < 40 && !pc.system.omen; i++) await new Promise((r) => setTimeout(r, 100));
+    await pc.sheet.close();
+    return { bond: bond?.description ?? null, omen: pc.system.omen ?? null, dieFound: !!die };
+  }, { FLAG });
+  wr.bond === "ZZ Name-only bond"
+    ? ok(`a bond row typed into Name draws as its name ("${wr.bond}")`)
+    : fail(`a Name-only bond row drew ${JSON.stringify(wr.bond)} — blank, so the character got an empty bond`);
+  wr.dieFound && wr.omen === "ZZ Paragraph omen"
+    ? ok(`an omen row written in the Description editor reads as its text ("${wr.omen}")`)
+    : fail(`the Omen die stored ${JSON.stringify(wr.omen)} from a Description-written row (die found: ${wr.dieFound})`);
 
   /* ---- 5. restore ---------------------------------------------------------- */
   console.log("\nrestore");

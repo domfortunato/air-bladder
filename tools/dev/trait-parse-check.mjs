@@ -106,9 +106,11 @@ run("Solene (real Kettlewright export)", fixture.traits, {
 
 // Air Bladder's own sentence writes vice BEFORE virtue. Parsing has to survive
 // the round trip in both directions, or an export of our own character would
-// import back with the two swapped.
+// import back with the two swapped. And it has no "a" before the physique
+// since review #34 finding 185 ("{value} Physique", like Skin and Hair: "a
+// Athletic" was what the fixed article wrote), unlike Kettlewright's above.
 run("Air Bladder's own ordering (vice first)",
-  "You have a Lanky Physique, Scarred Skin, and Wild Hair. Your Face is Broken, your Speech Blunt. " +
+  "You have Lanky Physique, Scarred Skin, and Wild Hair. Your Face is Broken, your Speech Blunt. " +
   "You have Frayed Clothing. You are Greedy and Merciful. You are 22 years old.", {
   traits: {
     physique: "Lanky", skin: "Scarred", hair: "Wild", face: "Broken",

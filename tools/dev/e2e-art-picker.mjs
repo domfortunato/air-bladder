@@ -74,7 +74,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
-import { VIEWPORT, joinAsGM, dismissChrome, watchErrors } from "./lib.mjs";
+import { VIEWPORT, joinAsGM, dismissChrome, watchErrors, watchdog } from "./lib.mjs";
 
 // The gallery's shape comes from the shipped manifest, not from a literal:
 // this file said "23" long after Birds became the 24th category (7044e91), and
@@ -97,6 +97,14 @@ const LY_MON_COUNT = LY_MON.pairs.length;
 const LY_MON_FIRST = LY_MON.pairs[0];
 
 const browser = await chromium.launch();
+
+// The fleet's hang guard (review #34 finding 25): without it a hang runs to
+
+// the runner's 65-minute cap, skips every restore, and the box is never
+
+// marked suspect. A bound on a hang, not a timing claim.
+
+watchdog(600000, "art-picker probe", () => browser.close());
 const page = await browser.newPage({ viewport: VIEWPORT });
 const errors = watchErrors(page);
 let failures = 0;
@@ -104,6 +112,10 @@ const ok = (l, d = "") => console.log(`  ok    ${l.padEnd(46)} ${d}`);
 const fail = (l, d = "") => { console.log(`  FAIL  ${l.padEnd(46)} ${d}`); failures++; };
 const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 
+// The Warden's portrait folder, read before the leg that rescans and put back
+// from the FINALLY as well as on the success path (review #34 finding 26): the
+// straight-line restore below never ran when a leg between threw.
+let priorArt = null;
 try {
   await joinAsGM(page);
   await dismissChrome(page);
@@ -504,6 +516,63 @@ try {
     ? ok("picking sets the item's art", item.img.split("/").pop())
     : fail("picking sets the item's art", JSON.stringify(item.img));
 
+  /* --- 3a'. a refused pick says the PICTURE failed (review #34 F59/F167) -- */
+
+  // A pick whose write is refused (a player's update walled, say) surfaced
+  // CAIRN.Notify.DropFailed: "Couldn't move that item — you may not have
+  // permission to change the receiving sheet." Nothing was being moved. The
+  // pick now has its own toast, wording signed off 2026-10-31. The refusal is
+  // forced IN-PAGE by shadowing this one item's `update` (no real write), and
+  // the error commit() logs on purpose is swallowed so watchErrors does not
+  // count the failure this leg asks for. All three shadows go in a finally.
+  const refused = await page.evaluate(async () => {
+    const it = await Item.create({ name: "ZZ Art Refused", type: "item" });
+    const sheet = it.sheet;
+    const seen = [];
+    const notes = ui.notifications;
+    const hadOwn = Object.hasOwn(notes, "error");
+    const origNote = notes.error;
+    const origConsoleError = console.error;
+    try {
+      notes.error = function (msg, ...rest) { seen.push(String(msg)); return origNote.call(this, msg, ...rest); };
+      // Two echoes of the failure asked for: commit()'s own log, and core's —
+      // an error toast writes its text to the console too (measured on the
+      // fleet, 4c7db9c6). Only those; anything else still reaches watchErrors.
+      console.error = (...a) => {
+        const text = String(a[0]);
+        if (text.startsWith("Air Bladder | art pick failed") || seen.some((s) => text.includes(s))) return;
+        origConsoleError.apply(console, a);
+      };
+      it.update = () => Promise.reject(new Error("probe: the write is refused"));
+      await sheet.render(true);
+      const action = sheet.constructor.DEFAULT_OPTIONS.actions.editImage;
+      await action.call(sheet, new Event("click"), null);
+      const dlg = [...foundry.applications.instances.values()]
+        .find((x) => x.constructor.name === "DialogV2" && x.element?.querySelector(".cairn-portrait-gallery"));
+      const root = dlg?.element;
+      root?.querySelector('.cairn-portrait-tab[data-tab="gameicons"]')?.click();
+      root?.querySelector('.cairn-icon-folder[data-category="tools"]')?.click();
+      root?.querySelector(".cairn-icon-category .cairn-portrait-choice")?.click();
+      await new Promise((r) => setTimeout(r, 600));
+      return {
+        opened: !!dlg,
+        seen,
+        want: game.i18n.localize("CAIRN.Notify.ArtPickFailed"),
+        dropFailed: game.i18n.localize("CAIRN.Notify.DropFailed"),
+      };
+    } finally {
+      if (hadOwn) notes.error = origNote; else delete notes.error;
+      console.error = origConsoleError;
+      delete it.update;
+      await sheet.close();
+      await it.delete();
+    }
+  });
+  refused.opened && refused.seen.length === 1 && refused.seen[0] === refused.want
+    ? ok("a refused pick says the picture failed", JSON.stringify(refused.seen[0]))
+    : fail("a refused pick says the picture failed",
+        `${JSON.stringify(refused.seen)} (wanted ${JSON.stringify(refused.want)}; DropFailed is ${JSON.stringify(refused.dropFailed)})`);
+
   /* --- 3b. the portrait die re-rolls within the current folder ----------- */
 
   const roll = await page.evaluate(async ({ beastFirst }) => {
@@ -636,7 +705,7 @@ try {
   // Both settings are captured and restored, and the restoration is ASSERTED.
   // Restoring the folder re-fires its onChange, which rescans and puts the
   // cached list back by itself — checked rather than assumed.
-  const priorArt = await page.evaluate(() => ({
+  priorArt = await page.evaluate(() => ({
     folder: game.settings.get("air-bladder", "custom-portrait-folder"),
     list: game.settings.get("air-bladder", "custom-portrait-list"),
   }));
@@ -790,6 +859,55 @@ try {
     : fail("a nested tile's face decodes and its drill-down resolves",
         `key ${tidy.firstKey}, face decodes ${tidy.faceDecodes}, ${tidy.drilled?.length} cell(s)`);
 
+  // ONE LEVEL AT A TIME, SIDE BY SIDE (review #34 finding 208). The scan
+  // browsed one folder per awaited request, so Refresh waited for the sum of
+  // every folder's round trip. The folders at one depth do not depend on each
+  // other. Measured on `tidy`'s root (still the folder setting here, restored
+  // below): `browse` is wrapped on the FilePicker class to count requests in
+  // flight, and one refresh must have more than one at once. Witness: a plain
+  // serial walk of the same root, by hand in this leg, finds the SAME images
+  // in the SAME order, and the walk made more than two requests.
+  const walk = await page.evaluate(async () => {
+    const gen = await import("/systems/air-bladder/module/character-generator.js");
+    const FP = foundry.applications.apps.FilePicker.implementation;
+    const dir = game.settings.get("air-bladder", "custom-portrait-folder");
+    const img = (f) => /\.(?:webp|png|jpe?g|gif|svg|avif|bmp)$/i.test(f);
+    const expected = [];
+    const seen = new Set([dir]);
+    const root = await FP.browse("data", dir);
+    expected.push(...(root?.files ?? []).filter(img));
+    const queue = (root?.dirs ?? []).map((path) => ({ path, depth: 1 }));
+    while (queue.length) {
+      const { path, depth } = queue.shift();
+      if (seen.has(path)) continue;
+      seen.add(path);
+      const res = await FP.browse("data", path);
+      expected.push(...(res?.files ?? []).filter(img));
+      if (depth < 6) queue.push(...(res?.dirs ?? []).map((p) => ({ path: p, depth: depth + 1 })));
+    }
+    const own = Object.hasOwn(FP, "browse");
+    const orig = FP.browse;
+    let inFlight = 0, peak = 0, calls = 0;
+    let files;
+    try {
+      FP.browse = async function (...args) {
+        calls += 1; inFlight += 1; peak = Math.max(peak, inFlight);
+        try { return await orig.apply(this, args); } finally { inFlight -= 1; }
+      };
+      files = await gen.refreshCustomPortraits();
+    } finally {
+      if (own) FP.browse = orig; else delete FP.browse;
+    }
+    return { dir, peak, calls, n: files.length, expected: expected.length,
+      same: JSON.stringify(files) === JSON.stringify(expected) };
+  });
+  walk.same && walk.n > 0 && walk.calls > 2
+    ? ok("witness: the scan finds what a serial walk finds, in the same order", `${walk.n} images, ${walk.calls} requests under "${walk.dir}"`)
+    : fail("witness: the scan finds what a serial walk finds, in the same order", JSON.stringify(walk));
+  walk.peak > 1
+    ? ok("the scan browses a level's folders side by side", `${walk.peak} requests in flight at once`)
+    : fail("the scan browses a level's folders side by side", `peak ${walk.peak} in flight over ${walk.calls} requests: one folder at a time`);
+
   const restored = await page.evaluate(async (prior) => {
     const NS = "air-bladder";
     await game.settings.set(NS, "custom-portrait-folder", prior.folder);
@@ -848,6 +966,12 @@ try {
 } catch (err) {
   fail("probe threw", err.message);
 } finally {
+  if (priorArt) {
+    await page.evaluate(async (prior) => {
+      if (game.settings.get("air-bladder", "custom-portrait-folder") === prior.folder) return;
+      await game.settings.set("air-bladder", "custom-portrait-folder", prior.folder);
+    }, priorArt).catch((e) => fail("restoring the portrait folder", e.message));
+  }
   await browser.close();
 }
 

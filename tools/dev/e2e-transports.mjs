@@ -4,7 +4,7 @@
  * shop references (not an inlined price list), that buying one mints a
  * keeper-linked container Actor, and that the worn/mount slot distinction holds.
  *
- *   node tools/dev/transport-probe.mjs    (needs Foundry running, world launched)
+ *   node tools/dev/e2e-transports.mjs    (needs Foundry running, world launched)
  *
  * Steps, driven headless as GM:
  *   1. ONE pack: the shop's "Transports & Containers" table references the
@@ -21,7 +21,10 @@
  *   3b. Buy a VEHICLE (Cart): role transport and hp 0/0 cross the till from the
  *      document -- the review-#5 stat-block guarantee.
  *   4. Edit the Mule ACTOR document's capacity in the pack, buy another, and
- *      assert the new NPC reflects the edit -- the reference guarantee.
+ *      assert the new NPC reflects the edit -- the reference guarantee. The
+ *      Warden's own `Market: Transports & Containers` aisle, if any, is held
+ *      aside in-page at entry, so the shop sells the PACK documents every leg
+ *      compares against, and this edit never touches a world document.
  *   5. Buying refuses when the buyer cannot afford it.
  *   6. Everything bought is an npc now, so all of it is directory-visible.
  *   7. Revert the document and delete every actor the probe made.
@@ -29,9 +32,12 @@
  */
 
 import { chromium } from "playwright";
-import { VIEWPORT, joinAsGM, watchErrors } from "./lib.mjs";
+import { VIEWPORT, hideTablesInPage, joinAsGM, watchErrors, watchdog } from "./lib.mjs";
 
 const browser = await chromium.launch();
+// The fleet's hang guard (review #34): without it a hang runs to the runner's
+// 65-minute cap and skips every restore. A bound on a hang, not a timing claim.
+watchdog(900000, "dev:transports");
 const page = await browser.newContext({ viewport: VIEWPORT }).then((c) => c.newPage());
 const errors = watchErrors(page);
 let failed = false;
@@ -40,6 +46,18 @@ const ok = (m) => console.log(`  ok    ${m}`);
 
 try {
   await joinAsGM(page);
+
+  // HELD ASIDE AT ENTRY, NEVER WRITTEN (review #34 finding 111), by
+  // dev:marketplace's mechanism: the shop is world first, so a Warden's own
+  // aisle (the Marketplace door's copy, pointing at WORLD mounts) made leg 4
+  // edit the Warden's Mule and left every other leg comparing the shop
+  // against pack documents it no longer sold.
+  const heldAisles = await page.evaluate(async () => {
+    const { TRANSPORTS_CATEGORY } = await import("/systems/air-bladder/module/marketplace.js");
+    return game.tables.filter((t) => t.name === `Market: ${TRANSPORTS_CATEGORY}`).map((t) => t.id);
+  });
+  await hideTablesInPage(page, heldAisles);
+  if (heldAisles.length) console.log(`  --    held aside ${heldAisles.length} world Transports & Containers aisle(s) in-page, nothing written`);
 
   const r = await page.evaluate(async () => {
     const mkt = await import("/systems/air-bladder/module/marketplace.js");
@@ -319,23 +337,49 @@ try {
 
     // 4. Edit the Mule ACTOR document (the one the shop row references now);
     //    a newly bought one must reflect it -- the reference guarantee.
-    const wasLocked = aPack.locked;
-    if (wasLocked) await aPack.configure({ locked: false });
-    const origSlots = mule.system.slots;
-    await mule.update({ "system.slots": origSlots + 5 });
-    const catalog2 = await mkt.getMarketplaceCatalog();
-    const cat2 = catalog2.categories.find((c) => c.name === "Transports & Containers");
-    await mkt.acquireTransport(buyer, cat2.items.find((i) => i.name === "Mule"), true);
-    const mules = game.actors.filter((a) => a.type === "npc" && a.name === "Mule" && a.system.connectedTo === buyer.uuid);
-    const newMule = mules[mules.length - 1];
-    if (newMule && !made.includes(newMule)) made.push(newMule);
-    const edit = {
-      flowed: newMule?.system.slotsMax === origSlots + 5,
-      got: newMule?.system.slotsMax,
-      expected: origSlots + 5,
-    };
-    await mule.update({ "system.slots": origSlots });
-    if (wasLocked) await aPack.configure({ locked: true });
+    //
+    //    A world RollTable named as the shipped aisle REPLACES it
+    //    (marketplace.js `marketTables`, the last world table of the name
+    //    winning), and the Marketplace take-over door points its copy's rows at
+    //    world copies of the mounts. On the fleet's baseline world the shop sold
+    //    the world's Mule (run 20261030T202049Z: got 6, expected 11). Any such
+    //    aisle is held aside at entry, so the row resolves to the PACK's Mule;
+    //    it is still read the way the shop reads it, by `documentUuid`, and the
+    //    edit is restored in a finally. The node side FAILs if it ever lands on
+    //    a world document.
+    const aisleName = `Market: ${mkt.TRANSPORTS_CATEGORY}`;
+    const aisle = game.tables.filter((t) => t.name === aisleName).at(-1)
+      ?? (await game.packs.get("air-bladder.marketplace").getDocuments()).find((t) => t.name === aisleName);
+    let target = null;
+    for (const x of aisle?.results ?? []) {
+      if (x.type !== CONST.TABLE_RESULT_TYPES.DOCUMENT) continue;
+      const d = await fromUuid(x.documentUuid);
+      if (d?.name === "Mule") { target = d; break; }
+    }
+    // No early return: the cleanup below must still run.
+    let edit = { flowed: false, got: `no Mule row in "${aisleName}"`, expected: "one", source: aisle?.pack ?? (aisle ? "world" : "missing") };
+    const targetPack = target?.pack ? game.packs.get(target.pack) : null;
+    const wasLocked = !!targetPack?.locked;
+    const origSlots = target?.system.slots;
+    if (target) try {
+      if (wasLocked) await targetPack.configure({ locked: false });
+      await target.update({ "system.slots": origSlots + 5 });
+      const catalog2 = await mkt.getMarketplaceCatalog();
+      const cat2 = catalog2.categories.find((c) => c.name === "Transports & Containers");
+      await mkt.acquireTransport(buyer, cat2.items.find((i) => i.name === "Mule"), true);
+      const mules = game.actors.filter((a) => a.type === "npc" && a.name === "Mule" && a.system.connectedTo === buyer.uuid);
+      const newMule = mules[mules.length - 1];
+      if (newMule && !made.includes(newMule)) made.push(newMule);
+      edit = {
+        flowed: newMule?.system.slotsMax === origSlots + 5,
+        got: newMule?.system.slotsMax,
+        expected: origSlots + 5,
+        source: target.pack ?? "world",
+      };
+    } finally {
+      await target.update({ "system.slots": origSlots });
+      if (wasLocked) await targetPack.configure({ locked: true });
+    }
 
     // 5. Affordability: a pauper cannot buy a Wagon.
     const pauper = await CONFIG.Actor.documentClass.create({
@@ -391,7 +435,7 @@ try {
     r.setup.stockedCount === 7 && r.setup.shopCount === 7
       ? ok("7 stocked, and the shop lists all 7")
       : fail(`expected 7 stocked / 7 shop rows, got ${r.setup.stockedCount}/${r.setup.shopCount}`);
-    // Covered in depth by tools/dev/bg-container-probe.mjs; asserted here so a
+    // Covered in depth by tools/dev/e2e-bg-containers.mjs; asserted here so a
     // beast can never leak into the shop unnoticed.
     r.setup.beastCount === 10
       ? ok("10 background-granted beasts share the pack but not the shop", "incl. round 6's Falcon and Raven")
@@ -452,7 +496,13 @@ try {
       ? ok("   and the nesting toast leaves a token PC's name alone too")
       : fail(`the nesting toast renamed a token PC: "${r.names.tokToast}"`);
 
-    r.edit.flowed ? ok(`EDIT FLOWS THROUGH: capacity ${r.edit.expected} on the next one bought`) : fail(`document edit did not flow through (got ${r.edit.got}, expected ${r.edit.expected})`);
+    r.edit.flowed ? ok(`EDIT FLOWS THROUGH: capacity ${r.edit.expected} on the next one bought (the ${r.edit.source} Mule)`) : fail(`document edit did not flow through (got ${r.edit.got}, expected ${r.edit.expected}, the ${r.edit.source} Mule)`);
+    // The edit is a write, so it must land on the SHIPPED pack, never on the
+    // Warden's world copy (review #34 finding 111): a killed run strands
+    // whatever it touched, and every leg above compares against the pack.
+    r.edit.source === "air-bladder.mounts-transports"
+      ? ok("the capacity edit lands on the shipped pack's Mule, not the Warden's")
+      : fail(`the capacity edit landed on the ${r.edit.source} Mule — this probe wrote the Warden's own document`);
 
     r.afford.refused && r.afford.noActor && r.afford.goldIntact ? ok("an unaffordable transport is refused, mints nothing, spends nothing") : fail("affordability check did not hold");
 
@@ -466,6 +516,46 @@ try {
       ? ok("the carrier's thumbnail is greyed", "matches its sheet")
       : fail("the carrier's thumbnail is greyed", "directory reads colour where the sheet reads grey");
   }
+
+  // A STATTED companion bought from the shop is the document the compendium
+  // ships (review #34 finding 87). acquireTransport copied a hand-picked subset
+  // (hp, armorOverride, the token's art), so the shipped Falcon — STR 5 /
+  // DEX 16 / WIL 4 — stocked from Mounts & Transports was sold as 10/10/10. A
+  // world Market table naming it is the Warden's own documented flow; the
+  // shipped Transports rows carry no stat block, which is why nothing saw it.
+  const statted = await page.evaluate(async () => {
+    const mkt = await import("/systems/air-bladder/module/marketplace.js");
+    const aPack = game.packs.get("air-bladder.mounts-transports");
+    const falcon = (await aPack.getDocuments()).find((d) => d.name === "Falcon");
+    if (!falcon) return { error: "no Falcon in mounts-transports" };
+    const made = [];
+    try {
+      const table = await CONFIG.RollTable.documentClass.create({
+        name: "Market: ZZ Statted", formula: "1d1",
+        results: [{ type: "document", documentUuid: falcon.uuid, name: falcon.name, range: [1, 1], weight: 1 }],
+      });
+      made.push(table);
+      const buyer = await Actor.create({ name: "ZZ Statted Buyer", type: "character" });
+      made.push(buyer);
+      const catalog = await mkt.getMarketplaceCatalog();
+      const row = (catalog.categories ?? []).find((c) => c.name === "ZZ Statted")?.items.find((i) => i.name === "Falcon");
+      if (!row) return { error: "the world aisle did not stock the Falcon" };
+      await mkt.acquireTransport(buyer, row, false);
+      const bought = game.actors.find((a) => a.name === "Falcon" && a.system.connectedTo === buyer.uuid);
+      if (bought) made.push(bought);
+      const abil = (a) => ["STR", "DEX", "WIL"].map((k) => a?.system.abilities?.[k]?.value).join("/");
+      return {
+        source: abil(falcon), bought: abil(bought),
+        sourceItems: falcon.items.size, boughtItems: bought?.items.size ?? null,
+        connected: bought?.system.connectedTo === buyer.uuid,
+      };
+    } finally {
+      for (const d of made.reverse()) { try { await d.delete(); } catch { /* gone */ } }
+    }
+  });
+  !statted.error && statted.connected && statted.bought === statted.source && statted.boughtItems === statted.sourceItems
+    ? ok("a statted companion bought from a world aisle keeps its stat block and items", JSON.stringify(statted))
+    : fail(`a statted companion bought from the shop: ${JSON.stringify(statted)}`);
 } catch (e) {
   fail(`${e.name}: ${e.message}`);
 } finally {

@@ -22,7 +22,7 @@
  * Usage: npm run dev:warden-rename
  */
 import { chromium } from "playwright";
-import { VIEWPORT, joinAsGM, watchErrors, dismissChrome } from "./lib.mjs";
+import { VIEWPORT, joinAsGM, watchErrors, dismissChrome, watchdog } from "./lib.mjs";
 
 const NS = "air-bladder";
 const ORIGINAL = "Gamemaster";
@@ -33,6 +33,14 @@ const ok = (m) => console.log(`  ok    ${m}`);
 const fail = (m) => { console.error(`  FAIL  ${m}`); failed = true; };
 
 const browser = await chromium.launch();
+
+// The fleet's hang guard (review #34 finding 25): without it a hang runs to
+
+// the runner's 65-minute cap, skips every restore, and the box is never
+
+// marked suspect. A bound on a hang, not a timing claim.
+
+watchdog(600000, "warden-rename probe", () => browser.close());
 const page = await browser.newContext({ viewport: VIEWPORT }).then((c) => c.newPage());
 const errors = watchErrors(page);
 await joinAsGM(page);
@@ -119,14 +127,26 @@ try {
     : fail(`renamedFrom is ${JSON.stringify(r?.from)}, expected "${ORIGINAL}"`);
 
   // --- B + C. a deliberate name, and a name that cannot be taken -------------
+  // NEVER A USER THIS PROBE DID NOT MAKE (review #34 finding 32). `mk` used to
+  // delete any user of the name it was about to create — and when the rename
+  // under test regressed, the joined GM was still named "Gamemaster", so the
+  // probe deleted the world's own GM (and logged itself out). A leftover of a
+  // crashed run carries this probe's flag and may go; anybody else of that
+  // name means the leg cannot run, and it says so.
   extras = await page.evaluate(async ({ DELIBERATE, ORIGINAL }) => {
+    const FLAG = { "air-bladder": { probeFixture: "warden-rename" } };
     const mk = async (name) => {
       const dupe = game.users.find((u) => u.name === name);
+      if (dupe && dupe.getFlag("air-bladder", "probeFixture") !== "warden-rename") return null;
       if (dupe) await dupe.delete();
-      return (await User.create({ name, role: CONST.USER_ROLES.GAMEMASTER })).id;
+      return (await User.create({ name, role: CONST.USER_ROLES.GAMEMASTER, flags: FLAG })).id;
     };
     return [await mk(DELIBERATE), await mk(ORIGINAL)];
   }, { DELIBERATE, ORIGINAL });
+  if (extras.includes(null)) {
+    fail(`a user that is not this probe's already holds "${DELIBERATE}" or "${ORIGINAL}" — refusing to delete it; parts B and C cannot run`);
+    extras = extras.filter(Boolean);
+  }
 
   await reload();
   const [del, clash] = [await userState(extras[0]), await userState(extras[1])];

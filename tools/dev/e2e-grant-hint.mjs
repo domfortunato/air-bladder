@@ -7,9 +7,12 @@
  * the setting is off, the hint is hidden. Character sheets only.
  */
 import { chromium } from "playwright";
-import { VIEWPORT, joinAsGM, watchErrors } from "./lib.mjs";
+import { VIEWPORT, joinAsGM, watchErrors, watchdog } from "./lib.mjs";
 
 const browser = await chromium.launch();
+// The fleet's hang guard (review #34): without it a hang runs to the runner's
+// 65-minute cap and skips every restore. A bound on a hang, not a timing claim.
+watchdog(900000, "dev:grant-hint");
 const page = await browser.newContext({ viewport: VIEWPORT }).then((c) => c.newPage());
 const errors = watchErrors(page);
 let failed = false;
@@ -49,9 +52,16 @@ try {
       };
     };
 
-    out.on = await readHint(true);
-    out.off = await readHint(false);
-    await game.settings.set(NS, "show-grant-tags", true); // restore default
+    // RESTORE WHAT WAS THERE, never a hardcoded value (review #34 finding 27):
+    // this wrote `true` back whatever the world held, so a Warden who keeps
+    // grant tags off had them switched on by every run.
+    const prior = game.settings.get(NS, "show-grant-tags");
+    try {
+      out.on = await readHint(true);
+      out.off = await readHint(false);
+    } finally {
+      await game.settings.set(NS, "show-grant-tags", prior);
+    }
     return out;
   });
 

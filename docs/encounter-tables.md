@@ -38,8 +38,10 @@ the same way.
 A few rows name creatures the Monsters compendium does not have (Burrowing Horror,
 Creeping Vines, Night Cat, Root Witch, Will-o-Wisp, Kraken). Those rows still roll
 and still tell you what you met — they just have no button, because there is
-nothing to place. If you make your own actor for one, import the table, put a count
-in front, and drag your actor into the row; it lights up like any other.
+nothing to place. If you make your own actor for one, import the table, press
+**Edit**, and open that row's settings with the pen icon at its end. In its
+**Description**, put a count in front and drag your actor into the text; it
+lights up like any other.
 
 ## What the button does
 
@@ -74,6 +76,9 @@ Make a Rollable Table anywhere — the sidebar, a world compendium — and write
 result like this:
 
 > `1d6` *drag a monster from the Monsters compendium into the text* ` — your prose after`
+
+That text is the row's **Description**: press **Edit** at the top of the table's
+window, then the pen icon at the end of the row.
 
 Dragging the monster in creates a link in the text; the leading dice (or a plain
 number) are the quantity. That is the entire convention. A row qualifies for the

@@ -241,6 +241,9 @@ try {
     /* ---- 7. read-only actions on a locked pack ---------------------------- */
     console.log("\nread actions on a locked compendium sheet");
 
+    // The lock state is read and handed to the cleanup BEFORE the re-lock
+    // (review #34 finding 144), so a throw after it still unlocks the pack.
+    cleanup.packWasUnlocked = await page.evaluate(() => game.packs.get("air-bladder.monsters")?.locked === false);
     const packPrep = await page.evaluate(async () => {
       const pack = game.packs.get("air-bladder.monsters");
       if (!pack) return { error: "no air-bladder.monsters pack" };
@@ -419,6 +422,11 @@ try {
     /* ---- 1. grantContainers under a player WITH ACTOR_CREATE --------------- */
     console.log("\ngrantContainers on the ACTOR_CREATE-player path");
 
+    // The snapshot is taken in its OWN evaluate and handed to the cleanup BEFORE
+    // the widen (review #34 finding 144): returned from the evaluate that also
+    // wrote, it was lost on the not-a-PLAYER early return and on any throw
+    // after the write, and the finally then left PLAYER able to create actors.
+    cleanup.permSnap = await page.evaluate(() => JSON.stringify(game.settings.get("core", "permissions")));
     const grantPrep = await page.evaluate(async () => {
       const perms = foundry.utils.deepClone(game.settings.get("core", "permissions"));
       const snap = JSON.stringify(perms);
@@ -536,6 +544,41 @@ try {
     });
     cleanup.gm2Made = true;
     gm2Page = await (await browser.newContext({ viewport: VIEWPORT })).newPage();
+    // WAS GM2 THE ACTIVE GM AT ITS OWN READY? Recorded on its page at the
+    // ready tick (review #34, fleet 2026-10-31). The settle below assumed an
+    // elected GM2 always owes a login write — but the ready hook's scan is
+    // gated on `activeGM === game.user` AT READY, and the election that later
+    // names GM2 (getDesignatedUser breaks the tie by user id) can land after
+    // GM2's ready returned early. Then no login write was ever coming, and the
+    // leg failed waiting for it on every run GM2 won: a race that reds about
+    // half the runs, bisected wrongly to 5493a440 before two more runs at its
+    // parent split pass (Warden elected) and fail (GM2 elected).
+    //
+    // AND THE COUNTER STARTS BEFORE READY (fleet 20261031T151153Z). The spy
+    // used to go on after joinAs returned, and on a fast box an owed login
+    // scan had already written by then: count 0, "never wrote", for a write
+    // that landed. The same init script installs spyWrites' counter at
+    // `setup`, so it sees every write from the first ready tick; spyWrites
+    // finds it present and leaves it.
+    await gm2Page.addInitScript(() => {
+      const iv = setInterval(() => {
+        if (!globalThis.Hooks) return;
+        clearInterval(iv);
+        Hooks.once("setup", () => {
+          if (globalThis.__b2Settle) return;
+          const orig = game.settings.set;
+          globalThis.__b2Settle = { orig, last: Date.now(), count: 0 };
+          game.settings.set = function (ns, key, ...rest) {
+            if (ns === "air-bladder" && key === "custom-portrait-list") {
+              globalThis.__b2Settle.last = Date.now();
+              globalThis.__b2Settle.count++;
+            }
+            return orig.call(this, ns, key, ...rest);
+          };
+        });
+        Hooks.once("ready", () => { globalThis.__abActiveAtReady = game.users.activeGM === game.user; });
+      }, 5);
+    });
     await joinAs(gm2Page, "ZZ PROBE GM2");
     await spyWrites([page, gm2Page]);
 
@@ -559,7 +602,11 @@ try {
     // hook returns before the scan — and `getDesignatedUser` breaks the role
     // tie by user id, so which of the two it is changes with every fresh GM2.
     const activeName = await page.evaluate(() => game.users.activeGM?.name ?? null);
-    await settleWrites([page, gm2Page], { expectFrom: activeName === "ZZ PROBE GM2" ? gm2Page : null });
+    // A login write is owed only by a GM2 that was the active GM when its OWN
+    // ready hook ran (recorded above); elected later, its scan never started.
+    const gm2OwesLoginWrite = activeName === "ZZ PROBE GM2"
+      && await gm2Page.evaluate(() => globalThis.__abActiveAtReady === true);
+    await settleWrites([page, gm2Page], { expectFrom: gm2OwesLoginWrite ? gm2Page : null });
 
     const idlePage = activeName === "ZZ PROBE GM2" ? page : gm2Page;
     for (const p of [page, gm2Page]) {

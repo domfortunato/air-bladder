@@ -7,7 +7,7 @@
  * items[] — it is minted once the character exists. This probe proves the whole
  * path.
  *
- *   node tools/dev/bg-container-probe.mjs   (needs Foundry running, world launched)
+ *   node tools/dev/e2e-bg-containers.mjs   (needs Foundry running, world launched)
  *
  * Steps, driven headless as GM:
  *   1. Every container name the background pack grants has an editable npc
@@ -16,7 +16,8 @@
  *   2. Generating an Outrider mints a container Actor keeper-linked to the
  *      character, with the capacity the rolled option specified, kind `mount`,
  *      and the buyer's ownership. A mount costs its keeper no slots.
- *   3. Regenerating replaces it — the old one is gone, exactly one remains — and
+ *   3. Regenerating replaces it — the old one is ORPHANED, never deleted (review
+ *      #34 finding 183, ruled 2026-11-01), exactly one granted remains — and
  *      a container the PLAYER made (no grantSource flag) survives untouched.
  *   4. Re-rolling just that question swaps the beast and leaves the rest alone.
  *   4b. A background can also grant a container OUTRIGHT rather than from a
@@ -27,9 +28,12 @@
  */
 
 import { chromium } from "playwright";
-import { VIEWPORT, joinAsGM, watchErrors } from "./lib.mjs";
+import { VIEWPORT, joinAsGM, watchErrors, watchdog, trackCreatedActors, sweepCreatedActors } from "./lib.mjs";
 
 const browser = await chromium.launch();
+// The fleet's hang guard (review #34): without it a hang runs to the runner's
+// 65-minute cap and skips every restore. A bound on a hang, not a timing claim.
+watchdog(900000, "dev:bg-containers");
 const page = await browser.newContext({ viewport: VIEWPORT }).then((c) => c.newPage());
 const errors = watchErrors(page);
 let failed = false;
@@ -38,6 +42,7 @@ const ok = (m) => console.log(`  ok    ${m}`);
 
 try {
   await joinAsGM(page);
+  await trackCreatedActors(page);
 
   const r = await page.evaluate(async () => {
     const gen = await import("/systems/air-bladder/module/character-generator.js");
@@ -94,6 +99,9 @@ try {
 
     const kept = keptBy(actor);
     const horse = kept[0];
+    // Swept by the finally whatever happens to it: a regenerate ORPHANS it now
+    // (finding 183), so it is no longer kept by anyone to be found again.
+    if (horse) made.push(horse);
     const spec = (outrider.system.tables ?? [])
       .flatMap((t) => t.options ?? [])
       .flatMap((o) => o.containers ?? [])
@@ -151,18 +159,28 @@ try {
     made.push(mine);
 
     const beforeUuid = horse?.uuid;
+    // The name the orphan is stamped with is the character's AT the orphaning,
+    // which a regenerate re-rolls afterwards.
+    const nameBefore = actor.name;
     await gen.regenerateActor(actor);
     const after = keptBy(actor);
     made.push(...after);
     const regen = {
       // exactly one granted beast + the player's chest
       grantedNow: after.filter((a) => a.getFlag("air-bladder", "grantSource")).length,
-      oldGone: !game.actors.get(beforeUuid?.split(".").pop()),
+      // ORPHANED, never deleted (review #34 finding 183, ruled 2026-11-01):
+      // unlinked, stamped with its keeper's name, its grant flag gone. This
+      // read `oldGone` until the ruling.
+      old: (() => {
+        const o = game.actors.get(beforeUuid?.split(".").pop());
+        return o ? { connectedTo: o.system?.connectedTo ?? "", formerly: o.system?.formerlyBelongedTo ?? "",
+          grant: o.getFlag("air-bladder", "grantSource") ?? null, want: nameBefore } : null;
+      })(),
       mineSurvives: !!game.actors.get(mine.id),
       mineStillListed: actor.connectedActors().some((c) => c.id === mine.id),
       // Nothing can dangle now — the list IS the set of live actors pointing
       // here — so the assertion that has teeth is that the chest's own link
-      // still resolves to this character after the granted beast was deleted.
+      // still resolves to this character after the granted beast was orphaned.
       noDangling: game.actors.get(mine.id)?.system.connectedTo === actor.uuid,
     };
 
@@ -229,54 +247,61 @@ try {
     //    the edit is proved through a field the document owns outright.
     const doc = tByName.get("rivertooth");
     const wasLocked = tPack.locked;
-    if (wasLocked) await tPack.configure({ locked: false });
     const origDesc = doc.system.description;
     const marker = "PROBE-BEAST-MARKER-3";
-    await doc.update({ "system.description": marker });
+    // Restored in a finally (review #34): a throw mid-edit would leave the
+    // shipped Rivertooth marked, or the pack starved by the control below, for
+    // the next probe on the same fleet box.
+    let edit, control;
+    try {
+      if (wasLocked) await tPack.configure({ locked: false });
+      await doc.update({ "system.description": marker });
 
-    const [minted] = await gen.grantContainers(actor, [
-      { name: "Rivertooth", slots: 6, grantSource: "question:9" },
-    ]);
-    if (minted) made.push(minted);
-    const edit = {
-      flowed: minted?.system.description === marker,
-      // and the grant's own capacity still wins over the document's
-      capacityFromGrant: minted?.system.slotsMax === 6,
-      // an unknown beast has no document at all and is minted from the spec alone
-      got: minted?.system.description,
-      // THE stat-block assertion, as a LITERAL: Rivertooth's document states
-      // 4 HP and the schema default is 6, so this is the line that goes red
-      // when grants resolve against a pack whose documents carry no hp — the
-      // shipped review-#5 defect (resolving against the legacy Item pack).
-      // Asserting "minted hp equals the doc's hp" instead would pass whenever
-      // BOTH reads miss, which is the assertion sharing the bug's assumption.
-      hpFromDoc: minted?.system.hp.value === 4 && minted?.system.hp.max === 4,
-    };
-    const [bespoke] = await gen.grantContainers(actor, [
-      { name: "PROBE Unknown Beast", slots: 5, grantSource: "question:9" },
-    ]);
-    if (bespoke) made.push(bespoke);
-    edit.fallbackMinted = bespoke?.system.slotsMax === 5 && bespoke?.type === "npc";
+      const [minted] = await gen.grantContainers(actor, [
+        { name: "Rivertooth", slots: 6, grantSource: "question:9" },
+      ]);
+      if (minted) made.push(minted);
+      edit = {
+        flowed: minted?.system.description === marker,
+        // and the grant's own capacity still wins over the document's
+        capacityFromGrant: minted?.system.slotsMax === 6,
+        // an unknown beast has no document at all and is minted from the spec alone
+        got: minted?.system.description,
+        // THE stat-block assertion, as a LITERAL: Rivertooth's document states
+        // 4 HP and the schema default is 6, so this is the line that goes red
+        // when grants resolve against a pack whose documents carry no hp — the
+        // shipped review-#5 defect (resolving against the legacy Item pack).
+        // Asserting "minted hp equals the doc's hp" instead would pass whenever
+        // BOTH reads miss, which is the assertion sharing the bug's assumption.
+        hpFromDoc: minted?.system.hp.value === 4 && minted?.system.hp.max === 4,
+      };
+      const [bespoke] = await gen.grantContainers(actor, [
+        { name: "PROBE Unknown Beast", slots: 5, grantSource: "question:9" },
+      ]);
+      if (bespoke) made.push(bespoke);
+      edit.fallbackMinted = bespoke?.system.slotsMax === 5 && bespoke?.type === "npc";
 
-    // NEGATIVE CONTROL, in-page: starve grantContainers of the Actor pack (an
-    // instance property shadowing CompendiumCollection#getDocuments — the
-    // prototype is untouched and `delete` removes the shadow) and the same
-    // grant must come back out with the phantom 6/6 and no marker, i.e. the
-    // shipped defect reproduced. If it doesn't, hpFromDoc above is not
-    // load-bearing.
-    tPack.getDocuments = async () => [];
-    const [starved] = await gen.grantContainers(actor, [
-      { name: "Rivertooth", slots: 6, grantSource: "question:9" },
-    ]);
-    delete tPack.getDocuments;
-    if (starved) made.push(starved);
-    const control = {
-      reproduced: starved?.system.hp.max === 6 && starved?.system.description !== marker,
-      hp: starved?.system.hp.max,
-    };
-
-    await doc.update({ "system.description": origDesc });
-    if (wasLocked) await tPack.configure({ locked: true });
+      // NEGATIVE CONTROL, in-page: starve grantContainers of the Actor pack (an
+      // instance property shadowing CompendiumCollection#getDocuments — the
+      // prototype is untouched and `delete` removes the shadow) and the same
+      // grant must come back out with the phantom 6/6 and no marker, i.e. the
+      // shipped defect reproduced. If it doesn't, hpFromDoc above is not
+      // load-bearing.
+      tPack.getDocuments = async () => [];
+      const [starved] = await gen.grantContainers(actor, [
+        { name: "Rivertooth", slots: 6, grantSource: "question:9" },
+      ]);
+      delete tPack.getDocuments;
+      if (starved) made.push(starved);
+      control = {
+        reproduced: starved?.system.hp.max === 6 && starved?.system.description !== marker,
+        hp: starved?.system.hp.max,
+      };
+    } finally {
+      delete tPack.getDocuments;
+      await doc.update({ "system.description": origDesc });
+      if (wasLocked) await tPack.configure({ locked: true });
+    }
 
     // 6. The connection ceiling in grantContainers itself (2026-08-01). With
     //    partial headroom the grant CLAMPS — the first specs land, the rest are
@@ -335,9 +360,11 @@ try {
       : fail(`the mount charged the rider: ${r.grant.slotsWithout} -> ${r.grant.slotsUsed}, ${r.grant.wornRows} worn rows`);
 
     r.regen.grantedNow === 1 ? ok("regenerate leaves exactly one granted beast") : fail(`after regenerate: ${r.regen.grantedNow} granted containers`);
-    r.regen.oldGone ? ok("the previous beast was deleted") : fail("the previous beast is still around");
+    r.regen.old && !r.regen.old.connectedTo && r.regen.old.formerly === r.regen.old.want && r.regen.old.grant === null
+      ? ok("the previous beast is orphaned, not deleted: unlinked, \"formerly\" its keeper's, no grant flag")
+      : fail(`the previous beast after a regenerate: ${JSON.stringify(r.regen.old)}`);
     r.regen.mineSurvives && r.regen.mineStillListed ? ok("a container the PLAYER made survives a regenerate") : fail("regenerate destroyed a player-made container");
-    r.regen.noDangling ? ok("no dangling container uuids after the delete") : fail("the keeper's container list has a dangling uuid");
+    r.regen.noDangling ? ok("no dangling container uuids after the regenerate") : fail("the keeper's container list has a dangling uuid");
 
     r.reroll.grantedNow === 1 ? ok(`re-rolling question ${r.reroll.questionIndex} swapped the beast ("${r.reroll.name}")`) : fail(`after re-roll: ${r.reroll.grantedNow} granted containers`);
     r.reroll.mineSurvives && r.reroll.noDangling ? ok("the player's container and the uuid list are intact after a re-roll") : fail("re-roll damaged the player's container / the uuid list");
@@ -362,6 +389,9 @@ try {
 } catch (e) {
   fail(`${e.name}: ${e.message}`);
 } finally {
+  // Every actor this run created, generated children included (review #34
+  // findings 150, 256, 259) — whatever a leg threw.
+  await sweepCreatedActors(page);
   if (errors.length) {
     console.error("\nconsole errors:");
     errors.slice(0, 15).forEach((e) => console.error("  " + e));

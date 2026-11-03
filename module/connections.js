@@ -129,8 +129,10 @@ export const connectedOwnershipShape = (keeper) => {
 
 /**
  * The shape a BROKEN (or never-connected) child wears: a loot pile is a
- * stranger until someone finds it, so `default` drops to LIMITED and the
- * connection-granted OWNER entries are stripped. Sub-OWNER explicit entries
+ * stranger until someone finds it, so `default` drops to LIMITED and every
+ * explicit OWNER entry is stripped — the shape alone cannot tell who the edge
+ * gave Owner to, so the automatic paths amend it with `keepOthersOwners`, and
+ * only a Warden's own deliberate break takes it whole. Sub-OWNER explicit entries
  * survive — those are the Warden's own grants, not this automation's, and
  * stripping them would be exactly the fight the transitions-only rule
  * forbids. The consequence is deliberate and release-notes-worthy: a player
@@ -148,6 +150,47 @@ export const brokenOwnershipShape = (child) => {
     if (!user || user.isGM) continue;
     if (level >= L.OWNER) continue;
     shape[id] = level;
+  }
+  return shape;
+};
+
+/**
+ * The users a connection to `keeper` hands Owner to: exactly the ids
+ * `connectedOwnershipShape(keeper)` names, so "what the edge gave" and "what
+ * an automatic rewrite may take back" are one reading, not two.
+ * @param {CairnActor|null} keeper
+ * @returns {Set<string>}
+ */
+export const ownersGivenBy = (keeper) =>
+  new Set(keeper ? Object.keys(connectedOwnershipShape(keeper)).filter((id) => id !== "default") : []);
+
+/**
+ * An AUTOMATIC ownership rewrite takes Owner only from the users the
+ * connection gave it to — never from anyone else, and it never lowers a
+ * `default` of OWNER (review #34 findings 107 and 121, ruled 2026-11-01).
+ * Amends `shape` in place and returns it: every non-GM user who owns `child`
+ * NOW (by `testUserPermission`, so an Owner through `default` counts — review
+ * #12's raw-map walk missed those, F107) and is not in `gaveIt` keeps OWNER,
+ * and a `default` already at OWNER stays.
+ *
+ * The three automatic rewrites go through here: a player-requested connect
+ * and break (`syncPendingOwnership`), and the re-owning of whatever named a
+ * deleted actor (`CairnActor._onDeleteOperation`). Each reads the
+ * player-writable `connectedTo`, which is why none of them may strip a
+ * bystander. A Warden's own deliberate connect or break writes its shape
+ * directly and is not amended — that is the Warden deciding, not the
+ * automation.
+ * @param {Object<string, number>} shape  a connected or broken shape
+ * @param {CairnActor} child
+ * @param {Set<string>} gaveIt  user ids the connection granted Owner to
+ * @returns {Object<string, number>}
+ */
+export const keepOthersOwners = (shape, child, gaveIt) => {
+  const L = CONST.DOCUMENT_OWNERSHIP_LEVELS;
+  if ((child?.ownership?.default ?? L.NONE) >= L.OWNER) shape.default = child.ownership.default;
+  for (const user of game.users) {
+    if (user.isGM || gaveIt.has(user.id)) continue;
+    if (child?.testUserPermission(user, "OWNER")) shape[user.id] = L.OWNER;
   }
   return shape;
 };
@@ -208,28 +251,26 @@ export const syncPendingOwnership = async (child, { requester = null } = {}) => 
   if (["npc", "hireling"].includes(child.type) && child.npcRole !== "monster") {
     const link = child.system?.connectedTo || "";
     const keeper = link ? game.actors.find((a) => a.uuid === link) : null;
+    // Both branches take Owner only from those the edge gave it to
+    // (`keepOthersOwners`, review #34 findings 107 and 121). A CONNECT used to
+    // replace every other owner, so `myPc.connectActor(partyHireling)` left the
+    // requester its only owner; now the keeper's owners and the requester join
+    // and nobody leaves. A BREAK finds `connectedTo` already empty — the
+    // both-ends check above reduces to "owns the child", and no keeper is left
+    // to read — so only the requester gave anything up: the breaker still
+    // loses Owner and `default` still drops to LIMITED (a real break's
+    // loot-pile-is-a-stranger rule), but a co-owner, a Warden's manual grant
+    // and everyone who owns through `default: OWNER` keep theirs. Review #12
+    // kept the explicit co-owners and walked the raw map, which missed the
+    // last (F107). The GM-side direct break paths call brokenOwnershipShape
+    // themselves, not through here, and are unaffected.
+    const gaveIt = new Set(requester ? [requester.id] : []);
     let shape;
     if (keeper?.type === "character") {
-      shape = connectedOwnershipShape(keeper);
+      for (const id of ownersGivenBy(keeper)) gaveIt.add(id);
+      shape = keepOthersOwners(connectedOwnershipShape(keeper), child, gaveIt);
     } else {
-      shape = brokenOwnershipShape(child);
-      // A PLAYER-requested break must never degrade ANOTHER user's access. With
-      // `connectedTo` already empty, the both-ends check above reduces to "owns
-      // the child" (there is no other end left to check), so a crafted request
-      // could otherwise force this broken shape onto an UNCONNECTED actor the
-      // requester merely co-owns — stripping a co-owner's OWNER or a Warden's
-      // manual grant, which the transitions-only rule forbids (see the shapes'
-      // docblocks). Preserve every explicit OWNER entry that is not the
-      // requester's own: the breaker still loses OWNER and `default` still drops
-      // to LIMITED (a real break's loot-pile-is-a-stranger rule holds), but no
-      // one else's rights move. The GM-side direct break paths call
-      // brokenOwnershipShape themselves, not through here, and are unaffected.
-      if (requester) {
-        const OWNER = CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER;
-        for (const [id, level] of Object.entries(child.ownership ?? {})) {
-          if (id !== "default" && id !== requester.id && level >= OWNER) shape[id] = OWNER;
-        }
-      }
+      shape = keepOthersOwners(brokenOwnershipShape(child), child, gaveIt);
     }
     changes.ownership = ops.ForcedReplacement.create(shape);
   }

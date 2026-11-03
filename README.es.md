@@ -101,11 +101,11 @@ También hay Personajes Jugadores pregenerados disponibles en la <a href="https:
 
 ## Estado
 
-Desarrollo temprano y activo. ¡Envía comentarios y arte! El sistema se está reconstruyendo sobre la arquitectura de **compendios editables** del original: el equipo vive en compendios de objetos que el Guardián puede editar en un solo lugar, y la generación de personajes y el mercado hacen referencia a esos compendios por su nombre.
+Desarrollo temprano y activo. ¡Envía comentarios y arte! Los compendios incluidos son plantillas: copia en tu mundo lo que quieras cambiar (botones como **Crear un mercado personalizado…** lo hacen con un clic), y la generación y el mercado leen primero la copia de tu mundo. Una actualización reemplaza los compendios incluidos y nunca toca tus copias.
 
 ## Idiomas
 
-La interfaz está traducida al **español** (el 98 % de las cadenas actuales, por [Malecho](https://github.com/fsmalecho)), y el *contenido* del juego —trasfondos, objetos, hechizos, monstruos, tablas y diarios— está traducido únicamente al español.
+La interfaz está traducida al **español** (el 97 % de las cadenas actuales, por [Malecho](https://github.com/fsmalecho)), y el *contenido* del juego —trasfondos, objetos, hechizos, monstruos, tablas y diarios— está traducido únicamente al español.
 
 Los archivos de interfaz en alemán, danés, francés, polaco y portugués de Brasil se heredaron del sistema original de Cairn. Cubren **alrededor del 5 %** de la interfaz actual, son anteriores a la mayoría de las funciones de este sistema y **no reciben mantenimiento**: en la práctica, una partida en esos idiomas está mayormente en inglés. Todo lo que no esté traducido recae en el inglés cadena por cadena, así que una traducción parcial siempre se puede usar en lugar de quedar rota.
 
@@ -115,7 +115,7 @@ Las herramientas son independientes del idioma (`--lang <código>` en todas), as
 
 ## Instalación (manual)
 
-**Requiere Foundry VTT v14.365 o superior.**
+**Requiere Foundry VTT v14.368 o superior.**
 
 1. En el menú **Sistemas de juego** de Foundry, haz clic en **Instalar sistema**.
 2. Introduce la URL del manifiesto: `https://github.com/domfortunato/air-bladder/releases/latest/download/system.json`

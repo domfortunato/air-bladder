@@ -3,6 +3,7 @@ import {
   currentWatch, setDate, timeForDate, describeDateAt, describeShift, todayWeather, setTodayWeather, weatherTableForToday, WEATHER_MAX,
 } from "./game-time.js";
 import { t, localizeJournalBlocks } from "./i18n-content.js";
+import { resultPlainText } from "./compendium.js";
 import {
   marksByDay, watchLineFor, promptAddEvent, openEvent, removeEvent, _resetFestivals,
 } from "./calendar-events.js";
@@ -73,7 +74,7 @@ export { _resetFestivals };
  * DialogV2 sanitizes a string it is handed and listeners on sanitized markup
  * are dead — the trap `promptSetDate` and `warden-damage.js` already carry.
  */
-export const promptSetWeather = async () => {
+export const promptSetWeather = async ({ windowId } = {}) => {
   if (!game.user.isGM) {
     ui.notifications.warn(game.i18n.localize("CAIRN.Notify.TimeWardenOnly"));
     return null;
@@ -82,10 +83,10 @@ export const promptSetWeather = async () => {
   const table = game.tables?.getName?.(weatherTableForToday() ?? "")
     ?? (await suggestionsFromPack(weatherTableForToday()));
   // `description` is the v14 field and the one every other reader here uses
-  // (see warden-dashboard.js:322). Tags are stripped because a datalist option
+  // (see `postSetDraw` in warden-dashboard.js). Tags are stripped because a datalist option
   // is plain text, and the Cairn tables bold their keyword.
   const suggestions = (table?.results ?? [])
-    .map((r) => String(r.type === "text" ? r.description : r.name))
+    .map((r) => resultPlainText(r))
     .map((v) => v.replace(/<[^>]*>/g, "").trim()).filter(Boolean);
 
   // A BARE <div> WITH NO ATTRIBUTES. DialogV2's constructor throws
@@ -110,6 +111,7 @@ export const promptSetWeather = async () => {
     </datalist>`;
 
   const picked = await foundry.applications.api.DialogV2.wait({
+    renderOptions: { window: { windowId } },   // the caller's own window (review #34 finding 161)
     window: { title: "CAIRN.Calendar.SetWeatherTitle" },
     // 400, stated: DialogV2.wait merges NO width where confirm and prompt
     // merge 400 (dialog.mjs:353,374), so a wait() dialog inherits
@@ -278,7 +280,7 @@ class ValdCalendarApp extends foundry.applications.api.HandlebarsApplicationMixi
       month,
       isGM: game.user.isGM,
       headSeasonIcon: month.days[0]?.seasonIcon ?? "",
-      panel: this.#panel(month, selected, now, festivals),
+      panel: await this.#panel(month, selected, now, festivals),
     };
   }
 
@@ -286,7 +288,7 @@ class ValdCalendarApp extends foundry.applications.api.HandlebarsApplicationMixi
    * The day panel: the long date, the season, what is marked on the day, and
    * — for today alone — the weather.
    */
-  #panel(month, at, now, festivals) {
+  async #panel(month, at, now, festivals) {
     const day = month.days.find((d) => d.dayOfMonth === at.day) ?? month.days[0];
     const isToday = month.year === now.year && month.month === now.month && day.dayOfMonth === now.day;
     const components = game.time.calendar.timeToComponents(day.time);
@@ -297,12 +299,30 @@ class ValdCalendarApp extends foundry.applications.api.HandlebarsApplicationMixi
         ? game.i18n.format("CAIRN.Calendar.SpanDay", { name: t("journal.pageName", f.name), day: f.day, total: f.total })
         : "",
       // The Warden's own: which watch it happens in, whether the party can see
-      // it, and the controls that only the Warden gets.
+      // it — none of them, or only some (`partly`, review #34 finding 230) —
+      // and the controls that only the Warden gets.
       warden: f.warden,
       watch: f.warden ? watchLineFor(f.watch) : "",
       hidden: f.hidden,
+      partly: f.partly,
       uuid: f.uuid,
     }));
+    // ENRICHED the way core's own page view enriches it (review #34 finding
+    // 81): `enrichHTML` with `secrets` for the page's owners only is the step
+    // that drops an unrevealed Secret block, and the panel printed the raw
+    // content — so a Warden's Secret paragraph in a SHARED event showed to
+    // every player who opened the day, while their journal sheet hid it.
+    // Content links render as links rather than `@UUID[...]` text too.
+    const TextEditor = foundry.applications.ux.TextEditor.implementation;
+    for (const f of on) {
+      // Caught: a shipped festival is a COMPENDIUM page, which `fromUuidSync`
+      // refuses outright ("an Embedded Document ... cannot be retrieved
+      // synchronously"). A pack page carries no secrets for anyone, so it
+      // enriches with none.
+      let page = null;
+      try { page = f.uuid ? foundry.utils.fromUuidSync(f.uuid) : null; } catch { page = null; }
+      f.text = await TextEditor.enrichHTML(f.text ?? "", { relativeTo: page ?? undefined, secrets: !!page?.isOwner });
+    }
 
     return {
       day: day.dayOfMonth,
@@ -413,13 +433,14 @@ class ValdCalendarApp extends foundry.applications.api.HandlebarsApplicationMixi
       yes: { label: "CAIRN.Time.ConfirmSetDateYes" },
       no: { label: "CAIRN.Cancel" },
       rejectClose: false,
+      renderOptions: { window: { windowId: this.window?.windowId } },   // the calendar's own window (review #34 finding 119)
     });
     if (!yes) return;
     await setDate(date);
   }
 
   static async #onSetWeather() {
-    await promptSetWeather();
+    await promptSetWeather({ windowId: this.window?.windowId });
   }
 
   /**
@@ -435,7 +456,7 @@ class ValdCalendarApp extends foundry.applications.api.HandlebarsApplicationMixi
    */
   static async #onAddEvent() {
     const at = this.#selectionInView();
-    await promptAddEvent({ year: at.year, month: at.month, day: at.day });
+    await promptAddEvent({ year: at.year, month: at.month, day: at.day }, { windowId: this.window?.windowId });
   }
 
   static async #onEditEvent(event, target) {
@@ -443,7 +464,7 @@ class ValdCalendarApp extends foundry.applications.api.HandlebarsApplicationMixi
   }
 
   static async #onRemoveEvent(event, target) {
-    await removeEvent(target.dataset.uuid);
+    await removeEvent(target.dataset.uuid, { windowId: this.window?.windowId });
   }
 }
 

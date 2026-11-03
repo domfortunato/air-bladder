@@ -42,7 +42,7 @@ setting the player chose, forever, on the one surface they look at every session
 **Follow the scheme** — style both. More work up front, and the work is bounded and
 measurable, which is the part that decided it.
 
-The measurement, taken before committing to either (`tools/dev/probe-theme.mjs`):
+The measurement, taken before committing to either (`tools/dev/e2e-theme.mjs`):
 
 | | light | dark |
 |---|---|---|
@@ -206,7 +206,9 @@ the clock now does the same, with core's own values.
 (`client/game.mjs:1852-1875`) sends **Applications** to `<body>` and **Interface** to
 `#interface` and each open app. Interface chrome resolves variables from `#interface`,
 the nearer ancestor. Core lets the interface theme win — `.themed.theme-light #players`
-outranks `body.theme-light #players` — and our pair keeps that ordering, so a Warden
+outranks `body.theme-light #players` by sublayer order, not specificity (the first is in
+`variables.themes.specific`, declared after `.general`) — and our pair keeps that
+ordering, by specificity inside our one layer, so a Warden
 running Interface dark with Applications light does not get a white clock over a dark
 player list.
 

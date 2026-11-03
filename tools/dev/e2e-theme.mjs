@@ -8,8 +8,8 @@
  * no such thing — a ported sheet inherits the scheme from <body>. So the port
  * silently hands us a dark mode the stylesheet was never written for.
  *
- *   node tools/dev/probe-theme.mjs            (needs Foundry running)
- *   node tools/dev/probe-theme.mjs --shots    (also write PNGs to tools/dev/out/)
+ *   node tools/dev/e2e-theme.mjs            (needs Foundry running)
+ *   node tools/dev/e2e-theme.mjs --shots    (also write PNGs to tools/dev/out/)
  *
  * Two measurements that cost a wrong answer once each, so do not "simplify" them:
  *
@@ -31,7 +31,7 @@ import { chromium } from "playwright";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { FOUNDRY_URL, VIEWPORT, joinAsGM, watchErrors } from "./lib.mjs";
+import { FOUNDRY_URL, VIEWPORT, joinAsGM, watchErrors, watchdog, trackCreatedActors, sweepCreatedActors } from "./lib.mjs";
 
 const outDir = path.join(path.dirname(fileURLToPath(import.meta.url)), "out");
 const WANT_SHOTS = process.argv.includes("--shots");
@@ -83,6 +83,9 @@ const TEXT_MIN = 3.0;
 const BORDER_MIN = 1.35;
 
 const browser = await chromium.launch();
+// The fleet's hang guard (review #34): without it a hang runs to the runner's
+// 65-minute cap and skips every restore. A bound on a hang, not a timing claim.
+watchdog(900000, "dev:theme");
 const ctx = await browser.newContext({ viewport: VIEWPORT });
 const page = await ctx.newPage();
 const errors = watchErrors(page);
@@ -91,6 +94,7 @@ const results = [];
 
 try {
   await joinAsGM(page);
+  await trackCreatedActors(page);
 
   await page.evaluate(async ([TEXT_MIN, BORDER_MIN]) => {
     const srgb = (c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
@@ -451,10 +455,14 @@ try {
   //
   // Four lines instead of two, a season glyph, and — the part that matters for
   // a colour gate — the inner element becomes a real <button>. Core paints a
-  // button's ground, border and text from a later cascade layer, so without the
-  // system layer's `!important` the clock would render as a chrome button
-  // sitting inside its own panel. That is a light-mode failure by construction,
-  // which is exactly what this gate is for.
+  // button's ground, border and text in `@layer elements.forms`, an EARLIER
+  // layer than the system's (review #34 finding 203: this said "a later
+  // cascade layer", which is the belief the calendar's day-cell note records
+  // being measured wrong). So cairn.css's plain `border: none; background:
+  // none; color: inherit` already wins and needs no `!important`. What this
+  // gate catches is that rule being lost or narrowed: without it the clock
+  // renders as a chrome button sitting inside its own panel, a light-mode
+  // failure by construction.
   //
   // The hack and the day's weather are both SHADOWED, never written: the
   // world's setting is nobody's business here and the weather is a record of
@@ -465,6 +473,7 @@ try {
     window.__abRealGet2 = settings.get.bind(settings);
     window.__abPrevCal2 = [CONFIG.time.worldCalendarConfig, CONFIG.time.worldCalendarClass];
     settings.get = (ns, key, ...rest) => {
+      if (rest[0]?.document) return foundry.helpers.ClientSettings.prototype.get.call(game.settings, ns, key, ...rest);   // review #34 finding 29
       if (ns !== "air-bladder") return window.__abRealGet2(ns, key, ...rest);
       if (key === "enable-vald-calendar") return true;
       if (key === "vald-weather-today") return { day: gt.dayCount(), text: "Thunderstorms" };
@@ -528,8 +537,9 @@ try {
     const settings = game.settings;
     window.__abRealGet = settings.get.bind(settings);
     window.__abPrevCal = [CONFIG.time.worldCalendarConfig, CONFIG.time.worldCalendarClass];
-    settings.get = (ns, key, ...rest) =>
-      (ns === "air-bladder" && key === "enable-vald-calendar" ? true : window.__abRealGet(ns, key, ...rest));
+    settings.get = (ns, key, ...rest) => rest[0]?.document
+      ? foundry.helpers.ClientSettings.prototype.get.call(game.settings, ns, key, ...rest)   // review #34 finding 29
+      : (ns === "air-bladder" && key === "enable-vald-calendar" ? true : window.__abRealGet(ns, key, ...rest));
     CONFIG.time.worldCalendarConfig = gt.VALD_CALENDAR_CONFIG;
     CONFIG.time.worldCalendarClass = gt.ValdCalendar;
     game.time.initializeCalendar();
@@ -627,10 +637,351 @@ try {
     console.log("");
   }
   if (WANT_SHOTS) console.log(`screenshots: ${outDir}\n`);
+
+  // THREE COLOURS THE SCHEME MUST NOT MOVE, or must (review #34 findings 98,
+  // 99, 101), measured as computed values in DARK with LIGHT as the control:
+  // - the shown-table chat card is parchment in both themes, so its range
+  //   column and formula line keep the light ink (#4a4335) in dark;
+  // - a locked background's Details headings are not core's 28px Signika;
+  // - the overburdened-by-gold border is the palette's peril red, which has a
+  //   dark value, not core's one fixed maroon.
+  const probeColours = async () => page.evaluate(async () => {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const out = {};
+    // (98) the card's markup, posted as chat content the way the Dashboard does.
+    const msg = await ChatMessage.create({
+      content: '<div class="cairn-shown-table"><div class="cairn-show-title">ZZ Theme Table</div>'
+        + '<div class="cairn-show-formula">Rolled on 1d6</div>'
+        + '<div class="cairn-show-row"><span class="cairn-show-range">1-2</span><span class="cairn-show-text">x</span></div></div>',
+      whisper: [game.user.id],
+    });
+    for (let i = 0; i < 30 && !document.querySelector(`[data-message-id="${msg.id}"] .cairn-show-range`); i++) await sleep(150);
+    const range = document.querySelector(`[data-message-id="${msg.id}"] .cairn-show-range`);
+    out.range = range ? getComputedStyle(range).color : null;
+    await msg.delete();
+    // (188) the GLOG public cast card's spell name: a bare <h3> took core's
+    // heading face, 28px, and --color-text-primary — cream on the parchment
+    // tile in a dark scheme. Posted in its producer's markup.
+    const cast = await ChatMessage.create({
+      content: '<div class="grimoire-cast-card"><h3>ZZ Theme Spell</h3><div class="grimoire-cast-effect">x</div></div>',
+      whisper: [game.user.id],
+    });
+    for (let i = 0; i < 30 && !document.querySelector(`[data-message-id="${cast.id}"] .grimoire-cast-card h3`); i++) await sleep(150);
+    const castH3 = document.querySelector(`[data-message-id="${cast.id}"] .grimoire-cast-card h3`);
+    out.castH3 = castH3 ? { color: getComputedStyle(castH3).color, size: getComputedStyle(castH3).fontSize } : null;
+    await cast.delete();
+    // (188) three dialog headings with no face of their own took core's h4 —
+    // the heading face (Modesto) at 24px: the Test x10 report, the offer
+    // picker's group headers, the Vald calendar's festival names. Mounted
+    // briefly under the classes their rules expect, measured, removed.
+    const mount = (html) => {
+      const host = document.createElement("div");
+      host.className = "application cairn";
+      host.innerHTML = html;
+      document.body.append(host);
+      const h = host.querySelector("h4");
+      const face = h ? getComputedStyle(h).fontFamily : null;
+      host.remove();
+      return face;
+    };
+    out.faces = {
+      report: mount('<div class="bg-preview"><h4>ZZ</h4></div>'),
+      offer: mount('<div class="cairn-offer-picker"><h4 class="cairn-offer-group">ZZ</h4></div>'),
+      festival: mount('<div class="cairn-vald-calendar"><article class="cairn-calendar-festival"><h4>ZZ</h4></article></div>'),
+    };
+    // (99) a shipped background's read-only Details tab.
+    const pack = game.packs.get("air-bladder.backgrounds-2e");
+    const bg = pack ? (await pack.getDocuments())[0] : null;
+    if (bg) {
+      await bg.sheet.render(true);
+      for (let i = 0; i < 30 && !bg.sheet.element?.querySelector(".background-details h3"); i++) await sleep(150);
+      const h3 = bg.sheet.element?.querySelector(".background-details h3");
+      out.bgH3 = h3 ? getComputedStyle(h3).fontSize : null;
+      await bg.sheet.close();
+    }
+    // (101) the gold counter of an actor whose coins overburden it.
+    const rich = await Actor.create({ name: "ZZ Theme Rich", type: "character", system: { gold: 5000 } });
+    await rich.sheet.render(true);
+    for (let i = 0; i < 30 && !rich.sheet.element?.querySelector(".overburdened-gold"); i++) await sleep(150);
+    const gold = rich.sheet.element?.querySelector(".overburdened-gold");
+    out.goldBorder = gold ? getComputedStyle(gold).borderTopColor : null;
+    await rich.sheet.close();
+    await rich.delete();
+    return out;
+  });
+  await setScheme(page, "light");
+  await page.waitForTimeout(500);
+  const lightC = await probeColours();
+  await setScheme(page, "dark");
+  await page.waitForTimeout(500);
+  const darkC = await probeColours();
+  await restoreScheme(page);
+  const verdict = (cond, label, detail) => {
+    console.log(`  ${cond ? "ok  " : "FAIL"}  ${label}  ${detail}`);
+    if (!cond) failed = true;
+  };
+  verdict(lightC.range && darkC.range === lightC.range,
+    "the shown-table chat card keeps its light ink in dark (the tile is parchment)", JSON.stringify({ lightC, darkC }));
+  verdict(lightC.castH3 && darkC.castH3?.color === lightC.castH3.color && darkC.castH3.size !== "28px",
+    "the GLOG cast card's spell name keeps the tile's ink in dark, and is not core's 28px (review #34 finding 188)",
+    JSON.stringify({ light: lightC.castH3, dark: darkC.castH3 }));
+  verdict(Object.values(lightC.faces ?? {}).every((f) => f && !/modesto/i.test(f)),
+    "the Test x10 report, offer-picker and festival headings state their own face, not core's Modesto",
+    JSON.stringify(lightC.faces));
+  verdict(darkC.bgH3 && darkC.bgH3 !== "28px" && lightC.bgH3 !== "28px",
+    "a locked background's Details headings are not core's 28px", JSON.stringify({ light: lightC.bgH3, dark: darkC.bgH3 }));
+  verdict(darkC.goldBorder && darkC.goldBorder !== "rgb(117, 0, 3)" && lightC.goldBorder !== "rgb(117, 0, 3)",
+    "the overburdened-gold border is the theme's peril red, not core's fixed maroon", JSON.stringify({ light: lightC.goldBorder, dark: darkC.goldBorder }));
+
+  // A HOVERED BUTTON KEEPS ITS INK (review #34 finding 187). Core's hover is a
+  // PAIR: `button:hover { background: var(--button-hover-background-color);
+  // color: var(--button-hover-text-color) }` in @layer elements.forms, warm-2
+  // ground under light-1 ink. A system rule that restates one half leaves
+  // core's other half landing. Four buttons set `background: none` and no ink,
+  // so core's near-white hover ink fell on parchment in the light scheme; the
+  // notes pencil set its hover ink and kept core's orange hover ground. Each is
+  // rendered FRESH in each scheme (a window keeps the paint it was rendered
+  // under), hovered with the real mouse, and its ink, opacity included, read
+  // against its actual backdrop at this probe's text floor. `hovered` is the
+  // precondition: the pointer really is over it.
+  const hoverInk = (sel) => page.evaluate(async (sel) => {
+    const el = document.querySelector(sel);
+    if (!el) return null;
+    await window.__abWarm(el.closest(".application") ?? el);
+    const parse = (s) => {
+      const m = /rgba?\(([^)]+)\)/.exec(s || "");
+      if (!m) return null;
+      const p = m[1].split(/[,\s/]+/).filter(Boolean).map(Number);
+      return { r: p[0], g: p[1], b: p[2], a: p.length > 3 ? p[3] : 1 };
+    };
+    const srgb = (c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
+    const lum = (c) => 0.2126 * srgb(c.r / 255) + 0.7152 * srgb(c.g / 255) + 0.0722 * srgb(c.b / 255);
+    const bg = window.__abBackdrop(el);
+    const ink = parse(getComputedStyle(el).color);
+    let a = ink.a;
+    for (let n = el; n && !n.matches(".application"); n = n.parentElement) a *= Number(getComputedStyle(n).opacity);
+    const fg = { r: ink.r * a + bg.r * (1 - a), g: ink.g * a + bg.g * (1 - a), b: ink.b * a + bg.b * (1 - a) };
+    const [hi, lo] = [lum(fg), lum(bg)].sort((x, y) => y - x);
+    const hoverHost = el.closest("[data-ab-hover]");
+    return { hovered: !!hoverHost?.matches(":hover"), ratio: Math.round(((hi + 0.05) / (lo + 0.05)) * 100) / 100,
+      ink: getComputedStyle(el).color, ground: getComputedStyle(hoverHost ?? el).backgroundColor };
+  }, sel);
+  const hoverPass = async (scheme) => {
+    await setScheme(page, scheme);
+    await page.waitForTimeout(300);
+    const out = {};
+    // Tag the first VISIBLE match, so a hidden tab's copy is never the one hovered.
+    const hover = async (key, sel, inkChild = "") => {
+      const tagged = await page.evaluate((sel) => {
+        document.querySelectorAll("[data-ab-hover]").forEach((n) => n.removeAttribute("data-ab-hover"));
+        const el = [...document.querySelectorAll(sel)].find((n) => n.getBoundingClientRect().width > 0);
+        el?.setAttribute("data-ab-hover", "1");
+        return !!el;
+      }, sel);
+      if (!tagged) { out[key] = null; return; }
+      await page.mouse.move(1, 1);
+      await page.hover('[data-ab-hover="1"]');
+      await page.waitForTimeout(400);   // core transitions a button's colours
+      out[key] = await hoverInk(`[data-ab-hover="1"]${inkChild ? ` ${inkChild}` : ""}`);
+      await page.mouse.move(1, 1);
+    };
+    const sleep = (ms) => page.waitForTimeout(ms);
+
+    await page.evaluate(async () => {
+      foundry.applications.instances.get("cairn-warden-dashboard")?.close();
+      const { openWardenDashboard } = await import("/systems/air-bladder/module/warden-dashboard.js");
+      await openWardenDashboard();
+      for (let i = 0; i < 40 && !document.querySelector("#cairn-warden-dashboard .cairn-show-btn"); i++) {
+        await new Promise((r) => setTimeout(r, 100));
+      }
+    });
+    await sleep(300);
+    await hover("eye", "#cairn-warden-dashboard .cairn-dashboard-pair > .cairn-show-btn");
+    await page.evaluate(() => foundry.applications.instances.get("cairn-warden-dashboard")?.close());
+
+    const ids = await page.evaluate(async () => {
+      // An NPC, not a character: a character's picker has no Game-Icons pane
+      // (`gameIcons: type !== "character"`), and its notes tab wears the same pencil.
+      const a = await CONFIG.Actor.documentClass.create({ name: "ZZ Theme Hover", type: "npc", system: { role: "npc" } });
+      await a.sheet.render(true);
+      for (let i = 0; i < 40 && !a.sheet.element; i++) await new Promise((r) => setTimeout(r, 100));
+      await new Promise((r) => setTimeout(r, 500));
+      a.sheet.element.querySelector('.tabs .item[data-tab="notes"]')?.click();
+      await new Promise((r) => setTimeout(r, 400));
+      return { actorId: a.id, sheetId: a.sheet.element.id };
+    });
+    await hover("pencil", `#${ids.sheetId} .tab[data-tab="notes"] prose-mirror.inactive > button.icon.toggle:enabled`);
+    await page.evaluate(async (id) => {
+      const a = game.actors.get(id);
+      a.sheet._pickPortrait(new Event("click"));
+      for (let i = 0; i < 40 && !document.querySelector(".cairn-portrait-tab"); i++) await new Promise((r) => setTimeout(r, 100));
+    }, ids.actorId);
+    await sleep(300);
+    await hover("tab", ".cairn-portrait-tab:not(.active)");
+    await page.evaluate(() => document.querySelector('.cairn-portrait-tab[data-tab="gameicons"]')?.click());
+    await sleep(300);
+    await hover("folder", '[data-pane="gameicons"] .cairn-icon-folder', "span");
+    await page.evaluate(() => document.querySelector('[data-pane="gameicons"] .cairn-icon-folder[data-category="weapons"]')?.click());
+    await sleep(300);
+    await hover("back", '[data-pane="gameicons"] .cairn-icon-back');
+    await page.evaluate(async (id) => {
+      for (const app of [...foundry.applications.instances.values()]) {
+        if (app.element?.querySelector(".cairn-portrait-gallery")) await app.close();
+      }
+      await game.actors.get(id)?.sheet.close();
+      await game.actors.get(id)?.delete();
+    }, ids.actorId);
+    return out;
+  };
+  const hoverLight = await hoverPass("light");
+  const hoverDark = await hoverPass("dark");
+  await restoreScheme(page);
+  for (const [key, label] of [["eye", "a Dashboard eye"], ["pencil", "the notes pencil"],
+    ["tab", "an art picker tab"], ["folder", "an art picker folder tile"], ["back", "the art picker's Back"]]) {
+    const pair = { light: hoverLight[key], dark: hoverDark[key] };
+    verdict(["light", "dark"].every((s) => pair[s]?.hovered && pair[s].ratio >= TEXT_MIN),
+      `${label} keeps readable ink under the pointer, both schemes (review #34 finding 187)`, JSON.stringify(pair));
+  }
+
+  // A RESTYLED CHECKBOX KEEPS CORE'S TWO STATES (review #34 finding 199). Core
+  // draws a checkbox's keyboard-focus ring and its disabled look on the ::before
+  // glyph (`:focus { outline: none }`, then `:focus-visible::before { outline }`;
+  // `:disabled` recolours the glyphs and sets `cursor: inherit`), and the
+  // sheets' six restyled boxes switch that ::before off. Every box on a
+  // character's sheet (Description tab included) and a hireling's is focused
+  // from the KEYBOARD, Shift+Tab then Tab, which is what makes :focus-visible
+  // match (the precondition), and must show a ring that reads against its
+  // backdrop; then it is disabled, as core's _toggleDisabled does on a sheet the
+  // viewer cannot edit, and must stop looking and pointing live.
+  const BOXES = ".deprived-check, .panicked-check, .for-hire-check, .omen-enable, .scar-enable, .scar-check";
+  const boxPass = async (scheme) => {
+    await setScheme(page, scheme);
+    await page.waitForTimeout(300);
+    const sheets = await page.evaluate(async () => {
+      const Cls = CONFIG.Actor.documentClass;
+      const out = [];
+      for (const [type, tab] of [["character", "description"], ["hireling", null]]) {
+        const a = await Cls.create({ name: `ZZ Theme Boxes ${type}`, type });
+        await a.sheet.render(true);
+        for (let i = 0; i < 40 && !a.sheet.element; i++) await new Promise((r) => setTimeout(r, 100));
+        await new Promise((r) => setTimeout(r, 500));
+        if (tab) a.sheet.element.querySelector(`.tabs .item[data-tab="${tab}"]`)?.click();
+        await new Promise((r) => setTimeout(r, 300));
+        out.push({ actorId: a.id, sheetId: a.sheet.element.id });
+      }
+      return out;
+    });
+    const found = [];
+    for (const { actorId, sheetId } of sheets) {
+      const n = await page.evaluate(([sheetId, BOXES]) => {
+        const boxes = [...document.querySelectorAll(`#${sheetId} :is(${BOXES})`)].filter((b) => b.getBoundingClientRect().width > 0);
+        boxes.forEach((b, i) => b.setAttribute("data-ab-box", `${sheetId}-${i}`));
+        return boxes.length;
+      }, [sheetId, BOXES]);
+      for (let i = 0; i < n; i++) {
+        const sel = `[data-ab-box="${sheetId}-${i}"]`;
+        await page.focus(sel);
+        await page.keyboard.press("Shift+Tab");
+        await page.keyboard.press("Tab");
+        await page.waitForTimeout(100);
+        found.push(await page.evaluate(async (sel) => {
+          const el = document.querySelector(sel);
+          await window.__abWarm(el.closest(".application") ?? el);
+          const parse = (s) => {
+            const m = /rgba?\(([^)]+)\)/.exec(s || "");
+            if (!m) return null;
+            const p = m[1].split(/[,\s/]+/).filter(Boolean).map(Number);
+            return { r: p[0], g: p[1], b: p[2], a: p.length > 3 ? p[3] : 1 };
+          };
+          const srgb = (c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
+          const lum = (c) => 0.2126 * srgb(c.r / 255) + 0.7152 * srgb(c.g / 255) + 0.0722 * srgb(c.b / 255);
+          const cs = getComputedStyle(el);
+          const ring = parse(cs.outlineColor);
+          const bg = window.__abBackdrop(el.parentElement);
+          const [hi, lo] = ring ? [lum(ring), lum(bg)].sort((x, y) => y - x) : [0, 0];
+          const out = {
+            box: el.className,
+            focusVisible: el === document.activeElement && el.matches(":focus-visible"),
+            ring: cs.outlineStyle !== "none" && parseFloat(cs.outlineWidth) >= 1,
+            ringRatio: ring ? Math.round(((hi + 0.05) / (lo + 0.05)) * 100) / 100 : 0,
+          };
+          el.blur();
+          el.disabled = true;
+          const ds = getComputedStyle(el);
+          out.disabledCursor = ds.cursor;
+          out.disabledOpacity = Number(ds.opacity);
+          el.disabled = false;
+          return out;
+        }, sel));
+      }
+    }
+    await page.evaluate(async (sheets) => {
+      for (const { actorId } of sheets) {
+        await game.actors.get(actorId)?.sheet.close();
+        await game.actors.get(actorId)?.delete();
+      }
+    }, sheets);
+    return found;
+  };
+  const boxesLight = await boxPass("light");
+  const boxesDark = await boxPass("dark");
+  await restoreScheme(page);
+  const allBoxes = [...boxesLight, ...boxesDark];
+  const kinds = new Set(allBoxes.map((b) => b.box));
+  verdict(kinds.size >= 4 && allBoxes.every((b) => b.focusVisible && b.ring && b.ringRatio >= BORDER_MIN),
+    "a restyled sheet checkbox shows a focus ring from the keyboard, both schemes (review #34 finding 199)",
+    JSON.stringify({ kinds: [...kinds], light: boxesLight, dark: boxesDark }));
+  verdict(allBoxes.length > 0 && allBoxes.every((b) => b.disabledCursor !== "pointer" && b.disabledOpacity < 1),
+    "...and a disabled one no longer looks or points like a live one",
+    JSON.stringify(allBoxes.map((b) => ({ box: b.box, cursor: b.disabledCursor, opacity: b.disabledOpacity }))));
+
+  // THE FOR HIRE LABEL SPEAKS IN THE MUTED VOICE (review #34 finding 103). It
+  // named `--ab-ink-muted`, a token defined nowhere, so its `inherit` fallback
+  // always won and it drew in full ink beside the muted "Hired by…" label on
+  // the same line. The muted colour is RESOLVED, not copied: a throwaway span
+  // inside the sheet takes `var(--ab-muted)` and its computed colour is the
+  // target. The label's parent ink is read too, and must differ from the
+  // target — the precondition, or a label still on full ink would pass.
+  const hirePass = async (scheme) => {
+    await setScheme(page, scheme);
+    await page.waitForTimeout(300);
+    return page.evaluate(async () => {
+      const a = await CONFIG.Actor.documentClass.create({ name: "ZZ Theme For Hire", type: "hireling" });
+      try {
+        await a.sheet.render(true);
+        for (let i = 0; i < 40 && !a.sheet.element; i++) await new Promise((r) => setTimeout(r, 100));
+        await new Promise((r) => setTimeout(r, 500));
+        const label = a.sheet.element.querySelector(".for-hire-label");
+        if (!label || label.getBoundingClientRect().width === 0) return { rendered: false };
+        const probe = document.createElement("span");
+        probe.style.color = "var(--ab-muted)";
+        label.parentElement.append(probe);
+        const muted = getComputedStyle(probe).color;
+        probe.remove();
+        return {
+          rendered: true,
+          label: getComputedStyle(label).color,
+          muted,
+          ink: getComputedStyle(label.parentElement).color,
+        };
+      } finally {
+        await a.sheet.close();
+        await a.delete();
+      }
+    });
+  };
+  const hire = { light: await hirePass("light"), dark: await hirePass("dark") };
+  await restoreScheme(page);
+  verdict(Object.values(hire).every((h) => h.rendered && h.muted !== h.ink && h.label === h.muted),
+    "the For Hire label is the muted colour \"Hired by…\" uses, both schemes (review #34 finding 103)",
+    JSON.stringify(hire));
 } catch (e) {
   console.error(`  FAIL  ${e.name}: ${e.message}`);
   failed = true;
 } finally {
+  // Every actor this run created, generated children included (review #34
+  // findings 150, 256, 259) — whatever a leg threw.
+  await sweepCreatedActors(page);
   if (errors.length) {
     console.error("console errors:");
     errors.slice(0, 15).forEach((e) => console.error("  " + e));

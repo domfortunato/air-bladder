@@ -6,9 +6,11 @@
           sheet here — statblock and inventory included — while the Print gate
           withheld the button on the stated grounds of hiding what was already
           on screen; now the level is a wall on every person-type. Portrait and
-          name only: a character's `system.description` is orphaned (see the
-          Description tab note below), so there is no prose counterpart of the
-          npc view's description to show. --}}
+          name only. A character's `system.description` is no longer orphaned
+          (review #34 finding 55: the Kettlewright importer writes it, the paper
+          prints it, and the Description tab below shows it while it holds
+          prose), but the LIMITED wall was never extended to it; that would be
+          a ruling of its own. --}}
     <div class="cairn-limited-sheet">
         <img class="portrait" src="{{actor.img}}" alt="" />
         <h1 class="cairn-limited-name">{{nameDisplay}}</h1>
@@ -258,16 +260,30 @@
                         {{!-- The Features list rendered here until 2026-08-09,
                               behind the show-features-section setting; both went
                               (user ruling). `system.features` survives on the
-                              document, unrendered — same treatment as
-                              `description` below. --}}
-                        {{!-- No free-form editor here. A character's `system.description`
-                              is orphaned -- nothing generates it and nothing else renders
-                              it (the italic trait line is `traitSentence`, derived) -- so
-                              this was a second, unlabelled notes box competing with the
-                              real one on the Notes tab. The field survives in
-                              CharacterData, so anything typed into it is still on the
-                              document. NPCs keep theirs: a compendium monster carries its
-                              text in `description` rather than `biography`. --}}
+                              document, unrendered. --}}
+                        {{!-- The character's own Description, ONLY while it holds prose
+                              (review #34 finding 55, user ruling 2026-10-31). The always-on
+                              editor went on 2026-07-29 as a second, unlabelled notes box
+                              competing with the real one on the Notes tab, on the belief
+                              that the field was orphaned. It was not: the Kettlewright
+                              importer writes `system.description` and the printed sheet
+                              prints it, so an imported character's text was on paper and
+                              nowhere on screen. So it comes back for the characters that
+                              have some, LABELLED, and a character made in Foundry still sees
+                              no box. `showDescription` is `holdsProse`, the print page's
+                              own test, so an editor its player empties (`<p></p>`) goes
+                              away on the next render and prints no empty heading. The
+                              `npc-description-section` class is borrowed on purpose: it is
+                              in the selector lists that give a toggled editor its field look
+                              and unhovered pencil (cairn.css), and a second copy of those
+                              rules is a second thing to drift. --}}
+                        {{#if showDescription}}
+                        <div class="npc-description-section character-description">
+                            <div class="character-description-heading">{{ localize 'CAIRN.Description' }}</div>
+                            <prose-mirror name="system.description" value="{{system.description}}" toggled collaborate relative
+                                data-document-uuid="{{actor.uuid}}">{{{enrichedDescription}}}</prose-mirror>
+                        </div>
+                        {{/if}}
                         <div class="cairn-compat-footer">
                             <a href="https://cairnrpg.com" target="_blank" rel="noopener" title="{{ localize 'CAIRN.CompatibleAlt' }}">
                                 <img src="systems/air-bladder/logo/Cairn_Stamp.jpg" alt="{{ localize 'CAIRN.CompatibleAlt' }}" />

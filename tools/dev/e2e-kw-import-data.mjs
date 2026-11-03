@@ -6,12 +6,15 @@
  * scars split, omen, bonds, flattened containers), then CREATES the actor to confirm
  * the runtime fields (notes/description) persist.
  *
- *   node tools/dev/probe-kettlewright-import.mjs
+ *   node tools/dev/e2e-kw-import-data.mjs
  */
 import { chromium } from "playwright";
-import { FOUNDRY_URL, VIEWPORT, joinAsGM, watchErrors } from "./lib.mjs";
+import { FOUNDRY_URL, VIEWPORT, joinAsGM, watchErrors, watchdog } from "./lib.mjs";
 
 const browser = await chromium.launch();
+// The fleet's hang guard (review #34): without it a hang runs to the runner's
+// 65-minute cap and skips every restore. A bound on a hang, not a timing claim.
+watchdog(900000, "dev:kw-import-data");
 const page = await browser.newPage({ viewport: VIEWPORT });
 const errors = watchErrors(page);
 await joinAsGM(page);

@@ -93,8 +93,10 @@ because Foundry treats a world copy as the import of its source.
    **Market: Gear** → **Import**.
 2. The copy lands in your **Rollable Tables** sidebar under the same name. That
    name is the whole mechanism — keep it.
-3. Edit it freely. Delete rows you do not stock, and drag in items you do —
-   from the Items sidebar or a compendium, anywhere onto the table's window.
+3. A table opens in view mode, where nothing can be dropped or added, so press
+   **Edit** at the top of the window first. Then edit it freely. Delete rows you
+   do not stock, and drag in items you do — from the Items sidebar or a
+   compendium, anywhere onto the table's window.
 
 Open any `Market:` table in your world and a note at the top says which aisle
 it stocks and how to add or remove a row; open the shipped one in the
@@ -146,8 +148,8 @@ a mount or a cart is in the folder of the same name under Actors), set its
 
 By hand, one item at a time:
 
-1. Find the item in its compendium — **Market Goods**, **Expeditionary Gear**,
-   **Tools**, **Trinkets**, **Weapons**, **Armor**, or **Mounts & Transports**
+1. Find the item in its compendium — **Market Goods**, **Gear**,
+   **Tools**, **Trinkets**, **Weapons**, **Armor**, or **Companions & Transports**
    for a mount or a cart.
 2. Right-click it → **Import**. It lands in your **Items** sidebar (a mount or a
    cart lands in **Actors**).

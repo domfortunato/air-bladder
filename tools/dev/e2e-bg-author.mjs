@@ -12,7 +12,7 @@
  * no hint of a section. Now a hang names the stage it entered, and watchdog()
  * turns it into an exit 1 instead of a burned harness timeout.
  *
- *   node tools/dev/probe-bg-author.mjs
+ *   node tools/dev/e2e-bg-author.mjs
  */
 import { chromium } from "playwright";
 import { FOUNDRY_URL, VIEWPORT, joinAsGM, watchErrors, watchdog } from "./lib.mjs";
@@ -248,6 +248,21 @@ try {
     const optItem = bg.system.tables?.[0]?.options?.[0]?.items?.[0];
     out.optionSnapshot = { name: optItem?.name, hasItemData: !!optItem?.itemData };
 
+    // Every icon-only control on the form has a name. The option chip's × had
+    // none while its two sibling ×s carry title = CAIRN.Remove (review #34
+    // finding 189); the chip just dropped is the precondition that one exists.
+    // Core's own editor pencil counts too (user ruling 2026-11-01): `<prose-mirror>`
+    // builds it with no label (client prosemirror-editor.mjs:151-154), and the
+    // sheet names it with core's own "Edit" after every render.
+    await new Promise((r) => setTimeout(r, 200));
+    const iconOnly = [...sheetRoot(sheet).querySelectorAll("a[data-action], button")]
+      .filter((a) => !a.textContent.trim());
+    out.iconNames = {
+      optionRemove: iconOnly.some((a) => a.classList.contains("bg-option-item-remove")),
+      pencils: iconOnly.filter((a) => a.matches("prose-mirror > button.toggle")).length,
+      unnamed: iconOnly.filter((a) => !(a.getAttribute("aria-label") || a.title)).map((a) => a.className || a.dataset.action),
+    };
+
     // Give option 0 the ONLY nonempty description + a gold grant so the d6 roll,
     // whatever it lands on, has a defined answer.
     const tables = foundry.utils.deepClone(bg.system.tables);
@@ -259,6 +274,110 @@ try {
   }, SWORD);
   Object.assign(result, ed.out);
   const bgId = ed.bgId;
+
+  // CORE'S EDITOR PENCIL HAS A NAME ON EVERY SHEET (user ruling 2026-11-01).
+  // Two `_onRender`s draw every editor in the system, the actor sheet's and
+  // the item sheet's, so one sheet of each kind: a character's Description
+  // tab and a weapon. Each pencil must carry core's "Edit"
+  // (`CONTROLS.CommonEdit`) as its tooltip AND its accessible name, and keep
+  // it after the editor is opened and saved — core puts the same button node
+  // back on save (prosemirror-editor.mjs replaceChildren), and the save's own
+  // write re-renders the sheet. Both documents are made here and deleted in
+  // the evaluate's own finally.
+  result.pencils = await page.evaluate(async () => {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const sheetRoot = (app) => (app.element instanceof HTMLElement ? app.element : app.element?.[0]);
+    const want = game.i18n.localize("CONTROLS.CommonEdit");
+    const read = (root) => [...root.querySelectorAll("prose-mirror > button.toggle")]
+      .map((b) => ({ aria: b.getAttribute("aria-label"), tip: b.dataset.tooltip ?? null }));
+    const out = { want };
+    const actor = await getDocumentClass("Actor").create({ name: "ZZ Probe Pencil PC", type: "character" });
+    const item = await getDocumentClass("Item").create({ name: "ZZ Probe Pencil Blade", type: "weapon" });
+    try {
+      for (const [key, doc, tab] of [["actor", actor, "description"], ["item", item, null]]) {
+        await doc.sheet.render(true);
+        for (let i = 0; i < 40 && !doc.sheet.element; i++) await sleep(100);
+        await sleep(400);
+        if (tab) { sheetRoot(doc.sheet).querySelector(`.tabs .item[data-tab="${tab}"]`)?.click(); await sleep(300); }
+        out[key] = { before: read(sheetRoot(doc.sheet)) };
+        const editor = sheetRoot(doc.sheet).querySelector("prose-mirror[toggled]");
+        const pencil = editor?.querySelector(":scope > button.toggle");
+        if (editor && pencil) {
+          pencil.click();
+          for (let i = 0; i < 30 && !editor.classList.contains("active"); i++) await sleep(100);
+          out[key].opened = editor.classList.contains("active");
+          await editor.save();
+          await sleep(800);
+          out[key].after = read(sheetRoot(doc.sheet));
+        }
+        await doc.sheet.close();
+      }
+    } finally {
+      await actor.delete().catch(() => {});
+      await item.delete().catch(() => {});
+    }
+    return out;
+  });
+
+  // TYPE A NAME, THEN PRESS ADD (review #34 finding 73). The name's `change`
+  // fires at mousedown and Add gear's action at click, and Add rebuilt the
+  // whole array from `item.system`, which holds the typed name only once the
+  // server has answered — so the typed name was written back blank. Driven in
+  // ONE tick here, the window a round trip opens on any hosted server. Its own
+  // background, swept in finally, so no later leg sees its rows.
+  result.race = await page.evaluate(async () => {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const sheetRoot = (app) => (app.element instanceof HTMLElement ? app.element : app.element?.[0]);
+    const bg = await getDocumentClass("Item").create({
+      name: "ZZ Probe Race Background", type: "background",
+      system: { source: "2e", names: [], startingGear: [{ name: "" }], tables: [] },
+    });
+    try {
+      await bg.sheet.render(true);
+      for (let i = 0; i < 30 && !bg.sheet.element; i++) await sleep(100);
+      await bg.sheet.changeTab("details", "primary");
+      await sleep(300);
+      const input = sheetRoot(bg.sheet).querySelector(".bg-gear-name");
+      if (!input) return { error: "no gear-name input" };
+      input.value = "ZZ RACE ROPE";
+      input.dispatchEvent(new Event("change", { bubbles: true }));
+      sheetRoot(bg.sheet).querySelector(".bg-gear-add")?.click();
+      await sleep(1500);
+      return { gear: (bg.system.startingGear ?? []).map((g) => g.name) };
+    } finally {
+      await bg.sheet.close();
+      await bg.delete();
+    }
+  });
+
+  // A DOUBLE-CLICK ON A ROW'S × (review #34 finding 236). Since finding 73's
+  // queue each Remove runs after the one before it has landed, but it read its
+  // row's POSITION at click time — so the second of two clicks on one × removed
+  // the row that had moved up into that position. Two clicks in one tick on
+  // row 0 of three: one row goes, and it is row 0.
+  result.removeTwice = await page.evaluate(async () => {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const sheetRoot = (app) => (app.element instanceof HTMLElement ? app.element : app.element?.[0]);
+    const bg = await getDocumentClass("Item").create({
+      name: "ZZ Probe Remove Background", type: "background",
+      system: { source: "2e", names: [], startingGear: [{ name: "ZZ A" }, { name: "ZZ B" }, { name: "ZZ C" }], tables: [] },
+    });
+    try {
+      await bg.sheet.render(true);
+      for (let i = 0; i < 30 && !bg.sheet.element; i++) await sleep(100);
+      await bg.sheet.changeTab("details", "primary");
+      await sleep(300);
+      const x = sheetRoot(bg.sheet).querySelector('.bg-gear-remove[data-i="0"]');
+      if (!x) return { error: "no remove control on row 0" };
+      x.click();
+      x.click();
+      await sleep(1500);
+      return { gear: (bg.system.startingGear ?? []).map((g) => g.name) };
+    } finally {
+      await bg.sheet.close();
+      await bg.delete();
+    }
+  });
 
   stage("generation: snapshot gear + default bonds");
   Object.assign(result, await page.evaluate(async ([bgId, SWORD]) => {
@@ -515,6 +634,75 @@ try {
     return out;
   });
 
+  stage("review #34: four generation faults on a Warden's own content");
+  // FOUR GENERATION FAULTS on a Warden's own content (review #34 findings 63-66).
+  // Each on its own fixtures, swept in finally.
+  result.gen34 = await page.evaluate(async () => {
+    const cg = await import("/systems/air-bladder/module/character-generator.js");
+    const out = {};
+    const made = [];
+    try {
+      // 63 + 64: a custom 2e background with a blank example name beside a real
+      // one, and a "Spellbook" INSTRUCTION row. The blank name failed core's
+      // validation about half the time; the instruction row was dropped by 2e
+      // generation while a swap onto the same background dealt it. Eight
+      // generations make "never blank" a real claim (1/256 to pass by luck).
+      const bg = await getDocumentClass("Item").create({
+        name: "ZZ Probe Gen34 Background", type: "background",
+        system: { source: "2e", names: ["ZZ Ada", ""], startingGear: [{ name: "Spellbook" }], tables: [] },
+      });
+      made.push(bg);
+      const runs = [];
+      for (let i = 0; i < 8; i++) {
+        const data = await cg.generate2eCharacter(bg);
+        runs.push({ name: data?.name ?? null, spellbook: (data?.items ?? []).some((it) => it.type === "spellbook") });
+      }
+      out.names = runs.map((r) => r.name);
+      out.spellbooks = runs.filter((r) => r.spellbook).length;
+
+      // 65: a Warden's NPC Background table whose row is a DOCUMENT. The die read
+      // it as chat text, `@UUID[...]{name}`, which matched no gear and read on
+      // the sheet as the literal link.
+      const doc = await getDocumentClass("Item").create({ name: "ZZ Blacksmith", type: "item" });
+      made.push(doc);
+      const table = await CONFIG.RollTable.documentClass.create({
+        name: "Warden: NPC - Background", formula: "1d1",
+        results: [{ type: "document", documentUuid: doc.uuid, name: doc.name, range: [1, 1], weight: 1 }],
+      });
+      made.push(table);
+      const npc = await cg.generateNpc();
+      out.npcBackground = npc?.background ?? null;
+
+      // 66: the failed-career picker's RANDOM row, with Math.random pinned onto
+      // the character's own background in the picker's sorted list. Every roll
+      // path excludes the real background (ruled 2026-08-08); this one did not.
+      const bbs = await cg.getBarebonesBackgrounds();
+      const sorted = [...bbs].sort((x, y) => x.name.localeCompare(y.name, game.i18n.lang));
+      const mine = sorted[3]?.name ?? null;
+      out.mine = mine;
+      const idx = sorted.findIndex((x) => x.name === mine);
+      const origRandom = Math.random;
+      Math.random = () => (idx + 0.5) / sorted.length;
+      try {
+        const before = new Set(foundry.applications.instances.keys());
+        const p = cg.promptFailedCareer(null, { exclude: mine });
+        let dlg = null;
+        for (let t = 0; t < 40 && !dlg; t++) {
+          dlg = [...foundry.applications.instances.values()]
+            .find((x) => !before.has(x.id) && x.constructor.name === "DialogV2");
+          if (!dlg) await new Promise((r) => setTimeout(r, 150));
+        }
+        dlg?.element.querySelector('[data-action="choose"]')?.click();
+        out.randomPick = (await p)?.name ?? null;
+      } finally {
+        Math.random = origRandom;
+      }
+    } finally {
+      for (const d of made.reverse()) { try { await d.delete(); } catch { /* gone */ } }
+    }
+    return out;
+  });
+
   stage("the credit on a CHARACTER's sheet, not just the printed page");
   result.sheetCredit = await page.evaluate(async () => {
     const sheetRoot = (app) => (app.element instanceof HTMLElement ? app.element : app.element?.[0]);
@@ -624,6 +812,18 @@ const checks = [
   ["12 options padded", result.optionCount === 12],
   ["12 option drop zones", result.optionDropZones === 12],
   ["name-add handler persists", result.namesAfterAdd === 1],
+  ["a blank example name is never dealt: eight generations all named",
+    (result.gen34?.names ?? []).length === 8 && result.gen34.names.every((n) => n === "ZZ Ada")],
+  ["2e generation deals a background's Spellbook instruction row, as a swap does",
+    result.gen34?.spellbooks === 8],
+  ["a Warden's document row on the NPC Background table reads as its plain name",
+    result.gen34?.npcBackground === "ZZ Blacksmith"],
+  ["the failed-career picker's Random row avoids the character's own background",
+    !!result.gen34?.mine && !!result.gen34?.randomPick && result.gen34.randomPick !== result.gen34.mine],
+  ["a gear name typed just before Add gear survives the Add",
+    JSON.stringify(result.race?.gear) === JSON.stringify(["ZZ RACE ROPE", ""]), JSON.stringify(result.race)],
+  ["a double-click on a gear row's × removes that row only",
+    JSON.stringify(result.removeTwice?.gear) === JSON.stringify(["ZZ B", "ZZ C"]), JSON.stringify(result.removeTwice)],
   // Precondition first, or the leg under it passes on a form where nothing ran.
   ["precondition: the first field's edit really commits", result.typing?.firstCommitted === true],
   ["typing in the NEXT field survives that commit",
@@ -632,6 +832,17 @@ const checks = [
   ["gear drop → snapshot w/ itemData", result.gearSnapshot?.hasItemData === true && result.gearSnapshot?.name === SWORD],
   ["gear snapshot kept type+bulky", result.gearSnapshot?.type === "weapon" && result.gearSnapshot?.bulky === true],
   ["option drop → snapshot w/ itemData", result.optionSnapshot?.hasItemData === true],
+  ["every icon-only control on the form is named (review #34 finding 189)",
+    result.iconNames?.optionRemove === true && result.iconNames?.unnamed?.length === 0],
+  ["...core's editor pencil included, which the scan reaches (precondition: one is drawn)",
+    result.iconNames?.pencils > 0 && result.iconNames?.unnamed?.length === 0, JSON.stringify(result.iconNames)],
+  ...["actor", "item"].map((k) => {
+    const p = result.pencils?.[k];
+    const named = (list) => list?.length > 0 && list.every((b) => b.aria === result.pencils.want && b.tip === result.pencils.want);
+    return [`a${k === "actor" ? " character" : "n item"} sheet's editor pencil is named core's "Edit", and keeps it after an open and a save`,
+      !!result.pencils?.want && result.pencils.want !== "CONTROLS.CommonEdit" && named(p?.before) && p?.opened === true && named(p?.after),
+      JSON.stringify({ want: result.pencils?.want, ...p })];
+  }),
   ["generation resolved snapshot gear (not in any pack)", result.genHasSnapshotGear === true],
   ["\"Grants two bonds\" box on the authoring form", result.hasSecondBondBox === true],
   ["one bond by default, two with the box ticked", result.bondsDefault === 1 && result.bondsWithFlag === 2],

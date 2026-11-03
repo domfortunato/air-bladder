@@ -47,5 +47,13 @@
         {{#if seasonLine}}
             <div class="cairn-watch-line cairn-watch-season">{{seasonLine}}</div>
         {{/if}}
+        {{!-- The same weather line as the door's (review #34 finding 80): today's
+              weather is core Cairn, so it shows without the Vald calendar too. --}}
+        {{#if weather}}
+            <div class="cairn-watch-line cairn-watch-weather">
+                <i class="fa-solid fa-cloud-sun"></i>
+                <span>{{weather}}</span>
+            </div>
+        {{/if}}
     </div>
 {{/if}}

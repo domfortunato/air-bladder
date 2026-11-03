@@ -3,7 +3,7 @@
  * Phase 3 acceptance probe: the marketplace is a REFERENCE catalog over the
  * editable gear pool, so editing a pool item's cost/description updates the shop.
  *
- *   node tools/dev/marketplace-probe.mjs   (needs Foundry running, world launched,
+ *   node tools/dev/e2e-marketplace.mjs   (needs Foundry running, world launched,
  *                                          and `npm run dev:players` for step 5)
  *
  * Steps, driven headless as GM (after an ENTRY sweep of every world `Market:`
@@ -48,32 +48,44 @@
  */
 
 import { chromium } from "playwright";
-import { VIEWPORT, joinAs, joinAsGM, watchErrors } from "./lib.mjs";
+import { VIEWPORT, hideTablesInPage, joinAs, joinAsGM, watchErrors, watchdog } from "./lib.mjs";
 
 const browser = await chromium.launch();
+// The fleet's hang guard (review #34): without it a hang runs to the runner's
+// 65-minute cap and skips every restore. A bound on a hang, not a timing claim.
+watchdog(900000, "dev:marketplace");
 const page = await browser.newContext({ viewport: VIEWPORT }).then((c) => c.newPage());
 const errors = watchErrors(page);
 let failed = false;
+/** Hides the Warden's own Market: tables on a page (set at entry, below). */
+let holdAsideMarket = async () => {};
 const fail = (m) => { console.error(`  FAIL  ${m}`); failed = true; };
 const ok = (m) => console.log(`  ok    ${m}`);
 
 try {
   await joinAsGM(page);
 
-  // ENTRY SWEEP (2026-09-15). Every leg below reads the shop, and the shop is
-  // WORLD FIRST: a Warden's own `Market:` copies — the Create a Custom
-  // Marketplace… button's output, pointing at WORLD items — make step 2 edit
-  // a pack Dagger the shop no longer reads, and the leg reports the edit as
-  // lost. The world-first section swept them, but only when it began, three
-  // steps too late; it redded exactly that way with the dev world's copies
-  // in place. Swept here and named, so a Warden knows to press the button
-  // again afterwards.
-  const sweptAtEntry = await page.evaluate(async () => {
-    const names = game.tables.filter((t) => /^Market:/i.test(t.name)).map((t) => t.name);
-    for (const t of [...game.tables].filter((x) => /^Market:/i.test(x.name))) await t.delete();
-    return names;
-  });
-  if (sweptAtEntry.length) console.log(`  --    swept ${sweptAtEntry.length} world Market: table(s) at entry (a Warden's own copies read as overrides): ${sweptAtEntry.join(", ")}`);
+  // HELD ASIDE AT ENTRY, NEVER DELETED (review #34 finding 153). Every leg
+  // below reads the shop, and the shop is WORLD FIRST: a Warden's own `Market:`
+  // copies — the Create a Custom Marketplace… button's output, pointing at
+  // WORLD items — make step 2 edit a pack Dagger the shop no longer reads. This
+  // used to DELETE them (2026-09-15) and print their names "so a Warden knows to
+  // press the button again", which destroyed the Warden's own shop, edits and
+  // all, on every run. Now they are hidden IN-PAGE for this session: the shop
+  // walks `game.tables` by iteration (marketTables), so the iterator is
+  // shadowed to skip their ids, and `find` too (holdAsideWorldTables). Nothing
+  // is written; the shadow dies with the page. Tables this probe plants later
+  // are new ids and stay visible.
+  const heldAtEntry = await page.evaluate(() =>
+    game.tables.filter((t) => /^Market:/i.test(t.name)).map((t) => ({ id: t.id, name: t.name })));
+  // ONE shadow, applied to EVERY session that reads the shop: the player
+  // session joined below reads the world's tables too, and on its own page the
+  // Warden's aisles were back (fleet 20261031T133723Z: a player's Gear aisle
+  // read the Warden's 49 rows). It hides exactly the ids held here, so tables
+  // this probe plants later stay visible on both pages.
+  holdAsideMarket = (pg) => hideTablesInPage(pg, heldAtEntry.map((t) => t.id));
+  await holdAsideMarket(page);
+  if (heldAtEntry.length) console.log(`  --    held aside ${heldAtEntry.length} world Market: table(s) in-page, nothing written: ${heldAtEntry.map((t) => t.name).join(", ")}`);
   else ok("no world Market: tables at entry — the shop reads the shipped aisles");
 
   const r = await page.evaluate(async () => {
@@ -107,21 +119,27 @@ try {
     const pack = game.packs.get("air-bladder.weapons");
     const poolDagger = (await pack.getDocuments()).find((d) => d.name === "Dagger");
     const wasLocked = pack.locked;
-    if (wasLocked) await pack.configure({ locked: false });
     const origCost = poolDagger.system.cost;
     const origDesc = poolDagger.system.description ?? "";
     const marker = "PROBE-MKT-MARKER-7";
-    await poolDagger.update({ "system.cost": 99, "system.description": marker });
+    // Restored in a finally (review #34): a leg that throws mid-edit would leave
+    // the shipped Dagger at 99 for the next probe on the same fleet box.
+    let reflect;
+    try {
+      if (wasLocked) await pack.configure({ locked: false });
+      await poolDagger.update({ "system.cost": 99, "system.description": marker });
 
-    const cat2 = await mkt.getMarketplaceCatalog();
-    const dagger2 = find(cat2, "Weapons", "Dagger");
-    const reflect = {
-      cost: dagger2?.system.cost,
-      reflectsCost: dagger2?.system.cost === 99,
-      reflectsDesc: (dagger2?.system.description ?? "").includes(marker),
-    };
-    await poolDagger.update({ "system.cost": origCost, "system.description": origDesc });
-    if (wasLocked) await pack.configure({ locked: true });
+      const cat2 = await mkt.getMarketplaceCatalog();
+      const dagger2 = find(cat2, "Weapons", "Dagger");
+      reflect = {
+        cost: dagger2?.system.cost,
+        reflectsCost: dagger2?.system.cost === 99,
+        reflectsDesc: (dagger2?.system.description ?? "").includes(marker),
+      };
+    } finally {
+      await poolDagger.update({ "system.cost": origCost, "system.description": origDesc });
+      if (wasLocked) await pack.configure({ locked: true });
+    }
 
     // 3. Buy flow with a temp character.
     const actor = await Actor.create({ type: "character", name: "MKT Probe", system: { gold: 100 } });
@@ -267,6 +285,55 @@ try {
     sel("Dagger", "buy")?.click();
     full.buyLandsAgain = await poll(() => actor.items.size === beforeFreed + 1, 60, 50);
 
+    // A FULL SACK GREYS ITS ROWS (review #34 finding 128). The greying read
+    // `!actor.isThing && isEncumbered()`, so a THING's rows were never greyed
+    // and every click on a full sack was refused at the till — the shop
+    // offering what it was about to turn down. A 2-slot sack holding two
+    // 1-slot items: the Dagger must be greyed, a petty item must not.
+    await closeShop();
+    const sack = await CONFIG.Actor.documentClass.create({ name: "MKT Full Sack", type: "npc",
+      system: { role: "container", containerClass: "sack", slots: 2 },
+      items: [{ name: "MKT Sack Rope", type: "item" }, { name: "MKT Sack Chalk", type: "item" }] });
+    try {
+      await mkt.openMarketplace(sack);
+      await poll(() => document.querySelector(".marketplace .mkt-row"));
+      await poll(() => document.querySelector(".marketplace .mkt-slotval")?.textContent
+        === `${sack.system.slotsUsed}/${sack.system.slotsMax}`, 100, 50);
+      full.sack = {
+        slots: `${sack.system.slotsUsed}/${sack.system.slotsMax}`,
+        buyDisabled: sel("Dagger", "buy")?.disabled === true,
+        takeDisabled: sel("Dagger", "take")?.disabled === true,
+        pettyStaysEnabled: petty ? sel(petty.name, "take")?.disabled === false : null,
+      };
+    } finally {
+      await closeShop();
+      await sack.delete();
+    }
+
+    // PAID ONLY FOR WHAT LANDED (review #34 finding 164). A create every seam
+    // refuses resolves EMPTY rather than throwing, and the till charged the
+    // gold and said "Bought" for nothing. A preCreateItem veto on one fresh
+    // buyer stands in for any such seam (the one-book wall, a module's hook).
+    const buyer = await CONFIG.Actor.documentClass.create({ name: "MKT Veto Buyer", type: "character",
+      system: { gold: 50 } });
+    const veto = Hooks.on("preCreateItem", (doc) => (doc.parent?.id === buyer.id ? false : undefined));
+    try {
+      await mkt.openMarketplace(buyer);
+      await poll(() => document.querySelector(".marketplace .mkt-row"));
+      await poll(() => document.querySelector(".marketplace .mkt-slotval")?.textContent
+        === `${buyer.system.slotsUsed}/${buyer.system.slotsMax}`, 100, 50);
+      const items0 = buyer.items.size, gold0 = buyer.system.gold;
+      const live = sel("Dagger", "buy")?.disabled === false;
+      sel("Dagger", "buy")?.click();
+      await wait(1500);
+      full.veto = { live, landed: buyer.items.size - items0, gold: `${gold0} -> ${buyer.system.gold}`,
+        charged: buyer.system.gold !== gold0 };
+    } finally {
+      Hooks.off("preCreateItem", veto);
+      await closeShop();
+      await buyer.delete();
+    }
+
     // cleanup: close any open shop dialog(s), delete the temp actor.
     full.cleanupClosed = await closeShop();
     await actor.delete();
@@ -277,7 +344,7 @@ try {
   // ---- assertions ----
   const L = r.listing;
   // Transports & Containers joined the shop in Phase 4; it is covered in depth by
-  // tools/dev/transport-probe.mjs, so this probe only checks it is in order here.
+  // tools/dev/e2e-transports.mjs, so this probe only checks it is in order here.
   JSON.stringify(L.categories) === JSON.stringify(["Weapons", "Armor", "Gear", "Transports & Containers"])
     ? ok(`shop has 4 categories in order: ${L.categories.join(", ")}`)
     : fail(`unexpected categories: ${JSON.stringify(L.categories)}`);
@@ -315,6 +382,12 @@ try {
   F.forcedBuyRefused && F.forcedTakeRefused
     ? ok("forcing the disabled attribute off and clicking is still refused — a stale dialog is not a way through")
     : fail(`ENFORCEMENT MISSING: a forced click went through (buy refused=${F.forcedBuyRefused}, take refused=${F.forcedTakeRefused}) — the greying is only an affordance`);
+  F.sack?.slots === "2/2" && F.sack.buyDisabled && F.sack.takeDisabled && F.sack.pettyStaysEnabled !== false
+    ? ok("a FULL SACK's shop greys a 1-slot row, as its till refuses it — and leaves a petty row live (F128)")
+    : fail(`a full sack's shop offers what it will refuse: ${JSON.stringify(F.sack)}`);
+  F.veto?.live && F.veto.landed === 0 && F.veto.charged === false
+    ? ok(`a Buy whose create is refused charges nothing (F164): gold ${F.veto.gold}`)
+    : fail(`a refused create was paid for: ${JSON.stringify(F.veto)}`);
   F.carrierName === null
     ? console.log("  --    no transport stocked, so the not-everything-is-greyed leg is skipped")
     : F.carrierStaysEnabled
@@ -409,6 +482,7 @@ try {
   const alicePage = await aliceContext.newPage();
   const aliceErrors = watchErrors(alicePage);
   await joinAs(alicePage, "Alice");
+  await holdAsideMarket(alicePage);   // the same Warden tables, hidden on her page too
   const p = await alicePage.evaluate(async () => {
     const mkt = await import("/systems/air-bladder/module/marketplace.js");
     const cat = await mkt.getMarketplaceCatalog();
@@ -529,6 +603,254 @@ try {
   JSON.stringify(s.shopGear) === JSON.stringify([A, B, C])
     ? ok("and the shop reads the aisle in the new order")
     : fail(`shop Gear aisle after the sort: ${JSON.stringify(s.shopGear)} (want ${JSON.stringify([A, B, C])})`);
+
+  // TWO BUYS IN ONE TICK (review #34 finding 91). Only the clicked button was
+  // disabled, so a Buy on a second row inside one round trip ran beside the
+  // first: both passed the gold check against the pre-purchase balance, and
+  // the second's gold write could overwrite the first's payment or take the
+  // purse negative. Gold here covers either row and not both.
+  const twin = await page.evaluate(async () => {
+    const mkt = await import("/systems/air-bladder/module/marketplace.js");
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const poll = async (fn, ms = 8000) => { const t0 = Date.now(); while (Date.now() - t0 < ms) { const v = fn(); if (v) return v; await sleep(100); } return fn(); };
+    const actor = await Actor.create({ type: "character", name: "MKT Twin Probe", system: { gold: 0 } });
+    const closeShops = async () => {
+      for (const w of [...foundry.applications.instances.values()]) {
+        if (w.element?.querySelector?.(".marketplace")) { try { await w.close(); } catch { /* gone */ } }
+      }
+      await sleep(300);
+    };
+    try {
+      // Read two prices first, then reopen with the purse set — the buttons'
+      // affordability is drawn when the shop renders.
+      await mkt.openMarketplace(actor);
+      await poll(() => document.querySelector(".marketplace .mkt-row"));
+      const priced = [...document.querySelectorAll(".marketplace .mkt-row")]
+        .map((r) => ({ name: r.dataset.name, cost: Number(r.dataset.cost) }))
+        .filter((x) => Number.isFinite(x.cost) && x.cost > 1);
+      await closeShops();
+      const [pa, pb] = priced;
+      if (!pa || !pb) return { error: "fewer than two priced rows" };
+      await actor.update({ "system.gold": pa.cost + pb.cost - 1 });
+      await mkt.openMarketplace(actor);
+      await poll(() => document.querySelector(".marketplace .mkt-row"));
+      await sleep(400);
+      const rowOf = (n) => [...document.querySelectorAll(".marketplace .mkt-row")].find((r) => r.dataset.name === n);
+      const a = { r: rowOf(pa.name), cost: pa.cost };
+      const b = { r: rowOf(pb.name), cost: pb.cost };
+      const before = actor.items.size;
+      const goldBefore = actor.system.gold;
+      a.r.querySelector(".mkt-buy").click();
+      b.r.querySelector(".mkt-buy").click();
+      await sleep(3000);
+      return { goldBefore, goldAfter: actor.system.gold, gained: actor.items.size - before, costs: [a.cost, b.cost] };
+    } finally {
+      await closeShops();
+      await actor.delete();
+    }
+  });
+  !twin.error && twin.gained === 1 && twin.goldAfter >= 0
+    && twin.costs.some((c) => twin.goldAfter === twin.goldBefore - c)
+    ? ok("two Buys in one tick buy once and charge once", JSON.stringify(twin))
+    : fail(`two Buys in one tick: ${JSON.stringify(twin)}`);
+
+  // THE FAILURE TOASTS SAY WHAT FAILED (review #34 findings 59 and 167). A shop
+  // that failed to open, and a Buy/Take whose write was refused, both surfaced
+  // CAIRN.Notify.DropFailed — "Couldn't move that item — you may not have
+  // permission to change the receiving sheet." — and nothing was being moved in
+  // either. Each now has its own toast (wording signed off 2026-10-31). Both
+  // failures are forced IN-PAGE, never by a real write: the open by making the
+  // shipped Market pack's lookup throw (marketTables reads it first), the Buy
+  // by shadowing this actor's createEmbeddedDocuments. The console.error each
+  // catch logs on purpose is swallowed so watchErrors does not count the
+  // failure the leg asked for; every shadow is undone in a finally.
+  const toasts = await page.evaluate(async () => {
+    const mkt = await import("/systems/air-bladder/module/marketplace.js");
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const poll = async (fn, ms = 8000) => { const t0 = Date.now(); while (Date.now() - t0 < ms) { const v = fn(); if (v) return v; await sleep(100); } return fn(); };
+    const actor = await Actor.create({ type: "character", name: "MKT Toast Probe", system: { gold: 100 } });
+    const notes = ui.notifications;
+    const hadOwn = Object.hasOwn(notes, "error");
+    const origNote = notes.error;
+    const origConsoleError = console.error;
+    const origPacksGet = game.packs.get;
+    const seen = [];
+    const closeShops = async () => {
+      for (const w of [...foundry.applications.instances.values()]) {
+        if (w.element?.querySelector?.(".marketplace")) { try { await w.close(); } catch { /* gone */ } }
+      }
+      await sleep(300);
+    };
+    try {
+      notes.error = function (msg, ...rest) { seen.push(String(msg)); return origNote.call(this, msg, ...rest); };
+      // Two echoes of each failure asked for: the catch's own log, and core's —
+      // an error toast writes its text to the console too (measured on the
+      // fleet, 4c7db9c6). Only those; anything else still reaches watchErrors.
+      console.error = (...a) => {
+        const text = String(a[0]);
+        if (/^Air Bladder \| marketplace (failed to open|acquire failed)/.test(text)
+          || seen.some((s) => text.includes(s))) return;
+        origConsoleError.apply(console, a);
+      };
+
+      // 1. The shop fails to open, through the sheet's own button.
+      await actor.sheet.render(true);
+      await poll(() => actor.sheet.element?.querySelector('[data-action="itemShop"]'));
+      game.packs.get = function (key, ...rest) {
+        if (key === "air-bladder.marketplace") throw new Error("probe: the Market pack is unreadable");
+        return origPacksGet.call(this, key, ...rest);
+      };
+      actor.sheet.element.querySelector('[data-action="itemShop"]')?.click();
+      await poll(() => seen.length >= 1, 4000);
+      delete game.packs.get;
+      const openSeen = [...seen];
+
+      // 2. A Buy whose write is refused.
+      seen.length = 0;
+      await mkt.openMarketplace(actor);
+      await poll(() => document.querySelector(".marketplace .mkt-row .mkt-buy:not([disabled])"));
+      actor.createEmbeddedDocuments = () => Promise.reject(new Error("probe: the write is refused"));
+      document.querySelector(".marketplace .mkt-row .mkt-buy:not([disabled])")?.click();
+      await poll(() => seen.length >= 1, 4000);
+      const buySeen = [...seen];
+
+      return {
+        openSeen, buySeen,
+        wantOpen: game.i18n.localize("CAIRN.Notify.MarketplaceOpenFailed"),
+        wantBuy: game.i18n.localize("CAIRN.Notify.AcquireFailed"),
+        dropFailed: game.i18n.localize("CAIRN.Notify.DropFailed"),
+      };
+    } finally {
+      if (Object.hasOwn(game.packs, "get")) delete game.packs.get;
+      delete actor.createEmbeddedDocuments;
+      if (hadOwn) notes.error = origNote; else delete notes.error;
+      console.error = origConsoleError;
+      await closeShops();
+      await actor.sheet?.close();
+      await actor.delete();
+    }
+  });
+  toasts.openSeen.length === 1 && toasts.openSeen[0] === toasts.wantOpen
+    ? ok(`a shop that fails to open says so: ${JSON.stringify(toasts.openSeen[0])}`)
+    : fail(`a shop that fails to open: ${JSON.stringify(toasts.openSeen)} (wanted ${JSON.stringify(toasts.wantOpen)}; DropFailed is ${JSON.stringify(toasts.dropFailed)})`);
+  toasts.buySeen.length === 1 && toasts.buySeen[0] === toasts.wantBuy
+    ? ok(`a refused Buy says the item was not added: ${JSON.stringify(toasts.buySeen[0])}`)
+    : fail(`a refused Buy: ${JSON.stringify(toasts.buySeen)} (wanted ${JSON.stringify(toasts.wantBuy)}; DropFailed is ${JSON.stringify(toasts.dropFailed)})`);
+
+  // "HP STAYS 0" IS SAID ONLY TO WHOM IT IS TRUE (review #34 finding 129).
+  // Encumbrance zeroes HP only where `livesByPlayerRules` (a character or a
+  // person role); a companion, monster or thing at capacity is in its normal
+  // state and keeps its HP. Four messages asked raw capacity instead: the
+  // sheet's Overburdened banner, the after-purchase toast, the leave-the-shop
+  // toast and the Add Fatigue toast. The same gestures on a COMPANION (must
+  // hear none of them) and a HIRELING (must hear all four — the witness that
+  // the leg can see them): Take one 1-slot item into a 1-slot pack, close the
+  // shop, render the sheet, Add Fatigue.
+  const hp0 = await page.evaluate(async () => {
+    const mkt = await import("/systems/air-bladder/module/marketplace.js");
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const poll = async (fn, ms = 8000) => { const t0 = Date.now(); while (Date.now() - t0 < ms) { const v = fn(); if (v) return v; await sleep(100); } return fn(); };
+    const catalog = await mkt.getMarketplaceCatalog();
+    const flat = catalog.categories.flatMap((c) => c.items);
+    const idx = flat.findIndex((d) => d.documentName !== "Actor" && d.type !== "transport"
+      && !d.system?.bulky && !d.system?.weightless && (d.system?.quantity ?? 1) === 1);
+    if (idx < 0) return { error: "no 1-slot row in the shop" };
+    const rowName = flat[idx].name;
+    const notes = ui.notifications;
+    const hadOwn = Object.hasOwn(notes, "warn");
+    const origWarn = notes.warn;
+    const warned = [];
+    const words = {
+      take: game.i18n.format("CAIRN.Notify.Overloaded", { name: rowName }),
+      left: game.i18n.localize("CAIRN.Notify.LeftOverloaded"),
+      fatigue: game.i18n.format("CAIRN.Notify.Overloaded", { name: game.i18n.localize("CAIRN.Fatigue") }),
+    };
+    const made = [];
+    const run = async (role) => {
+      const actor = await Actor.create({ name: `MKT HP0 ${role}`, type: "npc", system: { role, slots: 1 } });
+      made.push(actor);
+      warned.length = 0;
+      await mkt.openMarketplace(actor);
+      const take = await poll(() => document.querySelector(`.marketplace .mkt-take[data-idx="${idx}"]:not([disabled])`));
+      take?.click();
+      await poll(() => actor.items.size >= 1, 6000);
+      for (const w of [...foundry.applications.instances.values()]) {
+        if (w.element?.querySelector?.(".marketplace")) { try { await w.close(); } catch { /* gone */ } }
+      }
+      await sleep(300);
+      await actor.sheet.render(true);
+      await poll(() => actor.sheet.element?.querySelector('[data-action="addFatigue"]'));
+      const banner = !!actor.sheet.element?.querySelector(".status-banner.status-encumbered");
+      actor.sheet.element?.querySelector('[data-action="addFatigue"]')?.click();
+      await poll(() => actor.items.size >= 2, 6000);
+      await sleep(200);
+      await actor.sheet.close();
+      return {
+        took: actor.items.some((i) => i.name === rowName), full: actor.isEncumbered(), banner,
+        take: warned.includes(words.take), left: warned.includes(words.left), fatigue: warned.includes(words.fatigue),
+      };
+    };
+    try {
+      notes.warn = function (msg, ...rest) { warned.push(String(msg)); return origWarn.call(this, msg, ...rest); };
+      return { rowName, companion: await run("companion"), hireling: await run("hireling") };
+    } finally {
+      if (hadOwn) notes.warn = origWarn; else delete notes.warn;
+      for (const a of made) { try { await a.delete(); } catch { /* gone */ } }
+    }
+  });
+  if (hp0.error) fail(`HP-0 words: ${hp0.error}`);
+  else {
+    const w = hp0.hireling;
+    w.took && w.full && w.banner && w.take && w.left && w.fatigue
+      ? ok(`witness: a full HIRELING hears all four HP-0 messages (took ${hp0.rowName})`)
+      : fail(`witness: a full hireling should hear all four HP-0 messages: ${JSON.stringify(w)}`);
+    const c = hp0.companion;
+    c.took && c.full && !c.banner && !c.take && !c.left && !c.fatigue
+      ? ok("a full COMPANION hears none: no banner, no Take, leave-shop or Fatigue toast")
+      : fail(`a full companion keeps its HP, but was told it stays 0: ${JSON.stringify(c)}`);
+  }
+
+  // ONE REQUEST PER PACK (review #34 finding 191). The shop resolved each
+  // compendium row with its own `getDocument`, one awaited server request
+  // after another: ~70 in series on every first open. Counted, not timed:
+  // every pack the shipped aisles name is evicted with core's own `clear()`
+  // (it keeps the index; nothing is written, a later read refetches), each of
+  // those packs' `getDocuments` is shadowed ON THE INSTANCE to count its calls
+  // (core's `getDocument` goes through it), and the shop is read once. Every
+  // pack must be asked at most once. Witness: the evicted rows were cold, more
+  // than 20 of them, and the shop still resolved them.
+  const fetches = await page.evaluate(async () => {
+    const mkt = await import("/systems/air-bladder/module/marketplace.js");
+    const { MARKETPLACE_PACK } = await import("/systems/air-bladder/module/compendium.js");
+    const tables = await game.packs.get(MARKETPLACE_PACK).getDocuments();
+    const rows = tables.flatMap((t) => [...t.results])
+      .filter((r) => r.type === CONST.TABLE_RESULT_TYPES.DOCUMENT)
+      .map((r) => foundry.utils.parseUuid(r.documentUuid ?? ""))
+      .filter((p) => p?.collection instanceof foundry.documents.collections.CompendiumCollection && !p.embedded?.length);
+    const packs = [...new Set(rows.map((p) => p.collection))];
+    for (const pack of packs) pack.clear();
+    const cold = rows.filter((p) => p.collection.index.has(p.id)
+      && !(p.collection.get(p.id) instanceof foundry.abstract.Document)).length;
+    const calls = Object.fromEntries(packs.map((p) => [p.collection, 0]));
+    const shadowed = [];
+    try {
+      for (const pack of packs) {
+        const orig = pack.getDocuments;
+        shadowed.push([pack, Object.hasOwn(pack, "getDocuments"), orig]);
+        pack.getDocuments = function (...args) { calls[this.collection] += 1; return orig.apply(this, args); };
+      }
+      const cat = await mkt.getMarketplaceCatalog();
+      return { cold, packs: packs.length, calls, resolved: cat.categories.reduce((n, c) => n + c.items.length, 0) };
+    } finally {
+      for (const [pack, own, orig] of shadowed) { if (own) pack.getDocuments = orig; else delete pack.getDocuments; }
+    }
+  });
+  fetches.cold > 20 && fetches.resolved > 20
+    ? ok(`witness: ${fetches.cold} shop rows were cold across ${fetches.packs} pack(s), and the shop resolved ${fetches.resolved}`)
+    : fail(`the count below proves nothing: ${fetches.cold} cold row(s), ${fetches.resolved} resolved`);
+  Object.values(fetches.calls).every((n) => n <= 1)
+    ? ok(`the shop asked each pack at most once: ${JSON.stringify(fetches.calls)}`)
+    : fail(`the shop fetched its rows one request at a time: ${JSON.stringify(fetches.calls)}`);
 } catch (e) {
   fail(`${e.name}: ${e.message}`);
 } finally {

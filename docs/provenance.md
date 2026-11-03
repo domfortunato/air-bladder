@@ -127,7 +127,7 @@ keeps them; only the compendium is gone.
 `background-archetypes.csv` — declared as "ours, not upstream's" in the
 importer ledger, because the SRD price list is names and numbers with no
 flavour. Also the hand-tended gear pool, the interface strings in
-`lang/en.json` (1,195 interface strings, a count `npm run i18n:check` holds to the file), the Warden guides in `docs/`, both READMEs, and the
+`lang/en.json` (1,201 interface strings, a count `npm run i18n:check` holds to the file), the Warden guides in `docs/`, both READMEs, and the
 listing description.
 
 **Translations.** `lang/es.json` and `lang/content/es.json` are by
@@ -160,4 +160,4 @@ and by gates that fail when they drift:
 | Which upstream file each pack came from | `tools/import/README.md` |
 | Shipped tables still match the Cairn SRD | `npm run check:warden` |
 | No world-specific or fork-era provenance stamps ship | `npm run check:fields` |
-| Design decisions and their reasons | `git log`, `CLAUDE.md` |
+| Design decisions and their reasons | `git log`, `CLAUDE.md`, `docs/working-notes/` |

@@ -24,9 +24,9 @@ export const MARKETPLACE_PACK = "air-bladder.marketplace";
  * This is the same mistake `gear.js` `resolveGearItem` already documents fixing
  * ("twenty names went 34.5s -> 5.2s"); the fix is deliberately the same shape.
  *
- * Still not cached, for the same reason it is not cached there: an in-session
- * edit to a compendium item must show up on the next lookup — that is the point
- * of the editable-compendium model.
+ * Still not cached, for the same reason it is not cached there: an edit to a
+ * compendium item shows up on the next lookup, for as long as the edit lives
+ * (a system update replaces a shipped pack wholesale).
  *
  * @param {String} compendiumName
  * @param {String} itemName
@@ -164,61 +164,62 @@ export const rollTable = async (decl, { roll } = {}) => {
  * @returns {String}
  */
 export const resultText = (result) =>
-  (result?.type === "text" ? result.description : result?.name) ?? "";
+  // A text row typed into NAME, the description left empty, reads as its name
+  // (review #34 finding 225) — core v14's table editor offers a Name input and
+  // a Description editor, and a Warden may fill either. Where the text is
+  // STORED or shown escaped, read resultPlainText below instead.
+  (result?.type === "text" ? (result.description || result.name) : result?.name) ?? "";
 
 /**
- * A rolled result rendered the way it would appear in chat: prose for a text row,
- * a content link for a document row.
+ * A row as PLAIN TEXT, for a reader that composes it into a name, a list
+ * entry or a number rather than chat (review #34 finding 92): the faction
+ * generator, the monster generator and the NPC Faction die.
  *
- * Replaces `TableResult#getChatText()`, deprecated `{since: 13, until: 15}`
- * (client/documents/table-result.mjs:120-124). The body is core's own expression
- * from that method, so the output is byte-identical to what shipped.
- *
- * `getHTML()` is core's nominated successor and is NOT a drop-in here. It is async,
- * it enriches to real HTML, and it wraps the result in a template — whereas this
- * value is stored on the actor as one of the eight 2e trait strings and rendered as
- * plain text. Swapping it in would put markup into `system.traits.*` on every
- * generated character, and the content-translation overlay keys on the English
- * source string, so every trait would also lose its translation.
- *
+ * `resultText` hands back a text row's `description` raw, and the shipped rows
+ * are bare strings — but a row a WARDEN writes is not. Core v14's table editor
+ * has no inline text field: `+` makes an empty row, and its config sheet offers
+ * a Name input and a Description that is a ProseMirror editor, which saves
+ * `<p>…</p>`. So a Warden's faction typed into Name read as "" (never dealt,
+ * missing from the Create Faction list), and one typed into Description
+ * arrived as "The Bold <p>Iron Brotherhood</p>". Here the description's TEXT
+ * is taken (an inert parse — nothing loads or runs), and an empty description
+ * falls back to the row's name. A shipped row, plain already, comes out
+ * byte-identical, so its content-overlay key still matches.
  * @param {TableResult} result
  * @returns {String}
  */
-export const resultChatText = (result) =>
-  (result?.type === CONST.TABLE_RESULT_TYPES.DOCUMENT
-    ? `@UUID[${result.documentUuid}]{${result.name}}`
-    : result?.description) ?? "";
-
-/**
- * One rolled result's chat text off a declared table.
- * @param {String} decl  "pack;Name" or "Name"
- * @returns {Promise.<String>}  the result's chat text, or "" if the table is
- *                              missing or empty (generation must degrade, not throw)
- */
-export const rollTableText = async (decl) => {
-  const rolled = await rollTable(decl);
-  return resultChatText(rolled?.results?.[0]);
+export const resultPlainText = (result) => {
+  if (result?.type !== "text") return String(result?.name ?? "").trim();
+  const desc = String(result.description ?? "");
+  const text = desc.includes("<")
+    ? (new DOMParser().parseFromString(desc, "text/html").body.textContent ?? "")
+    : desc;
+  return text.trim() || String(result.name ?? "").trim();
 };
 
 /**
  * One rolled result as PLAIN TEXT off a declared table — a document row's name,
- * a text row's prose, trimmed — for a reader that composes the value into a
- * NAME rather than storing it as chat text.
+ * a text row's prose, trimmed — and the one reader every generator stores or
+ * composes a rolled row through: the monster generator's names and attacks,
+ * the eight 2e traits and the NPC four (`rollTextItems`), the NPC Background.
  *
- * The monster generator's reader (review #30). Its private copy returned
- * `resultText(...).trim()`; the shared `rollTableText` above it was folded
- * into returns `resultChatText`, which renders a DOCUMENT row as
- * `@UUID[...]{name}` — right for a 2e trait string that chat enriches, wrong
- * in a monster's name, where it read as the literal `@UUID[Item.xxxx]{Rusty
- * Blade}` and matched nothing in `ARMORED_FEATURES`. Reachable only since
- * the declarations went world-first: a Warden's own table can hold a dragged
- * document row where the shipped ones hold text.
+ * There was a second, chat-text reader, `rollTableText`, after core's
+ * deprecated `TableResult#getChatText()`. It rendered a DOCUMENT row as
+ * `@UUID[...]{name}`, which reads as the literal link wherever the value is
+ * stored or composed rather than posted to chat: in a monster's name, where it
+ * matched nothing in `ARMORED_FEATURES` (review #30), and in a stored trait,
+ * which the trait sentence and the printed page show escaped and the pick-list
+ * beside the die could not select (review #34 finding 131). Retired with its
+ * last caller. Reachable only since the declarations went world-first: a
+ * Warden's own table can hold a dragged document row where the shipped ones
+ * hold text.
  * @param {String} decl  "pack;Name" or "Name"
- * @returns {Promise.<String>}  the row's plain text, or "" on a missing table
+ * @returns {Promise.<String>}  the row's plain text, or "" if the table is
+ *                              missing or empty (generation must degrade, not throw)
  */
 export const rollTablePlainText = async (decl) => {
   const rolled = await rollTable(decl);
-  return resultText(rolled?.results?.[0]).trim();
+  return resultPlainText(rolled?.results?.[0]);
 };
 
 /**
@@ -244,10 +245,17 @@ export const rollTablePlainText = async (decl) => {
  * A row that resolves to nothing is warned about rather than skipped in silence —
  * that is a broken content reference, and `findCompendiumItem` used to say so.
  *
+ * ONE ROUND TRIP PER PACK (review #34 finding 191). `fromUuid` on a pack row is
+ * `getDocument`, a server request on every cache miss, and this loop awaited
+ * each row's in turn: the shop's ~77 shipped rows were 77 requests in series
+ * on every first open. `warmResultDocuments` fetches what is missing first,
+ * one `getDocuments({_id__in})` per pack, so the loop below reads the cache.
+ *
  * @param {TableResult[]} results
  * @returns {Promise.<Document[]>}
  */
 export const findTableItems = async (results) => {
+  await warmResultDocuments(results);
   const items = [];
   for (const result of results) {
     if (result.type !== CONST.TABLE_RESULT_TYPES.DOCUMENT) continue;
@@ -256,4 +264,42 @@ export const findTableItems = async (results) => {
     else console.warn(`findTableItems: unresolvable result uuid (${result.documentUuid})`);
   }
   return items;
+};
+
+/**
+ * Load, in ONE request, the documents `ids` names in `pack` that this client
+ * has not cached (review #34 finding 191) — the take-over's rule ("One round
+ * trip per source pack, not one per row"). Core's `getDocument` is a server
+ * request on every miss. An id the index does not know is left for the caller
+ * to warn about. An INVALID document is never cached by core, so it is asked
+ * for once (then `invalidDocumentIds` knows it) and is the caller's to fetch
+ * with `getDocument`, as before.
+ * @param {CompendiumCollection} pack
+ * @param {Iterable<string>} ids
+ * @returns {Promise<void>}
+ */
+export const warmPackDocuments = async (pack, ids) => {
+  const missing = [...new Set(ids)].filter((id) => pack.index.has(id)
+    && !(pack.get(id) instanceof foundry.abstract.Document) && !pack.invalidDocumentIds.has(id));
+  if (missing.length) await pack.getDocuments({ _id__in: missing });
+};
+
+/**
+ * `warmPackDocuments` for table rows: every top-level compendium document
+ * they name, one request per pack, the packs asked side by side. A world row
+ * needs no request.
+ * @param {TableResult[]} results
+ * @returns {Promise<void>}
+ */
+export const warmResultDocuments = async (results) => {
+  const byPack = new Map();   // pack → [id]
+  for (const r of results ?? []) {
+    if (r?.type !== CONST.TABLE_RESULT_TYPES.DOCUMENT) continue;
+    const p = foundry.utils.parseUuid(r.documentUuid ?? "");
+    const pack = p?.collection;
+    if (!(pack instanceof foundry.documents.collections.CompendiumCollection) || p.embedded?.length) continue;
+    if (!byPack.has(pack)) byPack.set(pack, []);
+    byPack.get(pack).push(p.id);
+  }
+  await Promise.all([...byPack].map(([pack, ids]) => warmPackDocuments(pack, ids)));
 };

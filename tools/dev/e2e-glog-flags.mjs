@@ -25,9 +25,17 @@
  */
 
 import { chromium } from "playwright";
-import { VIEWPORT, joinAsGM, watchErrors } from "./lib.mjs";
+import { VIEWPORT, joinAsGM, watchErrors, watchdog } from "./lib.mjs";
 
 const browser = await chromium.launch();
+
+// The fleet's hang guard (review #34 finding 25): without it a hang runs to
+
+// the runner's 65-minute cap, skips every restore, and the box is never
+
+// marked suspect. A bound on a hang, not a timing claim.
+
+watchdog(600000, "glog-flags probe", () => browser.close());
 const page = await browser.newContext({ viewport: VIEWPORT }).then((c) => c.newPage());
 const errors = watchErrors(page);
 let failed = false;
@@ -181,6 +189,94 @@ try {
   live.beforeBox && !live.afterBox && live.stillOpen
     ? ok("switching the hack off re-renders the open Grimoire sheet — its box is gone without a reopen")
     : fail(`open item sheet across the toggle: ${JSON.stringify(live)}`);
+
+  /* CAST AND TRANSMUTE ARE THE HACK'S TOO (review #34 finding 223). The
+   * record (2174792d, the ruling that hid the sheet flags) reads: "Cast,
+   * scroll conversion and transmute all sit behind enable-glog-magic". Only the
+   * scroll's Cast did. With the hack off, a carried Grimoire still offered Cast
+   * (Magic Dice, Mishaps) and every unbound spellbook still offered Transmute,
+   * which binds it for good; neither handler asked the setting. A character
+   * with a Grimoire, one bound page and one unbound spellbook, under the
+   * shadow forced OFF: no control on either row, castFromGrimoire refuses
+   * without a dialog, and the Transmute action binds nothing. The witness renders
+   * the same rows under the shadow forced ON, before any gesture. */
+  console.log("\ncast and transmute with the hack off");
+  const castOff = await page.evaluate(async () => {
+    const ns = game.system.id;
+    const { castFromGrimoire } = await import(`/systems/${ns}/module/grimoire.js`);
+    const origGet = game.settings.get;
+    let on = false;
+    game.settings.get = function (scope, key, ...rest) {
+      if (rest[0]?.document) return foundry.helpers.ClientSettings.prototype.get.call(this, scope, key, ...rest);
+      if (scope === ns && key === "enable-glog-magic") return on;
+      return origGet.call(this, scope, key, ...rest);
+    };
+    const wait = (ms) => new Promise((res) => setTimeout(res, ms));
+    let actor = null;
+    const D = foundry.applications.api.DialogV2;
+    const origWait = D.wait;
+    const origConfirm = D.confirm;
+    let dialogs = 0;
+    const rows = async () => {
+      await actor.sheet.render(true);
+      for (let i = 0; i < 40 && !actor.sheet.element?.querySelector('[data-item-id]'); i++) await wait(75);
+      const row = (name) => actor.sheet.element?.querySelector(`[data-item-id="${actor.items.getName(name)?.id}"]`);
+      return {
+        cast: !!row("PROBE glog book")?.querySelector('[data-action="grimoireCast"]'),
+        transmute: !!row("PROBE glog loose")?.querySelector('[data-action="pageTransmute"]'),
+      };
+    };
+    try {
+      actor = await Actor.create({ name: "PROBE glog caster", type: "character", flags: { "air-bladder": { probeGlogFlags: true } } });
+      const [book] = await actor.createEmbeddedDocuments("Item", [
+        { name: "PROBE glog book", type: "item", system: { grimoire: true, grimoirePages: 3 } }]);
+      await actor.createEmbeddedDocuments("Item", [
+        { name: "PROBE glog page", type: "spellbook", system: { bound: true, boundTo: book.system.grimoireKey } },
+        { name: "PROBE glog loose", type: "spellbook" }]);
+      // The witness renders FIRST, before any gesture: on the unfixed code the
+      // Transmute below really binds the loose book, which would leave a later
+      // witness nothing to offer Transmute on.
+      on = true;
+      const onRows = await rows();
+      await actor.sheet.close();
+      on = false;
+      const off = await rows();
+      // The cast's page picker answered "cancel"; Transmute's confirm answered
+      // YES, so on the unfixed code the bind really lands and the leg can see it.
+      D.wait = async () => { dialogs++; return null; };
+      D.confirm = async () => true;
+      const castResult = await castFromGrimoire(actor);
+      const loose = actor.items.getName("PROBE glog loose");
+      const target = actor.sheet.element?.querySelector(`[data-item-id="${loose.id}"]`) ?? document.createElement("div");
+      if (!target.dataset.itemId) target.dataset.itemId = loose.id;
+      try {
+        await actor.sheet.constructor.DEFAULT_OPTIONS.actions.pageTransmute.call(actor.sheet, { preventDefault: () => {} }, target);
+      } catch { /* refused */ }
+      await wait(300);
+      const bound = actor.items.getName("PROBE glog loose")?.system.bound === true;
+      D.wait = origWait;
+      D.confirm = origConfirm;
+      await actor.sheet.close();
+      return { off, castResult: castResult ?? null, dialogs, bound, on: onRows };
+    } finally {
+      D.wait = origWait;
+      D.confirm = origConfirm;
+      game.settings.get = origGet;
+      try { await actor?.delete(); } catch { /* gone */ }
+    }
+  });
+  castOff.on.cast && castOff.on.transmute
+    ? ok("witness: with the hack ON the Grimoire row offers Cast and the loose spellbook Transmute")
+    : fail(`witness: the hack ON should offer both controls: ${JSON.stringify(castOff.on)}`);
+  !castOff.off.cast && !castOff.off.transmute
+    ? ok("with the hack OFF neither row offers Cast or Transmute")
+    : fail(`with the hack off the rows still offer: ${JSON.stringify(castOff.off)}`);
+  castOff.castResult === null && castOff.dialogs === 0
+    ? ok("...castFromGrimoire refuses without a dialog")
+    : fail(`with the hack off castFromGrimoire still ran: result=${JSON.stringify(castOff.castResult)} dialogs=${castOff.dialogs}`);
+  !castOff.bound
+    ? ok("...and the Transmute action binds nothing")
+    : fail("with the hack off the Transmute action bound the spellbook for good");
 } catch (e) {
   fail(`${e.name}: ${e.message}`);
 } finally {

@@ -32,9 +32,17 @@
  * dev world does not silently accumulate probe characters and chat spam.
  */
 import { chromium } from "playwright";
-import { VIEWPORT, joinAsGM, watchErrors, withSettings } from "./lib.mjs";
+import { VIEWPORT, joinAsGM, watchErrors, withSettings, watchdog, trackCreatedActors, sweepCreatedActors } from "./lib.mjs";
 
 const browser = await chromium.launch();
+
+// The fleet's hang guard (review #34 finding 25): without it a hang runs to
+
+// the runner's 65-minute cap, skips every restore, and the box is never
+
+// marked suspect. A bound on a hang, not a timing claim.
+
+watchdog(600000, "generation-dice probe", () => browser.close());
 const page = await browser.newContext({ viewport: VIEWPORT }).then((c) => c.newPage());
 const errors = watchErrors(page);
 let failed = false;
@@ -43,6 +51,7 @@ const ok = (m) => console.log(`  ok    ${m}`);
 
 try {
   await joinAsGM(page);
+  await trackCreatedActors(page);
 
   const r = await withSettings(page, () => page.evaluate(async () => {
     const NS = "air-bladder";
@@ -201,6 +210,54 @@ try {
     }
     out.clickedActions = clicked;
     out.legs.fieldRerolls = describe(await newSince(before, { expect: 0 }));
+
+    /* --- 5b. a TRAIT die is a roll, so it is not a manual change ----------- */
+    // Review #34 finding 57. `system.traits.*` is an audited path, and the die
+    // wrote it without `abNoStatusCard`, so with the change log on (the default)
+    // every press whispered a "manual change" ledger card. The setting's hint
+    // promises rolled generation is never logged. The log is switched ON for the
+    // leg (withSettings restores it), so the silence is not the setting's.
+    await game.settings.set(NS, "change-log", true);
+    actor.sheet.element?.querySelector('[data-action="toggleTraits"]')?.click();
+    for (let i = 0; i < 30 && !actor.sheet.element?.querySelector('[data-action="rollTrait"]'); i++) await sleep(150);
+    const traitDie = actor.sheet.element?.querySelector('[data-action="rollTrait"]');
+    out.traitDie = !!traitDie;
+    before = snapshot();
+    traitDie?.click();
+    await sleep(1500);
+    out.legs.traitRoll = describe(await newSince(before, { expect: 0 }));
+
+    /* --- 5c. a double-click on the Background die swaps ONCE --------------- */
+    // Review #34 finding 58. The die ran changeBackground's delete-then-create
+    // with no `_rerolling` guard, so a second click inside the first's awaits
+    // dealt a second loadout or threw on an id the first had deleted. Counted
+    // as background WRITES on this actor: one swap is one write.
+    let bgWrites = 0;
+    const hookId = Hooks.on("updateActor", (a, changes) => {
+      const sys = changes?.system ?? {};
+      if (a.id === actor.id && ("background" in sys || "backgroundUuid" in sys || "questions" in sys)) bgWrites++;
+    });
+    // ...and with NO ERROR: the race's commoner outcome is not a second
+    // loadout but the second click's delete throwing on an id the first had
+    // already removed ("Item ... does not exist!", measured on the unguarded
+    // build) — which this probe's console-error list reports and does not fail.
+    const bgErrors = [];
+    const onRejection = (e) => bgErrors.push(String(e.reason?.message ?? e.reason));
+    window.addEventListener("unhandledrejection", onRejection);
+    const origError = console.error;
+    console.error = (...a) => { bgErrors.push(a.map(String).join(" ")); return origError.apply(console, a); };
+    const bgDie = actor.sheet.element?.querySelector('[data-action="rollBackground"]');
+    try {
+      bgDie?.click();
+      bgDie?.click();
+      await sleep(4000);
+    } finally {
+      console.error = origError;
+      window.removeEventListener("unhandledrejection", onRejection);
+    }
+    Hooks.off("updateActor", hookId);
+    out.bgDoubleWrites = bgDie ? bgWrites : null;
+    out.bgDoubleErrors = bgErrors;
     await actor.sheet.close();
 
     return out;
@@ -290,6 +347,12 @@ try {
   r.legs.fieldRerolls.length === 0
     ? ok("name / portrait / background re-rolls posted nothing to chat")
     : fail(`field re-rolls posted ${r.legs.fieldRerolls.length} message(s) [${r.legs.fieldRerolls.map((m) => m.id).join(", ")}]`);
+  r.traitDie && r.legs.traitRoll.length === 0
+    ? ok("a trait die posts nothing either, with the change log ON — a roll is not a manual change")
+    : fail(`trait die (present=${r.traitDie}) posted ${r.legs.traitRoll?.length} message(s) [${(r.legs.traitRoll ?? []).map((m) => m.id).join(", ")}]`);
+  r.bgDoubleWrites === 1 && !r.bgDoubleErrors?.length
+    ? ok("a double-click on the Background die swaps once, with no error")
+    : fail(`a double-click on the Background die: ${r.bgDoubleWrites} write(s), errors ${JSON.stringify(r.bgDoubleErrors)}`);
 
   // ---- Leg 6: two seconds of dice, then the sheet --------------------------
   // ChatMessage.create resolves when the document saves; Dice So Nice keeps
@@ -462,6 +525,9 @@ try {
 } catch (e) {
   fail(`${e.name}: ${e.message}`);
 } finally {
+  // Every actor this run created, generated children included (review #34
+  // findings 150, 256, 259) — whatever a leg threw.
+  await sweepCreatedActors(page);
   // Cleanup from NODE, reading the ids the page stashed as it went, so a throw
   // partway through still cleans up what it had already made.
   try {

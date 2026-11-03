@@ -29,7 +29,7 @@ dice, so the weights are a house realization of that prose.
   npc-typed documents, which is where our monsters pack came from.
 - **roll(), never draw().** The eight tables are the WARDEN'S tables. A draw
   marks results drawn and dirties the state a Warden sees at their own table;
-  `rollTableText` uses `table.roll()` only, the same invariant
+  `rollTablePlainText` uses `table.roll()` only, the same invariant
   `rollNameFromTable` documents. The probe delta-checks drawn state around a
   generation.
 - **The tier picker is also the confirmation.** Create: dismiss = create

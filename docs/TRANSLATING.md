@@ -41,7 +41,7 @@ That's the entire loop, repeated one batch at a time.
 >
 > For honesty's sake: Air Bladder ships partial Danish, French, German, Polish and
 > Brazilian Portuguese interface files inherited from the original Cairn system,
-> covering 15–30% of the current interface and unmaintained. Spanish is the only
+> covering about 5% of the current interface and unmaintained. Spanish is the only
 > language with translated game content. Untranslated text falls back to English
 > string by string, so nothing breaks — but if you're picking a language up, you're
 > starting nearer the beginning than those numbers suggest.

@@ -1,6 +1,6 @@
 # Supplied macros
 
-Four ready-made macros ship in the **Macros** compendium. Each is a Warden's
+Four ready-made macros ship in the **Warden Macros** compendium. Each is a Warden's
 switch: drag it to your hotbar and click to flip the world setting it names —
 no trip into Game Settings. All four take effect on connected clients live,
 with no reload, and all four are Warden-only (the server refuses a

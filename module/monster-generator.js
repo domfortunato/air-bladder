@@ -77,22 +77,26 @@ const pickWeighted = (pairs) => {
 // SHARED reader, since 2026-09-13, which resolves each declaration WORLD FIRST
 // and rolls without marking. A private copy lived here for a month and was
 // the reason a Warden's own monster table came up on the Dashboard button and
-// never in a generated monster. PLAIN text, trimmed, not `rollTableText`: that
-// one returns chat text, which renders a document row as `@UUID[...]{name}`
-// — right in a trait string, wrong in a monster's name (review #30; the
-// comment here called the two "identical but for the lookup" for a day).
+// never in a generated monster. PLAIN text, trimmed, not the chat-text reader
+// it had: that one rendered a document row as `@UUID[...]{name}`, wrong in a
+// monster's name (review #30; the comment here called the two "identical but
+// for the lookup" for a day) and, it turned out, in a stored trait too (review
+// #34 finding 131), so it is gone.
 
 /**
  * The tier picker — and, on a re-roll, the CONFIRMATION. It is dismissible
- * (✕ resolves null, nothing is created or touched — same rule as
- * promptContentSource) and its regenerate wording says what will be replaced,
+ * (✕ resolves null, nothing is created or touched) and its regenerate wording
+ * says what will be replaced,
  * so destructive work only ever follows an explicit button press. That is why
  * #onRollActor does not stack a DialogV2.confirm in front of this.
  * @param {{regenerate?: Boolean}} [options]
  * @returns {Promise<"standard"|"hardier"|"serious"|"random"|null>}
  */
-export const promptMonsterTier = async ({ regenerate = false } = {}) => {
+export const promptMonsterTier = async ({ regenerate = false, windowId } = {}) => {
   const chosen = await foundry.applications.api.DialogV2.wait({
+    // The launching sheet's own window when it is popped out (review #34
+    // finding 1; the reasoning is at `_confirmAction` in actor-sheet.js).
+    renderOptions: { window: { windowId } },
     window: {
       title: game.i18n.localize(regenerate ? "CAIRN.MonsterGen.RegenerateTitle" : "CAIRN.MonsterGen.TierTitle"),
       icon: "fas fa-dragon",
@@ -274,9 +278,10 @@ const monsterToActorData = (m) => ({
  * Monsters had never touched the custom pool at all before this. It was wired
  * to `randomPortraitPair`, and a monster does not take a portrait pair — so
  * this is the half of the issue that adds a capability rather than re-routing
- * one. `customPoolFor("monster")` is the reserved folder when there is one and
- * the general pool otherwise, so a Warden who keeps unsorted custom art starts
- * seeing it on monsters too, which is the ask.
+ * one. `customPoolFor("monster")` is the Warden's reserved monster folder when
+ * there is one and NOTHING otherwise: monster and companion deliberately do not
+ * inherit the general pool (GENERAL_POOL_CATEGORIES, user ruling d16f4414 —
+ * inheriting it would put a Warden's human faces on every ogre and mule).
  *
  * NEVER `defaultPortraitPool()`: that is 70 drawings of people, and a monster
  * must not roll a librarian's face. This ladder is its own.
@@ -315,7 +320,8 @@ const TIER_CHOICES = [
  * `createActorInteractive`, which owns the dialog for all four kinds.
  * @returns {Promise<{blank: Boolean, choice: String|null}|null>}
  */
-export const promptMonsterCreation = () => promptCreation("monster", {
+export const promptMonsterCreation = ({ windowId = null } = {}) => promptCreation("monster", {
+  windowId,
   choices: TIER_CHOICES,
   choiceLabel: "CAIRN.MonsterGen.TierPrompt",
   // A tier chooses nothing on an empty sheet, so it greys out with the box.
@@ -372,7 +378,7 @@ export const regenerateMonster = async (actor, tierChoice) => {
       critical: false,
       // Reset the whole defensive/status set the create payload (monsterToActorData)
       // writes: a regenerated monster is a NEW creature. `armor` in particular is a
-      // FLOOR the sheet honours (actor.js:696-702), so omitting it left the previous
+      // FLOOR the sheet honours (`_prepareCharacterData`), so omitting it left the previous
       // creature's protection stapled to the new statblock.
       armor: null,
       armorOverride: null,

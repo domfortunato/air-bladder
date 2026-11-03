@@ -95,7 +95,7 @@
   "CAIRN.Bio.ListTwo": "{first} and {second}",
   "CAIRN.Bio.Physical": "You have {list}.",
   "CAIRN.Bio.PhysicalNpc": "They have {list}.",
-  "CAIRN.Bio.Physique": "a {value} Physique",
+  "CAIRN.Bio.Physique": "{value} Physique",
   "CAIRN.Bio.Quirk": "Your Quirk is {value}.",
   "CAIRN.Bio.QuirkNpc": "Their Quirk is {value}.",
   "CAIRN.Bio.Skin": "{value} Skin",
@@ -129,7 +129,8 @@
   "CAIRN.Calendar.EditEvent": "Edit",
   "CAIRN.Calendar.EventDays": "How many days",
   "CAIRN.Calendar.EventEveryYear": "Every year",
-  "CAIRN.Calendar.EventHidden": "Only you can see this one.",
+  "CAIRN.Calendar.EventHidden": "Not visible to the party",
+  "CAIRN.Calendar.EventPartlyHidden": "Not visible to the entire party",
   "CAIRN.Calendar.EventName": "What happens",
   "CAIRN.Calendar.EventShared": "The party can see it",
   "CAIRN.Calendar.EventText": "Description",
@@ -160,7 +161,7 @@
   "CAIRN.Career": "Career",
   "CAIRN.ChangeBackground": "Change background",
   "CAIRN.ChangeBackgroundQ": "Change this character's background to {name}?",
-  "CAIRN.ChangeBackgroundTip": "The old background's starting gear and the items its questions granted are removed, and the new background's are rolled in their place. Bonds, portrait and notes are kept.",
+  "CAIRN.ChangeBackgroundTip": "The old background's starting gear and the items its questions granted are removed, and the new background's are rolled in their place. Portrait and notes are kept, and so are bonds, up to the number the new background allows: any past that are removed, with their items and coins.",
   "CAIRN.ChangeBackgroundTitle": "Change background",
   "CAIRN.ChangeFailedCareer": "Change failed career",
   "CAIRN.ChangeLog": {
@@ -234,6 +235,7 @@
   "CAIRN.CriticalDamageBanner": "can only crawl — stabilize with aid, or die within the hour.",
   "CAIRN.CriticalDamagePlaceholder": "Click here to describe this weapon's critical damage.",
   "CAIRN.Crawler.FatigueButton": "Take a Fatigue instead",
+  "CAIRN.Crawler.ChoiceAlreadyMade": "This card's choice has already been made.",
   "CAIRN.Crawler.FatigueButtonTip": "Take Critical Damage, or take a Fatigue instead. If you are already overburdened, you are asked to drop something first.",
   "CAIRN.Crawler.NoWardenForChoice": "No Warden is connected, so your choice cannot be recorded right now.",
   "CAIRN.Ranged": "Ranged",
@@ -271,6 +273,7 @@
   "CAIRN.Pile.ConfirmDrop": "Drop {name}? It goes to the party's {pile}, and the Warden hands it back.",
   "CAIRN.Pile.DropTitle": "Drop {name}",
   "CAIRN.Pile.NoWarden": "No Warden is connected, so nothing can be dropped into the pile right now.",
+  "CAIRN.Pile.DropFailed": "The drop did not go through, so {name} is still on this sheet.",
   "CAIRN.Pile.DropRefused": "The drop did not go through, so no Fatigue was taken. Try again, or take the Critical Damage.",
   "CAIRN.Pile.DeleteWarning": "The pile still holds {n} items the party dropped, and they will be deleted too.",
   "CAIRN.Pile.DeleteWarning_one": "The pile still holds {n} item the party dropped, and it will be deleted too.",
@@ -278,7 +281,7 @@
   "CAIRN.Pile.FatiguePrompt": "You are already overburdened. Choose something to drop to make room for this Fatigue.",
   "CAIRN.Pile.FatigueConfirm": "Drop it and take the Fatigue",
   "CAIRN.Pile.FatigueDropCard": "Dropped {item} to make room for a Fatigue.",
-  "CAIRN.Pile.FatigueDropCardAt": "Dropped {item} at {place} to make room for a Fatigue.",
+  "CAIRN.Pile.FatigueDropCardAt": "Dropped {item} to make room for a Fatigue ({place}).",
   "CAIRN.Pile.FatigueRefuse": "No — take the Critical Damage",
   "CAIRN.Pile.Frees": "frees {slots}",
   "CAIRN.Pile.Uses": "{value} of {max} uses",
@@ -559,12 +562,12 @@
   "CAIRN.MonsterGen.ArmorName": "Tough Hide",
   "CAIRN.MonsterGen.AttackName": "{type}*",
   "CAIRN.MonsterGen.DescAbility": "<strong>Ability:</strong> {power} {target}",
-  "CAIRN.MonsterGen.DescAppearance": "A {physique} creature with {feature}",
+  "CAIRN.MonsterGen.DescAppearance": "A creature that is {physique}, with {feature}",
   "CAIRN.MonsterGen.DescCritical": "<strong>Critical Damage:</strong> {effect}",
   "CAIRN.MonsterGen.DescQuirk": "<strong>Quirk:</strong> {quirk}",
   "CAIRN.MonsterGen.DescWeakness": "<strong>Weakness:</strong> {weakness}",
   "CAIRN.MonsterGen.Name": "{physique} {feature} Creature",
-  "CAIRN.MonsterGen.RegeneratePrompt": "Pick a tier. Its abilities, HP, attack, armor and description will be re-rolled; its name and portrait stay. This cannot be undone.",
+  "CAIRN.MonsterGen.RegeneratePrompt": "Pick a tier. Everything it is carrying will be deleted, and its abilities, HP, attack, armor and description re-rolled; its name and portrait stay. This cannot be undone.",
   "CAIRN.MonsterGen.RegenerateTitle": "Roll this monster again?",
   "CAIRN.MonsterGen.TierHardier": "Hardier",
   "CAIRN.MonsterGen.TierPrompt": "How dangerous is it?",
@@ -594,9 +597,12 @@
   "CAIRN.NotesPlaceholder": "Click here to add notes about this character.",
   "CAIRN.NotesPlaceholderMonster": "Click here to add notes about this monster.",
   "CAIRN.Notify": {
+    "AcquireFailed": "Couldn't add that to this sheet — you may not have permission to change it.",
     "ApplyDamageWardenOnly": "Only the Warden can apply damage.",
+    "ArtPickFailed": "Couldn't change the picture — you may not have permission to change this sheet.",
     "ImprovisedNotYours": "You can only make an improvised attack for a character you control.",
     "BackgroundNotCharacter": "Only a player character has a background.",
+    "BackgroundSwitchedOff": "{name} is not one of this campaign's backgrounds.",
     "BackgroundWrongSource": "That is a {backgroundEdition} background and this is a {characterEdition} character. A character does not change edition.",
     "BadAgeFormula": "The Age formula setting (\"{formula}\") is not a valid dice formula — the default was rolled instead.",
     "BadPcHpFormula": "The Hit Protection formula setting (\"{formula}\") is not a valid dice formula — the default was rolled instead.",
@@ -636,11 +642,10 @@
     "LastSource": "At least one background source must stay enabled — Cairn 2e has been switched back on.",
     "LeftOverloaded": "You left the marketplace over capacity — HP stays 0 until you free a slot.",
     "MarketplaceDisabled": "The Warden has closed the marketplace.",
+    "MarketplaceOpenFailed": "Couldn't open the Marketplace.",
     "MaxSlotsOccupied": "Maximum equipment slots used.",
     "NoActorCreate": "Only the Warden can create containers and transports.",
     "NoConnectables": "No eligible actors to connect — they must be unconnected, not monsters, and yours to change.",
-    "NoContainerBackground": "Changing this character's background could add or remove a container (a companion, cart or pack), which only the Warden can do — ask them to change it for you.",
-    "NoContainerRegen": "Regenerating this character could add or remove a container (a companion, cart or pack), which only the Warden can do — ask them to re-roll it for you.",
     "NoFatigueOnThing": "{name} can't carry Fatigue — Fatigue belongs to a character, not to a container or transport.",
     "NoGmForGrant": "No Warden is logged in, so the companion this background grants could not be created. Ask them to open the world, then re-roll.",
     "NoKeepers": "No eligible keepers — a keeper is a character with room for another connection.",
@@ -672,7 +677,7 @@
     "Overloaded": "{name} added — you are now over capacity (HP 0 until you free a slot).",
     "PackLocked": "{pack} is locked — unlock the compendium to edit this document.",
     "PageBound": "That spell is a bound page of a Grimoire — pages never leave the book. Move the book instead.",
-    "PcGenCancelled": "Your character was not generated — the Warden cancelled it.",
+    "PcGenBlankRefused": "Empty sheets are no longer available, because the Warden has switched off Character Creation tools for players. Nothing was created; choose again.",
     "PcGenDisabled": "The Warden has switched off character generation.",
     "PcGenFailed": "Your character could not be generated — ask the Warden, then try again.",
     "PcGenFailedFor": "Generating a character for {player} failed — see the console.",
@@ -697,9 +702,9 @@
     "WardenOnly": "Only the Warden can do that."
   },
   "CAIRN.Npc": "NPC",
-  "CAIRN.NpcRegeneratorConfirm": "Are you sure you want to roll this NPC again?</p><p>Everything it is carrying will be deleted, and its abilities, HP, career and day rate will be replaced. This cannot be undone.",
+  "CAIRN.NpcRegeneratorConfirm": "Are you sure you want to roll this NPC again?</p><p>Everything it is carrying will be deleted. Its abilities, HP, career, day rate, traits and age will be replaced, its pronouns, coins and status marks cleared, and it is marked For Hire. Its name, portrait and notes are kept. This cannot be undone.",
   "CAIRN.NpcRegeneratorTitle": "Roll this NPC again?",
-  "CAIRN.NpcRoleRegeneratorConfirm": "Are you sure you want to roll this NPC again?</p><p>Its Background, abilities, HP, traits and age will be replaced, along with the gear its Background granted, and its pronouns, coins and status marks cleared. Its name, portrait, notes and anything else it is carrying are kept. This cannot be undone.",
+  "CAIRN.NpcRoleRegeneratorConfirm": "Are you sure you want to roll this NPC again?</p><p>Its Background, abilities, HP, traits and age will be replaced, along with everything generation gave it to carry — its Background's gear and its kit — and its pronouns, coins and status marks cleared. Its name, portrait, notes and anything else it is carrying are kept. This cannot be undone.",
   "CAIRN.NpcRoleRegeneratorTitle": "Roll this NPC again?",
   "CAIRN.Offer.Accept": "Accept",
   "CAIRN.Offer.Cancel": "Cancel Offer",
@@ -822,6 +827,7 @@
   "CAIRN.RemoveFatigue": "Remove fatigue",
   "CAIRN.ReorderHint": "Drag an item to reorder your inventory.",
   "CAIRN.Reroll.Bonds": "Bond(s)",
+  "CAIRN.Reroll.BondsNote": "Re-rolling the Background keeps only as many bonds as the new one allows, even with Bond(s) unchecked. Any past that are removed, with their items and coins.",
   "CAIRN.Reroll.Button": "Re-roll",
   "CAIRN.Reroll.DEX": "DEX (Dexterity)",
   "CAIRN.Reroll.FailedCareer": "Failed career",
@@ -912,14 +918,14 @@
       "label": "Give Barebones Characters a failed career (like Knave 2e)"
     },
     "ChangeLog": {
-      "hint": "Whisper a chat card to the actor's owners, observers and the Warden whenever someone hand-changes stats, gold, traits, Panicked/Deprived, scars, features or inventory. Rolled generation, damage and other automatic changes are never logged. The shipped 'Toggle Change Log' macro flips this.",
+      "hint": "Whisper a chat card to the actor's owners, observers and the Warden whenever someone hand-changes stats, gold, traits, Panicked/Deprived, scars or inventory. Rolled generation, damage and other automatic changes are never logged. The shipped 'Toggle Change Log' macro flips this.",
       "label": "Log manual changes to chat"
     },
     "CharacterInventoryLimit": {
       "label": "Set the equipment limit per-character instead of globally"
     },
     "ContentSource2e": {
-      "hint": "Offer the 20 Cairn 2e backgrounds when generating a character. With more than one source enabled, Create PC asks which to use.",
+      "hint": "Offer the 20 Cairn 2e backgrounds when generating a character. With Barebones also offered, Create PC asks which to use; custom 2e backgrounds join the 2e pool.",
       "label": "Offer canon Cairn 2e backgrounds"
     },
     "ContentSourceBarebones": {
@@ -931,7 +937,7 @@
       "label": "Offer custom Cairn 2e backgrounds"
     },
     "ExplodingDamageDice": {
-      "hint": "When a player character's damage die rolls its highest face, it is rolled again and added. A die explodes at most half its faces less one times: a d4 once, a d6 twice, a d8 three times, a d10 four, a d12 five. Only the die that is kept explodes, so two sixes on a keep-highest weapon are one six, not two. Every die explodes, however small: an impaired attack's d4, an improvised attack's, and a d4 weapon's. Every explosion is announced on the damage card. Only player characters' damage rolls explode — never an NPC's, a monster's, or a trap's.",
+      "hint": "When a player character's damage die rolls its highest face, it is rolled again and added. A die explodes at most half its faces less one times: a d4 once, a d6 twice, a d8 three times, a d10 four, a d12 five. Only the die that is kept explodes, so two sixes on a keep-highest weapon are one six, not two. Every die from a d4 up explodes: an impaired attack's d4, an improvised attack's, and a d4 weapon's; a d2 or d3 never does. Every explosion is announced on the damage card. Only player characters' damage rolls explode — never an NPC's, a monster's, or a trap's.",
       "label": "Exploding damage dice"
     },
     "ManeuverOnMaxDamage": {
@@ -956,10 +962,10 @@
     },
     "GroupGeneral": "General Settings",
     "GroupGeneralButton": "Configure General Settings",
-    "GroupGeneralHint": "Panic, dice notation, item icons, grant tags, omens, the Warden title, the change log and scars.",
+    "GroupGeneralHint": "Panic, dice notation, item icons, grant tags, traits, omens, the watch clock, the weather log, the Warden title, the change log and scars.",
     "GroupGeneration": "Character Generation",
     "GroupGenerationButton": "Configure Character Generation",
-    "GroupGenerationHint": "Which content sources are offered, what players may generate or randomize, the portrait folder and the age formula.",
+    "GroupGenerationHint": "Which content sources are offered, the Roll buttons, what players may generate or randomize, showing generation rolls in chat, the portrait folder, and the dice for abilities, HP, gold and age.",
     "GroupHacks": "GLOG & Other Hacks",
     "GroupHacksButton": "Configure Hacks",
     "GroupHacksHint": "Optional rule hacks: GLOG Magic, the Vald calendar, three optional combat rules, and a Knave-style failed career for Barebones characters.",
@@ -987,7 +993,7 @@
       "label": "Hit Protection formula for player characters"
     },
     "ShowGenerateHeader": {
-      "label": "Show a Roll Character button on the character sheet header"
+      "label": "Show the Roll Character, Roll NPC and Roll Monster buttons in sheet headers"
     },
     "ShowGenerationRolls": {
       "hint": "Post HP, STR, DEX, WIL and Gold as one chat message whenever a player or the Warden generates or regenerates a character. Dice So Nice animates them when installed; otherwise the core dice sound plays. Name, background and portrait re-rolls are never posted.",
@@ -1008,7 +1014,7 @@
       "label": "Show rolled traits and age on character sheets"
     },
     "ShowWatchClock": {
-      "hint": "A day in Cairn is three watches — morning, afternoon and night — and the last is usually spent making camp. This puts the current watch on screen for everyone, just above the player list. The Warden moves it on from the Dashboard.",
+      "hint": "A day in Cairn is three watches — morning, afternoon and night — and the last is usually spent making camp. This puts the current watch on screen for everyone, just above the player list. The Warden moves it on from the Dashboard. The clock also carries today's weather, and with the Vald calendar on it is how players open the calendar, so switching it off takes both away from them.",
       "label": "Show the watch clock"
     },
     "UseCairnDiceNotation": {
@@ -1022,7 +1028,7 @@
       "label": "Show Item type icons (weapon, armor, fatigue) beside inventory"
     },
     "UsePanic": {
-      "label": "Use the 2e \"Panicked\" condition for all player characters"
+      "label": "Use the 2e \"Panicked\" condition on every sheet"
     },
     "UseWardenTitle": {
       "hint": "Relabel the Gamemaster role as \"Warden\" wherever Foundry names it, and rename the default Gamemaster account to match. Turning this off restores the account's original name. Takes effect after a reload.",

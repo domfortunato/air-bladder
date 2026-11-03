@@ -27,11 +27,19 @@
  */
 
 import { chromium } from "playwright";
-import { VIEWPORT, joinAsGM, watchErrors } from "./lib.mjs";
+import { VIEWPORT, joinAsGM, watchErrors, watchdog, trackCreatedActors, sweepCreatedActors } from "./lib.mjs";
 
 const SAMPLES = 6;
 
 const browser = await chromium.launch();
+
+// The fleet's hang guard (review #34 finding 25): without it a hang runs to
+
+// the runner's 65-minute cap, skips every restore, and the box is never
+
+// marked suspect. A bound on a hang, not a timing claim.
+
+watchdog(600000, "sheet-layout probe", () => browser.close());
 const page = await browser.newPage({ viewport: VIEWPORT });
 const errors = watchErrors(page);
 let failures = 0;
@@ -40,6 +48,7 @@ const fail = (label, detail = "") => { console.log(`  FAIL  ${label.padEnd(42)} 
 
 try {
   await joinAsGM(page);
+  await trackCreatedActors(page);
 
   await page.evaluate(() => {
     /** Rectangles overlap if they intersect on both axes. 1px of tolerance for
@@ -426,6 +435,9 @@ try {
 } catch (e) {
   fail("probe threw", `${e.name}: ${e.message}`);
 } finally {
+  // Every actor this run created, generated children included (review #34
+  // findings 150, 256, 259) — whatever a leg threw.
+  await sweepCreatedActors(page);
   console.log(`\nconsole errors: ${errors.length}`);
   for (const e of errors.slice(0, 10)) console.log(`  ${e}`);
   if (errors.length) failures++;

@@ -3,16 +3,15 @@
  * Two ORDERINGS on the background-drop path. Both are about *when* the question is
  * asked, not about what the drop does — `dev:bg-drop-guard` already covers that.
  *
- *   1. THE PLAYER ONE. `_onDropBackground` shows its destructive confirmation
- *      ("change this character's background to X? this deletes its granted gear")
- *      before `changeBackground` reaches `canRegenerateContainers`. That guard
- *      refuses a non-GM whose character HOLDS granted containers — containers are
- *      Actors and Foundry gates Actor deletion on ASSISTANT. So a player was asked
- *      a destructive question the code could never honour, said yes, and got a
- *      warning and no change. (It once refused on a display SETTING instead of on
- *      what the character carried; that coupling, and the setting, are both gone —
- *      so this leg now checks the setup actually granted a container, rather than
- *      arranging a world flag and assuming.)
+ *   1. THE PLAYER ONE. `_onDropBackground` used to show its destructive
+ *      confirmation before `changeBackground` reached `canRegenerateContainers`,
+ *      which refused a non-GM whose character HELD granted containers (deleting
+ *      an Actor needs ASSISTANT): asked, said yes, refused. Since the user's
+ *      ruling of 2026-11-01 a swap ORPHANS the old grant's containers and never
+ *      deletes one, so nothing refuses at all — the leg now asserts the player
+ *      is asked ONCE, the background changes, and each granted container is
+ *      orphaned (unlinked, `formerlyBelongedTo` the PC, grant flag gone), not
+ *      deleted. It still checks the setup really granted a container.
  *
  *   2. THE REORDER ONE. The background intercept sits at the very top of
  *      `_onDropItem`, above the same-actor branch. A background sitting in the
@@ -25,14 +24,12 @@
  * wreck for (2), so this runs two sessions: `joinAsGM` for the setup and the reorder
  * leg, `joinAs(page, "Alice")` for the player leg. Run `npm run dev:players` first.
  *
- * Both legs run twice, the second time with the fix neutralised IN PAGE:
- *   - (1) swaps `_mayChangeBackground` on the prototype to a constant `true`. That
- *     method IS the fix, so replacing it restores the old order exactly, and the
- *     refusal still arrives from `changeBackground`'s own guard downstream — which
- *     is the defect: asked, then refused.
- *   - (2) shadows `actor` on the dropped item so the new `item.actor !== this.actor`
- *     term is false, which is literally the pre-fix condition. No second copy of
- *     either method exists to drift out of step with the real one.
+ * Leg 2 runs twice, the second time with the fix neutralised IN PAGE: it
+ * shadows `actor` on the dropped item so the new `item.actor !== this.actor`
+ * term is false, which is literally the pre-fix condition. No second copy of
+ * the method exists to drift out of step with the real one. (Leg 1's control,
+ * which swapped `_mayChangeBackground` for a constant, went with the refusal
+ * it reproduced.)
  *
  * World state (two settings, and every actor created here) is restored from NODE in
  * a finally, never from inside a page that may have died mid-evaluate.
@@ -40,7 +37,8 @@
  * Usage: npm run dev:bg-drop-order
  */
 import { chromium } from "playwright";
-import { VIEWPORT, joinAsGM, joinAs, watchErrors, dismissChrome, watchdog } from "./lib.mjs";
+import { VIEWPORT, joinAsGM, joinAs, watchErrors, dismissChrome, watchdog,
+  trackCreatedActors, sweepCreatedActors } from "./lib.mjs";
 
 let failed = false;
 const ok = (m) => console.log(`  ok    ${m}`);
@@ -53,6 +51,9 @@ const gm = await browser.newContext({ viewport: VIEWPORT }).then((c) => c.newPag
 const gmErrors = watchErrors(gm);
 await joinAsGM(gm);
 await dismissChrome(gm);
+// The player's swap now goes through, and the Warden's client mints whatever
+// the new background grants under its own names — swept by id, not by prefix.
+await trackCreatedActors(gm);
 
 /** Clean up whatever happens; the world is the user's dev world. */
 let saved = null;
@@ -81,13 +82,6 @@ try {
       // Nothing to save any more: `sort` is always read since 2026-08-22 (the
       // drag-to-reorder toggle retired), so no setting is flipped here.
       saved: {},
-      // The sentence a refused background swap must show, and the one it must NOT.
-      // They are different keys because they refuse different operations: the
-      // regenerate wording ends "ask them to re-roll it for you", which on a
-      // background swap tells a player to request something that discards their
-      // abilities, HP and traits.
-      bgWarning: game.i18n.localize("CAIRN.Notify.NoContainerBackground"),
-      regenWarning: game.i18n.localize("CAIRN.Notify.NoContainerRegen"),
     };
 
     const pack = game.packs.get("air-bladder.backgrounds-2e")
@@ -127,16 +121,21 @@ try {
     out.startBackground = pc.system.background;
     out.startItems = pc.items.size;
 
-    // ESTABLISH the precondition rather than hope for it. The refusal this leg
-    // tests fires only when the character HOLDS a granted container to delete
-    // (`canRegenerateContainers`); it no longer keys on any setting — a display
-    // toggle deciding a permission was the original defect, and that toggle is
-    // gone entirely. Whether the setup swap granted one is a d6 roll on
+    // ESTABLISH the precondition rather than hope for it. The orphaning this
+    // leg tests needs the character to HOLD a granted container (once, the
+    // refusal it replaced did too — `canRegenerateContainers`, gone with
+    // finding 183; before that, a display toggle deciding a permission was the
+    // original defect, and that toggle is gone entirely). Whether the setup swap granted one is a d6 roll on
     // whichever background the pack index happened to hand back first, so this
     // leg had quietly become "nothing granted, nothing refused, background
     // changes" and was failing on CONTENT rather than on the code under test.
     // (Confirmed by baselining it against HEAD: it failed the same way there.)
-    // So mint one, flagged the way generation flags them.
+    // So mint one, the way generation leaves one: flagged "background", and
+    // wearing the CONNECTED shape — the world may look, the PC's player owns
+    // it. It used to be flagged "probe" with no player owner, a shape no grant
+    // has had since connection started driving ownership; a player's re-roll
+    // orphans only what she may write (review #34 finding 183), so that plant
+    // could never have been hers to orphan.
     const countGranted = () => game.actors.filter(
       (a) => (a.system?.connectedTo === pc.uuid || a.system?.keeper === pc.uuid)
         && a.getFlag("air-bladder", "grantSource")).length;
@@ -145,11 +144,16 @@ try {
       await CONFIG.Actor.documentClass.create({
         name: "ZZ BGOrder Granted Mule",
         type: "npc",
-        system: { role: "mount", containerClass: "mule", connectedTo: pc.uuid, generationEnabled: false },
-        flags: { "air-bladder": { grantSource: "probe" } },
+        ownership: { default: CONST.DOCUMENT_OWNERSHIP_LEVELS.OBSERVER, [alice.id]: CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER },
+        system: { role: "companion", containerClass: "mule", connectedTo: pc.uuid, generationEnabled: false },
+        flags: { "air-bladder": { grantSource: "background" } },
       });
     }
     out.grantedContainers = countGranted();
+    // Their IDS, so the player leg reads the very actors the swap must orphan.
+    out.grantedIds = game.actors.filter(
+      (a) => a.system?.connectedTo === pc.uuid && a.getFlag("air-bladder", "grantSource")).map((a) => a.id);
+    out.pcName = pc.name;
     return out;
   });
 
@@ -172,7 +176,7 @@ try {
   await joinAs(alice, "Alice");
   await dismissChrome(alice);
 
-  const playerDrop = (control) => alice.evaluate(async ({ actorId, bgBUuid, control }) => {
+  const playerDrop = () => alice.evaluate(async ({ actorId, bgBUuid }) => {
     const actor = game.actors.get(actorId);
     if (!actor) return { error: "Alice cannot see the test character" };
     if (!actor.isOwner) return { error: "Alice does not own the test character" };
@@ -189,13 +193,6 @@ try {
     let asked = 0;
     DialogV2.confirm = async () => { asked += 1; return true; };  // answer YES
 
-    // NEGATIVE CONTROL: `_mayChangeBackground` IS the fix, so a constant `true`
-    // restores the pre-fix order exactly — the confirmation is reached, and the
-    // refusal then arrives from changeBackground's own guard instead.
-    const proto = Object.getPrototypeOf(sheet);
-    const savedMay = proto._mayChangeBackground;
-    if (control) proto._mayChangeBackground = () => true;
-
     const before = { background: actor.system.background, items: actor.items.size };
     let threw = null;
     try {
@@ -203,7 +200,11 @@ try {
       dt.setData("text/plain", JSON.stringify({ type: "Item", uuid: bgBUuid }));
       await sheet._onDrop(new DragEvent("drop", { dataTransfer: dt }));
     } catch (e) { threw = e.message; }
-    await new Promise((r) => setTimeout(r, 2500));
+    // The swap rolls tables and resolves gear: poll for the new background.
+    for (let i = 0; i < 40 && actor.system.background === before.background; i++) {
+      await new Promise((r) => setTimeout(r, 250));
+    }
+    await new Promise((r) => setTimeout(r, 1500));
 
     const res = {
       asked,
@@ -212,12 +213,11 @@ try {
       background: actor.system.background,
       changed: actor.system.background !== before.background || actor.items.size !== before.items,
     };
-    if (control) proto._mayChangeBackground = savedMay;
     DialogV2.confirm = origConfirm;
     ui.notifications.warn = origWarn;
     await sheet.close();
     return res;
-  }, { actorId: setup.actorId, bgBUuid: setup.bgBUuid, control });
+  }, { actorId: setup.actorId, bgBUuid: setup.bgBUuid });
 
   // Say the precondition OUT LOUD, and where it came from: a background that
   // granted one by its own d6, or the mule the setup had to mint because it
@@ -225,35 +225,30 @@ try {
   console.log(`\n1. a player dropping a background — holds ${setup.grantedContainers} granted container(s)`
     + ` (${setup.grantedByBackground} from the background, ${setup.grantedContainers - setup.grantedByBackground} seeded)`);
   if (!setup.grantedContainers) {
-    fail("the character holds NO granted containers, so canRegenerateContainers has "
-      + "nothing to refuse — this leg cannot fail and is not evidence");
+    fail("the character holds NO granted containers, so there is nothing for the swap to "
+      + "orphan — this leg cannot fail and is not evidence");
   }
-  const p = await playerDrop(false);
+  // ASKED ONCE, AND THE SWAP HAPPENS (user ruling 2026-11-01). The ordering
+  // this leg used to guard — the destructive question asked, then a refusal —
+  // has no refusal left to order against: a swap ORPHANS the old grant's
+  // containers instead of deleting them, so a player needs no Warden for it.
+  // The `_mayChangeBackground` control went with the refusal it reproduced.
+  const p = await playerDrop();
   if (p.error) fail(`player leg: ${p.error}`);
   else {
     if (p.threw) fail(`the drop threw: ${p.threw}`);
-    if (p.changed) {
-      fail(`the background CHANGED to "${p.background}" — the container guard is supposed to `
-        + "refuse this, so the premise of the whole leg has moved");
-    } else if (p.asked) {
-      fail(`asked ${p.asked} destructive question(s) and then refused — the ordering defect`);
-    } else if (!p.warns.some((w) => w === setup.bgWarning)) {
-      fail(`refused without asking, but said nothing useful: ${JSON.stringify(p.warns)}`);
-    } else if (p.warns.some((w) => w === setup.regenWarning)) {
-      fail("refused with the REGENERATE wording — it tells the player to ask the Warden to "
-        + `re-roll their character, which discards abilities, HP and traits: ${JSON.stringify(p.warns)}`);
-    } else {
-      ok(`refused up front, unasked, in the background's own words ("${setup.bgWarning}")`);
-    }
-  }
-
-  console.log("   negative control: the same drop with _mayChangeBackground neutralised");
-  const pc = await playerDrop(true);
-  if (pc.error) fail(`player control: ${pc.error}`);
-  else if (pc.asked && !pc.changed) ok(`reproduced — asked ${pc.asked} time(s), then refused, nothing changed`);
-  else {
-    fail(`the control did NOT reproduce the defect (asked ${pc.asked}, changed ${pc.changed}) — `
-      + "the guard above cannot be shown to be load-bearing");
+    p.asked === 1 && p.changed && p.background === setup.bgB
+      ? ok(`asked once, and the background changed to "${setup.bgB}"`)
+      : fail(`the player's drop: asked ${p.asked}, now "${p.background}", warns ${JSON.stringify(p.warns)}`);
+    const orphans = await gm.evaluate(({ ids, pcName }) => ids.map((id) => {
+      const a = game.actors.get(id);
+      return a ? { connectedTo: a.system?.connectedTo ?? "", formerly: a.system?.formerlyBelongedTo ?? "",
+        grantSource: a.getFlag("air-bladder", "grantSource") ?? null, ok: !a.system?.connectedTo
+          && a.system?.formerlyBelongedTo === pcName && !a.getFlag("air-bladder", "grantSource") } : { gone: true };
+    }), { ids: setup.grantedIds, pcName: setup.pcName });
+    orphans.length && orphans.every((o) => o.ok)
+      ? ok(`its ${orphans.length} granted container(s) are orphaned, not deleted`)
+      : fail(`the old grant's containers: ${JSON.stringify(orphans)}`);
   }
 
   await alice.context().close();
@@ -396,6 +391,7 @@ try {
       + "cannot be shown to be load-bearing");
   }
 } finally {
+  await sweepCreatedActors(gm);
   await restore();
 }
 

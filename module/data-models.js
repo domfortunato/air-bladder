@@ -76,6 +76,17 @@ export const NPC_ROLES = ["npc", "hireling", "monster", "companion", "transport"
 export const THING_ROLES = ["transport", "container"];
 
 /**
+ * The CONTAINER LINE: the companion and the two things. What a background
+ * grant may mint, what wears a Kind on its sheet, what keeps no purse, and
+ * what takes the container gallery and the grey thumbnail. A named set rather
+ * than a predicate-plus-one (`isThing || npcRole === "companion"`), because a
+ * role predicate that quietly grows is how three earlier bugs happened (the
+ * split's lesson) — and this one was spelled seven ways before it had a name
+ * (review #34 finding 115).
+ */
+export const CONTAINER_LINE_ROLES = ["companion", ...THING_ROLES];
+
+/**
  * The roles that are a PERSON: somebody with pronouns, an age, a biography and
  * a name a player will remember. Two of them since the 2026-08-20 split.
  *
@@ -327,8 +338,8 @@ class CharacterData extends CairnDataModel {
  * `forHire` is set (actor.js `showDayRate`). The `hireling` TYPE is NOT migrated
  * away -- it stays registered as an alias of this model (see ACTOR_DATA_MODELS
  * below for why a real retirement would cost every existing hireling its
- * document id); an alias-typed document reads as role hireling regardless of
- * what it stores (CairnActor#npcRole).
+ * document id); an alias-typed document reads the role it STORES, like any
+ * npc (CairnActor#npcRole — the hard-map to hireling was removed).
  *
  * TWO PEOPLE ROLES since 2026-08-20, and the distinction is which fields they
  * read rather than which fields exist:
@@ -362,7 +373,7 @@ class NpcData extends CairnDataModel {
       notes: html(),
       // Nullable because 202 of the 205 shipped monsters store null. An authored
       // value DOES reach the sheet: `_prepareCharacterData` uses it as a FLOOR the
-      // equipped-gear sum cannot go below (actor.js:696-702, the review #9 fix),
+      // equipped-gear sum cannot go below (the review #9 fix),
       // with an override still beating both. (This comment once said a
       // `_prepareNpcData` clobbered it every prepare so an authored value never
       // showed — false, and doubly so since that method was deleted 2026-07-31.)
@@ -481,8 +492,10 @@ class NpcData extends CairnDataModel {
   /**
    * Documents minted before `role` existed carry `forHire`/`inanimate` instead;
    * derive on every load, so packs and old worlds read correctly without being
-   * written. The one-time world migration (cairn.js) persists the value and
-   * deletes the two retired keys; until it runs, this shim is the truth.
+   * written. The world migration (cairn.js `migrateNpcRoles`) is a blind
+   * restamp that persists `role` and nothing else: `forHire` is a live,
+   * sheet-written field again, and `inanimate` is left where it lies, so this
+   * shim stays the truth for any source that still carries it.
    *
    * **`migrateData` RUNS ON UPDATE DIFFS, not only on whole sources.** Measured
    * against 14.365: `NpcData.migrateData({containerClass: "pile"})` comes back
@@ -512,8 +525,8 @@ class NpcData extends CairnDataModel {
    * that gives up is a pre-roles
    * document that stored a `containerClass` and NEITHER flag, which would have
    * derived `mount` for a mount class; it takes the schema initial instead. The
-   * shipped packs all state their role outright, and the world migration
-   * selects on type + legacy keys + dayRate, never on this.
+   * shipped packs all state their role outright, and the world migration's
+   * restamp writes back the value this derives — it selects nothing of its own.
    */
   static migrateData(source) {
     // The funeralwagon Kind retirement (2026-08-02), FIRST — before anything

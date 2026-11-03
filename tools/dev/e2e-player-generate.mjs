@@ -76,8 +76,9 @@ const shadowSources = (page, mode) => page.evaluate((mode) => {
   // SECOND Setting document for that key rather than updating the first. Every
   // world-setting write in the shadow's window then silently does nothing, and
   // the duplicate document outlives the probe.
-  game.settings.get = (ns, key, ...rest) =>
-    (ns === NS && key in FORCED ? FORCED[key] : game.settings._probeOrigGet(ns, key, ...rest));
+  game.settings.get = (ns, key, ...rest) => rest[0]?.document
+    ? foundry.helpers.ClientSettings.prototype.get.call(game.settings, ns, key, ...rest)   // review #34 finding 29
+    : (ns === NS && key in FORCED ? FORCED[key] : game.settings._probeOrigGet(ns, key, ...rest));
 }, mode);
 
 const unshadowSources = (page) => page.evaluate(() => {
@@ -137,9 +138,17 @@ const awaitDialog = async (page, title, ms = 15000) => {
   return false;
 };
 
+// The RUN's own snapshot, taken once before anything is minted (review #34
+// finding 35) and swept from the finally. The legs re-take `before` for their
+// own "new since" questions; commit 2aa07191 re-took it before the empty-sheet
+// leg, so the only sweep, against that later `before`, never reached the
+// first leg's fully rolled character or what its background granted — and it
+// sat in the try, so a throw leaked every actor the run had made.
+let runStart = null;
 try {
   await joinAsGM(gm);
   await joinAs(alice, "Alice");
+  runStart = await snapshot();
 
   // ---- Leg 0: the Warden's client pre-warms the generation packs ----------
   // The FIRST generation of a session paid ~5s of compendium loading on the
@@ -316,8 +325,13 @@ try {
   // character there, and a player's Create PC never reaches it — players lack
   // ACTOR_CREATE, so theirs always comes through the relay, which passed no
   // folder. The commonest character in any world landed at the root.
+  // The CHARACTER, not every new actor: a rolled background may grant a Cart
+  // or a mule, an actor of its own that by design stays out of the Party
+  // folder ("only characters default to Party"). Counting it redded this check
+  // on a roll that granted one (fleet run 20261030T202049Z: [true,false], a
+  // Cart beside the character).
   const filed = await gm.evaluate((before) => {
-    const fresh = game.actors.filter((a) => !before.includes(a.id));
+    const fresh = game.actors.filter((a) => !before.includes(a.id) && a.type === "character");
     return fresh.map((a) => a.folder?.getFlag("air-bladder", "partyFolder") === true);
   }, before.actors);
   filed.length && filed.every(Boolean)
@@ -357,6 +371,15 @@ try {
   // The emit is read by COUNT DIFFERENCE below, so capture the count first.
   const wiresBefore = await alice.evaluate(() =>
     game._probePayloads.filter((p) => p.action === "generatePC").length);
+  // HER LANGUAGE (review #34 finding 244): on the relay the Warden's client
+  // mints the empty sheet, and named it in the Warden's language. Alice's
+  // `localize` is shadowed for the name's key on HER page (localize assigns;
+  // restored once the character has arrived), so the sheet must carry hers.
+  await alice.evaluate(() => {
+    const real = game.i18n.localize.bind(game.i18n);
+    window.__abRealLocalize = real;
+    game.i18n.localize = (k, ...a) => (k === "CAIRN.Blank.NameCharacter" ? "ZZ-ALICE-BLANK" : real(k, ...a));
+  });
   await clickGenerate();
   const answered = await alice.evaluate(async (prior) => {
     const seen = new Set(prior);
@@ -406,6 +429,10 @@ try {
       : fail(`the generatePC emit did not carry blank: ${JSON.stringify(wire)}`);
   }
   const arrivedEmpty = await gmPollNewCharacter(before);
+  await alice.evaluate(() => {
+    if (window.__abRealLocalize) game.i18n.localize = window.__abRealLocalize;
+    delete window.__abRealLocalize;
+  });
   arrivedEmpty
     ? ok("unticked: a character still arrives")
     : fail("unticked: no character appeared within 45s");
@@ -424,6 +451,9 @@ try {
     shape && shape.items === 0 && !shape.background && shape.hp === 3 && shape.generationEnabled === true
       ? ok("   …and it is EMPTY — the checkbox crossed the wire", `"${shape.name}", HP ${shape.hp}`)
       : fail(`the relayed character was not empty: ${JSON.stringify(shape)}`);
+    shape?.name === "ZZ-ALICE-BLANK"
+      ? ok("   …and named in the REQUESTER's language (review #34 finding 244)", `"${shape.name}"`)
+      : fail(`the empty sheet was named in the Warden's language, not Alice's: ${JSON.stringify(shape?.name)}`);
   }
 
   // ---- The marketplace switch, on the Alice-owned character just minted ---
@@ -670,34 +700,146 @@ try {
     await gm.evaluate((k) => game.settings.set("air-bladder", k, false), RND);
     await new Promise((r) => setTimeout(r, 500));
 
-    // THE BROKER ASKS TOO (review #27). Withholding the box on Alice's client
-    // is the affordance; the answering GM client is the enforcement, and it
-    // coerced `blank` for TYPE only. So a crafted (or stale) client emitting
-    // `blank: true` past the withheld box got exactly the stranded sheet the
-    // withholding exists to prevent. Emit the raw request from Alice with the
-    // switch off and read what arrives: a ROLLED character, never a blank one.
+    // THE BROKER ASKS TOO (review #27), AND REFUSES WHOLE (review #34 finding
+    // 246, user ruling 2026-11-01). Withholding the box on Alice's client is
+    // the affordance; the answering GM client is the enforcement. A crafted
+    // client — or a STALE dialog, opened while the switch was on, answered
+    // after the Warden turned it off — sends `blank: true` past it. That used
+    // to be quietly rolled into a character she never asked for, whose sheet
+    // then opened over the still-rolling dice because the answer echoed the
+    // request. The ruling: make nothing, and tell her so she can choose again.
+    // The raw emit is the stale dialog's exact wire.
     {
       const rawBefore = await snapshot();
+      const answersBefore = await alice.evaluate(() => game._probeAnswers.length);
       await alice.evaluate(() => {
         game.socket.emit(`system.${game.system.id}`, { action: "generatePC", source: "2e", blank: true });
       });
-      const rawArrived = await gmPollNewCharacter(rawBefore);
-      if (!rawArrived) {
-        fail("switch off: a raw generatePC emit with blank:true minted nothing within 45s");
-      } else {
-        const raw = await gm.evaluate(async (before) => {
+      const answered = await awaitRelayIdle(answersBefore + 1);
+      await new Promise((r) => setTimeout(r, 1500));
+      const answer = await alice.evaluate(() => game._probeAnswers.at(-1) ?? null);
+      const minted = await gm.evaluate(async (before) => {
+        const made = game.actors.filter((x) => x.type === "character" && !before.actors.includes(x.id));
+        const ids = made.map((a) => a.id);
+        for (const a of made) await a.delete();
+        return ids;
+      }, rawBefore);
+      const told = await alice.evaluate(() => {
+        const want = game.i18n.localize("CAIRN.Notify.PcGenBlankRefused");
+        return { want, shown: want !== "CAIRN.Notify.PcGenBlankRefused"
+          && [...document.querySelectorAll(".notification")].some((n) => n.textContent.includes(want)) };
+      });
+      answered && minted.length === 0 && answer?.blankRefused === true && !answer?.uuid
+        ? ok("switch off: a blank request is REFUSED — nothing is made, and the answer says why")
+        : fail(`switch off: a blank request ${JSON.stringify({ answered, minted, answer })} — want nothing made and blankRefused`);
+      told.shown
+        ? ok(`   …and Alice is told ("${told.want}")`)
+        : fail(`switch off: no refusal toast on Alice's screen: ${JSON.stringify(told)}`);
+    }
+
+    // A CREATE THAT CAME BACK EMPTY IS A FAILURE, NOT A CANCEL (review #34
+    // finding 178, ruled 2026-11-01). The relay always passes a source, so
+    // nothing on it can be cancelled; a null actor means an empty background
+    // pool or a create that resolved undefined. It was answered as neither
+    // refused nor failed, and her client said "the Warden cancelled it". The
+    // Warden's client is made to resolve its next Actor create as undefined,
+    // in page and one-shot — no document is written — and both screens must
+    // name a failure: hers PcGenFailed, the Warden's PcGenFailedFor.
+    {
+      const emptyBefore = await snapshot();
+      const answersBefore = await alice.evaluate(() => game._probeAnswers.length);
+      await gm.evaluate(() => {
+        const C = CONFIG.Actor.documentClass;
+        globalThis.__abF178 = C.create;
+        C.create = async function () {
+          C.create = globalThis.__abF178;
+          delete globalThis.__abF178;
+          return undefined;
+        };
+      });
+      try {
+        await alice.evaluate(() => {
+          game.socket.emit(`system.${game.system.id}`, { action: "generatePC", source: "2e" });
+        });
+        await awaitRelayIdle(answersBefore + 1);
+        await new Promise((r) => setTimeout(r, 1500));
+      } finally {
+        await gm.evaluate(() => {
+          if (globalThis.__abF178) { CONFIG.Actor.documentClass.create = globalThis.__abF178; delete globalThis.__abF178; }
+        });
+      }
+      const answer = await alice.evaluate(() => game._probeAnswers.at(-1) ?? null);
+      const aliceTold = await alice.evaluate(() => {
+        const want = game.i18n.localize("CAIRN.Notify.PcGenFailed");
+        return { want, shown: [...document.querySelectorAll(".notification")].some((n) => n.textContent.includes(want)) };
+      });
+      const wardenTold = await gm.evaluate(() => {
+        const want = game.i18n.format("CAIRN.Notify.PcGenFailedFor", { player: "Alice" });
+        return { want, shown: [...document.querySelectorAll(".notification")].some((n) => n.textContent.includes(want)) };
+      });
+      // The Warden's toast is an ERROR notification, and core writes those to
+      // the console too: the one console error this leg provokes on purpose.
+      // Taken out of the closing zero-errors count by its exact text and
+      // nothing else (the first green run reddened that count on it).
+      for (let i = gmErrors.length - 1; i >= 0; i--) {
+        if (gmErrors[i].includes(wardenTold.want)) gmErrors.splice(i, 1);
+      }
+      const leftover = await sweep(emptyBefore);
+      answer?.failed === true && !answer?.uuid
+        ? ok("an empty create is answered as a FAILURE (failed: true), not a cancel")
+        : fail(`the empty create's answer: ${JSON.stringify(answer)} (swept ${JSON.stringify(leftover)})`);
+      aliceTold.shown && wardenTold.shown
+        ? ok(`   …Alice reads "${aliceTold.want}", and the Warden "${wardenTold.want}"`)
+        : fail(`the empty create's toasts: ${JSON.stringify({ alice: aliceTold, warden: wardenTold })}`);
+    }
+
+    // NO CARD, NO WAIT (review #34 finding 220). With "Show character
+    // generation dice rolls" off, nothing is posted, yet the asker polled ten
+    // times at 150ms for a card that could never arrive — the dead wait review
+    // #26 removed for the empty sheet, by another route. Timed from the
+    // answer's arrival to the new sheet's render on Alice's client.
+    {
+      const showWas = await gm.evaluate(() => game.settings.get("air-bladder", "show-generation-rolls"));
+      await gm.evaluate(() => game.settings.set("air-bladder", "show-generation-rolls", false));
+      await new Promise((r) => setTimeout(r, 600));
+      try {
+        const quietBefore = await snapshot();
+        const answersBefore = await alice.evaluate(() => game._probeAnswers.length);
+        await alice.evaluate(() => {
+          const t = window.__noCardTiming = { answered: null, rendered: null, uuid: null };
+          game.socket.on(`system.${game.system.id}`, (m) => {
+            if (m?.action === "pcGenerated" && t.answered === null && m.uuid) {
+              t.answered = performance.now();
+              t.uuid = m.uuid;
+              t.noCard = m.noCard;
+            }
+          });
+          Hooks.on("renderActorSheetV2", (app) => {
+            if (t.uuid && t.rendered === null && app.document?.uuid === t.uuid) t.rendered = performance.now();
+          });
+          game.socket.emit(`system.${game.system.id}`, { action: "generatePC", source: "2e" });
+        });
+        const quietArrived = await gmPollNewCharacter(quietBefore);
+        await awaitRelayIdle(answersBefore + 1);
+        let timing = null;
+        for (let i = 0; i < 40; i++) {
+          timing = await alice.evaluate(() => ({ ...window.__noCardTiming }));
+          if (timing.rendered !== null) break;
+          await new Promise((r) => setTimeout(r, 150));
+        }
+        const elapsed = timing?.rendered !== null && timing?.answered !== null
+          ? Math.round(timing.rendered - timing.answered) : null;
+        await gm.evaluate(async (before) => {
           const a = game.actors.find((x) => x.type === "character" && !before.actors.includes(x.id));
-          const out = {
-            handBuilt: a?.getFlag("air-bladder", "handBuilt") === true,
-            background: a?._source.system.background ?? "",
-            items: a?.items.size ?? 0,
-          };
+          await a?.sheet?.close?.();
           await a?.delete();
-          return out;
-        }, rawBefore);
-        !raw.handBuilt && raw.background && raw.items > 0
-          ? ok("switch off: a raw emit with blank:true still mints a ROLLED character — the broker refuses the blank")
-          : fail(`switch off: the broker honoured a blank it should have refused: ${JSON.stringify(raw)}`);
+        }, quietBefore);
+        await alice.evaluate(async (uuid) => { (await fromUuid(uuid ?? ""))?.sheet?.close?.(); }, timing?.uuid);
+        quietArrived && timing?.noCard === true && elapsed !== null && elapsed < 1000
+          ? ok(`rolls card off: the sheet opens ${elapsed}ms after the answer — no wait for a card that is never posted`)
+          : fail(`rolls card off: ${JSON.stringify({ arrived: !!quietArrived, ...timing, elapsed })} — the poll for a card that cannot arrive costs ~1500ms`);
+      } finally {
+        await gm.evaluate((v) => game.settings.set("air-bladder", "show-generation-rolls", v), showWas);
       }
     }
     // Re-establish the actor's own flag before the Warden leg. Idempotent
@@ -768,7 +910,7 @@ try {
     await alice.evaluate((id) => game.actors.get(id)?.sheet?.close(), pcId);
   }
 
-  const swept = await sweep(before);
+  const swept = await sweep(runStart);
   console.log(`  (cleaned up: ${swept.named.join(", ") || "nothing"}; ${swept.messages} chat message(s))`);
 
   // -- The Warden IS asked, since 2026-09-11 ---------------------------------
@@ -915,6 +1057,54 @@ try {
     ? ok("…and Alice was told the Warden switched it off")
     : fail("no PcGenDisabled notification reached Alice");
 
+  // THE SWITCHBOARD ASKS THE SAME SWITCH (review #34 finding 250). A player
+  // with Create New Actors reaches Create Actor from a folder's "+", which the
+  // directory keeps; it listed Character whatever the switch said, and
+  // createActorInteractive never read it. The rows are read off the real
+  // dialog, then the route is asked directly, as a crafted client would.
+  const boardRows = (page) => page.evaluate(async () => {
+    const before = new Set([...document.querySelectorAll(".application.dialog")].map((d) => d.id));
+    const pending = getDocumentClass("Actor").createDialog({});
+    let el = null;
+    for (let i = 0; i < 60 && !el; i++) {
+      el = [...document.querySelectorAll(".application.dialog")].find((d) => !before.has(d.id)) ?? null;
+      if (!el) await new Promise((r) => setTimeout(r, 100));
+    }
+    const rows = el ? [...el.querySelectorAll('select[name="choice"] option')].map((o) => o.value) : null;
+    el?.querySelector('[data-action="close"]')?.click();
+    await Promise.race([pending, new Promise((r) => setTimeout(r, 3000))]);
+    return rows;
+  });
+  const aliceRows = await boardRows(alice);
+  const gmRows = await boardRows(gm);
+  Array.isArray(aliceRows) && aliceRows.length && !aliceRows.includes("character")
+    ? ok("switch off: Alice's Create Actor switchboard offers no Character row")
+    : fail(`switch off: Alice's switchboard rows ${JSON.stringify(aliceRows)}`);
+  gmRows?.includes("character")
+    ? ok("...while the Warden's still does")
+    : fail(`switch off: the Warden's switchboard rows ${JSON.stringify(gmRows)}`);
+  const routed = await alice.evaluate(async () => {
+    const cg = await import("/systems/air-bladder/module/character-generator.js");
+    const before = new Set([...document.querySelectorAll(".application.dialog")].map((d) => d.id));
+    const want = game.i18n.localize("CAIRN.Notify.PcGenDisabled");
+    const warned = [];
+    const realWarn = ui.notifications.warn;
+    ui.notifications.warn = function (m, ...rest) { warned.push(String(m)); return realWarn.call(this, m, ...rest); };
+    let dlg = null, result = null;
+    try {
+      const pending = cg.createActorInteractive("character");
+      await new Promise((r) => setTimeout(r, 1200));
+      dlg = [...document.querySelectorAll(".application.dialog")].find((d) => !before.has(d.id)) ?? null;
+      dlg?.querySelector('button[data-action="cancel"]')?.click();
+      result = await Promise.race([pending, new Promise((r) => setTimeout(() => r("hung"), 3000))]);
+    } finally { ui.notifications.warn = realWarn; }
+    const told = warned.some((m) => m === want || m === "CAIRN.Notify.PcGenDisabled");
+    return { prompted: !!dlg, result: result === null ? null : String(result?.id ?? result), told };
+  });
+  !routed.prompted && routed.result === null && routed.told
+    ? ok("switch off: createActorInteractive refuses Alice a character, and says why")
+    : fail(`switch off: the character route ran for Alice: ${JSON.stringify(routed)}`);
+
   // Live flip back ON: the button returns without a reload.
   await gm.evaluate((k) => game.settings.set("air-bladder", k, true), SWITCH);
   (await waitButton(alice, true))
@@ -925,6 +1115,16 @@ try {
   errs.length === 0 ? ok("zero console errors across both clients") : fail(`console errors: ${errs.join(" | ")}`);
 } finally {
   clearTimeout(dog);
+  if (runStart) {
+    try {
+      const left = await sweep(runStart);
+      if (left.named.length || left.messages) {
+        console.log(`  (final sweep: ${left.named.join(", ") || "no actors"}; ${left.messages} chat message(s))`);
+      }
+    } catch (e) {
+      console.error(`  COULD NOT SWEEP this run's documents: ${e.message}`);
+    }
+  }
   for (const [key, prior] of [["allow-player-generate", priorSwitch], ["allow-player-marketplace", priorMarket],
     ["allow-player-randomization", priorRand]]) {
     if (prior === null) continue;

@@ -18,10 +18,13 @@
  *    through FormDataExtended: text, number, <select>, and <textarea>.
  *
  * 2. TAB SWITCHING. Nothing in Foundry's JS hides an inactive tab body -- it is
- *    one CSS rule, `.tab[data-tab]:not(.active) { display: none }`
- *    (foundry2.css:5781). Any `display: grid`/`flex` on a tab's PARENT beats it
- *    and every tab renders at once. So this asserts computed visibility, not
- *    just the class. It also clicks the tab LABEL text, because AppV2's
+ *    one CSS rule, `.tab[data-tab]:not(.active) { display: none }`, in core's
+ *    `@layer blocks.base`. A PARENT's display cannot beat it — the cascade is
+ *    per element and `display` does not inherit (9311c04e measured exactly
+ *    that, and this note kept the refuted claim until review #34 finding 204).
+ *    What CAN beat it is a `display` declaration on the `.tab` element itself
+ *    in cairn.css, whose `@layer system` comes later. So this asserts computed
+ *    visibility, not just the class. It also clicks the tab LABEL text, because AppV2's
  *    `_onClickTab` reads `event.target` directly rather than `.closest()`
  *    (application.mjs:1974-1981) -- a click on a child element only works
  *    because of `nav.tabs [data-tab] > * { pointer-events: none }`.
@@ -32,7 +35,7 @@
  * hold for both. The probe should survive the migration it exists to guard.
  */
 import { chromium } from "playwright";
-import { FOUNDRY_URL, VIEWPORT, dismissChrome, joinAsGM, watchErrors } from "./lib.mjs";
+import { FOUNDRY_URL, VIEWPORT, dismissChrome, joinAsGM, watchErrors, watchdog } from "./lib.mjs";
 
 let failures = 0;
 const ok = (l, d = "") => console.log(`  ok    ${l.padEnd(36)} ${d}`);
@@ -41,6 +44,14 @@ const fail = (l, d = "") => { console.log(`  FAIL  ${l.padEnd(36)} ${d}`); failu
 const SHEET = ".cairn.sheet.actor";
 
 const browser = await chromium.launch();
+
+// The fleet's hang guard (review #34 finding 25): without it a hang runs to
+
+// the runner's 65-minute cap, skips every restore, and the box is never
+
+// marked suspect. A bound on a hang, not a timing claim.
+
+watchdog(600000, "sheet-basics probe", () => browser.close());
 const page = await browser.newPage({ viewport: VIEWPORT });
 const errors = watchErrors(page);
 await page.goto(FOUNDRY_URL);
@@ -457,6 +468,144 @@ const labels = await page.evaluate(() => ({
 labels.actor === "Air Bladder" && labels.item === "Air Bladder"
   ? ok("both sheets register a label", `"${labels.actor}" / "${labels.item}"`)
   : fail("both sheets register a label", `actor="${labels.actor}" item="${labels.item}"`);
+
+console.log("\na monster's stats are not a character's (review #34 finding 52)");
+
+// The npc sheet serves every monster, and the shipped bestiary runs to HP 30
+// and STR 20 — but its inputs carried the character sheet's 0-18 clamp, so a
+// Warden's hand edit of a Dragon Turtle's HP from 30 to 29 saved 18. The
+// control is a character, whose 18 stands.
+const caps = await page.evaluate(async () => {
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const typeInto = async (actor, name, value) => {
+    await actor.sheet.render(true);
+    for (let i = 0; i < 40 && !actor.sheet.element?.querySelector(`input[name="${name}"]`); i++) await sleep(150);
+    const input = actor.sheet.element.querySelector(`input[name="${name}"]`);
+    input.value = String(value);
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+    await sleep(1200);
+  };
+  const beast = await Actor.create({ name: "ZZ Caps Beast", type: "npc",
+    system: { role: "monster", hp: { value: 30, max: 30 }, abilities: { STR: { value: 20, max: 20 } } } });
+  await typeInto(beast, "system.hp.value", 29);
+  await typeInto(beast, "system.abilities.STR.value", 19);
+  const pc = await Actor.create({ name: "ZZ Caps PC", type: "character" });
+  await typeInto(pc, "system.abilities.STR.value", 25);
+  const out = {
+    beastHp: beast._source.system.hp.value,
+    beastStr: beast._source.system.abilities.STR.value,
+    pcStr: pc._source.system.abilities.STR.value,
+  };
+  await beast.sheet.close(); await pc.sheet.close();
+  await beast.delete(); await pc.delete();
+  return out;
+});
+caps.beastHp === 29 && caps.beastStr === 19
+  ? ok("a monster's hand-edited HP 29 and STR 19 save as typed", JSON.stringify(caps))
+  : fail("a monster's hand-edited HP 29 and STR 19 save as typed", JSON.stringify(caps));
+caps.pcStr === 18
+  ? ok("...and a character's STR is still capped at 18", JSON.stringify(caps))
+  : fail("...and a character's STR is still capped at 18", JSON.stringify(caps));
+
+console.log("\na typed number cannot make the sheet draw millions of rows (review #34 finding 54)");
+
+// Coin rows (one per coin slot) and use pips (one per use) are drawn by the
+// `times` helper from numbers an owner types, with no ceiling: gold 1e9 drew
+// ten million rows and broke the sheet on every client that had it open.
+const rows = await page.evaluate(async () => {
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const rich = await Actor.create({ name: "ZZ Rows Rich", type: "character", system: { gold: 1e9 } });
+  await rich.createEmbeddedDocuments("Item", [{ name: "ZZ Rows Rope", type: "item", system: { uses: { value: 1, max: 1e7 } } }]);
+  const t0 = performance.now();
+  let threw = null;
+  try { await rich.sheet.render(true); } catch (e) { threw = e.message; }
+  for (let i = 0; i < 40 && !rich.sheet.element?.querySelector(".cairn-items-list-header"); i++) await sleep(150);
+  const out = {
+    rendered: !!rich.sheet.element?.querySelector(".cairn-items-list-header"),
+    ms: Math.round(performance.now() - t0),
+    threw,
+    nodes: rich.sheet.element?.querySelectorAll("*").length ?? 0,
+  };
+  await rich.sheet.close();
+  await rich.delete();
+  return out;
+});
+rows.rendered && !rows.threw && rows.nodes < 20000
+  ? ok("gold 1e9 and a 1e7-use item still render a sheet of ordinary size", JSON.stringify(rows))
+  : fail("gold 1e9 and a 1e7-use item still render a sheet of ordinary size", JSON.stringify(rows));
+
+console.log("\na 20 always fails a save, a 1 always passes (review #34 finding 50)");
+
+// Cairn's own Saves rule, shipped in journals-2e: "A 1 is always a success,
+// and a 20 is always a failure." Every save read `roll <= ability` and nothing
+// else, so the four shipped monsters with STR 20 could never fail one. The die
+// is pinned in-page (u maps to ceil((1 - u) * faces), so 0.001 is a 20 and
+// 0.06 a 19); the 19 is the control that a STR-20 save still passes.
+const nat = await page.evaluate(async () => {
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const beast = await Actor.create({ name: "ZZ Nat Beast", type: "npc",
+    system: { role: "monster", abilities: { STR: { value: 20, max: 20 } } } });
+  await beast.sheet.render(true);
+  for (let i = 0; i < 40 && !beast.sheet.element?.querySelector('[data-action="rollAbility"][data-ability="STR"]'); i++) await sleep(150);
+  const press = async (u) => {
+    const before = new Set(game.messages.map((m) => m.id));
+    const orig = CONFIG.Dice.randomUniform;
+    CONFIG.Dice.randomUniform = () => u;
+    try {
+      beast.sheet.element.querySelector('[data-action="rollAbility"][data-ability="STR"]').click();
+      let m = null;
+      for (let i = 0; i < 40 && !m; i++) {
+        m = game.messages.contents.find((x) => !before.has(x.id) && x.getFlag("air-bladder", "d20Card"));
+        if (!m) await sleep(150);
+      }
+      const card = m?.getFlag("air-bladder", "d20Card") ?? null;
+      try { await m?.delete(); } catch { /* gone */ }
+      return card ? { rolled: card.rolled, failed: card.failed } : null;
+    } finally { CONFIG.Dice.randomUniform = orig; }
+  };
+  const out = { twenty: await press(0.001), nineteen: await press(0.06) };
+  await beast.sheet.close();
+  await beast.delete();
+  return out;
+});
+nat.twenty?.rolled === 20 && nat.twenty.failed === true
+  ? ok("a natural 20 fails a STR-20 monster's save", JSON.stringify(nat))
+  : fail("a natural 20 fails a STR-20 monster's save", JSON.stringify(nat));
+nat.nineteen?.rolled === 19 && nat.nineteen.failed === false
+  ? ok("...and a 19 still passes it", JSON.stringify(nat))
+  : fail("...and a 19 still passes it", JSON.stringify(nat));
+
+console.log("\na blank or zero slot limit is not a limit of zero (review #34 finding 77)");
+
+// `max-equip-slots` had no floor and its reader no guard, so a Warden who
+// cleared the box (null) or typed 0 made every character encumbered at HP 0.
+// SHADOWED in-page, both values, never written: the real setting is the
+// Warden's.
+const slots = await page.evaluate(async () => {
+  const pc = await Actor.create({ name: "ZZ Slots PC", type: "character" });
+  const origGet = game.settings.get;
+  const ns = game.system.id;
+  const read = (v) => {
+    game.settings.get = function (scope, key, ...rest) {
+      // A DOCUMENT request is never shadowed (review #27): core's #setWorld asks
+      // get(ns, key, {document: true}) for the Setting document it updates by id,
+      // and any value handed back makes it CREATE a duplicate. check:probes gates this.
+      if (rest[0]?.document) return foundry.helpers.ClientSettings.prototype.get.call(this, scope, key, ...rest);
+      if (scope === ns && key === "max-equip-slots") return v;
+      return origGet.call(this, scope, key, ...rest);
+    };
+    try { return pc.calcCurrentMaxSlots(); } finally { game.settings.get = origGet; }
+  };
+  const out = { blank: read(null), zero: read(0), negative: read(-3), eight: read(8) };
+  await pc.delete();
+  return out;
+});
+slots.blank === 10 && slots.zero === 10 && slots.negative === 10
+  ? ok("a cleared, 0 or negative slot limit reads as the default ten", JSON.stringify(slots))
+  : fail("a cleared, 0 or negative slot limit reads as the default ten", JSON.stringify(slots));
+slots.eight === 8
+  ? ok("...and a real limit of eight still reads eight", JSON.stringify(slots))
+  : fail("...and a real limit of eight still reads eight", JSON.stringify(slots));
 
 /* ----------------------------------------------------------- teardown ---- */
 await page.evaluate(async (id) => { await game.actors.get(id)?.delete(); }, actorId);

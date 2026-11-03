@@ -4,7 +4,7 @@
  * COPY of the editable pool item — so editing the pool and regenerating shows the
  * change. This is the capability the whole rebuild exists to restore.
  *
- *   node tools/dev/phase2-probe.mjs        (needs Foundry running, world launched)
+ *   node tools/dev/e2e-phase2.mjs        (needs Foundry running, world launched)
  *
  * Steps, driven headless as GM:
  *   1. Find a background whose FIXED startingGear resolves to an armor item.
@@ -23,9 +23,12 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
-import { VIEWPORT, joinAsGM, watchErrors } from "./lib.mjs";
+import { VIEWPORT, joinAsGM, watchErrors, watchdog, trackCreatedActors, sweepCreatedActors } from "./lib.mjs";
 
 const browser = await chromium.launch();
+// The fleet's hang guard (review #34): without it a hang runs to the runner's
+// 65-minute cap and skips every restore. A bound on a hang, not a timing claim.
+watchdog(900000, "dev:phase2");
 const page = await browser.newContext({ viewport: VIEWPORT }).then((c) => c.newPage());
 const errors = watchErrors(page);
 let failed = false;
@@ -34,6 +37,7 @@ const ok = (m) => console.log(`  ok    ${m}`);
 
 try {
   await joinAsGM(page);
+  await trackCreatedActors(page);
 
   const r = await page.evaluate(async () => {
     const CG = game.cairn.characterGenerator;
@@ -85,24 +89,29 @@ try {
     // 3. Edit the pool item in place (unlock, bump armor, stamp description).
     const pack = game.packs.get(packKey);
     const wasLocked = pack.locked;
-    if (wasLocked) await pack.configure({ locked: false });
     const newArmor = origArmor + 5;
     const marker = "PROBE-EDIT-MARKER-42";
-    await poolDoc.update({ "system.armor": newArmor, "system.description": marker });
+    // Reverted in a finally (review #34): a leg that throws mid-edit would leave
+    // the shipped armor edited for the next probe on the same fleet box.
+    let gen2;
+    try {
+      if (wasLocked) await pack.configure({ locked: false });
+      await poolDoc.update({ "system.armor": newArmor, "system.description": marker });
 
-    // 4. Regenerate the same actor (same background, by uuid) and re-inspect.
-    await CG.regenerateActor(actor);
-    const e2 = actor.items.find((i) => i.type === "armor" && i.name.toLowerCase() === armorName.toLowerCase());
-    const gen2 = {
-      hasArmor: !!e2,
-      armorValue: e2?.system.armor,
-      reflectsArmorEdit: e2?.system.armor === newArmor,
-      reflectsDescEdit: (e2?.system.description ?? "") === marker,
-    };
-
-    // 5. Revert + cleanup.
-    await poolDoc.update({ "system.armor": origArmor, "system.description": origDesc });
-    if (wasLocked) await pack.configure({ locked: true });
+      // 4. Regenerate the same actor (same background, by uuid) and re-inspect.
+      await CG.regenerateActor(actor);
+      const e2 = actor.items.find((i) => i.type === "armor" && i.name.toLowerCase() === armorName.toLowerCase());
+      gen2 = {
+        hasArmor: !!e2,
+        armorValue: e2?.system.armor,
+        reflectsArmorEdit: e2?.system.armor === newArmor,
+        reflectsDescEdit: (e2?.system.description ?? "") === marker,
+      };
+    } finally {
+      // 5. Revert + cleanup.
+      await poolDoc.update({ "system.armor": origArmor, "system.description": origDesc });
+      if (wasLocked) await pack.configure({ locked: true });
+    }
     await actor.delete();
 
     return { backgroundName: bg.name, armorName, packKey, origArmor, newArmor, gen1, gen2 };
@@ -129,6 +138,9 @@ try {
 } catch (e) {
   fail(`${e.name}: ${e.message}`);
 } finally {
+  // Every actor this run created, generated children included (review #34
+  // findings 150, 256, 259) — whatever a leg threw.
+  await sweepCreatedActors(page);
   if (errors.length) {
     console.error("\nconsole errors:");
     errors.slice(0, 15).forEach((e) => console.error("  " + e));

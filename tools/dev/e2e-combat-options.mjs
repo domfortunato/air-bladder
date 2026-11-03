@@ -49,9 +49,12 @@
  * one) and stops on its own, which leg 2b measures against that raw `x`.
  */
 import { chromium } from "playwright";
-import { VIEWPORT, joinAsGM, joinAs, dismissChrome, watchErrors, withSettings } from "./lib.mjs";
+import { VIEWPORT, joinAsGM, joinAs, dismissChrome, watchErrors, withSettings, watchdog } from "./lib.mjs";
 
 const browser = await chromium.launch();
+// The fleet's hang guard (review #34): without it a hang runs to the runner's
+// 65-minute cap and skips every restore. A bound on a hang, not a timing claim.
+watchdog(900000, "dev:combat-options");
 const page = await browser.newContext({ viewport: VIEWPORT }).then((c) => c.newPage());
 const errors = watchErrors(page);
 let failed = false;
@@ -72,15 +75,18 @@ let r;
 // and the Party folder, which a run creates on demand the way a table would. A
 // probe that leaves them behind makes the next run's "made on demand" leg pass
 // for the wrong reason.
+// The chat log before this run (review #34 finding 255): a real Fatigue-bargain
+// drop leaves a pileDrop card, and the sweep took every one in the world.
+let msgsAtStart = [];
 const cleanup = async () => {
-  await page.evaluate(async ({ ids, msgs, pileId, pileIdsAtStart, sceneId }) => {
+  await page.evaluate(async ({ ids, msgs, pileId, pileIdsAtStart, sceneId, msgsAtStart }) => {
     for (const id of msgs ?? []) { try { await game.messages.get(id)?.delete(); } catch { /* gone */ } }
     // The scene the targeted legs placed a foe on, and its token with it.
     if (sceneId) { try { await game.scenes.get(sceneId)?.delete(); } catch { /* gone */ } }
     for (const s of game.scenes.filter((x) => x.getFlag("air-bladder", "probeFixture") === "combat-options")) {
       try { await s.delete(); } catch { /* gone */ }
     }
-    for (const m of game.messages.filter((x) => x.getFlag("air-bladder", "pileDrop"))) {
+    for (const m of game.messages.filter((x) => !msgsAtStart.includes(x.id) && x.getFlag("air-bladder", "pileDrop"))) {
       try { await m.delete(); } catch { /* gone */ }
     }
     // EVERY pile this run did not find at its start — by ID DIFFERENCE, the
@@ -109,12 +115,13 @@ const cleanup = async () => {
     if (folder?.getFlag("air-bladder", "partyFolder") && !folder.contents.length) {
       try { await folder.delete(); } catch { /* gone */ }
     }
-  }, { ids: r?.made, msgs: [...(r?.madeMsgs ?? []), ...(r?.made2 ?? [])],
-    pileId: r?.pileId ?? null, pileIdsAtStart: r?.pileIdsAtStart ?? [], sceneId: r?.sceneId ?? null });
+  }, { ids: r?.made, msgs: [...(r?.madeMsgs ?? []), ...(r?.made2 ?? []), ...(r?.noteMsgs ?? [])],
+    pileId: r?.pileId ?? null, pileIdsAtStart: r?.pileIdsAtStart ?? [], sceneId: r?.sceneId ?? null, msgsAtStart });
 };
 
 try {
   await joinAsGM(page);
+  msgsAtStart = await page.evaluate(() => game.messages.map((m) => m.id));
 
   r = await withSettings(page, () => page.evaluate(async () => {
     const NS = "air-bladder";
@@ -537,7 +544,10 @@ try {
     out.droppedGone = !pc.items.get(out.dropPickedId ?? "");
     {
       const pile = game.actors.find((a) => a.getFlag("air-bladder", "droppedItemPile"));
-      out.pileMade = !!pile;
+      // MADE BY THIS RUN, not merely present (review #34 finding 152, probe
+      // rule 2): `!!pile` passed on a Warden's own pile filed under Party, a
+      // precondition stale world state satisfied. The ids at start are known.
+      out.pileMade = !!pile && !pileIdsAtStart.includes(pile.id);
       out.pileHasIt = !!pile?.items?.find((i) => i.name === out.dropPickedName);
       out.pileInParty = pile?.folder?.getFlag("air-bladder", "partyFolder") === true;
       // UNLIMITED, and read off the derived value rather than from the source
@@ -716,6 +726,39 @@ try {
         stowed: tome?.system?.equipped === false,
       };
 
+      // (5b) PAGES FILED UNDER THE BOOK THAT LANDS (review #34 finding 159). A
+      // second book wearing the key of one already in the pile — what a sidebar
+      // Duplicate of a mage leaves — is re-keyed on arrival by
+      // CairnItem#_preCreate, and its pages were serialized before that, naming
+      // the OLD key: the book already in the pile claimed all four and the new
+      // one stood empty. Issue #17's symptom, which the drag path re-stamps
+      // against. Read by id difference: what each book claims after the drop.
+      {
+        const { pagesOfGrimoire } = await import("/systems/air-bladder/module/grimoire.js");
+        const tomeKey = tome?.system?.grimoireKey ?? "";
+        const mage2 = await mk({ name: "ZZ Grimoire PC Two", type: "character" });
+        await mage2.createEmbeddedDocuments("Item", [{
+          name: "ZZ Tome Twin", type: "item", system: { grimoire: true, grimoireKey: tomeKey },
+        }]);
+        const book2 = mage2.items.getName("ZZ Tome Twin");
+        await mage2.createEmbeddedDocuments("Item", ["ZZ Twin Page One", "ZZ Twin Page Two"].map((name) => (
+          { name, type: "spellbook", system: { bound: true, boundTo: book2?.system?.grimoireKey } })));
+        const claims = (book) => (book ? pagesOfGrimoire(pile, book).map((p) => p.id).sort() : null);
+        const tomeBefore = claims(tome);
+        const beforeTwin = pileIds();
+        const twinLanded = book2 ? await pp.dropItemToPile(mage2, book2.id, {}) : false;
+        await sleep(400);
+        const twin = arrived(beforeTwin, (i) => i.name === "ZZ Tome Twin")[0];
+        out.twinBook = {
+          collided: !!tomeKey && book2?.system?.grimoireKey === tomeKey,
+          landed: twinLanded && !!twin,
+          rekeyed: !!twin && twin.system.grimoireKey !== tomeKey,
+          twinPages: arrived(beforeTwin, (i) => i.name.startsWith("ZZ Twin Page")).map((p) => p.id).sort(),
+          twinClaims: claims(twin),
+          tomeBefore, tomeAfter: claims(tome),
+        };
+      }
+
       // (14) A BLANK NOTE REMOVES THE OLD ONE rather than leaving it.
       const [stale] = await noteActor.createEmbeddedDocuments("Item",
         [{ name: "ZZ Note Stale", type: "item", flags: { [NS]: { droppedAt: "last week" } } }]);
@@ -723,6 +766,42 @@ try {
       await pp.dropItemToPile(noteActor, stale.id, {});
       await sleep(400);
       out.staleNote = arrived(beforeStale, (i) => i.name === "ZZ Note Stale")[0]?.getFlag(NS, "droppedAt") ?? null;
+
+      // (14b) ONLY THE PILE'S DROP WRITES A NOTE (review #34 finding 157). Give
+      // and the Warden's own drag are doors into the pile too, and both carried
+      // whatever `droppedAt` the item wore: an old place from an earlier drop,
+      // or one a player wrote on their own item, past the 25-character clamp.
+      {
+        const { createItemOffer, settleOwnOffer } = await import("/systems/air-bladder/module/item-offer.js");
+        await noteActor.createEmbeddedDocuments("Item", [
+          { name: "ZZ Note Given", type: "item", flags: { [NS]: { droppedAt: "x".repeat(60) } } },
+          { name: "ZZ Note Dragged", type: "item", flags: { [NS]: { droppedAt: "by the well" } } },
+        ]);
+        const given = noteActor.items.getName("ZZ Note Given");
+        const dragged = noteActor.items.getName("ZZ Note Dragged");
+        // Give: the Warden's card to a pile nobody else answers for settles in
+        // one click, through the same accept and delivery a player's does.
+        const beforeGive = pileIds();
+        const offerMsg = given ? await createItemOffer(noteActor, given, pile) : null;
+        if (offerMsg) out.noteMsgs = [offerMsg.id];
+        if (offerMsg) await settleOwnOffer(offerMsg, pile);
+        const gotGiven = () => arrived(beforeGive, (i) => i.name === "ZZ Note Given")[0];
+        for (let i = 0; i < 30 && !gotGiven(); i++) await sleep(150);
+        // The Warden's drag onto the pile's own sheet.
+        const beforeDrag = pileIds();
+        await pile.sheet.render(true);
+        for (let i = 0; i < 30 && !(pile.sheet.element instanceof HTMLElement); i++) await sleep(100);
+        const dt = new DataTransfer();
+        dt.setData("text/plain", JSON.stringify({ type: "Item", uuid: dragged?.uuid }));
+        try { await pile.sheet._onDrop(new DragEvent("drop", { dataTransfer: dt })); } catch { /* refused */ }
+        await sleep(600);
+        await pile.sheet.close();
+        const gotDragged = arrived(beforeDrag, (i) => i.name === "ZZ Note Dragged")[0];
+        out.otherDoors = {
+          given: gotGiven() ? (gotGiven().getFlag(NS, "droppedAt") ?? null) : "did not land",
+          dragged: gotDragged ? (gotDragged.getFlag(NS, "droppedAt") ?? null) : "did not land",
+        };
+      }
 
       // (4) RECONCILE LOSES NOTHING: an extra pile shaped like a sidebar
       // Duplicate — ids the canonical already holds, plus one it does not —
@@ -1039,6 +1118,46 @@ try {
         fatigues: a.items.filter((i) => i.system?.isFatigue).length,
         flag: m.getFlag(NS, "crawlerChoiceTaken") ?? null,
         critical: a._source.system.critical === true,
+      };
+    }
+
+    // ONE CHOICE PER CARD, EVEN INSIDE ONE ROUND TRIP (review #34 finding 132).
+    // `spent()` reads the card's flag, which reaches this client only when the
+    // server replies, so a double-click on the no-dialog path passed the check
+    // twice and minted two Fatigues; and a press on Mark Critical Damage inside
+    // the same window wrote `critical` beside the Fatigue. Both clicks go in
+    // synchronously, before any reply can land.
+    {
+      const a = await pcWith("ZZ Barg Double", [ORD]);
+      const m = await postSave(a, true);
+      out.made2.push(m.id);
+      const before = a.items.filter((i) => i.system?.isFatigue).length;
+      const btn = rowOf(m)?.querySelector(".take-fatigue-instead");
+      btn?.click();
+      btn?.click();
+      await sleep(2500);
+      bargain.double = {
+        pressed: !!btn,
+        fatigues: a.items.filter((i) => i.system?.isFatigue).length - before,
+        flag: m.getFlag(NS, "crawlerChoiceTaken") ?? null,
+      };
+    }
+    {
+      const a = await pcWith("ZZ Barg Both", [ORD]);
+      const m = await postSave(a, true);
+      out.made2.push(m.id);
+      const before = a.items.filter((i) => i.system?.isFatigue).length;
+      const row = rowOf(m);
+      const fat = row?.querySelector(".take-fatigue-instead");
+      const crit = row?.querySelector(".mark-critical-damage");
+      fat?.click();
+      crit?.click();
+      await sleep(2500);
+      bargain.both = {
+        pressed: !!fat && !!crit,
+        fatigues: a.items.filter((i) => i.system?.isFatigue).length - before,
+        critical: a._source.system.critical === true,
+        flag: m.getFlag(NS, "crawlerChoiceTaken") ?? null,
       };
     }
 
@@ -1680,7 +1799,9 @@ try {
   const WANT = {
     d6: "d6x2=6", oneD8: "1d8x3=8", twoD10: "2d10x4=10",
     keep: "2d6kx2=6", keepH: "2d8khx3=8", keepH1: "3d6kh1x2=6",
-    plusSame: "2d6kx2=6", plusCount: "3d6kx2=6",
+    // A COUNTED `+` term is not judged (review #34 finding 48): `2d6 + d6`
+    // is max(2d6, d6), which no single Die keep form says, so it stays as typed.
+    plusSame: "2d6kx2=6", plusCount: "2d6 + d6",
     plusMixed: "d6 + d8", arithmetic: "2d20 + 10", already: "1d6x", empty: "",
     // NO FLOOR (2026-10-03): every sub-d6 shape explodes like any other, the
     // `+` pool through its keep form, and d12 still does — each at its own cap.
@@ -1798,9 +1919,17 @@ try {
     && r.grimoireDrop.pagesLeft === 0 && !r.grimoireDrop.bookLeft && r.grimoireDrop.stowed
     ? ok("dropping a Grimoire takes its bound pages with it, and the copy lands stowed")
     : fail(`grimoire drop: ${JSON.stringify(r.grimoireDrop)}`);
+  r.twinBook?.collided && r.twinBook.landed && r.twinBook.rekeyed && r.twinBook.twinPages.length === 2
+    && JSON.stringify(r.twinBook.twinClaims) === JSON.stringify(r.twinBook.twinPages)
+    && JSON.stringify(r.twinBook.tomeAfter) === JSON.stringify(r.twinBook.tomeBefore)
+    ? ok("a second book wearing the key of one already in the pile is re-keyed, and its pages are filed under IT (review #34 finding 159)")
+    : fail(`twin grimoire drop: ${JSON.stringify(r.twinBook)}`);
   r.staleNote === null
     ? ok("a blank \"Where?\" REMOVES the note the item already wore")
     : fail(`stale note kept: ${JSON.stringify(r.staleNote)}`);
+  r.otherDoors?.given === null && r.otherDoors.dragged === null
+    ? ok("an item Given to the pile, or dragged onto it by the Warden, arrives with no \"Where?\" note (review #34 finding 157)")
+    : fail(`a note came in through another door: ${JSON.stringify(r.otherDoors)}`);
   r.reconcile?.oneFloor === 1 && r.reconcile.onlyInDupSurvives && r.reconcile.triggerLanded
     ? ok("a Duplicate-shaped second pile is merged without losing its one new item, then removed")
     : fail(`reconcile: ${JSON.stringify(r.reconcile)}`);
@@ -2118,6 +2247,13 @@ try {
       ? ok(`AT 9 OF 10 there is NO picker: the Fatigue lands and leaves them overburdened (${b.edge.usedBefore} -> ${b.edge.usedAfter}) — only an ALREADY overburdened character is asked`)
       : fail(`edge: ${JSON.stringify(b.edge)} — the "would not fit" build asked here`);
 
+    b.double?.pressed && b.double?.fatigues === 1 && b.double?.flag === "fatigue"
+      ? ok("a DOUBLE-CLICK on Take a Fatigue instead takes ONE Fatigue (review #34 finding 132)")
+      : fail(`double-click on the Fatigue choice: ${JSON.stringify(b.double)} — the flag lands one round trip after the check, so the second click passed it`);
+    b.both?.pressed && b.both?.fatigues === 1 && b.both?.critical === false && b.both?.flag === "fatigue"
+      ? ok("Fatigue then Mark Critical Damage inside one round trip: the Fatigue alone stands")
+      : fail(`Fatigue then Critical in one round trip: ${JSON.stringify(b.both)} — both choices were written`);
+
     b.legacy?.sealed && b.legacy?.anyTick === false
       ? ok("a card already in a log (flag `true`) seals with NO check — a default would silently mislabel history on cards nothing ever repairs")
       : fail(`legacy card: ${JSON.stringify(b.legacy)}`);
@@ -2176,6 +2312,13 @@ try {
       const theirs = await Cls.create({
         name: "ZZ Pile Foreign PC", type: "character", ownership: { default: L.NONE }, ...fixture,
       });
+      // A second character Alice DOES own, for the plant that gives up its own
+      // ownership in the same write (review #34): after it she can no longer
+      // drop from it, so her drops come from `mine`.
+      const plant = await Cls.create({
+        name: "ZZ Pile Alice Plant", type: "character",
+        ownership: { default: L.NONE, [alice.id]: L.OWNER }, ...fixture,
+      });
       const item = { name: "ZZ Alice Rope", type: "item" };
       await mine.createEmbeddedDocuments("Item", [item]);
       const foreignItem = (await theirs.createEmbeddedDocuments("Item",
@@ -2183,6 +2326,7 @@ try {
       return {
         aliceId: alice.id, mineUuid: mine.uuid, theirsUuid: theirs.uuid,
         mineId: mine.id, theirsId: theirs.id, foreignItemId: foreignItem.id,
+        plantUuid: plant.uuid, plantId: plant.id,
       };
     });
     if (seed.error) {
@@ -2193,7 +2337,7 @@ try {
       await joinAs(alicePage, "Alice");
       await dismissChrome(alicePage);
 
-      const player = await alicePage.evaluate(async ({ mineUuid, theirsUuid, foreignItemId }) => {
+      const player = await alicePage.evaluate(async ({ mineUuid, theirsUuid, foreignItemId, plantUuid }) => {
         const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
         const out = {};
         const mine = await fromUuid(mineUuid);
@@ -2322,6 +2466,35 @@ try {
         // this line then threw "Actor id does not exist" past every assertion
         // below. A regression must red the plant leg, not crash the section.
         try { await mine.unsetFlag("air-bladder", "droppedItemPile"); } catch { /* deleted by the takeover */ }
+
+        // THE PLANT, ONE LINE LONGER (review #34 finding 5): the same flag, and
+        // in the SAME write she lowers her own entry to OBSERVER. The server
+        // walls `default` and every other user's key from a player, but not her
+        // own, so afterwards the actor has no player owner — which was the whole
+        // of the review #33 test. It must still be no pile: its last writer is
+        // her, not a Warden, and the active GM takes the flag off.
+        const plant = await fromUuid(plantUuid);
+        let plantWrite = null;
+        try {
+          await plant.update({ "flags.air-bladder.droppedItemPile": true,
+            [`ownership.${game.user.id}`]: CONST.DOCUMENT_OWNERSHIP_LEVELS.OBSERVER });
+          plantWrite = "landed";
+        } catch (err) { plantWrite = `refused: ${err.message}`; }
+        out.plant2 = {
+          write: plantWrite,
+          ownsAfter: plant?.isOwner ?? null,
+          canonical: pp.isDroppedPile(plant),
+        };
+        const [bait2] = await mine.createEmbeddedDocuments("Item", [{ name: "ZZ Alice Bait Two", type: "item" }]);
+        out.plant2.landed = await pp.dropItemToPile(mine, bait2.id, {});
+        for (let i = 0; i < 40 && mine.items.get(bait2.id); i++) await sleep(150);
+        await sleep(1200);
+        out.plant2.realPileExists = !!game.actors.get(pile.id);
+        out.plant2.plantExists = !!game.actors.get(plant.id);
+        // By NAME against the snapshot, like `hers`: the drop lands under a fresh
+        // claim id, never the item's own.
+        out.plant2.baitInRealPile = !!game.actors.get(pile.id) && hers("ZZ Alice Bait Two").length > 0;
+        out.plant2.flagStripped = !!game.actors.get(plant.id) && !plant.getFlag("air-bladder", "droppedItemPile");
         // EXACTLY ONE COPY. The broker runs on "the active GM's client", which is
         // a test on the USER and not the session, so every Warden session answers
         // the same request — measured: two sessions made two copies and one
@@ -2362,6 +2535,88 @@ try {
         && player.plant?.baitInRealPile && !player.plant?.baitOnMine && player.plant?.ropeStillInRealPile && player.plant?.landed
         ? ok("A PLAYER CANNOT CAPTURE THE PILE: her character wearing the pile's flag is no pile (it has a player owner), the real pile survives with its contents, and her drop lands there")
         : fail(`PILE TAKEOVER: ${JSON.stringify({ canonical: player.plantCanonical, ...player.plant })}`);
+      player.plant2?.write === "landed" && player.plant2?.ownsAfter === false
+        ? ok("precondition: the server lets her lower her OWN entry in the write that plants the flag")
+        : fail(`second plant's write: ${JSON.stringify(player.plant2)}`);
+      player.plant2?.canonical === false && player.plant2?.realPileExists && player.plant2?.plantExists
+        && player.plant2?.baitInRealPile && player.plant2?.landed
+        ? ok("...and that actor, owned by NO player now, is still no pile: its last writer is her, so the real pile survives and her drop lands there")
+        : fail(`PILE TAKEOVER, SECOND FORM: ${JSON.stringify(player.plant2)}`);
+      player.plant2?.flagStripped
+        ? ok("...and the active GM has taken the planted flag off")
+        : fail(`planted flag still on the actor: ${JSON.stringify(player.plant2)}`);
+      // A WARDEN'S LATER WRITE must not vouch for it. On a character the Warden
+      // writes all the time (an Apply of damage is one), and the identity test
+      // reads the LAST writer — so the flag has to be gone before that write.
+      const launder = await page.evaluate(async ({ plantId }) => {
+        const pp = await import("/systems/air-bladder/module/party-pile.js");
+        const plant = game.actors.get(plantId);
+        if (!plant) return { gone: true };
+        await plant.update({ "system.hp.value": plant.system.hp?.value ?? 0, name: "ZZ Pile Alice Plant (edited)" });
+        return { canonical: pp.isDroppedPile(plant), flag: !!plant.getFlag("air-bladder", "droppedItemPile") };
+      }, seed);
+      launder.canonical === false
+        ? ok("...and a Warden's own write to it afterwards does not make it the pile")
+        : fail(`a Warden's write laundered the plant into the pile: ${JSON.stringify(launder)}`);
+
+      // THE READY SWEEP MUST NOT STRIP A DEMOTED WARDEN'S REAL PILE (review #34
+      // finding 233, ruled 2026-11-01). On a GM load the sweep reads the pile's
+      // last writer's CURRENT role; demote the account that made it (a
+      // co-Warden set back to Player) and the next load unset the real pile's
+      // flag for good, so the next drop minted a second pile. The F005 plant
+      // needs the writer's own key BELOW Owner (else it is player-owned and
+      // refused anyway); a demoted maker holds the Owner key the server
+      // stamped on its create. Simulated IN PAGE, with no account demoted: two
+      // flagged actors made by this Warden, one keeping its stamped Owner key
+      // (the maker's shape) and one lowered to Observer (the plant's shape),
+      // then the sweep's no-writer pass is run on EACH ONE ALONE while
+      // `game.users.get` answers this Warden's id with a stand-in whose isGM
+      // is false. One actor at a time, never the whole world: the world's real
+      // pile must not meet the stand-in. Both are deleted before the evaluate
+      // returns.
+      const demoted = await page.evaluate(async () => {
+        const L = CONST.DOCUMENT_OWNERSHIP_LEVELS;
+        const pp = await import("/systems/air-bladder/module/party-pile.js");
+        const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+        const Cls = getDocumentClass("Actor");
+        const me = game.user;
+        const mk = (name) => Cls.create({ name, type: "npc",
+          system: { role: "container", containerClass: "sack" },
+          ownership: { default: L.OBSERVER },
+          flags: { "air-bladder": { droppedItemPile: true, probeFixture: "combat-options" } } });
+        const maker = await mk("ZZ Pile Demoted Maker");
+        const plant = await mk("ZZ Pile Lowered Plant");
+        const out = {};
+        try {
+          await plant.update({ [`ownership.${me.id}`]: L.OBSERVER });
+          out.shape = { makerKey: maker.ownership[me.id] ?? null, plantKey: plant.ownership[me.id] ?? null,
+            makerWriter: maker._stats.lastModifiedBy === me.id, plantWriter: plant._stats.lastModifiedBy === me.id };
+          const realGet = game.users.get.bind(game.users);
+          const standIn = new Proxy(me, { get: (t, p) => (p === "isGM" ? false : Reflect.get(t, p)) });
+          game.users.get = (id, ...rest) => (id === me.id ? standIn : realGet(id, ...rest));
+          try {
+            pp.stripPlantedPileFlags(maker);
+            pp.stripPlantedPileFlags(plant);
+            await sleep(1500);
+          } finally {
+            game.users.get = realGet;
+          }
+          out.makerKept = !!maker.getFlag("air-bladder", "droppedItemPile");
+          out.plantStripped = !plant.getFlag("air-bladder", "droppedItemPile");
+        } finally {
+          for (const a of [maker, plant]) { try { await a.delete(); } catch { /* gone */ } }
+        }
+        return out;
+      });
+      demoted.shape?.makerKey === 3 && demoted.shape?.plantKey === 2 && demoted.shape?.makerWriter && demoted.shape?.plantWriter
+        ? ok("precondition: the maker's shape keeps its stamped Owner key, the plant's is lowered, both last written here")
+        : fail(`demoted-maker shapes: ${JSON.stringify(demoted.shape)}`);
+      demoted.makerKept
+        ? ok("the ready sweep leaves a pile whose maker was demoted (it holds Owner) — no second pile, nothing lost for good")
+        : fail(`a demoted Warden's pile lost its flag on the ready sweep: ${JSON.stringify(demoted)}`);
+      demoted.plantStripped
+        ? ok("...while the F005 shape (writer's own key lowered below Owner) is still stripped")
+        : fail(`the lowered-key plant kept its flag: ${JSON.stringify(demoted)}`);
 
       /* ---- review #33: the choice belongs to the OWNER, whoever rolled ---- */
       // The Roll STR save button is bound for the owner OR the Warden, so when
@@ -2414,6 +2669,195 @@ try {
         ? ok("...and her choice is RECORDED through the Warden's client: flag written, one Fatigue, both buttons sealed on her screen")
         : fail(`owner's choice via the Warden: ${JSON.stringify(ownerChoice)}`);
 
+      /* ---- review #34: a save card its AUTHOR could not have rolled ------- */
+      // Finding 6's third site. The speaker is the author's own choice and the
+      // buttons ride the stored content, so Alice can post a failed save naming
+      // a character she does not own — and the Warden's press on Mark Critical
+      // Damage wrote that character's status with the Warden's rights.
+      const forgedSave = await alicePage.evaluate(async ({ theirsId }) => {
+        const utils = await import("/systems/air-bladder/module/utils.js");
+        const card = { kind: "save", ability: "STR", formula: "d20cs<=10", rolled: 17, failed: true, crit: true, fatigue: false };
+        const m = await ChatMessage.create({
+          speaker: { actor: theirsId, alias: "ZZ Pile Foreign PC" },
+          content: utils.d20CardBody(card),
+          flags: { "air-bladder": { d20Card: card } },
+        });
+        return m?.id ?? null;
+      }, seed);
+      const forgedPress = await page.evaluate(async ({ id, theirsId }) => {
+        const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+        for (let i = 0; i < 40 && !game.messages.get(id); i++) await sleep(150);
+        const msg = game.messages.get(id);
+        const theirs = game.actors.get(theirsId);
+        const before = theirs?._source?.system?.critical === true;
+        const el = msg ? await msg.renderHTML() : null;
+        const btn = el?.querySelector(".mark-critical-damage");
+        const shown = !!btn && btn.style.display !== "none";
+        btn?.click();
+        await sleep(1500);
+        const after = theirs?._source?.system?.critical === true;
+        try { await msg?.delete(); } catch { /* gone */ }
+        return { posted: !!msg, before, shown, after };
+      }, { id: forgedSave, theirsId: seed.theirsId });
+      forgedPress.posted && !forgedPress.before && !forgedPress.after
+        ? ok("a save card naming a character its author does not own marks nothing on the Warden's press")
+        : fail(`forged save card: ${JSON.stringify(forgedPress)}`);
+
+      /* ---- review #34 finding 166: the bargain applies whole or not at all ---- */
+      // The Take-a-Fatigue handler dropped the item (posting "Dropped … to make
+      // room for a Fatigue.") and only THEN recorded the choice — through the
+      // Warden's client, for an owner who is not the card's author. If the
+      // Warden pressed Mark Critical Damage inside that round trip, the record
+      // was refused: the item was gone, no Fatigue came, the card sealed as
+      // Critical Damage, and she was told no Warden was connected. Ruled
+      // 2026-11-01: claim first, give it back if the drop fails, and say the
+      // real reason. The Warden's press is made to land INSIDE her round trip by
+      // arming the Warden's client in page: the first air-bladder query that
+      // arrives, whatever its name, writes `critical` on the card before the
+      // real handler runs — so the leg holds for any shape of the fix.
+      const bargainSeed = await page.evaluate(async ({ aliceId }) => {
+        const L = CONST.DOCUMENT_OWNERSHIP_LEVELS;
+        const utils = await import("/systems/air-bladder/module/utils.js");
+        await game.settings.set("air-bladder", "fatigue-for-critical-damage", true);
+        const pad = Array.from({ length: 8 }, (_, i) => ({ name: `ZZ Barg Pad ${i}`, type: "item" }));
+        const pc = await getDocumentClass("Actor").create({
+          name: "ZZ Pile Alice Bargain", type: "character",
+          ownership: { default: L.NONE, [aliceId]: L.OWNER },
+          flags: { "air-bladder": { probeFixture: "combat-options" } },
+        });
+        await pc.createEmbeddedDocuments("Item", [...pad, { name: "ZZ Barg Rope", type: "item" }, { name: "Fatigue", type: "item" }]);
+        const card = { kind: "save", ability: "STR", formula: "d20cs<=10", rolled: 17, failed: true, crit: true, fatigue: true };
+        const m = await ChatMessage.create({
+          speaker: ChatMessage.getSpeaker({ actor: pc }),
+          content: utils.d20CardBody(card),
+          flags: { "air-bladder": { d20Card: card } },
+        });
+        // Arm: one shot, every air-bladder query, the card's flag first.
+        const saved = {};
+        for (const [name, fn] of Object.entries(CONFIG.queries)) {
+          if (!name.startsWith("air-bladder.")) continue;
+          saved[name] = fn;
+          CONFIG.queries[name] = async (...args) => {
+            if (globalThis.__abF166?.armed) {
+              globalThis.__abF166.armed = false;
+              globalThis.__abF166.raced = name;
+              await game.messages.get(m.id)?.setFlag("air-bladder", "crawlerChoiceTaken", "critical");
+            }
+            return fn(...args);
+          };
+        }
+        globalThis.__abF166 = { armed: true, raced: null, saved };
+        return { pcId: pc.id, msgId: m.id, encumbered: pc.isEncumbered() };
+      }, seed);
+      let bargainRace = null;
+      try {
+        bargainRace = await alicePage.evaluate(async ({ pcId, msgId }) => {
+          const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+          const pc = game.actors.get(pcId);
+          const before = new Set(game.messages.contents.map((m) => m.id));
+          const fatigues = () => pc.items.filter((i) => i.system?.isFatigue).length;
+          const fatiguesBefore = fatigues();
+          const warns = [];
+          const origWarn = ui.notifications.warn.bind(ui.notifications);
+          ui.notifications.warn = (msg, ...r) => { warns.push(String(msg)); return origWarn(msg, ...r); };
+          let row = null;
+          for (let i = 0; i < 40 && !row; i++) { row = document.querySelector(`[data-message-id="${msgId}"]`); if (!row) await sleep(200); }
+          const out = { row: !!row };
+          try {
+            row?.querySelector(".take-fatigue-instead")?.click();
+            let dlg = null;
+            for (let i = 0; i < 60 && !dlg; i++) { dlg = document.querySelector("dialog.dialog.cairn-drop-dialog"); if (!dlg) await sleep(150); }
+            out.asked = !!dlg;
+            out.picked = dlg?.querySelector('input[name="dropped"]:checked')?.value ?? null;
+            dlg?.querySelector('button[data-action="drop"]')?.click();
+            await sleep(5000);
+          } finally {
+            ui.notifications.warn = origWarn;
+          }
+          out.itemKept = !!out.picked && !!pc.items.get(out.picked);
+          out.fatigueGained = fatigues() - fatiguesBefore;
+          out.flag = game.messages.get(msgId)?.getFlag("air-bladder", "crawlerChoiceTaken") ?? null;
+          // The drop card is known by its flag (party-pile.js PILE_DROP_FLAG), not
+          // its sentence, which each client rebuilds in its own language.
+          out.dropCards = game.messages.contents.filter((m) => !before.has(m.id)
+            && m.getFlag("air-bladder", "pileDrop") !== undefined).length;
+          out.warns = warns;
+          out.want = game.i18n.localize("CAIRN.Crawler.ChoiceAlreadyMade");
+          return out;
+        }, bargainSeed);
+      } finally {
+        bargainRace = { ...(bargainRace ?? {}), ...await page.evaluate(async ({ msgId }) => {
+          const f = globalThis.__abF166;
+          for (const [name, fn] of Object.entries(f?.saved ?? {})) CONFIG.queries[name] = fn;
+          delete globalThis.__abF166;
+          try { await game.messages.get(msgId)?.delete(); } catch { /* gone */ }
+          return { raced: f?.raced ?? null };
+        }, bargainSeed) };
+      }
+      bargainRace.row && bargainSeed.encumbered && bargainRace.asked && bargainRace.raced && bargainRace.flag === "critical"
+        ? ok(`precondition: overburdened, she was asked what to drop, and the Warden's Mark Critical Damage landed inside her round trip (on ${bargainRace.raced})`)
+        : fail(`the bargain race's precondition: ${JSON.stringify({ encumbered: bargainSeed.encumbered, ...bargainRace })}`);
+      bargainRace.itemKept && bargainRace.fatigueGained === 0 && bargainRace.dropCards === 0
+        ? ok("a bargain the Warden answered first costs her NOTHING: the item stays, no Fatigue, no \"Dropped …\" card")
+        : fail(`the half-paid bargain: ${JSON.stringify(bargainRace)}`);
+      bargainRace.want !== "CAIRN.Crawler.ChoiceAlreadyMade" && bargainRace.warns?.includes(bargainRace.want)
+        && !bargainRace.warns.some((w) => /No Warden is connected/.test(w))
+        ? ok(`...and she is told the real reason ("${bargainRace.want}"), not that no Warden is connected`)
+        : fail(`the bargain's toast: ${JSON.stringify(bargainRace.warns)} — want ${JSON.stringify(bargainRace.want)}`);
+
+      /* ---- review #34 finding 165: a refused Drop says so ----------------- */
+      // `#onItemDrop` threw `dropItemToPile`'s false away, so a drop the
+      // Warden's client refused, failed or timed out closed the dialog and left
+      // the item on her sheet with no word. The Warden's client is made to
+      // refuse in page (its pile query answers false), and her Drop must toast
+      // the approved sentence naming the item.
+      await page.evaluate(() => {
+        globalThis.__abF165 = CONFIG.queries["air-bladder.pileDrop"];
+        CONFIG.queries["air-bladder.pileDrop"] = async () => false;
+      });
+      let refusedDrop = null;
+      try {
+        refusedDrop = await alicePage.evaluate(async ({ mineUuid }) => {
+          const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+          const mine = await fromUuid(mineUuid);
+          const [item] = await mine.createEmbeddedDocuments("Item", [{ name: "ZZ Alice Refused Rope", type: "item" }]);
+          await mine.sheet.render(true);
+          for (let i = 0; i < 30 && !(mine.sheet.element instanceof HTMLElement); i++) await sleep(100);
+          mine.sheet.element?.querySelector('[data-action="tab"][data-tab="items"]')?.click();
+          await sleep(400);
+          const ctl = mine.sheet.element?.querySelector(`[data-item-id="${item.id}"] [data-action="itemDrop"]`);
+          const warns = [];
+          const origWarn = ui.notifications.warn.bind(ui.notifications);
+          ui.notifications.warn = (msg, ...r) => { warns.push(String(msg)); return origWarn(msg, ...r); };
+          try {
+            const clicking = ctl ? mine.sheet.options.actions.itemDrop.call(mine.sheet, { preventDefault() {} }, ctl) : null;
+            let yes = null;
+            for (let i = 0; i < 40 && !yes; i++) { yes = document.querySelector('dialog.dialog button[data-action="drop"]'); if (!yes) await sleep(150); }
+            yes?.click();
+            await clicking;
+            await sleep(1500);
+          } finally {
+            ui.notifications.warn = origWarn;
+          }
+          const out = {
+            control: !!ctl, kept: !!mine.items.get(item.id), warns,
+            want: game.i18n.format("CAIRN.Pile.DropFailed", { name: item.name }),
+          };
+          await mine.sheet.close();
+          try { await item.delete(); } catch { /* gone */ }
+          return out;
+        }, seed);
+      } finally {
+        await page.evaluate(() => {
+          if (globalThis.__abF165) CONFIG.queries["air-bladder.pileDrop"] = globalThis.__abF165;
+          delete globalThis.__abF165;
+        });
+      }
+      refusedDrop?.control && refusedDrop.kept && refusedDrop.want !== "CAIRN.Pile.DropFailed"
+        && refusedDrop.warns.includes(refusedDrop.want)
+        ? ok(`a Drop the Warden's client refused says so ("${refusedDrop.want}"), and the item stays`)
+        : fail(`the refused Drop: ${JSON.stringify(refusedDrop)}`);
+
       player.clamped === 25
         ? ok("...and a 40-character note sent through the broker lands clamped to 25 — the enforcement is on the GM's side, where the write is, because maxlength binds the field and not the wire")
         : fail(`brokered note length: ${player.clamped} — a crafted emit is not bound by the field's maxlength`);
@@ -2443,7 +2887,7 @@ try {
       {
         const gm2 = await (await browser.newContext({ viewport: VIEWPORT })).newPage();
         const gm2Errors = watchErrors(gm2);
-        await joinAsGM(gm2);
+        await joinAsGM(gm2, { secondSession: true });
         await dismissChrome(gm2);
         const twoSessions = await gm2.evaluate(() => ({
           sameUser: game.users.activeGM === game.user,

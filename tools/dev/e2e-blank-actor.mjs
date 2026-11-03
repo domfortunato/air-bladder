@@ -51,7 +51,7 @@
  * see the witness list at the bottom of this file.
  */
 import { chromium } from "playwright";
-import { VIEWPORT, joinAsGM, watchErrors, dismissChrome, watchdog } from "./lib.mjs";
+import { VIEWPORT, joinAsGM, watchErrors, dismissChrome, watchdog, trackCreatedActors, sweepCreatedActors } from "./lib.mjs";
 
 let failed = false;
 const ok = (m, extra = "") => console.log(`  ok    ${m}${extra ? `  ${extra}` : ""}`);
@@ -62,6 +62,8 @@ watchdog(240000, "blank actor probe");
 const page = await browser.newContext({ viewport: VIEWPORT }).then((c) => c.newPage());
 const errors = watchErrors(page);
 await joinAsGM(page);
+await trackCreatedActors(page);
+try {
 await dismissChrome(page);
 
 const PREFIX = "ZZ Blank";
@@ -250,6 +252,22 @@ const grants = await page.evaluate(async (prefix) => {
     questionGold: (blank._source.system.questions ?? []).reduce((n, q) => n + (q.gold ?? 0), 0),
   };
 
+  // (a2) THE OWNER'S OWN GEAR SURVIVES A SECOND PICK (review #34 finding 61).
+  // The legacy name-matcher ran BEFORE the hand-built check and deleted one
+  // untagged item per old-background ref — on this sheet, every one of them is
+  // the owner's transcription. Typed here under the refs' own names, untagged,
+  // then the background changes again.
+  const otherBg = bgs.find((b) => b.id !== bg.id) ?? null;
+  const typed = await blank.createEmbeddedDocuments("Item",
+    bg.system.startingGear.slice(0, 2).map((g) => ({ name: g.name, type: "item" })));
+  const typedIds = typed.map((i) => i.id);
+  if (otherBg) await cg.changeBackground(blank, otherBg);
+  out.handBuiltRepick = {
+    ran: !!otherBg,
+    typed: typedIds.length,
+    survived: typedIds.filter((id) => blank.items.has(id)).length,
+  };
+
   // (b) THE CONTROL — the same background, the same call, on a ROLLED
   // character. Without this, a changeBackground broken to grant nothing at all
   // would make (a) pass and read as a working feature.
@@ -413,14 +431,14 @@ const grants = await page.evaluate(async (prefix) => {
   await settle(regen);
 
   // (i) THE CONTRACT BEHIND THE ORDERING FIX (review #26). Clearing the mark
-  // used to happen BEFORE changeBackground was even asked, so its two
-  // refusals — both of which fire before the first write — left a character
-  // that had silently stopped being hand-built. The clear moved out to the
-  // caller and `ignoreHandBuilt` took its place, so the invariant to pin is:
-  // this call deals the gear and does NOT touch the flag. A refusal cannot be
-  // staged from a GM session (canRegenerateContainers short-circuits on isGM
-  // and an empty pool needs a world setting), so the contract is what gets
-  // tested; the caller's half is the "way out" leg above.
+  // used to happen BEFORE changeBackground was even asked, so a refusal —
+  // which fires before the first write — left a character that had silently
+  // stopped being hand-built. The clear moved out to the caller and
+  // `ignoreHandBuilt` took its place, so the invariant to pin is: this call
+  // deals the gear and does NOT touch the flag. The one refusal left, an empty
+  // background pool, needs a world setting to stage (the container refusal
+  // went with review #34 finding 183), so the contract is what gets tested;
+  // the caller's half is the "way out" leg above.
   const contract = await cg.createBlankActor("character");
   await contract.update({ name: `${prefix} contract` });
   const dealt = await cg.changeBackground(contract, null, { ignoreHandBuilt: true });
@@ -500,6 +518,13 @@ if (grants.handBuilt) {
   h.questions > 0
     ? ok(`   …while the ${h.questions} question rows still land, so the pickers have something to hang on`)
     : fail("the background's question rows did not land");
+}
+
+if (grants.handBuiltRepick) {
+  const r = grants.handBuiltRepick;
+  r.ran && r.typed > 0 && r.survived === r.typed
+    ? ok(`a second background pick on a hand-built sheet keeps the owner's typed gear (${r.survived}/${r.typed})`)
+    : fail(`a second background pick deleted the owner's typed gear: ${JSON.stringify(r)}`);
 }
 
 if (grants.control) {
@@ -751,6 +776,12 @@ if (errors.length) {
   fail(`${errors.length} console error(s): ${errors.slice(0, 3).join(" | ")}`);
 }
 
+} finally {
+  // Every actor this run created, generated children included (review #34
+  // findings 150, 256, 259) — the body was straight-line, so a throw skipped
+  // every delete in it.
+  await sweepCreatedActors(page);
+}
 await browser.close();
 console.log(failed ? "\nblank actor probe FAILED\n" : "\nblank actor probe passed\n");
 process.exit(failed ? 1 : 0);

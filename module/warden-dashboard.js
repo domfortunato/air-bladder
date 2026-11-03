@@ -26,7 +26,7 @@
  * owns a Foundry surface, the scene-controls palette.
  */
 
-import { findTableByName } from "./compendium.js";
+import { findTableByName, resultText, resultPlainText } from "./compendium.js";
 import { cleanDescription } from "./utils.js";
 import { t } from "./i18n-content.js";
 import { openWardenDamage } from "./warden-damage.js";
@@ -38,11 +38,15 @@ import {
 import { openValdCalendar, valdCalendarAvailable, promptSetWeather } from "./vald-calendar.js";
 
 /** Flag namespace and the three card flags, all rebuilt per viewer — see
- *  `localizeDashboardCard`. */
+ *  `localizeDashboardCard` — plus the RECORD two of them carry beside their
+ *  uuid (review #34 findings 232, 241): what was shown, and the name the table
+ *  was drawn under, as they stood then. */
 const SCOPE = "air-bladder";
 const SET_CARD_FLAG = "dashboardSet";
 const SHOWN_CARD_FLAG = "dashboardShown";
+const SHOWN_RECORD_FLAG = "dashboardShownRecord";
 const DRAW_CARD_FLAG = "dashboardDraw";
+const DRAW_NAME_FLAG = "dashboardDrawName";
 
 /* -------------------------------------------- */
 /*  What each tab holds                         */
@@ -260,9 +264,10 @@ const VALD_WEATHER_GROUP = {
   // written into this array is a second declaration that will drift, and
   // `dev:vald-time` reds the moment one appears.
   //
-  // Cairn's own four seasons above take DIFFERENT glyphs on purpose. Both
-  // groups sit on the Travel tab, and a snowflake in each would collapse two
-  // lists that answer different questions into one.
+  // Cairn's own four seasons take DIFFERENT glyphs on purpose. The two groups
+  // never share the Travel tab (this one REPLACES Cairn's, above), but a
+  // season's mark belongs to its season and nothing else may wear it — the
+  // rule `SEASON_ICONS` records — so Vald's seasons and Cairn's keep their own.
   tables: [
     ["CAIRN.Dashboard.Travel.ValdDead", "Warden: Vald - Weather (Dead)", SEASON_ICONS["CAIRN.Vald.Season.Dead"]],
     ["CAIRN.Dashboard.Travel.ValdDry", "Warden: Vald - Weather (Dry)", SEASON_ICONS["CAIRN.Vald.Season.Dry"]],
@@ -336,10 +341,10 @@ const GENERATORS = {
   // a third call site cannot drift the way this one did — and the faction
   // has its own wrapper since 2026-09-12, when it gained the same dialog (with
   // the pick-lists inside it, a journal having no sheet to carry them).
-  npc: async () => (await import("./character-generator.js")).createActorInteractive("npc"),
-  hireling: async () => (await import("./character-generator.js")).createActorInteractive("hireling"),
-  monster: async () => (await import("./character-generator.js")).createActorInteractive("monster"),
-  faction: async () => (await import("./faction-generator.js")).createFactionInteractive(),
+  npc: async (o) => (await import("./character-generator.js")).createActorInteractive("npc", o),
+  hireling: async (o) => (await import("./character-generator.js")).createActorInteractive("hireling", o),
+  monster: async (o) => (await import("./character-generator.js")).createActorInteractive("monster", o),
+  faction: async (o) => (await import("./faction-generator.js")).createFactionInteractive(o),
 };
 
 /* -------------------------------------------- */
@@ -410,7 +415,11 @@ const postTableDraw = async (name, messageMode) => {
       // and the flavor from it in each viewer's language. `toMessage` merges
       // this over its own `flags: {"core.RollTable": id}` (roll-table.mjs:54-61),
       // so core's flag — which encounters.js reads — survives beside it.
-      flags: { [SCOPE]: { [DRAW_CARD_FLAG]: table.uuid } },
+      // ...and the NAME it was drawn under (review #34 finding 241), so a later
+      // rename does not relabel every past card for every viewer: the card is
+      // a record of this draw. The combined-draw card snapshots its tables'
+      // names the same way.
+      flags: { [SCOPE]: { [DRAW_CARD_FLAG]: table.uuid, [DRAW_NAME_FLAG]: table.name } },
     },
     messageOptions: { messageMode },
   });
@@ -574,25 +583,43 @@ const labelForTable = (name) => {
 export const _labelForTable = labelForTable;
 
 /**
+ * A table as it stands NOW, as a shown table's record: its name, formula, and
+ * each row's range and English source (review #34 finding 232). The reveal
+ * card stores this and is rebuilt from it, so it stays a copy of what was
+ * shown — the combined-draw card's mechanism (`postSetDraw`).
+ * @param {RollTable} table
+ * @returns {{name: string, formula: string, rows: {range: number[], source: string}[]}}
+ */
+const shownTableRecord = (table) => ({
+  name: table.name,
+  formula: table.formula ?? "",
+  rows: table.results.contents.map((r) => ({ range: [r.range?.[0] ?? null, r.range?.[1] ?? null], source: resultText(r) })),
+});
+
+/**
  * One table's rows, rendered for display.
  *
- * Shared by the popup and the chat card so the two cannot drift, and built
- * from the DOCUMENT every time — never from anything that crossed the socket.
- * That is the security design: see `showTableToPlayers`.
+ * Shared by the popup and the chat card so the two cannot drift. The popup
+ * renders the DOCUMENT's record every time — never anything that crossed the
+ * socket, which is the security design (see `showTableToPlayers`); the card
+ * renders the record stored on it.
  *
  * The row text is enriched, not escaped, for the reason `postSetDraw` now
  * carries at length: `TableResult#description` is a core `HTMLField` and the
- * server sanitizes it on write. `secrets: false` because this is being shown
- * to players on purpose and a secret block must not ride along.
+ * server sanitizes it on write. A record read back off a card is a FLAG,
+ * which the server never sanitizes, so every row is cleaned first — the
+ * combined-draw card's rule. `secrets: false` because this is being shown to
+ * players on purpose and a secret block must not ride along.
  *
- * @param {RollTable} table
+ * @param {ReturnType<typeof shownTableRecord>} shown
+ * @param {TableResult[]} [results]  the live rows, for `relativeTo`, when there are any
  * @returns {Promise<string>} HTML
  */
-const renderTableRows = async (table) => {
+const renderTableRows = async (shown, results = []) => {
   const esc = (s) => foundry.utils.escapeHTML(String(s ?? ""));
   const enrich = foundry.applications.ux.TextEditor.implementation.enrichHTML;
   const rows = [];
-  for (const r of table.results) {
+  for (const [i, r] of (shown.rows ?? []).entries()) {
     const [lo, hi] = r.range ?? [];
     // "3" for a single number, "3-5" for a span. A Warden showing a table is
     // showing the odds — that was the ruling — so the range is never dropped.
@@ -600,13 +627,13 @@ const renderTableRows = async (table) => {
     // THROUGH THE OVERLAY — see the same line in `postSetDraw`. This popup is
     // rendered per client, so it is the one surface here that CAN read in the
     // viewer's own language, and it was the one throwing English at them.
-    const raw = t("table.result", r.type === "text" ? r.description : r.name);
+    const raw = cleanDescription(t("table.result", r.source));
     rows.push(`<div class="cairn-show-row"><span class="cairn-show-range">${esc(range)}</span>`
-      + `<span class="cairn-show-text">${await enrich(raw, { relativeTo: r, secrets: false })}</span></div>`);
+      + `<span class="cairn-show-text">${await enrich(raw, { relativeTo: results[i], secrets: false })}</span></div>`);
   }
   return `<div class="cairn-shown-table">
-  <div class="cairn-show-title">${esc(labelForTable(table.name))}</div>
-  <div class="cairn-show-formula">${esc(game.i18n.format("CAIRN.Dashboard.ShownOn", { formula: table.formula }))}</div>
+  <div class="cairn-show-title">${esc(labelForTable(shown.name))}</div>
+  <div class="cairn-show-formula">${esc(game.i18n.format("CAIRN.Dashboard.ShownOn", { formula: shown.formula }))}</div>
   ${rows.join("\n  ")}
 </div>`;
 };
@@ -666,7 +693,7 @@ class ShownTableView extends foundry.applications.api.ApplicationV2 {
 
   /** @override */
   async _renderHTML() {
-    return renderTableRows(this.table);
+    return renderTableRows(shownTableRecord(this.table), this.table.results.contents);
   }
 
   /** @override */
@@ -675,15 +702,6 @@ class ShownTableView extends foundry.applications.api.ApplicationV2 {
   }
 }
 
-/**
- * Open the popup for a table on THIS client.
- *
- * Exported because the socket handler in `cairn.js` calls it, and because the
- * Warden's own client calls it directly rather than listening to its own
- * broadcast (a socket emit is not delivered back to its sender).
- *
- * @param {string} uuid  a RollTable uuid — world or compendium
- */
 /**
  * Rebuild the Dashboard's two hand-built chat cards in THIS viewer's language.
  *
@@ -698,8 +716,9 @@ class ShownTableView extends foundry.applications.api.ApplicationV2 {
  * as an alias by the composing client, so it was English above a body that had
  * just been translated.
  *
- * The reveal card is ASYNC because it re-renders from the live document, and
- * it is deliberately not awaited by the hook — same footing as the encounter
+ * The reveal card is ASYNC because its rows are enriched (and a card older
+ * than its stored record re-renders from the live document), and it is
+ * deliberately not awaited by the hook — same footing as the encounter
  * button, and a rejection is caught rather than left to escape the hook's
  * synchronous try/catch naming nothing.
  *
@@ -760,17 +779,27 @@ export const localizeDashboardCard = (message, html) => {
   // stored: the card's own `.table-results` is what was drawn.
   const drawUuid = message.getFlag(SCOPE, DRAW_CARD_FLAG);
   if (drawUuid) {
-    (async () => {
-      const table = await fromUuid(drawUuid);
-      if (!(table instanceof getDocumentClass("RollTable"))) return;
-      const label = labelForTable(table.name);
+    const relabel = (name) => {
+      const label = labelForTable(name);
       const sender = html.querySelector(".message-sender");
       if (sender) sender.textContent = label;
       const flavor = html.querySelector(".flavor-text");
-      const n = html.querySelectorAll(".table-results li").length || 1;
+      const n = html.querySelectorAll(".table-results > li").length || 1;   // result rows only (review #34 finding 12)
       if (flavor) {
         flavor.textContent = game.i18n.format(`TABLE.DrawFlavor${n > 1 ? "Plural" : ""}`, { number: n, name: label });
       }
+    };
+    // The name it was DRAWN under (review #34 finding 241). Only a card
+    // posted before the record existed reads the table as it is now.
+    const drawnName = message.getFlag(SCOPE, DRAW_NAME_FLAG);
+    if (typeof drawnName === "string") {
+      relabel(drawnName);
+      return;
+    }
+    (async () => {
+      const table = await fromUuid(drawUuid);
+      if (!(table instanceof getDocumentClass("RollTable"))) return;
+      relabel(table.name);
     })().catch((err) => console.error("Air Bladder | draw card relabel failed", err));
     return;
   }
@@ -779,13 +808,31 @@ export const localizeDashboardCard = (message, html) => {
   if (!uuid) return;
   relabelSender();
   (async () => {
-    const table = await fromUuid(uuid);
-    if (!table) return; // a deleted table keeps the card it was posted with
+    // WHAT WAS SHOWN (review #34 finding 232): the record stored on the card,
+    // so rows the Warden adds or rewrites afterwards stay off the copy in the
+    // chat log. Only a card posted before the record existed reads the table
+    // as it is now.
+    const record = message.getFlag(SCOPE, SHOWN_RECORD_FLAG);
+    let shown = Array.isArray(record?.rows) ? record : null;
+    if (!shown) {
+      const table = await fromUuid(uuid);
+      if (!table) return; // a deleted table keeps the card it was posted with
+      shown = shownTableRecord(table);
+    }
     const card = html.querySelector(".cairn-shown-table");
-    if (card) card.outerHTML = await renderTableRows(table);
+    if (card) card.outerHTML = await renderTableRows(shown);
   })().catch((err) => console.error("Air Bladder | shown-table card rebuild failed", err));
 };
 
+/**
+ * Open the popup for a table on THIS client.
+ *
+ * Exported because the socket handler in `cairn.js` calls it, and because the
+ * Warden's own client calls it directly rather than listening to its own
+ * broadcast (a socket emit is not delivered back to its sender).
+ *
+ * @param {string} uuid  a RollTable uuid — world or compendium
+ */
 export const openShownTable = async (uuid) => {
   // Resolve on the RECEIVING client, always. Nothing renderable travels in the
   // message, so a crafted emit can at worst name a table that already exists.
@@ -819,8 +866,9 @@ const showTableToPlayers = async (name) => {
   // to its sender, which is why the Warden's own popup is opened by hand.
   game.socket.emit(`system.${game.system.id}`, { action: SHOW_TABLE_ACTION, uuid: table.uuid });
   await openShownTable(table.uuid);
+  const shown = shownTableRecord(table);
   const card = await ChatMessage.create({
-    content: await renderTableRows(table),
+    content: await renderTableRows(shown, table.results.contents),
     speaker: { alias: game.i18n.localize("CAIRN.Dashboard.Title") },
     // A BARE UUID, exactly like the socket payload beside it, and rebuilt per
     // viewer by `localizeDashboardCard` (review #26). The popup already reads
@@ -829,7 +877,10 @@ const showTableToPlayers = async (name) => {
     // gesture therefore put the Spanish popup and the English card on a
     // player's screen at once — the failure review #25's own commit named and
     // then fixed only for the author.
-    flags: { [SCOPE]: { [SHOWN_CARD_FLAG]: table.uuid } },
+    // ...and the RECORD of what was shown (review #34 finding 232): the card
+    // is "a copy in the chat log", so it is rebuilt from the rows as they
+    // stood, not from the table as it is when someone scrolls back.
+    flags: { [SCOPE]: { [SHOWN_CARD_FLAG]: table.uuid, [SHOWN_RECORD_FLAG]: shown } },
   });
   ui.notifications.info(game.i18n.format("CAIRN.Notify.DashboardShown", { name: labelForTable(table.name) }));
   return card;
@@ -857,7 +908,7 @@ const showTableToPlayers = async (name) => {
  * read in the button callback because listeners attached to sanitized HTML are
  * dead — the trap `warden-damage.js` already carries.
  */
-const promptSetDate = async () => {
+const promptSetDate = async ({ windowId } = {}) => {
   if (!game.user.isGM) {
     ui.notifications.warn(game.i18n.localize("CAIRN.Notify.TimeWardenOnly"));
     return null;
@@ -923,6 +974,7 @@ const promptSetDate = async () => {
   };
 
   const picked = await foundry.applications.api.DialogV2.wait({
+    renderOptions: { window: { windowId } },   // the caller's own window (review #34 finding 161)
     window: { title: "CAIRN.Time.SetDateTitle" },
     // 400, stated: DialogV2.wait merges NO width where confirm and prompt
     // merge 400 (dialog.mjs:353,374), so a wait() dialog inherits
@@ -1246,14 +1298,14 @@ class WardenDashboard extends foundry.applications.api.HandlebarsApplicationMixi
       // dialog" of three functions that had stopped opening one, which is the
       // correct-sounding comment on contradicting code this project keeps
       // paying for.
-      const doc = await make();
+      const doc = await make({ windowId: this.window?.windowId });   // its own window (review #34 finding 161)
       if (doc) doc.sheet.render(true);
     });
   }
 
   /** @this {WardenDashboard} */
   static async _onWardenDamage(event, target) {
-    await this._whileDisabled(target, () => openWardenDamage());
+    await this._whileDisabled(target, () => openWardenDamage({ windowId: this.window?.windowId }));
   }
 
   /**
@@ -1278,7 +1330,7 @@ class WardenDashboard extends foundry.applications.api.HandlebarsApplicationMixi
   static async _onRollWeather(event, target) {
     await this._whileDisabled(target, async () => {
       const drawn = await postTableDraw(target.dataset.table, "public");
-      const text = drawn?.results?.map((r) => String(r.type === "text" ? r.description : r.name))
+      const text = drawn?.results?.map((r) => resultPlainText(r))
         .map((v) => v.replace(/<[^>]*>/g, "").trim()).filter(Boolean).join(", ");
       if (text) await setTodayWeather(text);
     });
@@ -1286,7 +1338,7 @@ class WardenDashboard extends foundry.applications.api.HandlebarsApplicationMixi
 
   /** @this {WardenDashboard} */
   static async _onSetWeather(event, target) {
-    await this._whileDisabled(target, () => promptSetWeather());
+    await this._whileDisabled(target, () => promptSetWeather({ windowId: this.window?.windowId }));
   }
 
   /** @this {WardenDashboard} */
@@ -1326,7 +1378,7 @@ class WardenDashboard extends foundry.applications.api.HandlebarsApplicationMixi
 
   /** @this {WardenDashboard} */
   static async _onSetDate(event, target) {
-    await this._whileDisabled(target, () => promptSetDate());
+    await this._whileDisabled(target, () => promptSetDate({ windowId: this.window?.windowId }));
   }
 
   /* -------------------------------------------- */

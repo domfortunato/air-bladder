@@ -35,9 +35,11 @@
  * answered (`offerRefused` with a whitelisted reason), never silently dropped.
  */
 
-import { t, actorDisplayName } from "./i18n-content.js";
+import { t, actorDisplayName, itemNamespaces } from "./i18n-content.js";
 import { FATIGUE_NAME } from "./item/item.js";
-import { findMatchingStack, capacityVerdict, slotsNeeded } from "./gear.js";
+import { findMatchingStack, capacityVerdict, slotsNeeded, landingNeed } from "./gear.js";
+import { windowIdOf } from "./utils.js";
+import { PERSON_ROLES } from "./data-models.js";
 
 const SCOPE = "air-bladder";
 const FLAG = "itemOffer";
@@ -51,8 +53,9 @@ const REFUSAL_TOASTS = {
   notYours: "CAIRN.Notify.OfferNotYours",
 };
 
-/** Accepts this client has emitted and not yet heard back on: messageId → true.
- *  An `offerRelease` for a message NOT in here is forged and ignored. */
+/** Accepts this client has emitted and not yet heard back on: messageId → the
+ *  consent the click gave (`{targetUuid, overburden}`, see deliverItem). An
+ *  `offerRelease` for a message NOT in here is forged and ignored. */
 const pendingAccepts = new Map();
 
 /** Offers this (giver's) client is mid-transaction on: messageId → the user
@@ -78,6 +81,14 @@ const offersInFlight = new Map();
  */
 export const canOfferItem = (item) => {
   if (!item?.actor?.isOwner) return { ok: false, reason: "CAIRN.Notify.OfferNotYourActor" };
+  // A compendium actor is reference content, never a giver (review #34
+  // finding 160): delivery's removeGiverHalf would take the unit out of the
+  // pack. canGive withholds the Give row there (the affordance); this is the
+  // enforcement, reached only by someone who OWNS a pack actor and drags from
+  // it, since pack ownership is NONE by default. It reuses the nearest
+  // existing refusal rather than a new sentence: a pack entry is not a sheet
+  // in play.
+  if (item.actor.pack) return { ok: false, reason: "CAIRN.Notify.OfferNotYourActor" };
   if (item.name === FATIGUE_NAME) return { ok: false, reason: "CAIRN.Notify.OfferNoFatigue" };
   if ((item.type === "item" && item.system?.grimoire) || item.system?.bound) {
     return { ok: false, reason: "CAIRN.Notify.OfferNoGrimoire" };
@@ -139,7 +150,14 @@ export const buildOfferItemData = (item) => {
   delete data._id;
   data.sort = 0;
   data.system = { ...data.system, equipped: false, quantity: 1 };
-  if (data.flags?.[SCOPE]) delete data.flags[SCOPE].grantSource;
+  if (data.flags?.[SCOPE]) {
+    delete data.flags[SCOPE].grantSource;
+    // The pile's "Where?" note (review #34 finding 157): written only by the
+    // pile's own Drop, never carried in. A gift to the pile kept the place an
+    // earlier drop left on the item, or a note of any length its owner wrote
+    // on it, past the Drop's clamp.
+    delete data.flags[SCOPE].droppedAt;
+  }
   return data;
 };
 
@@ -163,7 +181,10 @@ const sanitizeDelivery = (data) => {
   delete data._id;
   data.sort = 0;
   data.system = { ...(data.system ?? {}), equipped: false, quantity: 1 };
-  if (data.flags?.[SCOPE]) delete data.flags[SCOPE].grantSource;
+  if (data.flags?.[SCOPE]) {
+    delete data.flags[SCOPE].grantSource;
+    delete data.flags[SCOPE].droppedAt;   // see buildOfferItemData
+  }
   return data;
 };
 
@@ -272,7 +293,7 @@ const wireOfferFilter = (root) => {
  * @param {CairnItem} item
  * @returns {Promise<CairnActor|null>}
  */
-export const promptOfferTarget = async (giver, item) => {
+export const promptOfferTarget = async (giver, item, { windowId } = {}) => {
   const targets = game.actors
     .filter((a) => canReceiveOffer(a, giver) && a.visible)
     .sort((a, b) => actorDisplayName(a).localeCompare(actorDisplayName(b), game.i18n.lang));
@@ -280,7 +301,8 @@ export const promptOfferTarget = async (giver, item) => {
     ui.notifications.warn("CAIRN.Notify.OfferNoTargets", { localize: true });
     return null;
   }
-  const itemName = t("item.name", item.name);
+  // As the giver's row names it (`itemNamespaces`, review #34 finding 198).
+  const itemName = t(itemNamespaces(item.parent).nameNs, item.name);
 
   // GROUPED, and CHARACTERS FIRST — which is not decoration. The pre-checked
   // first row must be a character, so today's one-click case stays one click;
@@ -290,7 +312,7 @@ export const promptOfferTarget = async (giver, item) => {
   // not a word a player reads.
   const GROUPS = [
     ["CAIRN.Offer.GroupCharacters", (a) => a.type === "character"],
-    ["CAIRN.Offer.GroupPeople", (a) => ["npc", "hireling"].includes(a.npcRole)],
+    ["CAIRN.Offer.GroupPeople", (a) => PERSON_ROLES.includes(a.npcRole)],
     ["CAIRN.Offer.GroupCompanions", (a) => a.npcRole === "companion"],
     ["CAIRN.Offer.GroupThings", (a) => a.isThing],
     ["CAIRN.Offer.GroupMonsters", (a) => a.npcRole === "monster"],
@@ -369,7 +391,9 @@ export const promptOfferTarget = async (giver, item) => {
     // is why it also survives a re-render. The two working sites in this
     // repo (actor.js, warden-damage.js) both go through prompt/wait.
     dialog.addEventListener("render", () => wireOfferFilter(dialog.element));
-    dialog.render(true);
+    // The launching sheet's own window when it is popped out (review #34
+    // finding 1; the reasoning is at `_confirmAction` in actor-sheet.js).
+    dialog.render({ force: true, window: { windowId } });
   });
 };
 
@@ -403,7 +427,7 @@ export const createItemOffer = async (giver, item, target) => {
     flags: { [SCOPE]: { [FLAG]: flag } },
   });
   ui.notifications.info("CAIRN.Notify.OfferPosted", {
-    format: { item: t("item.name", item.name), target: actorDisplayName(target) },
+    format: { item: t(itemNamespaces(item.parent).nameNs, item.name), target: actorDisplayName(target) },
   });
   return message;
 };
@@ -465,11 +489,14 @@ export const settleOwnOffer = async (message, target) => {
  */
 const offerNames = (message, offer) => {
   const target = foundry.utils.fromUuidSync(offer.targetActorUuid);
-  const targetName = !target
-    ? "?"
-    : (target.visible || game.user.isGM)
-        ? actorDisplayName(target)
-        : game.i18n.localize("CAIRN.Offer.HiddenTarget");
+  const giver = foundry.utils.fromUuidSync(offer.giverActorUuid);
+  // A TARGET THAT NO LONGER RESOLVES reads the target's own mask, as a hidden
+  // one does (review #34 finding 243): a hireling deleted after the gift left
+  // every past card reading "…is now carried by ?.". The giver below got this
+  // fix first, for the same reason.
+  const targetName = (target && (target.visible || game.user.isGM))
+    ? actorDisplayName(target)
+    : game.i18n.localize("CAIRN.Offer.HiddenTarget");
   return {
     // A GIVER THAT NO LONGER RESOLVES reads "someone", the same mask the target
     // uses. Monsters are unlinked by ruling, so "open the dead goblin and hand
@@ -481,8 +508,7 @@ const offerNames = (message, offer) => {
     // is not reopened; an accept after the token is gone still fails the
     // re-verification that already runs at accept.
     giver: (() => {
-      const g = foundry.utils.fromUuidSync(offer.giverActorUuid);
-      if (g) return actorDisplayName(g);
+      if (giver) return actorDisplayName(giver);
       // THE MASK, NOT `message.speaker.alias`. The alias would be friendlier —
       // it still names who it was — and it is a STORED name written by the
       // giver's own client, which is review #24's class exactly. The uuid that
@@ -494,7 +520,9 @@ const offerNames = (message, offer) => {
       return game.i18n.localize("CAIRN.Offer.HiddenGiver");
     })(),
     target: targetName,
-    item: t("item.name", offer.item?.name ?? "?"),
+    // As the giver's row named it; a giver gone reads item.* (review #34
+    // finding 198).
+    item: t(itemNamespaces(giver).nameNs, offer.item?.name ?? "?"),
   };
 };
 
@@ -540,7 +568,8 @@ export const bindOfferCard = (message, html) => {
   // that resolves to something with no permission API (a compendium index
   // entry) must degrade to no-buttons-for-you, not a render-hook throw.
   const target = foundry.utils.fromUuidSync(offer.targetActorUuid);
-  const canAnswer = !!target && (game.user.isGM || !!target.testUserPermission?.(game.user, "OWNER"));
+  const canAnswer = !!target && authorGives(message, offer)
+    && (game.user.isGM || !!target.testUserPermission?.(game.user, "OWNER"));
   const canCancel = game.user.isGM || message.isAuthor;
   if (!canAnswer && !canCancel) return;
   const actions = document.createElement("div");
@@ -550,7 +579,9 @@ export const bindOfferCard = (message, html) => {
     b.type = "button";
     b.className = cls;
     b.textContent = game.i18n.localize(key);
-    b.addEventListener("click", () => handler(message));
+    // The card's own window rides along: in a popped-out chat log, Accept's
+    // confirm opens there (review #34 finding 119).
+    b.addEventListener("click", (ev) => handler(message, { windowId: windowIdOf(ev.currentTarget) }));
     actions.append(b);
   };
   if (canAnswer) {
@@ -570,7 +601,24 @@ export const bindOfferCard = (message, html) => {
 const canRunLocally = (message, giver, target) =>
   (game.user.isGM || message.isAuthor) && !!giver?.isOwner && !!target?.isOwner;
 
-const onAcceptClick = async (message) => {
+/**
+ * Is the giver the card names one its AUTHOR owns? The file header's rule —
+ * identity is `message.author`, never a payload field — applied to the giver,
+ * which IS a payload field: the flag is written by the author's client, and any
+ * player may post a card naming anybody's actor. A real offer is posted by an
+ * owner of the giver (`canOfferItem`), so a card that fails this is a forgery,
+ * and the Warden's Accept on it took an item off a player who never offered it,
+ * with the Warden's rights (review #34 finding 6). No Accept is drawn for it,
+ * and the local transfer refuses it.
+ * @param {ChatMessage} message
+ * @param {Object} offer  the card's flag
+ */
+const authorGives = (message, offer) => {
+  const giver = foundry.utils.fromUuidSync(offer?.giverActorUuid ?? "");
+  return !!giver && !!message.author && !!giver.testUserPermission?.(message.author, "OWNER");
+};
+
+const onAcceptClick = async (message, { windowId } = {}) => {
   const offer = message.getFlag(SCOPE, FLAG);
   if (!offer || offer.state !== "open") {
     ui.notifications.warn("CAIRN.Notify.OfferAnswered", { localize: true });
@@ -579,7 +627,11 @@ const onAcceptClick = async (message) => {
   const target = foundry.utils.fromUuidSync(offer.targetActorUuid);
   const names = offerNames(message, offer);
   if (!target) {
-    ui.notifications.warn("CAIRN.Notify.OfferTargetGone", { format: { target: names.target } });
+    // The capitalised mask: this slot opens the sentence ("{target} no longer
+    // exists — …"), which is why the giver's mask is its own key (review
+    // #27), and the lowercase target mask would start it "someone".
+    ui.notifications.warn("CAIRN.Notify.OfferTargetGone",
+      { format: { target: game.i18n.localize("CAIRN.Offer.HiddenGiver") } });
     return;
   }
   if (!(game.user.isGM || target.testUserPermission(game.user, "OWNER"))) {
@@ -594,9 +646,14 @@ const onAcceptClick = async (message) => {
   }
   // What happens if this lands? ONE test, shared with the drop handler, so an
   // offer and a drag can never disagree about the same actor and the same
-  // item. `need` comes off the offer-time snapshot (the derived-slots rule),
-  // the numbers off the LIVE actor.
-  const need = slotsNeeded(offer.item);
+  // item. `need` comes off the LIVE item where this client can see it, and the
+  // offer-time snapshot only otherwise (review #34 finding 156): the snapshot
+  // is the giver's own flag, and an item turned Bulky after posting, or a
+  // snapshot rewritten to weightless, put the recipient past the limit with
+  // no confirm. Priced on the branch it will take (landingNeed), as the
+  // delivery door prices it. The numbers come off the LIVE actor.
+  const liveItem = foundry.utils.fromUuidSync(offer.giverActorUuid)?.items?.get(offer.itemId);
+  const need = liveItem ? landingNeed(target, liveItem) : slotsNeeded(offer.item);
   const verdict = capacityVerdict(target, need);
 
   // A THING, a companion or a monster simply has no room, and nobody may buy
@@ -618,18 +675,31 @@ const onAcceptClick = async (message) => {
         { item: names.item, target: names.target }))}</p>`,
       yes: { label: game.i18n.localize("CAIRN.Offer.OverburdenConfirm") },
       rejectClose: false,
+      renderOptions: { window: { windowId } },   // the card's own window (review #34 finding 119)
     });
     if (!yes) return;
   }
 
   const giver = foundry.utils.fromUuidSync(offer.giverActorUuid);
-  if (canRunLocally(message, giver, target)) return runLocalTransfer(message);
+  // No toast: bindOfferCard draws no Accept on such a card, so only a stale
+  // button reaches here, and every existing sentence would describe it wrongly.
+  if (!authorGives(message, offer)) {
+    console.warn(`Air Bladder | refused an offer card whose author does not own its giver (${message.id})`);
+    return;
+  }
+  // WHAT WAS CONSENTED TO, carried to the delivery (review #34 findings 135,
+  // 156, 179): this target, and whether an overburden was confirmed. The
+  // delivery judges what actually lands against it — the giver's flag and the
+  // item can change between this click and the release, and so can the
+  // target's load.
+  const consent = { targetUuid: target.uuid, overburden: verdict === "overburden" };
+  if (canRunLocally(message, giver, target)) return runLocalTransfer(message, consent);
 
   if (!message.author?.active) {
     ui.notifications.warn("CAIRN.Notify.OfferGiverOffline", { format: { giver: names.giver } });
     return;
   }
-  pendingAccepts.set(message.id, true);
+  pendingAccepts.set(message.id, consent);
   game.socket.emit(`system.${game.system.id}`, { action: "offerAccept", messageId: message.id },
     { recipients: [message.author.id] });
 };
@@ -680,8 +750,27 @@ const onCancelClick = async (message) => {
 
 /** Merge-or-create the delivered item on the target — the drag-move's stack
  *  rule via the SHARED discriminator, else the ignoreCapacity door. Returns
- *  truthy on success. */
-const deliverItem = async (target, rawData) => {
+ *  truthy on success.
+ *  @param {CairnActor} target
+ *  @param {Object} rawData
+ *  @param {{targetUuid: string, overburden: boolean}} consent  what the
+ *    acceptor's click agreed to (onAcceptClick) */
+const deliverItem = (target, rawData, consent) => {
+  // ONE AT A TIME PER TARGET on this client (review #34 finding 135), so each
+  // delivery judges the load the one before it left: two accepts answered
+  // back to back release two deliveries, and the second read the target's
+  // slots before the first had landed.
+  const key = target?.uuid ?? "";
+  const run = (deliveryChains.get(key) ?? Promise.resolve()).then(() => deliverNow(target, rawData, consent));
+  deliveryChains.set(key, run.catch(() => null));
+  return run;
+};
+
+/** Deliveries running on this client, chained per target uuid — see deliverItem. */
+const deliveryChains = new Map();
+
+/** deliverItem's delivery, once it is this target's turn. */
+const deliverNow = async (target, rawData, consent) => {
   const data = sanitizeDelivery(rawData);
   if (!data) return null;
   // ENFORCEMENT, behind the affordance in onAcceptClick — the Fatigue
@@ -689,15 +778,28 @@ const deliverItem = async (target, rawData) => {
   // on the local fast path AND on the offerRelease socket leg, where the
   // target was resolved from a flag the giver's client wrote.
   if (!canReceiveOffer(target)) return null;
+  // THE CONSENT DESCRIBES WHAT LANDS (review #34 findings 135, 156, 179). The
+  // target must be the one accepted: the giver's client writes the flag this
+  // was resolved from, and could retarget it between the click and the
+  // release (onto a full crate of the acceptor's that holds a matching
+  // stack). And the verdict is judged again on what actually arrives, against
+  // the target's load NOW: a second accept clicked inside the first one's
+  // round trip read a stale load, and the item itself may have grown since.
+  // An overburden the acceptor never confirmed is refused; the offer reopens,
+  // and accepting again asks.
+  if (!consent || consent.targetUuid !== target.uuid) return null;
+  const verdict = capacityVerdict(target, landingNeed(target, data));
+  // ...and the capacity door, on BOTH branches: a merge adds slots as surely
+  // as a create. `ignoreCapacity` below is what lets an accepted gift
+  // overflow a PERSON who clicked through the confirm; nothing may overflow a
+  // crate.
+  if (verdict === "full") return null;
+  if (verdict === "overburden" && !consent.overburden) return null;
   const stack = findMatchingStack(target, data);
   if (stack) {
     await stack.update({ "system.quantity": (stack.system.quantity ?? 1) + 1 });
     return stack;
   }
-  // ...and the capacity door. `ignoreCapacity` below is what lets an accepted
-  // gift overflow a PERSON who clicked through the confirm; without this it
-  // would let one overflow a crate too, which nothing may.
-  if (capacityVerdict(target, slotsNeeded(data.system)) === "full") return null;
   // weightless threaded top-level: createOwnedItem rebuilds system.weightless
   // from it and would clobber the real value with undefined otherwise.
   const [created] = (await target.createOwnedItem(
@@ -716,13 +818,16 @@ const removeGiverHalf = async (giver, itemId) => {
   else await giver.deleteEmbeddedDocuments("Item", [item.id]);
 };
 
-/** The GM / same-user fast-path: the whole hand-off on one client. */
-const runLocalTransfer = async (message) => {
+/** The GM / same-user fast-path: the whole hand-off on one client.
+ *  @param {ChatMessage} message  @param {Object} consent  see deliverItem */
+const runLocalTransfer = async (message, consent) => {
   if (offersInFlight.has(message.id)) return;
   offersInFlight.set(message.id, game.user.id);
   try {
     const offer = message.getFlag(SCOPE, FLAG);
     if (offer?.state !== "open") return;
+    // The enforcement, beside the affordance in bindOfferCard (`authorGives`).
+    if (!authorGives(message, offer)) return;
     const giver = foundry.utils.fromUuidSync(offer.giverActorUuid);
     const target = foundry.utils.fromUuidSync(offer.targetActorUuid);
     const item = giver?.items.get(offer.itemId);
@@ -733,7 +838,7 @@ const runLocalTransfer = async (message) => {
       return;
     }
     await message.setFlag(SCOPE, FLAG, { state: "accepted", acceptorUserId: game.user.id });
-    const created = await deliverItem(target, buildOfferItemData(item));
+    const created = await deliverItem(target, buildOfferItemData(item), consent);
     if (!created) {
       await message.setFlag(SCOPE, FLAG, { state: "open", acceptorUserId: null });
       ui.notifications.warn("CAIRN.Notify.OfferFailed", { localize: true });
@@ -791,7 +896,8 @@ export const handleOfferSocket = async (msg, senderId) => {
       // untranslated owner (review #26). This runs on the GIVER's client, who
       // can see the target by construction, so the mask is not in play here —
       // only the overlay.
-      ui.notifications.info("CAIRN.Notify.OfferDeclinedBy", { format: { target: actorDisplayName(target), item: t("item.name", offer.item?.name ?? "?") } });
+      ui.notifications.info("CAIRN.Notify.OfferDeclinedBy", { format: { target: actorDisplayName(target),
+        item: t(itemNamespaces(foundry.utils.fromUuidSync(offer.giverActorUuid)).nameNs, offer.item?.name ?? "?") } });
       return;
     }
     offersInFlight.set(message.id, senderId);
@@ -815,17 +921,24 @@ export const handleOfferSocket = async (msg, senderId) => {
     // forged, and the sender must be the offer's author.
     if (!pendingAccepts.has(msg.messageId)) return;
     if (!message || message.author?.id !== senderId) return;
+    const consent = pendingAccepts.get(msg.messageId);
     pendingAccepts.delete(msg.messageId);
     const offer = message.getFlag(SCOPE, FLAG);
     const target = foundry.utils.fromUuidSync(offer?.targetActorUuid ?? "");
     const names = offerNames(message, offer ?? {});
+    // A REFUSAL IS NOT AN ERROR. The delivery door refuses by design — a
+    // retargeted card, a load that grew past what was consented to — and a
+    // console error on every such refusal reads as a fault; only a throw is one.
+    let created = null;
     try {
-      const created = target ? await deliverItem(target, msg.itemData) : null;
-      if (!created) throw new Error("delivery refused");
-      ui.notifications.info("CAIRN.Notify.OfferTaken", { format: { item: names.item, target: names.target } });
-      answer("offerDone", msg.messageId, {}, senderId);
+      created = target ? await deliverItem(target, msg.itemData, consent) : null;
     } catch (err) {
       console.error("Air Bladder | offer delivery failed:", err);
+    }
+    if (created) {
+      ui.notifications.info("CAIRN.Notify.OfferTaken", { format: { item: names.item, target: names.target } });
+      answer("offerDone", msg.messageId, {}, senderId);
+    } else {
       ui.notifications.warn("CAIRN.Notify.OfferFailed", { localize: true });
       answer("offerFail", msg.messageId, {}, senderId);
     }
@@ -882,7 +995,7 @@ export const handleOfferSocket = async (msg, senderId) => {
  * @param {CairnActor} targetActor  the unowned sheet's actor
  * @param {CairnItem} item          the dragged item
  */
-export const offerFromDrop = async (targetActor, item) => {
+export const offerFromDrop = async (targetActor, item, { windowId } = {}) => {
   const giver = item?.actor;
   // ONE question, asked here and in the picker and again at delivery, so the
   // three routes cannot drift — see canReceiveOffer for what it refuses and
@@ -906,12 +1019,18 @@ export const offerFromDrop = async (targetActor, item) => {
     return null;
   }
   const names = {
-    item: t("item.name", item.name),
+    item: t(itemNamespaces(giver).nameNs, item.name),
     target: actorDisplayName(targetActor),
-    giver: giver.name,
+    // actorDisplayName, as the card it posts names the same giver (review #34
+    // finding 11): a mule or companion can give since review #25, and its
+    // shipped name translates.
+    giver: actorDisplayName(giver),
   };
   const yes = await foundry.applications.api.DialogV2.confirm({
     window: { title: game.i18n.format("CAIRN.Offer.DragTitle", { item: names.item }) },
+    // The receiving sheet's own window when it is popped out (review #34
+    // finding 1; the reasoning is at `_confirmAction` in actor-sheet.js).
+    renderOptions: { window: { windowId } },
     content: `<p>${esc(game.i18n.format("CAIRN.Offer.DragBody", names))}</p>`,
     rejectClose: false,
   });

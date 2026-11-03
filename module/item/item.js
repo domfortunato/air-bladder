@@ -2,6 +2,7 @@ import { SETTINGS_NS } from "../settings.js";
 import { grantSourceLabel } from "../utils.js";
 import { iconForItem, SPELLBOOK_ICON, SPELLSCROLL_ICON } from "../icons.js";
 import { glogEnabled, glogConversionDiff, glogTextCached } from "../glog.js";
+import { repointWholeWrite } from "../art-paths.js";
 
 /**
  * The stored name of a Fatigue item. ENGLISH, always — Foundry's language setting
@@ -75,6 +76,90 @@ const PAGE_PINNED = {
  */
 const isClearing = (value) => !value
   || (value instanceof foundry.data.operators.ForcedDeletion);
+
+/**
+ * Under GLOG there are no spellbooks (user ruling 2026-08-09) — only
+ * Grimoires, their bound pages, and spellscrolls. The source update that
+ * turns an ARRIVING canon book into a scroll, or null: one rule for an item
+ * created on its own (`CairnItem._preCreate`) and one riding inside an actor
+ * (`arrivingItemSources`). Bound pages are exempt (the travel bundle must land
+ * pages as pages, and a page is past the scroll stage).
+ *
+ * `uses.value` is set here rather than left to the scroll pin, whose
+ * data-guard would read the BOOK's stored 0 as "a spent scroll carried
+ * across" — a converted book always arrives unspent, the same choice
+ * `_preUpdate` makes on the sweep's book→scroll transition. The ART swaps too
+ * (review #34 finding 74): a spellbook arrives already carrying spellbook.svg
+ * — `getDefaultArtwork`, the Create Item dialog and every canon pack document
+ * all supply it — so the class-art block's "no image of its own" test is
+ * false and the new scroll would keep the book's picture.
+ * @param {object} source  an item's source data
+ * @param {Map<string,string>} glogText  `glogTextCached()`
+ * @returns {object|null}
+ */
+const glogArrivalUpdate = (source, glogText) => {
+  if (source?.type !== "spellbook" || source.system?.scroll || source.system?.bound) return null;
+  const diff = glogConversionDiff(source, glogText);
+  if (!diff) return null;
+  const update = foundry.utils.expandObject({ ...diff, "system.uses.value": 1 });
+  if (source.img === SPELLBOOK_ICON) update.img = SPELLSCROLL_ICON;
+  return update;
+};
+
+/**
+ * The item seam's ARRIVAL rules, restated for item sources that never reach
+ * it (review #34 findings 175, 247, 249). The client pre-creates only an
+ * operation's TOP-LEVEL documents (client-backend.mjs), so items handed to
+ * `Actor.create({items})` reach neither `CairnItem._preCreate` nor
+ * `_preCreateOperation`; and core's Import Data commits the file as ONE
+ * parent update (`diff: false, recursive: false`), which only the parent's
+ * seams see. CairnActor runs this over both:
+ *
+ *   - a GRIMOIRE'S IDENTITY: a missing key is minted, and a key an EARLIER
+ *     book in the same array already wears is re-minted, as the item seam
+ *     re-keys an arrival — two books on one actor are never the same book. A
+ *     key otherwise present is KEPT: it is a copy of a real book (actor
+ *     duplication), and every page lookup is within one actor.
+ *   - the ONE-BOOK WALL on a character: the first book stays, the rest are
+ *     spliced out and one warning says so — `#enforceOneBook`'s splice.
+ *   - under GLOG, a canon spellbook arrives an unspent scroll in the GLOG
+ *     wording, pinned as every scroll is (`glogArrivalUpdate`, SCROLL_PINNED).
+ * @param {object[]} sources  whole item sources
+ * @param {string} actorType
+ * @returns {Promise<object[]|null>}  the array rewritten, or null when nothing changed
+ */
+export const arrivingItemSources = async (sources, actorType) => {
+  const items = [];
+  const keys = new Set();
+  let changed = false;
+  let surplus = 0;
+  const glogText = glogEnabled() && sources.some((s) => s?.type === "spellbook")
+    ? await glogTextCached()
+    : null;
+  for (const source of sources) {
+    if (source?.type === "item" && source.system?.grimoire) {
+      if (actorType === "character" && keys.size) { surplus += 1; changed = true; continue; }
+      const key = source.system.grimoireKey;
+      if (key && !keys.has(key)) { keys.add(key); items.push(source); continue; }
+      const fresh = foundry.utils.randomID();
+      keys.add(fresh);
+      items.push({ ...source, system: { ...source.system, grimoireKey: fresh } });
+      changed = true;
+      continue;
+    }
+    const update = glogText ? glogArrivalUpdate(source, glogText) : null;
+    if (update) {
+      const converted = foundry.utils.mergeObject(foundry.utils.deepClone(source), update);
+      foundry.utils.mergeObject(converted.system, foundry.utils.expandObject(SCROLL_PINNED));
+      items.push(converted);
+      changed = true;
+      continue;
+    }
+    items.push(source);
+  }
+  if (surplus) ui.notifications.warn(game.i18n.localize("CAIRN.Notify.GrimoireOnlyOne"));
+  return changed ? items : null;
+};
 
 /**
  * Extend the basic Item with some very simple modifications.
@@ -269,23 +354,17 @@ export class CairnItem extends Item {
       this.updateSource({ system: { ...PAGE_PINNED } });
     }
 
-    // Under GLOG there are no spellbooks (user ruling 2026-08-09) — only
-    // Grimoires, their bound pages, and spellscrolls. The flip's world sweep
-    // (glog.js) converts what EXISTS; this seam converts what ARRIVES: a
-    // compendium drag, the Create Item dialog, an importer, a macro — which is
-    // how a post-flip drop of Haste stayed a book. Bound pages are exempt (the
-    // travel bundle must land pages as pages, and a page is past the scroll
-    // stage). Runs BEFORE the class-art and scroll-pin blocks below so both
-    // then see a scroll. `uses.value` is set here rather than left to the pin,
-    // whose data-guard would read the BOOK's stored 0 as "a spent scroll
-    // carried across" — a converted book always arrives unspent, the same
-    // choice _preUpdate makes on the sweep's book→scroll transition.
+    // Under GLOG there are no spellbooks. The flip's world sweep (glog.js)
+    // converts what EXISTS; this seam converts what ARRIVES: a compendium
+    // drag, the Create Item dialog, an importer, a macro — which is how a
+    // post-flip drop of Haste stayed a book. The rule itself, art and unspent
+    // use included, is `glogArrivalUpdate`, shared with the items that ride
+    // inside an actor and never reach this seam. Runs BEFORE the class-art and
+    // scroll-pin blocks below so both then see a scroll.
     if (this.type === "spellbook" && !this.system.scroll && !this.system.bound
         && glogEnabled()) {
-      const diff = glogConversionDiff(this, await glogTextCached());
-      if (diff) {
-        this.updateSource(foundry.utils.expandObject({ ...diff, "system.uses.value": 1 }));
-      }
+      const update = glogArrivalUpdate(this._source, await glogTextCached());
+      if (update) this.updateSource(update);
     }
 
     // Class art for anything created WITHOUT its own image. Foundry's Item schema
@@ -328,6 +407,10 @@ export class CairnItem extends Item {
   async _preUpdate(changed, options, user) {
     const allowed = await super._preUpdate(changed, options, user);
     if (allowed === false) return false;
+
+    // An Import Data file from an older world names moved gallery art (review
+    // #34 finding 158; `repointWholeWrite` says why only this seam sees it).
+    repointWholeWrite(changed, options);
 
     // A BOOK'S identity is as permanent as a page's binding below, and for a
     // worse reason: clearing `grimoireKey` orphans every page naming it, and
@@ -482,7 +565,10 @@ export class CairnItem extends Item {
     // untouched. Still never Fatigue (a cost is not a possession), never a
     // Grimoire or its bound pages (they travel as a bundle the Warden drags).
     // This is the AFFORDANCE half; canOfferItem is the enforcement behind it.
-    this.system.canGive = !!this.actor?.isOwner
+    // Not from a COMPENDIUM actor (review #34 finding 160): delivery takes the
+    // unit out of the giver, and the giver would be the pack entry — the line
+    // canDrop and canReceiveOffer already draw for the target.
+    this.system.canGive = !!this.actor?.isOwner && !this.actor?.pack
       && !this.system.isFatigue
       && !(this.type === "item" && this.system.grimoire)
       && !this.system.bound;

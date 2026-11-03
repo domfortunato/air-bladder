@@ -127,8 +127,14 @@ publishes documentation for a version nobody can install yet.
 If a release's assets are missing or you need to rebuild without a new version:
 **Actions → Release Creation → Run workflow → enter the tag → Run.** This
 `workflow_dispatch` path (re)builds and re-attaches the assets to the existing tag.
-It checks out the TAG you enter, whichever branch the Run-workflow dialog shows —
-that picker only chooses which copy of the workflow file runs, never what is built.
+It checks out the TAG you enter, whichever branch the Run-workflow dialog shows,
+and zips the file list in the TAG's own `main.yml`, not the running copy's — so
+0.1.0–0.1.9, whose lists carry `template.json` and the old gallery folders, ship
+what they shipped. That picker only chooses which copy of the workflow file runs,
+never what is built.
+The rebuild runs each gate the tag's own `package.json` defines. A gate added after
+that tag (every tag up to 0.1.23 predates `check:package` and the archive audit) is
+skipped with a notice. A tag push runs every gate, and a missing one fails it.
 
 ## The Marketplace job
 
@@ -151,6 +157,14 @@ git tag -d X.Y.Z
 git push origin :refs/tags/X.Y.Z
 # then `npm run release X.Y.Z` again
 ```
+
+The re-run sees that `system.json` already reads X.Y.Z, says it is a **redo**,
+and makes no second bump or commit. It tags `HEAD` with the CHANGELOG section
+and pushes. This also recovers a refused `git push --atomic`: the local Release
+commit stays, and only the local tag needs deleting. If the redo is for a fix
+(0.1.25's first tag failed CI on a gate), land the fix on `dev`, merge `dev`
+into `master` as usual, then re-run. The tag then goes on the merge, on top of
+the first run's Release commit.
 
 **A redo cannot change `compatibility` on the Marketplace.** The API refuses a
 duplicate version, so the listing keeps the FIRST submission's `minimum` and

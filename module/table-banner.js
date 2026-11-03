@@ -187,7 +187,7 @@ const shippedAnywhere = (name) => game.packs.some((p) =>
  *   world table of any shipped name   → generic
  *   anything else                     → null
  *
- * Accepted edge, recorded in CLAUDE.md: a hand-imported `Barebones: Weapon
+ * Accepted edge, recorded here: a hand-imported `Barebones: Weapon
  * Tier` table nobody's Weapon row points at wears the Barebones banner though
  * it is reached by uuid, not by name; the button re-points the Weapon rows, so
  * the copied set is true to the sentence.

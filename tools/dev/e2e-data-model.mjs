@@ -15,16 +15,26 @@
  */
 
 import { chromium } from "playwright";
-import { FOUNDRY_URL, VIEWPORT, dismissChrome, joinAsGM, watchErrors } from "./lib.mjs";
+import { FOUNDRY_URL, VIEWPORT, dismissChrome, joinAsGM, watchErrors, watchdog, trackCreatedActors, sweepCreatedActors } from "./lib.mjs";
 
 const ok = (label, detail = "") => console.log(`  ok    ${label.padEnd(20)} ${detail}`);
 const fail = (label, detail = "") => { console.log(`  FAIL  ${label.padEnd(20)} ${detail}`); failures++; };
 let failures = 0;
 
 const browser = await chromium.launch();
+
+// The fleet's hang guard (review #34 finding 25): without it a hang runs to
+
+// the runner's 65-minute cap, skips every restore, and the box is never
+
+// marked suspect. A bound on a hang, not a timing claim.
+
+watchdog(600000, "data-model probe", () => browser.close());
 const page = await browser.newPage({ viewport: VIEWPORT });
 const errors = watchErrors(page);
 await joinAsGM(page);
+await trackCreatedActors(page);
+try {
 await dismissChrome(page);
 
 /* -------------------------------------------- */
@@ -280,7 +290,7 @@ const npcFields = await page.evaluate(async () => {
   await a.delete();
   return { defaults, persisted, closed };
 });
-// `role` initial is `hireling` since the 2026-08-20 split (CLAUDE.md: a
+// `role` initial is `hireling` since the 2026-08-20 split (docs/working-notes/documents-and-roles.md: a
 // document that states no role predates the split, and every one of those is
 // a hireling by ruling). This leg said "npc" until the 0.1.18 pre-tag battery
 // — the probe was outside the split's neighbor set.
@@ -382,6 +392,12 @@ else {
 
 /* -------------------------------------------- */
 
+} finally {
+  // Every actor this run created, generated children included (review #34
+  // findings 150, 256, 259) — the body was straight-line, so a throw skipped
+  // every delete in it.
+  await sweepCreatedActors(page);
+}
 await browser.close();
 
 if (errors.length) {

@@ -141,9 +141,16 @@ export const clearGlogTextCache = () => { glogTextCache = null; };
  *
  * Coverage is the house migration list, all of it: world Items, every actor's
  * owned items, UNLINKED scene tokens (their synthetic actors are not in
- * game.actors — the trap that bit twice), and world compendium Item packs
- * (unlocked for the write and restored after). Prototype tokens carry no items,
- * so actor coverage is their coverage.
+ * game.actors — the trap that bit twice), world compendium Item packs, and the
+ * owned items of every actor in a world compendium ACTOR pack (packs unlocked
+ * for the write and restored after). Prototype tokens carry no items, so actor
+ * coverage is their coverage.
+ *
+ * The Actor packs were missing until review #34 finding 96: a
+ * table keeping pregenerated characters or NPC casters in a world Actor pack
+ * flipped the hack and kept canon books there, and importing one afterwards
+ * landed a canon book — the arrival seam (`CairnItem._preCreate`) never sees
+ * items nested inside an Actor create.
  */
 export const runGlogConversion = async () => {
   if (game.users.activeGM !== game.user) return;
@@ -186,6 +193,28 @@ export const runGlogConversion = async () => {
     }
   }
 
+  // World compendium ACTOR packs: every actor's owned spellbooks, written as
+  // embedded updates inside the pack.
+  for (const pack of game.packs) {
+    if (pack.metadata.packageType !== "world" || pack.metadata.type !== "Actor") continue;
+    let docs;
+    try {
+      docs = await pack.getDocuments();
+    } catch {
+      continue;
+    }
+    const pending = docs.filter((a) => a.items.some((it) => it.type === "spellbook"
+      && glogConversionDiff(it, glogText)));
+    if (!pending.length) continue;
+    const wasLocked = pack.locked;
+    if (wasLocked) await pack.configure({ locked: false });
+    try {
+      for (const actor of pending) await convertCollection(actor, actor.items);
+    } finally {
+      if (wasLocked) await pack.configure({ locked: true });
+    }
+  }
+
   // World compendium Item packs — a Warden's own spell collections. System
   // packs are excluded: shipped content is replaced wholesale on update and is
   // not the world's to rewrite (canon stays canon on disk; the POOL excludes it).
@@ -216,5 +245,30 @@ export const runGlogConversion = async () => {
 
   if (converted) {
     ui.notifications.info(formatCount("CAIRN.Notify.GlogConverted", converted, { count: converted }));
+  }
+};
+
+/**
+ * The GLOG world conversion WITH its completion marker (review #34 finding
+ * 219) — the one way the sweep is run. From the setting's onChange (`force`,
+ * since a Warden turning GLOG back on asks for it whatever the marker says)
+ * and from the active Warden's ready hook (only while GLOG is on and
+ * `glog-converted` is unset), so a sweep cut off by the hacks menu's reload
+ * prompt is resumed rather than lost. The marker is set only once the sweep
+ * returns: a failed run must retry, never record itself done — the hireling
+ * split's rule. Failures are caught and surfaced here, for both callers.
+ * @param {{force?: Boolean}} [opts]
+ * @returns {Promise<void>}
+ */
+export const resumeGlogConversion = async ({ force = false } = {}) => {
+  if (game.users.activeGM !== game.user) return;
+  if (!game.settings.get(SETTINGS_NS, "enable-glog-magic")) return;
+  if (!force && game.settings.get(SETTINGS_NS, "glog-converted")) return;
+  try {
+    await runGlogConversion();
+    await game.settings.set(SETTINGS_NS, "glog-converted", true);
+  } catch (err) {
+    console.error("air-bladder | GLOG world conversion failed:", err);
+    ui.notifications.error(game.i18n.localize("CAIRN.Notify.GlogConversionFailed"));
   }
 };

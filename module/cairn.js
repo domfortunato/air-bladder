@@ -18,18 +18,19 @@ import { createCairnMacro, rollItemMacro } from "./macros.js";
 import { Damage, DAMAGE_APPLIED_FLAG, DAMAGE_SOURCE_FLAG, localizeDamageCard } from "./damage.js";
 import { registerWardenDamageControl } from "./warden-damage.js";
 import { registerWardenDashboardControl, refreshDashboardTime, localizeDashboardCard } from "./warden-dashboard.js";
-import { handlePileQuery, localizePileCard, PILE_DROP_QUERY, askWhatToDrop, dropItemToPile, partyFolderId } from "./party-pile.js";
+import { handlePileQuery, localizePileCard, PILE_DROP_QUERY, askWhatToDrop, dropItemToPile, partyFolderId, stripPlantedPileFlags, findDroppedPile } from "./party-pile.js";
 import { mustDropForFatigue } from "./gear.js";
 import { installWorldCalendar, checkWorldCalendar } from "./game-time.js";
 import { renderWatchClock, refreshWatchClock } from "./watch-clock.js";
 import { refreshValdCalendar } from "./vald-calendar.js";
 import { registerSettings, SETTINGS_NS, SETTING_GROUPS, migrateSettingsNamespace } from "./settings.js";
-import { ACTOR_DATA_MODELS, ITEM_DATA_MODELS, deriveNpcRole } from "./data-models.js";
+import { ACTOR_DATA_MODELS, ITEM_DATA_MODELS, deriveNpcRole, CONTAINER_LINE_ROLES } from "./data-models.js";
 import { connectionHeadroom, connectedOwnershipShape, syncPendingOwnership, OWNERSHIP_SYNC_FLAG } from "./connections.js";
-import { loadContentOverlay, t, translationOf, contentLocalized, tokenDisplayName, actorDisplayName, LOCALIZED_DIRECTORIES, localizeJournalBlocks } from "./i18n-content.js";
+import { loadContentOverlay, t, translationOf, contentLocalized, tokenDisplayName, actorDisplayName, speakerDisplayName, LOCALIZED_DIRECTORIES, localizeJournalBlocks } from "./i18n-content.js";
 import { injectEncounterButton, localizeEncounterQty, resolveTable } from "./encounters.js";
 import { bindGrimoireFatigueButton, localizeGlogCastCard } from "./grimoire.js";
-import { nameableTokens, DAMAGE_QUALITY_KEYS, localizeD20Card, localizeRollFlavor, damageDiceIcons } from "./utils.js";
+import { nameableTokens, DAMAGE_QUALITY_KEYS, localizeD20Card, localizeRollFlavor, damageDiceIcons, windowIdOf, relayedLabel, labelIconControl } from "./utils.js";
+import { movedArt, movedFields, registerArtArrival } from "./art-paths.js";
 
 /**
  * The Fatigue instead of Critical Damage option: the save card's choice, once
@@ -42,6 +43,13 @@ import { nameableTokens, DAMAGE_QUALITY_KEYS, localizeD20Card, localizeRollFlavo
  * rename would leave those cards reading as undecided.
  */
 const CRAWLER_CHOICE_FLAG = "crawlerChoiceTaken";
+/** Set on a damage detail card once its Roll STR save has been rolled — the
+ *  button is one-shot, and `disabled` alone is the counter-example (review #34
+ *  finding 86). Written like the choice flag above: directly where the presser
+ *  may, through the Warden's client otherwise (`handleChoiceQuery`). */
+const STR_SAVE_FLAG = "strSaveRolled";
+/** Detail cards whose Roll STR save is running on this client, by message id. */
+const strSaveInFlight = new Set();
 
 Hooks.once("init", async function () {
   game.cairn = {
@@ -57,6 +65,10 @@ Hooks.once("init", async function () {
   // Define custom Entity classes
   CONFIG.Actor.documentClass = CairnActor;
   CONFIG.Item.documentClass = CairnItem;
+
+  // Moved gallery art is repointed as a document ARRIVES, from any source the
+  // ready sweep never reads (review #34 finding 158; module/art-paths.js).
+  registerArtArrival();
 
   // Sub-type shapes. These replace template.json, which Foundry deprecated in v14
   // and removes in V16 — the sub-types themselves are declared in system.json
@@ -159,8 +171,9 @@ Hooks.once("init", async function () {
   Hooks.on("cairnWeatherChanged", refreshTimeSurfaces);
 
   // ...and, on ONE client, write it down. The log is off by default; the
-  // module is only fetched on a Warden's client, and only then, for the reason
-  // the dashboard's import above is dynamic.
+  // module is fetched only here, on a Warden's client — nothing else imports
+  // it, so a player's client never loads it. (This used to cite the dashboard's
+  // import as the precedent; that one is static now, see above.)
   Hooks.on("cairnWeatherChanged", () => {
     if (!game.user?.isGM) return;
     import("./weather-log.js")
@@ -218,10 +231,13 @@ Hooks.once("ready", () => {
   // fire-and-forget, because nothing may wait on a warm-up.
   if (game.user.isGM) setTimeout(() => { prewarmGenerationPacks(); }, 3000);
   Hooks.on("hotbarDrop", (bar, data, slot) => {
-    // A LOCKED bar must not be written to, and this hook is the only thing
-    // standing in front of that. Core tests the hook's return value BEFORE its
-    // own lock check (`hotbar.mjs:488-490`) and `User#assignHotbarMacro` never
-    // consults `locked` at all — so `return false` here does not mean "I will
+    // A LOCKED bar must not be written to. ON 14.365-14.367 this hook is the
+    // only thing standing in front of that: core tests the hook's return value
+    // BEFORE its own lock check (`Hotbar#_onDrop`) and `User#assignHotbarMacro`
+    // never consults `locked` at all. The 14.368 client moved the lock AHEAD of
+    // the hook, so on the verified build this line is never reached for a
+    // locked bar — and stays, because the minimum is still 14.365 (review #34
+    // finding 14). Read there, `return false` here does not mean "I will
     // handle it", it means "skip the only enforcement there is", and a Warden
     // who locked their bar watched a dragged weapon land on it anyway. Handing
     // the drop BACK to core is the fix rather than refusing here, because core's
@@ -233,7 +249,7 @@ Hooks.once("ready", () => {
     // a wrapper that opened the macro's own edit sheet instead of running it.
     if (data?.type === "Macro") return true;
     // A RollTable too, and it is the same bug one document type along: core
-    // builds a macro that DRAWS from the table (`hotbar.mjs:499`), the wrapper
+    // builds a macro that DRAWS from the table (`Hotbar#_onDrop`), the wrapper
     // below builds one that opens its SHEET. This system ships encounter, spell
     // and Scars tables, so a Warden dragging one to the bar wants to roll it.
     // Nothing ever recorded a reason to override core here — the wrapper's
@@ -339,10 +355,19 @@ const wrapTranslatedSearch = (app, displayOf) => {
         const display = displayOf(e);
         if (!display || display === e.name || !query.test(clean(display))) continue;
         entryIds.add(id);
-        const fid = e.folder?.id ?? e.folder?._id ?? e.folder;
-        if (fid) {
+        // The entry's folder AND EVERY ANCESTOR (review #34 finding 68), the
+        // way core's `#onMatchFolder` recurses up `folder.folder`. Marking only
+        // the immediate folder left a match two levels deep inside a hidden
+        // parent — and the take-over doors make exactly that shape, a "Custom …"
+        // folder with one subfolder per source compendium.
+        let fid = e.folder?.id ?? e.folder?._id ?? e.folder;
+        const seen = new Set();
+        while (fid && !seen.has(fid)) {
+          seen.add(fid);
           folderIds.add(fid);
           autoExpandIds.add(fid);
+          const folder = app.collection.folders?.get?.(fid) ?? game.folders?.get(fid);
+          fid = folder?.folder?.id ?? folder?.folder ?? null;
         }
       }
     } catch (err) {
@@ -432,11 +457,31 @@ const packNameNamespace = (meta) =>
   (meta?.name ?? "").startsWith("backgrounds") ? "bg.name" :
   "item.name";
 
+/**
+ * The namespace for ONE entry of a pack (review #34 finding 69), refining the
+ * pack's by the entry's own `type`, which an index entry carries. Two kinds of
+ * WORLD pack break the per-pack premise above: the system's own
+ * `world.custom-backgrounds` is an Item pack whose name does not start
+ * "backgrounds", so the 2e door's copies read through item.name and stayed
+ * English beside the Spanish originals; and a Warden's world Actor pack can
+ * hold player characters, whose names are never localized (the 2026-08-04
+ * ruling — `worldDisplayName`'s and `actorDisplayName`'s rule, here per entry).
+ * @returns {string|null}  null = leave the name as it is
+ */
+const packEntryNamespace = (meta, entry) => {
+  if (meta?.type === "Actor") return entry?.type === "character" ? null : "monster.name";
+  if (meta?.type === "Item" && entry?.type) return entry.type === "background" ? "bg.name" : "item.name";
+  return packNameNamespace(meta);
+};
+
 Hooks.on("renderCompendium", (app, html) => {
   if (!contentLocalized()) return;
-  const ns = packNameNamespace(app.collection?.metadata);
-  if (ns === null) return;
-  const displayOf = (e) => t(ns, e.name ?? "");
+  const meta = app.collection?.metadata;
+  if (packNameNamespace(meta) === null) return;
+  const displayOf = (e) => {
+    const ns = packEntryNamespace(meta, e);
+    return ns ? t(ns, e.name ?? "") : (e.name ?? "");
+  };
   localizeDirectoryNames(html, app.collection, displayOf);
   wrapTranslatedSearch(app, displayOf);
 });
@@ -498,11 +543,12 @@ const wrapCompendiumDocumentSearch = (app) => {
           if (added >= 25) break;
           if (!pack.visible) continue;
           if (filters.size && !filters.has(pack.documentName)) continue;
-          const ns = packNameNamespace(pack.metadata);
-          if (ns === null) continue;
+          if (packNameNamespace(pack.metadata) === null) continue;
           for (const entry of pack.index) {
             if (added >= 25) break;
             if (seen.has(entry.uuid)) continue;
+            const ns = packEntryNamespace(pack.metadata, entry);
+            if (!ns) continue;
             const display = t(ns, entry.name ?? "");
             if (!display || display === entry.name) continue;
             const have = words(display);
@@ -531,8 +577,10 @@ const wrapCompendiumDocumentSearch = (app) => {
         for (const li of listEl?.querySelectorAll?.("li[data-document-match]") ?? []) {
           const el = li.querySelector("a[data-name]");
           if (!el || el.children.length) continue;
-          const ns = packNameNamespace(foundry.utils.parseUuid(li.dataset.uuid)?.collection?.metadata);
-          if (ns === null) continue;
+          let entry = null;
+          try { entry = foundry.utils.fromUuidSync(li.dataset.uuid); } catch { entry = null; }
+          const ns = packEntryNamespace(foundry.utils.parseUuid(li.dataset.uuid)?.collection?.metadata, entry);
+          if (!ns) continue;
           const english = el.textContent.trim();
           const display = t(ns, english);
           if (display && display !== english) el.textContent = display;
@@ -616,6 +664,13 @@ const localizeResultCells = (cells) => {
  * Two cards claim this line themselves and are left alone: the Dashboard's
  * draw, relabelled with its button's UI key in `localizeDashboardCard`, and the
  * scar card.
+ *
+ * AND A FLAVOR SOMEBODY CHOSE IS LEFT ALONE (review #34 finding 70). Core sets
+ * its default sentence and the `core.RollTable` flag together, then lets the
+ * caller's `messageData.flavor` override the sentence — so a macro's or
+ * another package's "Weather for the day" was rewritten to core's default for
+ * every viewer, while the stored message kept the text. See isCoreDrawFlavor
+ * for how core's own sentence is told apart.
  */
 const relabelDrawFlavor = (message, flavor, count) => {
   if (!flavor) return;
@@ -624,10 +679,41 @@ const relabelDrawFlavor = (message, flavor, count) => {
   if (!tableId) return;
   resolveTable(tableId).then((table) => {
     if (!table) return;
+    if (!isCoreDrawFlavor(message.flavor, table, count)) return;
     flavor.textContent = game.i18n.format(`TABLE.DrawFlavor${count > 1 ? "Plural" : ""}`, {
       number: count, name: t("table.name", table.name),
     });
   }).catch((err) => console.error("Air Bladder | draw flavor localization failed", err));
+};
+
+/**
+ * Is a stored draw flavor core's own sentence for this table?
+ *
+ * COMPARED AS TEXT, AND AS THE WHOLE SENTENCE (review #34 finding 238). The
+ * test was "the stored flavor contains `escapeHTML(table.name)`", and both
+ * halves failed: the server's cleaner stores ' and " UNescaped, so a table
+ * named with an apostrophe never matched and kept the composer's language,
+ * while a caller's own line that merely names the table ("Weather: …")
+ * matched and was rewritten. Now the stored HTML is read as text (an inert
+ * <template>, the cleanDescription idiom) and must equal core's sentence —
+ * `TABLE.DrawFlavor[Plural]` with this count and name — in this client's
+ * language or in English, core's fallback. A default composed in a third
+ * language is left as stored: the one case this cannot recognise.
+ * @param {string} stored  `message.flavor`
+ * @param {RollTable} table
+ * @param {number} count   the rendered result rows
+ * @returns {boolean}
+ */
+const isCoreDrawFlavor = (stored, table, count) => {
+  const norm = (s) => String(s ?? "").replace(/\s+/g, " ").trim();
+  const tpl = document.createElement("template");
+  tpl.innerHTML = String(stored ?? "");
+  const text = norm(tpl.content.textContent);
+  const key = `TABLE.DrawFlavor${count > 1 ? "Plural" : ""}`;
+  return [game.i18n.translations, game.i18n._fallback]
+    .map((src) => foundry.utils.getProperty(src ?? {}, key))
+    .filter((s) => typeof s === "string")
+    .some((s) => norm(s.replaceAll("{number}", () => String(count)).replaceAll("{name}", () => table.name)) === text);
 };
 
 const localizeTableResults = (message, root) => {
@@ -640,7 +726,10 @@ const localizeTableResults = (message, root) => {
   if (flavor && message?.getFlag?.("air-bladder", "scarCard") === true) {
     flavor.textContent = game.i18n.localize("CAIRN.ScarFlavor");
   }
-  const cells = root?.querySelectorAll?.(".table-results li");
+  // The RESULT rows only (review #34 finding 12): a row whose description
+  // holds a list adds its nested <li> to `.table-results li`, and a single
+  // draw read "Draws 3 results".
+  const cells = root?.querySelectorAll?.(".table-results > li");
   if (!cells?.length) return;
   // BEFORE the overlay gate, for the reason the scar card above is: this
   // sentence is core's own INTERFACE string (`TABLE.DrawFlavor`), which every
@@ -844,7 +933,13 @@ Hooks.once("init", () => {
       if (!contentLocalized() || !query) return;
       for (const el of html?.querySelectorAll?.("[data-page-id][hidden]") ?? []) {
         const page = this.entry?.pages?.get?.(el.dataset.pageId);
-        const es = translationOf("journal.pageName", page?.name ?? "");
+        const name = page?.name ?? "";
+        // The TOC's own fallback (review #34 finding 9): a page named exactly
+        // like its entry shows the ENTRY's translation, and the extractor emits
+        // no page key for it — so asking journal.pageName alone left a row the
+        // reader can see unmatchable by the words it shows.
+        const es = translationOf("journal.pageName", name)
+          ?? (name === this.entry?.name ? translationOf("journal.name", name) : undefined);
         if (es === undefined) continue;
         if (foundry.applications.ux.SearchFilter.testQuery(rgx, es)) el.hidden = false;
       }
@@ -864,21 +959,6 @@ Hooks.on("setup", () => {
   foundry.utils.setProperty(game.i18n.translations, "USER.RoleAssistant", game.i18n.localize("CAIRN.AssistantWarden"));
 });
 
-// Rename the default GM account to "Warden". Only the acting GM writes (avoids
-// multi-GM races).
-//
-// The name is a WORLD value but the label is localized per CLIENT, so whichever
-// GM logs in first decides what every other player sees. That used to be
-// one-way and unrecoverable: the rename matched only the two default names, so
-// the moment it wrote, nothing matched again -- a GM who then switched language,
-// or turned the setting off, was stuck with the old name and no way back short
-// of editing the user by hand.
-//
-// Remembering the name we replaced fixes both halves. `renamedFrom` marks the
-// accounts this system renamed (so a deliberately-named GM is never touched),
-// lets a language switch re-apply the new label, and lets the original name come
-// back if the setting is turned off. Idempotent: it writes only when the stored
-// name and the wanted name actually differ.
 /**
  * GM-side broker for the Actors a PLAYER's character generation grants.
  *
@@ -914,15 +994,15 @@ Hooks.on("setup", () => {
  * still loading. `game.socket` exists from Game.connect, well before init ends.
  */
 
-/** The only roles a grant payload may claim — the non-keeping ones. A payload
- *  saying anything else falls back to deriving from its class/legacy fields,
- *  clamped to `container` if even that derives a keeper. */
-const GRANTABLE_ROLES = ["companion", "transport", "container"];
+/** The only roles a grant payload may claim — the container line
+ *  (`CONTAINER_LINE_ROLES`), the non-keeping ones. A payload saying anything
+ *  else falls back to deriving from its class/legacy fields, clamped to
+ *  `container` if even that derives a keeper. */
 const grantableRole = (sys) => {
   const claimed = String(sys?.role ?? "");
-  if (GRANTABLE_ROLES.includes(claimed)) return claimed;
+  if (CONTAINER_LINE_ROLES.includes(claimed)) return claimed;
   const derived = deriveNpcRole(sys ?? {});
-  return GRANTABLE_ROLES.includes(derived) ? derived : "container";
+  return CONTAINER_LINE_ROLES.includes(derived) ? derived : "container";
 };
 
 /** Requesters with a generatePC currently running on this client. One request
@@ -931,9 +1011,10 @@ const grantableRole = (sys) => {
 const pcGenerationInFlight = new Set();
 
 /** Requesters with an importKW currently running on this client — the same
- *  wall for the same reason, and imports are SLOWER (a cold one re-reads the
- *  gear packs for ~25s), so the window a doubled click could slip through is
- *  wider here than anywhere. */
+ *  wall for the same reason. An import resolves its items one by one against
+ *  the gear packs' indexes, which takes seconds (not the half-minute this
+ *  note once claimed — see the broker below), so a doubled click can land
+ *  inside it. */
 const kwImportInFlight = new Set();
 
 /** Requesters with a grantActors request running on this client. One at a time
@@ -1014,6 +1095,13 @@ async function handleGrantActors(msg, senderId) {
       // for the TARGET, closed here for what the grant creates. Anything
       // else on the wire derives from the class, as a pre-roles payload did.
       role: grantableRole(p?.system),
+      // The KIND, as grantContainers sends it (review #34 finding 62). Dropped
+      // from this whitelist by ec1d17a3 while its message said the whitelist
+      // was untouched, so a player's granted horse or cart arrived with a blank
+      // Kind while the Warden's grant of the same beast read Horse or Cart: one
+      // background, two creatures, by who clicked. A string, coerced; an
+      // unknown one is a Warden-invented Kind, which the field allows.
+      containerClass: String(p?.system?.containerClass ?? ""),
       cost: Number(p?.system?.cost) || 0,
       generationEnabled: false,
       ...(p?.system?.hp ? { hp: { value: Number(p.system.hp.value) || 0, max: Number(p.system.hp.max) || 0 } } : {}),
@@ -1083,24 +1171,93 @@ async function handleGrantActors(msg, senderId) {
  * request-and-reply channel the pile uses; `user` is the server-authenticated
  * asker, and OWNING THE CARD'S ACTOR is the authorization, nothing in the
  * payload.
- * @param {Object} data            `{messageId, kind}`
+ *
+ * THE FATIGUE BARGAIN CLAIMS FIRST (review #34 finding 166, ruled 2026-11-01:
+ * "claim first, give it back if the drop fails"). Overburdened, Take a Fatigue
+ * costs an item, and the item used to go first — a drop query, its "Dropped
+ * …" card — with the choice recorded by a SECOND query after it. A Mark
+ * Critical Damage landing between the two left the item gone, no Fatigue,
+ * the card sealed as Critical Damage, and a toast saying no Warden was
+ * connected. So the drop rides THIS query (`data.drop`), behind the claim:
+ * the choice is recorded, then the item dropped through `handlePileQuery` —
+ * the pile's own broker, its authorization and clamping included — and on a
+ * failed drop the claim is given back. ONE query, so no release endpoint
+ * exists for a crafted client to call. Every session of the Warden answers a
+ * query and one wins the drop's claim (movePileItem); a session that lost it
+ * reads the pile for the asker's claim id before it gives anything back, as
+ * `dropItemToPile` does on the asker's side.
+ * @param {Object} data            `{messageId, kind, drop?: {itemId, place, claimId}}`
  * @param {Object} ctx             `{user}` — the requesting User
- * @return {Promise<Boolean>}      whether the choice was recorded
+ * @return {Promise<{recorded: Boolean, reason?: String}>}  whether the choice
+ *   was recorded, and if not why: "answered" (the card's choice is already
+ *   made), "dropFailed" (the bargain's drop did not land; nothing kept), or
+ *   "refused" (not this asker's to answer)
  */
 const handleChoiceQuery = async (data, { user } = {}) => {
-  if (!game.user.isGM || !user) return false;
+  const no = (reason) => ({ recorded: false, reason });
+  if (!game.user.isGM || !user) return no("refused");
   const message = game.messages.get(String(data?.messageId ?? ""));
-  const kind = data?.kind === "fatigue" || data?.kind === "critical" ? data.kind : null;
-  if (!message || !kind) return false;
+  const kind = ["fatigue", "critical", "strSave"].includes(data?.kind) ? data.kind : null;
+  if (!message || !kind) return no("refused");
   const speaker = message.speaker ?? {};
-  const actor = game.scenes.get(speaker.scene)?.tokens.get(speaker.token)?.actor
-    ?? game.actors.get(speaker.actor) ?? null;
-  if (!actor || !actor.testUserPermission(user, "OWNER")) return false;
-  if (message.getFlag(FLAG_SCOPE, CRAWLER_CHOICE_FLAG)) return false;       // already spent
-  await message.setFlag(FLAG_SCOPE, CRAWLER_CHOICE_FLAG, kind);
-  return true;
+  const actor = speakerActor(speaker, game.scenes.get(speaker.scene)?.tokens.get(speaker.token));
+  if (!actor || !actor.testUserPermission(user, "OWNER")) return no("refused");
+  // The Roll STR save's one-shot stamp rides the same channel (review #34
+  // finding 86): the detail card is the Warden's, its owner presses the save.
+  const flag = kind === "strSave" ? STR_SAVE_FLAG : CRAWLER_CHOICE_FLAG;
+  // Only the Fatigue bargain carries a drop.
+  const drop = kind === "fatigue" && data?.drop ? data.drop : null;
+  if (message.getFlag(FLAG_SCOPE, flag)) return no("answered");
+  // CHECK-THEN-SET IS NOT ATOMIC (review #34 finding 132): the flag lands on
+  // this client only when the server replies, so two queries arriving inside
+  // that round trip both read it unset and both said yes. Claimed synchronously,
+  // before the first await, as the Apply-damage card claims its own.
+  const claim = `${message.id}:${flag}`;
+  if (choiceQueryInFlight.has(claim)) return no("answered");
+  choiceQueryInFlight.add(claim);
+  try {
+    await message.setFlag(FLAG_SCOPE, flag, kind === "strSave" ? true : kind);
+    if (drop) {
+      const claimId = String(drop.claimId ?? "");
+      const dropped = await handlePileQuery(
+        { actorUuid: actor.uuid, itemId: drop.itemId, announce: true, place: drop.place, claimId }, { user })
+        || (!!claimId && !!findDroppedPile()?.items.has(claimId));
+      if (!dropped) {
+        await message.unsetFlag(FLAG_SCOPE, flag);
+        return no("dropFailed");
+      }
+    }
+  } finally {
+    choiceQueryInFlight.delete(claim);
+  }
+  return { recorded: true };
 };
+/** Choice queries being written on this (the Warden's) client — see above. */
+const choiceQueryInFlight = new Set();
+/** Cards whose Fatigue / Critical choice is mid-write on THIS client (review #34
+ *  finding 132) — the in-flight half of the one-shot, by message id. */
+const choiceInFlight = new Set();
 const CHOICE_QUERY = "air-bladder.choiceTaken";
+
+/**
+ * The actor a card's speaker MEANT, for the save card's buttons and the
+ * broker that records their choice — one resolution, so the two cannot
+ * disagree (review #34 finding 240). The token the speaker named, while it is
+ * on its scene; else the world actor by the speaker's id — but only when no
+ * token was named, or the named one spoke FOR that actor (a linked
+ * prototype). An unlinked token's synthetic actor keeps its BASE actor's id,
+ * so falling back regardless marked the world monster, and every token of
+ * it, for one deleted token's failed save. Roll STR save already hides when
+ * its token is gone.
+ * @param {Object} speaker  a ChatMessage's speaker
+ * @param {TokenDocument|undefined} token  that speaker's token, resolved
+ * @returns {Actor|null}
+ */
+const speakerActor = (speaker, token) => {
+  if (token?.actor) return token.actor;
+  const worldActor = game.actors.get(speaker?.actor) ?? null;
+  return !speaker?.token || worldActor?.prototypeToken?.actorLink ? worldActor : null;
+};
 
 Hooks.once("init", () => {
   // The two request-and-reply brokers (review #33): core routes a `User#query`
@@ -1164,12 +1321,10 @@ Hooks.once("init", () => {
     // saying the FLAG is the authorization introduced a branch whose guard is
     // `senderId`. A correct-sounding comment on contradicting code reads as
     // verification; review #28 caught it, and this file records the same
-    // failure twice elsewhere.)
-    // A player dropped something into the Dropped Item Pile. The pile is
-    // OBSERVER for players by ruling, so they cannot write to it and the active
-    // GM does the move for them — the ownershipSync shape exactly, including the
-    // catch: `fromUuid` throws on a malformed uuid, and a throw out of an
-    // un-awaited async socket handler names nothing.
+    // failure twice elsewhere — and a third time: the pile-drop branch was
+    // inserted here too, and when review #33 moved the pile to a `User#query`
+    // (`handlePileQuery`, registered in the init hook above) its paragraph was
+    // left behind on this branch until review #34.)
     if (msg?.action === "ownershipSync") {
       if (game.users.activeGM !== game.user) return;
       // Caught, the handler's own standing rule (review #17): a throw here —
@@ -1225,11 +1380,39 @@ Hooks.once("init", () => {
         // The wire names a content source (the player answered the picker on
         // their own client — a prompt HERE would hang their request on this
         // screen's modal), but the wire is not trusted: anything not currently
-        // enabled clamps to the only enabled source, or to 2e under the same
-        // everything-off kindness promptContentSource applies. A source is
+        // enabled clamps to the only enabled source, or to 2e when everything
+        // is off (nothing then to choose between). A source is
         // always passed, so generateCharacter never prompts on this client.
         const enabled = enabledContentSources().map((s) => s.key);
         const source = enabled.includes(msg.source) ? msg.source : (enabled[0] ?? "2e");
+        // The empty-sheet choice the player made on their own client. Coerced
+        // rather than passed through: the wire is not trusted, and anything
+        // other than a literal true means roll.
+        //
+        // AND ONLY WHERE THE PLAYER COULD FILL IT IN (review #27). The box
+        // is withheld on the clicking client from a player whose sheet would
+        // render no pickers (`blankIsFillableBy`: a character, and only
+        // while allow-player-randomization is on), but that is the
+        // affordance half, and this broker is the enforcement half — the
+        // one place a crafted or stale client cannot script around, as the
+        // allow-player-generate refusal above already says. A character is
+        // the only kind this relay mints, so the test is that one switch.
+        //
+        // A BLANK IT CANNOT HONOUR IS REFUSED WHOLE (review #34 finding 246,
+        // ruled 2026-11-01). It used to be rolled into a character instead —
+        // one she never asked for, from a stale dialog opened while the
+        // switch was on and answered after the Warden turned it off — and
+        // the answer echoed the request, so her sheet opened over the
+        // still-rolling dice and nothing told her. Now nothing is made, and
+        // `blankRefused` tells her why so she can choose again.
+        const blank = msg.blank === true
+          && game.settings.get(SETTINGS_NS, "allow-player-randomization") === true;
+        if (msg.blank === true && !blank) {
+          game.socket.emit(`system.${game.system.id}`, {
+            action: "pcGenerated", userId: senderId, uuid: null, blankRefused: true,
+          });
+          return;
+        }
         const actor = await createCharacter({
           source,
           // THE PARTY FOLDER, which only `createActorInteractive` applied until
@@ -1240,22 +1423,10 @@ Hooks.once("init", () => {
           // characters filed themselves. This runs on the GM's client, which
           // may make the folder.
           folder: await partyFolderId(),
-          // The empty-sheet choice the player made on their own client. Coerced
-          // rather than passed through: the wire is not trusted, and anything
-          // other than a literal true means roll, which is the safe reading —
-          // a rolled character can be emptied by hand, a silently empty one
-          // looks like generation broke.
-          //
-          // AND ONLY WHERE THE PLAYER COULD FILL IT IN (review #27). The box
-          // is withheld on the clicking client from a player whose sheet would
-          // render no pickers (`blankIsFillableBy`: a character, and only
-          // while allow-player-randomization is on), but that is the
-          // affordance half, and this broker is the enforcement half — the
-          // one place a crafted or stale client cannot script around, as the
-          // allow-player-generate refusal above already says. A character is
-          // the only kind this relay mints, so the test is that one switch.
-          blank: msg.blank === true
-            && game.settings.get(SETTINGS_NS, "allow-player-randomization") === true,
+          blank,
+          // An empty sheet's name in the REQUESTER's language (review #34
+          // finding 244); off the wire, this client composes its own.
+          blankName: relayedLabel(msg.blankName),
           ownership: { [senderId]: CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER },
           // The generation chat card is headed by the ROLLER's name, and the
           // roller is the PLAYER who asked -- this branch runs on the Warden's
@@ -1270,26 +1441,38 @@ Hooks.once("init", () => {
           // gives the dice their two seconds (the pcGenerated handler below).
           waitForDice: false,
         });
-        // A null actor is a real outcome (the Warden dismissed the
-        // content-source picker); answer anyway, or the player's "rolling
-        // your character…" toast is the last they ever hear of it.
-        if (actor) {
-          ui.notifications.info(game.i18n.format("CAIRN.Notify.PcGeneratedFor", {
-            name: actor.name, player: user.name,
-          }));
+        // A NULL ACTOR IS A FAILURE (review #34 finding 178). This said "the
+        // Warden dismissed the content-source picker", but the relay always
+        // passes a source, so no picker opens and nothing here can be
+        // cancelled: a null is an empty pool or a create that wrote nothing.
+        // It was answered as neither refused nor failed, so her client said
+        // the Warden had cancelled it and the Warden was told nothing. It is
+        // answered as the throw below is, on both screens.
+        if (!actor) {
+          ui.notifications.error(game.i18n.format("CAIRN.Notify.PcGenFailedFor", { player: user.name }));
+          game.socket.emit(`system.${game.system.id}`, {
+            action: "pcGenerated", userId: senderId, uuid: null, failed: true,
+          });
+          return;
         }
+        ui.notifications.info(game.i18n.format("CAIRN.Notify.PcGeneratedFor", {
+          name: actor.name, player: user.name,
+        }));
         game.socket.emit(`system.${game.system.id}`, {
-          // The empty-sheet answer travels BACK too (review #26). An empty
-          // sheet posts no generation card, so without this the asking client
-          // polled ten times at 150ms for a message that could never arrive:
-          // ~1.5s of dead wait between the toast and their own sheet opening.
-          action: "pcGenerated", userId: senderId, uuid: actor?.uuid ?? null, blank: msg.blank === true,
+          // WHETHER A CARD WAS POSTED travels BACK (review #26; review #34
+          // finding 220), or the asking client polls ten times at 150ms for a
+          // message that can never arrive: ~1.5s of dead wait between the
+          // toast and their own sheet opening. None is posted for an empty
+          // sheet, which rolled nothing, nor with "Show character generation
+          // dice rolls" off (postGenerationRolls). What THIS client made: a
+          // blank the randomization switch refuses never gets this far.
+          action: "pcGenerated", userId: senderId, uuid: actor.uuid,
+          noCard: blank || !game.settings.get(SETTINGS_NS, "show-generation-rolls"),
         });
       } catch (err) {
         console.error(`Air Bladder | generatePC failed for ${user.name}:`, err);
         ui.notifications.error(game.i18n.format("CAIRN.Notify.PcGenFailedFor", { player: user.name }));
-        // `failed` distinguishes this from the Warden dismissing the picker:
-        // the player is told to ask again, not told it was cancelled.
+        // `failed`: the player is told to ask again.
         game.socket.emit(`system.${game.system.id}`, {
           action: "pcGenerated", userId: senderId, uuid: null, failed: true,
         });
@@ -1305,11 +1488,13 @@ Hooks.once("init", () => {
       if (msg.userId !== game.user.id) return;
       if (!game.users.get(senderId)?.isGM) return;
       if (!msg.uuid) {
+        // Three answers, each its own reason. There is no "cancelled": the
+        // relay always names a source, so nothing on it can be (finding 178).
         ui.notifications.warn(game.i18n.localize(msg.refused
           ? "CAIRN.Notify.PcGenDisabled" // the Warden's switch is off
-          : msg.failed
-            ? "CAIRN.Notify.PcGenFailed"
-            : "CAIRN.Notify.PcGenCancelled"));
+          : msg.blankRefused
+            ? "CAIRN.Notify.PcGenBlankRefused" // an empty sheet, with the tools off (finding 246)
+            : "CAIRN.Notify.PcGenFailed"));
         return;
       }
       // The custom emit can outrun the document broadcast that carries the
@@ -1324,11 +1509,11 @@ Hooks.once("init", () => {
           // over: find it by actor.
           // Poll briefly, because the custom emit can outrun the chat broadcast
           // exactly as it can outrun the actor's (that is why this loop exists).
-          // Skipped for an empty sheet, which rolled nothing and so posts no
-          // card to find. Coerced the same way the request was: only a literal
-          // true skips the wait, so a malformed answer still waits rather than
-          // opening the sheet over an animation.
-          if (msg.blank !== true) {
+          // Skipped when the broker posted no card (`noCard`: an empty sheet,
+          // or the rolls card switched off). Coerced the same way the request
+          // was: only a literal true skips the wait, so a malformed answer
+          // still waits rather than opening the sheet over an animation.
+          if (msg.noCard !== true) {
             for (let j = 0; j < 10; j++) {
               const rollMessage = findGenerationRollMessage(actor);
               if (rollMessage) { await awaitDiceAnimation(rollMessage.id); break; }
@@ -1405,6 +1590,13 @@ Hooks.once("init", () => {
         }
         const outcome = await performKettlewrightImport(json, {
           ownership: { [senderId]: CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER },
+          // The requester's own language for what lands in their character
+          // (review #34 finding 244); anything else on the wire, this
+          // client composes its own.
+          labels: {
+            defaultName: relayedLabel(msg.labels?.defaultName),
+            traitsLabel: relayedLabel(msg.labels?.traitsLabel),
+          },
         });
         if (!outcome.actor) {
           // create() resolved undefined: a validation error core caught and
@@ -1505,6 +1697,21 @@ Hooks.once("init", () => {
   });
 });
 
+// Rename the default GM account to "Warden". Only the acting GM writes (avoids
+// multi-GM races).
+//
+// The name is a WORLD value but the label is localized per CLIENT, so whichever
+// GM logs in first decides what every other player sees. That used to be
+// one-way and unrecoverable: the rename matched only the two default names, so
+// the moment it wrote, nothing matched again -- a GM who then switched language,
+// or turned the setting off, was stuck with the old name and no way back short
+// of editing the user by hand.
+//
+// Remembering the name we replaced fixes both halves. `renamedFrom` marks the
+// accounts this system renamed (so a deliberately-named GM is never touched),
+// lets a language switch re-apply the new label, and lets the original name come
+// back if the setting is turned off. Idempotent: it writes only when the stored
+// name and the wanted name actually differ.
 Hooks.once("ready", async () => {
   if (!game.user.isGM) return;
   if (game.users.activeGM && game.users.activeGM !== game.user) return;
@@ -1630,6 +1837,21 @@ Hooks.once("ready", async () => {
     await characterGenerator.ensureCustomPortraitFolder();
     await characterGenerator.refreshCustomPortraits();
   });
+
+  // An UNFINISHED GLOG conversion (review #34 finding 219): the sweep runs from
+  // the setting's onChange, and the hacks menu's reload prompt from the same
+  // Save can cut it off. While GLOG is on and `glog-converted` is unset, the
+  // active Warden resumes it here; the sweep is idempotent, so a world that
+  // was in fact finished writes nothing and gains the marker. LAST, on
+  // purpose: while GLOG is on and the marker unset, the sweep reads every
+  // world actor and every world pack, and as a middle phase it would hold every
+  // later phase (the portrait scan) behind it. (a1cb97a9's message blamed this
+  // phase for a dev:review-batch2 red; that was the probe's own election race,
+  // fixed in the probe — GLOG is off on the fleet and this returns at once.)
+  await phase("GLOG conversion resume", async () => {
+    const { resumeGlogConversion } = await import("./glog.js");
+    await resumeGlogConversion();
+  });
 });
 
 /**
@@ -1684,7 +1906,8 @@ const migrateIconsToSvg = async () => {
  * `character_portraits/` + `character_tokens/` became `art/jon-aspeheim/
  * portraits|tokens/`, and tlomdev's and game-icons' folders each gained the
  * `art/` prefix. `icons/` did NOT move — it is stamped class art, not a
- * browsable gallery, and it is deliberately absent from the table below.
+ * browsable gallery, and it is deliberately absent from the move tables
+ * (module/art-paths.js, `ART_MOVES` and `ART_REENCODED`).
  *
  * SAME PROBLEM AS THE .png -> .svg MIGRATION ABOVE, and it is the reason a
  * cosmetic-looking folder move is not cosmetic: an image path is COPIED onto a
@@ -1698,8 +1921,19 @@ const migrateIconsToSvg = async () => {
  * anything under a moved folder moves with it, and nothing else is touched. A
  * pasted URL, a custom upload and anything under icons/ all fail the prefix and
  * are left alone. Idempotent by construction — a rewritten path begins
- * `systems/air-bladder/art/…` and matches no `from` — which matters because
- * this runs on every GM load, not behind a version marker.
+ * `systems/air-bladder/art/…` and matches no `from` — so a re-opened sweep
+ * (a new generation, below) rewrites nothing twice.
+ *
+ * IT RUNS ONCE PER GENERATION, NOT ON EVERY LOAD (review #34 finding 158; this
+ * said "every GM load" until then, true only before review #17's marker). So a
+ * document that reaches the world AFTER the sweep, from a source it never read,
+ * keeps its old path for good. Every world source is therefore swept here: the
+ * world collections, and every world compendium a Warden can import from,
+ * Scenes and Adventures included (a placed token COPIES its texture at
+ * creation, so a scene filed into a compendium carries the old path inside).
+ * What it never reads, a MODULE's compendium or a JSON file exported from an
+ * older world, is caught on ARRIVAL instead (module/art-paths.js
+ * `registerArtArrival` and `repointWholeWrite`), with one stated gap there.
  *
  * Covers ROLLTABLE RESULTS as well, which the .svg migration above does not
  * need to: a result stores its own `img` as a SNAPSHOT rather than reading the
@@ -1707,125 +1941,72 @@ const migrateIconsToSvg = async () => {
  * at the old path after every actor in the world has been fixed.
  */
 /**
- * Bump this when ART_MOVES or ART_REENCODED below gains a rule. The stored
+ * Bump this when ART_MOVES or ART_REENCODED (module/art-paths.js) gains a rule. The stored
  * `art-migration-generation` marker is what stops migrateArtPaths re-reading
  * every world pack on every GM load (review #17), so a NEW rule must
  * invalidate every stamp made before it existed — a marker stamped before a
  * rule is the inverse of the "predicate stayed true while its set grew"
  * family, and just as silent. The 2026-08-04 art/ move plus the WebP
  * re-encode are generation 1; the 2026-09-05 move of Lydia Comer's 17
- * monsters into the -monsters folders is generation 2.
+ * monsters into the -monsters folders is generation 2. Generation 3 adds no
+ * rule but new SURFACES (review #34 finding 158): world Scene and Adventure
+ * compendiums and a world table's own icon, which every earlier sweep skipped.
+ * A new surface re-opens the sweep for the same reason a new rule does.
  */
-const ART_MIGRATION_GENERATION = 2;
+const ART_MIGRATION_GENERATION = 3;
 
 /**
- * The 17 creatures that lived in lydia-comer/portraits|tokens from 2026-08-04
- * until the artist's character batch arrived (2026-09-05) and they moved to
- * portraits-monsters/ + tokens-monsters/. Their moves are generated BY
- * FILENAME, never by folder prefix: the vacated folders refilled with her
- * CHARACTER art in the same change, and a player can log in and pick a
- * character portrait before the world's first post-update GM load runs this
- * migration — a prefix rule would drag that fresh path into a -monsters
- * folder it never lived in.
+ * Compendium types whose art sits DEEP in each document's source rather than on
+ * a field of its own (review #34 finding 158): a Scene's placed tokens (each
+ * one's texture, an unlinked one's ActorDelta portrait and items), tiles and
+ * notes, and an Adventure's whole bundle of actors, items, scenes and tables,
+ * held as plain data. Both are swept by walking the source.
  */
-const LYDIA_MOVED_MONSTERS = [
-  "Bad-Bunny", "Bandit-Leader", "Black-Pudding", "Dire-Bear", "Dire-Fish",
-  "Dire-Marsupial", "Dire-Wolf", "Dragon-Turtle", "Dragon", "Estrie-Human",
-  "Fire-Elemental", "Gnome-with-Cock", "Shrieking-Gnoll", "Stork-Rider",
-  "Tentacles", "Undead-Mouse", "Were-Rat",
-];
+const WHOLE_SOURCE_PACKS = ["Scene", "Adventure"];
 
 /**
- * One [from, to] per stem × half × era. The trailing dot pins the whole stem
- * ("Dragon." never matches "Dragon-Turtle.webp") while leaving the extension
- * to ART_REENCODED, which chains after the move. BOTH eras map straight to
- * the -monsters folder, because `movedArt` applies exactly one move — a
- * pre-art/ path routed through the generic lydia hoist below would land in
- * what is now the character folder and never move again.
- */
-const lydiaMonsterMoves = () => LYDIA_MOVED_MONSTERS.flatMap((stem) =>
-  ["portraits", "tokens"].flatMap((half) =>
-    ["systems/air-bladder/lydia-comer/", "systems/air-bladder/art/lydia-comer/"].map((era) =>
-      [`${era}${half}/${stem}.`, `systems/air-bladder/art/lydia-comer/${half}-monsters/${stem}.`])));
-
-const ART_MOVES = [
-  ["systems/air-bladder/character_portraits/", "systems/air-bladder/art/jon-aspeheim/portraits/"],
-  ["systems/air-bladder/character_tokens/", "systems/air-bladder/art/jon-aspeheim/tokens/"],
-  // The two tlomdev folders that lost their SPACES (2026-08-04, user ruling —
-  // Foundry's media guidance forbids them, and a spaced path was invisible to
-  // licence-check's reference regex). These four sit ABOVE the generic
-  // tlomdev rules because the loop takes the FIRST match and stops: a
-  // pre-art/ path through the generic rule would land on the spaced art/
-  // folder that no longer exists, and a second pass never comes. Two entries
-  // per folder — the pre-art/ prefix and the art/-era spaced prefix — because
-  // a world can hold either, depending on when it last opened.
-  ["systems/air-bladder/tlomdev/human npcs for itmod/", "systems/air-bladder/art/tlomdev/human-npcs-for-itmod/"],
-  ["systems/air-bladder/tlomdev/Kettlewright Portraits/", "systems/air-bladder/art/tlomdev/kettlewright-portraits/"],
-  ["systems/air-bladder/art/tlomdev/human npcs for itmod/", "systems/air-bladder/art/tlomdev/human-npcs-for-itmod/"],
-  ["systems/air-bladder/art/tlomdev/Kettlewright Portraits/", "systems/air-bladder/art/tlomdev/kettlewright-portraits/"],
-  ["systems/air-bladder/tlomdev/", "systems/air-bladder/art/tlomdev/"],
-  ["systems/air-bladder/game-icons/", "systems/air-bladder/art/game-icons/"],
-  // The 17 monsters that moved aside for the character batch — 68 generated
-  // filename-pinned rules (17 stems × 2 halves × 2 eras), ABOVE the generic
-  // hoist below for the same first-match-wins reason the tlomdev rules sit
-  // above theirs. See lydiaMonsterMoves for why these are never a prefix.
-  ...lydiaMonsterMoves(),
-  // Lydia's never reached a RELEASE — it landed and moved within the same day —
-  // and it was left out of this table on that reasoning. dev:smoke then found a
-  // token in the dev world still pointing at it. `dev` mirrors to GitHub in
-  // seconds precisely so people can clone it and test unreleased code, so "it
-  // never shipped" is only ever true of tagged releases, and a migration that
-  // reasons about releases misses every world that tracked the branch. One line.
-  ["systems/air-bladder/lydia-comer/", "systems/air-bladder/art/lydia-comer/"],
-];
-
-/**
- * Galleries whose files were RE-ENCODED, not moved.
+ * Sweep one world Scene or Adventure compendium: walk each document's source
+ * and write back the fields that moved. A locked pack is unlocked for the
+ * write and relocked, whatever happens.
  *
- * Lydia Comer's creatures shipped as `.jpg` squares and `.png` circles until
- * 2026-08-04, when the artist extended her grant to allow format conversion and
- * they became WebP. That halves the download, and it breaks every world made
- * before it: an image path is COPIED onto a document at creation and never
- * re-read from the system, so a hand-picked portrait keeps pointing at a file
- * that no longer exists — and a 404 image in Foundry is a blank, not an error.
- *
- * A prefix rule cannot express this. `ART_MOVES` rewrites the front of the
- * string; here the front is already right and the EXTENSION is wrong.
+ * A Scene's placed things (tokens, tiles, notes, its levels and every other
+ * EMBEDDED collection) go back as embedded updates, one per scene and type,
+ * never inside the scene's own update. Core answers a Scene update naming
+ * `tokens` with a DEFERRED region write (client scene.mjs `#onUpdateRegions`
+ * → `updateRegionShapeConstraints`: throttled 250 ms onto a ticker frame,
+ * never awaited, sent even with no region to write), so it reached the pack
+ * after the relock and every connected client logged "You may not update
+ * documents in the locked compendium" (fleet 20261031T190758Z). An embedded
+ * Token update schedules nothing. An Adventure has no embedded collections
+ * (its bundle is plain data), so its fields stay in ONE batched write.
+ * @param {CompendiumCollection} pack
+ * @returns {Promise<number>} documents and rows rewritten
  */
-const ART_REENCODED = [
-  { prefix: "systems/air-bladder/art/lydia-comer/", from: /\.(jpe?g|png)$/i, to: ".webp" },
-  // tlomdev's 298 category drawings, the same day. CC BY-SA 4.0 permits the
-  // conversion outright — no grant to negotiate — but it obliges the change to
-  // be INDICATED, which is what the Modifications section of that gallery's
-  // CREDITS.md is for.
-  //
-  // `kettlewright-portraits/` is untouched and needs no rule: those arrived as
-  // WebP from Kettlewright and the extension pattern cannot match them. That is
-  // luck rather than design, so the importer skips the folder BY NAME.
-  { prefix: "systems/air-bladder/art/tlomdev/", from: /\.png$/i, to: ".webp" },
-];
-
-/**
- * The new path for an image under a moved or re-encoded gallery, or null to
- * leave it alone.
- *
- * The two rules CHAIN, and they have to: a world last opened before the `art/`
- * restructure holds `systems/air-bladder/lydia-comer/portraits/Dragon.jpg`,
- * which needs both the move and the re-encode to arrive anywhere real. Applying
- * only one leaves a path that is wrong in a different way, and the migration
- * runs once — there is no second pass to catch it.
- */
-const movedArt = (src) => {
-  const s = String(src ?? "");
-  let out = null;
-  for (const [from, to] of ART_MOVES) {
-    if (s.startsWith(from)) { out = to + s.slice(from.length); break; }
+const repointPackSources = async (pack) => {
+  const embedded = Object.entries(pack.documentClass.metadata.embedded ?? {});
+  const updates = [];
+  const rows = [];   // [document, embedded type, row updates]
+  for (const d of await pack.getDocuments()) {
+    const src = d.toObject();
+    for (const [type, key] of embedded) {
+      const moved = (src[key] ?? []).map((row) => ({ _id: row._id, ...movedFields(row) }))
+        .filter((row) => Object.keys(row).length > 1);
+      if (moved.length) rows.push([d, type, moved]);
+      delete src[key];
+    }
+    const u = movedFields(src);
+    if (Object.keys(u).length) updates.push({ _id: d.id, ...u });
   }
-  const now = out ?? s;
-  for (const { prefix, from, to } of ART_REENCODED) {
-    if (now.startsWith(prefix) && from.test(now)) return now.replace(from, to);
+  if (!updates.length && !rows.length) return 0;
+  const wasLocked = pack.locked;
+  if (wasLocked) await pack.configure({ locked: false });
+  try {
+    if (updates.length) await pack.documentClass.updateDocuments(updates, { pack: pack.collection });
+    for (const [d, type, moved] of rows) await d.updateEmbeddedDocuments(type, moved);
+  } finally {
+    if (wasLocked) await pack.configure({ locked: true });
   }
-  return out;
+  return updates.length + rows.reduce((n, [, , moved]) => n + moved.length, 0);
 };
 
 const migrateArtPaths = async () => {
@@ -1892,6 +2073,10 @@ const migrateArtPaths = async () => {
       .map((r) => ({ _id: r.id, img: movedArt(r.img) }));
     if (results.length) { await table.updateEmbeddedDocuments("TableResult", results); count += results.length; }
   }
+  // A table's OWN icon too, which the pack pass below already read and this
+  // one did not (review #34 finding 158): a Warden can pick it off a gallery.
+  const tableUpdates = game.tables.filter((t) => movedArt(t.img)).map((t) => ({ _id: t.id, img: movedArt(t.img) }));
+  if (tableUpdates.length) { await RollTable.updateDocuments(tableUpdates); count += tableUpdates.length; }
 
   // Macros snapshot an item's img on drag-to-hotbar (module/macros.js), the
   // same copy-at-creation rule as everything above.
@@ -1907,6 +2092,7 @@ const migrateArtPaths = async () => {
   // A locked pack is unlocked for the write and restored, whatever happens.
   for (const pack of game.packs) {
     if (pack.metadata.packageType !== "world") continue;
+    if (WHOLE_SOURCE_PACKS.includes(pack.documentName)) { count += await repointPackSources(pack); continue; }
     if (!["Actor", "Item", "RollTable", "Macro"].includes(pack.documentName)) continue;
     const docs = await pack.getDocuments();
     const stale = docs.some((d) =>
@@ -1955,9 +2141,10 @@ const migrateArtPaths = async () => {
  * side by side would find only one of them editable as such.
  *
  * A document's `type` is immutable in Foundry, so this is a create-then-delete, not
- * an update — the trap the hireling merge hit. Create first so a failure can never
- * lose a scroll; the transient duplicate costs nothing, since a scroll is petty at
- * both ends and no slot count moves.
+ * an update — the trap the hireling merge hit. Create first, and delete only the
+ * scrolls whose replacement came back, so a failure can never lose a scroll (a
+ * refused create does not throw — review #34 finding 177); the transient duplicate
+ * costs nothing, since a scroll is petty at both ends and no slot count moves.
  *
  * Carried across: the name (with the prefix stripped, since the inventory row adds
  * it back at display time), the spell text, cost, quantity, whether the use was
@@ -2028,19 +2215,34 @@ const migrateScrollsToSpellbooks = async () => {
   const convert = async (parent, items) => {
     const legacy = items.filter(isLegacyScroll);
     if (!legacy.length) return;
-    const payload = legacy.map(asFlaggedScroll);
-    const ids = legacy.map((i) => i.id);
+    // ONLY A SCROLL WHOSE REPLACEMENT LANDED IS DELETED (review #34 finding
+    // 177). Creating first protects only against a create that THROWS; core
+    // skips a document a preCreateItem hook refuses, or one that fails
+    // construction, and resolves a shorter array. Every legacy id used to be
+    // deleted regardless. Each replacement gets a fresh id (keepId) — a batch
+    // returns in no promised order — and maps back to the scroll it replaces.
+    // A refused one stays in its old shape and is tried again next load.
+    const copyOf = new Map();
+    const payload = legacy.map((old) => {
+      const data = asFlaggedScroll(old);
+      data._id = foundry.utils.randomID();
+      copyOf.set(data._id, old.id);
+      return data;
+    });
+    let landed;
     if (parent) {
       // abNoStatusCard: this is a MIGRATION — without it, a world upgrading
       // through it would greet the Warden with one change-log card per actor
       // that ever owned a scroll.
-      await parent.createEmbeddedDocuments("Item", payload, { abNoStatusCard: true });
-      await parent.deleteEmbeddedDocuments("Item", ids, { abNoStatusCard: true });
+      landed = await parent.createEmbeddedDocuments("Item", payload, { abNoStatusCard: true, keepId: true });
     } else {
-      await ItemCls.createDocuments(payload);
-      await ItemCls.deleteDocuments(ids);
+      landed = await ItemCls.createDocuments(payload, { keepId: true });
     }
-    count += legacy.length;
+    const ids = (landed ?? []).map((d) => copyOf.get(d.id)).filter(Boolean);
+    if (!ids.length) return;
+    if (parent) await parent.deleteEmbeddedDocuments("Item", ids, { abNoStatusCard: true });
+    else await ItemCls.deleteDocuments(ids);
+    count += ids.length;
   };
 
   await convert(null, [...game.items]);
@@ -2159,8 +2361,10 @@ const migrateNpcRoles = async () => {
  * runs, a genuine NEW npc stores exactly the value this converts. A blind
  * restamp would turn every real NPC in the world into a hireling on the second
  * pass. The marker is what stops there being a second pass, and it is set only
- * after the writes land, so a failed run retries rather than recording itself
- * done.
+ * after the world's writes land, so a failed run retries rather than recording
+ * itself done. A world pack that fails retries on its own, recorded in
+ * `hireling-split-pending`, and every retry is limited to documents created
+ * before the first attempt began (review #34 finding 3).
  *
  * DELTAS NEED THEIR OWN WALK, for the same reason the selection works. Both
  * siblings argue that unlinked-token deltas need no pass "because they store
@@ -2177,7 +2381,54 @@ const migrateNpcRoles = async () => {
  * ours to write.
  */
 const migrateHirelingSplit = async () => {
-  if (game.settings.get(SETTINGS_NS, "hireling-split")) return;
+  const done = game.settings.get(SETTINGS_NS, "hireling-split");
+  const pending = foundry.utils.deepClone(game.settings.get(SETTINGS_NS, "hireling-split-pending") ?? {});
+  if (done && !pending.packs?.length) return;
+
+  // THE FIRST ATTEMPT'S START, in the server's clock, kept until the split is
+  // wholly done (review #34 finding 3). A retry used to re-run every selection
+  // from the top. Since the split, a genuine NPC stores exactly the
+  // `role: "npc"` it selects on, so an NPC the Warden made between a failed
+  // first attempt and the retry was converted into a hireling. Every selection
+  // below asks `createdBefore` too, so a retry reaches only what existed when
+  // the split first ran. A document with no stamp (packed before Foundry kept
+  // one) counts as old.
+  //
+  // THE LIMIT, STATED (review #34 finding 234, ruled 2026-11-01). Only THIS
+  // code writes `started`. A world whose split had been failing under
+  // 0.1.18–0.1.25 holds the marker false and no start at all (the setting did
+  // not exist), so its first load of this code records THAT load as the
+  // start, and every NPC the Warden made since the old first attempt is
+  // converted into a hireling, once. Nothing the world holds dates that
+  // attempt reliably — an existing hireling, the 0.1.18 date and the NPC-only
+  // fields each misjudge some world — so it is said here rather than guessed,
+  // and dev:role-migration pins it. A world whose split succeeded, or whose
+  // first attempt is made by this code, is not reached by it.
+  //
+  // ON THE CLOCK THAT STAMPED THE DOCUMENTS. This read `game.time.serverTime`,
+  // which despite its name is the server's UPTIME in ms (the server's
+  // `Activity#serverTime` is `Date.now()` minus the world's launch,
+  // dist/components/activity.mjs), so beside an epoch `createdTime` it read as
+  // the first hour of 1970: no stamped document was ever "created before", and
+  // the split's first run converted nothing (finding 234's pin caught it; the
+  // finding-3 legs plant their own start and never ran this line). Nor the
+  // client's `Date.now()`, which is not the server's clock. The server's own
+  // stamp of a write is: record an unfinished start, and take the Setting's
+  // `_stats.modifiedTime`. A load that dies between the two writes leaves the
+  // placeholder, which is not finite, so the next load re-takes it — and an
+  // unchanged placeholder is no write at all, which keeps the dead load's
+  // stamp: the first attempt's, as it should be.
+  if (!Number.isFinite(pending.started)) {
+    const marked = await game.settings.set(SETTINGS_NS, "hireling-split-pending",
+      { ...pending, started: "unset" }, { document: true });
+    const stamp = marked?._stats?.modifiedTime;
+    pending.started = Number.isFinite(stamp) ? stamp : Date.now();
+    await game.settings.set(SETTINGS_NS, "hireling-split-pending", pending);
+  }
+  const createdBefore = (doc) => {
+    const t = doc?._source?._stats?.createdTime;
+    return !Number.isFinite(t) || t <= pending.started;
+  };
   let count = 0;
 
   // `_source`, never the prepared value: the prepared one has already been
@@ -2185,23 +2436,33 @@ const migrateHirelingSplit = async () => {
   // DATABASE holds.
   const storedNpc = (doc) => doc?._source?.system?.role === "npc";
 
-  const updates = game.actors
-    .filter((a) => ["npc", "hireling"].includes(a.type) && storedNpc(a))
-    .map((a) => ({ _id: a.id, "system.role": "hireling" }));
-  if (updates.length) {
-    await Actor.updateDocuments(updates, { diff: false });   // one batch, so it can't half-finish
-    count += updates.length;
-  }
-
-  // Unlinked tokens: writing through the synthetic `token.actor` updates the
-  // delta. Linked tokens ARE the world actor already handled above.
-  for (const scene of game.scenes) {
-    for (const token of scene.tokens) {
-      if (token.actorLink || !token.actor) continue;
-      if (!storedNpc(token.delta)) continue;
-      await token.actor.update({ "system.role": "hireling" }, { diff: false });
-      count += 1;
+  if (!done) {
+    const updates = game.actors
+      .filter((a) => ["npc", "hireling"].includes(a.type) && storedNpc(a) && createdBefore(a))
+      .map((a) => ({ _id: a.id, "system.role": "hireling" }));
+    if (updates.length) {
+      await Actor.updateDocuments(updates, { diff: false });   // one batch, so it can't half-finish
+      count += updates.length;
     }
+
+    // Unlinked tokens: writing through the synthetic `token.actor` updates the
+    // delta. Linked tokens ARE the world actor already handled above. A delta
+    // carries no creation stamp of its own, so it is read through its BASE
+    // actor's.
+    for (const scene of game.scenes) {
+      for (const token of scene.tokens) {
+        if (token.actorLink || !token.actor) continue;
+        if (!storedNpc(token.delta) || !createdBefore(token.baseActor)) continue;
+        await token.actor.update({ "system.role": "hireling" }, { diff: false });
+        count += 1;
+      }
+    }
+
+    // THE MARKER, as soon as the world's own documents land (review #34
+    // finding 3). It used to wait for every pack too, so one pack that failed
+    // re-ran the WORLD selection on every later load. What is left after this
+    // line is per pack, and retries per pack.
+    await game.settings.set(SETTINGS_NS, "hireling-split", true);
   }
 
   // World compendia. Unlocked around the write and locked back exactly as it
@@ -2210,13 +2471,16 @@ const migrateHirelingSplit = async () => {
   // rule the world-actor batch above follows: the per-document loop this
   // replaces was a server round trip per NPC and could throw midway, leaving
   // a pack half-converted. Each pack still fails independently — one bad pack
-  // must not cost the others their conversion.
-  let packFailed = false;
+  // must not cost the others their conversion. On a retry only the packs
+  // that failed are visited.
+  const retryOnly = done ? new Set(pending.packs) : null;
+  const failed = [];
   for (const pack of game.packs) {
     if (pack.metadata.packageType !== "world" || pack.metadata.type !== "Actor") continue;
+    if (retryOnly && !retryOnly.has(pack.collection)) continue;
     try {
       const docs = await pack.getDocuments();
-      const stale = docs.filter((d) => ["npc", "hireling"].includes(d.type) && storedNpc(d));
+      const stale = docs.filter((d) => ["npc", "hireling"].includes(d.type) && storedNpc(d) && createdBefore(d));
       if (!stale.length) continue;
       const wasLocked = pack.locked;
       try {
@@ -2229,23 +2493,21 @@ const migrateHirelingSplit = async () => {
         if (wasLocked) await pack.configure({ locked: true });
       }
     } catch (err) {
-      packFailed = true;
+      failed.push(pack.collection);
       console.warn(`Air Bladder | could not split roles in world pack "${pack.metadata.label}":`, err);
     }
   }
 
   if (count) console.log(`Air Bladder | npc -> hireling on ${count} document(s)`);
-  // The docblock's own contract, actually kept (review #17): the marker is
-  // set only after the writes LAND. A pack failure above is caught so the
-  // other packs still convert — but stamping over it would record the one
-  // migration that can never safely re-run as done while documents still
-  // store the old meaning of "npc". Selection is what makes the retry safe:
-  // everything already converted no longer matches.
-  if (packFailed) {
-    console.warn("Air Bladder | hireling split incomplete — marker not set; it will retry on the next GM load");
+  // A failed pack is recorded BY ID, with the start it is still judged
+  // against, and retried alone on the next GM load. A pack deleted in the
+  // meantime simply is not found again, and drops off the list.
+  if (failed.length) {
+    console.warn(`Air Bladder | hireling split incomplete in ${failed.length} world pack(s) — they retry on the next GM load`);
+    await game.settings.set(SETTINGS_NS, "hireling-split-pending", { ...pending, packs: failed });
     return;
   }
-  await game.settings.set(SETTINGS_NS, "hireling-split", true);
+  await game.settings.set(SETTINGS_NS, "hireling-split-pending", {});
 };
 
 /**
@@ -2940,7 +3202,7 @@ Hooks.on("renderActorDirectory", (app, html) => {
     //
     // The `show-container-actors` hide rule that lived beside this is GONE
     // (2026-08-02, by ruling): every container actor is always listed.
-    const containerLine = actor.isThing || actor.npcRole === "companion";
+    const containerLine = CONTAINER_LINE_ROLES.includes(actor.npcRole);
     a.classList.toggle('cairn-grayscale-portrait', containerLine);
   });
 });
@@ -2978,29 +3240,16 @@ Hooks.on("userConnected", (user, _connected) => {
   ui.actors.render();
 });
 
-/**
- * Rewrite a damage card's flavor line to say who is attacking whom.
- *
- * The ids were always on the card — `data-targets` is what Apply damage reads —
- * and the card simply never showed them, so the log recorded "Rolling damage
- * with Crossbow" and left the table to remember who that was aimed at.
- *
- * Resolved AT RENDER rather than at roll time, and all three reasons matter:
- * the names then localize per VIEWER (so the content overlay translates a
- * monster's name in a Spanish client and leaves a player-authored PC name
- * alone), BOTH producers are covered without touching either (`#onRollDamage`
- * and macros.js already ship the same `data-targets`), and every damage card
- * already in the log gains the line the next time it renders. Resolving at
- * creation would freeze the sentence in the roller's language and have to be
- * written twice.
- *
- * ORDERING: must run BEFORE the player-trim below, which REMOVES `.apply-dmg`
- * from a non-GM's copy and with it the only copy of the ids. Deliberately not
- * duplicated onto the label to make that safe — a second attribute holding the
- * same data is the shape that produced years of container bugs here. The Alice
- * leg in dev:enc-damage is what guards the ordering: move this after the trim
- * and a player stops seeing the names, which that leg asserts.
- */
+// The Dropped Item Pile's flag, taken off any actor a PLAYER wrote, by the
+// active GM (party-pile.js `stripPlantedPileFlags`, review #34 finding 5). The
+// identity test there already refuses a plant while its planter is its last
+// writer; this takes the flag off before a Warden's own later write — an
+// Apply of damage, a rename — can vouch for it. `ready` covers a plant made
+// while no Warden was connected.
+Hooks.on("createActor", (actor, _options, userId) => stripPlantedPileFlags(actor, userId));
+Hooks.on("updateActor", (actor, _changes, _options, userId) => stripPlantedPileFlags(actor, userId));
+Hooks.once("ready", () => stripPlantedPileFlags());
+
 /**
  * Give an UNTARGETED damage card the Apply control it never had.
  *
@@ -3041,8 +3290,9 @@ const offerUntargetedApply = (html) => {
   anchor.className = "btn apply-dmg";
   // A DIFFERENT tooltip from the targeted card's, deliberately. The rule this
   // leaves is meant to be readable from the card — the splat asks only when it
-  // has to — and the tooltip is where that is said.
-  anchor.dataset.tooltip = game.i18n.localize("CAIRN.ApplyDamageChoose");
+  // has to — and the tooltip is where that is said. Its name too: this anchor
+  // is built per render and never stored, so the template's cannot reach it.
+  labelIconControl(anchor, game.i18n.localize("CAIRN.ApplyDamageChoose"));
   const icon = document.createElement("i");
   icon.className = "fas fa-burst";
   anchor.append(icon);
@@ -3071,8 +3321,9 @@ const offerUntargetedApply = (html) => {
  * however the formula was shaped.
  *
  * Three things that buys, and they are the reason it is built this way:
- *  - BOTH producers are covered without touching either (`#onRollDamage` and
- *    macros.js), and so is any future one.
+ *  - Every PC damage site is covered without touching any of them
+ *    (`#onRollDamage`, `#onImprovisedAttack` and macros.js — the three that can
+ *    explode), and so is any future one.
  *  - It is language-neutral BY CONSTRUCTION. The only text is built here, per
  *    viewer, from one key and a number — so this cannot join review #24's class
  *    of cards frozen in the composer's language, because there is no stored
@@ -3213,9 +3464,13 @@ const nameManeuverAvailable = (message, html) => {
  * is also what routes a monster's name through the content overlay while leaving
  * a player-authored PC name alone.
  *
- * NOT gated on `nameableTokens`, unlike the TARGETS. The attacker is the speaker
- * of the roll card everybody can already see, so concealing the name here would
- * hide nothing that is not already in the header two cards up.
+ * NOT gated on `nameableTokens`, unlike the TARGETS. On a PUBLIC roll the
+ * attacker is the speaker of a card everybody can already see, so concealing the
+ * name here would hide nothing that is not already in the header two cards up.
+ * That premise is only true of a public roll: a private or blind one shows
+ * players "privately rolled some dice", and the detail card's line asks the roll
+ * card's own `isContentVisible` before calling this (nameDamageSource, review
+ * #34 finding 125).
  *
  * @param {{token?: String, alias?: String}} speaker  a message speaker, or the
  *   damage-source flag, which is deliberately the same shape
@@ -3224,7 +3479,12 @@ const nameManeuverAvailable = (message, html) => {
  */
 const attackerDisplayName = (speaker, scene) => {
   const tok = scene?.tokens?.get(speaker?.token);
-  return tok ? tokenDisplayName(tok) : (speaker?.alias ?? "");
+  if (tok) return tokenDisplayName(tok);
+  // A TOKEN-LESS speaker — a world actor rolled from its sheet with nothing
+  // placed — resolves through the shared resolver, as the card header beside
+  // this line does (review #34 finding 10). The raw alias put "Goblin" under a
+  // "Trasgo" header on a Spanish client.
+  return speakerDisplayName({ speaker }, speaker?.alias ?? "");
 };
 
 /**
@@ -3254,7 +3514,9 @@ const localizeSpeakerName = (message, html, token) => {
   const alias = speaker.alias ?? "";
   if (!alias || header.textContent.trim() !== alias) return;
   let display;
-  if (token) {
+  // Only while the alias IS the token's name (review #34 finding 242,
+  // speakerDisplayName): a card's own alias over a token is its snapshot.
+  if (token && token.name === alias) {
     display = tokenDisplayName(token);
   } else {
     const actor = speaker.actor ? game.actors?.get(speaker.actor) : null;
@@ -3344,7 +3606,7 @@ const relabelWeaponLine = (label) => {
  */
 const relabelApplyTooltip = (html) => {
   const btn = html.querySelector(".apply-dmg[data-targets]");
-  if (btn) btn.dataset.tooltip = game.i18n.localize("CAIRN.ApplyDamage");
+  if (btn) labelIconControl(btn, game.i18n.localize("CAIRN.ApplyDamage"));
 };
 
 /**
@@ -3362,6 +3624,30 @@ const localizeDamageQuality = (html) => {
   el.textContent = game.i18n.localize(DAMAGE_QUALITY_KEYS[kind]);
 };
 
+/**
+ * Rewrite a damage card's flavor line to say who is attacking whom.
+ *
+ * The ids were always on the card — `data-targets` is what Apply damage reads —
+ * and the card simply never showed them, so the log recorded "Rolling damage
+ * with Crossbow" and left the table to remember who that was aimed at.
+ *
+ * Resolved AT RENDER rather than at roll time, and all three reasons matter:
+ * the names then localize per VIEWER (so the content overlay translates a
+ * monster's name in a Spanish client and leaves a player-authored PC name
+ * alone), every producer is covered without touching any of them
+ * (`#onRollDamage`, `#onImprovisedAttack`, macros.js and warden-damage.js all
+ * render dmg-roll-card.html with the same `data-targets`), and every damage card
+ * already in the log gains the line the next time it renders. Resolving at
+ * creation would freeze the sentence in the roller's language and have to be
+ * written twice.
+ *
+ * ORDERING: must run BEFORE the player-trim below, which REMOVES `.apply-dmg`
+ * from a non-GM's copy and with it the only copy of the ids. Deliberately not
+ * duplicated onto the label to make that safe — a second attribute holding the
+ * same data is the shape that produced years of container bugs here. The Alice
+ * leg in dev:enc-damage is what guards the ordering: move this after the trim
+ * and a player stops seeing the names, which that leg asserts.
+ */
 const nameDamageTargets = (message, html, scene) => {
   const label = html.querySelector(".flavor-dice-roll .dmg-label")
     // Cards posted before the class existed: the label is the child div that is
@@ -3482,6 +3768,15 @@ const nameDamageTargets = (message, html, scene) => {
 const nameDamageSource = (message, html, scene) => {
   const src = message.getFlag(FLAG_SCOPE, DAMAGE_SOURCE_FLAG);
   if (!src) return;                        // not a detail card, or a legacy one
+  // ONLY TO A VIEWER WHO COULD READ THE ROLL CARD (review #34 finding 125). The
+  // detail card is public for a visible target, and the reasoning below — the
+  // attacker is the speaker of a card everybody can already see — fails for a
+  // private or blind roll, where core shows players "privately rolled some
+  // dice". So the line asks core's own question of the card it came from, for
+  // the attacker and a Warden hazard's typed source alike. A roll card since
+  // deleted cannot be asked, so it is not answered. Cards stamped before the id
+  // travelled carry none and keep their old behaviour.
+  if (src.sourceMessage && !game.messages.get(src.sourceMessage)?.isContentVisible) return;
   const body = html.querySelector(".message-content");
   if (!body || body.querySelector(".dmg-source")) return;   // already injected
 
@@ -3556,7 +3851,7 @@ const showDamageApplied = (message, html, scene) => {
   if (btn) {
     btn.classList.add("spent");
     btn.setAttribute("disabled", "disabled");
-    btn.dataset.tooltip = game.i18n.localize("CAIRN.Notify.DamageAlreadyApplied");
+    labelIconControl(btn, game.i18n.localize("CAIRN.Notify.DamageAlreadyApplied"));
   }
 
   const row = html.querySelector(".flavor-dice-roll");
@@ -3720,10 +4015,50 @@ Hooks.on("renderChatMessageHTML", (message, html, data) => {
   localizeRollFlavor(message, html);
 
   if (token?.actor) {
-    if (token.actor.testUserPermission(game.user, "OWNER") || game.user.isGM) {
+    // A damage detail card is only ever the Warden's (Apply is GM-only), so a
+    // Roll STR save on a card a PLAYER wrote is a forgery naming somebody's
+    // token, and the press rolled a save never owed (review #34 finding 123;
+    // the Critical Damage pair's author test, b9f50324, below). Withheld like
+    // a missing token: hidden.
+    if (message.author?.isGM
+        && (token.actor.testUserPermission(game.user, "OWNER") || game.user.isGM)) {
       const btn = html.querySelector(".roll-str-save");
-      if (btn)
-        btn.onclick = (ev) => Damage._rollStrSave(token, html);
+      // ONE SAVE PER CARD, recorded on the MESSAGE (review #34 finding 86). The
+      // button used to be disabled in the presser's own DOM only, so every other
+      // copy — the Warden's, a co-owner's, the notification pane, the same card
+      // after a reload — stayed live, and the same overflow could be saved
+      // twice with each card offering its own Critical Damage. Recorded BEFORE
+      // the roll, the choice pair's order — and like the pair, a Warden who
+      // answers "already spent" stops it (review #34 finding 214: the answer
+      // used to be thrown away). Where it cannot be recorded (no Warden
+      // connected for an owner who is not the card's author, or a query that
+      // never answered) the save still rolls, as it always did, sealed only on
+      // this screen.
+      if (btn && message.getFlag(FLAG_SCOPE, STR_SAVE_FLAG)) {
+        btn.setAttribute("disabled", "disabled");
+      } else if (btn) {
+        btn.onclick = async () => {
+          if (message.getFlag(FLAG_SCOPE, STR_SAVE_FLAG) || strSaveInFlight.has(message.id)) return;
+          strSaveInFlight.add(message.id);
+          try {
+            if (message.isAuthor || game.user.isGM) {
+              await message.setFlag(FLAG_SCOPE, STR_SAVE_FLAG, true);
+            } else if (game.users.activeGM) {
+              let answer = null;
+              try {
+                answer = await game.users.activeGM.query(CHOICE_QUERY,
+                  { messageId: message.id, kind: "strSave" }, { timeout: 15000 });
+              } catch (err) {
+                console.warn("Air Bladder | the Warden's client did not record the STR save:", err);
+              }
+              if (answer && !answer.recorded) return;   // spent, by the Warden's own copy
+            }
+            await Damage._rollStrSave(token, html);
+          } finally {
+            strSaveInFlight.delete(message.id);
+          }
+        };
+      }
     } else {
       html.querySelectorAll(".roll-str-save").forEach((btn) => {
         btn.style.display = "none";
@@ -3742,8 +4077,15 @@ Hooks.on("renderChatMessageHTML", (message, html, data) => {
   const critBtn = html.querySelector(".mark-critical-damage");
   const fatigueBtn = html.querySelector(".take-fatigue-instead");
   if (critBtn || fatigueBtn) {
-    const critActor = token?.actor ?? game.actors.get(message.speaker?.actor);
-    const mayAnswer = critActor
+    const critActor = speakerActor(message.speaker, token);
+    // The card's AUTHOR must own the actor too (review #34 finding 6). The
+    // speaker is the author's own choice and the buttons ride the stored
+    // content, so a player could post a failed save naming another player's
+    // character, and the Warden's press marked that character's Critical
+    // Damage with the Warden's rights. A real save card is posted by an owner
+    // of the actor or by the Warden, and the Warden owns everything.
+    const mayAnswer = critActor && !!message.author
+      && critActor.testUserPermission(message.author, "OWNER")
       && (critActor.testUserPermission(game.user, "OWNER") || game.user.isGM);
     // SPENDING THE CHOICE IS A MESSAGE WRITE, and a ChatMessage makes its AUTHOR
     // the owner (common/documents/chat-message.mjs `getUserLevel`; `update`
@@ -3781,27 +4123,39 @@ Hooks.on("renderChatMessageHTML", (message, html, data) => {
     // silently mislabel history on precisely the cards nothing ever repairs. The
     // `data-panic` rule — a shape older than the datum is not guessed at.
     const spent = () => !!message.getFlag(FLAG_SCOPE, CRAWLER_CHOICE_FLAG);
+    /** Say why a choice was not recorded — the real reason (review #34 finding
+     *  166). It used to say "no Warden is connected" for every refusal, the
+     *  Warden's own earlier answer to the card included. */
+    const refusedBecause = (reason) => ui.notifications.warn(game.i18n.localize(
+      reason === "answered" ? "CAIRN.Crawler.ChoiceAlreadyMade"
+        : reason === "dropFailed" ? "CAIRN.Pile.DropRefused"
+          : "CAIRN.Crawler.NoWardenForChoice"));
     /**
      * Record the choice on the message: directly where this user may write it,
-     * through the Warden's client otherwise. Returns whether it was recorded —
-     * a `false` leaves the card live, nothing taken, and says why.
+     * through the Warden's client otherwise — with the Fatigue bargain's
+     * `drop` riding the same query, behind the claim (`handleChoiceQuery`).
+     * Returns whether it was recorded; a `false` leaves the card live, nothing
+     * taken, and has said why. The direct path does not take a `drop`: its
+     * caller claims, drops and gives back itself.
      */
-    const spend = async (kind) => {
+    const spend = async (kind, drop = null) => {
       if (message.isAuthor || game.user.isGM) {
         await message.setFlag(FLAG_SCOPE, CRAWLER_CHOICE_FLAG, kind);
         return true;
       }
       const gm = game.users.activeGM;
-      let recorded = false;
+      let answer = null;
       if (gm) {
         try {
-          recorded = await gm.query(CHOICE_QUERY, { messageId: message.id, kind }, { timeout: 15000 }) === true;
+          answer = await gm.query(CHOICE_QUERY, { messageId: message.id, kind, ...(drop ? { drop } : {}) },
+            { timeout: 15000 });
         } catch (err) {
           console.warn("Air Bladder | the Warden's client did not record the choice:", err);
         }
       }
-      if (!recorded) ui.notifications.warn(game.i18n.localize("CAIRN.Crawler.NoWardenForChoice"));
-      return recorded;
+      if (answer?.recorded === true) return true;
+      refusedBecause(answer?.reason ?? "noWarden");
+      return false;
     };
     const seal = () => {
       critBtn?.setAttribute("disabled", "disabled");
@@ -3835,8 +4189,13 @@ Hooks.on("renderChatMessageHTML", (message, html, data) => {
     if (critBtn) {
       if (mayAnswer) {
         critBtn.onclick = async () => {
-          if (spent()) return;
-          if (await takeCritical()) markChoiceTaken(critBtn);
+          if (spent() || choiceInFlight.has(message.id)) return;
+          choiceInFlight.add(message.id);
+          try {
+            if (await takeCritical()) markChoiceTaken(critBtn);
+          } finally {
+            choiceInFlight.delete(message.id);
+          }
         };
       } else {
         critBtn.style.display = "none";
@@ -3847,7 +4206,19 @@ Hooks.on("renderChatMessageHTML", (message, html, data) => {
       if (mayAnswer) {
         fatigueBtn.onclick = async (ev) => {
           const b = ev.currentTarget;
-          if (spent()) return;
+          // ONE CHOICE AT A TIME PER CARD (review #34 finding 132). `spent()`
+          // reads the flag, and the flag reaches this client only when the
+          // server replies to the write below, so a double-click inside that
+          // round trip passed the check twice and minted two Fatigues; a press
+          // on Mark Critical Damage in the same window wrote that beside it.
+          // The flag stays the enforcement across clients; this is the lock
+          // within one, claimed before the first await and shared with the
+          // Critical button, as the Apply-damage card claims its own.
+          if (spent() || choiceInFlight.has(message.id)) return;
+          choiceInFlight.add(message.id);
+          try { await takeFatigueChoice(b); } finally { choiceInFlight.delete(message.id); }
+        };
+        const takeFatigueChoice = async (b) => {
           // SOMETHING GOES ON THE FLOOR FIRST — BUT ONLY WHEN THE CHARACTER IS
           // ALREADY OVERBURDENED (user ruling, the night of 2026-10-03, the
           // third shape of this rule in two days: every press, then "when it
@@ -3884,28 +4255,42 @@ Hooks.on("renderChatMessageHTML", (message, html, data) => {
           // one bargain, and a Fatigue landing while the picker was still open
           // would be half of it. A character who is not overburdened is
           // answered without a dialog as "drop nothing".
-          const chose = mustDropForFatigue(critActor) ? await askWhatToDrop(critActor) : { id: null, place: "" };
+          const chose = mustDropForFatigue(critActor)
+            ? await askWhatToDrop(critActor, { windowId: windowIdOf(b) })
+            : { id: null, place: "" };
           if (chose === null) return;
-          if (spent()) return;             // re-asked: the dialog is seconds wide
+          // Re-asked: the dialog is seconds wide, and the Warden may have
+          // answered the card meanwhile.
+          if (spent()) { refusedBecause("answered"); return; }
           if (chose === "critical") {
             if (await takeCritical()) markChoiceTaken(critBtn);
             return;
           }
-          // THE DROP MUST HAVE HAPPENED (review #33). Its result was thrown
-          // away here, so with no Warden connected — or a refusal on the
-          // Warden's side — the Fatigue still landed and the card sealed over a
-          // bargain nobody had paid. `dropItemToPile` now answers truthfully
-          // (a real reply from the Warden's client), and a `false` stops here
-          // with the card live and nothing taken.
-          if (chose.id) {
-            const dropped = await dropItemToPile(critActor, chose.id, { announce: true, place: chose.place });
-            if (!dropped) {
-              ui.notifications.warn(game.i18n.localize("CAIRN.Pile.DropRefused"));
-              return;
+          // CLAIM FIRST, AND GIVE IT BACK IF THE DROP FAILS (review #34
+          // finding 166, ruled 2026-11-01). The item used to go first and the
+          // choice after, so a Mark Critical Damage landing between the two
+          // took the item for nothing. THE DROP MUST STILL HAVE HAPPENED
+          // (review #33): `dropItemToPile` and the broker answer truthfully,
+          // and a failed drop leaves the card live and nothing taken.
+          if (message.isAuthor || game.user.isGM) {
+            // This client writes the choice itself: claim, drop, give back.
+            await message.setFlag(FLAG_SCOPE, CRAWLER_CHOICE_FLAG, "fatigue");
+            if (chose.id) {
+              const dropped = await dropItemToPile(critActor, chose.id, { announce: true, place: chose.place });
+              if (!dropped) {
+                await message.unsetFlag(FLAG_SCOPE, CRAWLER_CHOICE_FLAG);
+                ui.notifications.warn(game.i18n.localize("CAIRN.Pile.DropRefused"));
+                return;
+              }
             }
+          } else {
+            // The Warden's client writes it: ONE query claims and drops, and
+            // gives the claim back on its own side if the drop fails. The
+            // claim id is minted here, once per gesture, as dropItemToPile's is.
+            const drop = chose.id
+              ? { itemId: chose.id, place: chose.place, claimId: foundry.utils.randomID() } : null;
+            if (!(await spend("fatigue", drop))) return;
           }
-          // The choice is recorded BEFORE the Fatigue, as takeCritical does.
-          if (!(await spend("fatigue"))) return;
           // Fatigue is a COST the rules impose, never a purchase, so it lands
           // past a full pack — `ignoreCapacity` is the flag that exists for
           // exactly this. With a drop in front of it the bargain NETS TO ZERO:
@@ -3982,8 +4367,17 @@ const configureHandleBar = () => {
   // also handed container contents, which no sheet context walks.
   Handlebars.registerHelper("damageDiceIcons", (formula) => damageDiceIcons(formula));
 
-  Handlebars.registerHelper("times", function (n, block) {
+  // BOUNDED (review #34 finding 54). Both callers are driven by a number an
+  // owner types — coin rows by gold, use pips by uses.max — with no ceiling in
+  // the schema, so one keystroke (gold 1e9) built millions of rows and stalled,
+  // then broke, the sheet on every client that had it open: the Warden's
+  // included. Review #33 bounded the damage-dice glyph loop for the same
+  // reason. A hundred is far past any real inventory or counter, and the
+  // stored value is untouched; only the drawing stops.
+  const TIMES_CEILING = 100;
+  Handlebars.registerHelper("times", function (count, block) {
     var accum = "";
+    var n = Math.min(Number(count) || 0, TIMES_CEILING);
     for (var i = 0; i < n; ++i) {
       block.data.index = i;
       block.data.first = i === 0;

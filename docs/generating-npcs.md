@@ -57,8 +57,8 @@ is the one to use when you want the new person filed straight into a folder.
 - **Ten traits**: the six appearance ones a player character rolls — Physique,
   Skin, Hair, Face, Speech, Clothing — plus **Quirk**, **Goal**, **Virtue** and
   **Vice** off the Warden's Guide NPC lists.
-- **An age**, respecting your minimum- and maximum-age settings, the same as a
-  player character's.
+- **An age**, rolled with your **Age formula for generated characters**
+  setting, the same as a player character's.
 - **Blank pronouns.** Generation does not choose them — there is no table for
   pronouns and no die should decide them. The field is at the top of the
   Description tab; fill it in when you know.
@@ -117,7 +117,9 @@ no dice on it.
 Roll NPC asks first, and it asks two different questions:
 
 - On a **hireling**: everything it is carrying will be deleted, and its
-  abilities, HP, Career and day rate replaced. A whole new working person.
+  abilities, HP, Career, day rate, traits and age replaced. Its pronouns,
+  coins and status marks are cleared, and it is marked For Hire. A whole new
+  working person.
 - On an **NPC**: its Background, stat block, traits and age are replaced, and
   so is everything generation gave it — the Background's gear AND the kit,
   because this is a different person. Its pronouns, coins and status marks
@@ -139,12 +141,13 @@ nothing else:
 | beside **Background** | a new Background **and the gear it grants** — the kit stays between ordinary trades; landing **Lord or Politician empties the whole pack**, and rolling back off one repacks it (NPC role) |
 | beside **Career** | a new Career — **and its stat block and gear with it**, because in 2e a career *is* those things |
 | beside **Faction** | a side, off `Warden: NPC - Faction` |
-| beside **Age** | your **Age formula** setting (default: 2d20 + 10 — see [Dice Formulas](dice-formulas.md)) |
+| beside **Age** | your **Age formula for generated characters** setting (default: 2d20 + 10 — see [Dice Formulas](dice-formulas.md)) |
 | on the portrait | another face from the same folder |
 
 **These dice are yours alone.** On an NPC or hireling sheet a player never sees
-them — not even a player who owns the hireling, and whatever **Allow players
-to randomize** says. That setting still governs player characters only.
+them — not even a player who owns the hireling, and whatever **Let players use
+Character Creation tools on their sheets** says. That setting still governs
+player characters only.
 
 ### Picking instead of rolling
 
@@ -204,11 +207,10 @@ The text is the Cairn 2e Warden's Guide NPC tables (CC BY-SA 4.0, by Yochai
 Gal). Everything here *rolls* these tables rather than *drawing* from them, so
 your tables never get marked as drawn.
 
-**Faction is the one you can override.** Make a RollTable in your own world
-named exactly `Warden: NPC - Faction` and it wins over the shipped copy, so your
-campaign's factions survive a system update. The others are read straight from
-the compendium — you can unlock the pack and edit rows, but an update ships
-fresh copies, so treat those edits as temporary.
+**Every one of these tables can be overridden.** Make a RollTable in your own
+world with exactly a shipped table's name — `Warden: NPC - Faction`, say — and
+it wins over the shipped copy, so your version survives a system update. Edits
+made inside the shipped compendium do not: an update replaces it.
 
 The twelve careers are **not** a table. They are a list inside the system, taken
 from the 2e hireling examples, which is why there is no "Careers" compendium to

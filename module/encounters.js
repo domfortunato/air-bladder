@@ -25,11 +25,17 @@
  * `module/i18n-content.js`), so a Spanish client parses the same English the
  * table stores. The drawn rows are recovered from the MESSAGE document, not
  * the DOM: core stamps `flags.core.RollTable` with the table id and rides the
- * Roll along (roll-table.mjs:60), so `getResultsForRoll(roll.total)` re-derives
- * exactly what was drawn. (The card's `data-result-id` attribute is EMPTY on
+ * Roll along (roll-table.mjs:60), so the roll's total re-derives the OUTER row
+ * that was drawn — selected by RANGE, not through `getResultsForRoll`, whose
+ * drawn filter loses the very row a no-replacement draw just marked (review
+ * #34 finding 88). (The card's `data-result-id` attribute is EMPTY on
  * 14.365 — table-result.hbs reads `{{result.id}}` off a `toObject()`, which
  * only carries `_id` — so the DOM could not be the source even if it were the
- * right layer.)
+ * right layer.) WHICH table is the message's own identity, not the id alone
+ * (review #34 finding 231, `drawnTable`). And the limit, stated: a row that
+ * draws from ANOTHER table is re-derived as itself, never as what the inner
+ * draw landed on — the inner roll is not stored, the card's HTML is not
+ * trusted — so a nested table's encounter rows earn no button.
  *
  * The button is Warden-only BOTH ways (affordance/enforcement, as everywhere):
  * injected only into a GM client's copy at render — one visibility gate,
@@ -110,14 +116,64 @@ export const resolveTable = async (tableId) => {
   return null;
 };
 
+/** The rows a roll total lands on, BY RANGE, without core's drawn filter
+ *  (review #34 finding 88). `getResultsForRoll` returns only rows not yet
+ *  drawn, and a world table set to draw WITHOUT replacement marks the row it
+ *  lands on as drawn before the card renders — so the very row this card shows
+ *  was filtered out and the button never appeared. The Scars flow selects the
+ *  same way (damage.js), for the same reason. */
+const rowsAt = (table, total) => table.results.filter((r) => Number.between(total, r.range[0], r.range[1]));
+
+/** The actor uuids a set of specs would place, as a sorted key. */
+const actorKey = (specs) => specs.map((s) => s.uuid).filter(Boolean).sort().join("|");
+
+/**
+ * The table a draw card DREW (review #34 finding 231). Core's flag is the
+ * table's bare id, and core's own Import keeps that id (`keepId ??= true`), so
+ * once a Warden imports a shipped encounter table and edits it, the world copy
+ * and the pack table both answer to it — and world-first spawned the world
+ * copy's creatures under a card that showed the pack's. Two draws do this in
+ * ordinary play: the compendium sheet (the guide says it works "straight from
+ * the compendium") and the Dashboard once its copy is renamed (it draws by
+ * name).
+ *
+ * The Dashboard's card carries the exact uuid it drew (`dashboardDraw`), and
+ * that rules. For core's id alone, every table holding it is a candidate, and
+ * the card's own content chooses between them: the first, world first, whose
+ * rows at this total link the same actors the card SHOWS. The content only
+ * CHOOSES among tables that hold this id — what spawns is still derived from
+ * the chosen table's stored rows, never from HTML the poster's client wrote.
+ * When nothing tells them apart, world first, as before.
+ * @returns {Promise<RollTable|null>}
+ */
+const drawnTable = async (message, tableId, total) => {
+  const drawnUuid = message.getFlag?.("air-bladder", "dashboardDraw");
+  if (typeof drawnUuid === "string") {
+    const byUuid = await fromUuid(drawnUuid).catch(() => null);
+    if (byUuid?.documentName === "RollTable" && byUuid.id === tableId) return byUuid;
+  }
+  const candidates = [];
+  if (game.tables.get(tableId)) candidates.push(game.tables.get(tableId));
+  for (const pack of game.packs.filter((p) => p.documentName === "RollTable")) {
+    if (pack.index.has(tableId)) candidates.push(await pack.getDocument(tableId));
+  }
+  if (candidates.length < 2) return candidates[0] ?? null;
+  const tpl = document.createElement("template");
+  tpl.innerHTML = String(message.content ?? "");
+  const shown = [...tpl.content.querySelectorAll(".table-results a[data-uuid]")]
+    .map((a) => a.dataset.uuid).filter((u) => /(^|\.)Actor\./.test(u)).sort().join("|");
+  return candidates.find((tbl) => actorKey(rowsAt(tbl, total).map(resultSpec).filter(Boolean)) === shown)
+    ?? candidates[0];
+};
+
 /** Every spawnable spec on a draw card's message, [] when there are none. */
 export const encounterSpecsForMessage = async (message) => {
   const tableId = foundry.utils.getProperty(message.flags ?? {}, "core.RollTable");
   const roll = message.rolls?.[0];
   if (!tableId || !roll) return [];
-  const table = await resolveTable(tableId);
+  const table = await drawnTable(message, tableId, roll.total);
   if (!table) return [];
-  return table.getResultsForRoll(roll.total).map(resultSpec).filter(Boolean);
+  return rowsAt(table, roll.total).map(resultSpec).filter(Boolean);
 };
 
 /* -------------------------------------------- */
@@ -167,12 +223,38 @@ export const injectEncounterButton = async (message, html) => {
 /*  Spawning                                    */
 /* -------------------------------------------- */
 
-/** Ring of grid offsets around the view centre — every token its own cell,
- *  scaled outward when a big roll outruns one ring. */
+/** Ring of grid offsets around the view centre — every token its own cell. */
 const CLUSTER_OFFSETS = [
   [0, 0], [1, 0], [0, 1], [1, 1], [-1, 0], [0, -1], [-1, 1], [1, -1], [-1, -1],
   [2, 0], [0, 2], [2, 1], [1, 2], [-2, 0], [0, -2], [2, 2],
 ];
+
+/**
+ * The cell for the n-th token: the sixteen above first, unchanged, then every
+ * other cell of ring 2, ring 3 and outward, each cell once (review #34 finding
+ * 90). Past sixteen this used to SCALE the same sixteen offsets by a ring
+ * number, which lands ring 2's (0,0), (1,0), (0,1)... exactly on ring 1's
+ * (0,0), (2,0), (0,2)... — the 17th token on top of the 1st, a row of twenty on
+ * sixteen cells.
+ */
+const clusterOffset = (() => {
+  const cells = [...CLUSTER_OFFSETS];
+  const used = new Set(cells.map(([x, y]) => `${x},${y}`));
+  let ring = 2;
+  return (n) => {
+    while (cells.length <= n) {
+      for (let y = -ring; y <= ring; y++) {
+        for (let x = -ring; x <= ring; x++) {
+          if (Math.max(Math.abs(x), Math.abs(y)) !== ring || used.has(`${x},${y}`)) continue;
+          used.add(`${x},${y}`);
+          cells.push([x, y]);
+        }
+      }
+      ring += 1;
+    }
+    return cells[n];
+  };
+})();
 
 /** The world "Encounters" folder, found by FLAG first (survives a rename and a
  *  language switch — the name is only the label it was born with), created on
@@ -212,16 +294,25 @@ export const localizeEncounterQty = (message, html) => {
   });
 };
 
-const encounterFolder = async () => {
+const encounterFolder = () => {
   const existing = game.folders.find(
     (f) => f.type === "Actor" && f.getFlag(game.system.id, "encounters"));
-  if (existing) return existing;
-  return Folder.create({
+  if (existing) return Promise.resolve(existing);
+  // ONE create in flight (review #34 finding 137): two cards pressed inside
+  // one round trip each missed the find above and made a folder apiece.
+  folderInFlight ??= Folder.create({
     name: game.i18n.localize("CAIRN.Encounter.Folder"),
     type: "Actor",
     flags: { [game.system.id]: { encounters: true } },
-  });
+  }).finally(() => { folderInFlight = null; });
+  return folderInFlight;
 };
+
+/** encounterFolder's create while it runs — see there. */
+let folderInFlight = null;
+
+/** resolveWorldActor's import per pack uuid while it runs — see there. */
+const importsInFlight = new Map();
 
 /**
  * ONE world actor for a parsed uuid. A world Actor link is the actor. A
@@ -229,16 +320,39 @@ const encounterFolder = async () => {
  * (`_stats.compendiumSource` holds the full pack uuid) and imports into the
  * Encounters folder only when no copy exists — N tokens share it; never one
  * actor per token.
+ *
+ * A COPY NO PLAYER OWNS (review #34 finding 122). `_stats.compendiumSource` is
+ * not a server-managed field: an owner can write it on their own actor, and a
+ * sidebar Duplicate keeps it. Reused as-is, a player's character wearing a
+ * goblin's source was the goblin, and every token placed from it was theirs to
+ * move. The pile's rule (`isDroppedPile`): a flag-like identity is not
+ * identity while a player owns the document. And the import that follows
+ * keeps the SHIPPED ID only while no world actor holds it: core's import
+ * REPLACES the actor at a taken id (document-collection.mjs `importDocument`),
+ * and the player's copy passed over above holds that id whenever its owner
+ * imported it from the sidebar — the replace would have overwritten their
+ * actor and taken it from them.
+ *
+ * ONE IMPORT PER UUID AT A TIME (review #34 finding 137): two cards for one
+ * un-imported monster pressed together each missed the find and imported it
+ * twice — a second write over the first's id, or, once that id is taken, a
+ * twin under a fresh one. The second waits for the first and takes its copy.
  */
 const resolveWorldActor = async (uuid) => {
   const doc = await fromUuid(uuid).catch(() => null);
   if (!doc || doc.documentName !== "Actor") return null;
   if (!doc.pack) return doc;
-  const existing = game.actors.find((a) => a._stats?.compendiumSource === uuid);
+  const existing = game.actors.find((a) => a._stats?.compendiumSource === uuid && !a.hasPlayerOwner);
   if (existing) return existing;
-  const folder = await encounterFolder();
-  const pack = game.packs.get(doc.pack);
-  return game.actors.importFromCompendium(pack, doc.id, { folder: folder.id });
+  if (!importsInFlight.has(uuid)) {
+    importsInFlight.set(uuid, (async () => {
+      const folder = await encounterFolder();
+      const pack = game.packs.get(doc.pack);
+      return game.actors.importFromCompendium(pack, doc.id, { folder: folder.id },
+        { keepId: !game.actors.has(doc.id) });
+    })().finally(() => importsInFlight.delete(uuid)));
+  }
+  return importsInFlight.get(uuid);
 };
 
 /** Place `count` unlinked NEUTRAL copies of the actor's prototype token in the
@@ -249,10 +363,8 @@ const spawnTokens = async (actor, count, start) => {
   const c = canvas.stage.pivot;
   const docs = [];
   for (let i = 0; i < count; i++) {
-    const n = start + i;
-    const [dx, dy] = CLUSTER_OFFSETS[n % CLUSTER_OFFSETS.length];
-    const ring = Math.floor(n / CLUSTER_OFFSETS.length) + 1;
-    const p = canvas.grid.getTopLeftPoint({ x: c.x + dx * gs * ring, y: c.y + dy * gs * ring });
+    const [dx, dy] = clusterOffset(start + i);
+    const p = canvas.grid.getTopLeftPoint({ x: c.x + dx * gs, y: c.y + dy * gs });
     // getTokenDocument, not prototypeToken.toObject() (review): it resolves a
     // wildcard randomImg to an actual file and applies appendNumber /
     // prependAdjective — which a raw toObject() ships literally (a broken
@@ -260,9 +372,18 @@ const spawnTokens = async (actor, count, start) => {
     // data LAST, so the forced NEUTRAL disposition and actorLink:false still win.
     // Latent only because no shipped monster sets those prototype flags; live
     // the moment a Warden does.
+    //
+    // ON THE LEVEL BEING VIEWED (review #34 finding 89). With no `level`, the
+    // token schema files it on the scene's INITIAL level, so on a multi-level
+    // scene viewed at another floor the "Encounter added" toast came with no
+    // tokens in sight. Core's own actor drop sets the level and its base
+    // elevation (token.mjs `_getDropActorPosition`); this does the same.
+    const level = canvas.level ?? null;
     const tokenDoc = await actor.getTokenDocument({
       x: p.x,
       y: p.y,
+      ...(level?.id ? { level: level.id } : {}),
+      ...(Number.isFinite(level?.elevation?.base) ? { elevation: level.elevation.base } : {}),
       actorLink: false,
       disposition: CONST.TOKEN_DISPOSITIONS.NEUTRAL,
     });
@@ -311,6 +432,12 @@ export const spawnEncounterFromMessage = async (message) => {
 
     const placedNames = [];
     let placed = 0;
+    // THE CARD'S OWN VISIBILITY (review #34 finding 127). With no mode the
+    // quantity roll took the Warden's chat dropdown, so an encounter drawn
+    // privately — the Dashboard's default — was followed by a public
+    // "Encounter: …" naming what was coming. The roll is heard by whoever
+    // heard the draw.
+    const messageMode = message.blind ? "blind" : message.whisper?.length ? "gm" : "public";
     for (const spec of specs) {
       const roll = await new Roll(spec.qty).evaluate();
       const name = qtyWhat({ npc: !!spec.npc, label: spec.label || "" });
@@ -322,7 +449,7 @@ export const spawnEncounterFromMessage = async (message) => {
         // the line in each viewer's language (review #27). English, never the
         // translated name: the overlay is keyed on the source string.
         flags: { "air-bladder": { encounterQty: { npc: !!spec.npc, label: spec.npc ? "" : String(spec.label || "") } } },
-      });
+      }, { messageMode });
       const count = Math.max(0, Math.floor(roll.total));
       if (!count) continue;
 

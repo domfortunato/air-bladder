@@ -10,8 +10,9 @@ come after.
 The **Create PC** button sits above the Actors sidebar. Clicking it asks one
 question, then rolls everything a Cairn 2e character starts with — abilities,
 Hit Protection, a background with its gear and questions, traits, age, and a
-bond — and opens the finished sheet. With more than one content source enabled
-(Custom 2e, Barebones), the same window asks which table to deal from.
+bond — and opens the finished sheet. With Barebones offered alongside Cairn 2e,
+the same window asks which to deal from; custom 2e backgrounds join the 2e pool
+rather than adding a choice.
 
 ## Start from an empty sheet
 
@@ -105,10 +106,16 @@ way. **Roll Character** opens a checklist of everything that can be re-rolled,
 all checked to begin with: uncheck what you want to keep, and only the rest is
 re-rolled. The name, starting gear and the two Background Questions ride the
 Background line — a new background deals its own, name included — while bonds
-re-roll only when their own line is checked, and a
-background you picked by hand starts unchecked, so a full re-roll keeps it
-unless you say otherwise. What the list never offers it never touches: notes,
-scars, pronouns, and anything bought or given stay yours. While the mode is
+re-roll only when their own line is checked. Even unchecked, a new background
+keeps only as many bonds as it allows: any past that are removed, with their
+items and coins. A background you picked by hand starts unchecked, so a full
+re-roll keeps it unless you say otherwise. What the list never offers it never touches: notes,
+scars, pronouns, and anything bought or given stay yours. A companion, cart or
+pack that the old background or a question granted is never deleted by a
+re-roll. It is unlinked from the character and stays in the world, with
+everything stowed on it, until the Warden deletes it. Its name gains **o_** in
+front (a Mule becomes **o_Mule**), so sorting the Actors tab by name gathers
+every orphan in one place. While the mode is
 on, the STR/DEX/WIL save dice are grayed out — turn it off to roll saves. This
 is the intended loop: generate, re-roll or pick the parts that don't sit
 right, then flip the toggle off and play.

@@ -38,7 +38,7 @@
  */
 
 import { chromium } from "playwright";
-import { VIEWPORT, joinAsGM, joinAs, watchErrors, watchdog } from "./lib.mjs";
+import { VIEWPORT, joinAsGM, joinAs, watchErrors, watchdog, holdAsideWorldTables } from "./lib.mjs";
 
 const browser = await chromium.launch();
 watchdog(240000, "dev:chat-privacy", () => browser.close());
@@ -68,14 +68,24 @@ const sweep = (extraMessageIds = []) => gm.evaluate(async ({ FLAG, MARK, extraMe
 }, { FLAG, MARK, extraMessageIds });
 
 let posted = {};
+let priorActive = [];
 try {
   await joinAsGM(gm);
+  // The Warden's own world "Warden: …" tables held aside in-page (review #34
+  // finding 149): this probe draws Warden: NPC - Quirk world-first, and a draw
+  // marks rows on a no-replacement world table. Nothing is written.
+  await holdAsideWorldTables(gm, await gm.evaluate(() =>
+    [...new Set(game.tables.filter((t) => /^Warden: /.test(t.name)).map((t) => t.name))]));
   const pre = await sweep();
   Object.values(pre).some(Boolean)
     ? console.log(`  --    swept leftovers first: ${JSON.stringify(pre)}`)
     : ok("nothing planted left behind by an earlier run");
   await joinAs(alice, "Alice");
 
+  // The combats ACTIVE before this run, read in their own evaluate BEFORE the
+  // write (review #34 findings 143, 144): activating this run's combat
+  // deactivates every other, the Warden's encounter included.
+  priorActive = await gm.evaluate(() => game.combats.filter((c) => c.active).map((c) => c.id));
   posted = await gm.evaluate(async ({ FLAG, MARK }) => {
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     const out = {};
@@ -83,7 +93,10 @@ try {
     const flags = { "air-bladder": { [FLAG]: true } };
 
     // 1. The initiative save of a HIDDEN combatant, through the real roll.
-    //    DEX 20 cannot fail a d20 save, so the outcome is forced by fixture.
+    //    DEX 20 passes every d20 save EXCEPT a natural 20, which always fails
+    //    (review #34 finding 50). So the die is PINNED (u = 0.5, a natural 11),
+    //    as dev:combat-order does. "DEX 20 cannot fail" made the control red on
+    //    one roll in twenty (fleet 20261031T043716Z).
     const scene = await Scene.create({ name: `${MARK} Scene`, width: 1000, height: 1000, flags });
     await scene.view();
     await sleep(300);
@@ -100,12 +113,24 @@ try {
     const shown = await mk(`${MARK} Shown`, 300);
     const combat = await Combat.create({ scene: scene.id, flags });
     await combat.activate();
-    const [ch, cs] = await combat.createEmbeddedDocuments("Combatant", [
-      { actorId: hidden.a.id, tokenId: hidden.t.id, sceneId: scene.id, hidden: true },
-      { actorId: shown.a.id, tokenId: shown.t.id, sceneId: scene.id },
-    ]);
+    // Our own ids, read back by id: a batch comes back in the order the server
+    // finished it, so position cannot say which combatant is the hidden one.
+    const chId = foundry.utils.randomID();
+    const csId = foundry.utils.randomID();
+    await combat.createEmbeddedDocuments("Combatant", [
+      { _id: chId, actorId: hidden.a.id, tokenId: hidden.t.id, sceneId: scene.id, hidden: true },
+      { _id: csId, actorId: shown.a.id, tokenId: shown.t.id, sceneId: scene.id },
+    ], { keepId: true });
+    const ch = combat.combatants.get(chId);
+    const cs = combat.combatants.get(csId);
     const before = new Set(game.messages.map((m) => m.id));
-    await combat.rollInitiative([ch.id, cs.id]);
+    const priorUniform = CONFIG.Dice.randomUniform;
+    CONFIG.Dice.randomUniform = () => 0.5;
+    try {
+      await combat.rollInitiative([ch.id, cs.id]);
+    } finally {
+      CONFIG.Dice.randomUniform = priorUniform;
+    }
     await sleep(400);
     const fresh = game.messages.filter((m) => !before.has(m.id));
     out.initHidden = fresh.find((m) => m.speaker?.alias === `${MARK} Hidden`)?.id ?? null;
@@ -164,6 +189,24 @@ try {
     out.dmgBlindExploded = (game.messages.get(out.dmgBlind)?.rolls?.[0]?.dice?.[0]?.results ?? [])
       .filter((r) => r.exploded).length;
 
+    // 2b. THE DETAIL CARD'S "from X's weapon" LINE (review #34 finding 125).
+    //     nameDamageSource builds it on every client from the damage-source
+    //     flag, and the detail card is PUBLIC for a visible target — so an
+    //     attacker the roll card withheld (a private or blind roll: core shows
+    //     players "privately rolled some dice") was named to the whole table.
+    //     The flag carries the roll card's id now, and a viewer who cannot read
+    //     that card is not told who rolled it. Planted in the flag's exact
+    //     shape, public, pointing at the blind card and (control) the public one.
+    const detail = async (sourceMessage) => (await ChatMessage.create({
+      content: `<p>${MARK} detail</p>`,
+      speaker: { alias: `${MARK} Target` },
+      flags: { "air-bladder": { [FLAG]: true, damageSource: {
+        token: null, actor: null, alias: `${MARK} Attacker`, weapon: "ZZ Blade", sourceMessage,
+      } } },
+    })).id;
+    out.detailFromBlind = await detail(out.dmgBlind);
+    out.detailFromPublic = await detail(out.dmgPublic);
+
     out.dashPrivate = await draw("gm");
     out.dashPublic = await draw("public");
 
@@ -192,7 +235,7 @@ try {
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     const wd = await import("/systems/air-bladder/module/warden-dashboard.js");
     const all = [ids.initHidden, ids.initShown, ids.dashPrivate, ids.dashPublic, ids.qtyPrivate, ids.qtyPublic,
-      ids.dmgBlind, ids.dmgPublic];
+      ids.dmgBlind, ids.dmgPublic, ids.detailFromBlind, ids.detailFromPublic];
     for (let i = 0; i < 60; i++) {
       if (all.every((id) => document.querySelector(`[data-message-id="${id}"]`))) break;
       await sleep(100);
@@ -216,12 +259,14 @@ try {
       renderings: document.querySelectorAll(`[data-message-id="${id}"]`).length,
       maneuverLines: document.querySelector(`[data-message-id="${id}"]`)
         ?.querySelectorAll(".dmg-maneuver-line").length ?? 0,
+      sourceLine: el(id, ".dmg-source")?.textContent?.trim() ?? null,
     });
     return {
       initHidden: read(ids.initHidden), initShown: read(ids.initShown),
       dmgBlind: read(ids.dmgBlind), dmgPublic: read(ids.dmgPublic),
       dashPrivate: read(ids.dashPrivate), dashPublic: read(ids.dashPublic),
       qtyPrivate: read(ids.qtyPrivate), qtyPublic: read(ids.qtyPublic),
+      detailFromBlind: read(ids.detailFromBlind), detailFromPublic: read(ids.detailFromPublic),
       // Core's own substitution, computed on HER client.
       privateLine: game.i18n.format("CHAT.PrivateRollContent", { user: gmName }),
       tableLabel: wd._labelForTable(tableName),
@@ -283,12 +328,23 @@ try {
   s.qtyPublic.present && s.qtyPublic.flavor.includes(`${MARK} Bandit`)
     ? ok(`CONTROL: the public one reads "${s.qtyPublic.flavor}" on her client`)
     : fail(`CONTROL FAILED — the public quantity roll did not rebuild for Alice: "${s.qtyPublic.flavor}"`);
+
+  // F125: the attacker of a blind roll is not named on the public detail card.
+  s.detailFromBlind.present && s.detailFromBlind.sourceLine === null
+    ? ok("a public detail card does not name the attacker of a BLIND roll to Alice")
+    : fail(`the detail card named a blind roll's attacker to Alice: ${JSON.stringify(s.detailFromBlind.sourceLine)}`);
+  s.detailFromPublic.present && /ZZ Privacy Attacker/.test(s.detailFromPublic.sourceLine ?? "")
+    ? ok(`CONTROL: from a PUBLIC roll she reads "${s.detailFromPublic.sourceLine}"`)
+    : fail(`CONTROL FAILED — the public roll's attacker was not named: ${JSON.stringify(s.detailFromPublic.sourceLine)}`);
 } catch (e) {
   fail(`${e.name}: ${e.message}`);
 } finally {
   try {
     const ids = [posted.initHidden, posted.initShown, posted.dashPrivate, posted.dashPublic, posted.qtyPrivate, posted.qtyPublic].filter(Boolean);
     const post = await sweep(ids);
+    await gm.evaluate(async (prior) => {
+      for (const id of prior) await game.combats.get(id)?.update({ active: true });
+    }, priorActive);
     console.log(`\n  --    removed ${JSON.stringify(post)}`);
   } catch { /* page gone */ }
   const errors = [...gmErrors, ...aliceErrors];

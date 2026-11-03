@@ -114,17 +114,50 @@ export const refreshLocalizedApps = () => {
 export const contentLocalized = () => OVERLAY !== null;
 
 /**
+ * What a re-roll puts in front of the name of a container it orphans (review
+ * #34 finding 183, ruled 2026-11-02): sorted by name, the orphans gather in one
+ * place for the Warden to delete. A fixed marker rather than a word, the same
+ * in every language and stored like any name, so the overlay translates the
+ * name AFTER it (`lookup`) — "o_Mule" reads "o_Mula".
+ */
+export const ORPHAN_PREFIX = "o_";
+
+/**
  * Translate one source string within a namespace. Returns the English source on
  * ANY miss (no overlay, unknown namespace, unknown string, or null input). The
  * load-bearing invariant: a miss is the English source verbatim — never blank,
  * never a throw. This is the guarantee the whole design rests on.
+ *
+ * `ns` may be a LIST, asked in order, the first hit winning — how a monster's
+ * item falls back from `monster.itemName` to `item.name` (`itemNamespaces`).
  */
 export const t = (ns, en) => {
   if (OVERLAY === null || en == null) return en;
-  const table = OVERLAY[ns];
-  if (!table) return en;
-  const hit = table[normalizeKey(en)];
+  const hit = lookup(ns, en);
   return hit == null ? en : hit;
+};
+
+/**
+ * The overlay's answer for one string, or undefined: t() and translationOf()
+ * differ only in what a miss returns. An actor name wearing ORPHAN_PREFIX that
+ * misses whole is asked again without it, and the prefix put back; only
+ * `monster.name`, the one namespace a name the prefix is written onto is read
+ * under (a character's name never reaches here — `actorDisplayName`).
+ */
+const lookup = (ns, en) => {
+  const hit = Array.isArray(ns) ? firstHit(ns, en) : OVERLAY[ns]?.[normalizeKey(en)];
+  if (hit != null || ns !== "monster.name" || !String(en).startsWith(ORPHAN_PREFIX)) return hit;
+  const rest = OVERLAY[ns]?.[normalizeKey(String(en).slice(ORPHAN_PREFIX.length))];
+  return rest == null ? undefined : ORPHAN_PREFIX + rest;
+};
+
+const firstHit = (list, en) => {
+  const key = normalizeKey(en);
+  for (const ns of list) {
+    const hit = OVERLAY[ns]?.[key];
+    if (hit != null) return hit;
+  }
+  return undefined;
 };
 
 /**
@@ -135,9 +168,7 @@ export const t = (ns, en) => {
  */
 export const translationOf = (ns, en) => {
   if (OVERLAY === null || en == null) return undefined;
-  const table = OVERLAY[ns];
-  if (!table) return undefined;
-  const hit = table[normalizeKey(en)];
+  const hit = lookup(ns, en);
   return hit == null ? undefined : hit;
 };
 
@@ -189,6 +220,37 @@ export const actorDisplayName = (a) =>
 export const tokenDisplayName = (tok) =>
   tok?.actor?.type === "character" ? (tok?.name ?? "") : t("monster.name", tok?.name ?? "");
 
+/** The namespaces a monster's items are read under, and everyone else's. */
+export const MONSTER_ITEM_NAMESPACES = Object.freeze({
+  nameNs: Object.freeze(["monster.itemName", "item.name"]),
+  descNs: Object.freeze(["monster.itemDesc", "item.desc"]),
+});
+export const ITEM_NAMESPACES = Object.freeze({ nameNs: "item.name", descNs: "item.desc" });
+
+/**
+ * The overlay namespaces an item OWNED BY `owner` is read under — the one rule
+ * for every surface that names an item: the inventory row, its panel, print,
+ * the trash's confirm, the ledger, the hotbar macro, the item sheet's title,
+ * name field and description, the Drop and Give dialogs, the offer card and
+ * toasts, a full container's refusal.
+ *
+ * Keyed on ROLE, not type. A monster stores its attacks and features as items,
+ * which the extractor files under monster.itemName/monster.itemDesc; everything
+ * else — a character, a hireling, a person, and a CONTAINER — holds gear from
+ * the item packs, which is item.*.
+ *
+ * A MONSTER'S FALL BACK TO item.* (review #34 finding 198). A monster also
+ * carries ordinary gear — a Torch handed to it, a sword dropped on it — which
+ * only item.* knows, and the item sheet and the dialogs asked item.* outright
+ * while the row asked monster.* alone: one Adze read "Azuela" on the row and
+ * "Adze" on its sheet, one Torch "Torch" on the row and "Antorcha" on its
+ * sheet. A frozen list `t` and `translationOf` read in order.
+ * @param {Actor|null} owner  the item's parent; none reads item.*
+ * @returns {{nameNs: string|string[], descNs: string|string[]}}
+ */
+export const itemNamespaces = (owner) =>
+  (owner?.npcRole === "monster" ? MONSTER_ITEM_NAMESPACES : ITEM_NAMESPACES);
+
 /**
  * A chat message SPEAKER's name as THIS viewer's card header shows it
  * (cairn.js `localizeSpeakerName`, review #19): the token's where the message
@@ -198,6 +260,13 @@ export const tokenDisplayName = (tok) =>
  * carry that gate). One resolver, shared by every flavor that is rebuilt per
  * viewer (GLOG cast cards, initiative save cards), so a card's flavor and its
  * header can never disagree about a name.
+ *
+ * THE TOKEN ANSWERS ONLY TO ITS OWN NAME (review #34 finding 242), the test
+ * the actor branch always made. The alias is the card's snapshot, and two
+ * producers set one that is not the token's while keeping `speaker.token`: the
+ * initiative card (the combatant's name, which Combatant Config overrides) and
+ * the generation card (the roller). The token branch replaced both with the
+ * token's live name.
  * @param {ChatMessage} message
  * @param {String} alias  the alias the card was composed with
  * @return {String}
@@ -206,7 +275,7 @@ export const speakerDisplayName = (message, alias) => {
   const speaker = message?.speaker ?? {};
   const token = speaker.scene && speaker.token
     ? game.scenes?.get(speaker.scene)?.tokens?.get(speaker.token) : null;
-  if (token) return tokenDisplayName(token) || alias;
+  if (token && token.name === alias) return tokenDisplayName(token) || alias;
   const actor = speaker.actor ? game.actors?.get(speaker.actor) : null;
   if (!actor || actor.name !== alias) return alias;
   return actorDisplayName(actor) || alias;

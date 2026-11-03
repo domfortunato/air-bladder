@@ -22,8 +22,8 @@ Weather is rolled **once a day**, not once a watch.
 ## The watch clock
 
 A small panel sits above the player list, and everyone sees it. It shows the
-current watch, the date underneath, the season, and — once you have called it —
-today's weather.
+current watch and the date underneath, and — once you have called it — today's
+weather. With the Vald calendar switched on it shows the season too.
 
 With the Vald calendar switched on, the panel is also a button: **click it and
 the month calendar opens**. Anyone at the table can do that. It is read-only for
@@ -32,7 +32,9 @@ players, so opening it changes nothing about who moves the clock.
 You can turn it off in **Configure Settings → Air Bladder → Configure General**,
 under **Show the watch clock**. That is one switch for the whole table, not a
 per-player preference: whether your game tracks watches at all is your call as
-Warden.
+Warden. The clock also carries today's weather, and with the Vald calendar on
+it is how players open the calendar, so switching it off takes both away from
+them. You can still open the calendar from **Calendar** on the Dashboard.
 
 Only you can move the clock. Players can read it and nothing else.
 
@@ -67,8 +69,8 @@ season that is.
 It does two things the other table buttons do not, and both are deliberate.
 **The card goes out to everyone**, whatever the visibility dropdown says —
 weather the party is standing in is not a secret. And **the result becomes
-today's weather**: it appears on everybody's clock and on the calendar, and it
-clears itself when the day turns over. If you want a private look at a season's
+today's weather**: it appears on everybody's clock (and, with the Vald calendar
+on, on the calendar), and it clears itself when the day turns over. If you want a private look at a season's
 weather, roll that season's own table on the Travel tab instead; that one sets
 nothing.
 
@@ -77,7 +79,9 @@ for a curse, a spell, or the thing in the valley. Type whatever the sky is
 doing. The season's own six rows are offered as suggestions, so the ordinary
 case is still one keystroke and a pick. **Leave the field empty and the weather
 clears**, which is how you undo a mistake. Nothing is posted to
-chat: the clock and the calendar carry it to everyone already.
+chat: the clock carries it to everyone already, and the Vald calendar too when
+it is on. With the clock switched off, players see it only if you **Keep a
+weather log**.
 
 ## Keeping a weather log
 
@@ -159,7 +163,8 @@ one while it is off.
 
 Click the watch clock, or press **Calendar** on the Dashboard, and the month
 opens: twenty-four days in six columns, today circled, and the day you last
-looked at highlighted. Everyone can open it.
+looked at highlighted. Everyone can open it while the watch clock is shown;
+with the clock switched off, only you can, from the Dashboard.
 
 - **Each day is tinted with its season**, and the day a season *begins* carries
   that season's mark. Vald's seasons turn over in the middle of a month, so this

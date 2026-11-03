@@ -28,10 +28,22 @@
  * any bundled library (the only "clash" is Acorn's "Argument name clash"). So
  * the build this repo pins CANNOT produce the reported directory, and a green
  * run on 14.365 proves only that our artifact updates cleanly on our own
- * target. Foundry rewrote package installation in 14.366 and moved update
- * checks to the website package repository, where this system is not listed.
- * **Point this at the build users actually run before believing it.** That is
- * what `FOUNDRY_URL` is for.
+ * target. Foundry rewrote package installation in 14.366. **Point this at the
+ * build users actually run before believing it.** That is what `FOUNDRY_URL`
+ * is for.
+ *
+ * It also skips the update CHECK. The Update button installs whatever manifest
+ * `checkPackage` found: the installed copy's own manifest URL
+ * (`releases/latest/download/system.json`), or the package repository's entry
+ * when that lists something newer than both (14.368 `dist/packages/views.mjs`;
+ * the system has been listed since 2026-10-01). This probe hands
+ * `installPackage` the `--to` tag's manifest itself, so it proves the install
+ * and the delete, not which manifest a user's Update would pick.
+ *
+ * IT NEVER LAUNCHES A WORLD. Everything here runs on the Setup page, where no
+ * system code loads, so its console watch cannot see an error thrown by
+ * module/cairn.js or anything else we ship. The in-world half is `dev:smoke`,
+ * run against the same server straight after; `verified` needs both.
  *
  * WHAT IT ASSERTS, after installing `--from` and then updating to `--to`:
  *   1. Exactly one entry under `Data/systems` belongs to this system, and it is
@@ -46,9 +58,10 @@
  *   3. Every declared compendium is present on disk afterwards. A partial
  *      extraction is the failure mode that "breaks" a system while leaving a
  *      directory that looks right from the outside.
- *   4. The world launches on the updated system with no console errors, and the
- *      client reports the new version. The install can be perfect on disk and
- *      still not load.
+ *   4. Foundry's own package list (`game.systems` on the Setup page) reports
+ *      the new version with no invalid-directory warning against it, and the
+ *      Setup page logged no console error. The install can be perfect on disk
+ *      and still not load, and this cannot see that: it is dev:smoke's half.
  *
  * SAFETY, and it is not optional. This probe asks a Foundry server to DELETE a
  * system directory. On the dev server (:30000) `Data/systems/air-bladder` is a
@@ -249,8 +262,8 @@ try {
   console.log(`  note  the in-world half is dev:smoke — run it against ${URL_BASE} after this leg`);
 
   errors.length === 0
-    ? ok("zero console errors")
-    : fail("zero console errors", errors.slice(0, 5).join(" | "));
+    ? ok("zero console errors on the Setup page (no system code runs there)")
+    : fail("zero console errors on the Setup page (no system code runs there)", errors.slice(0, 5).join(" | "));
 } catch (e) {
   fail("probe threw", `${e.name}: ${e.message}`);
 } finally {

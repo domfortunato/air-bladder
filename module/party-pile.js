@@ -25,13 +25,15 @@
  * THE MOVE RUNS ON THE ACTIVE GM'S CLIENT. The pile is OBSERVER for players by
  * ruling — the table sees what was dropped, the Warden hands things back — and a
  * player cannot write to an actor they only observe, so the server would refuse
- * their create. The broker below is the same shape as `ownershipSync`: the
- * player emits, the active GM answers, and `senderId` is the only field trusted,
- * because it is the only one the server authenticates.
+ * their create. The broker below is a `User#query` (review #33): the player's
+ * client asks the active GM, who answers with whether the drop landed, and
+ * the requesting `user` core hands the handler is the only thing trusted,
+ * because it is the only thing the server authenticates.
  */
 
 import { t } from "./i18n-content.js";
 import { itemSlotCost, formatCount } from "./utils.js";
+import { isWardenJournal } from "./calendar-events.js";
 
 /**
  * The flag scope, DECLARED HERE rather than imported, and that is the one piece
@@ -57,7 +59,6 @@ const PARTY_FOLDER_FLAG = "partyFolder";
 const PILE_FLAG = "droppedItemPile";
 /** The chat card a Fatigue-driven drop leaves behind, rebuilt per viewer. */
 export const PILE_DROP_FLAG = "pileDrop";
-/** The socket action the broker answers. */
 /**
  * The query a player's client sends the active Warden to drop on their behalf
  * (`CONFIG.queries`, core's request-and-REPLY channel: `User#query`, which
@@ -72,8 +73,8 @@ export const PILE_DROP_QUERY = "air-bladder.pileDrop";
  * How long a "where did you drop it" note may be (user ask: limit 25
  * characters). The `maxlength` attribute is the affordance and THIS is the
  * enforcement, applied where the write happens — a player's drop is brokered, so
- * the only field the server authenticates is `senderId` and a crafted emit can
- * carry a note of any length. Same pairing as the marketplace's greyed rows and
+ * the only thing the server authenticates is the asking user and a crafted
+ * query can carry a note of any length. Same pairing as the marketplace's greyed rows and
  * the refusal behind them.
  */
 export const DROP_NOTE_MAX = 25;
@@ -125,7 +126,7 @@ export const buildWhereField = () => {
  * @return {Boolean}
  */
 export const isDroppedPile = (actor) =>
-  !!actor?.getFlag?.(FLAG_SCOPE, PILE_FLAG) && !playerOwned(actor);
+  !!actor?.getFlag?.(FLAG_SCOPE, PILE_FLAG) && !playerOwned(actor) && wardenWrote(actor);
 
 /**
  * A FLAG ALONE IS NOT IDENTITY (review #33, 2026-10-04 — the journal lesson of
@@ -137,9 +138,28 @@ export const isDroppedPile = (actor) =>
  * planted fixtures before this line existed. With a higher id the same plant
  * got the GM client to delete it, which lets a player get any actor they own
  * deleted. The real pile is default OBSERVER and owned by no player, so
- * requiring that is what tells it from a plant, and nothing a player can write
- * changes it. Consequence stated: a Warden who hands a player OWNER of the pile
- * un-piles it, and the next drop makes a fresh one.
+ * requiring that is what tells it from a plant. Consequence stated: a Warden
+ * who hands a player OWNER of the pile un-piles it, and the next drop makes a
+ * fresh one.
+ *
+ * NO PLAYER OWNER IS NOT ENOUGH ON ITS OWN (review #34 finding 5). This used to
+ * say nothing a player can write changes it, and the server says otherwise: a
+ * non-GM may not touch `default` or another user's key, but may rewrite its
+ * OWN. So the sole owner of an actor could set the flag and lower their own
+ * entry to OBSERVER in one write, and that actor then had no player owner —
+ * review #33's takeover again, one line longer. So the pile must also be LAST
+ * WRITTEN BY A WARDEN: the journals' test (`isWardenJournal`, calendar-events.js,
+ * asked here of an actor), reading `_stats.lastModifiedBy`, which the server
+ * stamps and no client can forge. Every write to the real pile is a Warden's —
+ * it is made on the GM's client, and a player who only OBSERVES it cannot write
+ * to it at all. A plant is last written by its planter.
+ *
+ * A Warden's LATER write would launder that, and on a character the Warden
+ * writes all the time (an Apply of damage is one). So the active GM also
+ * strips the flag the moment a player writes to a flagged actor, and on
+ * arrival from any flagged actor a player wrote last
+ * (`stripPlantedPileFlags`): the flag is gone before a Warden's write can
+ * vouch for it.
  *
  * Guarded because `hasPlayerOwner` walks `game.users`, and `isDroppedPile` is
  * read from `calcCurrentMaxSlots` on every prepare — before the users
@@ -149,6 +169,53 @@ export const isDroppedPile = (actor) =>
  */
 const playerOwned = (actor) => {
   try { return actor.hasPlayerOwner === true; } catch { return false; }
+};
+
+/** Guarded like `playerOwned`, for the same reason, and to the same side: an
+ *  answer that cannot be had yet does not refuse. */
+const wardenWrote = (actor) => {
+  try { return isWardenJournal(actor); } catch { return true; }
+};
+
+/**
+ * Take the pile flag off an actor a PLAYER wrote, on the active GM's client —
+ * the half of the identity test above that a Warden's later write would
+ * otherwise undo. Called from the `createActor`/`updateActor` hooks with the
+ * writing user (the server-authenticated one), and once on `ready` with no
+ * user, when it asks the document's own last writer instead — a plant made
+ * while no Warden was connected is found there, before any Warden write.
+ *
+ * Every write the real pile receives is a Warden's, so a player's write to a
+ * flagged actor is a plant by definition — or a pile the Warden handed a player,
+ * which that hand-over already un-piled.
+ *
+ * THE READY PASS ASKS ONE THING MORE (review #34 finding 233, ruled
+ * 2026-11-01). It reads the last writer's role NOW, not when they wrote, and a
+ * real pile's maker is a Warden whose account can be demoted: the server
+ * stamped them an explicit OWNER key when they made it, so the next GM load
+ * found a flagged actor "a player" wrote and stripped it for good — promoting
+ * them back could not restore it, and the next drop minted a second pile. So
+ * the no-writer pass strips only when that writer's OWN key is below OWNER,
+ * which is the plant's shape (a planter who still owns it is refused at use
+ * time anyway, by `playerOwned`, so nothing is lost). The stated residual:
+ * while its maker is demoted, the pile counts as handed to a player and the
+ * next drop starts a new one; promote them back and the original works again,
+ * and the drop after that folds the two into one (`reconcilePiles`).
+ * @param {Actor} actor
+ * @param {string} [userId]  the writer, as the document hook reports it
+ */
+export const stripPlantedPileFlags = (actor, userId) => {
+  if (!game.user.isGM || game.users.activeGM !== game.user) return;
+  const targets = actor ? [actor] : (game.actors?.contents ?? []);
+  const OWNER = CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER;
+  for (const a of targets) {
+    if (!a.getFlag(FLAG_SCOPE, PILE_FLAG)) continue;
+    const writer = game.users.get(userId ?? a._stats?.lastModifiedBy);
+    if (!writer || writer.isGM) continue;
+    if (!userId && (a.ownership?.[writer.id] ?? 0) >= OWNER) continue;
+    a.unsetFlag(FLAG_SCOPE, PILE_FLAG).catch((err) =>
+      console.error("Air Bladder | could not strip a planted pile flag", err));
+  }
 };
 
 /** The Party folder, or null if nobody has made one. */
@@ -249,7 +316,7 @@ const reconcilePiles = async (canonical) => {
     const missing = extra.items.filter((i) => !canonical.items.has(i.id)).map((i) => i.toObject());
     if (missing.length) {
       try {
-        await canonical.createEmbeddedDocuments("Item", missing, { keepId: true });
+        await canonical.createEmbeddedDocuments("Item", missing, { keepId: true, abNoStatusCard: true });   // merge machinery (review #34 finding 245)
       } catch {
         // Another session is reconciling the same extra and claimed some of
         // these ids a moment ago; the test below decides whether this one may
@@ -463,9 +530,30 @@ export const dropItemToPile = async (actor, itemId, { announce = false, place = 
  * something to rely on, and the card is composed from it.
  * @private
  */
-const movePileItem = async (actor, itemId, { announce = false, place = "", claimId = null } = {}) => {
+const movePileItem = async (actor, itemId, options = {}) => {
   const item = actor.items.get(itemId);
   if (!item) return false;
+  // ONE MOVE PER ITEM AT A TIME on this client (review #34 finding 136). The
+  // claim id is fresh per gesture (review #33, above), so it no longer refuses
+  // a SECOND gesture on the same item: Drop, Enter, Drop, Enter inside the
+  // round trip before the delete lands passed the check above twice and filed
+  // two copies. The check and the claim are one synchronous step; the
+  // released item is gone by then, so a later gesture fails the check above.
+  if (pileMovesInFlight.has(item.uuid)) return false;
+  pileMovesInFlight.add(item.uuid);
+  try {
+    return await moveClaimedPileItem(actor, item, options);
+  } finally {
+    pileMovesInFlight.delete(item.uuid);
+  }
+};
+
+/** Items whose move to the pile is running on this client, by uuid — see
+ *  movePileItem. The damage card's damageApplyInFlight is the precedent. */
+const pileMovesInFlight = new Set();
+
+/** movePileItem's move, once the item is claimed. */
+const moveClaimedPileItem = async (actor, item, { announce = false, place = "", claimId = null, by = null } = {}) => {
   const pile = await ensureDroppedPile();
   if (!pile) return false;
   const name = item.name;
@@ -478,6 +566,14 @@ const movePileItem = async (actor, itemId, { announce = false, place = "", claim
     const data = doc.toObject();
     data._id = i === 0 && claimId ? claimId : foundry.utils.randomID();
     foundry.utils.setProperty(data, "system.equipped", false);
+    // Appended, like a gift (review #34 finding 248): sort 0 is what lets
+    // #appendSort place it at the bottom of the pile; the giver's own sort
+    // put it mid-list.
+    data.sort = 0;
+    // Handed over, not granted (review #34 finding 172): the grant tag goes,
+    // as Give strips it (buildOfferItemData), or whoever takes it back off the
+    // pile inherits a target for their own background/bond/question re-roll.
+    delete data.flags?.[FLAG_SCOPE]?.grantSource;
     // WHERE it was put down, stamped onto the copy that lands in the pile.
     // Dropping the same thing again overwrites it — the note describes where
     // it is now, and there is no editing it afterwards by ruling.
@@ -491,12 +587,39 @@ const movePileItem = async (actor, itemId, { announce = false, place = "", claim
     else delete data.flags?.[FLAG_SCOPE]?.[DROP_NOTE_FLAG];
     return data;
   });
-  let won = true;
-  try {
-    await pile.createEmbeddedDocuments("Item", copies, { keepId: true });
-  } catch {
-    won = false;
+  // FILED UNDER THE BOOK THAT LANDS (review #34 finding 159). The pile holds a
+  // library, and CairnItem#_preCreate re-mints a key that a book already in
+  // the pile wears — AFTER the pages above were serialized naming the old one,
+  // so the book already there claimed them and this one stood empty: issue
+  // #17's symptom, which the drag path re-stamps against. The same rule
+  // _preCreate applies (a key missing, or taken on this parent, is replaced),
+  // applied here before the create so the book and its pages arrive agreeing.
+  // An unkeyed legacy book's pages are stamped with it.
+  if (pages.length) {
+    const key = copies[0].system?.grimoireKey ?? "";
+    const taken = pile.items.some((i) => i.type === "item" && i.system?.grimoire && i.system.grimoireKey === key);
+    if (!key || taken) {
+      const fresh = foundry.utils.randomID();
+      copies[0].system.grimoireKey = fresh;
+      for (const page of copies.slice(1)) page.system.boundTo = fresh;
+    }
   }
+  // WHAT LANDED, read from the create's answer (review #34 finding 164). A
+  // create every seam refuses — a module's preCreateItem veto, a construction
+  // failure — resolves EMPTY rather than throwing, and `won` read only the
+  // throw: the item was deleted from the sheet with no copy in the pile, and
+  // the broker answered `true`.
+  let landed = new Set();
+  try {
+    // abNoStatusCard: an ordinary Drop is tidying and the pile is its own record
+    // (review #34 finding 245) — without it every Drop whispered "Item added"
+    // under the pile's name to every player who can observe it.
+    const created = await pile.createEmbeddedDocuments("Item", copies, { keepId: true, abNoStatusCard: true });
+    landed = new Set((created ?? []).map((d) => d.id));
+  } catch {
+    /* lost the claim, below */
+  }
+  const won = landed.has(copies[0]._id);
   // LOST THE CLAIM: STOP HERE, and do not delete. The session that won is the
   // one that clears the row and posts the card, so a loser that deleted as well
   // would be racing it for no gain — and losing that race logs `Item "..." does
@@ -505,7 +628,13 @@ const movePileItem = async (actor, itemId, { announce = false, place = "", claim
   // left holding a copy — visible to the Warden and fixable, which is the side
   // of that trade the ruling already chose.
   if (!won) return false;
-  await actor.deleteEmbeddedDocuments("Item", [item.id, ...pages.map((p) => p.id)]);
+  // Only what has a copy in the pile leaves the sheet: a page a veto refused
+  // stays with the character rather than vanishing.
+  const gone = [item, ...pages].filter((doc, i) => landed.has(copies[i]._id)).map((doc) => doc.id);
+  // The SOURCE side stays on the ledger — a transfer the dropper's ledger should
+  // show (review #13) — but named for the DROPPER: brokered, this write is the
+  // Warden's, and the card read "Changed by Warden" (review #34 finding 245).
+  await actor.deleteEmbeddedDocuments("Item", gone, by ? { abChangeLogBy: by } : {});
   if (announce) await postDropCard(actor, name, note);
   return true;
 };
@@ -513,13 +642,15 @@ const movePileItem = async (actor, itemId, { announce = false, place = "", claim
 /**
  * The broker, run by the active GM on a player's behalf.
  *
- * THE SENDER'S OWNERSHIP IS THE AUTHORIZATION, and it is checked HERE because
- * nothing in the payload can be trusted — `senderId` is the one field the server
- * authenticates. Without this test any client could emit another player's actor
- * uuid and strip their sheet one item at a time.
+ * THE ASKER'S OWNERSHIP IS THE AUTHORIZATION, and it is checked HERE because
+ * nothing in the payload can be trusted — the requesting `user` in the query's
+ * context is the one thing the server authenticates. Without this test any
+ * client could send another player's actor uuid and strip their sheet one item
+ * at a time.
  *
- * @param {Object} msg
- * @param {String} senderId
+ * @param {Object} msg            `{actorUuid, itemId, claimId, announce?, place?}`
+ * @param {Object} ctx            `{user}` — the requesting User
+ * @return {Promise<Boolean>}     whether the drop landed
  */
 export const handlePileQuery = async (msg, { user } = {}) => {
   // The query is addressed to the active GM USER; Foundry hands it to that
@@ -543,6 +674,7 @@ export const handlePileQuery = async (msg, { user } = {}) => {
     announce: msg?.announce === true,
     place: cleanDropNote(msg?.place),
     claimId,
+    by: user.id,   // the server-authenticated requester, for the ledger (review #34 finding 245)
   });
 };
 
@@ -638,7 +770,7 @@ export const localizePileCard = (message, html) => {
  *   that frees a slot, in which case no dialog opens at all; or null for Escape
  *   and the window's ×, which is no decision.
  */
-export const askWhatToDrop = async (actor) => {
+export const askWhatToDrop = async (actor, { windowId } = {}) => {
   const items = slotFreeingItems(actor);
   // NOTHING TO PAY WITH IS A REFUSAL, reversing the original carve-out (an empty
   // list used to answer "" and let the Fatigue proceed, on the reasoning that
@@ -730,6 +862,7 @@ export const askWhatToDrop = async (actor) => {
   const answer = await foundry.applications.api.DialogV2.wait({
     classes: ["cairn-drop-dialog"],
     window: { title: game.i18n.localize("CAIRN.Pile.FatigueTitle") },
+    renderOptions: { window: { windowId } },   // the card's own window (review #34 finding 119)
     // STATED: `wait` merges no width, unlike `confirm` and `prompt`.
     position: { width: 400 },
     content,

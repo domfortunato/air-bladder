@@ -108,7 +108,7 @@ const clickCard = (page, msgId, cls) => page.evaluate(({ msgId, cls }) => {
 
 /** Drive the give control + picker on Alice's client for one of the giver's items. */
 const offerViaPicker = async (page, itemName, targetName) => page.evaluate(async ({ itemName, targetName }) => {
-  const giver = game.actors.getName("ZZ Offer Giver");
+  const giver = __abFresh("ZZ Offer Giver");
   const item = giver?.items.find((i) => i.name === itemName);
   if (!item) return "no item";
   await giver.sheet.render(true);
@@ -125,7 +125,7 @@ const offerViaPicker = async (page, itemName, targetName) => page.evaluate(async
     if (!dlg) await new Promise((r) => setTimeout(r, 150));
   }
   if (!dlg) return "no picker";
-  const target = game.actors.getName(targetName);
+  const target = __abFresh(targetName);
   const radio = dlg.querySelector(`input[name="offerTarget"][value="${target?.uuid}"]`);
   if (!radio) {
     // Close the picker on a miss, or the stale dialog is what every later
@@ -140,6 +140,25 @@ const offerViaPicker = async (page, itemName, targetName) => page.evaluate(async
   return "clicked";
 }, { itemName, targetName });
 
+// THE RUN'S OWN FIXTURES, BY ID DIFFERENCE (review #34 finding 37). Every
+// lookup went through `game.actors.getName("ZZ Offer …")`, which returns the
+// FIRST match, and the teardown ran in the try — so a run that threw or was
+// killed left its fixtures, the next run counted them in `before` (never
+// swept), and getName handed those old fixtures, spent quantities and given
+// items included, to every leg. `__abFresh` answers only an actor this run
+// made: same name, id not in the run's starting snapshot. Installed on each
+// client (and again on a page that rejoins) as an init script, so it survives
+// the client's own navigations.
+let before = null;
+const installFresh = async (page) => {
+  const ids = before.actors;
+  const fn = (ids) => {
+    globalThis.__abFresh = (name) => game.actors.find((a) => a.name === name && !ids.includes(a.id)) ?? null;
+  };
+  await page.addInitScript(fn, ids);
+  await page.evaluate(fn, ids).catch(() => {});
+};
+
 try {
   await joinAsGM(gm);
   const madeBob = await gm.evaluate(async () => {
@@ -151,10 +170,11 @@ try {
   await joinAs(alice, "Alice");
   await joinAs(bob, "Bob");
 
-  const before = await gm.evaluate(() => ({
+  before = await gm.evaluate(() => ({
     actors: game.actors.map((a) => a.id),
     messages: game.messages.map((m) => m.id),
   }));
+  for (const pg of [gm, alice, bob]) await installFresh(pg);
 
   // The bystander's ear: every offer-protocol emit that reaches the GM client
   // is recorded. offerAccept/Release/Done are recipients-addressed between
@@ -219,7 +239,7 @@ try {
   /* ---- A. the give control appears exactly where it should --------------- */
   console.log("\nthe give control");
   const controls = await alice.evaluate(async () => {
-    const giver = game.actors.getName("ZZ Offer Giver");
+    const giver = __abFresh("ZZ Offer Giver");
     if (!giver) return { rows: -1, per: {}, err: "the giver has not reached this client" };
 
     // ESTABLISH THE PRECONDITION, then render. The fixtures are created on the
@@ -274,7 +294,7 @@ try {
   // does not own this npc, still gets nothing; the Warden does, and section P
   // below is the other half.
   const npcControls = await alice.evaluate(async () => {
-    const npc = game.actors.getName("ZZ Offer NPC");
+    const npc = __abFresh("ZZ Offer NPC");
     if (!npc) return -2;
     await npc.sheet.render(true);
     await new Promise((r) => setTimeout(r, 600));
@@ -289,7 +309,7 @@ try {
   // Warden is hiding) must not leak its NAME into a player's picker. Core's
   // `visible` is LIMITED+, so the LIMITED bystander stays listed.
   const pickerRows = (page, itemName) => page.evaluate(async (itemName) => {
-    const giver = game.actors.getName("ZZ Offer Giver");
+    const giver = __abFresh("ZZ Offer Giver");
     const item = giver?.items.find((i) => i.name === itemName);
     if (!item) return { err: "no item" };
     await giver.sheet.render(true);
@@ -338,7 +358,7 @@ try {
   // matches ONE row and require the others to go. A leg that only checked the
   // box exists would have been green for the whole of that period.
   const filtered = await alice.evaluate(async () => {
-    const giver = game.actors.getName("ZZ Offer Giver");
+    const giver = __abFresh("ZZ Offer Giver");
     const item = giver?.items.find((i) => i.name === "ZZ Brass Lantern");
     await giver.sheet.render(true);
     await new Promise((r) => setTimeout(r, 500));
@@ -368,7 +388,7 @@ try {
     const checked = dlg.querySelector('input[name="offerTarget"]:checked');
     const checkedRow = checked?.closest(".bg-pick-row");
     const checkedVisible = !!checkedRow && !checkedRow.classList.contains("cairn-hidden");
-    const checkedIsTarget = checked?.value === game.actors.getName("ZZ Offer Target")?.uuid;
+    const checkedIsTarget = checked?.value === __abFresh("ZZ Offer Target")?.uuid;
     const offerEnabled = !dlg.closest(".application")?.querySelector('button[data-action="offer"]')?.disabled;
     // ENTER IN THE SEARCH BOX must not submit. A synthetic key never triggers
     // the browser's implicit submission, so what this measures is the guard
@@ -451,8 +471,8 @@ try {
 
     await clickCard(bob, offer1.id, "cairn-offer-accept");
     const done1 = await poll(gm, () => {
-      const target = game.actors.getName("ZZ Offer Target");
-      const giver = game.actors.getName("ZZ Offer Giver");
+      const target = __abFresh("ZZ Offer Target");
+      const giver = __abFresh("ZZ Offer Giver");
       const got = target?.items.find((i) => i.name === "ZZ Trail Rations");
       const kept = giver?.items.find((i) => i.name === "ZZ Trail Rations");
       const msg = game.messages.contents.filter((m) => m.getFlag("air-bladder", "itemOffer")).at(-1);
@@ -498,8 +518,8 @@ try {
     // Settle on SETTLED, not on the create: the giver's delete rides the
     // offerDone round-trip and lands a beat after the target's item exists.
     const doneD = await poll(gm, (id) => {
-      const target = game.actors.getName("ZZ Offer Target");
-      const giver = game.actors.getName("ZZ Offer Giver");
+      const target = __abFresh("ZZ Offer Target");
+      const giver = __abFresh("ZZ Offer Giver");
       const got = target?.items.find((i) => i.name === "ZZ Brass Lantern");
       const f = game.messages.get(id)?.getFlag("air-bladder", "itemOffer");
       if (!got || !f?.settled) return null;
@@ -513,7 +533,7 @@ try {
   /* ---- E. over-burden acceptance: confirm, then HP 0 --------------------- */
   console.log("\nover-burden acceptance");
   await gm.evaluate(async () => {
-    const target = game.actors.getName("ZZ Offer Target");
+    const target = __abFresh("ZZ Offer Target");
     // Fill to the limit: default max 10; rations+lantern hold 2. Eight more.
     const filler = Array.from({ length: 8 }, (_, i) => ({ name: `ZZ Filler ${i}`, type: "item" }));
     await target.createEmbeddedDocuments("Item", filler, { render: false });
@@ -538,7 +558,7 @@ try {
     });
     check("acceptance past the limit raises the over-burden confirm", confirmed === true, String(confirmed));
     const doneE = await poll(bob, () => {
-      const target = game.actors.getName("ZZ Offer Target");
+      const target = __abFresh("ZZ Offer Target");
       const got = target?.items.find((i) => i.name === "ZZ Anvil");
       if (!got) return null;
       return {
@@ -556,7 +576,7 @@ try {
   console.log("\ndecline, cancel, stale, offline");
   await gm.evaluate(async () => {
     // Clear the over-burden so later legs read cleanly.
-    const target = game.actors.getName("ZZ Offer Target");
+    const target = __abFresh("ZZ Offer Target");
     const junk = target.items.filter((i) => /^ZZ Filler|^ZZ Anvil/.test(i.name)).map((i) => i.id);
     await target.deleteEmbeddedDocuments("Item", junk);
   });
@@ -574,7 +594,7 @@ try {
       return f?.state === "declined" ? f.state : null;
     }, offerF.id);
     const giverQty = await gm.evaluate(() =>
-      game.actors.getName("ZZ Offer Giver")?.items.find((i) => i.name === "ZZ Trail Rations")?.system.quantity);
+      __abFresh("ZZ Offer Giver")?.items.find((i) => i.name === "ZZ Trail Rations")?.system.quantity);
     check("a decline stamps the card and moves nothing", declined === "declined" && giverQty === 2,
       `state=${declined} giverQty=${giverQty}`);
   } else fail(`decline-leg offer never posted (${pickF})`);
@@ -617,7 +637,7 @@ try {
   if (offerH) {
     // The item vanishes before the answer (Alice spends/deletes it herself).
     await alice.evaluate(async () => {
-      const giver = game.actors.getName("ZZ Offer Giver");
+      const giver = __abFresh("ZZ Offer Giver");
       const it = giver.items.find((i) => i.name === "ZZ Trail Rations");
       await giver.deleteEmbeddedDocuments("Item", [it.id]);
     });
@@ -626,7 +646,7 @@ try {
     const lapsed = await poll(gm, (id) =>
       game.messages.get(id)?.getFlag("air-bladder", "itemOffer")?.state === "lapsed" || null, offerH.id);
     const targetQty = await gm.evaluate(() =>
-      game.actors.getName("ZZ Offer Target")?.items.find((i) => i.name === "ZZ Trail Rations")?.system.quantity ?? 0);
+      __abFresh("ZZ Offer Target")?.items.find((i) => i.name === "ZZ Trail Rations")?.system.quantity ?? 0);
     check("an offer whose item is gone lapses and creates nothing",
       lapsed === true && targetQty === 1,
       `lapsed=${lapsed} targetQty=${targetQty} (1 from leg C)`);
@@ -634,7 +654,7 @@ try {
 
   /* ---- I. giver offline: refuse, stay open, complete after rejoin -------- */
   await alice.evaluate(async () => {
-    const giver = game.actors.getName("ZZ Offer Giver");
+    const giver = __abFresh("ZZ Offer Giver");
     await giver.createEmbeddedDocuments("Item", [{ name: "ZZ Keepsake", type: "item" }]);
   });
   const pickI = await offerViaPicker(alice, "ZZ Keepsake", "ZZ Offer Target");
@@ -651,18 +671,19 @@ try {
     const stillOpen = await gm.evaluate((id) =>
       game.messages.get(id)?.getFlag("air-bladder", "itemOffer")?.state, offerI.id);
     const notMoved = await gm.evaluate(() =>
-      !game.actors.getName("ZZ Offer Target")?.items.find((i) => i.name === "ZZ Keepsake"));
+      !__abFresh("ZZ Offer Target")?.items.find((i) => i.name === "ZZ Keepsake"));
     check("with the giver offline the accept refuses with the toast and the offer stays open",
       !!toast && stillOpen === "open" && notMoved, `toast=${JSON.stringify(toast)} state=${stillOpen}`);
 
     alCtx = await browser.newContext({ viewport: VIEWPORT });
     alice = await alCtx.newPage();
     alErrors = watchErrors(alice);
+    await installFresh(alice);
     await joinAs(alice, "Alice");
     await new Promise((r) => setTimeout(r, 1500));
     await clickCard(bob, offerI.id, "cairn-offer-accept");
     const doneI = await poll(gm, () => {
-      const got = game.actors.getName("ZZ Offer Target")?.items.find((i) => i.name === "ZZ Keepsake");
+      const got = __abFresh("ZZ Offer Target")?.items.find((i) => i.name === "ZZ Keepsake");
       const f = game.messages.contents.filter((m) => m.getFlag("air-bladder", "itemOffer")).at(-1)
         ?.getFlag("air-bladder", "itemOffer");
       return got && f?.settled ? true : null;
@@ -673,7 +694,7 @@ try {
   /* ---- J. double-accept: exactly one create ------------------------------ */
   console.log("\nraces and hostile emits");
   await alice.evaluate(async () => {
-    const giver = game.actors.getName("ZZ Offer Giver");
+    const giver = __abFresh("ZZ Offer Giver");
     await giver.createEmbeddedDocuments("Item", [{ name: "ZZ Coin Purse", type: "item" }]);
   });
   const pickJ = await offerViaPicker(alice, "ZZ Coin Purse", "ZZ Offer Target");
@@ -695,9 +716,9 @@ try {
     }, offerJ.id);
     await new Promise((r) => setTimeout(r, 4000));
     const countJ = await gm.evaluate(() =>
-      game.actors.getName("ZZ Offer Target")?.items.filter((i) => i.name === "ZZ Coin Purse").length);
+      __abFresh("ZZ Offer Target")?.items.filter((i) => i.name === "ZZ Coin Purse").length);
     const giverStill = await gm.evaluate(() =>
-      !!game.actors.getName("ZZ Offer Giver")?.items.find((i) => i.name === "ZZ Coin Purse"));
+      !!__abFresh("ZZ Offer Giver")?.items.find((i) => i.name === "ZZ Coin Purse"));
     check("two racing accepts create exactly ONE item and decrement once",
       countJ === 1 && giverStill === false, `count=${countJ} giverStill=${giverStill}`);
   } else fail(`double-accept offer never posted (${pickJ})`);
@@ -705,7 +726,7 @@ try {
   /* ---- K. hostile emits are refused, nothing written --------------------- */
   // K1: Bob accepts an offer whose target he does NOT own.
   await alice.evaluate(async () => {
-    const giver = game.actors.getName("ZZ Offer Giver");
+    const giver = __abFresh("ZZ Offer Giver");
     await giver.createEmbeddedDocuments("Item", [{ name: "ZZ Bait", type: "item" }]);
   });
   const pickK1 = await offerViaPicker(alice, "ZZ Bait", "ZZ Offer Bystander");
@@ -724,7 +745,7 @@ try {
     await new Promise((r) => setTimeout(r, 2500));
     const k1 = await gm.evaluate((id) => ({
       state: game.messages.get(id)?.getFlag("air-bladder", "itemOffer")?.state,
-      bystanderItems: game.actors.getName("ZZ Offer Bystander")?.items.size ?? -1,
+      bystanderItems: __abFresh("ZZ Offer Bystander")?.items.size ?? -1,
     }), offerK1.id);
     const k1Answer = await bob.evaluate(() => window.__offerAnswers.slice());
     check("accepting an offer you have no right to answer is refused",
@@ -733,7 +754,7 @@ try {
   } else fail(`hostile-leg offer never posted (${pickK1})`);
 
   // K2: a forged offerRelease at Bob (no pending accept) must not create.
-  const targetItemsBefore = await gm.evaluate(() => game.actors.getName("ZZ Offer Target")?.items.size);
+  const targetItemsBefore = await gm.evaluate(() => __abFresh("ZZ Offer Target")?.items.size);
   await gm.evaluate((targetUuid) => {
     const bobU = game.users.getName("Bob");
     game.socket.emit(`system.${game.system.id}`, {
@@ -743,8 +764,8 @@ try {
   }, fix.targetUuid);
   await new Promise((r) => setTimeout(r, 2000));
   const k2 = await gm.evaluate((n) => ({
-    grew: (game.actors.getName("ZZ Offer Target")?.items.size ?? 0) > n,
-    forged: !!game.actors.getName("ZZ Offer Target")?.items.find((i) => i.name === "ZZ Forged Loot"),
+    grew: (__abFresh("ZZ Offer Target")?.items.size ?? 0) > n,
+    forged: !!__abFresh("ZZ Offer Target")?.items.find((i) => i.name === "ZZ Forged Loot"),
   }), targetItemsBefore);
   check("a forged offerRelease with no pending accept creates nothing", !k2.grew && !k2.forged, JSON.stringify(k2));
 
@@ -758,12 +779,56 @@ try {
     await new Promise((r) => setTimeout(r, 2000));
     const k3 = await gm.evaluate((id) => {
       const f = game.messages.get(id)?.getFlag("air-bladder", "itemOffer");
-      const giver = game.actors.getName("ZZ Offer Giver");
+      const giver = __abFresh("ZZ Offer Giver");
       return { state: f?.state, itemStill: !!giver?.items.find((i) => i.id === f?.itemId) };
     }, offerK1.id);
     check("a forged offerDone on an open offer deletes nothing", k3.state === "open" && k3.itemStill,
       JSON.stringify(k3));
   }
+
+  // K4: a forged CARD (review #34 finding 6). Bob posts an offer naming ALICE's
+  // character as the giver and an unowned NPC as the target — the flag is
+  // written by its author's client, and any player may post any flag. The
+  // Warden gets Accept on every open card, and the local transfer runs with
+  // the Warden's rights, so one click took the item off a player who never
+  // offered it. A card whose author does not own its giver draws no Accept,
+  // and nothing moves.
+  const k4Item = await gm.evaluate(async () => {
+    const giver = __abFresh("ZZ Offer Giver");
+    const [it] = await giver.createEmbeddedDocuments("Item", [{ name: "ZZ Forged Bait", type: "item" }]);
+    return { giverUuid: giver.uuid, itemId: it.id, npcUuid: __abFresh("ZZ Offer NPC").uuid };
+  });
+  const k4Id = await bob.evaluate(async ({ giverUuid, itemId, npcUuid }) => {
+    const m = await ChatMessage.create({
+      content: '<div class="cairn-offer-card">x</div>',
+      flags: { "air-bladder": { itemOffer: {
+        state: "open", settled: false, giverActorUuid: giverUuid, targetActorUuid: npcUuid,
+        itemId, acceptorUserId: null, item: { name: "ZZ Forged Bait" },
+      } } },
+    });
+    return m?.id ?? null;
+  }, k4Item);
+  if (k4Id) {
+    await poll(gm, (id) => !!game.messages.get(id), k4Id);
+    const k4 = await gm.evaluate(async ({ id, npcUuid, itemId }) => {
+      const msg = game.messages.get(id);
+      const el = await msg.renderHTML();
+      const accept = el.querySelector(".cairn-offer-accept");
+      if (accept) accept.click();
+      await new Promise((r) => setTimeout(r, 2500));
+      const npc = await fromUuid(npcUuid);
+      return {
+        acceptDrawn: !!accept,
+        stillOnGiver: !!__abFresh("ZZ Offer Giver")?.items.get(itemId),
+        onNpc: !!npc?.items.find((i) => i.name === "ZZ Forged Bait"),
+        state: game.messages.get(id)?.getFlag("air-bladder", "itemOffer")?.state,
+      };
+    }, { id: k4Id, ...k4Item });
+    check("a card naming a giver its author does not own draws no Accept for the Warden",
+      !k4.acceptDrawn, JSON.stringify(k4));
+    check("...and the item stays on the player who never offered it",
+      k4.stillOnGiver && !k4.onNpc && k4.state === "open", JSON.stringify(k4));
+  } else fail("forged-card leg: Bob's card was never posted");
 
   /* ---- M. a forged refusal cannot wedge an accept mid-flight -------------- */
   // Review #23 finding 1: offerRefused must authenticate BEFORE clearing the
@@ -774,7 +839,7 @@ try {
   // entry and the release that followed was discarded as forged — accepted,
   // settled false, nothing moved, no way out.
   await alice.evaluate(async () => {
-    const giver = game.actors.getName("ZZ Offer Giver");
+    const giver = __abFresh("ZZ Offer Giver");
     await giver.createEmbeddedDocuments("Item", [{ name: "ZZ Locket", type: "item" }]);
   });
   const pickM = await offerViaPicker(alice, "ZZ Locket", "ZZ Offer Target");
@@ -795,8 +860,8 @@ try {
       game.messages.get(id)?.getFlag("air-bladder", "itemOffer")?.settled || null, offerM.id, 8000);
     const m = await gm.evaluate((id) => {
       const f = game.messages.get(id)?.getFlag("air-bladder", "itemOffer");
-      const target = game.actors.getName("ZZ Offer Target");
-      const giver = game.actors.getName("ZZ Offer Giver");
+      const target = __abFresh("ZZ Offer Target");
+      const giver = __abFresh("ZZ Offer Giver");
       return { state: f?.state, settled: f?.settled ?? false,
         got: target?.items.filter((i) => i.name === "ZZ Locket").length ?? 0,
         kept: !!giver?.items.find((i) => i.name === "ZZ Locket") };
@@ -812,7 +877,7 @@ try {
   // giver-stack decrement per emit) or offerFail (reopening a completed
   // offer for a second delivery).
   await alice.evaluate(async () => {
-    const giver = game.actors.getName("ZZ Offer Giver");
+    const giver = __abFresh("ZZ Offer Giver");
     await giver.createEmbeddedDocuments("Item", [{ name: "ZZ Heirloom", type: "item", system: { quantity: 3 } }]);
   });
   const pickN = await offerViaPicker(alice, "ZZ Heirloom", "ZZ Offer Target");
@@ -827,7 +892,7 @@ try {
     const settledN = await poll(gm, (id) =>
       game.messages.get(id)?.getFlag("air-bladder", "itemOffer")?.settled || null, offerN.id);
     const qtyAfter = await gm.evaluate(() =>
-      game.actors.getName("ZZ Offer Giver")?.items.find((i) => i.name === "ZZ Heirloom")?.system.quantity ?? 0);
+      __abFresh("ZZ Offer Giver")?.items.find((i) => i.name === "ZZ Heirloom")?.system.quantity ?? 0);
     check("heirloom hand-off settles at giver 3 → 2 (precondition)", settledN === true && qtyAfter === 2,
       `settled=${settledN} giverQty=${qtyAfter}`);
     await bob.evaluate((id) => {
@@ -837,7 +902,7 @@ try {
     }, offerN.id);
     await new Promise((r) => setTimeout(r, 2500));
     const qtyReplay = await gm.evaluate(() =>
-      game.actors.getName("ZZ Offer Giver")?.items.find((i) => i.name === "ZZ Heirloom")?.system.quantity ?? 0);
+      __abFresh("ZZ Offer Giver")?.items.find((i) => i.name === "ZZ Heirloom")?.system.quantity ?? 0);
     check("a replayed offerDone on a settled offer decrements nothing", qtyReplay === 2, `giverQty=${qtyReplay}`);
     await bob.evaluate((id) => {
       const aliceU = game.users.getName("Alice");
@@ -863,7 +928,7 @@ try {
   // vacuously if the context stops taking.
   const packDrop = await alice.evaluate(async () => {
     const { offerFromDrop } = await import("/systems/air-bladder/module/item-offer.js");
-    const giver = game.actors.getName("ZZ Offer Giver");
+    const giver = __abFresh("ZZ Offer Giver");
     const item = giver.items.find((i) => i.name === "ZZ Heirloom")
       ?? giver.items.find((i) => !["Fatigue", "ZZ Grimoire", "ZZ Bound Page"].includes(i.name));
     if (!item) return { err: "no eligible item" };
@@ -890,7 +955,7 @@ try {
   // looped failed -> reopen forever. Runs late so the delivered row cannot
   // disturb the over-burden leg's slot arithmetic.
   await alice.evaluate(async () => {
-    const giver = game.actors.getName("ZZ Offer Giver");
+    const giver = __abFresh("ZZ Offer Giver");
     await giver.createEmbeddedDocuments("Item", [{ name: "ZZ Old Life", type: "background" }]);
   });
   const pickP = await offerViaPicker(alice, "ZZ Old Life", "ZZ Offer Target");
@@ -903,12 +968,12 @@ try {
     await new Promise((r) => setTimeout(r, 600));
     await clickCard(bob, offerP.id, "cairn-offer-accept");
     const doneP = await poll(gm, (id) => {
-      const target = game.actors.getName("ZZ Offer Target");
+      const target = __abFresh("ZZ Offer Target");
       const got = target?.items.find((i) => i.name === "ZZ Old Life");
       const f = game.messages.get(id)?.getFlag("air-bladder", "itemOffer");
       if (!got || !f?.settled) return null;
       return { type: got.type,
-        giverStill: !!game.actors.getName("ZZ Offer Giver")?.items.find((i) => i.name === "ZZ Old Life") };
+        giverStill: !!__abFresh("ZZ Offer Giver")?.items.find((i) => i.name === "ZZ Old Life") };
     }, offerP.id);
     check("a background-type item is delivered and settles",
       doneP && doneP.type === "background" && doneP.giverStill === false, JSON.stringify(doneP));
@@ -917,13 +982,13 @@ try {
   /* ---- L. the drag route ------------------------------------------------- */
   console.log("\nthe drag route");
   await gm.evaluate(async (aliceName) => {
-    const target = game.actors.getName("ZZ Offer Target");
+    const target = __abFresh("ZZ Offer Target");
     const aliceU = game.users.getName(aliceName);
     await target.update({ [`ownership.${aliceU.id}`]: CONST.DOCUMENT_OWNERSHIP_LEVELS.OBSERVER });
   }, "Alice");
   const dragged = await alice.evaluate(async () => {
-    const giver = game.actors.getName("ZZ Offer Giver");
-    const target = game.actors.getName("ZZ Offer Target");
+    const giver = __abFresh("ZZ Offer Giver");
+    const target = __abFresh("ZZ Offer Target");
     const item = giver.items.find((i) => i.name === "ZZ Bait")
       ?? giver.items.find((i) => !["Fatigue", "ZZ Grimoire", "ZZ Bound Page"].includes(i.name));
     if (!item) return { err: "no draggable item" };
@@ -957,8 +1022,8 @@ try {
   // NONE, which `CairnActor._preCreate` deliberately leaves monsters at) rather
   // than by any rule naming monsters in the code.
   const npcDrop = await alice.evaluate(async () => {
-    const giver = game.actors.getName("ZZ Offer Giver");
-    const npc = game.actors.getName("ZZ Offer NPC");
+    const giver = __abFresh("ZZ Offer Giver");
+    const npc = __abFresh("ZZ Offer NPC");
     const item = giver.items.find((i) => i.name === "ZZ Bait")
       ?? giver.items.find((i) => !["Fatigue", "ZZ Grimoire", "ZZ Bound Page"].includes(i.name));
     const msgs = game.messages.size;
@@ -1002,7 +1067,7 @@ try {
 
   const pickerNames = (p) => p.evaluate(async () => {
     const { promptOfferTarget } = await import("/systems/air-bladder/module/item-offer.js");
-    const giver = game.actors.getName("ZZ Offer Giver");
+    const giver = __abFresh("ZZ Offer Giver");
     const item = giver.items.find((i) => !["Fatigue", "ZZ Grimoire", "ZZ Bound Page"].includes(i.name));
     const p = promptOfferTarget(giver, item);
     await new Promise((r) => setTimeout(r, 500));
@@ -1026,7 +1091,7 @@ try {
   // it MUST appear. A hardcoded monster exclusion would pass the leg above and
   // fail this one, which is the only way to tell the two designs apart.
   await gm.evaluate(async () => {
-    await game.actors.getName("ZZ Offer Wolf")
+    await __abFresh("ZZ Offer Wolf")
       .update({ "ownership.default": CONST.DOCUMENT_OWNERSHIP_LEVELS.LIMITED });
   });
   await new Promise((r) => setTimeout(r, 700));
@@ -1036,7 +1101,7 @@ try {
     JSON.stringify(shownWolf));
 
   await gm.evaluate(async () => {
-    await game.actors.getName("ZZ Offer Wolf")
+    await __abFresh("ZZ Offer Wolf")
       .update({ "ownership.default": CONST.DOCUMENT_OWNERSHIP_LEVELS.NONE });
   });
   await new Promise((r) => setTimeout(r, 700));
@@ -1062,8 +1127,8 @@ try {
 
   const crateOffer = await alice.evaluate(async () => {
     const { createItemOffer } = await import("/systems/air-bladder/module/item-offer.js");
-    const giver = game.actors.getName("ZZ Offer Giver");
-    const crate = game.actors.getName("ZZ Offer Crate");
+    const giver = __abFresh("ZZ Offer Giver");
+    const crate = __abFresh("ZZ Offer Crate");
     const item = giver.items.find((i) => !["Fatigue", "ZZ Grimoire", "ZZ Bound Page"].includes(i.name));
     const before = crate.items.size;
     const msg = await createItemOffer(giver, item, crate);
@@ -1101,8 +1166,8 @@ try {
     JSON.stringify(crateOffer));
 
   const crateDrop = await gm.evaluate(async () => {
-    const giver = game.actors.getName("ZZ Offer Giver");
-    const crate = game.actors.getName("ZZ Offer Crate");
+    const giver = __abFresh("ZZ Offer Giver");
+    const crate = __abFresh("ZZ Offer Crate");
     const item = giver.items.find((i) => !["Fatigue", "ZZ Grimoire", "ZZ Bound Page"].includes(i.name));
     const before = crate.items.size;
     await crate.sheet.render(true);
@@ -1124,13 +1189,13 @@ try {
   // refused" is also satisfied by offers to containers never working at all —
   // an assertion the surface can meet by being broken.
   await gm.evaluate(async () => {
-    await game.actors.getName("ZZ Offer Crate").update({ "system.slots": 4 });
+    await __abFresh("ZZ Offer Crate").update({ "system.slots": 4 });
   });
   await new Promise((r) => setTimeout(r, 700));
   const crateRoom = await alice.evaluate(async () => {
     const { createItemOffer } = await import("/systems/air-bladder/module/item-offer.js");
-    const giver = game.actors.getName("ZZ Offer Giver");
-    const crate = game.actors.getName("ZZ Offer Crate");
+    const giver = __abFresh("ZZ Offer Giver");
+    const crate = __abFresh("ZZ Offer Crate");
     const item = giver.items.find((i) => !["Fatigue", "ZZ Grimoire", "ZZ Bound Page"].includes(i.name));
     const before = crate.items.size;
     const msg = await createItemOffer(giver, item, crate);
@@ -1161,7 +1226,7 @@ try {
   // original stock away, and "no item" would make this leg red for a reason
   // that has nothing to do with what it tests.
   await gm.evaluate(async () => {
-    await game.actors.getName("ZZ Offer Giver")
+    await __abFresh("ZZ Offer Giver")
       .createEmbeddedDocuments("Item", [{ name: "ZZ Stowable Rope", type: "item" }]);
   });
   await new Promise((r) => setTimeout(r, 700));
@@ -1171,7 +1236,7 @@ try {
     return {
       drove,
       ...(await alice.evaluate(() => {
-        const crate = game.actors.getName("ZZ Offer Crate");
+        const crate = __abFresh("ZZ Offer Crate");
         const msg = game.messages.contents.filter((m) => m.getFlag("air-bladder", "itemOffer")).at(-1);
         const f = msg?.getFlag("air-bladder", "itemOffer");
         return {
@@ -1203,7 +1268,7 @@ try {
   // `type === "character"` to `isOwner` on both halves — the affordance on the
   // item and the enforcement in `canOfferItem`.
   await gm.evaluate(async () => {
-    const npc = game.actors.getName("ZZ Offer NPC");
+    const npc = __abFresh("ZZ Offer NPC");
     // OBSERVER, not Limited: Alice has to SEE the item rows for "the control is
     // absent" to mean anything. On a Limited sheet there are no rows at all, so
     // the absence would be true of a feature that had never shipped.
@@ -1216,7 +1281,7 @@ try {
   await new Promise((r) => setTimeout(r, 700));
 
   const npcGive = await gm.evaluate(async () => {
-    const npc = game.actors.getName("ZZ Offer NPC");
+    const npc = __abFresh("ZZ Offer NPC");
     await npc.sheet.render(true);
     await new Promise((r) => setTimeout(r, 700));
     const root = npc.sheet.element;
@@ -1238,7 +1303,7 @@ try {
   // THE OTHER HALF, and it is the half that makes the first one mean anything:
   // an absence alone also passes when the selector is wrong.
   const observerGive = await alice.evaluate(async () => {
-    const npc = game.actors.getName("ZZ Offer NPC");
+    const npc = __abFresh("ZZ Offer NPC");
     if (!npc) return { seen: false };
     await npc.sheet.render(true);
     await new Promise((r) => setTimeout(r, 700));
@@ -1263,7 +1328,7 @@ try {
   // the UI that is now absent.
   const observerRefused = await alice.evaluate(async () => {
     const { canOfferItem } = await import("/systems/air-bladder/module/item-offer.js");
-    const npc = game.actors.getName("ZZ Offer NPC");
+    const npc = __abFresh("ZZ Offer NPC");
     const item = npc?.items.find((i) => i.name === "ZZ NPC Sword");
     return canOfferItem(item);
   });
@@ -1279,31 +1344,37 @@ try {
   // "drop failed" toast from the identical drag. Two affordances for one
   // action must not answer differently.
   await gm.evaluate(async () => {
-    const npc = game.actors.getName("ZZ Offer NPC");
+    const npc = __abFresh("ZZ Offer NPC");
     await npc.update({ [`ownership.${game.users.getName("Alice").id}`]: CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER });
   });
   await new Promise((r) => setTimeout(r, 700));
 
   const npcDrag = await alice.evaluate(async () => {
-    const npc = game.actors.getName("ZZ Offer NPC");
-    const target = game.actors.getName("ZZ Offer Target");
+    const npc = __abFresh("ZZ Offer NPC");
+    const target = __abFresh("ZZ Offer Target");
     const item = npc?.items.find((i) => i.name === "ZZ NPC Sword");
     if (!item) return { err: "no sword" };
     if (!npc.isOwner) return { err: "Alice does not own the npc" };
     await target.sheet.render(true);
     await new Promise((r) => setTimeout(r, 700));
+    // The giver's name in the confirm reads the overlay, as the card it posts
+    // does (review #34 finding 11) — a non-character giver's shipped name
+    // translates. Display-only and per client: Alice's alone, put back below.
+    const i18n = await import("/systems/air-bladder/module/i18n-content.js");
+    i18n._setOverlay({ "monster.name": { [npc.name]: "ZZ NPC-OFERTA" } });
     const DialogV2 = foundry.applications.api.DialogV2;
     const origConfirm = DialogV2.confirm;
-    DialogV2.confirm = async () => true;
+    let body = null;
+    DialogV2.confirm = async (opts) => { body = opts?.content ?? null; return true; };
     const dt = new DataTransfer();
     dt.setData("text/plain", JSON.stringify({ type: "Item", uuid: item.uuid }));
     let threw = null;
     try { await target.sheet._onDrop(new DragEvent("drop", { dataTransfer: dt })); }
     catch (e) { threw = e.message; }
-    finally { DialogV2.confirm = origConfirm; }
+    finally { DialogV2.confirm = origConfirm; i18n._setOverlay(null); }
     await new Promise((r) => setTimeout(r, 1200));
     await target.sheet.close();
-    return { threw, ownsNpc: npc.isOwner, itemStill: !!npc.items.get(item.id) };
+    return { threw, ownsNpc: npc.isOwner, itemStill: !!npc.items.get(item.id), body };
   });
   const npcDragOffer = await poll(gm, () => {
     const msg = game.messages.contents.filter((m) => m.getFlag("air-bladder", "itemOffer")).at(-1);
@@ -1313,6 +1384,9 @@ try {
   check("a player dragging off an npc they OWN posts an offer, like the button does",
     !npcDrag.err && !npcDrag.threw && npcDragOffer === true && npcDrag.itemStill,
     JSON.stringify(npcDrag));
+  check("...and its confirm names that giver in the display language",
+    typeof npcDrag.body === "string" && npcDrag.body.includes("ZZ NPC-OFERTA") && !npcDrag.body.includes("ZZ Offer NPC"),
+    `body=${JSON.stringify(npcDrag.body)} — the raw stored name, where the card names the same giver through the overlay`);
 
   /* ---- Q. the Warden gives, and the PLAYER answers ----------------------- */
   console.log("\nthe Warden gives: one click only when nobody else could answer");
@@ -1320,7 +1394,7 @@ try {
   // An unowned target first: nobody else has a say, so this settles at once.
   await gm.evaluate(async () => {
     const Cls = getDocumentClass("Actor");
-    if (!game.actors.getName("ZZ Offer Innkeeper")) {
+    if (!__abFresh("ZZ Offer Innkeeper")) {
       await Cls.create({
         name: "ZZ Offer Innkeeper", type: "npc",
         ownership: { default: CONST.DOCUMENT_OWNERSHIP_LEVELS.LIMITED },
@@ -1331,8 +1405,8 @@ try {
 
   const toUnowned = await gm.evaluate(async () => {
     const { createItemOffer, settleOwnOffer } = await import("/systems/air-bladder/module/item-offer.js");
-    const npc = game.actors.getName("ZZ Offer NPC");
-    const inn = game.actors.getName("ZZ Offer Innkeeper");
+    const npc = __abFresh("ZZ Offer NPC");
+    const inn = __abFresh("ZZ Offer Innkeeper");
     const item = npc.items.find((i) => i.name === "ZZ NPC Sword");
     const message = await createItemOffer(npc, item, inn);
     await settleOwnOffer(message, inn);
@@ -1356,15 +1430,15 @@ try {
   // them consent to Hit Protection 0. Red under Part C's version of it.
   // BOB owns `ZZ Offer Target` in this suite, not Alice.
   await gm.evaluate(async () => {
-    const npc = game.actors.getName("ZZ Offer NPC");
+    const npc = __abFresh("ZZ Offer NPC");
     await npc.createEmbeddedDocuments("Item", [{ name: "ZZ Warden Gift", type: "item" }]);
   });
   await new Promise((r) => setTimeout(r, 600));
 
   const toAlice = await gm.evaluate(async () => {
     const { createItemOffer, settleOwnOffer } = await import("/systems/air-bladder/module/item-offer.js");
-    const npc = game.actors.getName("ZZ Offer NPC");
-    const target = game.actors.getName("ZZ Offer Target");
+    const npc = __abFresh("ZZ Offer NPC");
+    const target = __abFresh("ZZ Offer Target");
     const item = npc.items.find((i) => i.name === "ZZ Warden Gift");
     const message = await createItemOffer(npc, item, target);
     await settleOwnOffer(message, target);
@@ -1406,7 +1480,7 @@ try {
       system: { role: "hireling" },
       ownership: { default: L.OWNER },
     });
-    const npc = game.actors.getName("ZZ Offer NPC");
+    const npc = __abFresh("ZZ Offer NPC");
     await npc.createEmbeddedDocuments("Item", [{ name: "ZZ Shared Gift", type: "item" }]);
     const item = npc.items.find((i) => i.name === "ZZ Shared Gift");
     // The premise, stated: no PLAYER is named on this actor, and a player still
@@ -1466,7 +1540,7 @@ try {
   const clicked = await clickCard(bob, toAlice.id, "cairn-offer-accept");
   await new Promise((r) => setTimeout(r, 2000));
   const aliceAccepted = await gm.evaluate((id) => ({
-    landed: game.actors.getName("ZZ Offer Target").items.some((i) => i.name === "ZZ Warden Gift"),
+    landed: __abFresh("ZZ Offer Target").items.some((i) => i.name === "ZZ Warden Gift"),
     state: game.messages.get(id)?.getFlag("air-bladder", "itemOffer")?.state,
   }), toAlice.id);
 
@@ -1503,6 +1577,26 @@ try {
     };
   });
 
+  // ...AND THE TARGET (review #34 finding 243). The giver half got its mask;
+  // a target that no longer resolves (a hireling deleted after the gift) read
+  // a bare "?": "…offers Rope to ?.", "…is now carried by ?.".
+  const hiddenTarget = await gm.evaluate(async () => {
+    const msg = game.messages.contents.filter((m) => m.getFlag("air-bladder", "itemOffer")).at(-1);
+    if (!msg) return { skipped: "no offer card" };
+    const original = msg.getFlag("air-bladder", "itemOffer");
+    await msg.setFlag("air-bladder", "itemOffer", {
+      ...original, targetActorUuid: "Actor.zzzzzzzzzzzzzzzz",
+    });
+    await new Promise((r) => setTimeout(r, 800));
+    const text = document.querySelector(`[data-message-id="${msg.id}"]`)?.innerText ?? "";
+    await msg.setFlag("air-bladder", "itemOffer", original);
+    await new Promise((r) => setTimeout(r, 500));
+    return { text, mask: game.i18n.localize("CAIRN.Offer.HiddenTarget") };
+  });
+  check("a card whose target no longer resolves reads the mask, not \"?\" (review #34 finding 243)",
+    !hiddenTarget.skipped && hiddenTarget.text.includes(hiddenTarget.mask) && !/\?(\.|$|\s)/.test(hiddenTarget.text),
+    JSON.stringify({ mask: hiddenTarget.mask, text: hiddenTarget.text?.slice(0, 160) }));
+
   check("a card whose giver no longer resolves reads the mask, not a broken name",
     !hiddenGiver.skipped && hiddenGiver.text.includes(hiddenGiver.mask) && !hiddenGiver.text.includes("undefined"),
     JSON.stringify({ mask: hiddenGiver.mask, text: hiddenGiver.text?.slice(0, 120) }));
@@ -1512,19 +1606,298 @@ try {
       && new RegExp(`(^|\\n)${hiddenGiver.mask} `).test(hiddenGiver.text),
     JSON.stringify({ mask: hiddenGiver.mask, targetMask: hiddenGiver.targetMask, text: hiddenGiver.text?.slice(0, 120) }));
 
-  /* ---- teardown ----------------------------------------------------------- */
-  const swept = await gm.evaluate(async (before) => {
-    const newActors = game.actors.filter((a) => !before.actors.includes(a.id));
-    for (const a of newActors) await a.delete();
-    const newMsgs = game.messages.filter((m) => !before.messages.includes(m.id));
-    for (const m of newMsgs) await m.delete();
-    return { actors: newActors.length, messages: newMsgs.length };
-  }, before);
-  console.log(`\n  note  swept ${swept.actors} actors, ${swept.messages} messages`);
+  /* ---- S. the consent describes what lands (review #34 findings 135, 156, 179) */
+  console.log("\nconsent: what lands is what was accepted");
+  // "An accepted gift after the recipient's informed confirm" is the only way
+  // past the limit, so the confirm has to price what actually lands, on the
+  // actor it lands on. Each leg below changes one thing between Bob's click and
+  // the delivery — the target, the item, the load — and the gift must not put
+  // him past the limit with no confirm. The relay path throughout: Bob is
+  // neither the author nor a GM, so his accept goes to Alice's client and her
+  // release comes back.
+  //
+  // ONE FRESH PERSON PER LEG, each Bob's and each at max-2: a leg that reds on
+  // unfixed code over-burdens its target, and a shared target would hand that
+  // load to the next leg.
+  await gm.evaluate(async () => {
+    await __abFresh("ZZ Offer Giver").createEmbeddedDocuments("Item", [
+      "ZZ Consent Rope", "ZZ Consent Plank", "ZZ Consent Spool", "ZZ Consent Twine", "ZZ Consent Wire",
+      "ZZ Consent Sack",
+    ].map((name) => ({ name, type: "item" })));
+    // Every offer card's state, in order, as the Warden's client sees it — how
+    // a leg tells "reopened after an accept" from "never answered".
+    window.__consentStates = {};
+    Hooks.on("updateChatMessage", (doc) => {
+      const f = doc.getFlag("air-bladder", "itemOffer");
+      if (!f) return;
+      (window.__consentStates[doc.id] ??= []).push(f.settled ? "settled" : f.state);
+    });
+  });
+  const plantConsent = (name, extra = []) => gm.evaluate(async ({ name, extra }) => {
+    const L = CONST.DOCUMENT_OWNERSHIP_LEVELS;
+    const bobU = game.users.getName("Bob");
+    const a = await Actor.implementation.create({
+      name, type: "character", ownership: { default: L.LIMITED, [bobU.id]: L.OWNER },
+    });
+    if (extra.length) await a.createEmbeddedDocuments("Item", extra);
+    const fill = (a.system.slotsMax - 2) - a.system.slotsUsed;
+    if (fill > 0) {
+      await a.createEmbeddedDocuments("Item",
+        Array.from({ length: fill }, (_, i) => ({ name: `ZZ Consent Filler ${i}`, type: "item" })));
+    }
+    return { uuid: a.uuid, atMaxLess2: a.system.slotsUsed === a.system.slotsMax - 2,
+      slots: `${a.system.slotsUsed}/${a.system.slotsMax}` };
+  }, { name, extra });
+  /** Alice offers her `itemName` to `targetUuid`; resolves once Bob's card has Accept. */
+  const consentOffer = async (itemName, targetUuid) => {
+    const id = await alice.evaluate(async ({ itemName, targetUuid }) => {
+      const { createItemOffer } = await import("/systems/air-bladder/module/item-offer.js");
+      let giver = null, item = null, target = null;
+      for (let i = 0; i < 60 && !(item && target); i++) {
+        giver = __abFresh("ZZ Offer Giver");
+        item = giver?.items.find((it) => it.name === itemName) ?? null;
+        target = foundry.utils.fromUuidSync(targetUuid);
+        if (!(item && target)) await new Promise((r) => setTimeout(r, 100));
+      }
+      if (!item || !target) return null;
+      return (await createItemOffer(giver, item, target))?.id ?? null;
+    }, { itemName, targetUuid });
+    if (!id) return null;
+    const ready = await poll(bob, (id) =>
+      document.querySelector(`.chat-message[data-message-id="${id}"] .cairn-offer-accept`) ? true : null, id);
+    return ready ? id : null;
+  };
+  /** Bob's over-burden confirm, stubbed to COUNT and answer `yes`. */
+  const armConfirm = (yes) => bob.evaluate((yes) => {
+    const D = foundry.applications.api.DialogV2;
+    window.__consentOrigConfirm ??= D.confirm;
+    window.__consentConfirms = 0;
+    D.confirm = async () => { window.__consentConfirms++; return yes; };
+  }, yes);
+  const disarmConfirm = () => bob.evaluate(() => {
+    if (window.__consentOrigConfirm) foundry.applications.api.DialogV2.confirm = window.__consentOrigConfirm;
+    delete window.__consentOrigConfirm;
+  });
+  /** Wait until every card in `ids` was accepted and then settled or reopened. */
+  const consentSettled = (ids) => poll(gm, (ids) => ids.every((id) => {
+    const s = window.__consentStates[id] ?? [];
+    return s.includes("accepted") && ["settled", "open"].includes(s.at(-1));
+  }) || null, ids, 20000);
+  /** What the target holds now, as the Warden reads it. */
+  const consentHolds = (uuid, names) => gm.evaluate(({ uuid, names }) => {
+    const a = foundry.utils.fromUuidSync(uuid);
+    return {
+      slots: `${a?.system.slotsUsed}/${a?.system.slotsMax}`,
+      encumbered: !!a?.system.encumbered,
+      qty: Object.fromEntries(names.map((n) => [n, a?.items.find((i) => i.name === n)?.system.quantity ?? 0])),
+    };
+  }, { uuid, names });
+  const consentState = (id) => gm.evaluate((id) => {
+    const f = game.messages.get(id)?.getFlag("air-bladder", "itemOffer");
+    return f ? (f.settled ? "settled" : f.state) : null;
+  }, id);
+
+  try {
+    // S1 (finding 179). The giver retargets the card after Bob's accept: one
+    // preUpdate hook folds `targetActorUuid` into Alice's OWN {state:
+    // "accepted"} write, and her honest release then follows the flag onto
+    // Bob's FULL crate, which holds a matching Rope — the stack branch, which
+    // asked no capacity at all. Bob consented to his person, which had room.
+    const crate = await gm.evaluate(async () => {
+      const L = CONST.DOCUMENT_OWNERSHIP_LEVELS;
+      const bobU = game.users.getName("Bob");
+      const c = await Actor.implementation.create({
+        name: "ZZ Consent Crate", type: "npc", system: { role: "container", slots: 1 },
+        ownership: { default: L.LIMITED, [bobU.id]: L.OWNER },
+      });
+      await c.createEmbeddedDocuments("Item", [{ name: "ZZ Consent Rope", type: "item" }]);
+      return { uuid: c.uuid, full: c.system.slotsUsed >= c.system.slotsMax,
+        slots: `${c.system.slotsUsed}/${c.system.slotsMax}` };
+    });
+    const p1 = await plantConsent("ZZ Consent Alpha");
+    const s1 = await consentOffer("ZZ Consent Rope", p1.uuid);
+    if (s1 && crate.full && p1.atMaxLess2) {
+      await alice.evaluate(({ id, crateUuid }) => {
+        window.__consentRetargeted = false;
+        window.__consentRetarget = Hooks.on("preUpdateChatMessage", (doc, changes) => {
+          const f = changes?.flags?.["air-bladder"]?.itemOffer;
+          if (doc.id !== id || f?.state !== "accepted") return;
+          f.targetActorUuid = crateUuid;
+          window.__consentRetargeted = true;
+        });
+      }, { id: s1, crateUuid: crate.uuid });
+      await armConfirm(true);
+      await clickCard(bob, s1, "cairn-offer-accept");
+      await consentSettled([s1]);
+      const retargeted = await alice.evaluate(() => {
+        Hooks.off("preUpdateChatMessage", window.__consentRetarget);
+        return window.__consentRetargeted;
+      });
+      const [onCrate, onPerson, state1] = [await consentHolds(crate.uuid, ["ZZ Consent Rope"]),
+        await consentHolds(p1.uuid, ["ZZ Consent Rope"]), await consentState(s1)];
+      check("a card retargeted by its giver after the accept delivers nothing, and reopens",
+        retargeted === true && onCrate.qty["ZZ Consent Rope"] === 1 && onPerson.qty["ZZ Consent Rope"] === 0
+          && state1 === "open",
+        `${JSON.stringify({ retargeted, crate: onCrate, person: onPerson, state: state1 })} — Bob accepted for ${p1.slots}; the release followed the flag onto a full crate`);
+    } else fail("the retarget leg's fixtures did not stand up", JSON.stringify({ s1, crate, p1 }));
+
+    // S2 (finding 156, the click). The item turns Bulky after it was offered,
+    // so the card's snapshot says one slot and the item says two. Bob at max-2
+    // must be asked; he answers No, and nothing moves.
+    const p2 = await plantConsent("ZZ Consent Beta");
+    const s2 = await consentOffer("ZZ Consent Plank", p2.uuid);
+    if (s2 && p2.atMaxLess2) {
+      await alice.evaluate(async () => {
+        await __abFresh("ZZ Offer Giver").items.find((i) => i.name === "ZZ Consent Plank").update({ "system.bulky": true });
+      });
+      const bobSeesBulky = await poll(bob, () =>
+        __abFresh("ZZ Offer Giver")?.items.find((i) => i.name === "ZZ Consent Plank")?.system.bulky || null);
+      await armConfirm(false);
+      await clickCard(bob, s2, "cairn-offer-accept");
+      // Asked-and-refused moves nothing and writes nothing, so the end of this
+      // leg is the confirm itself; on unfixed code it is the settle.
+      await poll(bob, (id) => window.__consentConfirms > 0
+        || game.messages.get(id)?.getFlag("air-bladder", "itemOffer")?.settled || null, s2);
+      await new Promise((r) => setTimeout(r, 1500));
+      const asked = await bob.evaluate(() => window.__consentConfirms);
+      const [held2, state2] = [await consentHolds(p2.uuid, ["ZZ Consent Plank"]), await consentState(s2)];
+      check("an item turned Bulky after it was offered asks the over-burden confirm",
+        bobSeesBulky === true && asked === 1, JSON.stringify({ bobSeesBulky, asked }));
+      check("...and answering No lands nothing",
+        held2.qty["ZZ Consent Plank"] === 0 && !held2.encumbered && state2 === "open",
+        JSON.stringify({ ...held2, state: state2 }));
+    } else fail("the bulky-after-posting leg's fixtures did not stand up", JSON.stringify({ s2, p2 }));
+
+    // S2b (finding 156, the door). Everything Bob's client can see says one
+    // slot, and he is not asked; the RELEASE carries a Bulky item (the wire is
+    // the giver's). The delivery must judge what arrives and refuse an
+    // over-burden nobody confirmed.
+    const p2b = await plantConsent("ZZ Consent Epsilon");
+    const s2b = await consentOffer("ZZ Consent Spool", p2b.uuid);
+    if (s2b && p2b.atMaxLess2) {
+      await alice.evaluate((id) => {
+        const sock = game.socket;
+        window.__consentOrigEmit = sock.emit;
+        window.__consentWireBulky = false;
+        sock.emit = function (event, payload, ...rest) {
+          if (payload?.action === "offerRelease" && payload.messageId === id && payload.itemData) {
+            payload = { ...payload, itemData: { ...payload.itemData,
+              system: { ...payload.itemData.system, bulky: true } } };
+            window.__consentWireBulky = true;
+          }
+          return window.__consentOrigEmit.call(this, event, payload, ...rest);
+        };
+      }, s2b);
+      await armConfirm(true);
+      await clickCard(bob, s2b, "cairn-offer-accept");
+      await consentSettled([s2b]);
+      const wire = await alice.evaluate(() => {
+        game.socket.emit = window.__consentOrigEmit;
+        delete window.__consentOrigEmit;
+        return window.__consentWireBulky;
+      });
+      const asked = await bob.evaluate(() => window.__consentConfirms);
+      const [held2b, state2b] = [await consentHolds(p2b.uuid, ["ZZ Consent Spool"]), await consentState(s2b)];
+      check("a release heavier than what was accepted is refused at delivery, and the offer reopens",
+        wire === true && asked === 0 && held2b.qty["ZZ Consent Spool"] === 0 && !held2b.encumbered
+          && state2b === "open",
+        JSON.stringify({ wire, asked, ...held2b, state: state2b }));
+    } else fail("the heavier-release leg's fixtures did not stand up", JSON.stringify({ s2b, p2b }));
+
+    // S3 (finding 135). Two one-slot offers to Bob at max-2, both accepted in
+    // the same tick: each click reads the load before either gift has landed,
+    // so neither asks. One fits; the second would over-burden him with no
+    // confirm, so it is refused and reopens — accepting it again asks.
+    const p3 = await plantConsent("ZZ Consent Gamma");
+    const s3a = await consentOffer("ZZ Consent Twine", p3.uuid);
+    const s3b = await consentOffer("ZZ Consent Wire", p3.uuid);
+    if (s3a && s3b && p3.atMaxLess2) {
+      await armConfirm(true);
+      await bob.evaluate(({ a, b }) => {
+        for (const id of [a, b]) {
+          document.querySelector(`.chat-message[data-message-id="${id}"] .cairn-offer-accept`)?.click();
+        }
+      }, { a: s3a, b: s3b });
+      await consentSettled([s3a, s3b]);
+      const asked = await bob.evaluate(() => window.__consentConfirms);
+      const held3 = await consentHolds(p3.uuid, ["ZZ Consent Twine", "ZZ Consent Wire"]);
+      const states3 = [await consentState(s3a), await consentState(s3b)];
+      const landed = held3.qty["ZZ Consent Twine"] + held3.qty["ZZ Consent Wire"];
+      check("two accepts in one tick land the one that fits and reopen the one that would over-burden",
+        asked === 0 && landed === 1 && !held3.encumbered
+          && states3.filter((s) => s === "settled").length === 1 && states3.filter((s) => s === "open").length === 1,
+        JSON.stringify({ asked, ...held3, states: states3 }));
+    } else fail("the back-to-back leg's fixtures did not stand up", JSON.stringify({ s3a, s3b, p3 }));
+
+    // S4 (finding 156, the merge). Bob's own Sack is Bulky; Alice's is not,
+    // and one more of Bob's stack costs what one of HIS costs. At max-2 that
+    // is over the limit, so he is asked; he answers No.
+    const p4 = await plantConsent("ZZ Consent Delta",
+      [{ name: "ZZ Consent Sack", type: "item", system: { bulky: true } }]);
+    const s4 = await consentOffer("ZZ Consent Sack", p4.uuid);
+    if (s4 && p4.atMaxLess2) {
+      await armConfirm(false);
+      await clickCard(bob, s4, "cairn-offer-accept");
+      await poll(bob, (id) => window.__consentConfirms > 0
+        || game.messages.get(id)?.getFlag("air-bladder", "itemOffer")?.settled || null, s4);
+      await new Promise((r) => setTimeout(r, 1500));
+      const asked = await bob.evaluate(() => window.__consentConfirms);
+      const [held4, state4] = [await consentHolds(p4.uuid, ["ZZ Consent Sack"]), await consentState(s4)];
+      check("a gift that merges into a Bulky stack is priced as one more of that stack, and asks",
+        asked === 1 && held4.qty["ZZ Consent Sack"] === 1 && !held4.encumbered && state4 === "open",
+        JSON.stringify({ asked, ...held4, state: state4 }));
+    } else fail("the bulky-stack leg's fixtures did not stand up", JSON.stringify({ s4, p4 }));
+
+    // S5 (finding 156, the drag). The other route into a stack, priced by the
+    // same test: a one-slot Bag dragged onto a crate whose own Bag is Bulky
+    // adds two, so a crate with ONE slot free refuses it — as the offer would.
+    const s5 = await gm.evaluate(async () => {
+      const crate = await Actor.implementation.create({
+        name: "ZZ Consent Bin", type: "npc", system: { role: "container", slots: 4 },
+      });
+      await crate.createEmbeddedDocuments("Item", [
+        { name: "ZZ Consent Bag", type: "item", system: { bulky: true } },
+        { name: "ZZ Consent Bin Filler", type: "item" },
+      ]);
+      const src = await Actor.implementation.create({ name: "ZZ Consent Dragger", type: "character" });
+      const [bag] = await src.createEmbeddedDocuments("Item", [{ name: "ZZ Consent Bag", type: "item" }]);
+      const at = `${crate.system.slotsUsed}/${crate.system.slotsMax}`;
+      await crate.sheet.render(true);
+      for (let i = 0; i < 30 && !(crate.sheet.element instanceof HTMLElement); i++) {
+        await new Promise((r) => setTimeout(r, 100));
+      }
+      const dt = new DataTransfer();
+      dt.setData("text/plain", JSON.stringify({ type: "Item", uuid: bag.uuid }));
+      try { await crate.sheet._onDrop(new DragEvent("drop", { dataTransfer: dt })); } catch { /* refused */ }
+      await new Promise((r) => setTimeout(r, 900));
+      await crate.sheet.close();
+      return {
+        at, after: `${crate.system.slotsUsed}/${crate.system.slotsMax}`,
+        qty: crate.items.find((i) => i.name === "ZZ Consent Bag")?.system.quantity ?? 0,
+        srcKept: !!src.items.get(bag.id),
+      };
+    });
+    check("a drag that merges into a Bulky stack is priced as one more of that stack: one slot free refuses it",
+      s5.at === "3/4" && s5.qty === 1 && s5.after === "3/4" && s5.srcKept, JSON.stringify(s5));
+  } finally {
+    await disarmConfirm().catch(() => {});
+  }
 
   const allErrors = [...gmErrors, ...alErrors, ...bobErrors].filter((e) => !/ZZ /.test(e));
   check("zero console errors", allErrors.length === 0, allErrors.slice(0, 3).join(" | "));
 } finally {
+  /* ---- teardown, from the FINALLY (review #34 finding 37) ---------------- */
+  if (before) {
+    const swept = await gm.evaluate(async (before) => {
+      const newActors = game.actors.filter((a) => !before.actors.includes(a.id));
+      for (const a of newActors) await a.delete();
+      const newMsgs = game.messages.filter((m) => !before.messages.includes(m.id));
+      for (const m of newMsgs) await m.delete();
+      return { actors: newActors.length, messages: newMsgs.length };
+    }, before).catch((e) => ({ error: String(e?.message ?? e) }));
+    console.log(swept.error ? `\n  COULD NOT SWEEP this run's documents: ${swept.error}`
+      : `\n  note  swept ${swept.actors} actors, ${swept.messages} messages`);
+  }
   await browser.close();
 }
 console.log(failures ? `\nitem-offer e2e FAILED — ${failures}` : "\nitem-offer e2e passed");

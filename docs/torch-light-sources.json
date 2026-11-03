@@ -115,27 +115,6 @@
         "light": [
           { "negative": true, "bright": 10, "dim": 20, "angle": 360, "alpha": 0.5 }
         ]
-      },
-      "Heatless Torch": {
-        "name": "Heatless Torch",
-        "type": "spell",
-        "consumable": false,
-        "states": 2,
-        "light": [
-          { "bright": 20, "dim": 40, "angle": 360, "color": "#d8f0ff", "alpha": 0.4 }
-        ]
-      },
-      "Lamp's Hue": {
-        "name": "Lamp's Hue",
-        "type": "spell",
-        "consumable": false,
-        "states": 2,
-        "light": [
-          {
-            "bright": 20, "dim": 40, "angle": 360, "color": "#ff9329", "alpha": 0.5,
-            "animation": { "type": "torch", "speed": 5, "intensity": 5, "reverse": false }
-          }
-        ]
       }
     }
   }

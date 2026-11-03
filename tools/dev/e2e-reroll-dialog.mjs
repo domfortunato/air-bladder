@@ -52,7 +52,9 @@
  *      empty one, which is how this leg redded on the fleet 2026-10-22); and
  *      the unmatched-Kettlewright shape (backgroundUuid "",
  *      armorOverride set) refuses the whole gesture with a warning instead of
- *      half-applying it.
+ *      half-applying it. Review #34 finding 237: the background, failed-career
+ *      and Career pickers refuse the same way, so does the keepsake die, and a
+ *      picked Career or NPC Background holds the flag through its writes.
  *   8. REVIEW #21 finding 2 (user ruling 2026-09-02: mundane grants are
  *      TAGGED). Background-granted rations/light gear carries grantSource
  *      "background-mundane" — identity for the re-deal sweep, while
@@ -75,9 +77,17 @@
  */
 
 import { chromium } from "playwright";
-import { VIEWPORT, joinAsGM, watchErrors, holdAsideWorldTables } from "./lib.mjs";
+import { VIEWPORT, joinAsGM, watchErrors, holdAsideWorldTables, watchdog } from "./lib.mjs";
 
 const browser = await chromium.launch();
+
+// The fleet's hang guard (review #34 finding 25): without it a hang runs to
+
+// the runner's 65-minute cap, skips every restore, and the box is never
+
+// marked suspect. A bound on a hang, not a timing claim.
+
+watchdog(600000, "reroll-dialog probe", () => browser.close());
 const page = await browser.newContext({ viewport: VIEWPORT }).then((c) => c.newPage());
 const errors = watchErrors(page);
 let failed = false;
@@ -185,6 +195,11 @@ try {
       out.provenanceGenerated = actor.getFlag(NS, "backgroundChosen");
 
       // ---- 1. The 2e rows and the notes -----------------------------------
+      // Fieldwarden's two bonds, snapshotted where leg 1 has just proved there
+      // are two, for 1c to lend a Barebones character. Read off the character
+      // at 1c instead, they were not there (one, on the first run): leg 5's
+      // all-checked re-roll deals it a new background and new bonds between.
+      let lendableBonds = [];
       let dlg = await openDialog(sheet);
       out.opened2e = !!dlg;
       if (dlg) {
@@ -198,6 +213,10 @@ try {
         out.notes2e = {
           questions: dlg.querySelector(".reroll-note-questions")?.textContent?.trim() ?? "",
           pick: dlg.querySelector(".reroll-note-pick")?.textContent?.trim() ?? "",
+          // Fieldwarden's two bonds: the bonds note must show (review #34 finding 210).
+          bonds: dlg.querySelector(".reroll-note-bonds")?.textContent?.trim() ?? "",
+          bondCount: (actor.system.bonds ?? []).length,
+          bondsWant: game.i18n.localize("CAIRN.Reroll.BondsNote"),
         };
         // Chosen background → Background unchecked, its children live.
         const s = dialogState(dlg);
@@ -218,6 +237,21 @@ try {
         const f = dialogState(dlg);
         out.gatedOff = { name: f.name, gear: f.gear, bonds: f.bonds };
         await closeDialog(dlg);
+
+        // With ONE bond the bonds note must not show — the first bond always
+        // survives the trim. The second bond is taken off for one opening and
+        // put back, so every later leg sees Fieldwarden's two.
+        const twoBonds = foundry.utils.deepClone(actor.system.bonds ?? []);
+        if (twoBonds.length >= 2) {
+          lendableBonds = foundry.utils.deepClone(twoBonds.slice(0, 2));
+          await actor.update({ "system.bonds": [twoBonds[0]] });
+          dlg = await openDialog(sheet);
+          out.oneBondNote = dlg ? !!dlg.querySelector(".reroll-note-bonds") : "the checklist did not open";
+          if (dlg) await closeDialog(dlg);
+          await actor.update({ "system.bonds": twoBonds });
+        } else {
+          out.oneBondNote = `precondition: ${twoBonds.length} bond(s), not 2`;
+        }
       }
 
       // ---- 1b. show-traits OFF removes the age and traits rows ------------
@@ -338,6 +372,16 @@ try {
 
       // ---- 5b. Background-only (2026-09-03): the name rides the swap, the
       // bonds and the statline do not — the tie and the untie in one run.
+      // What it proves of bonds is that an UNCHECKED Bond(s) row is not
+      // re-dealt, so it holds ONE bond: the swap trims bonds past the new
+      // background's entitlement from the end (finding 210's note says so),
+      // and leg 5's full re-roll deals a random background — a two-bond deal
+      // landing on a one-bond background would be trimmed by design and red
+      // this leg at random. The first bond always survives the trim.
+      if ((actor.system.bonds?.length ?? 0) > 1) {
+        await actor.update({ "system.bonds": [foundry.utils.deepClone(actor.system.bonds[0])] });
+      }
+      out.bgOnlyBondCount = actor.system.bonds?.length ?? 0;
       const keepBonds = JSON.stringify(actor.system.bonds);
       const keepSTR = actor.system.abilities.STR.value;
       dlg = await openDialog(sheet);
@@ -385,6 +429,81 @@ try {
         await closeDialog(dlg);
       }
       await bsheet.close();
+
+      // ---- 1c. The failed career follows its switch (review #34 findings
+      // 221, 253, ruled 2026-11-01) — and the bonds note shows on Barebones.
+      // With the Knave failed career OFF the sheet hides the career, so the
+      // checklist must not offer to re-roll it (traits' and omens' own rule
+      // here), and a background change onto the hidden career's name must not
+      // swap its keepsake. Its own Barebones character, generated with the
+      // switch ON so it HAS a career and a keepsake; the switch is turned off
+      // by a read shadow, restored in a finally. The control, with the switch
+      // on, swaps a second character's keepsake the same way.
+      {
+        const keepsakeOf = (a) => a.items.find((i) => i.getFlag(NS, "grantSource") === "failed-career")?.id ?? null;
+        const fresh = async () => {
+          const a = track(await gen.createActorWithCharacter(await gen.generateBarebonesCharacter(null)));
+          for (const c of game.actors.filter((x) => x.system?.connectedTo === a.uuid)) made.push(c);
+          await a.update({ "system.generationEnabled": true });
+          return a;
+        };
+        const bbBgs = await gen.getBarebonesBackgrounds();
+        const onto = async (a) => {
+          const bg = bbBgs.find((b) => b.name === a.system.failedCareer);
+          if (!bg) return "no background named after the career";
+          await gen.changeBackground(a, bg);
+          for (const c of game.actors.filter((x) => x.system?.connectedTo === a.uuid)) made.push(c);
+          return true;
+        };
+        const fc = await fresh();
+        out.fcOff = { career: fc.system.failedCareer, keepsake: keepsakeOf(fc) };
+        const origGetF = game.settings.get;
+        game.settings.get = function (ns, key, ...rest) {
+          if (rest[0]?.document) return foundry.helpers.ClientSettings.prototype.get.call(this, ns, key, ...rest);
+          if (key === "barebones-failed-career") return false;
+          return origGetF.call(this, ns, key, ...rest);
+        };
+        try {
+          await fc.sheet.render(true);
+          await wait(800);
+          dlg = await openDialog(fc.sheet);
+          out.fcOff.rows = dlg ? [...dlg.querySelectorAll(".reroll-row")].map((row) => row.dataset.part) : null;
+          if (dlg) await closeDialog(dlg);
+          await fc.sheet.close();
+          out.fcOff.swap = await onto(fc);
+          out.fcOff.careerAfter = fc.system.failedCareer;
+          out.fcOff.keepsakeAfter = keepsakeOf(fc);
+        } finally {
+          game.settings.get = origGetF;
+        }
+
+        const fcOn = await fresh();
+        out.fcOn = { career: fcOn.system.failedCareer, keepsake: keepsakeOf(fcOn) };
+        out.fcOn.swap = await onto(fcOn);
+        out.fcOn.careerAfter = fcOn.system.failedCareer;
+        out.fcOn.keepsakeAfter = keepsakeOf(fcOn);
+
+        // The bonds note on Barebones. Barebones generation deals no bonds
+        // (2e's alone since 2026-08-09), but a character can still carry
+        // older lent ones, and the trim is not edition-bound — so two are
+        // PLANTED, copies of the 2e character's (as leg 1 found them) under new
+        // ids, and taken off again after the one opening.
+        const bondsWere = foundry.utils.deepClone(fcOn.system.bonds ?? []);
+        const lent = lendableBonds
+          .map((b) => ({ ...foundry.utils.deepClone(b), id: foundry.utils.randomID() }));
+        if (lent.length === 2) {
+          await fcOn.update({ "system.bonds": lent });
+          await fcOn.sheet.render(true);
+          await wait(800);
+          dlg = await openDialog(fcOn.sheet);
+          out.bondsNoteBb2 = dlg ? (dlg.querySelector(".reroll-note-bonds")?.textContent?.trim() ?? "") : null;
+          if (dlg) await closeDialog(dlg);
+          await fcOn.sheet.close();
+          await fcOn.update({ "system.bonds": bondsWere });
+        } else {
+          out.bondsNoteBb2 = `precondition: leg 1 snapshotted ${lent.length} bond(s) to lend, not 2`;
+        }
+      }
 
       // ---- 6b. The per-field provenance writes ----------------------------
       // Unset first, so the assertion can only pass if changeBackground itself
@@ -462,6 +581,93 @@ try {
       } else {
         out.pickHeldClosed = "no bond pick anchor on the sheet";
       }
+
+      // 7b2. The rest of the house guard (review #34 finding 237). The Career /
+      // NPC-Background picker ran its swap with no `_rerolling` at all, so a
+      // die press beside it overlapped the same delete-then-create; the
+      // background and failed-career pickers asked the flag only AFTER their
+      // list; and the keepsake die never asked it, so pressed inside a
+      // failed-career swap it dealt the OLD career's keepsake to the new one.
+      const closePickers = async () => {
+        for (const el of document.querySelectorAll(".bg-picker")) {
+          await foundry.applications.instances.get(el.closest(".application")?.id)?.close();
+        }
+        await waitFor(() => !document.querySelector(".bg-picker"), 5000);
+      };
+      // Held: the anchor clicked with the flag up must open nothing. Free: the
+      // same click with it down opens the list, so "nothing opened" is not a
+      // dead anchor. Closing a list resolves its picker false, so neither
+      // click applies anything.
+      const heldOpens = async (s, selector) => {
+        await s.render(true);
+        if (!await waitFor(() => rootOf(s)?.querySelector(selector), 10000)) return "no anchor";
+        s._rerolling = true;
+        rootOf(s).querySelector(selector).click();
+        await wait(1200);
+        const held = !!document.querySelector(".bg-picker");
+        await closePickers();
+        s._rerolling = false;
+        rootOf(s)?.querySelector(selector)?.click();
+        const free = !!await waitFor(() => document.querySelector(".bg-picker"), 10000);
+        await closePickers();
+        return { held, free };
+      };
+      // The Career / Background apply must HOLD the flag through every write
+      // it makes, or the die beside it is not refused while it runs. Read at
+      // each write's hook, which fires before the apply's await resumes.
+      const applyHolds = async (person, s, field) => {
+        const seen = [];
+        const hooks = ["updateActor", "createItem", "deleteItem"].map((h) => [h, Hooks.on(h, (doc) => {
+          if ((doc.documentName === "Actor" ? doc : doc.parent)?.id === person.id) seen.push(s._rerolling === true);
+        })]);
+        const before = person.system[field];
+        try {
+          rootOf(s)?.querySelector('a[data-action="pickProfession"]')?.click();
+          const d = await waitFor(() => document.querySelector(".bg-picker"), 10000);
+          if (!d) return "no list";
+          [...d.querySelectorAll('input[name="bg"]')]
+            .find((i) => i.value !== "__random__" && i.value !== before)?.click();
+          d.closest(".application")?.querySelector('button[data-action="choose"]')?.click();
+          await waitFor(() => person.system[field] !== before, 15000);
+          await waitFor(() => s._rerolling !== true, 15000);
+          await wait(500);
+        } finally {
+          for (const [h, id] of hooks) Hooks.off(h, id);
+        }
+        return { changed: person.system[field] !== before, writes: seen.length, held: seen.every(Boolean) };
+      };
+      out.f237 = {};
+      out.f237.background = await heldOpens(sheet, 'a[data-action="pickBackground"]');
+      out.f237.failedCareer = await heldOpens(bsheet, 'a[data-action="pickFailedCareer"]');
+      // The keepsake die mid-swap must deal nothing; with the flag down it
+      // re-deals (a fresh id), so the held result is not a dead die.
+      const keepsakeIds = () => bactor.items
+        .filter((i) => i.getFlag(NS, "grantSource") === "failed-career").map((i) => i.id).sort().join();
+      const keepsakeBefore = keepsakeIds();
+      bsheet._rerolling = true;
+      rootOf(bsheet)?.querySelector('a[data-action="rollFailedCareerItem"]')?.click();
+      await wait(1500);
+      const keepsakeHeld = keepsakeIds();
+      bsheet._rerolling = false;
+      await waitFor(() => !bsheet._grantingFailedCareerItem, 10000);
+      rootOf(bsheet)?.querySelector('a[data-action="rollFailedCareerItem"]')?.click();
+      await waitFor(() => keepsakeIds() !== keepsakeHeld, 10000);
+      out.f237.keepsake = {
+        before: keepsakeBefore, heldKept: keepsakeHeld === keepsakeBefore,
+        freeDeals: !!keepsakeHeld && keepsakeIds() !== keepsakeHeld,
+      };
+      await bsheet.close();
+      const hireling = track(await gen.createHireling());
+      await hireling.update({ "system.generationEnabled": true });
+      out.f237.career = await heldOpens(hireling.sheet, 'a[data-action="pickProfession"]');
+      out.f237.careerApply = await applyHolds(hireling, hireling.sheet, "profession");
+      await hireling.sheet.close();
+      const npc = track(await gen.createNpc());
+      await npc.update({ "system.generationEnabled": true });
+      await npc.sheet.render(true);
+      await waitFor(() => rootOf(npc.sheet)?.querySelector('a[data-action="pickProfession"]'), 10000);
+      out.f237.npcApply = await applyHolds(npc, npc.sheet, "background");
+      await npc.sheet.close();
 
       // 7c + 7d. The one arrangement pass must land BEFORE the last render
       // (finding 5). Asserted on the WRITE ORDER via wrapped seams — the DOM
@@ -702,6 +908,33 @@ try {
       ? ok("…and carries the pick note but not the questions note")
       : fail(`barebones notes: ${JSON.stringify(r.notesBb)}`);
 
+    // ---- the bonds note (review #34 finding 210, wording approved 2026-11-01) ----
+    r.notes2e?.bondCount >= 2 && r.notes2e.bondsWant !== "CAIRN.Reroll.BondsNote"
+      && r.notes2e.bonds === r.notes2e.bondsWant
+      ? ok("a two-bond 2e character's checklist warns the Background can take a bond")
+      : fail(`the 2e bonds note: ${JSON.stringify(r.notes2e)}`);
+    r.oneBondNote === false
+      ? ok("…a one-bond character's does not (the first bond always survives)")
+      : fail(`the one-bond character's checklist: ${JSON.stringify(r.oneBondNote)}`);
+    r.bondsNoteBb2 === r.notes2e?.bondsWant && r.notes2e?.bondsWant !== "CAIRN.Reroll.BondsNote"
+      ? ok("…and a two-bond Barebones character's does too (the trim is not edition-bound)")
+      : fail(`the Barebones bonds note: ${JSON.stringify(r.bondsNoteBb2)}`);
+
+    // ---- the failed career follows its switch (review #34 findings 221, 253) ----
+    r.fcOff?.career && r.fcOff.keepsake && r.fcOn?.career && r.fcOn.keepsake
+      ? ok("precondition: both Barebones characters have a failed career and its keepsake")
+      : fail(`failed-career precondition: ${JSON.stringify({ off: r.fcOff, on: r.fcOn })}`);
+    Array.isArray(r.fcOff?.rows) && r.fcOff.rows.includes("STR")
+      && !r.fcOff.rows.includes("failedCareer") && !r.fcOff.rows.includes("keepsake")
+      ? ok("with the switch OFF the checklist offers no failed career or keepsake (STR survives)")
+      : fail(`switch-off rows: ${JSON.stringify(r.fcOff?.rows)}`);
+    r.fcOff?.swap === true && r.fcOff.careerAfter === r.fcOff.career && r.fcOff.keepsakeAfter === r.fcOff.keepsake
+      ? ok("…and a background change onto the hidden career's name leaves career and keepsake alone")
+      : fail(`switch-off background change: ${JSON.stringify(r.fcOff)}`);
+    r.fcOn?.swap === true && r.fcOn.careerAfter !== r.fcOn.career && r.fcOn.keepsakeAfter !== r.fcOn.keepsake
+      ? ok("control: with the switch ON the same change re-rolls the career and swaps the keepsake")
+      : fail(`switch-on background change: ${JSON.stringify(r.fcOn)}`);
+
     // ---- 2. defaults ----
     r.provenanceGenerated === true
       ? ok("generation from a chosen background stamps backgroundChosen: true")
@@ -773,9 +1006,9 @@ try {
     B.nameFromNewBg
       ? ok("background-only: the landed name is one of the NEW background's own")
       : fail(`background-only name: not in the new background's list (${JSON.stringify(B)})`);
-    B.bondsKept && B.strKept
-      ? ok("background-only: bonds and the statline survive by value")
-      : fail(`background-only kept: ${JSON.stringify(B)}`);
+    B.bondsKept && B.strKept && r.bgOnlyBondCount === 1
+      ? ok("background-only: its one bond and the statline survive by value")
+      : fail(`background-only kept: ${JSON.stringify({ ...B, bondCount: r.bgOnlyBondCount })}`);
 
     // ---- 6. provenance ----
     r.provenanceDie === false
@@ -810,6 +1043,29 @@ try {
     r.pickFreeOpens === true
       ? ok("…and the same click with the flag clear opens it (the anchor is live)")
       : fail(`pick control: ${JSON.stringify(r.pickFreeOpens)}`);
+
+    // ---- 7b2. review #34 finding 237 ----
+    for (const [label, v] of [
+      ["the background picker", r.f237?.background],
+      ["the failed-career picker", r.f237?.failedCareer],
+      ["the hireling's Career picker", r.f237?.career],
+    ]) {
+      v?.held === false && v?.free === true
+        ? ok(`${label} opens no list mid-re-roll, and opens it with the flag clear`)
+        : fail(`${label} mid-re-roll: ${JSON.stringify(v)}`);
+    }
+    const ks = r.f237?.keepsake;
+    ks?.before && ks.heldKept && ks.freeDeals
+      ? ok("the keepsake die deals nothing mid-re-roll, and re-deals with the flag clear")
+      : fail(`keepsake die mid-re-roll: ${JSON.stringify(ks)}`);
+    for (const [label, v] of [
+      ["a picked Career", r.f237?.careerApply],
+      ["a picked NPC Background", r.f237?.npcApply],
+    ]) {
+      v?.changed && v.writes > 0 && v.held
+        ? ok(`${label} holds the re-roll flag through all ${v.writes} of its writes`)
+        : fail(`${label} applied without holding the re-roll flag: ${JSON.stringify(v)}`);
+    }
 
     const seqIdx = (seq, pred) => (seq ?? []).findIndex(pred);
     const gearReorder = seqIdx(r.gearSeq, (s) => s === "reorder");

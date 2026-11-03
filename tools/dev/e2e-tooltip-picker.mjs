@@ -2,7 +2,7 @@
 /**
  * Character Creation Mode tooltips + the omen/bond/question pickers.
  *
- *   node tools/dev/tooltip-picker-probe.mjs   (needs Foundry running, world launched)
+ *   node tools/dev/e2e-tooltip-picker.mjs   (needs Foundry running, world launched)
  *
  * The 2026-09-01 batch: the mode toggle's tooltip follows its state, the
  * creation dice and pickers ride core's data-tooltip (bare i18n KEY, the
@@ -42,9 +42,12 @@
  */
 
 import { chromium } from "playwright";
-import { VIEWPORT, joinAsGM, watchErrors } from "./lib.mjs";
+import { VIEWPORT, joinAsGM, watchErrors, watchdog, holdAsideWorldTables } from "./lib.mjs";
 
 const browser = await chromium.launch();
+// The fleet's hang guard (review #34): without it a hang runs to the runner's
+// 65-minute cap and skips every restore. A bound on a hang, not a timing claim.
+watchdog(900000, "dev:tooltip-picker");
 const page = await browser.newContext({ viewport: VIEWPORT }).then((c) => c.newPage());
 const errors = watchErrors(page);
 let failed = false;
@@ -53,6 +56,12 @@ const ok = (m) => console.log(`  ok    ${m}`);
 
 try {
   await joinAsGM(page);
+  // Leg 6 plants a world "Omens" and needs the die to find IT. A Warden's own
+  // "Omens" (a take-over copy) is the first world table of the name and won
+  // every read on the fleet's baseline world (run 20261030T202049Z): set it
+  // aside in-page, nothing written. The plant comes after, so it stays visible.
+  const heldOmens = await holdAsideWorldTables(page, ["Omens"]);
+  if (heldOmens.length) console.log(`  note  set aside the world's own Omens: ${heldOmens.map((t) => t.id).join(", ")}`);
 
   const r = await page.evaluate(async () => {
     const gen = await import("/systems/air-bladder/module/character-generator.js");
@@ -420,6 +429,32 @@ try {
         }
       }
 
+      // ---- 8b. CONFIRMING WHAT IS HELD CHANGES NOTHING (review #34 F227) ---
+      // Every picker opens on the current value with Choose as its default, and
+      // pressing it re-dealt the lot: a background re-pick deleted and re-rolled
+      // the tagged gear and both questions, a question re-pick re-minted its
+      // items (and an Outrider's horse). Choose is pressed here with the
+      // selection untouched, and every granted item must keep its id.
+      const confirmHeld = async (anchor) => {
+        const tagged = () => actor.items.filter((i) => i.getFlag(NS, "grantSource")).map((i) => i.id).sort();
+        const before = tagged();
+        const answers = JSON.stringify(actor.system.questions ?? []);
+        anchor?.click();
+        const d = await waitFor(() => document.querySelector(".bg-picker"), 15000);
+        if (!d) return { opened: false };
+        d.closest(".application")?.querySelector('button[data-action="choose"]')?.click();
+        await waitFor(() => !document.querySelector(".bg-picker"), 5000);
+        await new Promise((r) => setTimeout(r, 1500));
+        return {
+          opened: true,
+          sameItems: JSON.stringify(tagged()) === JSON.stringify(before),
+          sameAnswers: JSON.stringify(actor.system.questions ?? []) === answers,
+          tagged: before.length,
+        };
+      };
+      out.heldQuestion = await confirmHeld(rootOf()?.querySelector('a[data-action="pickQuestion"][data-index="0"]'));
+      out.heldBackground = await confirmHeld(rootOf()?.querySelector('a[data-action="pickBackground"]'));
+
       // ---- 9. The name picker (2026-09-03) --------------------------------
       // Lists the 2e background's own example names in LIST order behind the
       // Random row; picking one renames the actor through the normal rename.
@@ -786,6 +821,13 @@ try {
     QP.opened && QP.applied && QP.oldGone
       ? ok(`it lists the background's options (${QP.rows} rows + Random) and picking one swaps answer and grants`)
       : fail(`question pick: ${JSON.stringify(QP)}`);
+
+    // F227: Choose on the value already held changes nothing.
+    for (const [label, H] of [["question", r.heldQuestion], ["background", r.heldBackground]]) {
+      H?.opened && H.sameItems && H.sameAnswers
+        ? ok(`confirming the ${label} already held changes nothing (${H.tagged} granted item(s) kept by id)`)
+        : fail(`confirming the held ${label} re-dealt it: ${JSON.stringify(H)}`);
+    }
   }
 } catch (e) {
   fail(`${e.name}: ${e.message}`);

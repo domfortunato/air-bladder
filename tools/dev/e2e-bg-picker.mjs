@@ -2,7 +2,7 @@
 /**
  * Background picker + per-field background swap.
  *
- *   node tools/dev/background-picker-probe.mjs   (needs Foundry running, world launched)
+ *   node tools/dev/e2e-bg-picker.mjs   (needs Foundry running, world launched)
  *
  * The picker is one function for both editions, driven by the data: 2e
  * backgrounds carry an archetype and prose, so it groups and previews them;
@@ -25,17 +25,20 @@
  *      Bonds are kept WITHIN the new background's entitlement and clamped above
  *      it (ruled 2026-08-02): Fieldwarden's second bond is removed on the swap
  *      to Kettlewright — first bond kept, its items deleted, its gold refunded.
- *   5. Containers move too: swapping onto the Kettlewright grants its donkey, and
- *      swapping away deletes it.
+ *   5. Containers move too: swapping onto the Outrider grants its horse, and
+ *      swapping away orphans it (review #34 finding 183: unlinked, renamed o_…).
  *   6. A random swap never lands on the background you already had.
  *   7. Barebones swaps the same way through the same function.
  * Exits non-zero on any failed assertion or console error.
  */
 
 import { chromium } from "playwright";
-import { VIEWPORT, joinAsGM, watchErrors } from "./lib.mjs";
+import { VIEWPORT, joinAsGM, watchErrors, watchdog, trackCreatedActors, sweepCreatedActors } from "./lib.mjs";
 
 const browser = await chromium.launch();
+// The fleet's hang guard (review #34): without it a hang runs to the runner's
+// 65-minute cap and skips every restore. A bound on a hang, not a timing claim.
+watchdog(900000, "dev:bg-picker");
 const page = await browser.newContext({ viewport: VIEWPORT }).then((c) => c.newPage());
 const errors = watchErrors(page);
 let failed = false;
@@ -44,6 +47,7 @@ const ok = (m) => console.log(`  ok    ${m}`);
 
 try {
   await joinAsGM(page);
+  await trackCreatedActors(page);
 
   const r = await page.evaluate(async () => {
     const gen = await import("/systems/air-bladder/module/character-generator.js");
@@ -183,6 +187,20 @@ try {
       await gen.toggleBackgroundDisabled(customVictim.uuid);
       disable.customExcluded = !(await gen.getBackgroundsFor("2e")).some((b) => b.uuid === customVictim.uuid);
       await gen.toggleBackgroundDisabled(customVictim.uuid);
+
+      // TWO EYES PRESSED TOGETHER BOTH HOLD (review #34 finding 134). Each
+      // toggle snapshotted the setting, awaited a whole pool build, then wrote
+      // snapshot-plus-one back, so the second write dropped the first while
+      // both rows showed the slashed eye. Two disables are started without
+      // awaiting the first — what two quick clicks in the picker do — and the
+      // setting must hold both. Undone the same way before the next leg.
+      const pairA = allC.find((b) => b.name === "Aurifex");
+      const pairB = allC.find((b) => b.name === "Barber-Surgeon");
+      await Promise.all([gen.toggleBackgroundDisabled(pairA.uuid), gen.toggleBackgroundDisabled(pairB.uuid)]);
+      const heldBoth = game.settings.get(NS, "disabled-backgrounds");
+      disable.pairHeld = { a: heldBoth.includes(pairA.uuid), b: heldBoth.includes(pairB.uuid) };
+      await gen.toggleBackgroundDisabled(pairA.uuid);
+      await gen.toggleBackgroundDisabled(pairB.uuid);
 
       // The rendered dialog: an eye on every background row (Random has none),
       // the disabled row greyed with a dead radio, and the eye click
@@ -324,13 +342,16 @@ try {
     await gen.changeBackground(actor, outrider);
     for (const c of containersOf(actor)) made.push(c);
     const withHorse = containersOf(actor).filter((c) => c.getFlag("air-bladder", "grantSource"));
+    // Read now: the swap away renames the live document (finding 183's o_).
+    const horseName = withHorse[0]?.name;
     const bonekeeper = bgs2e.find((b) => b.name === "Bonekeeper");
     await gen.changeBackground(actor, bonekeeper);
     for (const c of containersOf(actor)) made.push(c);
     const afterSwapAway = containersOf(actor).filter((c) => c.getFlag("air-bladder", "grantSource"));
     const containers = {
       gotHorse: withHorse.length === 1,
-      horse: withHorse[0]?.name,
+      horse: horseName,
+      orphanedAs: withHorse[0]?.name,
       // The Bonekeeper's beast is on one of six options, so this is 0 or more —
       // what matters is the Outrider's horse is not still hanging around.
       oldGone: !afterSwapAway.some((c) => c.uuid === withHorse[0]?.uuid),
@@ -354,7 +375,18 @@ try {
     for (const c of containersOf(bbActor)) made.push(c);
     const bbBefore = { name: bbActor.name, bg: bbActor.system.background, hp: bbActor.system.hp.max };
     const merchant = gbb[0].backgrounds.find((b) => b.name === "Merchant");
-    await gen.changeBackground(bbActor, merchant);
+    // The generator only WARNS on a gear row it cannot resolve, and the
+    // tagged-count check below went red once with nothing else in the log
+    // (fleet 20261101T121856Z, green on rerun): keep what was said during the
+    // swap, so a repeat names its cause.
+    const swapWarns = [];
+    const realWarn = console.warn;
+    console.warn = (...a) => { swapWarns.push(a.map(String).join(" ").slice(0, 200)); realWarn.apply(console, a); };
+    try {
+      await gen.changeBackground(bbActor, merchant);
+    } finally {
+      console.warn = realWarn;
+    }
     for (const c of containersOf(bbActor)) made.push(c);
     const bbSwap = {
       background: bbActor.system.background,
@@ -371,7 +403,60 @@ try {
       taggedCount: bbActor.items.filter(
         (i) => i.getFlag("air-bladder", "grantSource") === "background").length,
       refCount: (merchant.system.startingGear ?? []).length,
+      refs: (merchant.system.startingGear ?? []).map((g) => g.name),
+      taggedNames: bbActor.items.filter((i) => i.getFlag("air-bladder", "grantSource") === "background").map((i) => i.name),
+      swapWarns,
     };
+    // Red twice (20261101T121856Z on 14.369, 20261103T011106Z on 14.368), each
+    // time with NO warning: rollAdditionalGear spent its 50 rolls and returned
+    // nothing, and a gear-name miss would have warned. So on a red, roll the
+    // table the generator rolls, the way it resolves it, and keep what each
+    // roll came back as — an empty result, a cart, a "None" — so the next red
+    // names its cause instead of only its count.
+    if (bbSwap.taggedCount !== bbSwap.refCount) {
+      const { findDeclaredTable } = await import("/systems/air-bladder/module/compendium.js");
+      const t = await findDeclaredTable("air-bladder.tables-barebones;Barebones: Creation - Additional Gear");
+      const diag = { found: !!t, inWorld: !!t && !t.pack, replacement: t?.replacement, formula: t?.formula,
+        results: t?.results?.size, drawn: t?.results?.filter((x) => x.drawn).length, rolls: [] };
+      // Not a world table with a blank formula: its first roll SAVES one
+      // (compendium.js rollDeclaredTable's docblock), and this only reads.
+      for (let i = 0; t && (t.pack || t.formula) && i < 12; i++) {
+        const { roll, results } = await t.roll();
+        const x = results?.[0];
+        diag.rolls.push(x ? `${roll?.total} ${x.type} ${x.name || x.description || ""}`.slice(0, 50) : `${roll?.total} (no result)`);
+      }
+      // The rolls above came back healthy on the second red (20261103T020137Z),
+      // so walk resolveBarebonesResult's steps on a few of them — what the uuid
+      // resolves to, the row's plain text, and what the gear lookup makes of it
+      // — then the generator's own resolveStartingGear, warnings kept.
+      const { resultPlainText } = await import("/systems/air-bladder/module/compendium.js");
+      const { resolveGearItem } = await import("/systems/air-bladder/module/gear.js");
+      diag.steps = [];
+      for (let i = 0; t && (t.pack || t.formula) && i < 4; i++) {
+        const { results } = await t.roll();
+        const x = results?.[0];
+        if (!x) { diag.steps.push("no result"); continue; }
+        let doc = null, err = null;
+        try { doc = x.documentUuid ? await fromUuid(x.documentUuid) : null; } catch (e) { err = String(e).slice(0, 80); }
+        const text = resultPlainText(x);
+        const item = await resolveGearItem(text).catch((e) => `threw ${String(e).slice(0, 60)}`);
+        diag.steps.push({ uuid: x.documentUuid ?? null, doc: doc ? `${doc.documentName}/${doc.type}/${doc.pack ?? "world"}` : null,
+          err, text, item: typeof item === "string" ? item : item?.name ?? null });
+      }
+      const warned = [];
+      const before = console.warn;
+      console.warn = (...a) => { warned.push(a.map(String).join(" ").slice(0, 160)); before.apply(console, a); };
+      try {
+        diag.startingGear = [];
+        for (let i = 0; i < 3; i++) {
+          diag.startingGear.push((await gen.resolveStartingGear(merchant)).map((g) => g.name));
+        }
+      } finally {
+        console.warn = before;
+      }
+      diag.startingGearWarns = warned;
+      bbSwap.diag = diag;
+    }
 
     // Barebones renders the single-column variant.
     const pick2 = gen.promptBackground("barebones", bbActor.system.backgroundUuid);
@@ -494,6 +579,9 @@ try {
     E.customExcluded
       ? ok("a shipped custom background disables through the same path")
       : fail("custom background did not disable");
+    E.pairHeld?.a && E.pairHeld?.b
+      ? ok("two eyes pressed together both hold (review #34 finding 134)")
+      : fail(`two eyes pressed together: ${JSON.stringify(E.pairHeld)} — each wrote its own stale snapshot, so the later write dropped the earlier`);
     E.eyeMatchesRows && E.rowGreyed && E.radioDead
       ? ok("picker rows: every 2e background has an eye; the disabled row is greyed with a dead radio")
       : fail(`eye rendering wrong: eyes=${E.eyeMatchesRows}, greyed=${E.rowGreyed}, radioDead=${E.radioDead}`);
@@ -531,7 +619,7 @@ try {
     S.questions === 2 && S.goldTraded ? ok(`questions re-rolled (${S.questions}) and coins traded, dropped bond's grant refunded`) : fail(`questions=${S.questions}, goldTraded=${S.goldTraded}`);
 
     r.containers.gotHorse ? ok(`swapping onto the Outrider granted its ${r.containers.horse}`) : fail("no container arrived with the Outrider");
-    r.containers.oldGone && r.containers.danglingFree ? ok("swapping away deletes it and leaves no dangling uuid") : fail("the old container survived the swap or left a dangling uuid");
+    r.containers.oldGone && r.containers.danglingFree ? ok(`swapping away orphans it (now ${r.containers.orphanedAs}) and leaves no dangling uuid`) : fail("the old container is still the character's after the swap, or left a dangling uuid");
 
     !r.randomRepeated ? ok("a random swap never repeats the current background (8 swaps)") : fail("a random swap landed on the background it already had");
 
@@ -544,7 +632,8 @@ try {
     // that catches an SRD instruction being silently dropped.
     r.bbSwap.taggedCount === r.bbSwap.refCount
       ? ok(`its SRD "Random Additional Gear" row resolved to a real item (${r.bbSwap.taggedCount}/${r.bbSwap.refCount} granted)`)
-      : fail(`an instruction row was dropped: ${r.bbSwap.taggedCount} items for ${r.bbSwap.refCount} references`);
+      : fail(`an instruction row was dropped: ${r.bbSwap.taggedCount} items for ${r.bbSwap.refCount} references `
+        + JSON.stringify({ refs: r.bbSwap.refs, tagged: r.bbSwap.taggedNames, warns: r.bbSwap.swapWarns, diag: r.bbSwap.diag }));
 
     const B = r.bbDialog;
     B.noEyes ? ok("Barebones rows carry no eye toggle (all-or-nothing by ruling)") : fail("a Barebones row has an eye toggle");
@@ -573,6 +662,9 @@ try {
 } catch (e) {
   fail(`${e.name}: ${e.message}`);
 } finally {
+  // Every actor this run created, generated children included (review #34
+  // findings 150, 256, 259) — whatever a leg threw.
+  await sweepCreatedActors(page);
   if (errors.length) {
     console.error("\nconsole errors:");
     errors.slice(0, 15).forEach((e) => console.error("  " + e));

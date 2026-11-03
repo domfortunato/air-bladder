@@ -78,31 +78,58 @@ const role = await page.evaluate(async () => {
     r.liveReads = `THREW: ${e.message.slice(0, 80)}`;
   }
 
-  // The RESTAMP: reset the marker, run the world migration's own writes the
-  // way the ready hook does — write the read value back, diff: false.
+  // The RESTAMP is the REAL phase (review #34 finding 24): the marker is
+  // cleared here, and the reload below lets `migrateMountToCompanion` run from
+  // the ready hook. This used to run its own in-page copy of the restamp, so
+  // the probe stayed green with the phase deleted, or with the filter on a
+  // stored "mount" brought back that the function's docblock calls the wrong
+  // first draft.
+  r.markerWas = game.settings.get("air-bladder", "companion-restamped");
   await game.settings.set("air-bladder", "companion-restamped", false);
-  const updates = game.actors
-    .filter((a) => ["npc", "hireling"].includes(a.type))
-    .map((a) => ({ _id: a.id, "system.role": a.system.role }));
-  await ActorImpl.updateDocuments(updates, { diff: false });
-  await game.settings.set("air-bladder", "companion-restamped", true);
-  r.rawAfter = await rawRole();
-
-  // The sheet's role select carries the new word and never the old.
-  await legacy.sheet.render(true);
-  await sleep(800);
-  const options = [...(legacy.sheet.element?.querySelectorAll('select[name="system.role"] option') ?? [])]
-    .map((o) => o.textContent.trim());
-  r.roleOptions = options;
-  await legacy.sheet.close();
-
   r.ids = { legacyId: legacy.id };
   return r;
 });
 
+let restamp = {};
+try {
+  await page.reload({ waitUntil: "networkidle", timeout: 60000 });
+  await page.waitForFunction(() => globalThis.game?.ready === true, null, { timeout: 90000 });
+  await dismissChrome(page);
+  // Until the PHASE has stamped its marker — the writes land before it.
+  await page.waitForFunction(() => game.settings.get("air-bladder", "companion-restamped") === true,
+    null, { timeout: 30000 }).catch(() => {});
+  restamp = await page.evaluate(async (id) => {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const out = { marker: game.settings.get("air-bladder", "companion-restamped") };
+    const res = await foundry.helpers.SocketInterface.dispatch("modifyDocument", {
+      type: "Actor", action: "get", operation: { query: { _id__in: [id] }, broadcast: false },
+    });
+    out.rawAfter = res?.result?.[0]?.system?.role ?? null;
+    // The sheet's role select carries the new word and never the old.
+    const legacy = game.actors.get(id);
+    await legacy?.sheet.render(true);
+    await sleep(800);
+    out.roleOptions = [...(legacy?.sheet.element?.querySelectorAll('select[name="system.role"] option') ?? [])]
+      .map((o) => o.textContent.trim());
+    await legacy?.sheet.close();
+    return out;
+  }, role.ids.legacyId);
+} finally {
+  // The marker back to what it was, whatever happened above: a probe that
+  // leaves it false re-arms the restamp on every later GM load.
+  await page.evaluate(async (was) => {
+    if (game.settings.get("air-bladder", "companion-restamped") !== was) {
+      await game.settings.set("air-bladder", "companion-restamped", was);
+    }
+  }, role.markerWas ?? true).catch(() => {});
+}
+Object.assign(role, { rawAfter: restamp.rawAfter ?? null, roleOptions: restamp.roleOptions ?? [] });
+
 check("a stored mount READS companion", role.rawBefore === "mount" && role.readAs === "companion"
   && role.liveReads === "companion",
   `db="${role.rawBefore}" read="${role.readAs}" — migrateData, before choices validation`);
+check("the ready-hook PHASE ran and stamped its marker", restamp.marker === true,
+  `marker=${JSON.stringify(restamp.marker)} — the reload must run the real migration, not a copy of it`);
 check("the restamp writes it to the DATABASE", role.rawAfter === "companion",
   `db="${role.rawAfter}" — blind, like the hireling restamp: the stored value is unobservable, so a filtered migration stamps nothing`);
 check("the sheet says Companion, never Mount", role.roleOptions.includes("Companion")
@@ -535,7 +562,7 @@ check("and what missed is still readable afterwards, or silence is just forgetti
 
 /* ---------------------------------------------------------------------------
  * 4. The player path: Alice's grant goes through the broker (players lack
- *    ACTOR_CREATE) and GRANTABLE_ROLES must speak the new role — reverted to
+ *    ACTOR_CREATE) and the grant clamp (CONTAINER_LINE_ROLES) must speak the new role — reverted to
  *    "mount", the payload falls back to class derivation and the clamp hands
  *    her a CONTAINER-role raven.
  * ------------------------------------------------------------------------- */
@@ -576,6 +603,7 @@ try {
         minted: !!raven, role: raven?.system.role ?? null,
         DEX: raven?.system.abilities.DEX.value ?? null,
         WIL: raven?.system.abilities.WIL.value ?? null,
+        kind: raven?.system.containerClass ?? null,
         owned: raven?.isOwner ?? false,
         // Her CHARACTER's notes. She owns the PC, so this write is hers to make
         // — the socket only ever brokers the Actor she cannot create.
@@ -593,8 +621,13 @@ check("the player leg ran", alice.ran && !alice.isGM && alice.returnedCount === 
   `ran=${alice.ran} returned=${alice.returnedCount} (needs npm run dev:players and a GM client open — this probe's own)`);
 check("the broker mints her raven as a COMPANION", alice.minted && alice.role === "companion"
   && alice.DEX === 11 && alice.WIL === 13,
-  `role=${alice.role} DEX=${alice.DEX} WIL=${alice.WIL} — GRANTABLE_ROLES must name the new role, or the clamp derives and hands her a container`);
+  `role=${alice.role} DEX=${alice.DEX} WIL=${alice.WIL} — CONTAINER_LINE_ROLES must name the new role, or the clamp derives and hands her a container`);
 check("and she owns it", alice.owned, "connection drives ownership, monsters never touched");
+// The KIND crosses the broker too (review #34 finding 62): ec1d17a3 dropped
+// containerClass from the whitelist, so a player's granted raven arrived with a
+// blank Kind while the Warden's grant of the same beast read Raven.
+check("...and her raven keeps its Kind across the broker", alice.kind === "raven",
+  `containerClass=${JSON.stringify(alice.kind)}`);
 check("a PLAYER's own character gets no bullet either", alice.notes === "",
   `notes=${JSON.stringify(alice.notes)} — the write ran on HER client, before the fork to the broker, so `
   + "the player path is where a surviving copy of it would hide");
@@ -628,6 +661,23 @@ const cleaned = await page.evaluate(async ({ ids, grantIds, ravenId, rerollIds, 
 
 check("the fixture scene is gone again", !!legacy.sceneId && !cleaned.sceneLeft,
   legacy.sceneId ? `scene ${legacy.sceneId} still in the world` : "no scene id came back from the plant");
+
+// A HAND-MADE COMPANION WITH NO KNOWN KIND is not a chest (review #34 finding
+// 75). An unknown Kind fell back to NAME inference, whose last resort is the
+// bare container's chest, so a companion named for a beast the table lacks
+// wore a treasure chest on its sheet and its token. The control is a known
+// Kind, which still takes its own art.
+const art = await page.evaluate(async () => {
+  const wolf = await Actor.create({ name: "ZZ Grey Wolf", type: "npc", system: { role: "companion", containerClass: "" } });
+  const horse = await Actor.create({ name: "ZZ Steed", type: "npc", system: { role: "companion", containerClass: "horse" } });
+  const out = { wolf: wolf.img, wolfToken: wolf.prototypeToken.texture.src, horse: horse.img };
+  await wolf.delete();
+  await horse.delete();
+  return out;
+});
+check("a companion of an unknown Kind does not wear the chest", !/chest\.svg/.test(art.wolf) && !/chest\.svg/.test(art.wolfToken),
+  JSON.stringify(art));
+check("...while a known Kind still takes its own art", /horse\.svg$/.test(art.horse), JSON.stringify(art));
 
 const errs = errors.filter((e) => !/ZZ /.test(e));
 check("zero console errors", errs.length === 0, errs.join(" | "));

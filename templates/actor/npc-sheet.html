@@ -246,10 +246,10 @@
                 <div class="resource-counter middle-counter hp-counter {{#if hpLow}}low{{/if}}">
                     <label data-tooltip="{{ localize 'CAIRN.HitProtectionTip' }}">{{ localize 'CAIRN.HitProtection' }}</label>
                     <div class="resource-input-wrapper">
-                        <input type="number" min="0" max="18" step="1" class="stat-input" name="system.hp.value" id="{{@root.idp}}-system.hp.value"
+                        <input type="number" min="0" step="1" class="stat-input" name="system.hp.value" id="{{@root.idp}}-system.hp.value"
                                value="{{system.hp.value}}" data-dtype="Number" data-tooltip="{{currentTips.HP}}" />
                         <span> / </span>
-                        <input type="number" min="0" max="18" step="1" class="stat-input" name="system.hp.max"
+                        <input type="number" min="0" step="1" class="stat-input" name="system.hp.max"
                                value="{{system.hp.max}}" data-dtype="Number" data-tooltip="{{maxTips.HP}}" />
                     </div>
                 </div>
@@ -306,10 +306,10 @@
                     data-label="{{ localize 'CAIRN.Save' key=(localize key)}}" data-tooltip="{{ lookup ../abilityTips key }}"><i class="fas fa-dice-d20 roll-icon"></i> {{ localize key }}</a>
                 {{/if}}
                 <div class="resource-input-wrapper">
-                    <input type="number" min="0" max="18" step="1" class="stat-input" name="system.abilities.{{key}}.value" value="{{ability.value}}"
+                    <input type="number" min="0" step="1" class="stat-input" name="system.abilities.{{key}}.value" value="{{ability.value}}"
                         data-dtype="Number" data-tooltip="{{ lookup ../currentTips key }}" />
                     <span> / </span>
-                    <input type="number" min="0" max="18" step="1" class="stat-input" name="system.abilities.{{key}}.max" value="{{ability.max}}" data-dtype="Number"
+                    <input type="number" min="0" step="1" class="stat-input" name="system.abilities.{{key}}.max" value="{{ability.max}}" data-dtype="Number"
                         data-tooltip="{{ lookup ../maxTips key }}" />
                 </div>
                 {{#if (lookup ../criticalToggle key)}}
@@ -338,10 +338,11 @@
             </div>
 
             {{!-- The NPC wording of the Deprived rule: the shared string opens "A PC
-                  that lacks a crucial need", which is wrong on a wolf. Named directly
-                  rather than resolved, because this template only ever serves
-                  non-player actors. Panicked/Rest/Restore keep the shared strings --
-                  those already say "character" and "the party". --}}
+                  that lacks a crucial need", which is wrong on a wolf. deprivedTipKey
+                  and panickedTipKey resolve the …Npc variant through _wording, as the
+                  Rest and Restore buttons above do while deprived. Rest and Restore's
+                  ordinary tips keep the shared strings, which already say "character"
+                  and "the party". --}}
             <div class="resource-counter long-counter deprived-counter">
                 <label data-tooltip="{{ localize deprivedTipKey }}">{{ localize 'CAIRN.Deprived' }}</label>
                 <div class="resource-input-wrapper">

@@ -95,7 +95,7 @@ const out = await page.evaluate(async () => {
       res.shippedResolved = n;
     });
 
-    await step("the eight 2e trait rolls (rollTableText)", async () => {
+    await step("the eight 2e trait rolls (rollTextItems)", async () => {
       const mapping = CONFIG.Cairn?.characterGenerator2e?.biography?.items ?? {};
       res.traits = await cg.rollTextItems(mapping);
     });
@@ -148,7 +148,6 @@ const out = await page.evaluate(async () => {
 
   // The text row's prose and the document rows' names, via the one helper.
   res.helper = [...table.results].map((r) => comp.resultText(r));
-  res.chatText = [...table.results].map((r) => comp.resultChatText(r));
 
   /* ---- CONTROLS: both of the above must be able to FAIL ------------------ */
   // (a) Phase 1's trip-wire. A green phase 1 means "nothing read a deprecated
@@ -297,9 +296,6 @@ out.mixed.textSkipped
 out.helper[2] === "ZZ TR just prose" && out.helper[0] === "ZZ TR World Dagger"
   ? ok("resultText reads prose from a text row and the name from a document row")
   : fail("resultText returned the wrong field", JSON.stringify(out.helper));
-out.chatText[2] === "ZZ TR just prose" && out.chatText[0].startsWith("@UUID[")
-  ? ok("resultChatText links a document row and passes prose through")
-  : fail("resultChatText is not what getChatText produced", JSON.stringify(out.chatText));
 
 console.log("\ncontrols — both of the above must be able to fail");
 out.tripwire.threw
@@ -352,6 +348,157 @@ if (out.phase4?.rowId || out.phase4?.wasLocked) {
     fail("the marketplace pack was left UNLOCKED", JSON.stringify(swept));
   }
 }
+
+// A FLAVOR THE CALLER CHOSE SURVIVES (review #34 finding 70). Core sets its
+// default sentence and the core.RollTable flag together and lets
+// `messageData.flavor` override the sentence; the render rebuild rewrote any
+// card carrying the flag to core's default, so a macro's own line read as
+// "Draws a result from the ... table" for every viewer. The control is a draw
+// posted with core's default, which is still rebuilt.
+const flavors = await page.evaluate(async () => {
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const table = await CONFIG.RollTable.documentClass.create({
+    name: "ZZ TR Flavor Table", formula: "1d1",
+    results: [{ type: "text", description: "ZZ row", range: [1, 1], weight: 1 }],
+  });
+  const made = [];
+  try {
+    const { results, roll } = await table.roll();
+    const custom = await table.toMessage(results, { roll, messageData: { flavor: "ZZ custom flavor line" } });
+    const plain = await table.toMessage(results, { roll });
+    made.push(custom, plain);
+    const read = async (m) => (await m.renderHTML()).querySelector(".flavor-text")?.textContent?.trim() ?? null;
+    await sleep(300);
+    return { custom: await read(custom), plain: await read(plain) };
+  } finally {
+    for (const m of made) { try { await m?.delete(); } catch { /* gone */ } }
+    await table.delete();
+  }
+});
+flavors.custom === "ZZ custom flavor line"
+  ? ok("a draw card's caller-chosen flavor is left as the caller wrote it", JSON.stringify(flavors))
+  : fail("a draw card's caller-chosen flavor was rewritten", JSON.stringify(flavors));
+/ZZ TR Flavor Table/.test(flavors.plain ?? "")
+  ? ok("...and core's own default sentence is still rebuilt from the table", JSON.stringify(flavors))
+  : fail("core's default draw flavor", JSON.stringify(flavors));
+
+// CORE'S SENTENCE, RECOGNISED AS STORED (review #34 finding 238). Finding 70's
+// test was "the stored flavor contains escapeHTML(table.name)", but the server
+// stores ' and " unescaped, so a table named with an apostrophe never matched
+// and its card kept the composer's language; and a caller's flavor that NAMES
+// the table matched, and was rewritten to core's default. A `format` shadow
+// installed after posting marks a rebuilt line; each card is read off the
+// element the hook ran on, after the async relabel.
+const recognised = await page.evaluate(async () => {
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const mk = (name) => CONFIG.RollTable.documentClass.create({
+    name, formula: "1d1", results: [{ type: "text", description: "ZZ row", range: [1, 1], weight: 1 }],
+  });
+  const quoted = await mk("ZZ TR Smuggler's Den");
+  const plainT = await mk("ZZ TR Plain Den");
+  const made = [];
+  const real = game.i18n.format.bind(game.i18n);
+  try {
+    const post = async (table, messageData = {}) => {
+      const { results, roll } = await table.roll();
+      const m = await table.toMessage(results, { roll, messageData });
+      made.push(m);
+      return m;
+    };
+    const quotedMsg = await post(quoted);
+    const namingMsg = await post(plainT, { flavor: "Weather: ZZ TR Plain Den" });
+    const plainMsg = await post(plainT);
+    // An OWN property, never `game.i18n.format = fn`: core defines `format`
+    // non-writable on Localization's prototype (localization.mjs
+    // `Object.defineProperties(Localization.prototype, {format: …})`), so the
+    // assignment is a silent no-op in sloppy mode and every call still reaches
+    // core — this leg's first fleet run read all three cards unmarked
+    // (20261031T172005Z). `delete` restores. The witness says the shadow is in
+    // force before anything is read.
+    Object.defineProperty(game.i18n, "format", { configurable: true, writable: true,
+      value: (k, ...a) => (String(k).startsWith("TABLE.DrawFlavor") ? `${real(k, ...a)} ZZ-VIEWER` : real(k, ...a)) });
+    const shadowLive = /ZZ-VIEWER/.test(game.i18n.format("TABLE.DrawFlavor", { number: 1, name: "x" }));
+    const read = async (m) => {
+      const el = await m.renderHTML();
+      await sleep(600);
+      return el.querySelector(".flavor-text")?.textContent?.trim() ?? null;
+    };
+    return {
+      shadowLive, storedQuote: String(quotedMsg.flavor ?? ""),
+      quoted: await read(quotedMsg), naming: await read(namingMsg), plain: await read(plainMsg),
+    };
+  } finally {
+    delete game.i18n.format;
+    for (const m of made) { try { await m?.delete(); } catch { /* gone */ } }
+    await quoted.delete();
+    await plainT.delete();
+  }
+});
+recognised.shadowLive
+  ? ok("witness: the in-page format shadow is in force")
+  : fail("witness: the in-page format shadow never took — every leg below is void", JSON.stringify(recognised));
+/ZZ-VIEWER/.test(recognised.plain ?? "")
+  ? ok("control: core's default sentence is rebuilt for this viewer", recognised.plain)
+  : fail("control: core's default sentence was not rebuilt", JSON.stringify(recognised));
+/ZZ-VIEWER/.test(recognised.quoted ?? "") && recognised.storedQuote.includes("Smuggler's")
+  ? ok("...and so is it for a table whose name holds an apostrophe, stored unescaped (review #34 finding 238)", recognised.quoted)
+  : fail("a quoted table name's default sentence is left in the composer's language", JSON.stringify(recognised));
+recognised.naming === "Weather: ZZ TR Plain Den"
+  ? ok("...while a caller's flavor that NAMES the table is left as written", recognised.naming)
+  : fail("a caller's flavor naming the table was rewritten", JSON.stringify(recognised));
+
+// ONE RESULT WHOSE TEXT HOLDS A LIST (review #34 finding 12). Both rebuilds
+// counted `.table-results li`, which also matches the <li> inside a row's own
+// description, so a single draw of a row holding a three-item list read
+// "Draws 4 results". Two routes, one count: core's sidebar card
+// (`localizeTableResults`) and the Dashboard's single-table card
+// (`localizeDashboardCard`, flagged with the table's uuid). Both rebuilds are
+// ASYNC (they resolve the table first), so each is read after a pause, off
+// the element the hook ran on.
+const listDraw = await page.evaluate(async () => {
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const table = await CONFIG.RollTable.documentClass.create({
+    name: "ZZ TR List Table", formula: "1d1",
+    results: [{ type: "text", description: "<ul><li>ZZ one</li><li>ZZ two</li><li>ZZ three</li></ul>",
+      range: [1, 1], weight: 1 }],
+  });
+  const made = [];
+  try {
+    const { results, roll } = await table.roll();
+    const plain = await table.toMessage(results, { roll });
+    const dash = await table.toMessage(results, {
+      roll, messageData: { flags: { "air-bladder": { dashboardDraw: table.uuid } } },
+    });
+    made.push(plain, dash);
+    const read = async (m) => {
+      const el = await m.renderHTML();
+      await sleep(600);
+      return {
+        flavor: el.querySelector(".flavor-text")?.textContent?.trim() ?? null,
+        nestedLi: el.querySelectorAll(".table-results li li").length,
+      };
+    };
+    return {
+      sidebar: await read(plain),
+      dashboard: await read(dash),
+      singular: game.i18n.format("TABLE.DrawFlavor", { number: 1, name: table.name }),
+    };
+  } finally {
+    for (const m of made) { try { await m?.delete(); } catch { /* gone */ } }
+    await table.delete();
+  }
+});
+listDraw.sidebar.nestedLi >= 3
+  ? ok("precondition: the drawn row's own list rendered as nested <li>", `${listDraw.sidebar.nestedLi}`)
+  : fail("precondition: the drawn row's own list rendered as nested <li>", JSON.stringify(listDraw.sidebar));
+listDraw.sidebar.flavor === listDraw.singular
+  ? ok("a single draw of a row holding a list says ONE result", JSON.stringify(listDraw.sidebar.flavor))
+  : fail("a single draw of a row holding a list says ONE result",
+      `${JSON.stringify(listDraw.sidebar.flavor)}, expected ${JSON.stringify(listDraw.singular)} — the nested <li> were counted`);
+listDraw.dashboard.flavor === listDraw.singular
+  ? ok("...and so does the Dashboard's single-table card", JSON.stringify(listDraw.dashboard.flavor))
+  : fail("the Dashboard's single-table card counts one result",
+      `${JSON.stringify(listDraw.dashboard.flavor)}, expected ${JSON.stringify(listDraw.singular)} — the nested <li> were counted`);
 
 if (errors.length) { console.log(""); for (const e of errors) fail(`console error: ${e}`); }
 

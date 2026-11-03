@@ -42,20 +42,16 @@ export const TRANSPORT_KINDS = {
 };
 
 /**
- * What a container IS, as one classification with two consumers: its art, and
- * the label its sheet shows.
- *
- * They were one function returning a path, which meant a sheet could only say
- * "Mount" — true of a Heavy Destrier and useless, since nothing on that sheet
- * said "horse" anywhere. Splitting the decision out lets the label be as specific
- * as the picture already was, and guarantees the two never disagree.
- *
- * `mule` and `donkey` share one glyph but are separate classes for exactly that
- * reason: a Mule labelled "Donkey" would be wrong, where a Mule DRAWN as a donkey
- * is just the art we have.
- */
-/**
  * Every kind of container a Warden can pick, as art + label + a default capacity.
+ *
+ * What a container IS, as one classification with two consumers: its art, and
+ * the label its sheet shows. They were one function returning a path, which
+ * meant a sheet could only say "Mount" — true of a Heavy Destrier and useless,
+ * since nothing on that sheet said "horse" anywhere. Splitting the decision out
+ * lets the label be as specific as the picture already was, and guarantees the
+ * two never disagree. `mule` and `donkey` share one glyph but are separate
+ * classes for exactly that reason: a Mule labelled "Donkey" would be wrong,
+ * where a Mule DRAWN as a donkey is just the art we have.
  *
  * `slots` is the third thing this table carries, and it is what lets the plain
  * storage containers stop being DOCUMENTS. A sack, a chest, a crate and a barrel
@@ -108,7 +104,7 @@ export const CONTAINER_CLASSES = {
 /** A class's default capacity, or 0 ("use the world setting") if it has none. */
 export const containerClassSlots = (cls) => CONTAINER_CLASSES[cls]?.slots ?? 0;
 
-/** Which role a Kind implies: "mount", "transport" or "container" for a known
+/** Which role a Kind implies: "companion", "transport" or "container" for a known
  *  class, "" for a blank or Warden-invented one (see docs/npc-roles-plan.md).
  *  Lives on the same table as art, label and capacity so they cannot drift. */
 export const containerClassRole = (cls) => CONTAINER_CLASSES[cls]?.role ?? "";

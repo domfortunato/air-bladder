@@ -158,12 +158,12 @@ behind it roll yours. Delete it and the shipped table is back.
 | Where it rolls | Tables (their shipped compendium) |
 |---|---|
 | A 2e character's biography — generation and the sheet's re-roll dice | `Physique`, `Skin`, `Hair`, `Face`, `Speech`, `Clothing`, `Vice`, `Virtue` (**Tables (2e)**) |
-| NPCs and hirelings — the generators, the sheet dice, and the pick-lists | `Warden: NPC - Name`, `Warden: NPC - Background`, `Warden: NPC - Faction`, `Warden: NPC - Quirk`, `Warden: NPC - Goal`, `Warden: NPC - Virtue`, `Warden: NPC - Vice` (**Warden: NPCs**) |
-| Monsters | the eight `Warden: Monster - …` tables (**Warden: Monsters**) |
+| NPCs and hirelings — the generators, the sheet dice, and the pick-lists | `Warden: NPC - Name`, `Warden: NPC - Background`, `Warden: NPC - Faction`, `Warden: NPC - Quirk`, `Warden: NPC - Goal`, `Warden: NPC - Virtue`, `Warden: NPC - Vice` (**Warden — NPCs**) |
+| Monsters | the eight `Warden: Monster - …` tables (**Warden — Monsters**) |
 | Barebones character creation | `Barebones: Creation - Weapon`, `- Armor`, `- Additional Gear`, and the three `Barebones: Weapon Tier` tables (**Tables (Barebones)**) — these have a one-button copy of their own, see [Generating Characters](generating-characters.md) |
 | Scars, when damage lands | `Scars` (**Utils**) |
 | A random spellbook or spellscroll a background hands out | `Spells — Canon (1d100)` (**Tables (2e)**), or `Spells — GLOG` (**Tables (GLOG)**) with the GLOG hack on — these have a one-button copy of their own, spellbooks included, see [Generating Characters](generating-characters.md); a world copy re-sorts itself by name when a spellbook is dropped in, so the new spell can be rolled |
-| Factions | every table the faction generator rolls (**Warden: NPCs**) |
+| Factions | every table the faction generator rolls (**Warden — NPCs**) |
 | The marketplace | the four `Market: …` tables — see [Customizing the marketplace](customizing-the-marketplace.md) |
 
 Two things worth knowing:

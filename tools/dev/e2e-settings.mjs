@@ -22,9 +22,12 @@
  * app and reads what it actually renders.
  */
 import { chromium } from "playwright";
-import { VIEWPORT, joinAsGM, watchErrors } from "./lib.mjs";
+import { VIEWPORT, joinAsGM, watchErrors, watchdog } from "./lib.mjs";
 
 const browser = await chromium.launch();
+// The fleet's hang guard (review #34): without it a hang runs to the runner's
+// 65-minute cap and skips every restore. A bound on a hang, not a timing claim.
+watchdog(900000, "dev:settings");
 const page = await browser.newContext({ viewport: VIEWPORT }).then((c) => c.newPage());
 const errors = watchErrors(page);
 let failed = false;
@@ -85,9 +88,14 @@ try {
     // "cairn.<key>" value for the migration to carry, and listing it would
     // make that loop iterate a key which cannot exist. It is also worthless to
     // carry — it goes stale the next day by design.
+    // `hireling-split-pending` joined with review #34 finding 3: the split's
+    // failed packs and the start time a retry is judged against.
+    // `glog-converted` joined with review #34 finding 219: the GLOG world
+    // conversion's completion marker, set when the sweep lands and resumed at
+    // ready while it is unset.
     const MARKERS = ["roles-restamped", "companion-restamped", "connections-migrated",
-      "grimoire-keys-stamped", "hireling-split", "art-migration-generation",
-      "vald-weather-today"];
+      "grimoire-keys-stamped", "hireling-split", "hireling-split-pending",
+      "art-migration-generation", "vald-weather-today", "glog-converted"];
     out.unlisted = [...game.settings.settings.keys()]
       .filter((k) => k.startsWith(`${mod.SETTINGS_NS}.`))
       .map((k) => k.slice(mod.SETTINGS_NS.length + 1))
@@ -449,17 +457,20 @@ try {
   // floor saw `2e=false` with the other two still off, switched 2e back on
   // and toasted — both editions on and a false warning (review #18). The app
   // writes values being switched ON first, so no intermediate state is
-  // all-off. The three source settings are written and RESTORED to their
-  // registered defaults, asserted — the dev world sits at defaults by the
-  // user's ask. (The restore itself goes ON-first for the same reason.)
+  // all-off. The three source settings are written and RESTORED to what the
+  // world held, asserted (review #34 finding 146: they went back to their
+  // registered DEFAULTS, on the reasoning that the dev world sits there — but
+  // the shipped 2e take-over door turns content-source-custom ON in its own
+  // write, so a real world need not, and teardown restores what it found).
+  // The restore itself goes ON-first for the same reason.
   const floor = await page.evaluate(async () => {
     const out = {};
     const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
     const mod = await import("/systems/air-bladder/module/settings.js");
     const NS = mod.SETTINGS_NS;
     const KEYS = ["content-source-2e", "content-source-custom", "content-source-barebones"];
-    const defaults = Object.fromEntries(KEYS.map((k) => [k, game.settings.settings.get(`${NS}.${k}`).default]));
     const snap = () => Object.fromEntries(KEYS.map((k) => [k, game.settings.get(NS, k)]));
+    const found = snap();
     const warns = [];
     const origWarn = ui.notifications.warn;
     ui.notifications.warn = function (msg, ...rest) { warns.push(String(msg)); return origWarn.call(this, msg, ...rest); };
@@ -495,11 +506,11 @@ try {
     } finally {
       Hooks.off("updateSetting", hookId);
       ui.notifications.warn = origWarn;
-      for (const k of KEYS) if (defaults[k] === true) await game.settings.set(NS, k, true);
-      for (const k of KEYS) if (defaults[k] !== true) await game.settings.set(NS, k, defaults[k]);
+      for (const k of KEYS) if (found[k] === true) await game.settings.set(NS, k, true);
+      for (const k of KEYS) if (found[k] !== true) await game.settings.set(NS, k, found[k]);
     }
     out.restored = snap();
-    out.restoreOk = KEYS.every((k) => out.restored[k] === defaults[k]);
+    out.restoreOk = KEYS.every((k) => out.restored[k] === found[k]);
     return out;
   });
 
@@ -513,7 +524,7 @@ try {
     ? ok(`...because the ON write landed first: ${floor.writes.join(" → ")}`)
     : fail(`write order ${JSON.stringify(floor.writes)} — the value being switched on did not land first`);
   floor.restoreOk
-    ? ok("the three source settings are back at their registered defaults")
+    ? ok("the three source settings are back at what the world held")
     : fail(`restore failed: ${JSON.stringify(floor.restored)}`);
 
   /* ---- Reset Defaults, per app ------------------------------------------- */
