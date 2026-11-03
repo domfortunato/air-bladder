@@ -258,6 +258,20 @@ try {
       };
     };
     const planted = [];
+    // The planted table below is two decoys and one spell, and
+    // randomSpellbookDoc gives up after 20 non-spell rolls — so drawn at
+    // random, a draw came back null one time in ~3,300 ((2/3)^20), and with 26
+    // draws a run this leg went red once in ~120 runs (fleet
+    // 20261103T034128Z: ["Raise Dead", null]). Pinned instead, per roll: every
+    // draw lands text row, Dagger, spell, in that order, so each re-rolls BOTH
+    // decoys and none can reach the cap. INVERTED (e2e-age-override's note): a
+    // die shows ceil((1 - u) * faces).
+    const pinned = async (faceCycle, faces, fn) => {
+      const orig = CONFIG.Dice.randomUniform;
+      let i = 0;
+      CONFIG.Dice.randomUniform = () => 1 - (faceCycle[i++ % faceCycle.length] - 0.5) / faces;
+      try { return await fn(); } finally { CONFIG.Dice.randomUniform = orig; }
+    };
     const drawMany = async (n = 12) => {
       const seen = [];
       for (let i = 0; i < n; i++) seen.push((await CG.randomSpellbookDoc())?.name);
@@ -285,8 +299,21 @@ try {
         });
         planted.push(table.id);
         const resolved = await cpd.findDeclaredTable(decls[mode]);
-        const during = await drawMany();
-        const scroll = await CG.randomScrollItem();
+        const during = await pinned([1, 2, 3], 3, () => drawMany());
+        const scroll = await pinned([1, 2, 3], 3, () => CG.randomScrollItem());
+        // And the cap itself, once: a table whose rolls never land a spell
+        // deals nothing after 20, and says so (randomSpellbookDoc).
+        if (mode === "canon") {
+          const warned = [];
+          const realWarn = console.warn;
+          console.warn = (...a) => { warned.push(a.map(String).join(" ")); realWarn.apply(console, a); };
+          try {
+            const doc = await pinned([1, 2], 3, () => CG.randomSpellbookDoc());
+            out.cap = { doc: doc?.name ?? null, warned: warned.some((w) => /yielded no spellbook in 20 rolls/.test(w)) };
+          } finally {
+            console.warn = realWarn;
+          }
+        }
         await table.delete();
         planted.pop();
         const after = await drawMany();
@@ -325,6 +352,8 @@ try {
     check(m.before.length > 1 && m.after.length > 1,
       `…${mode}: with no such table the shipped table answers, before and after`, `${m.before.length}/${m.after.length} distinct`);
   }
+  check(wf.cap?.doc === null && wf.cap?.warned === true,
+    "a world spell table that never lands a spell deals nothing after 20 rolls, and warns", JSON.stringify(wf.cap));
   check(wf.wrongName.draws.length > 1, "control: the same rows under another NAME are ignored — the name is the whole mechanism", `${wf.wrongName.draws.length} distinct`);
 
   /* --- 5. the fallback is a TABLE, not a scan ----------------------------- */
