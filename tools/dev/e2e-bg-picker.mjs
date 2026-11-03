@@ -375,10 +375,8 @@ try {
     for (const c of containersOf(bbActor)) made.push(c);
     const bbBefore = { name: bbActor.name, bg: bbActor.system.background, hp: bbActor.system.hp.max };
     const merchant = gbb[0].backgrounds.find((b) => b.name === "Merchant");
-    // The generator only WARNS on a gear row it cannot resolve, and the
-    // tagged-count check below went red once with nothing else in the log
-    // (fleet 20261101T121856Z, green on rerun): keep what was said during the
-    // swap, so a repeat names its cause.
+    // The generator only WARNS on a gear row it cannot resolve: keep what was
+    // said during the swap, so a red names its cause.
     const swapWarns = [];
     const realWarn = console.warn;
     console.warn = (...a) => { swapWarns.push(a.map(String).join(" ").slice(0, 200)); realWarn.apply(console, a); };
@@ -388,6 +386,8 @@ try {
       console.warn = realWarn;
     }
     for (const c of containersOf(bbActor)) made.push(c);
+    // The grant tags that count as the background's gear.
+    const BG_TAGS = ["background"];
     const bbSwap = {
       background: bbActor.system.background,
       keptName: bbActor.name === bbBefore.name,
@@ -401,149 +401,49 @@ try {
       gearPresent: (await resolvedNames(merchant)).every((n) =>
         bbActor.items.some((i) => i.name === n)),
       taggedCount: bbActor.items.filter(
-        (i) => i.getFlag("air-bladder", "grantSource") === "background").length,
+        (i) => BG_TAGS.includes(i.getFlag("air-bladder", "grantSource"))).length,
       refCount: (merchant.system.startingGear ?? []).length,
       refs: (merchant.system.startingGear ?? []).map((g) => g.name),
-      taggedNames: bbActor.items.filter((i) => i.getFlag("air-bladder", "grantSource") === "background").map((i) => i.name),
+      taggedNames: bbActor.items.filter((i) => BG_TAGS.includes(i.getFlag("air-bladder", "grantSource"))).map((i) => i.name),
       swapWarns,
     };
-    // Red twice (20261101T121856Z on 14.369, 20261103T011106Z on 14.368), each
-    // time with NO warning: rollAdditionalGear spent its 50 rolls and returned
-    // nothing, and a gear-name miss would have warned. So on a red, roll the
-    // table the generator rolls, the way it resolves it, and keep what each
-    // roll came back as — an empty result, a cart, a "None" — so the next red
-    // names its cause instead of only its count.
-    if (bbSwap.taggedCount !== bbSwap.refCount) {
+    // 7b. The count above holds whatever the Additional Gear roll lands on.
+    //     Light and rations are granted chip-less, tagged "background-mundane"
+    //     (tagBackgroundGear), and that is background gear too — the generator's
+    //     own sweeps ask for BG_GRANT_SOURCES, both tags. Counting "background"
+    //     alone made the check above go red whenever the roll came up a Lantern,
+    //     a Torch or rations: 3 of 31 fleet runs (20261101T121856Z,
+    //     20261103T011106Z, 20261103T020137Z), each read as a dropped row, until
+    //     twenty traced swaps (20261103T030339Z) showed the Lantern CREATED,
+    //     tagged background-mundane. So pin the roll onto a light row, on a
+    //     character made the moment before, as every red was.
+    const mundane = { row: null };
+    {
       const { findDeclaredTable } = await import("/systems/air-bladder/module/compendium.js");
       const t = await findDeclaredTable("air-bladder.tables-barebones;Barebones: Creation - Additional Gear");
-      const diag = { found: !!t, inWorld: !!t && !t.pack, replacement: t?.replacement, formula: t?.formula,
-        results: t?.results?.size, drawn: t?.results?.filter((x) => x.drawn).length, rolls: [] };
-      // Not a world table with a blank formula: its first roll SAVES one
-      // (compendium.js rollDeclaredTable's docblock), and this only reads.
-      for (let i = 0; t && (t.pack || t.formula) && i < 12; i++) {
-        const { roll, results } = await t.roll();
-        const x = results?.[0];
-        diag.rolls.push(x ? `${roll?.total} ${x.type} ${x.name || x.description || ""}`.slice(0, 50) : `${roll?.total} (no result)`);
-      }
-      // The rolls above came back healthy on the second red (20261103T020137Z),
-      // so walk resolveBarebonesResult's steps on a few of them — what the uuid
-      // resolves to, the row's plain text, and what the gear lookup makes of it
-      // — then the generator's own resolveStartingGear, warnings kept.
-      const { resultPlainText } = await import("/systems/air-bladder/module/compendium.js");
-      const { resolveGearItem } = await import("/systems/air-bladder/module/gear.js");
-      diag.steps = [];
-      for (let i = 0; t && (t.pack || t.formula) && i < 4; i++) {
-        const { results } = await t.roll();
-        const x = results?.[0];
-        if (!x) { diag.steps.push("no result"); continue; }
-        let doc = null, err = null;
-        try { doc = x.documentUuid ? await fromUuid(x.documentUuid) : null; } catch (e) { err = String(e).slice(0, 80); }
-        const text = resultPlainText(x);
-        const item = await resolveGearItem(text).catch((e) => `threw ${String(e).slice(0, 60)}`);
-        diag.steps.push({ uuid: x.documentUuid ?? null, doc: doc ? `${doc.documentName}/${doc.type}/${doc.pack ?? "world"}` : null,
-          err, text, item: typeof item === "string" ? item : item?.name ?? null });
-      }
-      const warned = [];
-      const before = console.warn;
-      console.warn = (...a) => { warned.push(a.map(String).join(" ").slice(0, 160)); before.apply(console, a); };
-      try {
-        diag.startingGear = [];
-        for (let i = 0; i < 3; i++) {
-          diag.startingGear.push((await gen.resolveStartingGear(merchant)).map((g) => g.name));
-        }
-      } finally {
-        console.warn = before;
-      }
-      diag.startingGearWarns = warned;
-      bbSwap.diag = diag;
-    }
-
-    // 7b. The Merchant swap, again and again, each on a character made the
-    //     moment before. Its Additional Gear row came back empty in 3 of 18
-    //     runs from review #34 finding 207 on (67e1fdd7, the gear fetch batched
-    //     per pack) and in none of the 13 before it, so one swap a run is too
-    //     few to see it. Each swap must tag one item per reference, and still
-    //     do so a beat later. While they run, the page records what the generator's own
-    //     path did — every roll of that table, what each row's uuid resolved to,
-    //     every compendium fetch that came back empty, every warning — so a
-    //     failed swap names its cause. In-page shadows only, put back in the
-    //     finally; nothing is written but the swaps themselves.
-    const REPEAT = 20;
-    const bbRepeat = { swaps: 0, failures: [] };
-    {
-      const trace = [];
-      const warnsNow = [];
-      const RT = CONFIG.RollTable.documentClass.prototype;
-      const CC = foundry.documents.collections.CompendiumCollection.prototype;
-      const hadOwnRoll = Object.prototype.hasOwnProperty.call(RT, "roll");
-      const realRoll = RT.roll;
-      const realGetDocument = CC.getDocument;
-      const realFromUuid = globalThis.fromUuid;
-      const realWarn2 = console.warn;
-      RT.roll = async function (...args) {
-        const out = await realRoll.apply(this, args);
-        if (/Additional Gear/.test(this.name)) {
-          const x = out?.results?.[0];
-          trace.push(`roll ${out?.roll?.total} ${x ? `${x.type} "${x.name || x.description || ""}" ${x.documentUuid ?? ""}` : "(no result)"}`.slice(0, 120));
-        }
-        return out;
-      };
-      CC.getDocument = async function (id, ...rest) {
-        const d = await realGetDocument.call(this, id, ...rest);
-        if (!d) trace.push(`getDocument ${this.collection} ${id} -> ${d}`);
-        return d;
-      };
-      globalThis.fromUuid = async (uuid, ...rest) => {
+      const text = (x) => String(x.name || x.description || "").trim();
+      const row = t?.results.find((x) => /^lantern$/i.test(text(x)))
+        ?? t?.results.find((x) => /lantern|torch|candle|ration/i.test(text(x)));
+      mundane.formula = t?.formula;
+      if (row && t.formula === "1d100") {
+        mundane.row = text(row);
+        const face = row.range[0];
+        const fresh = track(await gen.createActorWithCharacter(await gen.generateBarebonesCharacter()));
+        for (const c of containersOf(fresh)) made.push(c);
+        const orig = CONFIG.Dice.randomUniform;
+        // INVERTED (e2e-age-override's note): a die shows ceil((1 - u) * faces).
+        CONFIG.Dice.randomUniform = () => 1 - (face - 0.5) / 100;
         try {
-          const d = await realFromUuid(uuid, ...rest);
-          if (!d) trace.push(`fromUuid ${uuid} -> ${d}`);
-          else if (d.documentName === "Item") trace.push(`fromUuid -> Item/${d.type} ${d.pack ?? "WORLD"} "${d.name}"`);
-          return d;
-        } catch (e) {
-          trace.push(`fromUuid ${uuid} THREW ${String(e).slice(0, 60)}`);
-          throw e;
-        }
-      };
-      console.warn = (...a) => { warnsNow.push(a.map(String).join(" ").slice(0, 160)); realWarn2.apply(console, a); };
-      // Every red so far was a swap made straight after the character was
-      // CREATED; twenty swaps of one settled character all held (6d62b0dc).
-      // So each round makes a fresh Barebones character and swaps it at
-      // once, and the trace also keeps every item created on or deleted
-      // from it, to tell "never granted" from "granted, then removed".
-      let watched = null;
-      const tag = (it) => it.getFlag?.("air-bladder", "grantSource") ?? "-";
-      const onCreate = (it, _o, userId) => { if (it.parent?.id === watched) trace.push(`createItem "${it.name}" ${tag(it)} by ${userId === game.user.id ? "me" : userId}`); };
-      const onDelete = (it, o, userId) => { if (it.parent?.id === watched) trace.push(`deleteItem "${it.name}" ${tag(it)} by ${userId === game.user.id ? "me" : userId} ${JSON.stringify(Object.keys(o ?? {}).filter((k) => !["modifiedTime", "render", "renderSheet"].includes(k)))}`); };
-      const hookCreate = Hooks.on("createItem", onCreate);
-      const hookDelete = Hooks.on("deleteItem", onDelete);
-      try {
-        for (let i = 0; i < REPEAT && bbRepeat.failures.length < 2; i++) {
-          const fresh = track(await gen.createActorWithCharacter(await gen.generateBarebonesCharacter()));
-          for (const c of containersOf(fresh)) made.push(c);
-          watched = fresh.id;
-          const fromBg = fresh.system.background;
-          trace.length = 0;
-          warnsNow.length = 0;
           await gen.changeBackground(fresh, merchant);
-          for (const c of containersOf(fresh)) made.push(c);
-          bbRepeat.swaps++;
-          const taggedNow = fresh.items.filter((it) => tag(it) === "background").map((it) => it.name);
-          // And a beat later: an item granted, then removed by something still
-          // running from the creation, shows up only after the swap returns.
-          await wait(1500);
-          const tagged = fresh.items.filter((it) => tag(it) === "background").map((it) => it.name);
-          if (taggedNow.length !== bbSwap.refCount || tagged.length !== bbSwap.refCount) {
-            bbRepeat.failures.push({ swap: i + 1, from: fromBg, taggedNow, tagged, warns: [...warnsNow],
-              rolls: trace.filter((l) => l.startsWith("roll")).length, trace: trace.slice(0, 120) });
-          }
+        } finally {
+          CONFIG.Dice.randomUniform = orig;
         }
-      } finally {
-        Hooks.off("createItem", hookCreate);
-        Hooks.off("deleteItem", hookDelete);
-        if (hadOwnRoll) RT.roll = realRoll; else delete RT.roll;
-        CC.getDocument = realGetDocument;
-        globalThis.fromUuid = realFromUuid;
-        console.warn = realWarn2;
+        for (const c of containersOf(fresh)) made.push(c);
+        const tagOf = (it) => it.getFlag("air-bladder", "grantSource") ?? null;
+        mundane.every = fresh.items.map((it) => `${it.name}:${tagOf(it) ?? "-"}`);
+        mundane.counted = fresh.items.filter((it) => BG_TAGS.includes(tagOf(it))).map((it) => it.name);
+        // The pin really landed on the row: that item is on the sheet, chip-less.
+        mundane.landed = fresh.items.some((it) => it.name === mundane.row && tagOf(it) === "background-mundane");
       }
     }
 
@@ -626,7 +526,7 @@ try {
     await sheet.close();
 
     for (const a of made) { try { await a.delete(); } catch { /* already gone */ } }
-    return { grouping, tagline, dialogInfo, disable, swap, containers, randomRepeated: repeated, bbSwap, bbRepeat, bbDialog, bondRace };
+    return { grouping, tagline, dialogInfo, disable, swap, containers, randomRepeated: repeated, bbSwap, mundane, bbDialog, bondRace };
   });
 
   if (r.error) {
@@ -722,15 +622,17 @@ try {
     r.bbSwap.taggedCount === r.bbSwap.refCount
       ? ok(`its SRD "Random Additional Gear" row resolved to a real item (${r.bbSwap.taggedCount}/${r.bbSwap.refCount} granted)`)
       : fail(`an instruction row was dropped: ${r.bbSwap.taggedCount} items for ${r.bbSwap.refCount} references `
-        + JSON.stringify({ refs: r.bbSwap.refs, tagged: r.bbSwap.taggedNames, warns: r.bbSwap.swapWarns, diag: r.bbSwap.diag }));
-    if (r.bbRepeat.failures.length === 0) {
-      ok(`and on ${r.bbRepeat.swaps} fresh Barebones characters swapped to Merchant the moment they were made`);
+        + JSON.stringify({ refs: r.bbSwap.refs, tagged: r.bbSwap.taggedNames, warns: r.bbSwap.swapWarns }));
+    const M = r.mundane;
+    if (!M.row) {
+      fail(`no light or rations row to pin in the Additional Gear table (formula ${M.formula})`);
+    } else if (!M.landed) {
+      fail(`the pin missed: no chip-less ${M.row} on the fresh Merchant ${JSON.stringify(M.every)}`);
     } else {
-      fail(`${r.bbRepeat.failures.length} of ${r.bbRepeat.swaps} fresh characters swapped to Merchant lost the Additional Gear item`);
-      for (const f of r.bbRepeat.failures) {
-        console.log(`      swap ${f.swap} (a fresh ${f.from}): tagged right after ${JSON.stringify(f.taggedNow)}, 1.5 s later ${JSON.stringify(f.tagged)}, ${f.rolls} roll(s), warns ${JSON.stringify(f.warns)}`);
-        for (const line of f.trace) console.log(`        ${line}`);
-      }
+      M.counted.length === r.bbSwap.refCount
+        ? ok(`and when the roll lands on ${M.row}, granted chip-less, it still counts (${M.counted.length}/${r.bbSwap.refCount})`)
+        : fail(`the roll landed on ${M.row} and it went uncounted: ${M.counted.length} for ${r.bbSwap.refCount} references `
+          + `${JSON.stringify(M.counted)}; on the sheet ${JSON.stringify(M.every)}`);
     }
 
     const B = r.bbDialog;
