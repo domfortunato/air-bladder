@@ -15,6 +15,10 @@ a probe, the dev world or the system is this repo's to fix.
 - **Eleven probe boxes** (CT 112 to 118, 129 to 131 and 138) each run Foundry 14.369 (since 2026-10-28)
   with this system's world `air-bladder-dev`, served by the PM2 app `foundry-air-bladder` from
   `/home/foundry/probe-air-bladder`. Nobody plays on them.
+- **Each box also carries the older builds in the test window** (CLAUDE.md, *Version reality*: the newest
+  stable build and the two before it). Since 2026-11-03 that is 14.368, as its own fleet project,
+  `air-bladder-14368`: the app `foundry-air-bladder-14368` from `/opt/foundry-14.368`, with its own
+  world in `/home/foundry/probe-air-bladder-14368`. Same repo, same probes, its own run ids.
 - **The browsers run on VM 200's RTX 3060**, one Playwright container per probe. Air Bladder runs only
   there, never on the driver boxes.
 - **A run** rolls every box back to its `pristine` snapshot and deploys the ref under test into the box's
@@ -25,7 +29,9 @@ a probe, the dev world or the system is this repo's to fix.
   are not probes.
 - **`pristine` holds a copy of CT 123's dev world as it stood on 2026-10-21**, launched once at 14.369 on
   2026-10-30. Anything that world held then is in every box at the start of every run: your own tables,
-  or a fixture some probe stranded.
+  or a fixture some probe stranded. The 14.368 project's world is the same dev world as 14.368 last saved
+  it, from CT 123's backup of 2026-10-30 taken before the 14.369 move: an older build must open a world
+  that build saved, never one a newer build has migrated.
 - **After the boxes move to a new Foundry build, this world must be launched by hand on each box** and
   `pristine` retaken. Foundry never auto-launches a world last saved by an older build, and `--refresh`
   does not launch it. The symptom is a run that sets up no box: every box's log says
@@ -40,6 +46,7 @@ a probe, the dev world or the system is this repo's to fix.
 ```sh
 ssh fleet@192.168.30.50 foundry/scripts/fleet-runner.sh start --project air-bladder --ref dev
 ssh fleet@192.168.30.50 foundry/scripts/fleet-runner.sh start --project air-bladder --ref <branch|sha> --probes spell-pool,spellscroll
+ssh fleet@192.168.30.50 foundry/scripts/fleet-runner.sh start --project air-bladder-14368 --ref dev   # the same, on Foundry 14.368
 ssh fleet@192.168.30.50 foundry/scripts/fleet-runner.sh status   # the run going now, if any
 ssh fleet@192.168.30.50 foundry/scripts/fleet-runner.sh last     # the newest report of ANY project: its verdict and path
 ```
@@ -81,7 +88,24 @@ in a batch. A red on a different box in each run, with the same message every ti
 baseline world. A red that follows one box's queue points at an earlier probe on that box that leaked
 something.
 
-## Where things stand (2026-11-02)
+## Where things stand (2026-11-03)
+
+**Review #34 is on `dev` (`f897ef34`), and the whole suite is green on both builds in the window:
+104/104 on 14.369** (run `20261103T021431Z-air-bladder-f897ef34…`) **and 104/104 on 14.368**
+(`20261103T022052Z-air-bladder-14368-f897ef34…`). On the branch before the merge: 104/104 on 14.369 at
+`7e2a5b65` and `05e12621` (`20261102T225542Z`, `20261102T230147Z`); the first 14.368 run, with
+`--refresh` at `be3cb71c`, went 103/104 (`20261103T011106Z`).
+
+- **One open intermittent, `bg-picker`:** "an instruction row was dropped: 1 items for 2 references". A
+  Barebones Merchant swapped in got its Stylus but nothing from its "Random Additional Gear" row, and
+  nothing was warned. Seen three times, on both builds (`20261101T121856Z` on 14.369, gnoll; on 14.368
+  `20261103T011106Z`, CT 130, and `20261103T020137Z`, troll), green on every re-run. The table is not
+  the cause (the shipped copy, 100 rows, none drawn, rolled healthy right after a red), nor a world
+  table, a pinned die or an earlier probe on the box. On its next red the probe records, in the FAIL
+  line's `diag`, what each roll resolved to on the generator's own path (`54a53cef`). Read that before
+  theorising.
+
+## Before that (2026-11-02)
 
 **104 probes on Foundry 14.369 at `review-34`: 101/104 at `9f76958e`** (run
 `20261102T035401Z-air-bladder-9f76958e`), and the three reds green on a re-run at `b26c7e92`
