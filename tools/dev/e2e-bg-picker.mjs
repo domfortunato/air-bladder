@@ -458,11 +458,12 @@ try {
       bbSwap.diag = diag;
     }
 
-    // 7b. The Merchant swap, again and again. Its Additional Gear row came back
-    //     empty in 3 of 18 runs from review #34 finding 207 on (67e1fdd7, the
-    //     gear fetch batched per pack) and in none of the 13 before it, so one
-    //     swap a run is too few to see it. Each swap must tag one item per
-    //     reference. While they run, the page records what the generator's own
+    // 7b. The Merchant swap, again and again, each on a character made the
+    //     moment before. Its Additional Gear row came back empty in 3 of 18
+    //     runs from review #34 finding 207 on (67e1fdd7, the gear fetch batched
+    //     per pack) and in none of the 13 before it, so one swap a run is too
+    //     few to see it. Each swap must tag one item per reference, and still
+    //     do so a beat later. While they run, the page records what the generator's own
     //     path did — every roll of that table, what each row's uuid resolved to,
     //     every compendium fetch that came back empty, every warning — so a
     //     failed swap names its cause. In-page shadows only, put back in the
@@ -504,20 +505,41 @@ try {
         }
       };
       console.warn = (...a) => { warnsNow.push(a.map(String).join(" ").slice(0, 160)); realWarn2.apply(console, a); };
+      // Every red so far was a swap made straight after the character was
+      // CREATED; twenty swaps of one settled character all held (6d62b0dc).
+      // So each round makes a fresh Barebones character and swaps it at
+      // once, and the trace also keeps every item created on or deleted
+      // from it, to tell "never granted" from "granted, then removed".
+      let watched = null;
+      const tag = (it) => it.getFlag?.("air-bladder", "grantSource") ?? "-";
+      const onCreate = (it, _o, userId) => { if (it.parent?.id === watched) trace.push(`createItem "${it.name}" ${tag(it)} by ${userId === game.user.id ? "me" : userId}`); };
+      const onDelete = (it, o, userId) => { if (it.parent?.id === watched) trace.push(`deleteItem "${it.name}" ${tag(it)} by ${userId === game.user.id ? "me" : userId} ${JSON.stringify(Object.keys(o ?? {}).filter((k) => !["modifiedTime", "render", "renderSheet"].includes(k)))}`); };
+      const hookCreate = Hooks.on("createItem", onCreate);
+      const hookDelete = Hooks.on("deleteItem", onDelete);
       try {
         for (let i = 0; i < REPEAT && bbRepeat.failures.length < 2; i++) {
+          const fresh = track(await gen.createActorWithCharacter(await gen.generateBarebonesCharacter()));
+          for (const c of containersOf(fresh)) made.push(c);
+          watched = fresh.id;
+          const fromBg = fresh.system.background;
           trace.length = 0;
           warnsNow.length = 0;
-          await gen.changeBackground(bbActor, merchant);
-          for (const c of containersOf(bbActor)) made.push(c);
+          await gen.changeBackground(fresh, merchant);
+          for (const c of containersOf(fresh)) made.push(c);
           bbRepeat.swaps++;
-          const tagged = bbActor.items.filter((it) => it.getFlag("air-bladder", "grantSource") === "background").map((it) => it.name);
-          if (tagged.length !== bbSwap.refCount) {
-            bbRepeat.failures.push({ swap: i + 1, tagged, warns: [...warnsNow], rolls: trace.filter((l) => l.startsWith("roll")).length,
-              trace: trace.slice(0, 120) });
+          const taggedNow = fresh.items.filter((it) => tag(it) === "background").map((it) => it.name);
+          // And a beat later: an item granted, then removed by something still
+          // running from the creation, shows up only after the swap returns.
+          await wait(1500);
+          const tagged = fresh.items.filter((it) => tag(it) === "background").map((it) => it.name);
+          if (taggedNow.length !== bbSwap.refCount || tagged.length !== bbSwap.refCount) {
+            bbRepeat.failures.push({ swap: i + 1, from: fromBg, taggedNow, tagged, warns: [...warnsNow],
+              rolls: trace.filter((l) => l.startsWith("roll")).length, trace: trace.slice(0, 120) });
           }
         }
       } finally {
+        Hooks.off("createItem", hookCreate);
+        Hooks.off("deleteItem", hookDelete);
         if (hadOwnRoll) RT.roll = realRoll; else delete RT.roll;
         CC.getDocument = realGetDocument;
         globalThis.fromUuid = realFromUuid;
@@ -702,11 +724,11 @@ try {
       : fail(`an instruction row was dropped: ${r.bbSwap.taggedCount} items for ${r.bbSwap.refCount} references `
         + JSON.stringify({ refs: r.bbSwap.refs, tagged: r.bbSwap.taggedNames, warns: r.bbSwap.swapWarns, diag: r.bbSwap.diag }));
     if (r.bbRepeat.failures.length === 0) {
-      ok(`and on every one of ${r.bbRepeat.swaps} more Merchant swaps`);
+      ok(`and on ${r.bbRepeat.swaps} fresh Barebones characters swapped to Merchant the moment they were made`);
     } else {
-      fail(`${r.bbRepeat.failures.length} of ${r.bbRepeat.swaps} more Merchant swaps dropped the Additional Gear row`);
+      fail(`${r.bbRepeat.failures.length} of ${r.bbRepeat.swaps} fresh characters swapped to Merchant lost the Additional Gear item`);
       for (const f of r.bbRepeat.failures) {
-        console.log(`      swap ${f.swap}: tagged ${JSON.stringify(f.tagged)}, ${f.rolls} roll(s), warns ${JSON.stringify(f.warns)}`);
+        console.log(`      swap ${f.swap} (a fresh ${f.from}): tagged right after ${JSON.stringify(f.taggedNow)}, 1.5 s later ${JSON.stringify(f.tagged)}, ${f.rolls} roll(s), warns ${JSON.stringify(f.warns)}`);
         for (const line of f.trace) console.log(`        ${line}`);
       }
     }
