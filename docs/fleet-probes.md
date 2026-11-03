@@ -110,6 +110,15 @@ something.
   `…033117Z`). There was no screenshot and the box's logs were rolled back, so the join helper now says
   what the page showed when its control never comes (`tools/dev/lib.mjs`, `chooseJoinUser`). A repeat
   will name its cause; until then it is a one-off with no evidence either way.
+- **`spell-pool`'s one red was its own odds, and is fixed (`fbcc205b`).** On 14.369 (`20261103T034128Z`)
+  twelve draws from a planted world spell table came back `["Raise Dead", null]`. That table is a text
+  row, a Dagger and the spell, and the generator deals nothing after 20 non-spell rolls (it warns), so a
+  random draw was null once in about 3,300 and the leg red about once in 120 runs. The draws are now
+  pinned to text row, Dagger, spell, and the cap has a check of its own. Green on both builds
+  (`20261103T035619Z`, `20261103T035752Z`).
+- **`kw-player-import` once on 14.368 (`20261103T033542Z`):** all 21 checks passed, and the run failed on
+  three "PixiJS Error: Could not initialize shader" console errors from the browser on VM 200's GPU, a
+  first in any fleet run. Noted, not chased: it is the browser's WebGL, not this code.
 
 ## Before that (2026-11-02)
 
