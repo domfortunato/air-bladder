@@ -425,6 +425,36 @@ try {
         const x = results?.[0];
         diag.rolls.push(x ? `${roll?.total} ${x.type} ${x.name || x.description || ""}`.slice(0, 50) : `${roll?.total} (no result)`);
       }
+      // The rolls above came back healthy on the second red (20261103T020137Z),
+      // so walk resolveBarebonesResult's steps on a few of them — what the uuid
+      // resolves to, the row's plain text, and what the gear lookup makes of it
+      // — then the generator's own resolveStartingGear, warnings kept.
+      const { resultPlainText } = await import("/systems/air-bladder/module/compendium.js");
+      const { resolveGearItem } = await import("/systems/air-bladder/module/gear.js");
+      diag.steps = [];
+      for (let i = 0; t && (t.pack || t.formula) && i < 4; i++) {
+        const { results } = await t.roll();
+        const x = results?.[0];
+        if (!x) { diag.steps.push("no result"); continue; }
+        let doc = null, err = null;
+        try { doc = x.documentUuid ? await fromUuid(x.documentUuid) : null; } catch (e) { err = String(e).slice(0, 80); }
+        const text = resultPlainText(x);
+        const item = await resolveGearItem(text).catch((e) => `threw ${String(e).slice(0, 60)}`);
+        diag.steps.push({ uuid: x.documentUuid ?? null, doc: doc ? `${doc.documentName}/${doc.type}/${doc.pack ?? "world"}` : null,
+          err, text, item: typeof item === "string" ? item : item?.name ?? null });
+      }
+      const warned = [];
+      const before = console.warn;
+      console.warn = (...a) => { warned.push(a.map(String).join(" ").slice(0, 160)); before.apply(console, a); };
+      try {
+        diag.startingGear = [];
+        for (let i = 0; i < 3; i++) {
+          diag.startingGear.push((await gen.resolveStartingGear(merchant)).map((g) => g.name));
+        }
+      } finally {
+        console.warn = before;
+      }
+      diag.startingGearWarns = warned;
       bbSwap.diag = diag;
     }
 
