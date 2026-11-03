@@ -25,8 +25,8 @@
  *      Bonds are kept WITHIN the new background's entitlement and clamped above
  *      it (ruled 2026-08-02): Fieldwarden's second bond is removed on the swap
  *      to Kettlewright — first bond kept, its items deleted, its gold refunded.
- *   5. Containers move too: swapping onto the Kettlewright grants its donkey, and
- *      swapping away deletes it.
+ *   5. Containers move too: swapping onto the Outrider grants its horse, and
+ *      swapping away orphans it (review #34 finding 183: unlinked, renamed o_…).
  *   6. A random swap never lands on the background you already had.
  *   7. Barebones swaps the same way through the same function.
  * Exits non-zero on any failed assertion or console error.
@@ -342,13 +342,16 @@ try {
     await gen.changeBackground(actor, outrider);
     for (const c of containersOf(actor)) made.push(c);
     const withHorse = containersOf(actor).filter((c) => c.getFlag("air-bladder", "grantSource"));
+    // Read now: the swap away renames the live document (finding 183's o_).
+    const horseName = withHorse[0]?.name;
     const bonekeeper = bgs2e.find((b) => b.name === "Bonekeeper");
     await gen.changeBackground(actor, bonekeeper);
     for (const c of containersOf(actor)) made.push(c);
     const afterSwapAway = containersOf(actor).filter((c) => c.getFlag("air-bladder", "grantSource"));
     const containers = {
       gotHorse: withHorse.length === 1,
-      horse: withHorse[0]?.name,
+      horse: horseName,
+      orphanedAs: withHorse[0]?.name,
       // The Bonekeeper's beast is on one of six options, so this is 0 or more —
       // what matters is the Outrider's horse is not still hanging around.
       oldGone: !afterSwapAway.some((c) => c.uuid === withHorse[0]?.uuid),
@@ -404,6 +407,26 @@ try {
       taggedNames: bbActor.items.filter((i) => i.getFlag("air-bladder", "grantSource") === "background").map((i) => i.name),
       swapWarns,
     };
+    // Red twice (20261101T121856Z on 14.369, 20261103T011106Z on 14.368), each
+    // time with NO warning: rollAdditionalGear spent its 50 rolls and returned
+    // nothing, and a gear-name miss would have warned. So on a red, roll the
+    // table the generator rolls, the way it resolves it, and keep what each
+    // roll came back as — an empty result, a cart, a "None" — so the next red
+    // names its cause instead of only its count.
+    if (bbSwap.taggedCount !== bbSwap.refCount) {
+      const { findDeclaredTable } = await import("/systems/air-bladder/module/compendium.js");
+      const t = await findDeclaredTable("air-bladder.tables-barebones;Barebones: Creation - Additional Gear");
+      const diag = { found: !!t, inWorld: !!t && !t.pack, replacement: t?.replacement, formula: t?.formula,
+        results: t?.results?.size, drawn: t?.results?.filter((x) => x.drawn).length, rolls: [] };
+      // Not a world table with a blank formula: its first roll SAVES one
+      // (compendium.js rollDeclaredTable's docblock), and this only reads.
+      for (let i = 0; t && (t.pack || t.formula) && i < 12; i++) {
+        const { roll, results } = await t.roll();
+        const x = results?.[0];
+        diag.rolls.push(x ? `${roll?.total} ${x.type} ${x.name || x.description || ""}`.slice(0, 50) : `${roll?.total} (no result)`);
+      }
+      bbSwap.diag = diag;
+    }
 
     // Barebones renders the single-column variant.
     const pick2 = gen.promptBackground("barebones", bbActor.system.backgroundUuid);
@@ -566,7 +589,7 @@ try {
     S.questions === 2 && S.goldTraded ? ok(`questions re-rolled (${S.questions}) and coins traded, dropped bond's grant refunded`) : fail(`questions=${S.questions}, goldTraded=${S.goldTraded}`);
 
     r.containers.gotHorse ? ok(`swapping onto the Outrider granted its ${r.containers.horse}`) : fail("no container arrived with the Outrider");
-    r.containers.oldGone && r.containers.danglingFree ? ok("swapping away deletes it and leaves no dangling uuid") : fail("the old container survived the swap or left a dangling uuid");
+    r.containers.oldGone && r.containers.danglingFree ? ok(`swapping away orphans it (now ${r.containers.orphanedAs}) and leaves no dangling uuid`) : fail("the old container is still the character's after the swap, or left a dangling uuid");
 
     !r.randomRepeated ? ok("a random swap never repeats the current background (8 swaps)") : fail("a random swap landed on the background it already had");
 
@@ -580,7 +603,7 @@ try {
     r.bbSwap.taggedCount === r.bbSwap.refCount
       ? ok(`its SRD "Random Additional Gear" row resolved to a real item (${r.bbSwap.taggedCount}/${r.bbSwap.refCount} granted)`)
       : fail(`an instruction row was dropped: ${r.bbSwap.taggedCount} items for ${r.bbSwap.refCount} references `
-        + JSON.stringify({ refs: r.bbSwap.refs, tagged: r.bbSwap.taggedNames, warns: r.bbSwap.swapWarns }));
+        + JSON.stringify({ refs: r.bbSwap.refs, tagged: r.bbSwap.taggedNames, warns: r.bbSwap.swapWarns, diag: r.bbSwap.diag }));
 
     const B = r.bbDialog;
     B.noEyes ? ok("Barebones rows carry no eye toggle (all-or-nothing by ruling)") : fail("a Barebones row has an eye toggle");
