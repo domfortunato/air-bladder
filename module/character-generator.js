@@ -1224,6 +1224,29 @@ export const bondEntitlement = (bg, questions = []) => {
  */
 export const bondsEnabled = () => game.settings.get(SETTINGS_NS, "use-bonds") !== false;
 
+/** The English instruction, as one sentence (leading space included, so it leaves no gap). */
+const SECOND_BOND_SENTENCE = /\s*[^.!?<>]*\broll a second time on the bonds table\b[^.!?<>]*[.!?]?/gi;
+
+/**
+ * A background's description for DISPLAY — the sheet header, the printed page,
+ * the background picker — through the content overlay, and with the "Roll a
+ * second time on the Bonds table." sentence cut while bonds are off
+ * (`use-bonds`; user ask 2026-11-06: "when bonds are disabled, the last
+ * sentence of the Fieldwarden's description should be omitted"). Cut wherever
+ * it sits, so a custom background's own wording of it goes too.
+ *
+ * ENGLISH ONLY, by ruling ("dont worry about the spanish", same day): a
+ * translated description does not carry the English words and is shown whole.
+ * The stored description is never touched — bondEntitlement still reads it, and
+ * a background item's own sheet shows it whole.
+ * @param {CairnItem} bg
+ * @returns {String}
+ */
+export const backgroundDescriptionText = (bg) => {
+  const shown = t("bg.desc", String(bg?.system?.description ?? ""));
+  return bondsEnabled() ? shown : shown.replace(SECOND_BOND_SENTENCE, "");
+};
+
 /* -------------------------------------------------------------------------- */
 /*  Background choice tables                                                    */
 /* -------------------------------------------------------------------------- */
@@ -3310,7 +3333,8 @@ export const promptBackground = async (source, currentUuid = null, { windowId } 
       // VALUE stays the uuid, so what gets chosen is unaffected by language.
       // Secret blocks off for a viewer who does not own the background (review
       // #34 finding 126) — a player choosing, from a Warden's world pack.
-      descs[bg.uuid] = concealSecrets(t("bg.desc", bg.system.description ?? ""), bg.isOwner);
+      // backgroundDescriptionText: the second-bond sentence goes while bonds are off.
+      descs[bg.uuid] = concealSecrets(backgroundDescriptionText(bg), bg.isOwner);
       // A disabled row cannot be checked — including the pre-check on the
       // character's current background, which Random takes instead (above).
       const isOff = off.has(bg.id);
