@@ -11,6 +11,8 @@ Releases before 0.1.23 have their notes on the
 
 ## 0.1.26
 
+**Requires Foundry VTT 14.368 or higher.**
+
 - Resting no longer costs a ration: Rest restores Hit Protection as Cairn's rules describe
 
 ## 0.1.25
