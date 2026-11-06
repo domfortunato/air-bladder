@@ -130,6 +130,23 @@ something.
   (`82ed5cf9`); `grimoire` 139/139 and `encounters` 37/37 on both builds (`20261106T153536Z`,
   `20261106T153721Z`).
 
+- **After 0.1.26: the Barebones kit re-roll (`8485a0be`) and the join-helper settle (`d184a8ff`).**
+  The red leg (`0f72450d`, `20261106T173129Z`) failed `reroll-dialog` on exactly its five new kit checks.
+  The first whole run at the fix (`20261106T173352Z`, 14.369) went 27/104 not passing, mostly crashes:
+  another session's ComfyUI held 9.3 GB of the card for its first five minutes, so it is no evidence
+  either way. At `d184a8ff`: **104/104 on 14.368** (`20261106T175357Z`) and 103/104 on 14.369
+  (`20261106T174809Z`), the one red `hazard`, green solo (`20261106T180021Z`).
+- **That `hazard` red is the third GPU-side failure, and the first with the GPU process's own account.**
+  All 49 behaviour checks passed; at 17:50:53 Chromium logged `CreateSharedImage: could not create
+  backing` and `SharedImageStub: Unable to create shared image`, then four `CONTEXT_LOST_WEBGL`, and
+  Foundry's "Failed drawing visibility canvas group: The sync object has failed to wait" failed the
+  console check. A backing that cannot be created is an allocation failure. It fell in the run's opening
+  burst, when all eleven containers start together: the card went 0.21 → 7.98 GiB at 17:49:45 and read
+  8.85 GiB at 17:50:45 and 9.97 at 17:51:15, of 12, with the other session holding 0.2-0.3 GB. The 15 s
+  samples cannot show a spike between them, so "the card ran out at the start" is the leading reading,
+  not a measured one. Both earlier GPU reds also came in a run's first minutes. If it repeats, the fleet's
+  side of it is `FLEET_GPU_JOBS` (11 on a 12 GB card) or staggering the starts; that is an ops decision.
+
 ## Before that (2026-11-03)
 
 **Review #34 is on `dev` (`f897ef34`), and the whole suite is green on both builds in the window:
