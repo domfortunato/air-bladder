@@ -149,6 +149,8 @@ something.
 - **The `use-bonds` switch (`5e83bea8`) and its probe `bonds-off`, the 105th.** The red leg (`14ff333f`,
   `20261106T183244Z`) failed registration and all eleven bonds-off checks, its on-controls green. At the
   fix: **105/105 on 14.369** (`20261106T183444Z`) **and 105/105 on 14.368** (`20261106T184042Z`).
+  The second-bond sentence (`8c3d6fe9`): red leg `c27d1543` (`20261106T193007Z`) failed exactly its four
+  new checks, 23/27; at the fix **105/105 on 14.369** (`20261106T193140Z`) **and 14.368** (`20261106T193738Z`).
 
 ## Before that (2026-11-03)
 
