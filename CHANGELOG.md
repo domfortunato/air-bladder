@@ -9,6 +9,10 @@ anything is written. The procedure is in [RELEASE.md](RELEASE.md).
 Releases before 0.1.23 have their notes on the
 [releases page](https://github.com/domfortunato/air-bladder/releases) only.
 
+## 0.1.26
+
+- Resting no longer costs a ration: Rest restores Hit Protection as Cairn's rules describe
+
 ## 0.1.25
 
 **Requires Foundry VTT 14.365 or higher.**
