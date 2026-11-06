@@ -1,5 +1,5 @@
 import { dieIconOrGeneric } from "../utils.js";
-import { drawBond, bondRecordFrom, withGrantSource, bondEntitlement, resolveRefs, replaceGrantedContainers, promptBackground, changeBackground, promptFailedCareer, rollFailedCareerName, buildFailedCareerItem, getPortraitManifest, pairedTokenFor, randomPortraitInSameFolder, portraitCategoryFor, regenerateNpc, regenerateHireling, rerollNpcBackground, rerollHirelingCareer, rerollNpcName, rerollNpcFaction, promptHirelingCareer, promptNpcBackground, promptNpcFaction, promptPickOmen, promptPickBond, promptPickQuestionOption, promptPickName, findOmensTable, rollNameFromTable, rollAge, rollTextItems, effectiveAgeFormula, effectivePcAbilityFormula, effectivePcGoldFormula, effectivePcHpFormula, rollPcHitProtection, resolveActorBackground, redealBackgroundGear, redealBarebonesKit, rerollAllBonds, reorderInventory, postGenerationRolls, isHandBuilt, clearHandBuilt, isBackgroundDisabled, equipIfArms, failedCareerActive, FLAG_SCOPE } from "../character-generator.js";
+import { drawBond, bondRecordFrom, withGrantSource, bondEntitlement, bondsEnabled, resolveRefs, replaceGrantedContainers, promptBackground, changeBackground, promptFailedCareer, rollFailedCareerName, buildFailedCareerItem, getPortraitManifest, pairedTokenFor, randomPortraitInSameFolder, portraitCategoryFor, regenerateNpc, regenerateHireling, rerollNpcBackground, rerollHirelingCareer, rerollNpcName, rerollNpcFaction, promptHirelingCareer, promptNpcBackground, promptNpcFaction, promptPickOmen, promptPickBond, promptPickQuestionOption, promptPickName, findOmensTable, rollNameFromTable, rollAge, rollTextItems, effectiveAgeFormula, effectivePcAbilityFormula, effectivePcGoldFormula, effectivePcHpFormula, rollPcHitProtection, resolveActorBackground, redealBackgroundGear, redealBarebonesKit, rerollAllBonds, reorderInventory, postGenerationRolls, isHandBuilt, clearHandBuilt, isBackgroundDisabled, equipIfArms, failedCareerActive, FLAG_SCOPE } from "../character-generator.js";
 import { promptMonsterTier, regenerateMonster } from "../monster-generator.js";
 import { openMarketplace, TRANSPORTS_CATEGORY } from "../marketplace.js";
 import { evaluateFormula, cairnSavePasses, cleanDescription, concealSecrets, holdsProse, bindEditorClickAwaySave, formatCount, sourceLabel, askDamageQuality, damageFormulaFor, damageQualityLabel, damageQualityKind, d20CardBody, d20CardFlavor, D20_CARD_ABILITIES, combatOption, combatDamageFormula, askImprovisedAttack, IMPROVISED_FORMULA, nameEditorToggles } from "../utils.js";
@@ -270,6 +270,18 @@ const mayRandomize = (fn) => function (event, target) {
 };
 
 /**
+ * Wrap a bond handler so it does nothing while the Warden has bonds off
+ * (`use-bonds`, 2026-11-06). The Bonds block is not rendered then, so this is
+ * the enforcement behind a hidden control — a sheet already open when the
+ * switch flips, or a crafted call — mayRandomize's split. Silent: there is no
+ * control on screen to explain.
+ */
+const withBonds = (fn) => function (event, target) {
+  if (!bondsEnabled()) return undefined;
+  return fn.call(this, event, target);
+};
+
+/**
  * Wrap an action handler so it does nothing on a non-editable sheet.
  *
  * AppV1 simply never bound any of these listeners when `options.editable` was
@@ -412,10 +424,11 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       rollFailedCareerItem: owned(mayRandomize(CairnActorSheet.#onRollFailedCareerItem)),
       // Notes tab — the bond/question controls live inside the template's
       // generationEnabled blocks, so they are surface too, add/remove included.
-      rerollBond: owned(mayRandomize(CairnActorSheet.#onRerollBond)),
-      pickBond: owned(mayRandomize(CairnActorSheet.#onPickBond)),
-      addBond: owned(mayRandomize(CairnActorSheet.#onAddBond)),
-      removeBond: owned(mayRandomize(CairnActorSheet.#onRemoveBond)),
+      // withBonds: and only while the table uses bonds at all (use-bonds).
+      rerollBond: owned(mayRandomize(withBonds(CairnActorSheet.#onRerollBond))),
+      pickBond: owned(mayRandomize(withBonds(CairnActorSheet.#onPickBond))),
+      addBond: owned(mayRandomize(withBonds(CairnActorSheet.#onAddBond))),
+      removeBond: owned(mayRandomize(withBonds(CairnActorSheet.#onRemoveBond))),
       rerollQuestion: owned(mayRandomize(CairnActorSheet.#onRerollQuestion)),
       pickQuestion: owned(mayRandomize(CairnActorSheet.#onPickQuestion)),
     },
@@ -1749,13 +1762,18 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // falls back to English; the count/entitlement below is unaffected.
     context.bonds = this._effectiveBonds()
       .map((b) => ({ ...b, description: t("table.result", b.description) }));
-    context.showBonds = context.is2eBackground || context.bonds.length > 0;
+    // The Warden's use-bonds switch (2026-11-06) hides the whole block — the
+    // bonds, their dice and picker, "Add a bond" — while keeping them stored.
+    const bondsOn = bondsEnabled();
+    context.showBonds = bondsOn && (context.is2eBackground || context.bonds.length > 0);
     // "Add a bond" shows only while below the background's entitlement (base 1,
     // plus a second for Fieldwarden / Outrider's debt option). A fresh character
     // starts AT its entitlement, so the link is normally hidden.
-    context.canAddBond = context.bonds.length < (await this._bondEntitlement(bg));
+    context.canAddBond = bondsOn && context.bonds.length < (await this._bondEntitlement(bg));
     // Divider between the bonds/questions area and the free-form notes editor.
-    context.showNotesDivider = context.showBonds;
+    // The questions still show with bonds off, so they keep the divider: with
+    // bonds on this is exactly the old `showBonds`.
+    context.showNotesDivider = context.showBonds || context.is2eBackground;
     // Questions render from a translated copy (template iterates `questions`, not
     // system.questions): each prompt is a bg.question, each answer a background
     // option description (bg.optionDesc). Misses fall back to English.
@@ -2981,7 +2999,11 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
         : "",
       // Bonds, the omen and scars are table text — through the overlay
       // (table.result), the same routing the sheet gives them.
-      bonds: (sys.bonds ?? []).map((b) => t("table.result", String(b?.description ?? "").trim())).filter(Boolean),
+      // The Warden's use-bonds switch reaches the paper too (show-omens'
+      // one-switch-both-surfaces ruling): an empty list drops the section.
+      bonds: bondsEnabled()
+        ? (sys.bonds ?? []).map((b) => t("table.result", String(b?.description ?? "").trim())).filter(Boolean)
+        : [],
       // The Warden's show-omens switch reaches the PAPER too (ruling
       // 2026-08-17: one switch, both surfaces — a field hidden on the sheet
       // must not reappear in print). No template change needed: the section is
@@ -3275,7 +3297,9 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       children += row(`question${i}`, game.i18n.format("CAIRN.Reroll.Question", { num: i + 1 }));
     }
     list += `<div class="reroll-children" data-parent="background">${children}</div>`;
-    if (is2e) list += row("bonds", L("CAIRN.Reroll.Bonds"));
+    // Not offered while the Warden has bonds off (use-bonds): the omen row's
+    // precedent below — what the table does not use is not re-rollable.
+    if (is2e && bondsEnabled()) list += row("bonds", L("CAIRN.Reroll.Bonds"));
     // Offered only while the career counts — the sheet's own gate
     // (`failedCareerActive`, review #34 findings 221 and 253). It used to show
     // whenever the character HAD a career, so a career the sheet hid could be
@@ -3321,7 +3345,8 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // would never say (review #34 finding 210). Both sources: Barebones deals
     // no bonds, but a character can carry older ones, and the trim is not
     // edition-bound.
-    const bondsNote = (actor.system.bonds?.length ?? 0) >= 2
+    // No note with bonds off: changeBackground skips the trim then.
+    const bondsNote = bondsEnabled() && (actor.system.bonds?.length ?? 0) >= 2
       ? `<p class="reroll-note reroll-note-bonds">${L("CAIRN.Reroll.BondsNote")}</p>` : "";
     const content = `<div class="reroll-dialog">
       <p class="reroll-lead">${L("CAIRN.Reroll.Lead")}</p>
@@ -3499,6 +3524,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // 2026-09-03 — the book's table is generic). The call keeps its position
     // after the background swap on purpose: when both boxes are checked, a
     // custom background's own bondsTable still governs the deal.
+    // (rerollAllBonds itself refuses while bonds are off — use-bonds.)
     if (is2e && parts.bonds) await rerollAllBonds(actor);
 
     // One arrangement pass, BEFORE the batched update below (review #21): the
@@ -3549,7 +3575,9 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       // reason gold and abilities are dropdowns while HP is a text box.
       const roll = await evaluateFormula(effectivePcGoldFormula());
       rolls.gold = roll;
-      const bondGold = (actor.system.bonds ?? []).reduce((n, b) => n + (b.gold ?? 0), 0);
+      // Bonds off (use-bonds): the stored, hidden bonds add nothing to a NEW
+      // roll — generation would deal none, and this is the same sum.
+      const bondGold = bondsEnabled() ? (actor.system.bonds ?? []).reduce((n, b) => n + (b.gold ?? 0), 0) : 0;
       const questionGold = (actor.system.questions ?? []).reduce((n, q) => n + (q.gold ?? 0), 0);
       update["system.gold"] = roll.total + bondGold + questionGold;
     }

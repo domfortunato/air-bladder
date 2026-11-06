@@ -959,7 +959,7 @@
     "GroupGeneralHint": "Panic, dice notation, item icons, grant tags, traits, omens, the watch clock, the weather log, the Warden title, the change log and scars.",
     "GroupGeneration": "Character Generation",
     "GroupGenerationButton": "Configure Character Generation",
-    "GroupGenerationHint": "Which content sources are offered, the Roll buttons, what players may generate or randomize, showing generation rolls in chat, the portrait folder, and the dice for abilities, HP, gold and age.",
+    "GroupGenerationHint": "Which content sources are offered, bonds, the Roll buttons, what players may generate or randomize, showing generation rolls in chat, the portrait folder, and the dice for abilities, HP, gold and age.",
     "GroupHacks": "GLOG & Other Hacks",
     "GroupHacksButton": "Configure Hacks",
     "GroupHacksHint": "Optional rule hacks: GLOG Magic, the Vald calendar, three optional combat rules, and a Knave-style failed career for Barebones characters.",
@@ -1010,6 +1010,10 @@
     "ShowWatchClock": {
       "hint": "A day in Cairn is three watches — morning, afternoon and night — and the last is usually spent making camp. This puts the current watch on screen for everyone, just above the player list. The Warden moves it on from the Dashboard. The clock also carries today's weather, and with the Vald calendar on it is how players open the calendar, so switching it off takes both away from them.",
       "label": "Show the watch clock"
+    },
+    "UseBonds": {
+      "hint": "Cairn 2e gives every new character a bond, and a bond can come with an item and coins. Turn this off for a game that does not use them: new characters get no bond and nothing a bond grants, bonds leave every character sheet and the Roll Character window, and printed sheets drop their Bonds section. Any bond a character already has is kept, along with what it gave them, and comes back if you switch this on again.",
+      "label": "Use bonds"
     },
     "UseCairnDiceNotation": {
       "label": "Use Cairn dice notation: 'd6+d6' as keep highest"

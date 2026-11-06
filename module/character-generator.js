@@ -1207,6 +1207,23 @@ export const bondEntitlement = (bg, questions = []) => {
   return 1 + bgSecond + qSecond;
 };
 
+/**
+ * Does this table use bonds AT ALL? The Warden's `use-bonds` switch
+ * (2026-11-06). Every surface asks this one function — generation's bond
+ * count, the sheet's Bonds block and its four handlers, the printed page, the
+ * Roll Character checklist's Bond(s) row and its apply, rerollAllBonds and
+ * changeBackground's clamp — omenVisible's reason: print once regressed for a
+ * day by open-coding one of omen's two terms (review #16).
+ *
+ * Deliberately NOT folded into bondEntitlement. The entitlement answers "how
+ * many may this character hold", which changeBackground uses to DELETE the
+ * excess; reading 0 there while bonds are off would destroy every stored bond
+ * the moment a background changed. Off means "deal none, show none", never
+ * "hold none".
+ * @returns {boolean}
+ */
+export const bondsEnabled = () => game.settings.get(SETTINGS_NS, "use-bonds") !== false;
+
 /* -------------------------------------------------------------------------- */
 /*  Background choice tables                                                    */
 /* -------------------------------------------------------------------------- */
@@ -1906,7 +1923,10 @@ export const generate2eCharacter = async (chosenBg = null) => {
   // your debts" option each add another — bondEntitlement is THE rule, shared
   // with the sheet's "Add a bond" cap and changeBackground's clamp. Each bond
   // has a stable id so its granted items can be re-rolled/removed later.
-  const bondCount = bondEntitlement(bg, choices.questions);
+  // None at all while the Warden has bonds off (`use-bonds`): no bond text, no
+  // bond item, no bond coins — the loop below is the only place any of the
+  // three is dealt.
+  const bondCount = bondsEnabled() ? bondEntitlement(bg, choices.questions) : 0;
   const bonds = [];
   const bondItems = [];
   let bondGold = 0;
@@ -3688,9 +3708,11 @@ export const changeBackground = async (actor, newBg = null, { ignoreHandBuilt = 
   // END — the first bond always survives — with #onRemoveBond's semantics:
   // the bond's granted items go, its gold grant is refunded. Uses the shared
   // bondEntitlement (never the sheet's Barebones display policy: a lent bond
-  // is not deleted because a display setting is off).
+  // is not deleted because a display setting is off). Skipped outright while
+  // bonds are off (`use-bonds`): the stored bonds are hidden, kept for the day
+  // the switch goes back on, and a clamp would delete what nobody can see.
   const bonds = foundry.utils.duplicate(actor.system.bonds ?? []);
-  const allowed = bondEntitlement(bg, choices.questions);
+  const allowed = bondsEnabled() ? bondEntitlement(bg, choices.questions) : bonds.length;
   let clampGold = 0;
   const clampItemIds = [];
   while (bonds.length > allowed) {
@@ -3889,6 +3911,9 @@ export const redealBarebonesKit = async (actor) => {
  * @param {CairnActor} actor
  */
 export const rerollAllBonds = async (actor) => {
+  // Bonds off: nothing to deal, and the stored ones are kept (see bondsEnabled).
+  // The checklist offers no Bond(s) row then; this is the apply-side refusal.
+  if (!bondsEnabled()) return;
   const bg = await resolveActorBackground(actor);
   const entitlement = bondEntitlement(bg, actor.system.questions ?? []);
   const oldBonds = foundry.utils.duplicate(actor.system.bonds ?? []);

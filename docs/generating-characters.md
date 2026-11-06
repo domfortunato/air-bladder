@@ -130,6 +130,16 @@ Character Creation tools on their sheets"**, flipped by the **Toggle Player
 Creation Tools** macro — so you can allow character creation but keep
 mid-campaign re-rolls to yourself, or hand players the dice entirely.
 
+## Turn bonds off
+
+A table that does not use bonds can switch them off: **Game Settings → Air
+Bladder → Configure Character Generation → Use bonds**. With it off, a new
+character is dealt no bond, and so none of the items or coins a bond grants.
+Bonds leave every character sheet and the Roll Character window, and printed
+sheets drop their Bonds section. A character who already has a bond keeps it,
+with whatever it gave them; it is only hidden, and comes back if you switch the
+setting on again.
+
 ## Choose the dice
 
 Under **Game Settings → Air Bladder → Configure Character Generation** are

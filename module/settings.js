@@ -34,7 +34,7 @@ export const SETTING_KEYS = [
   "exploding-damage-dice", "fatigue-for-critical-damage", "maneuver-on-max-damage",
   // Character Generation
   "content-source-2e", "content-source-custom", "content-source-barebones",
-  "barebones-failed-career", "show-generate-header",
+  "use-bonds", "barebones-failed-career", "show-generate-header",
   "allow-player-generate", "allow-player-randomization", "show-generation-rolls",
   // disabled-backgrounds is Warden CONFIGURATION (which 2e backgrounds are
   // switched off), not a migration marker — it must ride the namespace
@@ -208,7 +208,7 @@ export const SETTING_GROUPS = [
     icon: "fa-solid fa-user-plus",
     keys: [
       "content-source-2e", "content-source-custom", "content-source-barebones",
-      "show-generate-header", "allow-player-generate",
+      "use-bonds", "show-generate-header", "allow-player-generate",
       "allow-player-randomization", "show-generation-rolls",
       "custom-portrait-folder",
       // The four dice settings together, in the order the dice are ROLLED —
@@ -952,6 +952,37 @@ export const registerSettings = () => {
     config: false,
     type: Boolean,
     default: false,
+    requiresReload: false,
+    onChange: rerenderActorSheets,
+  });
+
+  // Bonds off for a table that does not use them (user ask 2026-11-06: "a
+  // character creation option to disable Bonds — it should remove them from
+  // the sheet and remove their items from assignment during character
+  // generation"). Off: generation deals NO bond, so no bond item and no bond
+  // coins; the sheet's Bonds block, its dice, picker and "Add a bond" go; the
+  // printed page drops its Bonds section; the Roll Character checklist drops
+  // its Bond(s) row. ONE switch, every surface — show-omens' ruling. Read
+  // through `bondsEnabled` (character-generator.js), never open-coded.
+  //
+  // STORED BONDS ARE NEVER TOUCHED, and neither is anything they granted: a
+  // character made with bonds keeps them (hidden) and keeps the items and
+  // coins already dealt, and they come back if this goes on again. Hence
+  // changeBackground skips its bond clamp while this is off — a clamp would
+  // delete stored bonds the Warden can no longer see. A Kettlewright import
+  // still records the imported character's bond text, hidden: that is the
+  // character's own sheet, not a generation.
+  //
+  // Character Generation, not General beside show-omens: the user asked for
+  // it as a creation option, and unlike an omen a bond IS dealt by
+  // generation. Same read-live fan as show-omens.
+  game.settings.register(SETTINGS_NS, "use-bonds", {
+    name: "CAIRN.Settings.UseBonds.label",
+    hint: "CAIRN.Settings.UseBonds.hint",
+    scope: "world",
+    config: false,
+    type: Boolean,
+    default: true,
     requiresReload: false,
     onChange: rerenderActorSheets,
   });

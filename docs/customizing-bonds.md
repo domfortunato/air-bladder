@@ -8,7 +8,8 @@ and an **Add a bond** link where the rules allow more.
 
 Out of the box those rolls come from the shipped **Bonds** table — twenty rows
 in the **Tables (2e)** compendium. This page is about replacing them with your
-own.
+own. To leave bonds out of your game altogether, switch off **Use bonds** under
+**Configure Character Generation** (see **Generating Characters**).
 
 You need to be the Warden (GM).
 
