@@ -114,6 +114,21 @@ something.
     measured.) Proven on a real run: `changelog` 25/25, a 345-line log beside its shots, the probe's own
     log unchanged (`20261106T144340Z`). A repeat will say what the GPU process saw. Until then the cause is unknown; it is the
     browser's WebGL, not this system's code.
+- **The 0.1.26 release head, `c67def2c`: 104/104 on 14.369** (`20261106T150807Z`) **and, with
+  `--refresh`, 104/104 on 14.368** (`20261106T152028Z`). Its first 14.369 run never started: CT 138's
+  setup sat seven minutes in `npm install @foundryvtt/foundryvtt-cli` on one registry request that
+  never answered (the registry itself answered the box in 0.56 s), and `deploy-system.sh` runs that
+  install with no timeout, so the run waited until the process was killed (`20261106T145818Z`, "setup
+  failed: ct138"). CT 138 reinstalled because its `pristine` predated a `package.json` change. Both
+  projects' `pristine` was retaken at `c67def2c` on every box by the two `--refresh` runs. The missing
+  timeout is an ops fix, not yet made.
+- **`grimoire`'s red in the 14.369 `--refresh` (`20261106T152655Z`, 103/104) was the probe navigating
+  Alice twice.** It called `goto(FOUNDRY_URL)` and then `joinAs`, which opens `/join` itself, so the
+  first load was cut off mid-boot and its cancelled `lang/en.json` fetch logged "Unable to load requested
+  localization file". The Chromium log's first use on the fleet showed it: the banner, then
+  "Initializing", then the failure, then the banner again. The redundant `goto` went from three sites
+  (`82ed5cf9`); `grimoire` 139/139 and `encounters` 37/37 on both builds (`20261106T153536Z`,
+  `20261106T153721Z`).
 
 ## Before that (2026-11-03)
 
