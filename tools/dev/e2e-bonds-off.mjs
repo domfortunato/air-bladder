@@ -24,6 +24,11 @@
  *   8. STORED BONDS SURVIVE: off, rerollAllBonds and a background swap to a
  *      one-bond background leave both bonds and their items; on, the same
  *      swap clamps to one
+ *   9. the background's "Roll a second time on the Bonds table" sentence
+ *      (user ask 2026-11-06, Fieldwarden's last sentence): off, the sheet
+ *      header, the printed page and the picker's description omit it and keep
+ *      the rest; on, all three show it. English only, by ruling ("dont
+ *      worry about the spanish")
  *
  * The switch is read-SHADOWED in-page (never a world write; restored in
  * finally), forced to false or true, so a dev world with it either way runs
@@ -110,11 +115,12 @@ try {
           flags: { [NS]: { gold: 1000, items: [{ name: "Ornate Compass" }] } },
         }],
       });
-      const mkBg = (name, secondBond) => getDocumentClass("Item").create({
+      const mkBg = (name, secondBond, description = "") => getDocumentClass("Item").create({
         name, type: "background",
-        system: { source: "2e", archetype: "Fighter", names: [], startingGear: [], tables: [], secondBond, bondsTable: table.name },
+        system: { source: "2e", archetype: "Fighter", names: [], startingGear: [], tables: [], secondBond, bondsTable: table.name, description },
       });
-      const two = await mkBg("ZZ Bonds Off Two", true);
+      const two = await mkBg("ZZ Bonds Off Two", true,
+        "<p>ZZ guardians keep the field. Roll a second time on the Bonds table.</p>");
       const one = await mkBg("ZZ Bonds Off One", false);
 
       // ---- 2. generation ------------------------------------------------
@@ -146,6 +152,7 @@ try {
           dice: root?.querySelectorAll('[data-action="rerollBond"], [data-action="pickBond"]').length ?? null,
           add: !!root?.querySelector('[data-action="addBond"]'),
           divider: !!root?.querySelector(".notes-divider"),
+          desc: root?.querySelector(".background-description")?.textContent ?? null,
         };
       };
       force(false); await rerender(); out.sheetOff = sheetState();
@@ -196,8 +203,9 @@ try {
           await waitFor(() => printed, 9000);
         } finally { window.open = origOpen; }
         const h2s = [...(popup?.document?.querySelectorAll("h2") ?? [])].map((h) => h.textContent.trim());
+        const body = popup?.document?.body?.innerText ?? "";
         popup?.close();
-        return { printed, h2s };
+        return { printed, h2s, body };
       };
       const bondsHeading = game.i18n.localize("CAIRN.PrintBonds");
       force(false); await rerender();
@@ -207,7 +215,14 @@ try {
       out.print = {
         offPrinted: pOff.printed, onPrinted: pOn.printed,
         off: pOff.h2s.includes(bondsHeading), on: pOn.h2s.includes(bondsHeading),
+        offDesc: { rest: pOff.body.includes("ZZ guardians keep the field"), instr: /second time on the Bonds table/i.test(pOff.body) },
+        onDesc: { rest: pOn.body.includes("ZZ guardians keep the field"), instr: /second time on the Bonds table/i.test(pOn.body) },
       };
+
+      // ---- 9. the second-bond sentence: the picker's text --------------------
+      force(false); const pickOff = gen.backgroundDescriptionText?.(two) ?? null;   // ?.: the red leg ran before the export existed
+      force(true); const pickOn = gen.backgroundDescriptionText?.(two) ?? null;
+      out.descPick = { off: pickOff, on: pickOn };
 
       // ---- 7. a checklist gold re-roll ---------------------------------
       force(false); await sheet._applyRerollParts({ gold: true }); const goldOff = actor.system.gold;
@@ -287,6 +302,17 @@ try {
     check(!p.off, "with bonds OFF the printed page drops its Bonds section");
   }
 
+  check(so.desc?.includes("ZZ guardians keep the field") && !/second time on the Bonds table/i.test(so.desc ?? ""),
+    "with bonds OFF the sheet's background description omits the second-bond sentence and keeps the rest", JSON.stringify(so.desc));
+  check(/second time on the Bonds table/i.test(sn.desc ?? ""), "control: with bonds ON the sheet's description has it", JSON.stringify(sn.desc));
+  if (p.offPrinted && p.onPrinted) {
+    check(p.offDesc?.rest && !p.offDesc?.instr, "with bonds OFF the printed description omits the second-bond sentence", JSON.stringify(p.offDesc));
+    check(p.onDesc?.instr, "control: with bonds ON the printed description has it", JSON.stringify(p.onDesc));
+  }
+  const dp = r.descPick ?? {};
+  check(/ZZ guardians keep the field/.test(dp.off ?? "") && !/second time/i.test(dp.off ?? ""),
+    "with bonds OFF the picker's description omits the second-bond sentence", JSON.stringify(dp.off));
+  check(/second time/i.test(dp.on ?? ""), "control: with bonds ON the picker's description has it", JSON.stringify(dp.on));
   const gd = r.gold ?? {};
   check(gd.bonds === 2 && gd.on >= 2000, "control: with bonds ON a gold re-roll adds the bonds' coins", JSON.stringify(gd));
   check(typeof gd.off === "number" && gd.off < 1000, "with bonds OFF a gold re-roll adds no hidden bond coins", JSON.stringify(gd));
