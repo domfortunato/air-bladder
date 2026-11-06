@@ -1,39 +1,37 @@
 #!/usr/bin/env node
 /**
- * Rest eats a ration.
+ * Rest follows Cairn as written.
  *
  *   npm run dev:rest
  *
- * A HOUSE RULE for every table (2026-10-03, user ask), player characters only:
- * the Rest button tells the player a ration is eaten, refuses with no rations
- * on the sheet, spends one USE of a Rations item (a stack of several rolls a
- * unit over, the row's own − arithmetic), and restores Hit Protection to its
- * maximum. (For a day a Rest under Crawler Combat Mode ROLLED for Hit
- * Protection instead, on a card of its own; the user removed it and the mode
- * the same evening, and legs 10-15 that tested it went with them.)
+ * "Resting for a few moments and having a drink of water restores lost HP but
+ * may leave the party exposed" (Cairn 2e, Core Rules, Healing & Recovery). A
+ * Rest costs nothing and restores Hit Protection to its maximum, and a player
+ * character's Rest is the NPC's Rest: the same confirm (Cairn's own `RestTip`,
+ * then the question — an NPC gets its own `RestConfirmNpc` wording), the same
+ * tooltip, the same write.
  *
- * Every leg drives the REAL button and answers the REAL dialog — the two
- * halves of the gesture (the refusal, and the write behind the confirm) are
- * exactly what a handler called directly would skip. Settings ride
- * `withSettings` so the restore runs in Node, not in-page.
+ * From 0.1.24 a player character's Rest ATE A RATION and refused without one —
+ * a house rule of 2026-10-03, removed by the user on 2026-11-06 to follow the
+ * rules as written. Legs 1-3 are what hold that removal.
+ *
+ * Every leg drives the REAL button and answers the REAL dialog: the refusal and
+ * the write behind the confirm are exactly what a handler called directly would
+ * skip. Settings ride `withSettings` so the restore runs in Node, not in-page.
  *
  * Legs:
- *   1. no rations → a one-button refusal; nothing written.
- *   2. rations → the confirm names the count, WITHOUT Cairn's "few moments"
- *      prose (2026-10-03, user); No spends nothing.
- *   3. Yes → one use gone, HP at max.
+ *   1. a PC with NO rations → the confirm (Yes/No, Cairn's prose, the PC
+ *      question), not a refusal; No writes nothing.
+ *   2. ...Yes → HP at its maximum, still no items.
+ *   3. a PC WITH Rations → Yes restores HP and the ration is untouched.
  *   4. Escape → nothing.
- *   5. a stack (uses 1 of quantity 2) → quantity 1, uses refilled; the count
- *      line counted the whole stack.
- *   6. a Rations item at 0 uses does NOT count → the refusal, item untouched.
- *   7. two Rations items → the first with a use left pays.
- *   8. an NPC's Rest is the old confirm, Cairn's prose kept: no ration asked,
- *      HP to max.
- *   9. the PC tooltip is the ration sentence plus the bandages sentence, and
- *      not Cairn's "few moments" opening; the NPC's is Cairn's alone.
+ *   5. an NPC → the same confirm with the NPC's question; HP to max.
+ *   6. the PC and NPC tooltips are both Cairn's prose, identical.
+ *   7. a Deprived PC's Rest button is disabled.
  *
- * Red-first (proven when written): drop the ration test in #onRest and legs
- * 1, 2, 5-7 red.
+ * Red-first (proven 2026-11-06 against the ration-eating build): legs 1-3 and 6
+ * red — the refusal prompt has no Yes, a Yes ate a use, the tooltip was
+ * RestRationTip.
  */
 import { chromium } from "playwright";
 import { VIEWPORT, joinAsGM, watchErrors, watchdog, withSettings } from "./lib.mjs";
@@ -59,7 +57,6 @@ try {
       while (!fn() && Date.now() - t < ms) await sleep(100);
       return fn();
     };
-    const utils = await import("/systems/air-bladder/module/utils.js");
     const out = { made: [] };
 
     // STALE STATE MUST NOT SATISFY A PRECONDITION: sweep leftovers first.
@@ -74,17 +71,14 @@ try {
       system: { hp: { value: 2, max: 6 } } }, { abNoStatusCard: true });
     out.made.push(pc.id);
     // SOURCE, never derived: derived HP is pinned to 0 under encumbrance/panic.
-    const hp = () => pc._source.system.hp.value;
-    const rationsOf = (actor) => actor.items.filter((i) => /\brations?\b/i.test(i.name));
-    const uses = (item) => item?._source.system.uses?.value ?? null;
-    const qty = (item) => item?._source.system.quantity ?? null;
+    const hp = (a) => a._source.system.hp.value;
 
     /**
      * Press the REAL Rest button on an actor's sheet and answer the dialog that
-     * appears: "yes" / "no" / "ok" clicks that button, null dismisses it. The
-     * dialog is found as the one that was NOT already present (a closing
-     * DialogV2 lingers with dead listeners), and the helper waits for it to
-     * LEAVE the DOM before returning — the lingering-dialog trap, fourth site.
+     * appears: "yes" / "no" clicks that button, null dismisses it. The dialog is
+     * found as the one that was NOT already present (a closing DialogV2 lingers
+     * with dead listeners), and the helper waits for it to LEAVE the DOM before
+     * returning — the lingering-dialog trap.
      */
     const pressRest = async (actor, answer) => {
       await actor.sheet.render(true);
@@ -112,7 +106,14 @@ try {
       };
       if (answer) {
         const b = dlg.querySelector(`button[data-action="${answer}"]`);
-        if (!b) { await actor.sheet.close(); return { ...shape, err: `no "${answer}" button` }; }
+        if (!b) {
+          // Close whatever came instead, so the next leg starts clean.
+          dlg.querySelector('button[data-action="ok"], [data-action="close"]')?.click();
+          const t1 = Date.now();
+          while (dlg.isConnected && Date.now() - t1 < 5000) await sleep(100);
+          await actor.sheet.close();
+          return { ...shape, err: `no "${answer}" button` };
+        }
         b.click();
       } else {
         dlg.querySelector('[data-action="close"]')?.click();
@@ -124,78 +125,54 @@ try {
       return shape;
     };
 
-    const count = (n) => utils.formatCount("CAIRN.NRation", n);
     out.strings = {
-      noRations: game.i18n.localize("CAIRN.RestNoRations"),
       restTip: game.i18n.localize("CAIRN.RestTip"),
-      rationTip: game.i18n.localize("CAIRN.RestRationTip"),
-      rest: game.i18n.localize("CAIRN.Rest"),
-      confirmQ: game.i18n.localize("CAIRN.RestRationConfirm"),
+      pcQ: game.i18n.localize("CAIRN.RestConfirm"),
       npcQ: game.i18n.localize("CAIRN.RestConfirmNpc"),
-      line: (n) => game.i18n.format("CAIRN.RestRationLine", { rations: count(n) }),
     };
-    out.lines = { 1: out.strings.line(1), 2: out.strings.line(2), 3: out.strings.line(3), 4: out.strings.line(4) };
 
-    /* ---- 1. no rations ------------------------------------------------- */
-    out.noRations = { shape: await pressRest(pc, "ok"), hp: hp(), items: pc.items.size };
+    /* ---- 1. no rations: the confirm, and No ---------------------------- */
+    out.declined = { shape: await pressRest(pc, "no"), hp: hp(pc), items: pc.items.size };
 
-    /* ---- 2. rations: the count, and No ---------------------------------- */
-    await pc.createEmbeddedDocuments("Item",
+    /* ---- 2. no rations: Yes -------------------------------------------- */
+    out.rested = { shape: await pressRest(pc, "yes") };
+    await until(() => hp(pc) === 6);
+    Object.assign(out.rested, { hp: hp(pc), items: pc.items.size });
+
+    /* ---- 3. with Rations: nothing is eaten ----------------------------- */
+    const [ration] = await pc.createEmbeddedDocuments("Item",
       [{ name: "Rations", type: "item", system: { uses: { value: 3, max: 3 }, quantity: 1 } }],
       { abNoStatusCard: true });
-    const first = () => rationsOf(pc)[0];
-    out.declined = { shape: await pressRest(pc, "no"), uses: uses(first()), hp: hp() };
-
-    /* ---- 3. Yes -------------------------------------------------------- */
-    // WITH THE RATION'S OWN SHEET OPEN (review #33): the Rest writes the ration
-    // inside the actor's update, which fires no item hooks and re-renders only
-    // the actor's apps, so this sheet kept the old count — and, saving on every
-    // change, its next edit wrote that stale count back. The field is read off
-    // the live sheet after the write.
-    await first().sheet.render(true);
-    await until(() => first().sheet.element instanceof HTMLElement);
-    out.rested = { shape: await pressRest(pc, "yes") };
-    await until(() => uses(first()) === 2);
-    await new Promise((r) => setTimeout(r, 400));
-    Object.assign(out.rested, {
-      uses: uses(first()), qty: qty(first()), hp: hp(),
-      sheetUses: first().sheet.element?.querySelector('[name="system.uses.value"]')?.value ?? null,
-    });
-    await first().sheet.close();
+    await pc.update({ "system.hp.value": 1 }, { abNoStatusCard: true });
+    out.withRations = { shape: await pressRest(pc, "yes") };
+    await until(() => hp(pc) === 6);
+    await sleep(400);   // a ration write, if one came, lands with the HP
+    const live = pc.items.get(ration.id);
+    Object.assign(out.withRations, { hp: hp(pc),
+      uses: live?._source.system.uses?.value ?? null, qty: live?._source.system.quantity ?? null });
 
     /* ---- 4. Escape ----------------------------------------------------- */
     await pc.update({ "system.hp.value": 1 }, { abNoStatusCard: true });
-    out.escaped = { shape: await pressRest(pc, null), uses: uses(first()), hp: hp() };
+    out.escaped = { shape: await pressRest(pc, null), hp: hp(pc) };
 
-    /* ---- 5. a stack rolls a unit over ---------------------------------- */
-    await first().update({ "system.uses.value": 1, "system.quantity": 2 }, { abNoStatusCard: true });
-    out.rollover = { shape: await pressRest(pc, "yes") };
-    await until(() => qty(first()) === 1);
-    Object.assign(out.rollover, { uses: uses(first()), qty: qty(first()), hp: hp() });
-
-    /* ---- 6. zero uses does not count ----------------------------------- */
-    await first().update({ "system.uses.value": 0, "system.quantity": 1 }, { abNoStatusCard: true });
-    await pc.update({ "system.hp.value": 1 }, { abNoStatusCard: true });
-    out.zeroUses = { shape: await pressRest(pc, "ok"), uses: uses(first()), qty: qty(first()), hp: hp() };
-
-    /* ---- 7. two Rations items ------------------------------------------ */
-    await pc.createEmbeddedDocuments("Item",
-      [{ name: "Iron Rations", type: "item", system: { uses: { value: 2, max: 3 }, quantity: 1 } }],
-      { abNoStatusCard: true });
-    const second = () => rationsOf(pc).find((i) => i.name === "Iron Rations");
-    out.twoItems = { shape: await pressRest(pc, "yes") };
-    await until(() => uses(second()) === 1);
-    Object.assign(out.twoItems, { firstUses: uses(first()), secondUses: uses(second()), hp: hp() });
-
-    /* ---- 8. an NPC is untouched ---------------------------------------- */
+    /* ---- 5. an NPC ----------------------------------------------------- */
     const npc = await Cls.create({ name: "ZZ Rest NPC", type: "npc",
       system: { role: "hireling", hp: { value: 2, max: 6 } } }, { abNoStatusCard: true });
     out.made.push(npc.id);
     out.npc = { shape: await pressRest(npc, "yes") };
-    await until(() => npc._source.system.hp.value === 6);
-    out.npc.hp = npc._source.system.hp.value;
+    await until(() => hp(npc) === 6);
+    out.npc.hp = hp(npc);
+
+    /* ---- 7. Deprived disables the button ------------------------------- */
+    await pc.update({ "system.deprived": true }, { abNoStatusCard: true });
+    await pc.sheet.render(true);
+    await until(() => pc.sheet.element?.querySelector?.("#rest-button")?.disabled === true);
+    out.deprivedDisabled = pc.sheet.element?.querySelector?.("#rest-button")?.disabled ?? null;
+    await pc.sheet.close();
     return out;
   }));
+} catch (e) {
+  fail(`the in-page run threw: ${e.message}`);
 } finally {
   try {
     await page.evaluate(async ({ ids }) => {
@@ -212,83 +189,46 @@ if (!r) { fail("the in-page run returned nothing"); }
 else {
   const S = r.strings;
   const has = (text, s) => typeof text === "string" && typeof s === "string" && s && text.includes(s);
+  const isConfirm = (shape, q) =>
+    shape?.yes && shape?.no && !shape?.okBtn && has(shape?.text, S.restTip) && has(shape?.text, q);
 
   // 1
-  r.noRations.shape?.okBtn && !r.noRations.shape?.yes && has(r.noRations.shape?.text, S.noRations)
-    ? ok(`no rations: the Rest button opens a one-button refusal that says so ("${S.noRations}")`)
-    : fail(`no rations: ${JSON.stringify(r.noRations.shape)}`);
-  r.noRations.hp === 2 && r.noRations.items === 0
-    ? ok("...and writes nothing: HP 2 and no items, as before")
-    : fail(`no rations wrote something: hp ${r.noRations.hp}, items ${r.noRations.items}`);
+  isConfirm(r.declined.shape, S.pcQ)
+    ? ok(`no rations: the Rest button opens the confirm — Cairn's prose, then "${S.pcQ}" — not a refusal`)
+    : fail(`no rations: ${JSON.stringify(r.declined.shape)}; wanted Yes/No, "${S.restTip}" and "${S.pcQ}"`);
+  r.declined.hp === 2 && r.declined.items === 0
+    ? ok("...and No writes nothing: HP 2, no items")
+    : fail(`No wrote something: hp ${r.declined.hp}, items ${r.declined.items}`);
 
   // 2
-  r.declined.shape?.yes && r.declined.shape?.no && has(r.declined.shape?.text, r.lines[3]) && has(r.declined.shape?.text, S.confirmQ)
-    ? ok(`with Rations (3 uses) the confirm names the count — "${r.lines[3]}" — and asks "${S.confirmQ}"`)
-    : fail(`confirm shape: ${JSON.stringify(r.declined.shape)}; wanted "${r.lines[3]}" and "${S.confirmQ}"`);
-  // 2026-10-03 (user, having read the dialog): the PC confirm opens on the
-  // ration line — Cairn's "few moments" prose is NOT above it. Leg 8 holds the
-  // converse for an NPC, which is what proves the omission is PC-scoped.
-  !has(r.declined.shape?.text, S.restTip)
-    ? ok("...and WITHOUT Cairn's \"few moments\" prose above it")
-    : fail("the PC confirm still opens with Cairn's RestTip prose");
-  r.declined.uses === 3 && r.declined.hp === 2
-    ? ok("No spends nothing: uses 3, HP 2")
-    : fail(`No spent something: uses ${r.declined.uses}, hp ${r.declined.hp}`);
+  !r.rested.shape?.err && r.rested.hp === 6 && r.rested.items === 0
+    ? ok("...and Yes restores HP to its maximum (2 -> 6) with no rations on the sheet")
+    : fail(`no rations, Yes: ${JSON.stringify(r.rested)} — want hp 6, items 0`);
 
   // 3
-  r.rested.uses === 2 && r.rested.qty === 1 && r.rested.hp === 6
-    ? ok("Yes: one use gone (3 -> 2) and HP at its maximum (6) — a full restore")
-    : fail(`Yes: ${JSON.stringify(r.rested)} — want uses 2, qty 1, hp 6`);
-  r.rested.sheetUses === "2"
-    ? ok("...and the ration's OPEN sheet shows the new count, so its next save cannot put the ration back")
-    : fail(`the open Rations sheet shows uses ${JSON.stringify(r.rested.sheetUses)} after the Rest — stale, and its next edit resubmits it`);
+  r.withRations.hp === 6 && r.withRations.uses === 3 && r.withRations.qty === 1
+    ? ok("with Rations on the sheet a Rest restores HP and eats nothing: uses 3 of 3, quantity 1")
+    : fail(`with Rations: ${JSON.stringify(r.withRations)} — want hp 6, uses 3, qty 1`);
 
   // 4
-  r.escaped.uses === 2 && r.escaped.hp === 1
-    ? ok("Escape (the window's close) spends nothing and heals nothing")
-    : fail(`Escape: ${JSON.stringify(r.escaped)} — want uses 2, hp 1`);
+  r.escaped.hp === 1
+    ? ok("Escape (the window's close) heals nothing")
+    : fail(`Escape: ${JSON.stringify(r.escaped)} — want hp 1`);
 
   // 5
-  r.rollover.qty === 1 && r.rollover.uses === 3 && r.rollover.hp === 6
-    ? ok("a stack rolls a unit over: uses 1 of quantity 2 -> quantity 1, uses 3 (the row's own − arithmetic, one copy)")
-    : fail(`rollover: ${JSON.stringify(r.rollover)} — want qty 1, uses 3, hp 6`);
-  has(r.rollover.shape?.text, r.lines[4])
-    ? ok(`...and the count line counted the whole stack: "${r.lines[4]}"`)
-    : fail(`the stack's count line: ${JSON.stringify(r.rollover.shape?.text)}; wanted "${r.lines[4]}"`);
+  isConfirm(r.npc.shape, S.npcQ) && r.npc.hp === 6
+    ? ok(`an NPC's Rest is the same confirm with its own question ("${S.npcQ}"), HP to its maximum`)
+    : fail(`npc: ${JSON.stringify(r.npc)}`);
 
   // 6
-  r.zeroUses.shape?.okBtn && r.zeroUses.uses === 0 && r.zeroUses.qty === 1 && r.zeroUses.hp === 1
-    ? ok("a Rations item at 0 uses does not count: the refusal, the item untouched, HP 1")
-    : fail(`zero uses: ${JSON.stringify(r.zeroUses)}`);
+  r.declined.shape?.tooltip === S.restTip && r.npc.shape?.tooltip === S.restTip
+    ? ok("the PC and NPC Rest tooltips are both Cairn's prose, identical")
+    : fail(`tooltips: pc ${JSON.stringify(r.declined.shape?.tooltip)}, npc ${JSON.stringify(r.npc.shape?.tooltip)} — want "${S.restTip}"`);
 
   // 7
-  r.twoItems.firstUses === 0 && r.twoItems.secondUses === 1 && has(r.twoItems.shape?.text, r.lines[2])
-    ? ok(`two Rations items: the one with a use left pays (Iron Rations 2 -> 1), the empty one is untouched, and the count was "${r.lines[2]}"`)
-    : fail(`two items: ${JSON.stringify(r.twoItems)}; wanted the count "${r.lines[2]}"`);
-
-  // 8
-  r.npc.shape?.yes && r.npc.shape?.no && !has(r.npc.shape?.text, S.rationTip) && !has(r.npc.shape?.text, "ration") && has(r.npc.shape?.text, S.npcQ)
-    ? ok(`an NPC's Rest is the old confirm: "${S.npcQ}", no ration asked`)
-    : fail(`npc confirm: ${JSON.stringify(r.npc.shape)}`);
-  has(r.npc.shape?.text, S.restTip)
-    ? ok("...and still opens with Cairn's own prose — the PC omission above is PC-scoped, not the helper dropping every tip")
-    : fail("the NPC confirm lost Cairn's RestTip prose");
-  r.npc.hp === 6
-    ? ok("...and restores HP to its maximum with no rations on the sheet")
-    : fail(`npc hp ${r.npc.hp}, want 6`);
-
-  // 9
-  // The tooltip is RestRationTip ALONE (2026-10-03, user): the ration sentence
-  // plus Cairn's bandages sentence. The "few moments" opening is read off
-  // RestTip's own first sentence in this client's language, never a literal.
-  const pcTip = r.declined.shape?.tooltip ?? "";
-  const fewMoments = S.restTip.split(". ")[0];
-  pcTip === S.rationTip && !has(pcTip, fewMoments)
-    ? ok(`the PC Rest tooltip is the ration sentence plus the bandages sentence ("${S.rationTip}"), without Cairn's "few moments" opening`)
-    : fail(`pc tooltip: ${JSON.stringify(pcTip)} — want exactly "${S.rationTip}"`);
-  r.npc.shape?.tooltip === S.restTip
-    ? ok("...and the NPC's tooltip is Cairn's prose alone")
-    : fail(`npc tooltip: ${JSON.stringify(r.npc.shape?.tooltip)}`);
+  r.deprivedDisabled === true
+    ? ok("a Deprived PC's Rest button is disabled")
+    : fail(`deprived: the Rest button's disabled is ${JSON.stringify(r.deprivedDisabled)}`);
 }
 
 if (errors.length) { failed = true; console.log("Console errors:\n" + errors.join("\n")); }
