@@ -1020,6 +1020,24 @@ const BG_GRANT_SOURCES = ["background", "background-mundane"];
 const tagBackgroundGear = (items) =>
   items.map((it) => withGrantSource(it, isMundaneGear(it.name) ? "background-mundane" : "background"));
 
+/**
+ * The Barebones PLAYER CHARACTER's equipment kit — the SRD procedure's Rations,
+ * Torch, rolled Weapon and Armor and Additional Gear (rollBarebonesEquipment) —
+ * as distinct from the background's own three items. Chip-less: it is not the
+ * background's, and grantSourceLabel maps an unknown source to "" (the npc-kit
+ * precedent; an NPC's kit carries "npc-kit").
+ *
+ * It was UNTAGGED until 2026-11-06, and that is why it existed: every re-roll
+ * sweep reaches only tagged grants, so no row of the Roll Character dialog could
+ * re-deal the kit and a Barebones character kept its first-rolled armor through
+ * every re-roll (a user's Gambler, Plate Mail three times running). Ruled the
+ * same day: Starting gear and a Background re-roll re-deal the kit too, and a
+ * character made BEFORE the tag has its untagged kit left in place — it cannot
+ * be told from a player's own weapon and armor, so nothing guesses — and is
+ * dealt a tagged one beside it (redealBarebonesKit).
+ */
+export const BAREBONES_KIT_SOURCE = "barebones-kit";
+
 /* -------------------------------------------------------------------------- */
 /*  Bonds                                                                       */
 /* -------------------------------------------------------------------------- */
@@ -2277,7 +2295,9 @@ const resolveGearRow = async (ref, avoid = new Set()) => {
  */
 const rollBarebonesEquipment = async (avoid = new Set()) => {
   // Every Barebones character starts with these; they come from the SRD's
-  // procedure, not from the background, so a PC's carry no source chip.
+  // procedure, not from the background, so a PC's carry no source chip. The
+  // CALLER tags the result: "npc-kit" for an NPC, BAREBONES_KIT_SOURCE for a PC
+  // (both chip-less, grantSourceLabel's unknown→"").
   const base = await resolveRefs([{ name: "Rations", uses: 3 }, { name: "Torch", uses: 3 }]);
   for (const i of base) avoid.add(i.name.toLowerCase());
 
@@ -2328,8 +2348,11 @@ export const generateBarebonesCharacter = async (chosenBg = null) => {
   // Steps 5 and 6 — the shared equipment procedure (rollBarebonesEquipment).
   // Barebones generation mints no bonds: the retired show-bonds-barebones
   // setting (removed 2026-08-09) used to let a lent 2e bond REPLACE step 6;
-  // bonds are 2e's alone now.
-  const equipment = await rollBarebonesEquipment(avoid);
+  // bonds are 2e's alone now. Tagged BAREBONES_KIT_SOURCE so the Roll Character
+  // dialog can re-deal it (redealBarebonesKit); untagged, no re-roll could reach
+  // it and a character kept its first armor for life (user report 2026-11-06).
+  const equipment = (await rollBarebonesEquipment(avoid))
+    .map((it) => withGrantSource(it, BAREBONES_KIT_SOURCE));
 
   // A failed career (Knave-style): a second background name, plus one Petty
   // keepsake item drawn from that career's gear (weightless, so it costs no slot).
@@ -3760,9 +3783,10 @@ export const resolveActorBackground = async (actor) => {
  * since 2026-09-02, see tagBackgroundGear — plus LEGACY untagged items
  * matching the background's reference names one apiece, for refs no tagged
  * claim already satisfied. Questions, bonds and the Barebones equipment kit
- * are other rows' business and other tags (or, for the PC kit, deliberately
- * no tag at all — the dialog never touches untagged gear beyond the legacy
- * name match).
+ * are other functions' business and other tags: the PC kit is
+ * BAREBONES_KIT_SOURCE, re-dealt by redealBarebonesKit straight after this when
+ * the dialog's Starting gear box is ticked. Untagged gear is never touched here
+ * beyond the legacy name match.
  * @param {CairnActor} actor
  * @returns {Promise<Boolean>} false when the background is gone
  */
@@ -3817,6 +3841,41 @@ export const redealBackgroundGear = async (actor) => {
   if (gear.length) await actor.createEmbeddedDocuments("Item", gear, { render: false, abNoStatusCard: true });
   await replaceGrantedContainers(actor, "background",
     (bg.system.containers ?? []).map((c) => ({ ...c })));
+  return true;
+};
+
+/**
+ * Re-deal a Barebones player character's equipment kit (BAREBONES_KIT_SOURCE):
+ * the Roll Character dialog runs it after the background's gear whenever its
+ * Background or Starting gear box re-rolled a Barebones character (ruled
+ * 2026-11-06). Not on a background picked by hand: that is choosing a
+ * background, and the kit is the SRD procedure's, not the background's.
+ *
+ * The old kit goes by its tag, and the new one is rolled exactly as generation
+ * rolls it — `avoid` seeded with the background's granted names, so the
+ * Additional Gear roll cannot hand back something the background just gave.
+ *
+ * A CHARACTER WITH NO TAGGED KIT IS DEALT ONE, and nothing untagged is ever
+ * deleted (both ruled 2026-11-06). One made before the tag holds its kit
+ * untagged, indistinguishable from a weapon or armor the player bought or was
+ * given, so no sweep may guess at it: the Warden deletes that old kit by hand
+ * once, and from the next re-roll on the kit is tagged and re-dealt like any
+ * other. Re-rolled WITHOUT that delete, such a character holds two kits, the
+ * old untagged one beside the new; the guide says so (generating-characters.md).
+ * A player who gave a tagged kit away is dealt a fresh one too, as a re-roll of
+ * the starting loadout is asking for.
+ * @param {CairnActor} actor
+ * @returns {Promise<Boolean>} true when a kit was dealt
+ */
+export const redealBarebonesKit = async (actor) => {
+  if (actor?.system?.contentSource !== "barebones") return false;
+  const old = actor.items.filter((i) => i.getFlag(FLAG_SCOPE, "grantSource") === BAREBONES_KIT_SOURCE);
+  const avoid = new Set(actor.items
+    .filter((i) => BG_GRANT_SOURCES.includes(String(i.getFlag(FLAG_SCOPE, "grantSource") ?? "")))
+    .map((i) => i.name.toLowerCase()));
+  if (old.length) await actor.deleteEmbeddedDocuments("Item", old.map((i) => i.id), { render: false, abNoStatusCard: true });
+  const kit = (await rollBarebonesEquipment(avoid)).map((it) => withGrantSource(it, BAREBONES_KIT_SOURCE));
+  if (kit.length) await actor.createEmbeddedDocuments("Item", kit, { render: false, abNoStatusCard: true });
   return true;
 };
 

@@ -106,7 +106,12 @@ way. **Roll Character** opens a checklist of everything that can be re-rolled,
 all checked to begin with: uncheck what you want to keep, and only the rest is
 re-rolled. The name, starting gear and the two Background Questions ride the
 Background line — a new background deals its own, name included — while bonds
-re-roll only when their own line is checked. Even unchecked, a new background
+re-roll only when their own line is checked. On a Barebones character, starting
+gear also covers the Barebones equipment: the Rations, Torch, weapon, armor and
+extra gear roll are dealt again with it. A Barebones character made before Air
+Bladder 0.1.27 still holds the equipment it was first dealt, which a re-roll
+cannot tell apart from things the player bought: delete those items by hand
+once before you re-roll, or the character ends up with both sets. Even unchecked, a new background
 keeps only as many bonds as it allows: any past that are removed, with their
 items and coins. A background you picked by hand starts unchecked, so a full
 re-roll keeps it unless you say otherwise. What the list never offers it never touches: notes,

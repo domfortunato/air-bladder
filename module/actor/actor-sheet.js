@@ -1,5 +1,5 @@
 import { dieIconOrGeneric } from "../utils.js";
-import { drawBond, bondRecordFrom, withGrantSource, bondEntitlement, resolveRefs, replaceGrantedContainers, promptBackground, changeBackground, promptFailedCareer, rollFailedCareerName, buildFailedCareerItem, getPortraitManifest, pairedTokenFor, randomPortraitInSameFolder, portraitCategoryFor, regenerateNpc, regenerateHireling, rerollNpcBackground, rerollHirelingCareer, rerollNpcName, rerollNpcFaction, promptHirelingCareer, promptNpcBackground, promptNpcFaction, promptPickOmen, promptPickBond, promptPickQuestionOption, promptPickName, findOmensTable, rollNameFromTable, rollAge, rollTextItems, effectiveAgeFormula, effectivePcAbilityFormula, effectivePcGoldFormula, effectivePcHpFormula, rollPcHitProtection, resolveActorBackground, redealBackgroundGear, rerollAllBonds, reorderInventory, postGenerationRolls, isHandBuilt, clearHandBuilt, isBackgroundDisabled, equipIfArms, failedCareerActive, FLAG_SCOPE } from "../character-generator.js";
+import { drawBond, bondRecordFrom, withGrantSource, bondEntitlement, resolveRefs, replaceGrantedContainers, promptBackground, changeBackground, promptFailedCareer, rollFailedCareerName, buildFailedCareerItem, getPortraitManifest, pairedTokenFor, randomPortraitInSameFolder, portraitCategoryFor, regenerateNpc, regenerateHireling, rerollNpcBackground, rerollHirelingCareer, rerollNpcName, rerollNpcFaction, promptHirelingCareer, promptNpcBackground, promptNpcFaction, promptPickOmen, promptPickBond, promptPickQuestionOption, promptPickName, findOmensTable, rollNameFromTable, rollAge, rollTextItems, effectiveAgeFormula, effectivePcAbilityFormula, effectivePcGoldFormula, effectivePcHpFormula, rollPcHitProtection, resolveActorBackground, redealBackgroundGear, redealBarebonesKit, rerollAllBonds, reorderInventory, postGenerationRolls, isHandBuilt, clearHandBuilt, isBackgroundDisabled, equipIfArms, failedCareerActive, FLAG_SCOPE } from "../character-generator.js";
 import { promptMonsterTier, regenerateMonster } from "../monster-generator.js";
 import { openMarketplace, TRANSPORTS_CATEGORY } from "../marketplace.js";
 import { evaluateFormula, cairnSavePasses, cleanDescription, concealSecrets, holdsProse, bindEditorClickAwaySave, formatCount, sourceLabel, askDamageQuality, damageFormulaFor, damageQualityLabel, damageQualityKind, d20CardBody, d20CardFlavor, D20_CARD_ABILITIES, combatOption, combatDamageFormula, askImprovisedAttack, IMPROVISED_FORMULA, nameEditorToggles } from "../utils.js";
@@ -3421,8 +3421,10 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    *
    * What a full (all-checked) run deliberately does NOT touch, unlike the
    * retired wipe-and-rebuild: untagged items (a player's purchases, a
-   * Warden's gifts, the Barebones equipment kit — no tag, no reach), scars,
-   * pronouns, notes, and a disabled omen. `critical` clears only with a new
+   * Warden's gifts, and the untagged Barebones kit of a character made before
+   * 2026-11-06 — no tag, no reach), scars, pronouns, notes, and a disabled
+   * omen. The Barebones kit is re-dealt, tagged, with Background or Starting
+   * gear (redealBarebonesKit, ruled 2026-11-06). `critical` clears only with a new
    * STR; `armorOverride` only when the gear re-dealt.
    * @param {Object} parts  the checklist's answers
    * @private
@@ -3473,6 +3475,14 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
         if (!(await this._rerollQuestionByIndex(idx))) return;
       }
     }
+    // A Barebones character's equipment kit rides Background and Starting gear
+    // (ruled 2026-11-06): untagged until that day, it was the one part of a
+    // starting loadout no box could re-roll, so a Gambler kept the Plate Mail
+    // it was first dealt through every re-roll. After the background's gear,
+    // so the kit's Additional Gear roll avoids what the background just gave.
+    // A character with no tagged kit (made before the tag) is dealt one; its old
+    // untagged kit is never touched (see redealBarebonesKit).
+    if (!is2e && (parts.background || parts.gear)) await redealBarebonesKit(actor);
     // The same gate as the rows, on the apply side too: an unoffered row has
     // no checkbox, but a part that names it is refused here as well.
     const careerOn = failedCareerActive(actor);
