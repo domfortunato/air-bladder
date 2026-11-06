@@ -146,6 +146,9 @@ something.
   samples cannot show a spike between them, so "the card ran out at the start" is the leading reading,
   not a measured one. Both earlier GPU reds also came in a run's first minutes. If it repeats, the fleet's
   side of it is `FLEET_GPU_JOBS` (11 on a 12 GB card) or staggering the starts; that is an ops decision.
+- **The `use-bonds` switch (`5e83bea8`) and its probe `bonds-off`, the 105th.** The red leg (`14ff333f`,
+  `20261106T183244Z`) failed registration and all eleven bonds-off checks, its on-controls green. At the
+  fix: **105/105 on 14.369** (`20261106T183444Z`) **and 105/105 on 14.368** (`20261106T184042Z`).
 
 ## Before that (2026-11-03)
 
