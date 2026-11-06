@@ -14,6 +14,11 @@ Releases before 0.1.23 have their notes on the
 **Requires Foundry VTT 14.368 or higher.**
 
 - Resting no longer costs a ration: Rest restores Hit Protection as Cairn's rules describe
+- A full review of the system fixed more than 250 faults, across damage and save cards, character generation, the Marketplace, item offers, the Dropped Item Pile, the calendar and the GLOG Grimoire
+- Saves follow Cairn: a natural 1 always succeeds, even against an attribute of 0, and a natural 20 always fails
+- Rolling an NPC or a monster again keeps its old containers, renamed `o_…` so the Warden can find them, instead of deleting them
+- Confirms and settings say exactly what they do and what they replace
+- Fixed: a player could act with the Warden's rights through a forged chat card, item offer or pile request
 
 ## 0.1.25
 
