@@ -7,28 +7,6 @@ Bladder → Configure Hacks**. None of them needs a reload.
 They affect **player characters only**. NPCs, hirelings and monsters are
 untouched by every one of them.
 
-## Resting costs a ration
-
-This one is not optional. It is a **house rule that applies at every table**,
-to player characters only: pressing **Rest** uses up one ration and restores
-Hit Protection to its maximum. The button's dialog says so and shows how many
-rations the character has left; with none on the sheet it refuses, and the
-character cannot rest until they have one.
-
-**Rations are counted by uses.** The Rations item ships with three, so one item
-is three rations, and a Rest spends one use. Several Rations items are fine: the
-first one with a use left pays. A stack of Rations (quantity 2) rolls over the
-way the row's **−** button does — when the last use of one unit goes, the next
-unit opens full. Anything named Rations counts, so a Warden's own "Iron
-Rations" does too, as long as it has a uses counter — and so does an item named
-with this system's own translation of "Rations" on a translated client, though
-not any other word for food; a Rations item with no uses
-counter, or with all its uses spent, is not food the system can see.
-
-NPCs, hirelings and monsters rest as they always did. Nothing is logged twice:
-the change log records a Rest as one entry that names both the Hit Protection
-and the ration.
-
 ## Exploding damage dice
 
 Tick **Exploding damage dice** and a player character's damage die that rolls

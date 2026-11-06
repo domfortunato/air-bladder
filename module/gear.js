@@ -1,4 +1,3 @@
-import { t } from "./i18n-content.js";
 import { warmPackDocuments } from "./compendium.js";
 
 /**
@@ -127,62 +126,6 @@ export const RATIONS_RE = /\brations?\b/i;
  *  directly above Rations. */
 export const isLightGear = (name) =>
   LIGHT_SOURCE_RE.test(String(name ?? "")) || LIGHT_FUEL.has(String(name ?? "").trim().toLowerCase());
-
-/**
- * A REST EATS A RATION (2026-10-03, user ask — a HOUSE RULE for every table,
- * player characters only), and these three are the whole notion of "ration"
- * the rule rests on. The same `RATIONS_RE` generation already bands and tags
- * rations with, so a Warden's "Iron Rations" counts and no second notion is
- * introduced.
- *
- * RATIONS ARE COUNTED BY USES. The shipped Rations item is ONE document with
- * three uses, so "3 rations" is three uses; a stack of quantity N holds the
- * open unit's uses plus N − 1 full units. An item with no uses counter, or
- * none left, is not food the system can see — the Rest's confirm shows the
- * count, so that state is never a surprise twice, and a quantity-only second
- * arithmetic is exactly what this rule refuses to grow.
- */
-export const rationItems = (actor) =>
-  (actor?.items ?? []).filter((i) => isRationName(i?.name));
-
-/**
- * Is this stored item name food the Rest can eat?
- *
- * THE REGEX IS ENGLISH, AND SINCE THE REST IT DECIDES A RULE (review #33). It
- * was written to sort a granted loadout, where an English miss cost a row's
- * position; now it decides whether a player may Rest at all, and a Warden's
- * own "Raciones" never matched — their row sat beside the shipped one (which
- * displays "Raciones" through the overlay and still counts, because its STORED
- * name is English) and the character was told they had no rations. The same
- * week the `ranged` field was made a field rather than a name match on exactly
- * this ground. So a stored name equal to the overlay's own translation of
- * "Rations" counts too — the one translation this system knows for the word —
- * which is a limit, stated: a Warden's "Comida" still does not.
- * @param {String} name
- * @return {Boolean}
- */
-export const isRationName = (name) => {
-  const s = String(name ?? "").trim();
-  if (!s) return false;
-  if (RATIONS_RE.test(s)) return true;
-  const translated = t("item.name", "Rations");
-  return translated !== "Rations" && s.toLowerCase() === translated.toLowerCase();
-};
-
-/** The rations ONE item holds, by uses: the open unit's plus every full unit behind it. */
-export const rationsOn = (item) => {
-  const max = Math.max(0, Number(item?.system?.uses?.max) || 0);
-  if (max < 1) return 0;
-  const value = Math.max(0, Number(item?.system?.uses?.value) || 0);
-  const quantity = Math.max(1, Number(item?.system?.quantity) || 1);
-  return value + (quantity - 1) * max;
-};
-
-/** Every ration on the sheet, by uses. */
-export const rationsLeft = (actor) => rationItems(actor).reduce((n, i) => n + rationsOn(i), 0);
-
-/** The item a Rest eats from — the first in document order with a ration on it — or null. */
-export const rationToEat = (actor) => rationItems(actor).find((i) => rationsOn(i) >= 1) ?? null;
 
 /**
  * The six ordering bands a granted loadout is arranged into, lowest first.

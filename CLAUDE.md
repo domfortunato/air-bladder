@@ -166,12 +166,12 @@ Listed so a review does not re-litigate them. Argue against the reason, not the 
   shared with `calcSlotsUsed`).
 - **Every Fatigue fills a slot.** Do not rebuild the free-first-Fatigue rule
   (`freeFatigueId`, `fatigueToClear`, `nextFatigueCost`). Gate `dev:enc-damage`.
-- **Resting costs a ration — a HOUSE RULE, every table, PCs only.** Rest restores HP
-  to MAX. Rations found by `RATIONS_RE` / `isRationName` (also accepts the overlay's
-  translation of "Rations"), counted by uses. `CairnItem#spendUse()` returns a diff;
-  the Rest is ONE actor write (HP + `items: [...]`) so ONE ledger card. No rations →
-  a one-button prompt. PC confirm has no tip; PC tooltip is `RestRationTip`;
-  `CAIRN.RestTip` stays for NPCs. Gates `dev:rest`, `dev:change-log`.
+- **Rest follows Cairn as written.** HP to MAX, no cost, a Deprived character
+  cannot. PC and NPC identical: Cairn's `RestTip` on the tooltip and the confirm
+  (`_wording` gives an NPC its own question). The ration house rule (0.1.24, a Rest
+  ate a ration and refused without one) was REMOVED 2026-11-06 (user: "compliant with
+  Cairn's rules as written"). Rations are eaten at Make Camp, which has no button.
+  Gates `dev:rest`, `dev:changelog`.
 - **Encumbered = no free slot** (`slotsUsed >= slotsMax`) → HP 0. So does panic.
   **CLOSED: the threshold is not changing.** A hit on that 0 is judged against
   it — the damage goes to STR — and stored HP is not written while the rule
@@ -278,4 +278,4 @@ on the cluster's probe fleet (~4 min) and where it stands: `docs/fleet-probes.md
 - Removed settings and the retired `container` type stay gone.
 - Do not rebuild: Crawler Combat Mode master and its rules, maneuver choice buttons,
   free first Fatigue, Reseed a Spell Table, `more-spellbooks`, the Stranger
-  generator.
+  generator, the Rest that eats a ration.

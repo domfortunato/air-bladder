@@ -1773,7 +1773,7 @@ export class CairnActor extends Actor {
     // under GLOG, a canon book landed a book. The item seam's arrival rules
     // are restated here as they are at creation (`_preCreate` above). Only for
     // a wholesale replacement: a recursive update's `items` are per-item
-    // diffs (the Rest's ration write), not sources.
+    // diffs, not sources.
     if (options.recursive === false && Array.isArray(changed.items)) {
       const items = await arrivingItemSources(changed.items, this.type);
       if (items) changed.items = items;
@@ -1961,10 +1961,12 @@ export class CairnActor extends Actor {
     // never reach _preUpdateDescendantDocuments — MEASURED 2026-10-03: a
     // parent-carried item diff fires no item hook and no descendant callback,
     // only this actor's own `_preUpdate`/`_onUpdate`, with the item's source
-    // changing all the same. The Rest writes the ration it eats this way, so
-    // that one press is ONE ledger card carrying both the HP line and the
-    // ration's uses line. The item-side stash cannot see such a diff, so the
-    // actor side takes the same two audited fields here, in the same shape.
+    // changing all the same. A write shaped this way posts ONE ledger card
+    // carrying the actor's lines and the item's quantity/uses lines together.
+    // (The ration-eating Rest was its first caller and is gone since
+    // 2026-11-06; the seam is kept for any parent write that carries items.)
+    // The item-side stash cannot see such a diff, so the actor side takes the
+    // same two audited fields here, in the same shape.
     if (Array.isArray(changed.items)) {
       const itemAudit = {};
       for (const change of changed.items) {
@@ -2123,8 +2125,8 @@ export class CairnActor extends Actor {
     if (userId !== game.user.id) return;
     if (options.abNoStatusCard) return;
     // Either half may be absent: a parent update carrying ONLY an embedded
-    // ration diff (a Rest at full Hit Protection, where the HP write is a no-op) has an
-    // itemAudit and no field audit, and must still post its one card.
+    // item diff (its actor fields a no-op) has an itemAudit and no field
+    // audit, and must still post its one card.
     const before = stash?.audit ?? {};
     const itemAudit = stash?.itemAudit;
     if (!stash?.audit && !itemAudit) return;
@@ -2160,7 +2162,7 @@ export class CairnActor extends Actor {
     }
     // Item diffs carried by THIS parent update (see _preUpdate): the same two
     // audited fields the item-side half logs, from the same kind of stash, so
-    // a Rest's ration sits on the Rest's own card.
+    // the item's lines sit on the parent write's own card.
     if (itemAudit) {
       const monster = this.npcRole === "monster";
       for (const [id, b] of Object.entries(itemAudit)) {

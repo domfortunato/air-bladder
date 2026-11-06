@@ -38,7 +38,7 @@ const NPC_TRAIT_LABELS = {
   vice: "CAIRN.Trait.Vice",
 };
 import { atConnectionLimit, maxConnections, connectionsUiEnabled, brokenOwnershipShape, OWNERSHIP_SYNC_FLAG } from "../connections.js";
-import { findMatchingStack, rationsLeft, rationToEat, capacityVerdict, landingNeed } from "../gear.js";
+import { findMatchingStack, capacityVerdict, landingNeed } from "../gear.js";
 import {
   canOfferItem, promptOfferTarget, createItemOffer, offerFromDrop,
   canReceiveOffer, settleOwnOffer,
@@ -2153,23 +2153,14 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    * A yes/no confirmation whose body reiterates the action's tooltip, then asks
    * the question, so the player re-reads the rule before committing.
    * @param {String} titleKey  i18n key for the dialog title
-   * @param {String|null} tipKey  i18n key for the explanatory text (may be
-   *   HTML), or null for no tip paragraph at all — the PC Rest (2026-10-03,
-   *   user ask) opens on its ration line alone, and a null here beats a second
-   *   copy of this markup, which probes read by its class.
+   * @param {String} tipKey  i18n key for the explanatory text (may be HTML)
    * @param {String} questionKey  i18n key for the yes/no question
    * @returns {Promise<Boolean>}
    * @private
    */
-  async _confirmAction(titleKey, tipKey, questionKey, extraLines = []) {
+  async _confirmAction(titleKey, tipKey, questionKey) {
     const k = (key) => this._wording(key);
-    // Already-localized sentences between the tip and the question (the Rest's
-    // ration line) — here rather than in a second copy
-    // of this markup, which a probe reads by its class. Escaped: a line may
-    // carry a number a sheet typed.
-    const extra = extraLines
-      .map((l) => `<p class="cairn-confirm-line">${foundry.utils.escapeHTML(String(l))}</p>`).join("");
-    const tip = tipKey ? game.i18n.localize(k(tipKey)) : "";
+    const tip = game.i18n.localize(k(tipKey));
     return foundry.applications.api.DialogV2.confirm({
       window: { title: game.i18n.localize(titleKey) },
       // IN THE SHEET'S OWN WINDOW (review #33). Every sheet here offers Pop
@@ -2180,7 +2171,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       // a dialog the player could not see. Core's journal sheet passes exactly
       // this; undefined on an attached sheet, which is a no-op.
       renderOptions: { window: { windowId: this.window?.windowId } },
-      content: `<div class="cairn-confirm">${tip}${extra}<p class="cairn-confirm-q">${game.i18n.localize(k(questionKey))}</p></div>`,
+      content: `<div class="cairn-confirm">${tip}<p class="cairn-confirm-q">${game.i18n.localize(k(questionKey))}</p></div>`,
       rejectClose: false,
       modal: true,
     });
@@ -4179,10 +4170,9 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     const row = CairnActorSheet.#row(target);
     const item = this.actor.getOwnedItem(row?.dataset.itemId);
     if (!item) return;
-    // ONE write whether or not the tick rolls a unit over (review #13 #20) —
-    // and since 2026-10-03 ONE copy of the arithmetic, `CairnItem#spendUse`,
-    // which the Rest spends a ration through as well. It returns a diff so the
-    // Rest can fold it into the actor's own write; here it is simply written.
+    // ONE write whether or not the tick rolls a unit over (review #13 #20),
+    // and ONE copy of the arithmetic, `CairnItem#spendUse`, which returns the
+    // diff; here it is simply written.
     await item.update(item.spendUse());
   }
 
@@ -4664,72 +4654,27 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
   }
 
   /**
-   * Rest restores HP (a DEPRIVED character cannot benefit from a rest). The
-   * confirm reiterates the rule before committing.
+   * Rest restores HP to its maximum (a DEPRIVED character cannot benefit from
+   * a rest). The confirm carries Cairn's own Healing & Recovery sentence
+   * (`RestTip`) before committing.
    *
-   * A REST EATS A RATION (2026-10-03, user ask — a HOUSE RULE for every table,
-   * PLAYER CHARACTERS ONLY; an NPC's Rest is the branch at the top, untouched).
-   * The dialog says so and shows how many are left; with none on the sheet it
-   * refuses with one button. The spend is folded into the actor's OWN write —
-   * `items: [{_id, …spendUse()}]` — so one press is ONE ledger card: a
-   * parent-carried embedded diff never reaches the item-side ledger path
-   * (measured; see `CairnActor._preUpdate`'s itemAudit stash), and the actor
-   * side logs the ration beside the HP. Rations are counted by USES
-   * (`rationsLeft`, gear.js).
-   *
-   * A REST RESTORES TO THE MAXIMUM, always. For a day (2026-10-03) a Rest
-   * under Crawler Combat Mode ROLLED a die the size of the maximum and kept it
-   * only if it beat current HP, on a roll card of its own; the user removed it
-   * the same evening ("it should just restore to max HP. it still costs a
-   * ration"), and the mode with it.
+   * CAIRN AS WRITTEN, ONE PATH FOR EVERY ACTOR. "Resting for a few moments and
+   * having a drink of water restores lost HP" — no cost, nothing eaten. From
+   * 0.1.24 a player character's Rest ate a ration and was refused without one
+   * (a house rule, 2026-10-03); the user removed it on 2026-11-06 to follow
+   * the rules as written. Do not rebuild it. Rations are eaten at Make Camp,
+   * which is the players' choice and has no button (docs/keeping-time.md).
+   * `_wording` gives an NPC its own question; everything else is identical.
    * @this {CairnActorSheet}
    */
   static async #onRest() {
     const actor = this.actor;
     if (actor.system.deprived) return;
-    if (actor.type !== "character") {
-      if (!(await this._confirmAction("CAIRN.Rest", "CAIRN.RestTip", "CAIRN.RestConfirm"))) return;
-      // abChangeLogAction names the button on the ledger card (whitelisted in
-      // actor.js AUDIT_ACTIONS) — otherwise a Rest reads exactly like a hand
-      // edit of HP.
-      await actor.update({ "system.hp.value": actor.system.hp.max }, { abChangeLogAction: "CAIRN.Rest" });
-      return;
-    }
-
-    const ration = rationToEat(actor);
-    if (!ration) {
-      await foundry.applications.api.DialogV2.prompt({
-        window: { title: game.i18n.localize("CAIRN.Rest") },
-        renderOptions: { window: { windowId: this.window?.windowId } },   // see _confirmAction
-        content: `<div class="cairn-confirm"><p>${game.i18n.localize("CAIRN.RestNoRations")}</p></div>`,
-        rejectClose: false,
-        modal: true,
-      });
-      return;
-    }
-
-    const lines = [game.i18n.format("CAIRN.RestRationLine",
-      { rations: formatCount("CAIRN.NRation", rationsLeft(actor)) })];
-    // NO RestTip here (2026-10-03, user ask, having read the dialog): a PC's
-    // Rest opens on the ration line, then the question. Cairn's "few moments"
-    // prose still heads the NPC confirm above and is not edited; the PC
-    // sheet's tooltip carries the ration sentence instead.
-    if (!(await this._confirmAction("CAIRN.Rest", null, "CAIRN.RestRationConfirm", lines))) return;
-
-    // ONE write: the ration and the Hit Protection land together or not at
-    // all, and the ledger posts one card for the press, headed by the button.
-    await actor.update({
-      items: [{ _id: ration.id, ...ration.spendUse() }],
-      "system.hp.value": actor.system.hp.max,
-    }, { abChangeLogAction: "CAIRN.Rest" });
-    // THE RATION'S OWN SHEET, if open, is re-rendered by hand (review #33): a
-    // parent write carrying `items` fires no item hooks and re-renders only the
-    // ACTOR's apps, so an open Rations sheet kept showing the old count — and
-    // with `submitOnChange` its next edit resubmitted the whole form, stale
-    // uses included, and the eaten ration came back. The collection re-uses
-    // the instance (`EmbeddedCollection#_initializeDocument` re-initializes an
-    // existing document), so its `apps` are still the sheets on screen.
-    for (const app of Object.values(actor.items.get(ration.id)?.apps ?? {})) app.render(false);
+    if (!(await this._confirmAction("CAIRN.Rest", "CAIRN.RestTip", "CAIRN.RestConfirm"))) return;
+    // abChangeLogAction names the button on the ledger card (whitelisted in
+    // actor.js AUDIT_ACTIONS) — otherwise a Rest reads exactly like a hand
+    // edit of HP.
+    await actor.update({ "system.hp.value": actor.system.hp.max }, { abChangeLogAction: "CAIRN.Rest" });
   }
 
   /** @this {CairnActorSheet} */

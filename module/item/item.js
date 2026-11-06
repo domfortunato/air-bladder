@@ -628,11 +628,10 @@ export class CairnItem extends Item {
 
   /**
    * The diff that spends ONE use of this item — the row's − control's own
-   * arithmetic, and since 2026-10-03 the Rest's too (a rest eats a ration):
-   * the ONE copy of a rule two gestures apply. It RETURNS the diff rather than
-   * writing it, because the Rest folds it into the actor's own write so that
-   * one press is one ledger card (see `#onRest` in actor-sheet.js and the
-   * parent-update measurement recorded at `CairnActor._preUpdate`).
+   * arithmetic, in one copy. It RETURNS the diff rather than writing it, so a
+   * caller can also fold it into a parent's `items: [...]` write as one ledger
+   * card (the parent-update measurement recorded at `CairnActor._preUpdate`).
+   * The ration-eating Rest did that until 2026-11-06; the − control writes it.
    *
    * Decrement; when the last use of a unit goes and another unit is to hand,
    * roll over — quantity down one, uses refilled. A stack hand-edited to 0

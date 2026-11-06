@@ -126,12 +126,11 @@
                   in Chromium and Firefox both (verified live 2026-08-08), so the
                   tooltip fires on the disabled button as-is — no aria-disabled
                   workaround needed, and dev:ui-parity hovers it for real. --}}
-            {{!-- A REST EATS A RATION (2026-10-03, house rule, player characters
-                  only): the PC tooltip is RestRationTip ALONE — the dialog's own
-                  ration sentence plus Cairn's bandages sentence (user ruling the
-                  same day, having read the two side by side). RestTip, Cairn's
-                  "few moments" prose, is not edited and the NPC sheet keeps it. --}}
-            <button id="rest-button" type="button" data-action="rest" class="strict-size-button" data-tooltip="{{#if system.deprived}}{{ localize deprivedTipKey }}{{else}}{{ localize 'CAIRN.RestRationTip' }}{{/if}}" {{#if system.deprived}}disabled{{/if}}><i class="fas fa-campground"></i> {{ localize 'CAIRN.Rest' }}</button>
+            {{!-- RestTip is Cairn's own Healing & Recovery sentence, the same on
+                  the NPC sheet: Rest follows the rules as written. (The ration
+                  house rule of 0.1.24 and its RestRationTip were removed
+                  2026-11-06 — do not rebuild.) --}}
+            <button id="rest-button" type="button" data-action="rest" class="strict-size-button" data-tooltip="{{#if system.deprived}}{{ localize deprivedTipKey }}{{else}}{{ localize 'CAIRN.RestTip' }}{{/if}}" {{#if system.deprived}}disabled{{/if}}><i class="fas fa-campground"></i> {{ localize 'CAIRN.Rest' }}</button>
             <button id="restore-abilities-button" type="button" data-action="restoreAbilities" class="strict-size-button" data-tooltip="{{#if system.deprived}}{{ localize deprivedTipKey }}{{else}}{{ localize 'CAIRN.RestoreTip' }}{{/if}}" {{#if system.deprived}}disabled{{/if}}><i class="fas fa-heart-pulse"></i> {{ localize 'CAIRN.RestoreAbilities' }}</button>
             <button id="die-of-fate-button" type="button" data-action="dieOfFate" class="strict-size-button" data-tooltip="{{ localize 'CAIRN.DieOfFateTip' }}"><i class="fas fa-dice-d6"></i> {{ localize 'CAIRN.DieOfFate' }}</button>
         </div>
