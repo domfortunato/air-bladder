@@ -557,6 +557,24 @@ async function chooseJoinUser(page, name, { secondSession = false } = {}) {
 }
 
 /**
+ * Let a load the probe already started FINISH before a join helper navigates.
+ * Nine probes call `page.goto(FOUNDRY_URL)` and then joinAsGM/joinAs, which open
+ * /join themselves; when the first load is still booting, the second navigation
+ * cancels its in-flight fetches and Foundry logs "Unable to load requested
+ * localization file lang/en.json", a console error that reds the probe with every
+ * check green (fleet 20261106T152655Z grimoire, 20261106T174058Z sheet-basics:
+ * the Chromium log shows the banner, "Initializing", the failure, the banner
+ * again). Settling here covers every caller, so the race cannot come back with
+ * the next probe that writes the same two lines. A blank page has nothing to wait
+ * for; a load that never goes idle is not this helper's to diagnose.
+ * @param {import("playwright").Page} page
+ */
+async function settleCurrentLoad(page) {
+  if (page.url() === "about:blank") return;
+  await page.waitForLoadState("networkidle", { timeout: 30000 }).catch(() => {});
+}
+
+/**
  * Join the world as the Warden: the role-4 user, on every form.
  * @param {import("playwright").Page} page
  * @param {{secondSession?: boolean}} [opts]  true only to open a second
@@ -564,6 +582,7 @@ async function chooseJoinUser(page, name, { secondSession = false } = {}) {
  */
 export async function joinAsGM(page, opts = {}) {
   noteBrowser(page);
+  await settleCurrentLoad(page);
   await page.goto(`${FOUNDRY_URL}/join`, { waitUntil: "networkidle", timeout: 60000 });
   const picked = await chooseJoinUser(page, null, opts);
   // Fail LOUDLY and immediately. Returning quietly here is what bought the
@@ -590,6 +609,7 @@ export async function joinAsGM(page, opts = {}) {
  */
 export async function joinAs(page, name, opts = {}) {
   noteBrowser(page);
+  await settleCurrentLoad(page);
   await page.goto(`${FOUNDRY_URL}/join`, { waitUntil: "networkidle", timeout: 60000 });
   const picked = await chooseJoinUser(page, name, opts);
   if (!picked) throw new Error(`joinAs: no user named "${name}" — run \`npm run dev:players\` first`);

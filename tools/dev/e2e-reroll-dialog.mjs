@@ -1208,7 +1208,9 @@ try {
     BK.gearTicked === "gear" && BK.gear?.noOldLeft && BK.gear?.count >= 4 && BK.gear?.ownKept
       ? ok("Starting gear alone re-deals the whole kit, and the player's own armor stays, untagged")
       : fail(`kit on Starting gear: ticked=${BK.gearTicked} ${JSON.stringify(BK.gear)}`);
-    BK.bgTicked === "background" && BK.bg?.noOldLeft && BK.bg?.count >= 4 && BK.bg?.ownKept
+    // "background,gear": a checked Background checks and locks its children
+    // (leg 3), and Starting gear is one, so that IS the Background-only state.
+    BK.bgTicked === "background,gear" && BK.bg?.noOldLeft && BK.bg?.count >= 4 && BK.bg?.ownKept
       ? ok("a Background re-roll re-deals the kit too")
       : fail(`kit on Background: ticked=${BK.bgTicked} ${JSON.stringify(BK.bg)}`);
     BK.legacyTicked === "gear" && BK.legacy?.planted >= 4 && BK.legacy?.allKept && BK.legacy?.stillUntagged
