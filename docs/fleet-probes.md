@@ -71,7 +71,10 @@ GM client in the world is the two-brokers confound, and it leaves the failure it
   - `report.md`, which quotes every failing check with its line number;
   - `results.tsv`: probe, box, exit code, seconds, checks passed, class;
   - one `<probe>.log` per probe, with its full output;
-  - `shots/`, screenshots of the probes that did not pass;
+  - `shots/`, screenshots of the probes that did not pass, and beside them each one's
+    `chromium-<pid>.log` (Chromium's stderr, so its GPU errors, with each page's console echoed into the
+    same timeline; since 2026-11-06). Read it first when a page reports a WebGL or shader failure. Its
+    "GPU stall due to ReadPixels" ERROR lines are performance notices and turn up in every run;
   - `conductor.log` and `meta.json`.
 
   ```sh
@@ -88,7 +91,31 @@ in a batch. A red on a different box in each run, with the same message every ti
 baseline world. A red that follows one box's queue points at an earlier probe on that box that leaked
 something.
 
-## Where things stand (2026-11-03)
+## Where things stand (2026-11-06)
+
+**Rest follows Cairn as written (`f1c6fa4e`), and its red leg came first (`a127f482`).** At the red leg
+`rest`, `changelog` and `ui-parity` failed on exactly the Rest checks and nothing else
+(`20261106T135921Z`). At the fix: **104/104 on 14.369** (`20261106T140908Z`) **and 103/104 on 14.368**
+(`20261106T141700Z`), the one red `changelog`, green solo (`20261106T142404Z`).
+
+- **A GPU-side failure, not understood: the second of its kind.** On 14.368 `changelog` passed all 24
+  behaviour checks and failed "zero console errors on either client": Alice's page threw "Error creating
+  WebGL context" from Dice So Nice's `DiceScene.initialize` (its `WebGLRenderer`). It is the same class as
+  `kw-player-import`'s three shader errors (`20261103T033542Z`, below). Both were goblin's worker and both
+  14.368 runs; at two events those are about 1 in 11 and 1 in 14 by chance, so neither is evidence.
+  - **Not the driver:** VM 200's kernel log (readable as `dom`, covering both moments, the NVIDIA module
+    loaded since 10-31) has no Xid or NVRM line.
+  - **Not plain memory:** peak GPU memory in those two runs, 10.54 and 9.30 GiB of 12, sits mid-to-low
+    among 27 full runs, and the highest (11.50) was clean. That is at Prometheus's 15 s step, which can
+    miss a spike.
+  - **What was missing is Chromium's own account.** Since ops `d56b4bd` every GPU probe writes
+    Playwright's `pw:browser` channel, which carries Chromium's stderr, to `shots/<probe>/chromium-<pid>.log`,
+    and a non-passing probe's shots come back to CT 120. (`chrome-headless-shell` ignores `--log-file`,
+    measured.) Proven on a real run: `changelog` 25/25, a 345-line log beside its shots, the probe's own
+    log unchanged (`20261106T144340Z`). A repeat will say what the GPU process saw. Until then the cause is unknown; it is the
+    browser's WebGL, not this system's code.
+
+## Before that (2026-11-03)
 
 **Review #34 is on `dev` (`f897ef34`), and the whole suite is green on both builds in the window:
 104/104 on 14.369** (run `20261103T021431Z-air-bladder-f897ef34…`) **and 104/104 on 14.368**
