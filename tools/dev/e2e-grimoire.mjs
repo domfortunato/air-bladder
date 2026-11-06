@@ -1834,7 +1834,9 @@ try {
   const alicePlantErrors = watchErrors(alicePlant);
   let forgedId = null;
   try {
-    await alicePlant.goto(FOUNDRY_URL);
+    // joinAs opens /join itself. A goto(FOUNDRY_URL) before it starts a first load that
+    // joinAs's own navigation cuts off mid-boot, and the cancelled lang/en.json fetch
+    // reads as a console error (fleet 20261106T152655Z, CT 138).
     await joinAs(alicePlant, "Alice");
     await dismissChrome(alicePlant);
     forgedId = await alicePlant.evaluate(async (content) => {
@@ -1895,8 +1897,7 @@ try {
   /* --------------------------------------------------------- 11. Alice casts */
   const alicePage = await browser.newPage({ viewport: VIEWPORT });
   const aliceErrors = watchErrors(alicePage);
-  await alicePage.goto(FOUNDRY_URL);
-  await joinAs(alicePage, "Alice");
+  await joinAs(alicePage, "Alice");   // it opens /join itself; see the plant client above
   await dismissChrome(alicePage);
   await glogOn(alicePage);
   try {

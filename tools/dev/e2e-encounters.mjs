@@ -177,7 +177,8 @@ try {
 
   const alice = await browser.newPage({ viewport: VIEWPORT });
   const aliceErrors = watchErrors(alice);
-  await alice.goto(FOUNDRY_URL);
+  // joinAs opens /join itself: a goto first starts a load its own navigation cuts off,
+  // and the cancelled fetch reads as a console error (as e2e-grimoire's did on the fleet).
   await joinAs(alice, "Alice");
   await dismissChrome(alice);
   const aliceView = await until(alice, (msgId) => {
