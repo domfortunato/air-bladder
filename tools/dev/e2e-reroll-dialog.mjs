@@ -73,6 +73,13 @@
  *      traits and portrait. Measured with a REAL keypress, which is the only
  *      way: `form.requestSubmit()` sets no submitter, so a scripted version of
  *      this leg passes against the broken build.
+ *  10. THE BAREBONES KIT (2026-11-06, user report: a Gambler kept its first
+ *      Plate Mail through three re-rolls). Generation tags the SRD kit
+ *      "barebones-kit", chip-less; Starting gear alone and Background alone
+ *      each re-deal the whole kit through the REAL dialog while a player's
+ *      own untagged armor stays; a pre-tag (untagged) kit is never deleted and
+ *      a fresh tagged kit is dealt beside it. Red on the old build: the kit
+ *      carries no tag, so every assertion finds nothing to count.
  * Exits non-zero on any failed assertion or console error.
  */
 
@@ -842,6 +849,78 @@ try {
         freshTagged: actor.items.filter((i) => i.name === "Rations").length,
       };
 
+      // ---- 10. THE BAREBONES KIT RE-ROLLS (2026-11-06) ----------------------
+      // A user's Barebones Gambler kept the Plate Mail it was first dealt
+      // through three re-rolls: the SRD kit (Rations, Torch, rolled weapon and
+      // armor, Additional Gear) went on UNTAGGED, and no re-roll reaches an
+      // untagged item. Ruled: Starting gear and Background re-deal it, tagged
+      // "barebones-kit" (chip-less); a character with no tagged kit is dealt
+      // one, and nothing untagged is ever deleted. Driven through the REAL
+      // dialog, so a fix the sheet never calls cannot pass. The tag is a
+      // literal, not gen.BAREBONES_KIT_SOURCE, so the leg reds on the old build.
+      const KIT = "barebones-kit";
+      const kitActor = track(await gen.createActorWithCharacter(await gen.generateBarebonesCharacter(null)));
+      await kitActor.update({ "system.generationEnabled": true });
+      const kitOf = () => kitActor.items.filter((i) => i.getFlag(NS, "grantSource") === KIT);
+      const ks = kitActor.sheet;
+      await ks.render(true);
+      await waitFor(() => rootOf(ks)?.querySelector?.(".cairn-grant-tag, [data-item-id]"), 8000);
+      await wait(400);
+      const kitGen = kitOf();
+      const kitArmor = kitGen.find((i) => i.type === "armor") ?? kitGen[0] ?? null;
+      out.kit = {
+        generated: kitGen.map((i) => i.name),
+        chip: kitArmor
+          ? (rootOf(ks)?.querySelector(`[data-item-id="${kitArmor.id}"] .cairn-grant-tag`)?.textContent?.trim() ?? "")
+          : null,
+      };
+      // A player's own armor: untagged, so no re-roll may take it.
+      const own = (await kitActor.createEmbeddedDocuments("Item",
+        [{ name: "ZZ Kit Own Shield", type: "armor", system: { armor: 1 } }], { render: false }))[0];
+      // Tick exactly `keep` (background first, so its children unlock), re-roll.
+      const rerollOnly = async (keep) => {
+        const d = await openDialog(ks);
+        if (!d) return false;
+        applyStates(d, Object.fromEntries(Object.keys(dialogState(d)).map((k) => [k, keep.includes(k)])));
+        const st = dialogState(d);
+        const shape = Object.entries(st).filter(([, v]) => v.checked).map(([k]) => k).sort().join(",");
+        await reroll(d, ks);
+        return shape;
+      };
+      const idsOf = (list) => list.map((i) => i.id);
+
+      const genIds = idsOf(kitGen);
+      out.kit.gearTicked = await rerollOnly(["gear"]);
+      const afterGear = kitOf();
+      out.kit.gear = {
+        count: afterGear.length,
+        noOldLeft: genIds.every((id) => !kitActor.items.get(id)),
+        ownKept: !!kitActor.items.get(own.id) && !kitActor.items.get(own.id)?.getFlag(NS, "grantSource"),
+      };
+
+      const gearIds = idsOf(afterGear);
+      out.kit.bgTicked = await rerollOnly(["background"]);
+      const afterBg = kitOf();
+      out.kit.bg = {
+        count: afterBg.length,
+        noOldLeft: gearIds.every((id) => !kitActor.items.get(id)),
+        ownKept: !!kitActor.items.get(own.id),
+      };
+
+      // LEGACY: a kit made before the tag. Strip the tag from the current kit,
+      // and Starting gear must leave every one of those items in place,
+      // untagged, and deal a fresh tagged kit beside them.
+      for (const i of kitOf()) await i.unsetFlag(NS, "grantSource");
+      const legacyIds = idsOf(afterBg);
+      out.kit.legacyTicked = await rerollOnly(["gear"]);
+      out.kit.legacy = {
+        planted: legacyIds.length,
+        allKept: legacyIds.every((id) => !!kitActor.items.get(id)),
+        stillUntagged: legacyIds.every((id) => !kitActor.items.get(id)?.getFlag(NS, "grantSource")),
+        freshKit: kitOf().length,
+      };
+      await ks.close();
+
       return out;
     } catch (e) {
       return { error: `${e.name}: ${e.message}\n${e.stack}` };
@@ -1116,6 +1195,26 @@ try {
     LG.plantedGone && LG.freshTagged === 1
       ? ok("a legacy untagged grant still swaps — the name-matcher covers refs no tag claims")
       : fail(`legacy: ${JSON.stringify(LG)}`);
+
+    // 10. The Barebones kit (2026-11-06). Five items by construction; >= 4
+    // leaves room only for an Additional Gear roll that came back empty.
+    const BK = r.kit ?? {};
+    (BK.generated ?? []).length >= 4
+      ? ok(`a generated Barebones character's kit is tagged "barebones-kit" (${BK.generated.join(", ")})`)
+      : fail(`Barebones kit tags at generation: ${JSON.stringify(BK.generated)}`);
+    BK.chip === ""
+      ? ok("…and the kit wears no grant chip")
+      : fail(`kit chip: ${JSON.stringify(BK.chip)}`);
+    BK.gearTicked === "gear" && BK.gear?.noOldLeft && BK.gear?.count >= 4 && BK.gear?.ownKept
+      ? ok("Starting gear alone re-deals the whole kit, and the player's own armor stays, untagged")
+      : fail(`kit on Starting gear: ticked=${BK.gearTicked} ${JSON.stringify(BK.gear)}`);
+    BK.bgTicked === "background" && BK.bg?.noOldLeft && BK.bg?.count >= 4 && BK.bg?.ownKept
+      ? ok("a Background re-roll re-deals the kit too")
+      : fail(`kit on Background: ticked=${BK.bgTicked} ${JSON.stringify(BK.bg)}`);
+    BK.legacyTicked === "gear" && BK.legacy?.planted >= 4 && BK.legacy?.allKept && BK.legacy?.stillUntagged
+      && BK.legacy?.freshKit >= 4
+      ? ok("a pre-tag (untagged) kit is never deleted, and a fresh tagged kit is dealt beside it")
+      : fail(`legacy kit: ticked=${BK.legacyTicked} ${JSON.stringify(BK.legacy)}`);
   }
 
   /* ---- 9. THE ENTER KEY (review #26) --------------------------------------
