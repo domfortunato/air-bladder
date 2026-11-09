@@ -20,11 +20,13 @@ is an independent system with its own `id`, content and history — **not** a gi
 - **Minimum Foundry 14.368, `verified` 14.369.** `system.json`:
   `compatibility: {minimum: "14.368", verified: "14.369"}`. 14.365 was dropped on
   2026-11-02: nothing tested it any more, and a minimum nobody has tested is a
-  claim, not a fact. **THE TEST WINDOW (user ruling 2026-11-02): the newest stable
-  Foundry build and the two before it**, each installed on every probe box and
-  tested there, never from the workstation (today 14.368 and 14.369). A new stable
-  build joins; a fourth pushes the oldest out: 14.370 → test 14.368–14.370; 14.371
-  → drop 14.368. The minimum is the window's oldest build and moves up with it.
+  claim, not a fact. **THE TEST RANGE (user ruling 2026-11-09, replacing the
+  three-build window of 11-02): EVERY Foundry 14 stable build from 14.368 onward,
+  before every release** — today 14.368, 14.369 and 14.370 — each installed on every
+  probe box and tested there, never from the workstation. A new stable build joins
+  and **nothing drops out**; the minimum stays 14.368. **14.367 is left alone** (the
+  user drew the line at 14.368 the same hour). Farm projects: `air-bladder` (newest),
+  `air-bladder-14369`, `air-bladder-14368`; a release runs the suite on every one.
 - **The minimum is stated in six places** — `README.md`, `README.es.md`,
   `CONTRIBUTING.md`, `site/index.html`, `docs/testing-dev-branch.md` and here.
   Change the minimum, change all six. Moving `verified` alone does NOT touch them

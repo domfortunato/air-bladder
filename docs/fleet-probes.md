@@ -12,13 +12,15 @@ a probe, the dev world or the system is this repo's to fix.
 ## What a run does
 
 - **CT 120** (`fleet@192.168.30.50`) conducts. It starts runs, collects the logs and writes the report.
-- **Eleven probe boxes** (CT 112 to 118, 129 to 131 and 138) each run Foundry 14.369 (since 2026-10-28)
-  with this system's world `air-bladder-dev`, served by the PM2 app `foundry-air-bladder` from
-  `/home/foundry/probe-air-bladder`. Nobody plays on them.
-- **Each box also carries the older builds in the test window** (CLAUDE.md, *Version reality*: the newest
-  stable build and the two before it). Since 2026-11-03 that is 14.368, as its own fleet project,
-  `air-bladder-14368`: the app `foundry-air-bladder-14368` from `/opt/foundry-14.368`, with its own
-  world in `/home/foundry/probe-air-bladder-14368`. Same repo, same probes, its own run ids.
+- **Eleven probe boxes** (CT 112 to 118, 129 to 131 and 138) each run the newest stable Foundry build
+  (14.370 since 2026-11-09) with this system's world `air-bladder-dev`, served by the PM2 app
+  `foundry-air-bladder` from `/home/foundry/probe-air-bladder`. Nobody plays on them.
+- **Each box also carries every older build the system supports** (CLAUDE.md, *Version reality*: every
+  14 stable build from 14.368 onward, ruled 2026-11-09; none drops out). Each is its own fleet project:
+  `air-bladder-14369` (since 2026-11-09) and `air-bladder-14368` (since 2026-11-03), each with its app
+  `foundry-air-bladder-<build>` from `/opt/foundry-<version>` and its own world in
+  `/home/foundry/probe-air-bladder-<build>`. Same repo, same probes, their own run ids. **A release
+  runs the whole suite on all three.**
 - **The browsers run on VM 200's RTX 3060**, one Playwright container per probe. Air Bladder runs only
   there, never on the driver boxes.
 - **A run** rolls every box back to its `pristine` snapshot and deploys the ref under test into the box's
@@ -46,6 +48,7 @@ a probe, the dev world or the system is this repo's to fix.
 ```sh
 ssh fleet@192.168.30.50 foundry/scripts/fleet-runner.sh start --project air-bladder --ref dev
 ssh fleet@192.168.30.50 foundry/scripts/fleet-runner.sh start --project air-bladder --ref <branch|sha> --probes spell-pool,spellscroll
+ssh fleet@192.168.30.50 foundry/scripts/fleet-runner.sh start --project air-bladder-14369 --ref dev   # the same, on Foundry 14.369
 ssh fleet@192.168.30.50 foundry/scripts/fleet-runner.sh start --project air-bladder-14368 --ref dev   # the same, on Foundry 14.368
 ssh fleet@192.168.30.50 foundry/scripts/fleet-runner.sh status   # the run going now, if any
 ssh fleet@192.168.30.50 foundry/scripts/fleet-runner.sh last     # the newest report of ANY project: its verdict and path

@@ -40,6 +40,21 @@ world, so it could never have caught it. (Fixed 2026-07-28.)
 
 Run from `c:\Users\domin\code\air-bladder`, on the branch you are about to merge.
 
+### On the probe fleet — every supported Foundry build
+
+**The whole suite runs on every Foundry 14 stable build from 14.368 onward before every
+release** (user ruling 2026-11-09). Today that is three fleet projects, one per build:
+
+| Fleet project | Foundry |
+|---|---|
+| `air-bladder` | the newest stable build (14.370 since 2026-11-09) |
+| `air-bladder-14369` | 14.369 |
+| `air-bladder-14368` | 14.368 |
+
+A new stable build joins and none drops out; the minimum stays 14.368. A release ships
+only when the ref being merged is green on every row. How to start a run and read it:
+[fleet-probes.md](fleet-probes.md).
+
 ### Offline — no Foundry needed
 
 | Command | Checks |
