@@ -94,7 +94,27 @@ in a batch. A red on a different box in each run, with the same message every ti
 baseline world. A red that follows one box's queue points at an earlier probe on that box that leaked
 something.
 
-## Where things stand (2026-11-06)
+## Where things stand (2026-11-09)
+
+**Every Foundry 14 build from 14.368 on, before every release (user ruling 2026-11-09), so three
+projects now.** The boxes moved to 14.370, which the plain `air-bladder` project serves, and that left
+14.369 with no project until `air-bladder-14369` was added (foundry-ops `c28361a`).
+
+- **0.1.26 at its tag (`67e47df3`): 104/104 on all three builds.** 14.370 with `--refresh`
+  (`20261109T221231Z`), 14.369 with `--refresh` (`20261109T223830Z`), 14.368 (`20261109T224523Z`).
+- **`dev` at `1a870a2f`: 105/105 on all three** (`20261110T002303Z`, `20261110T002857Z`,
+  `20261110T003451Z`).
+- **The same commit, after the DCC session retook every box's `pristine` to add its projects:** 105/105
+  on 14.370 (`20261110T020412Z`), and **104/105 on 14.369 and on 14.368, one red each, NOT
+  UNDERSTOOD.** Neither has been re-run solo yet.
+  - `socket-grant` on 14.369 (`20261110T021007Z`): "the plant did not land — sweep leg is vacuous", every
+    other check green. Its second red in 44 runs; the first (`20261106T173352Z`) was not this check.
+  - `item-offer` on 14.368 (`20261110T021601Z`): "the Give button settles at once on a container you
+    own", with `state: accepted` and `settled: false`. Seven reds in 67 runs, five of them on 10-31
+    before fixes, one on 11-06 (another check).
+  Both checks read a result straight after a write, so a race is the first suspect, not a proven one.
+
+## Before that (2026-11-06)
 
 **Rest follows Cairn as written (`f1c6fa4e`), and its red leg came first (`a127f482`).** At the red leg
 `rest`, `changelog` and `ui-parity` failed on exactly the Rest checks and nothing else
