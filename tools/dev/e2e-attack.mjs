@@ -60,6 +60,14 @@ const cleanup = async () => {
         await a.sheet?.close();
         await a.delete();
       }
+      // RELEASE THE TARGET FIRST. Core's TokenLayer#animateTargets redraws the
+      // arrows on every game.user.targets token each frame (tokens.mjs), and a
+      // scene deleted under a targeted token leaves a frame drawing on a
+      // half-destroyed one: "Cannot read properties of undefined (reading
+      // 'clear')" at Token._drawTargetArrows (fleet 20261119T225116Z, every
+      // check green, the console error failing the run).
+      for (const t of [...game.user.targets]) t.setTarget(false, { releaseOthers: false });
+      await new Promise((res) => setTimeout(res, 200));
       for (const sc of game.scenes.filter((x) => x.getFlag("air-bladder", "probeFixture") === fixture)) await sc.delete();
     }, FIXTURE);
   } catch (e) {
