@@ -5469,7 +5469,9 @@ header.character-generator.directory-header .header-actions > button:not(.cairn-
 }
 .cairn-character-sheet .cairn-shield label {
     font-family: "Alegreya", Times, "Times New Roman", Georgia, serif;
-    font-size: 13px; font-weight: bold; font-variant: small-caps; line-height: 1; margin: 4px 0 0;
+    /* line-height 16px, not 1: Alegreya's glyphs run 15px tall at 13px, and
+       a 13px line box clips them (dev:sheet-layout, 2026-11-19). */
+    font-size: 13px; font-weight: bold; font-variant: small-caps; line-height: 16px; margin: 2px 0 0;
 }
 .cairn-character-sheet .cairn-shield .armor-input {
     width: 44px; height: 30px !important; padding: 0;

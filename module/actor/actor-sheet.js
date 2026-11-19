@@ -1879,7 +1879,10 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
         tab.tip = game.i18n.format("CAIRN.Tab.InventoryCount",
           { used: this.actor.system.slotsUsed, max: context.slotsMaxLabel });
       } else if (tab.id === "containers") {
-        tab.tip = `${game.i18n.localize(tab.label)} (${this.actor.system.containerObjects?.length ?? 0})`;
+        // context.system's list, re-derived for THIS render: the actor's own
+        // copy is from its last prepareData, and a mount connecting writes
+        // nothing to the keeper, so it would read the old count.
+        tab.tip = `${game.i18n.localize(tab.label)} (${context.system.containerObjects?.length ?? 0})`;
       } else {
         tab.tip = game.i18n.localize(tab.label);
       }
