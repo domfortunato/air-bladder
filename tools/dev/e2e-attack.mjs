@@ -51,6 +51,15 @@ const cleanup = async () => {
       for (const d of foundry.applications.instances.values()) {
         if (d.element?.classList?.contains("cairn-attack-dialog")) await d.close();
       }
+      // RELEASE THE TARGET FIRST, before anything is deleted. Core's
+      // TokenLayer#animateTargets redraws the arrows on every game.user.targets
+      // token each frame (tokens.mjs), and a scene deleted under a targeted token
+      // leaves a frame drawing on a half-destroyed one: "Cannot read properties
+      // of undefined (reading 'clear')" at Token._drawTargetArrows (fleet
+      // 20261119T225116Z, every check green, the console error failing the run).
+      // The targeting in setup waits for a drawn token for the same reason.
+      for (const t of [...game.user.targets]) t.setTarget(false, { releaseOthers: false });
+      await new Promise((res) => setTimeout(res, 200));
       const actors = game.actors.filter((x) => x.getFlag("air-bladder", "probeFixture") === fixture);
       const ids = new Set(actors.map((a) => a.id));
       for (const m of game.messages.filter((x) => x.getFlag("air-bladder", "probeFixture") === fixture || ids.has(x.speaker?.actor))) {
@@ -60,14 +69,6 @@ const cleanup = async () => {
         await a.sheet?.close();
         await a.delete();
       }
-      // RELEASE THE TARGET FIRST. Core's TokenLayer#animateTargets redraws the
-      // arrows on every game.user.targets token each frame (tokens.mjs), and a
-      // scene deleted under a targeted token leaves a frame drawing on a
-      // half-destroyed one: "Cannot read properties of undefined (reading
-      // 'clear')" at Token._drawTargetArrows (fleet 20261119T225116Z, every
-      // check green, the console error failing the run).
-      for (const t of [...game.user.targets]) t.setTarget(false, { releaseOthers: false });
-      await new Promise((res) => setTimeout(res, 200));
       for (const sc of game.scenes.filter((x) => x.getFlag("air-bladder", "probeFixture") === fixture)) await sc.delete();
     }, FIXTURE);
   } catch (e) {
@@ -105,7 +106,16 @@ try {
     // One create each: a batch comes back in completion order, not as sent.
     const [pcTok] = await scene.createEmbeddedDocuments("Token", [await pc.getTokenDocument({ x: 100, y: 100 })]);
     const [foeTok] = await scene.createEmbeddedDocuments("Token", [await foe.getTokenDocument({ x: 300, y: 100 })]);
-    await until(() => canvas.tokens.get(foeTok.id));
+    // Target only a DRAWN token. The placeable joins the layer before its async
+    // _draw reaches `this.targetArrows ||= ...` (token.mjs), and core's
+    // TokenLayer#animateTargets draws arrows on every game.user.targets token each
+    // frame, so a token targeted in that gap throws "Cannot read properties of
+    // undefined (reading 'clear')" at Token._drawTargetArrows (fleet
+    // 20261119T232257Z: every check green, the console error failing the run,
+    // after the cleanup's release-first fix). PlaceableObject#drawn is private;
+    // targetArrows is the first thing _draw sets that this needs.
+    await until(() => canvas.tokens.get(foeTok.id)?.targetArrows);
+    await sleep(100);
     canvas.tokens.get(foeTok.id).setTarget(true, { releaseOthers: true });
     out.ids = { pcTok: pcTok.id, foeTok: foeTok.id, blade: blade.id };
 
