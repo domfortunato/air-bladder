@@ -111,6 +111,7 @@ try {
       return {
         title: el.querySelector(".ab-welcome-title")?.textContent.trim(),
         translator: el.querySelector(".ab-welcome-translator a")?.textContent.trim() ?? null,
+        origin: el.querySelector(".ab-welcome-titles .ab-welcome-origin")?.textContent.trim() ?? null,
         portraits: imgs.map((i) => i.naturalWidth),
         rawKeys: (el.textContent.match(/CAIRN\.\w+/g) ?? []),
         rules: el.querySelectorAll(".ab-welcome-rules li").length,
@@ -123,6 +124,7 @@ try {
     }, ID);
     check("the title is the system's", /Air Bladder/.test(content.title ?? ""), content.title);
     check("the Spanish translator is credited under the byline, linked", /Malecho/.test(content.translator ?? ""), String(content.translator));
+    check("the name's origin (Gear table, p. 17) sits under the title", /Gear table on p\. 17/.test(content.origin ?? ""), String(content.origin));
     check("both portraits loaded", content.portraits.length === 2 && content.portraits.every((w) => w > 0), JSON.stringify(content.portraits));
     check("no raw language key on screen", content.rawKeys.length === 0, content.rawKeys.join(", "));
     check("three System Rules lines: Cairn 2e, Barebones, custom backgrounds", content.rules === 3, String(content.rules));

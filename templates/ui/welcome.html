@@ -11,6 +11,8 @@
     </div>
     <div class="ab-welcome-titles">
       <h1 class="ab-welcome-title">{{title}}<sup>™</sup></h1>
+      {{!-- Where the name comes from, straight under the title (user, 2026-11-19: "prominent"). --}}
+      <p class="ab-welcome-origin">{{localize "CAIRN.Welcome.Origin"}}</p>
       <p class="ab-welcome-byline">
         {{#if authorUrl}}<a href="{{authorUrl}}" target="_blank" rel="noopener">{{byline}}</a>{{else}}{{byline}}{{/if}}
       </p>
