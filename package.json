@@ -55,6 +55,7 @@
     "dev:sheet-basics": "node tools/dev/e2e-sheet-basics.mjs",
     "dev:theme": "node tools/dev/e2e-theme.mjs",
     "dev:sheet-layout": "node tools/dev/e2e-sheet-layout.mjs",
+    "dev:sheet-rail": "node tools/dev/e2e-sheet-rail.mjs",
     "dev:ui-parity": "node tools/dev/e2e-ui-parity.mjs",
     "dev:parity": "node tools/dev/e2e-parity.mjs",
     "dev:grant-hint": "node tools/dev/e2e-grant-hint.mjs",

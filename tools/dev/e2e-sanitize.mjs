@@ -20,7 +20,9 @@
  * ever proves "a GM cannot inject into their own sheet" is not testing the threat.
  *
  * Covers one Actor sub-type and one Item sub-type, since they are separate manifest
- * entries and declaring one while forgetting the other is the obvious half-fix.
+ * entries and declaring one while forgetting the other is the obvious half-fix. The
+ * character carries two fields: Notes, and the Growth journal added 2026-11-19 — a
+ * new field is the one a manifest edit forgets.
  *
  * Usage: npm run dev:sanitize   (needs Alice — npm run dev:players)
  */
@@ -68,7 +70,7 @@ const scene = await gmPage.evaluate(async () => {
   // the broadcast to change it rather than for any particular content.
   return {
     pcId: pc.id, pcUuid: pc.uuid, weaponId: weapon.id,
-    before: { notes: pc.system.notes ?? "", desc: weapon.system.description ?? "" },
+    before: { notes: pc.system.notes ?? "", growth: pc.system.growth ?? "", desc: weapon.system.description ?? "" },
   };
 });
 
@@ -92,6 +94,12 @@ const written = await alicePage.evaluate(async ({ pcId, weaponId, payload }) => 
     await pc.update({ "system.notes": payload });
     out.actorNotes = pc.system.notes;
   } catch (e) { out.actorError = e.message; }
+  // The Growth page's journal (2026-11-19): a second character HTML field,
+  // and the newest — exactly the one a manifest edit forgets.
+  try {
+    await pc.update({ "system.growth": payload });
+    out.actorGrowth = pc.system.growth;
+  } catch (e) { out.growthError = e.message; }
   try {
     await pc.items.get(weaponId).update({ "system.description": payload });
     out.itemDescription = pc.items.get(weaponId).system.description;
@@ -119,6 +127,7 @@ const check = (label, stored, err) => {
 };
 
 check("Actor.character system.notes", written.actorNotes, written.actorError);
+check("Actor.character system.growth", written.actorGrowth, written.growthError);
 check("Item.weapon system.description", written.itemDescription, written.itemError);
 
 /* ---- Re-read from the server, not the cache -- */
@@ -138,15 +147,16 @@ check("Item.weapon system.description", written.itemDescription, written.itemErr
 // fails as "benign content lost" rather than hanging.
 const readAsGm = () => gmPage.evaluate(({ pcId, weaponId }) => {
   const pc = game.actors.get(pcId);
-  return { notes: pc?.system.notes, desc: pc?.items.get(weaponId)?.system.description };
+  return { notes: pc?.system.notes, growth: pc?.system.growth, desc: pc?.items.get(weaponId)?.system.description };
 }, { pcId: scene.pcId, weaponId: scene.weaponId });
 let asGm = await readAsGm();
-for (let waited = 0; waited < 10000 && (asGm.notes === scene.before.notes || asGm.desc === scene.before.desc); waited += 250) {
+for (let waited = 0; waited < 10000 && (asGm.notes === scene.before.notes || asGm.growth === scene.before.growth || asGm.desc === scene.before.desc); waited += 250) {
   await gmPage.waitForTimeout(250);
   asGm = await readAsGm();
 }
 
 check("as seen by the GM: notes", asGm.notes);
+check("as seen by the GM: growth", asGm.growth);
 check("as seen by the GM: description", asGm.desc);
 
 /* ---- Clean up ------------------------------- */
