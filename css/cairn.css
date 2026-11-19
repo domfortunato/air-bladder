@@ -5182,10 +5182,22 @@ header.character-generator.directory-header .header-actions > button:not(.cairn-
    squashed mark is a cropped one (logo/README.md). */
 .ab-welcome-small { display: flex; flex-direction: column; gap: 4px; }
 .ab-welcome-col-side { align-self: stretch; }
-.ab-welcome-licensing { flex: 1 1 auto; }
+.ab-welcome-licensing { position: relative; isolation: isolate; flex: 1 1 auto; }
 .ab-welcome-licensing .ab-welcome-stamp {
     margin-top: auto; align-self: flex-end; width: 110px; height: auto; border: none;
 }
+/* The Air Bladder logo, faint, at the foot to the LEFT of the stamp (user,
+   2026-11-19: both). Behind the text like Base Knavery's watermark; the file is
+   unaltered, only shown faint. */
+.ab-welcome-licensing .ab-welcome-watermark {
+    position: absolute; right: 126px; bottom: 0; z-index: -1; width: 170px; height: auto; border: none;
+    opacity: 0.14; pointer-events: none;
+}
+.air-bladder-welcome .ab-logo-dark { display: none; }
+.theme-dark .air-bladder-welcome:not(.theme-light) .ab-logo-light,
+.air-bladder-welcome.theme-dark .ab-logo-light { display: none; }
+.theme-dark .air-bladder-welcome:not(.theme-light) .ab-logo-dark,
+.air-bladder-welcome.theme-dark .ab-logo-dark { display: block; }
 
 /* Folds as bullets: each fold's arrow is its bullet; open, the arrow turns and the
    text sits indented under the title. */

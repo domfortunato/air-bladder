@@ -13,8 +13,9 @@
  *   - the setting is registered world, Boolean, default ON;
  *   - the window renders: the title, both portraits loaded, no raw CAIRN. key,
  *     the three System Rules lines, the three buy links on cairnrpg.com, the
- *     licence folds, and the sheets' "For Use With Cairn" stamp in BOTH schemes
- *     (configureUI, never a write), opaque and at its own aspect;
+ *     licence folds, the sheets' "For Use With Cairn" stamp in BOTH schemes
+ *     (configureUI, never a write), opaque and at its own aspect, and the faint
+ *     Air Bladder logo beside it, swapped by theme;
  *   - "This world offers …" follows the three background switches;
  *   - the footer box writes the setting both ways;
  *   - Open the guide and Open the rulebook open the System Docs and Cairn 2e Rules
@@ -87,7 +88,9 @@ try {
           const vis = el.querySelector(".ab-welcome-stamp");
           if (vis) { try { await vis.decode(); } catch { /* naturalWidth 0 reports it */ } }
           const r = vis?.getBoundingClientRect();
+          const shownSel = (sel) => { const e = el.querySelector(sel); return !!e && getComputedStyle(e).display !== "none"; };
           logos[s] = { shown: !!vis && getComputedStyle(vis).display !== "none",
+            logoLight: shownSel(".ab-logo-light"), logoDark: shownSel(".ab-logo-dark"),
             src: vis?.getAttribute("src") ?? null,
             ink: getComputedStyle(el.querySelector(".ab-welcome-title")).color,
             natural: vis?.naturalWidth ?? 0,
@@ -118,6 +121,10 @@ try {
     check("four licence folds, the art fold listing its credits", content.folds === 4 && content.credits >= 6,
       `${content.folds} folds, ${content.credits} credits`);
     check("the Warden gets the footer box", content.box);
+    check("light scheme: the black-lettered Air Bladder logo shows, the white one does not",
+      content.logos.light?.logoLight === true && content.logos.light?.logoDark === false, JSON.stringify(content.logos.light));
+    check("dark scheme: the white-lettered Air Bladder logo shows, the black one does not",
+      content.logos.dark?.logoLight === false && content.logos.dark?.logoDark === true, JSON.stringify(content.logos.dark));
     for (const s of ["light", "dark"]) {
       const l = content.logos[s] ?? {};
       check(`${s} scheme: the sheets' "For Use With Cairn" stamp shows, loaded, fully opaque, at its own aspect`,
