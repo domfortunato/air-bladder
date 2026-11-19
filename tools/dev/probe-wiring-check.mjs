@@ -79,7 +79,6 @@ const NOT_RELEASE_RUN = new Map([
 // (3301fafc). The off-fleet `dev:` scripts are listed, each with its reason.
 const OFF_FLEET = new Map([
   ["dev:smoke", "the local dev world's smoke test, run by hand before a push"],
-  ["dev:site", "checks the published GitHub Pages site, not a Foundry world"],
   ["dev:actors", "operational — lists/deletes world actors to reset a dev world"],
   ["dev:players", "operational — creates the player users a fleet world already has"],
 ]);

@@ -93,8 +93,8 @@
  * depend on finding the original download again.)
  *
  * IT NEVER TOUCHES lydia-comer/ ITSELF, only the four subfolders. The parent
- * holds the LOGO — Airbladder01/02/06.webp, exactly the three the README and
- * `tools/site.mjs` use by name; the unused variants (03, 04, and the 07.jpg
+ * holds the LOGO — Airbladder01/02/06.webp (02 and 06 are the welcome window's
+ * and the README's; the landing page that used 01 was retired 2026-11-19); the unused variants (03, 04, and the 07.jpg
  * wordmark) were removed 2026-08-04 by user ruling — and her licence file.
  * tlomdev.mjs rmSyncs its whole output folder; doing that here would delete
  * the logo, the licence and the site's header image. Airbladder* is excluded

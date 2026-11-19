@@ -296,22 +296,14 @@ const enCount = Object.keys(en).length;
 const translated = enCount - missing.length - untranslated.length;
 const pct = Math.round((translated / enCount) * 100);
 
-/* ---- the PUBLISHED coverage figure ----------------------------------------
- * Three public sites state this percentage in prose — both READMEs, which
- * ship in the zip, and the landing page — as part of the translator's credit.
- * It was set FROM this gate on 2026-08-02 ("the gate's number is the one to
- * publish") and then sat at 72% through the restoration of 158 of his strings
- * while the line above printed 90% (review #19): a number nothing compares to
- * its source drifts exactly as far as nobody happens to look. So it is an
- * ERROR here, not advisory — advisory is how it drifted — and the patterns
- * are anchored on the sentence, so a reword fails rather than quietly
- * matching nothing. Spanish only: the figure is the Spanish translation's.
+/* ---- the PUBLISHED coverage figure: retired 2026-11-19 ----------------------
+ * Both READMEs and the landing page stated the Spanish percentage, and this
+ * gate held them to the measured number (review #19: one sat at 72% while the
+ * gate printed 90%). On 2026-11-19 the README became the welcome window's
+ * short summary, which states no percentage, and the landing page was retired,
+ * so no site is left and the gate went with them: an empty list is a check
+ * that cannot fail. If a percentage is published again, gate it again here.
  */
-// The READMEs left this list on 2026-11-19: the short README (the welcome
-// window's words) states no percentage.
-const COVERAGE_SITES = LANG === "es" ? [
-  ["site/index.html", /\((\d+)% of the interface and nearly all the game content, by /],
-] : [];
 /* ---- the INHERITED languages' published figure -----------------------------
  * The five interface files Air Bladder inherited from the original Cairn system
  * (da, de, fr, pl, pt-BR) are credited in the same paragraph, with a coverage
@@ -340,7 +332,6 @@ const inheritedPct = inheritedPcts.length
   ? Math.round(inheritedPcts.reduce((a, b) => a + b, 0) / inheritedPcts.length)
   : null;
 const INHERITED_SITES = (LANG === "es" && inheritedPct !== null) ? [
-  ["site/index.html", /sit at about (\d+)%/],
   ["docs/TRANSLATING.md", /covering about (\d+)% of the current interface/],
   ["docs/translating-self-service.md", /Cairn system sit at about (\d+)%/],
 ] : [];
@@ -350,11 +341,6 @@ for (const [file, re] of INHERITED_SITES) {
   else if (Number(m[1]) !== inheritedPct) errors.push(`${file}: says the inherited languages cover ${m[1]}%; measured ${inheritedPct}% (${inheritedPcts.map((x) => x.toFixed(1)).join(", ")})`);
 }
 
-for (const [file, re] of COVERAGE_SITES) {
-  const m = fs.readFileSync(path.join(ROOT, file), "utf8").match(re);
-  if (!m) errors.push(`${file}: the Spanish-coverage sentence was not found — keep it, or move this gate's pattern with the reword`);
-  else if (Number(m[1]) !== pct) errors.push(`${file}: says ${m[1]}% translated; this gate says ${pct}% — publish the gate's number`);
-}
 
 /* ---- the PUBLISHED key count ---------------------------------------------
  * docs/provenance.md states how many interface strings en.json holds, as part

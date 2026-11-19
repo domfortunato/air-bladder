@@ -353,12 +353,14 @@ unnamedArtists.length === 0
 // of the art it was attributing (review #16). The READMEs and LICENSE.txt were
 // all correct, which is the point: three copies agreeing proves nothing about
 // the fourth when nothing compares them.
+// Since 2026-11-19 one site is left: the landing page was retired (GitHub
+// Pages removed) and the READMEs' long credits list moved into LICENSE.txt.
 //
 // Read from the per-icon TABLE, never the prose sentence above it. The table is
 // what tools/import/icons.mjs writes a row into, so it is right by
 // construction; the sentence is hand-kept and drifts on exactly the occasion
 // these four do.
-const ICON_CREDIT_SITES = ["LICENSE.txt", "site/index.html"];
+const ICON_CREDIT_SITES = ["LICENSE.txt"];
 const classIconAuthors = [...new Set(
   [...read("icons/CREDITS.md").matchAll(/^\|[^|\n]*\|[^|\n]*\|[^|\n]*\|\s*([^|\n]+?)\s*\|/gm)]
     .map((m) => m[1].trim())
@@ -452,13 +454,6 @@ for (const [setName, [pDir, tDir]] of Object.entries(LYDIA_SETS)) {
 const LYDIA_COUNT_SITES = [
   ["LICENSE.txt", /hold (\d+) creatures and \d+ characters/, "monsters"],
   ["LICENSE.txt", /hold \d+ creatures and (\d+) characters/, "characters"],
-  // The landing page states both counts too and was checked by NOTHING until
-  // 2026-09-12, when a seven-drawing delivery moved the character count and
-  // every gated site reported it while this one sat on the old number. Exactly
-  // the gap review #26 closed for the Aspeheim and tlomdev galleries, one file
-  // further along: a count is only as honest as the list that walks it.
-  ["site/index.html", /The (\d+) creatures and \d+ characters offered/, "monsters"],
-  ["site/index.html", /The \d+ creatures and (\d+) characters offered/, "characters"],
   ["LICENSE.txt", /(\d+) creatures and \d+ characters \(source:/, "monsters"],
   ["LICENSE.txt", /\d+ creatures and (\d+) characters \(source:/, "characters"],
   ["art/lydia-comer/CREDITS.md", /^(\d+) characters and \d+ creatures, \d+ files\./m, "characters"],
@@ -509,7 +504,6 @@ const tlomdevCount = countImages("art/tlomdev");
 
 const GALLERY_COUNT_SITES = [
   ["LICENSE.txt", /The (\d+) paired portrait\/token images/, () => aspPortraits, "Aspeheim portraits"],
-  ["site/index.html", /(\d+) character portraits by/, () => aspPortraits, "Aspeheim portraits"],
   ["LICENSE.txt", /The (\d+) black-and-white token drawings/, () => tlomdevCount, "tlomdev tokens"],
   ["art/tlomdev/CREDITS.md", /(\d+) drawings\./, () => tlomdevCount, "tlomdev tokens"],
   ["LICENSE.txt", /(\d+) token drawings in the Tlomdev picker gallery/, () => tlomdevCount, "tlomdev tokens"],
@@ -579,8 +573,8 @@ if (!modMissing) ok(`the §3(a)(1)(B) modification indications (tlomdev, Aspehei
 // away while the Code clause's path list stays put. That is exactly the shape
 // LICENSE.txt was already found in once, and it reads as deliberate to a fork:
 // a path named under MIT with no statement that Cairn's words inside it are
-// not. So the three canonical surfaces are pinned. Not site/index.html, whose
-// Code entry makes no claim about paths and so cannot contradict this.
+// not. So the statements are pinned: since 2026-11-19 all three live in
+// LICENSE.txt (the clause, and the credits list moved there from README.md).
 const TEXT_RULE_SITES = [
   ["LICENSE.txt", /CAIRN'S GAME TEXT IS ALWAYS CC BY-SA 4\.0, WHEREVER IT SITS/],
   ["LICENSE.txt", /this clause follows Cairn's text wherever it is written/],

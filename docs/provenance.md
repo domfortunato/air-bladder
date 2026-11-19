@@ -142,8 +142,9 @@ the translation ships under the translator's own name.
 
 ## Marketing text
 
-The description in `system.json`, the opening of `README.md`, and the copy on
-`site/index.html` are written by the maintainer.
+The description in `system.json`, the welcome window's text (which is also
+`README.md`'s top and bottom), and the README's hand-written middle are written by
+the maintainer. (So was the copy on the landing page, retired 2026-11-19.)
 
 ## How to check any of this
 

@@ -15,9 +15,10 @@ times in a week or once in three.
 
 ## Why master is kept clean
 
-**Documentation stays in step with the software.** The README you see on GitHub, the
-`blob/master/docs/...` links inside it, and the project website (built from `master` by
-`.github/workflows/pages.yml`) all track `master` — while users install the latest *tag*.
+**Documentation stays in step with the software.** The README you see on GitHub and the
+`blob/master/docs/...` links inside it track `master` — while users install the latest
+*tag*. (A project website built from `master` did too, until GitHub Pages was retired on
+2026-11-19.)
 If work landed directly on `master`, the public docs would describe features nobody can
 install yet. Keeping unreleased work on `dev` closes that gap.
 
@@ -117,9 +118,8 @@ redeploys from `master` on the merge. Tag straight after the merge.
 `master` and `dev`. That is the point of scanning at all: a finding on `master` alone would
 only ever describe code that had already shipped.
 
-The other two workflows are release-only by design. *Release Creation* triggers on version
-tags, and *Pages* on pushes to `master` — so a site change made on `dev` has no preview and
-goes live at the merge.
+The other workflow is release-only by design: *Release Creation* triggers on version tags.
+(*Pages*, which published a landing page on pushes to `master`, was retired on 2026-11-19.)
 
 A standing draft PR `dev` → `master` was considered for this and rejected: GitHub
 auto-closes a pull request once its commits reach the base branch, so it would be marked

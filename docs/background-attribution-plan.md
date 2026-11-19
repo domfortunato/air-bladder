@@ -1,8 +1,8 @@
 # Attribution for custom backgrounds — decided and built
 
 *Internal design note, kept as the record of a decision rather than as a plan.
-Not published — `tools/site.mjs` copies only `docs/images/*.png`, so `.md` files
-here stay out of the built site by construction.*
+Not published: nothing serves `docs/` but the repository itself (the landing page,
+which copied only `docs/images/*.png`, was retired on 2026-11-19).*
 
 *Raised 2026-08-15 as "if a Warden writes their own backgrounds, where do they
 record who wrote it and under what licence?" — investigated, then answered the

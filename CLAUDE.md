@@ -27,9 +27,10 @@ is an independent system with its own `id`, content and history — **not** a gi
   and **nothing drops out**; the minimum stays 14.368. **14.367 is left alone** (the
   user drew the line at 14.368 the same hour). Farm projects: `air-bladder` (newest),
   `air-bladder-14369`, `air-bladder-14368`; a release runs the suite on every one.
-- **The minimum is stated in six places** — `README.md`, `README.es.md`,
-  `CONTRIBUTING.md`, `site/index.html`, `docs/testing-dev-branch.md` and here.
-  Change the minimum, change all six. Moving `verified` alone does NOT touch them
+- **The minimum is stated in five places** — `README.md` (held to `system.json` by
+  `check:readme`), `README.es.md`, `CONTRIBUTING.md`, `docs/testing-dev-branch.md` and
+  here (six until the landing page was retired, 2026-11-19). Change the minimum, change
+  all five. Moving `verified` alone does NOT touch them
   (they state the floor, "or higher").
 - **`verified` = the newest build actually proven green** (14.369, via `dev:upgrade`
   0.1.24→0.1.25 then `dev:smoke` on `foundry/app-14369` — the upgrade leg never
@@ -64,7 +65,7 @@ is permanent. Full model in `docs/git-flow.md`; summary in `CONTRIBUTING.md`.
 - **Merge `master` into `dev` after every release** (the release commit bumps
   `system.json` on `master` only). This is the only master→dev sync.
 - **`npm run release` refuses to run off `master`** and prints what it ships.
-- CodeQL scans `dev`; Pages is master-only. Queue: `/compare/master...dev`.
+- CodeQL scans `dev`. GitHub Pages is RETIRED (2026-11-19). Queue: `/compare/master...dev`.
 - **Never tag or release on GitHub.** `origin` (Gitea) push-mirrors to GitHub and
   force-syncs; a GitHub-only ref is pruned. Tag on `origin`. Merge PRs locally,
   never with GitHub's button (`docs/i18n-maintainer.md`).
@@ -76,10 +77,14 @@ is permanent. Full model in `docs/git-flow.md`; summary in `CONTRIBUTING.md`.
   land it on their word, never inside another commit.
 - `npm run release X.Y.Z -- --dry-run` prints the body and runs on `dev`. **The `--`
   is npm's**; without it npm eats `--dry-run`. (`npm_config_dry_run` is honoured too.)
-- **TWO ADDRESSES, ON PURPOSE (CLOSED).** `https://domfortunato.github.io/air-bladder/`
-  is canonical (`system.json` `url`, READMEs). `airbladder.xyz` redirects to it and
-  is used only where a person types it by hand (printed sheet footer
-  `CAIRN.PrintCreditGenerated`, the age-formula hint). Not drift; do not raise.
+- **GITHUB PAGES RETIRED (user, 2026-11-19); the repo is the address.** `system.json`
+  `url` is `https://github.com/domfortunato/air-bladder` on `dev`; it reaches installed
+  copies only at the next release, so **Pages is switched off in GitHub's settings
+  (by the user) only AFTER that release** — before it, every installed copy's "View
+  Package Website" would 404. `airbladder.xyz` stays, retargeted by the user to the
+  repo; it is used only where a person types it by hand (printed sheet footer
+  `CAIRN.PrintCreditGenerated`, two setting hints). The old github.io page is not
+  rebuilt: no `site/`, no `pages.yml`, no `build:site`/`dev:site`.
 
 ## Architecture
 
@@ -280,7 +285,7 @@ on the cluster's probe fleet (~4 min) and where it stands: `docs/fleet-probes.md
 ## CLOSED — do not raise
 
 - The `id` rename (`air-bladder` stays).
-- Two site addresses (github.io canonical, `airbladder.xyz` redirect).
+- GitHub Pages (retired 2026-11-19; the repo is the address, `airbladder.xyz` redirects to it).
 - Encumbrance threshold (no free slot = encumbered).
 - Token linking default (persons linked, monsters not).
 - Cairn game text is CC BY-SA wherever it sits.

@@ -26,8 +26,8 @@ a probe, the dev world or the system is this repo's to fix.
 - **A run** rolls every box back to its `pristine` snapshot and deploys the ref under test into the box's
   system folder. It then runs several probes per box in turn, **with no reset between them**.
 - **Which probes run:** every `dev:` script in `package.json` whose command runs a `tools/dev/e2e-*.mjs`
-  file, so a new probe joins the fleet just by being declared there. That is 105 of the 110 `dev:` scripts:
-  the ops registry leaves out `dev:upgrade`, and `dev:smoke`, `dev:site`, `dev:actors` and `dev:players`
+  file, so a new probe joins the fleet just by being declared there. That is 106 of the 110 `dev:` scripts:
+  the ops registry leaves out `dev:upgrade`, and `dev:smoke`, `dev:actors` and `dev:players`
   are not probes.
 - **`pristine` holds a copy of CT 123's dev world as it stood on 2026-10-21**, launched once at 14.369 on
   2026-10-30. Anything that world held then is in every box at the start of every run: your own tables,
