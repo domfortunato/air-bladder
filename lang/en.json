@@ -21,7 +21,7 @@
   "CAIRN.AttackDialog.Current": "Your current targets ({names})",
   "CAIRN.AttackDialog.NoTarget": "No one in particular",
   "CAIRN.AttackDialog.PanicNote": "Panicked — this attack is impaired ({formula}).",
-  "CAIRN.AttackDialog.Target": "Who are you attacking?",
+  "CAIRN.AttackDialog.Target": "Target:",
   "CAIRN.AttackDialog.Weapon": "Weapon or attack",
   "CAIRN.AttackTip": "Choose who you attack, with what, and whether it is impaired or enhanced.",
   "CAIRN.AttacksTarget": "{attacker} attacks {target}!",
