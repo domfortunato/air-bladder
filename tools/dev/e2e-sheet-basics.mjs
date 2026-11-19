@@ -88,7 +88,7 @@ openedOn.length === 1 && openedOn[0] === "character"
 console.log("\nform persistence — no save button, change alone must commit");
 
 /* ---------------------------------------------------------------- text ---- */
-// Pronouns lives on the Character page, under Gold, since 2026-11-19: the page a
+// Pronouns lives on the Character page, under the name, since 2026-11-19: the page a
 // fresh sheet opens on, so no page turn.
 await page.fill(`${SHEET} input[name="system.pronouns"]`, "they/them");
 await page.locator(`${SHEET} input[name="system.pronouns"]`).blur();
