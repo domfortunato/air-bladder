@@ -95,7 +95,10 @@ try {
     // ready while it is unset.
     const MARKERS = ["roles-restamped", "companion-restamped", "connections-migrated",
       "grimoire-keys-stamped", "hireling-split", "hireling-split-pending",
-      "art-migration-generation", "vald-weather-today", "glog-converted"];
+      "art-migration-generation", "vald-weather-today", "glog-converted",
+      // Internal, and dates from after the namespace move (2026-11-19), so no
+      // "cairn.<key>" value exists for SETTING_KEYS to carry: vald-weather-today's case.
+      "welcome-on-start"];
     out.unlisted = [...game.settings.settings.keys()]
       .filter((k) => k.startsWith(`${mod.SETTINGS_NS}.`))
       .map((k) => k.slice(mod.SETTINGS_NS.length + 1))

@@ -5109,3 +5109,110 @@ header.character-generator.directory-header .header-actions > button:not(.cairn-
     overflow: visible;
     text-overflow: clip;
 }
+
+/* ---- Welcome window (module/welcome.js) --------------------------------------
+   Laid out as Base Knavery's (user ask 2026-11-19): wide, two columns, the window
+   stops at the screen and its content scrolls; one column when narrow (a container
+   query). Every colour is a palette token above, so it follows the theme. */
+#air-bladder-welcome { max-height: calc(100vh - 20px); }
+#air-bladder-welcome .window-content { padding: 14px 20px; overflow-y: auto; min-height: 0; container-type: inline-size; }
+.ab-welcome-body { display: flex; flex-direction: column; gap: 8px; color: var(--ab-ink); }
+/* The head: Lydia Comer's two portraits as book ends either side of the title.
+   Her white-filled versions read on both themes, so there is one file each. */
+.ab-welcome-head { display: flex; align-items: center; justify-content: center; gap: 20px; }
+.ab-welcome-bookend { display: flex; flex: 0 0 auto; }
+.ab-welcome-bookend img { display: block; width: 104px; height: 104px; object-fit: contain; border: none; }
+.ab-welcome-titles { display: flex; flex-direction: column; align-items: center; gap: 0; }
+.ab-welcome-title {
+    margin: 0; border: none; font-family: "Alegreya", Times, "Times New Roman", Georgia, serif;
+    font-variant: small-caps; font-weight: bold; font-size: 30px; color: var(--ab-ink);
+}
+.ab-welcome-title sup { font-size: 0.45em; font-variant: normal; vertical-align: super; margin-left: 1px; }
+.ab-welcome-byline { margin: 0; color: var(--ab-muted); font-size: 13px; }
+.ab-welcome-byline a { color: inherit; }
+.ab-welcome-unofficial > span { display: block; }
+.ab-welcome-unofficial {
+    margin: 0; text-align: center; font-style: italic; font-weight: 400; font-size: 14px; line-height: 1.4; color: var(--ab-muted);
+}
+
+.ab-welcome-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 0 28px; align-items: start; }
+@container (max-width: 620px) { .ab-welcome-cols { grid-template-columns: 1fr; } }
+.ab-welcome-col { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.ab-welcome-heading {
+    margin: 8px 0 0; padding-bottom: 2px; border-bottom: 1px solid var(--ab-rule);
+    font-family: "Alegreya", Times, "Times New Roman", Georgia, serif; font-variant: small-caps;
+    font-size: 17px; color: var(--ab-ink);
+}
+.ab-welcome-col > .ab-welcome-heading:first-child { margin-top: 0; }
+
+/* System Rules: the three lines, then which backgrounds this world offers. */
+.ab-welcome-rules { margin: 0; padding-left: 18px; font-size: 13px; line-height: 1.45; }
+.ab-welcome-rules li { margin: 2px 0; }
+.ab-welcome-world {
+    margin: 0; padding: 4px 10px; border: 1px solid var(--ab-accent); border-radius: 4px; background: var(--ab-accent-wash);
+    font-weight: bold;
+}
+.ab-welcome-change { margin: 0; color: var(--ab-muted); font-size: 12px; }
+.ab-welcome-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.ab-welcome-actions button { flex: 1 1 auto; width: auto; }
+
+/* Buy the books: the author, then the book's name, its links and note beside it. */
+.ab-welcome-author { margin: 0; font-size: 13px; }
+.ab-welcome-book { display: grid; grid-template-columns: max-content 1fr; align-items: center; gap: 4px 10px; }
+.ab-welcome-book-name { grid-column: 1; min-width: 60px; font-weight: bold; font-variant: small-caps; font-size: 13px; }
+.ab-welcome-book .ab-welcome-links { grid-column: 2; }
+.ab-welcome-book-note { grid-column: 2; margin: 0; color: var(--ab-muted); font-size: 12px; }
+.ab-welcome-links { display: flex; flex-wrap: wrap; gap: 6px; }
+.ab-welcome-link {
+    display: inline-flex; align-items: center; gap: 5px; padding: 2px 8px; font-size: 13px;
+    border: 1px solid var(--ab-rule-strong); border-radius: 4px; color: var(--ab-ink); text-decoration: none;
+}
+.ab-welcome-link:hover, .ab-welcome-link:focus-visible { background: var(--ab-wash-strong); text-shadow: none; }
+
+/* AI disclosure: no AI art, then no AI game text, then the code. */
+.ab-welcome-ai { display: flex; flex-direction: column; gap: 4px; }
+.ab-welcome-noai { margin: 0; font-size: 13px; line-height: 1.4; }
+.ab-welcome-noai i { color: var(--ab-accent); }
+
+/* Licensing fills the side column's foot, with the Air Bladder logo faint in the
+   empty space by the Close button (Base Knavery's watermark). The file is unaltered. */
+.ab-welcome-small { display: flex; flex-direction: column; gap: 4px; }
+.ab-welcome-col-side { align-self: stretch; }
+.ab-welcome-licensing { position: relative; isolation: isolate; min-height: 120px; flex: 1 1 auto; }
+.ab-welcome-licensing .ab-welcome-watermark {
+    position: absolute; right: 24px; bottom: 0; z-index: -1; width: 170px; height: auto; border: none;
+    opacity: 0.14; pointer-events: none;
+}
+.air-bladder-welcome .ab-logo-dark { display: none; }
+.theme-dark .air-bladder-welcome:not(.theme-light) .ab-logo-light,
+.air-bladder-welcome.theme-dark .ab-logo-light { display: none; }
+.theme-dark .air-bladder-welcome:not(.theme-light) .ab-logo-dark,
+.air-bladder-welcome.theme-dark .ab-logo-dark { display: block; }
+
+/* Folds as bullets: each fold's arrow is its bullet; open, the arrow turns and the
+   text sits indented under the title. */
+.ab-welcome-folds { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.ab-welcome-fold > summary {
+    display: flex; align-items: baseline; gap: 6px; list-style: none; cursor: pointer;
+    font-family: "Alegreya", Times, "Times New Roman", Georgia, serif; font-variant: small-caps; font-weight: bold;
+    font-size: 14px; color: var(--ab-ink);
+}
+.ab-welcome-fold > summary::-webkit-details-marker { display: none; }
+.ab-welcome-fold > summary::before {
+    content: "▸"; display: inline-block; width: 10px; color: var(--ab-accent); font-variant: normal; transition: transform 0.15s;
+}
+.ab-welcome-fold[open] > summary::before { transform: rotate(90deg); }
+.ab-welcome-fold > summary:hover, .ab-welcome-fold > summary:focus-visible { color: var(--ab-accent); }
+.ab-welcome-fold > :not(summary) { margin: 2px 0 4px 16px; color: var(--ab-muted); font-size: 12px; line-height: 1.4; }
+.ab-welcome-fold ul { padding-left: 16px; }
+.ab-welcome-fold a { color: var(--ab-ink); text-decoration: underline; }
+
+.ab-welcome-foot {
+    display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 4px;
+    padding-top: 8px; border-top: 1px solid var(--ab-rule);
+}
+.ab-welcome-onstart { display: flex; align-items: center; gap: 4px; color: var(--ab-muted); font-size: 13px; }
+.ab-welcome-foot button { flex: 0 0 auto; width: auto; margin-left: auto; }
+
+/* The Settings sidebar's Air Bladder section (cairn.js renderSettings). */
+#settings .air-bladder-sidebar-tools { gap: 4px; }

@@ -203,14 +203,14 @@ Six things carry roughly half the logic, and nothing routes around them.
 
 ## The leaf features
 
-Thirteen files are imported only by the boot file or by a sheet, which means
+Fourteen files are imported only by the boot file or by a sheet, which means
 **no other feature depends on them**. Each can be read, understood and changed
 on its own once the spine is familiar:
 
 `art-picker.js` · `combat.js` · `encounters.js` · `faction-generator.js` ·
 `grimoire.js` · `item-offer.js` · `kettlewright-import.js` · `macros.js` ·
 `monster-generator.js` · `table-banner.js` ·
-`warden-dashboard.js` · `watch-clock.js` · `weather-log.js`
+`warden-dashboard.js` · `watch-clock.js` · `weather-log.js` · `welcome.js`
 
 Three more are shared by a few features rather than the system:
 `vald-calendar.js` (imported by the boot file, the dashboard and the clock),

@@ -31,6 +31,7 @@ import { injectEncounterButton, localizeEncounterQty, resolveTable } from "./enc
 import { bindGrimoireFatigueButton, localizeGlogCastCard } from "./grimoire.js";
 import { nameableTokens, DAMAGE_QUALITY_KEYS, localizeD20Card, localizeRollFlavor, damageDiceIcons, windowIdOf, relayedLabel, labelIconControl } from "./utils.js";
 import { movedArt, movedFields, registerArtArrival } from "./art-paths.js";
+import { openWelcome, welcomeDue, maybeOpenWelcome } from "./welcome.js";
 
 /**
  * The Fatigue instead of Critical Damage option: the save card's choice, once
@@ -60,6 +61,9 @@ Hooks.once("init", async function () {
     monsterGenerator: monsterGenerator,
     kettlewrightImport: kettlewrightImport,
     rollItemMacro,
+    // The welcome window (module/welcome.js); `welcomeDue` is what the probes ask.
+    openWelcome,
+    welcomeDue,
   };
 
   // Define custom Entity classes
@@ -3249,6 +3253,30 @@ Hooks.on("userConnected", (user, _connected) => {
 Hooks.on("createActor", (actor, _options, userId) => stripPlantedPileFlags(actor, userId));
 Hooks.on("updateActor", (actor, _changes, _options, userId) => stripPlantedPileFlags(actor, userId));
 Hooks.once("ready", () => stripPlantedPileFlags());
+
+// The welcome window at each Warden login, unless they unticked "Show each time
+// a Game Master loads the world" (module/welcome.js).
+Hooks.once("ready", () => maybeOpenWelcome());
+
+// The Settings sidebar: a button that opens the welcome window, for anyone,
+// under the system's own heading below Foundry's game details (as Base Knavery).
+Hooks.on("renderSettings", (_app, html) => {
+  html.querySelector(".air-bladder-sidebar-tools")?.remove();
+  const info = html.querySelector("section.info");
+  if (!info) return;
+  const section = document.createElement("section");
+  section.className = "air-bladder-sidebar-tools flexcol";
+  const heading = document.createElement("h4");
+  heading.className = "divider";
+  heading.textContent = game.system.title;
+  const button = document.createElement("button");
+  button.type = "button";
+  button.dataset.abWelcome = "";
+  button.innerHTML = `<i class="fa-solid fa-dungeon" inert></i> ${game.i18n.localize("CAIRN.Welcome.Sidebar")}`;
+  button.addEventListener("click", () => openWelcome());
+  section.append(heading, button);
+  info.after(section);
+});
 
 /**
  * Give an UNTARGETED damage card the Apply control it never had.

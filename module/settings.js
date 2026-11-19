@@ -157,7 +157,7 @@ const rerenderItemSheets = () => rerenderSheetsOf(Item);
  */
 export const INTERNAL_SETTING_KEYS = [
   "custom-portrait-list", "disabled-backgrounds", "connections-ui-enabled",
-  "vald-weather-today",
+  "vald-weather-today", "welcome-on-start",
 ];
 
 /**
@@ -846,6 +846,16 @@ export const registerSettings = () => {
   // clients through its own change handler or not at all. Without it the new
   // line appears on the Warden's screen alone, until something unrelated
   // happens to re-render.
+  // The welcome window opens by itself at each Warden login while this is on
+  // (module/welcome.js; user ask 2026-11-19: ticked by default). Its one switch
+  // is the box in the window's own footer, so it sits in no settings group.
+  game.settings.register(SETTINGS_NS, "welcome-on-start", {
+    scope: "world",
+    config: false,
+    type: Boolean,
+    default: true,
+  });
+
   game.settings.register(SETTINGS_NS, "vald-weather-today", {
     scope: "world",
     config: false,

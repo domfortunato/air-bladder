@@ -70,7 +70,8 @@ export async function withSettings(page, fn) {
 
 /**
  * Clear the things that block automated clicks: the one-time usage-data consent
- * prompt, and tour overlays, which cover the screen and swallow pointer events.
+ * prompt, tour overlays, which cover the screen and swallow pointer events, and
+ * the welcome window, which opens by itself at a Warden's login (module/welcome.js).
  */
 export async function dismissChrome(page) {
   const decline = page.getByRole("button", { name: /Decline Sharing/i });
@@ -78,6 +79,18 @@ export async function dismissChrome(page) {
     await decline.first().click().catch(() => {});
     await page.waitForTimeout(800);
   }
+
+  // The welcome window: 800px wide in the middle of the screen. Asked of the
+  // system, not guessed: only a login it is due on waits for it (it renders a
+  // moment after `ready`), and closing it leaves the world setting alone.
+  await page.evaluate(async () => {
+    try {
+      if (!globalThis.game?.cairn?.welcomeDue?.()) return;
+      const get = () => foundry.applications.instances.get("air-bladder-welcome");
+      for (let i = 0; i < 80 && !get(); i++) await new Promise((r) => setTimeout(r, 100));
+      await get()?.close({ animate: false });
+    } catch { /* the setup page has no game */ }
+  }).catch(() => {});
 
   // Exit via the API so the dismissal persists, then sweep any leftover nodes.
   await page.evaluate(() => {
