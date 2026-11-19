@@ -106,10 +106,12 @@ export class WelcomeWindow extends HandlebarsApplicationMixin(ApplicationV2) {
       byline: F("CAIRN.Welcome.By", { author: author.name, version: game.system.version }),
       authorUrl: author.url ?? "",
       bookends: WELCOME_BOOKENDS,
-      // The Air Bladder logo, faint at the foot of the side column: black lettering
-      // on the light theme, white on the dark (art/lydia-comer/license.txt, LOGO).
-      logo: `${SYS_PATH}/art/lydia-comer/Airbladder02.webp`,
-      logoDark: `${SYS_PATH}/art/lydia-comer/Airbladder06.webp`,
+      // The "For Use With Cairn" stamp at the foot of the side column, where Base
+      // Knavery shows its own compatibility mark: the same file the character
+      // sheet and the printed page show (user ask 2026-11-19). A white JPG, so
+      // one file on both themes (a white card on the dark one, as on the sheet),
+      // shown whole and opaque: logo/README.md rules out altering the mark.
+      stamp: `${SYS_PATH}/logo/Cairn_Stamp.jpg`,
       thisWorld: thisWorldLine(),
       // The licence links are built here: the strings carry only their words.
       cairnBody: F("CAIRN.Welcome.CairnLicenseBody", { license: this.#licenseLink() }),

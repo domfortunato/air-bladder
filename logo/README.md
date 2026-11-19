@@ -2,7 +2,8 @@
 
 `Cairn_Stamp.jpg` is the "For Use With Cairn" stamp — **the one this system
 displays**, on the character sheet and in the top right of the printed page
-(user ask 2026-08-16, replacing the badge below on both surfaces at once). It
+(user ask 2026-08-16, replacing the badge below on both surfaces at once), and
+at the foot of the welcome window (2026-11-19). It
 comes from the same source and carries the same terms as everything else here:
 downloaded unmodified from Yochai Gal's own link on
 <https://cairnrpg.com/resources/logos/>, 338×218, ship it as it arrived.

@@ -116,7 +116,8 @@ Spanish translation — CC BY-SA 4.0, © Malecho (https://github.com/fsmalecho)
 
 Cairn compatibility marks — CC BY-SA 4.0, © Yochai Gal
     logo/  — used per the terms at https://cairnrpg.com/resources/logos
-    The "For Use With Cairn" stamp the sheets display, and the older
+    The "For Use With Cairn" stamp the sheets and the welcome window
+    display, and the older
     "Compatible with Cairn 2e" badge it replaced. Ship them unmodified;
     see logo/README.md.
 

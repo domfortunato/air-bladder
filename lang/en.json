@@ -1266,6 +1266,7 @@
     "Title": "Welcome to Air Bladder",
     "By": "by {author} · version {version}",
     "PortraitAlt": "A portrait drawn by Lydia Comer",
+    "StampAlt": "For Use With Cairn",
     "Unofficial": "Air Bladder is an unofficial, fan-made Foundry VTT system for Cairn 2e and Cairn Barebones.",
     "NotOfficial": "It is not the official Cairn system, and Yochai Gal has not endorsed it.",
     "RulesHeading": "System Rules",
@@ -1312,7 +1313,7 @@
       "Bookends": "The two portraits beside the title",
       "Logo": "The Air Bladder logo",
       "AllRightsReserved": "all rights reserved",
-      "CairnMarks": "The \"For Use With Cairn\" marks",
+      "CairnMarks": "The \"For Use With Cairn\" stamp",
       "Alegreya": "Alegreya fonts"
     },
     "ShowOnStart": "Show each time a Game Master loads the world",

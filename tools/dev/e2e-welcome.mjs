@@ -13,8 +13,8 @@
  *   - the setting is registered world, Boolean, default ON;
  *   - the window renders: the title, both portraits loaded, no raw CAIRN. key,
  *     the three System Rules lines, the three buy links on cairnrpg.com, the
- *     licence folds, and the logo swapped by theme in BOTH schemes (configureUI,
- *     never a write);
+ *     licence folds, and the sheets' "For Use With Cairn" stamp in BOTH schemes
+ *     (configureUI, never a write), opaque and at its own aspect;
  *   - "This world offers …" follows the three background switches;
  *   - the footer box writes the setting both ways;
  *   - Open the guide and Open the rulebook open the System Docs and Cairn 2e Rules
@@ -81,9 +81,18 @@ try {
           cfg.colorScheme = { applications: s, interface: s };
           game.configureUI(cfg);
           await new Promise((r) => setTimeout(r, 500));
-          const shown = (sel) => getComputedStyle(el.querySelector(sel)).display !== "none";
-          logos[s] = { light: shown(".ab-logo-light"), dark: shown(".ab-logo-dark"),
-            ink: getComputedStyle(el.querySelector(".ab-welcome-title")).color };
+          // The stamp: the sheets' own file, shown, decoded, fully opaque, and
+          // drawn at the file's own aspect — a squashed mark is a cropped one
+          // (logo/README.md).
+          const vis = el.querySelector(".ab-welcome-stamp");
+          if (vis) { try { await vis.decode(); } catch { /* naturalWidth 0 reports it */ } }
+          const r = vis?.getBoundingClientRect();
+          logos[s] = { shown: !!vis && getComputedStyle(vis).display !== "none",
+            src: vis?.getAttribute("src") ?? null,
+            ink: getComputedStyle(el.querySelector(".ab-welcome-title")).color,
+            natural: vis?.naturalWidth ?? 0,
+            opacity: vis ? getComputedStyle(vis).opacity : null,
+            aspectOff: vis && vis.naturalWidth ? Math.abs(r.width / r.height - vis.naturalWidth / vis.naturalHeight) : null };
         }
       } finally {
         game.configureUI(game.settings.get("core", "uiConfig"));
@@ -109,10 +118,12 @@ try {
     check("four licence folds, the art fold listing its credits", content.folds === 4 && content.credits >= 6,
       `${content.folds} folds, ${content.credits} credits`);
     check("the Warden gets the footer box", content.box);
-    check("light scheme: the black-lettered logo shows, the white one does not",
-      content.logos.light?.light === true && content.logos.light?.dark === false, JSON.stringify(content.logos.light));
-    check("dark scheme: the white-lettered logo shows, the black one does not",
-      content.logos.dark?.light === false && content.logos.dark?.dark === true, JSON.stringify(content.logos.dark));
+    for (const s of ["light", "dark"]) {
+      const l = content.logos[s] ?? {};
+      check(`${s} scheme: the sheets' "For Use With Cairn" stamp shows, loaded, fully opaque, at its own aspect`,
+        l.shown === true && /\/logo\/Cairn_Stamp\.jpg$/.test(l.src ?? "") && l.natural > 0
+        && l.opacity === "1" && l.aspectOff !== null && l.aspectOff < 0.02, JSON.stringify(l));
+    }
     check("the title's ink follows the scheme", content.logos.light?.ink !== content.logos.dark?.ink,
       `${content.logos.light?.ink} / ${content.logos.dark?.ink}`);
 
