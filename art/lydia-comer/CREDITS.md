@@ -94,7 +94,7 @@ stem**. Picking a portrait sets the paired token with it.
 ## The welcome window
 
 `welcome/` holds the two portraits beside the title of the welcome window
-(`module/welcome.js`): `Knight12w-t.webp` and `Femme12w-t.webp`, the artist's
+(`module/welcome.js`): `Knight12w-t.webp` and `Femme20w-t.webp`, the artist's
 white-filled transparent versions, under the same CC BY-NC-SA 4.0 licence.
 Shrunk from 1000×1000 to 250×250 and re-encoded to WebP q95; nothing else
 changed. Not a gallery: the portrait picker does not offer them, and this

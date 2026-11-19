@@ -33,7 +33,7 @@ const LYDIA_URL = "https://linktr.ee/lydiadidmyink";
  */
 const WELCOME_BOOKENDS = {
   left: `${SYS_PATH}/art/lydia-comer/welcome/Knight12w-t.webp`,
-  right: `${SYS_PATH}/art/lydia-comer/welcome/Femme12w-t.webp`,
+  right: `${SYS_PATH}/art/lydia-comer/welcome/Femme20w-t.webp`,
 };
 
 /** Where to buy Cairn: Yochai Gal's own site (user ask 2026-11-19), its three doors. */
