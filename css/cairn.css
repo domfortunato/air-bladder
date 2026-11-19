@@ -57,6 +57,14 @@
     --ab-chip-border: #999;
     --ab-chip-border-strong: #555;  /* marks a grant-source chip apart */
 
+    /* The character sheet's thumb-tab rail (2026-11-19, after Base Knavery's):
+       a strip of parchment hung off the frame, and its drop shadow. The url is
+       relative to THIS file (systems/air-bladder/css/), which reaches core's
+       /ui/ and keeps working under a route prefix. */
+    --ab-rail-paper: url("../../../ui/parchment.jpg");
+    --ab-rail-fill: #e9dfc9;
+    --ab-shadow: rgba(0, 0, 0, 0.3);
+
     /* A warm off-white for the sheet's custom checkboxes, so they sit IN the
        parchment instead of glaring as cold-white patches. Deliberately NOT
        darkened for dark mode: a control should stand out from the sheet, and
@@ -174,6 +182,12 @@
     --ab-wash-strong: rgba(255, 255, 255, 0.1);
     --ab-chip-border: #6e675c;
     --ab-chip-border-strong: #8f8779;
+
+    /* Dark: no parchment; the rail takes the frame's own fill (core's
+       --background, made solid on a railed window — see the rail block). */
+    --ab-rail-paper: none;
+    --ab-rail-fill: var(--background);
+    --ab-shadow: rgba(0, 0, 0, 0.6);
 
     --ab-peril: #ff6b6b;
     --ab-error: #ff7b7b;
@@ -692,8 +706,13 @@
    that read as content sitting outside a field. `.cairn.sheet.item` is the
    application frame's class set, so one selector covers all seven item
    templates' description / crit-dmg / recharge editors at once — the next new
-   editor on an item sheet is covered before it exists. */
+   editor on an item sheet is covered before it exists.
+
+   THE CHARACTER'S GROWTH JOURNAL JOINED ON 2026-11-19, the Notes editor's
+   twin on the new Growth page — in every list of this treatment, so the two
+   editors cannot drift apart. */
 .cairn .tab[data-tab="notes"] prose-mirror.inactive,
+.cairn .tab[data-tab="growth"] prose-mirror.inactive,
 .cairn .npc-description-section prose-mirror.inactive,
 .cairn.sheet.item prose-mirror.inactive {
     border: 1px solid var(--ab-edge);
@@ -701,6 +720,7 @@
     border-radius: 6px;
 }
 .cairn .tab[data-tab="notes"] prose-mirror.inactive .editor-content,
+.cairn .tab[data-tab="growth"] prose-mirror.inactive .editor-content,
 .cairn .npc-description-section prose-mirror.inactive .editor-content,
 .cairn.sheet.item prose-mirror.inactive .editor-content {
     /* Core pads the display half right-only (0.5rem, foundry2.css:13592, in
@@ -720,6 +740,7 @@
    rules are in @layer compatibility, which `system` outranks (review #34
    finding 100). */
 .cairn .tab[data-tab="notes"] prose-mirror.inactive > button.icon.toggle:enabled,
+.cairn .tab[data-tab="growth"] prose-mirror.inactive > button.icon.toggle:enabled,
 .cairn .npc-description-section prose-mirror.inactive > button.icon.toggle:enabled,
 .cairn.sheet.item prose-mirror.inactive > button.icon.toggle:enabled {
     display: block;
@@ -733,6 +754,7 @@
    light, 2.14:1 in dark. The teal has no value that reads on parchment either
    way, so the hover is the eye's: the strong wash under the ink. */
 .cairn .tab[data-tab="notes"] prose-mirror.inactive > button.icon.toggle:enabled:hover,
+.cairn .tab[data-tab="growth"] prose-mirror.inactive > button.icon.toggle:enabled:hover,
 .cairn .npc-description-section prose-mirror.inactive > button.icon.toggle:enabled:hover,
 .cairn.sheet.item prose-mirror.inactive > button.icon.toggle:enabled:hover {
     background: var(--ab-wash-strong);
@@ -2289,17 +2311,17 @@ textarea.omen-input {
     cursor: pointer;
 }
 
-.character-omen-scar .scar-section {
+:is(.character-omen-scar, .cairn-growth-scars) .scar-section {
     margin-top: 8px;
 }
 
-.character-omen-scar .scar-header {
+:is(.character-omen-scar, .cairn-growth-scars) .scar-header {
     display: flex;
     align-items: center;
     gap: 8px;
 }
 
-.character-omen-scar .scar-label {
+:is(.character-omen-scar, .cairn-growth-scars) .scar-label {
     display: flex;
     align-items: center;
     gap: 4px;
@@ -2308,7 +2330,7 @@ textarea.omen-input {
     min-width: 96px;
 }
 
-.character-omen-scar .scar-toggle {
+:is(.character-omen-scar, .cairn-growth-scars) .scar-toggle {
     flex: 0 0 auto;
     cursor: pointer;
 }
@@ -5236,3 +5258,245 @@ header.character-generator.directory-header .header-actions > button:not(.cairn-
 
 /* The Settings sidebar's Air Bladder section (cairn.js renderSettings). */
 #settings .air-bladder-sidebar-tools { gap: 4px; }
+
+/******************************************************************************
+ * The character sheet, after Base Knavery's (2026-11-19, user ask): five      *
+ * pages turned from a thumb-tab rail, page 1 a head over abilities + band |   *
+ * vitals. Everything here is scoped under .cairn-character-sheet (the frame   *
+ * class _initializeApplicationOptions gives a character only), because the    *
+ * npc sheet shares .resource-counter, .hp-counter, .tabs and the items list,  *
+ * and must not move.                                                          *
+ ******************************************************************************/
+
+/* ---- Thumb-tab rail (module/actor/tab-rail.js, parts/tab-rail.html) -------
+   The rail is a render part of its own inside .window-content, which is not
+   positioned, so it is placed against the frame and hangs outside it. The frame
+   stops clipping so it can show, and rounds its header and content itself; the
+   dark theme's backdrop blur on .window-content is off, since a backdrop filter
+   would make the content the rail's containing block and clip it. Mirrored onto
+   the left edge under .cairn-rail-left when the window stands too near the
+   right of its screen (tab-rail.js decides). Base Knavery's block, ported. */
+.cairn.cairn-railed { overflow: visible; }
+.cairn.cairn-railed > .window-header { border-radius: 6px 6px 0 0; }
+.cairn.cairn-railed > .window-content {
+    border-radius: 0 0 6px 6px;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+}
+/* A railed window drops the dark theme's backdrop blur (the rail would be
+   clipped), so its see-through background turns solid, as Foundry does for
+   reduced transparency. */
+.theme-dark .cairn.cairn-railed:not(.theme-light),
+.cairn.cairn-railed.theme-dark { --background: var(--color-cool-5); }
+.cairn.cairn-railed > .window-content > nav.cairn-tab-rail {
+    position: absolute;
+    top: calc(var(--header-height, 36px) + 12px);
+    left: 100%;
+    display: flex;
+    flex: none;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: stretch;
+    gap: 4px;
+    box-sizing: border-box;
+    margin: 0;
+    padding: 5px;
+    border: 1px solid var(--ab-rule-strong);
+    border-left: none;
+    border-radius: 0 8px 8px 0;
+    background-color: var(--ab-rail-fill);
+    background-image: var(--ab-rail-paper);
+    box-shadow: 3px 3px 8px var(--ab-shadow);
+    line-height: normal;
+}
+.cairn.cairn-railed > .window-content > nav.cairn-tab-rail[hidden] { display: none; }
+.cairn.cairn-railed > .window-content > nav.cairn-tab-rail button {
+    /* Core keeps a button at least --button-size (2em) tall; a tab is a 32px square. */
+    --button-size: 32px;
+    position: relative;
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    min-height: 32px;
+    margin: 0;
+    padding: 0;
+    border: none;
+    border-radius: 5px;
+    background: transparent;
+    box-shadow: none;
+    color: var(--ab-ink);
+    font-size: 16px;
+    cursor: pointer;
+    transition: background-color 0.12s, color 0.12s;
+}
+.cairn.cairn-railed > .window-content > nav.cairn-tab-rail button i { margin: 0; color: inherit; pointer-events: none; }
+.cairn.cairn-railed > .window-content > nav.cairn-tab-rail button:hover,
+.cairn.cairn-railed > .window-content > nav.cairn-tab-rail button:focus-visible { background: var(--ab-wash-strong); outline: none; }
+/* The open page: the sheet's black label bar, which reads on either scheme. */
+.cairn.cairn-railed > .window-content > nav.cairn-tab-rail button.active { background: var(--ab-bar); color: var(--ab-on-bar); }
+.cairn.cairn-railed.cairn-rail-left > .window-content > nav.cairn-tab-rail {
+    left: auto;
+    right: 100%;
+    border-left: 1px solid var(--ab-rule-strong);
+    border-right: none;
+    border-radius: 8px 0 0 8px;
+    box-shadow: -3px 3px 8px var(--ab-shadow);
+}
+/* The rail's Improvised Attack: not a page, so set apart by a rule and the
+   splat in the peril colour. */
+.cairn.cairn-railed > .window-content > nav.cairn-tab-rail .cairn-rail-divider { display: block; height: 1px; margin: 2px 4px; background: var(--ab-rule-strong); }
+.cairn.cairn-railed > .window-content > nav.cairn-tab-rail button.cairn-rail-attack i { color: var(--ab-peril); }
+.cairn.cairn-railed > .window-content > nav.cairn-tab-rail button.cairn-rail-attack:disabled { opacity: 0.4; cursor: default; }
+
+/* ---- The pages ------------------------------------------------------------- */
+.cairn-character-sheet .cairn-character { display: flex; flex-direction: column; min-height: 100%; }
+.cairn-character-sheet .cairn-pages { flex: 1 0 auto; display: flex; flex-direction: column; }
+.cairn-character-sheet .cairn-pages > .tab.active { display: flex; flex-direction: column; flex: 1 0 auto; height: auto; }
+/* The breathing room under the old tab strip is not wanted under a window header. */
+.cairn-character-sheet .cairn-pages .description,
+.cairn-character-sheet .cairn-pages .tab[data-tab="notes"] { padding-top: 0; }
+
+/* ---- Character page: head ------------------------------------------------- */
+.cairn-character-sheet .cairn-head {
+    display: grid;
+    grid-template-columns: 104px minmax(0, 1fr);
+    column-gap: 8px;
+    align-items: start;
+}
+.cairn-character-sheet .cairn-head .portrait { height: 104px; }
+/* Two badges on the portrait, the die LEFT of the list button, as before. */
+.cairn-character-sheet .cairn-head .portrait-roll { right: 32px; }
+/* The name grid without the HP/Gold row it used to end in. */
+.cairn-character-sheet .cairn-identity {
+    min-width: 0;
+    min-height: 104px;
+    grid-template-rows: 46px 24px auto;
+}
+
+/* ---- Character page: abilities + band | vitals ---------------------------- */
+.cairn-character-sheet .cairn-body {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 172px;
+    column-gap: 14px;
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 2px solid var(--ab-line);
+    align-items: start;
+}
+.cairn-character-sheet .cairn-left { min-width: 0; display: flex; flex-direction: column; }
+.cairn-character-sheet .cairn-abilities { display: flex; flex-direction: column; gap: 8px; }
+.cairn-character-sheet .cairn-ability { display: flex; align-items: center; gap: 6px; min-height: 52px; }
+.cairn-character-sheet .cairn-ability-circle {
+    flex: 0 0 48px; width: 48px; height: 48px; box-sizing: border-box;
+    border: 2px solid var(--ab-line); border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+}
+.cairn-character-sheet .cairn-ability-circle input {
+    width: 40px; height: 40px !important; padding: 0;
+    background: none !important; border: none !important;
+    text-align: center !important; font-size: 20px; font-weight: bold;
+}
+.cairn-character-sheet .cairn-ability-circle input:focus { box-shadow: none; }
+/* The max, small beside the circle, in the counters' "/ max" ink. */
+.cairn-character-sheet .cairn-ability-max {
+    flex: 0 0 auto; display: flex; align-items: center; gap: 1px;
+    color: var(--ab-faint); font-size: 13px;
+}
+.cairn-character-sheet .cairn-ability-max input {
+    width: 26px; height: 22px !important; padding: 0;
+    background: none !important; border: none !important;
+    border-bottom: 1px solid var(--ab-rule) !important; border-radius: 0;
+    text-align: center !important; font-size: 13px; color: var(--ab-faint);
+}
+.cairn-character-sheet .cairn-ability-max input:focus { box-shadow: none; }
+.cairn-character-sheet .cairn-ability-words { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; line-height: 1.2; }
+.cairn-character-sheet .cairn-ability-name-line { display: flex; align-items: center; gap: 6px; }
+/* The save die and the ability's name, one link; hovering lights both in the
+   Die of Fate's teal. */
+.cairn-character-sheet .cairn-ability .resource-roll {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-family: "Alegreya", Times, "Times New Roman", Georgia, serif;
+    font-size: 18px; font-weight: bold; font-variant: small-caps;
+    color: var(--ab-ink); cursor: pointer;
+}
+.cairn-character-sheet .cairn-ability .resource-roll .roll-icon { margin: 0; font-size: 17px; opacity: 0.85; }
+/* Creation Mode's inert die keeps the shared look's default cursor. */
+.cairn-character-sheet .cairn-ability .resource-roll.save-roll-off { cursor: default; }
+.cairn-character-sheet .cairn-ability .resource-roll:not(.save-roll-off):hover,
+.cairn-character-sheet .cairn-ability .resource-roll:not(.save-roll-off):focus-visible {
+    text-shadow: 0 0 6px var(--ab-accent), 0 0 14px var(--ab-accent);
+}
+.cairn-character-sheet .cairn-ability-hint { font-size: 12px; font-style: italic; color: var(--ab-muted); }
+/* STR's Critical Damage skull: after the name, shown on hover until marked. */
+.cairn-character-sheet .cairn-ability a.critical-toggle {
+    color: var(--ab-peril); font-size: 12px; line-height: 1; opacity: 0; cursor: pointer;
+}
+.cairn-character-sheet .cairn-ability:hover a.critical-toggle { opacity: 0.5; }
+.cairn-character-sheet .cairn-ability a.critical-toggle.active { opacity: 1; }
+/* Below max: amber. In peril: red ring and number (listed after .low, so it wins). */
+.cairn-character-sheet .cairn-ability.low .cairn-ability-circle input { color: var(--ab-amber); }
+.cairn-character-sheet .cairn-ability.peril .cairn-ability-circle { border-color: var(--ab-peril); }
+.cairn-character-sheet .cairn-ability.peril .cairn-ability-circle input { color: var(--ab-peril); }
+
+/* The band under the abilities: Gold, Deprived, Panicked. */
+.cairn-character-sheet .cairn-band {
+    margin-top: 10px; padding-top: 8px; border-top: 2px solid var(--ab-line);
+    display: flex; flex-direction: column; gap: 6px;
+    font-family: "Alegreya", Times, "Times New Roman", Georgia, serif; font-size: 16px;
+}
+.cairn-character-sheet .cairn-band .band-row { display: flex; align-items: center; gap: 8px; }
+.cairn-character-sheet .cairn-band .band-label { flex: 0 0 84px; margin: 0; font-weight: bold; font-variant: small-caps; }
+.cairn-character-sheet .cairn-band .gold-input { width: 96px; text-align: right; font-size: 16px; }
+.cairn-character-sheet .cairn-band .deprived-check,
+.cairn-character-sheet .cairn-band .panicked-check { margin: 0; }
+/* Too much gold: the shared .overburdened-gold paints a COUNTER's frame red
+   over a black fill; a band row has neither, so the cue is the red figure. */
+.cairn-character-sheet .cairn-band .band-gold.overburdened-gold { background: none; border: none; }
+.cairn-character-sheet .cairn-band .band-gold.overburdened-gold .band-label,
+.cairn-character-sheet .cairn-band .band-gold.overburdened-gold .gold-input { color: var(--ab-peril); }
+.cairn-character-sheet .cairn-band .band-gold.overburdened-gold .gold-input { border-color: var(--ab-peril); }
+
+/* Vitals: the Armor shield, HP, the slot count and the buttons. */
+.cairn-character-sheet .cairn-vitals { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.cairn-character-sheet .cairn-shield {
+    position: relative; width: 66px; height: 72px; box-sizing: border-box;
+    border: 2px solid var(--ab-line);
+    border-radius: 50% 50% 50% 50% / 12% 12% 88% 88%;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+}
+.cairn-character-sheet .cairn-shield label {
+    font-family: "Alegreya", Times, "Times New Roman", Georgia, serif;
+    font-size: 13px; font-weight: bold; font-variant: small-caps; line-height: 1; margin: 4px 0 0;
+}
+.cairn-character-sheet .cairn-shield .armor-input {
+    width: 44px; height: 30px !important; padding: 0;
+    background: none !important; border: none !important;
+    text-align: center; font-size: 24px; font-weight: bold;
+}
+.cairn-character-sheet .cairn-shield .armor-input:focus { box-shadow: none; }
+.cairn-character-sheet .cairn-shield .armor-reset { position: absolute; right: -20px; top: 4px; margin: 0; }
+.cairn-character-sheet .cairn-vitals .hp-counter { align-self: stretch; }
+.cairn-character-sheet .cairn-slots-line {
+    display: flex; justify-content: center; align-items: baseline; gap: 6px; width: 100%;
+    font-family: "Alegreya", Times, "Times New Roman", Georgia, serif; font-size: 16px;
+}
+.cairn-character-sheet .cairn-slots-line i { opacity: 0.5; }
+.cairn-character-sheet .cairn-slots-line .slots-label { font-weight: bold; font-variant: small-caps; }
+.cairn-character-sheet .cairn-slots-line .slots-value { font-weight: bold; }
+.cairn-character-sheet .cairn-slots-line.peril { color: var(--ab-peril); }
+.cairn-character-sheet .cairn-vital-buttons { width: 100%; gap: 3px; }
+.cairn-character-sheet .cairn-vital-buttons button { height: 34px; }
+
+/* ---- Growth: Cairn's principle, the Scars, the journal --------------------- */
+.cairn-character-sheet .cairn-growth-intro { margin: 0 0 10px; font-style: italic; color: var(--ab-muted); }
+.cairn-character-sheet .cairn-growth-scars {
+    padding-bottom: 12px; margin-bottom: 12px; border-bottom: 1px solid var(--ab-rule-strong);
+}
+.cairn-character-sheet .cairn-growth-scars .scar-section { margin-top: 0; }
+/* A heading in the traits' weight, as the Description page's own: a div, not
+   an h-tag, which an AppV2 sheet would render 28px (docs/theming.md, fact 3). */
+.cairn-character-sheet .cairn-growth-heading { font-weight: bold; margin-bottom: 4px; }
+.cairn-character-sheet .cairn-growth-journal prose-mirror { min-height: 320px; }

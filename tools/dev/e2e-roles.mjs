@@ -33,11 +33,13 @@
  * 5. **Tab ORDER (2026-08-01) and the person-role INITIAL (2026-08-21).**
  *    Description still leads the npc sheet's nav and panels, but a fresh
  *    PERSON-role sheet (npc, hireling) and a CONTAINER (2026-08-31) OPEN on
- *    Items — the PC's default,
- *    asked for — while a monster still opens on Description. The initial
+ *    Items — the PC's default until 2026-11-19, asked for — while a monster
+ *    still opens on Description. The initial
  *    takes a `tabGroups` override because core seeds the group from static
  *    TABS at construction. The character-sheet leg stops a "reorder both"
- *    regression and doubles as the order-reader's differential witness.
+ *    regression and doubles as the order-reader's differential witness; since
+ *    2026-11-19 the character leads with, and opens on, its own Character
+ *    page (the thumb-tab rail), and the leg reads that.
  *
  * 6. **Both directions, either end — ONE verb, player-usable (2026-08-01).**
  *    A connected actor's tab shows its upward keeper as a line breakable from
@@ -619,8 +621,17 @@ try {
     await pc.sheet.render(true);
     await until(() => pc.sheet.element instanceof HTMLElement);
     await sleep(400);
-    const navCount = () => pc.sheet.element
-      ?.querySelector('.tabs .item[data-tab="containers"]')?.textContent?.trim() ?? "";
+    // The count rides the RAIL button's tooltip since 2026-11-19 (the
+    // character's text tab strip went; its page buttons are icons). aria-label
+    // and data-tooltip-text are written from the same `tab.tip`, so both are
+    // read and must agree — a count on one and a stale number on the other
+    // would be a screen reader and a hover telling two stories.
+    const navCount = () => {
+      const b = pc.sheet.element?.querySelector('nav.cairn-tab-rail button[data-tab="containers"]');
+      const aria = b?.getAttribute("aria-label")?.trim() ?? "";
+      const tip = b?.dataset.tooltipText?.trim() ?? "";
+      return aria === tip ? aria : `aria="${aria}" tooltip="${tip}"`;
+    };
     const fresh = navCount();
     const mule = await Cls.create({
       name: "ZZ Roles Count Mule", type: "npc",
@@ -653,13 +664,19 @@ try {
   // The reorder is the NPC's ALONE — the character-sheet leg below is what
   // stops a "reorder both" regression, and it doubles as the differential
   // witness for the order reader: the same reader on the PC sheet must come
-  // back with Items first, so it demonstrably distinguishes the two orders.
+  // back with its own order (Character first since 2026-11-19, when the
+  // character's pages moved onto the thumb-tab rail), so it demonstrably
+  // distinguishes the two orders.
   console.log("\nDescription leads the npc nav; a fresh person sheet opens on Items");
   const order = await page.evaluate(async () => {
     const Cls = CONFIG.Actor.documentClass;
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    // `nav.tabs [data-tab]` reads BOTH navs: the npc sheet's strip of
+    // `<a class="item" data-tab>` and the character's rail of
+    // `<button data-tab>` (nav.tabs.cairn-tab-rail). The rail's Improvised
+    // Attack button carries no data-tab, so it is not counted as a page.
     const read = (sheet) => ({
-      nav: [...sheet.element.querySelectorAll("nav.tabs .item")].map((a) => a.dataset.tab),
+      nav: [...sheet.element.querySelectorAll("nav.tabs [data-tab]")].map((a) => a.dataset.tab),
       panels: [...sheet.element.querySelectorAll("section.content > .tab[data-tab]")].map((p) => p.dataset.tab),
       active: sheet.tabGroups.primary,
       activeVisible: [...sheet.element.querySelectorAll(".tab[data-tab]")].filter((p) => {
@@ -721,15 +738,18 @@ try {
   // well since 2026-08-09: the Connections tab is PARKED (internal flag,
   // default off), so the parked list IS the default this leg reads. The
   // four-tab restored state is covered by dev:connections' shadow legs.
+  // The character's list grew on 2026-11-19 (the rail): Character, the head
+  // and the stat block, leads and is the page a fresh sheet opens on; Growth
+  // sits after Inventory. Still the parked list — Connections stays out.
   const NPC_ORDER = ["description", "items", "notes"];
-  const PC_ORDER = ["items", "description", "notes"];
+  const PC_ORDER = ["character", "items", "growth", "description", "notes"];
   JSON.stringify(order.asNpc.nav) === JSON.stringify(NPC_ORDER)
     && JSON.stringify(order.asNpc.panels) === JSON.stringify(NPC_ORDER)
     ? ok("npc nav AND panels run Description → Items → Notes")
     : bad("npc nav AND panels run Description → Items → Notes", JSON.stringify({ nav: order.asNpc.nav, panels: order.asNpc.panels }));
   order.asNpc.active === "items"
     && JSON.stringify(order.asNpc.activeVisible) === JSON.stringify(["items"])
-    ? ok("a fresh person-npc sheet OPENS on Items (2026-08-21)", "the PC's default, without the PC's nav order")
+    ? ok("a fresh person-npc sheet OPENS on Items (2026-08-21)", "without moving Items in the nav")
     : bad("a fresh person-npc sheet OPENS on Items (2026-08-21)", JSON.stringify({ active: order.asNpc.active, visible: order.asNpc.activeVisible }));
   order.asMonster.active === "description"
     && JSON.stringify(order.asMonster.activeVisible) === JSON.stringify(["description"])
@@ -741,9 +761,10 @@ try {
     : bad("a fresh CONTAINER sheet opens on Items (2026-08-31)", JSON.stringify({ active: order.asContainer.active, visible: order.asContainer.activeVisible }));
   JSON.stringify(order.asPc.nav) === JSON.stringify(PC_ORDER)
     && JSON.stringify(order.asPc.panels) === JSON.stringify(PC_ORDER)
-    && order.asPc.active === "items"
-    ? ok("the character sheet still leads with Items", "the reorder did not spread")
-    : bad("the character sheet still leads with Items", JSON.stringify({ nav: order.asPc.nav, active: order.asPc.active }));
+    && order.asPc.active === "character"
+    && JSON.stringify(order.asPc.activeVisible) === JSON.stringify(["character"])
+    ? ok("the character sheet leads with, and opens on, Character", "the npc reorder did not spread")
+    : bad("the character sheet leads with, and opens on, Character", JSON.stringify({ nav: order.asPc.nav, panels: order.asPc.panels, active: order.asPc.active, visible: order.asPc.activeVisible }));
   order.control === "description"
     ? ok("   control: initial re-tied to the list head reopens on Description", "the opens-on-Items assertion can fail")
     : bad("   control: initial re-tied to the list head reopens on Description", `active=${order.control} — assertion not load-bearing`);
@@ -1345,7 +1366,9 @@ try {
       await sleep(300);
       const el = pc.sheet.element;
       const pcTab = {
-        tab: !!el.querySelector('.tabs .item[data-tab="containers"]'),
+        // The character's page button is on the thumb-tab rail since
+        // 2026-11-19 (an icon <button>, no text strip `.item`).
+        tab: !!el.querySelector('nav.cairn-tab-rail button[data-tab="containers"]'),
         rowForSack: !!el.querySelector(`[data-item-id="${sack.uuid}"]`),
         editIcon: !!el.querySelector(".item-edit"),
         add: !!el.querySelector(".connection-add"),

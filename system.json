@@ -51,7 +51,8 @@
         "htmlFields": [
           "biography",
           "description",
-          "notes"
+          "notes",
+          "growth"
         ]
       },
       "npc": {

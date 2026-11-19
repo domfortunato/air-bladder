@@ -3,7 +3,7 @@
 A **bond** is the tie a Cairn 2e character starts with: a short piece of prose,
 sometimes with starting gold or an item attached. Generation rolls one for every
 2e character (Barebones characters get none — bonds are 2e's mechanic), and the
-character sheet's **Background & Notes** tab keeps it, with a re-roll die, a ✕,
+character sheet's **Background & Notes** page keeps it, with a re-roll die, a ✕,
 and an **Add a bond** link where the rules allow more.
 
 Out of the box those rolls come from the shipped **Bonds** table — twenty rows

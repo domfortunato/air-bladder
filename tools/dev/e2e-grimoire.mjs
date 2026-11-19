@@ -255,7 +255,14 @@ try {
 
   /* ------------------------------------------------- 2. transmute, via UI -- */
   // Render the caster's sheet and read the affordances.
-  await gm.evaluate(async (id) => { await game.actors.get(id).sheet.render(true); }, fx.casterId);
+  // ...on its Inventory page. A character's sheet opens on its Character page
+  // since 2026-11-19, and waitForSelector below waits for a VISIBLE row, which a
+  // row on a hidden page never becomes.
+  await gm.evaluate(async (id) => {
+    const sheet = game.actors.get(id).sheet;
+    await sheet.render(true);
+    await sheet.changeTab("items", "primary");
+  }, fx.casterId);
   const sheetSel = `[id$="CairnActorSheet-Actor-${fx.casterId}"]`;
   await gm.waitForSelector(`${sheetSel} .cairn-items-list-row`, { timeout: 8000 });
 

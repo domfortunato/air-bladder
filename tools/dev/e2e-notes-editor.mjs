@@ -71,8 +71,21 @@ try {
   // words: it "does not show up until you hover over it". Its hint takes ONE
   // key for all six roles, because four of them are a crate, a cart, a mount
   // and a monster and any wording naming the subject is wrong for most of them.
+  // The character's GROWTH journal is the fifth case (2026-11-19): a toggled
+  // `system.growth` editor on the new Growth page, built as the Notes
+  // editor's twin — same placeholder element, same click-to-edit binding, same
+  // field look by selector list — so it is held to every Notes leg here and in
+  // the discoverability loop below. Twins drift apart one tidy-up at a time.
+  //
+  // The page is turned through `nav.tabs [data-tab]`, which reads both navs:
+  // the npc sheet's text strip (`a.item`) and, since 2026-11-19, the
+  // character's thumb-tab rail (`nav.tabs.cairn-tab-rail > button`). The page
+  // must then actually be the active one — only the active page is displayed,
+  // so a turn that did not land would leave the hint with no box and read as a
+  // hint failure, which is the wrong diagnosis; `tabActive` names it instead.
   for (const { label, type, system, field, tab, expectHint } of [
     { label: "character (toggled since 2026-08-02)", type: "character", system: {}, field: "system.notes", tab: "notes", expectHint: "Click here to add notes about this character." },
+    { label: "character growth journal (2026-11-19)", type: "character", system: {}, field: "system.growth", tab: "growth", expectHint: "Click here to add new skills and abilities this character has gained." },
     { label: "hireling (npc sheet, person)", type: "hireling", system: {}, field: "system.notes", tab: "notes", expectHint: "Click here to add notes about this character." },
     { label: "npc, role monster", type: "npc", system: { role: "monster" }, field: "system.notes", tab: "notes", expectHint: "Click here to add notes about this monster." },
     { label: "npc description tab (2026-08-20)", type: "npc", system: { role: "npc" }, field: "system.description", tab: "description", expectHint: "Click here to add a description." },
@@ -87,13 +100,17 @@ try {
       for (let i = 0; i < 40 && !actor.sheet.element; i++) await new Promise((r) => setTimeout(r, 100));
       await new Promise((r) => setTimeout(r, 700));
       const el = actor.sheet.element;
-      el.querySelector(`.tabs .item[data-tab="${tab}"]`)?.click();
+      el.querySelector(`nav.tabs [data-tab="${tab}"]`)?.click();
+      for (let i = 0; i < 40 && !el.querySelector(`.tab[data-tab="${tab}"]`)?.classList.contains("active"); i++) {
+        await new Promise((r) => setTimeout(r, 100));
+      }
       await new Promise((r) => setTimeout(r, 400));
-      const pm = el.querySelector(`prose-mirror[name="${field}"]`);
+      const pm = el.querySelector(`.tab[data-tab="${tab}"] prose-mirror[name="${field}"]`);
       const hint = pm?.querySelector(".cairn-editor-placeholder");
       const out = {
         id: actor.id,
         sheetId: el.id,
+        tabActive: !!el.querySelector(`.tab[data-tab="${tab}"].active`),
         found: !!pm,
         toggled: pm?.hasAttribute("toggled") ?? false,
         hintText: hint?.textContent?.trim() ?? null,
@@ -107,7 +124,8 @@ try {
       return out;
     }, { type, system, field, tab });
 
-    if (!setup.found) { fail("editor present", `no prose-mirror[name="${field}"]`); continue; }
+    if (!setup.tabActive) { fail("page reachable", `the ${tab} page never activated`); continue; }
+    if (!setup.found) { fail("editor present", `no prose-mirror[name="${field}"] on the ${tab} page`); continue; }
     ok("editor present", field);
     setup.toggled
       ? ok("the editor is toggled", "display half + pencil")
@@ -140,7 +158,7 @@ try {
       await actor.sheet.render(true);
       for (let i = 0; i < 40 && !actor.sheet.element; i++) await new Promise((r) => setTimeout(r, 100));
       await new Promise((r) => setTimeout(r, 700));
-      actor.sheet.element.querySelector(`.tabs .item[data-tab="${tab}"]`)?.click();
+      actor.sheet.element.querySelector(`nav.tabs [data-tab="${tab}"]`)?.click();
       await new Promise((r) => setTimeout(r, 400));
       const pm = actor.sheet.element.querySelector(`prose-mirror[name="${field}"]`);
       const res = {
@@ -194,7 +212,7 @@ try {
     for (let i = 0; i < 40 && !actor.sheet.element; i++) await new Promise((r) => setTimeout(r, 100));
     await new Promise((r) => setTimeout(r, 700));
     const el = actor.sheet.element;
-    el.querySelector('.tabs .item[data-tab="description"]')?.click();
+    el.querySelector('nav.tabs [data-tab="description"]')?.click();
     await new Promise((r) => setTimeout(r, 400));
     const pm = el.querySelector('.tab[data-tab="description"] prose-mirror[name="system.description"]');
     const heading = pm?.closest(".character-description")?.querySelector(".character-description-heading");
@@ -325,6 +343,10 @@ try {
   // the treatment by SELECTOR LIST rather than by a copied CSS block, and a
   // shared rule is exactly the thing that gets narrowed by someone tidying the
   // selector they recognise. Character notes and npc description, same five legs.
+  // The character's Growth journal joined both lists on 2026-11-19 (cairn.css's
+  // toggled-editor block names `.tab[data-tab="growth"]` beside Notes, and the
+  // click-to-edit binding in actor-sheet.js names it too), so it runs the same
+  // five legs: drop it from either list and its leg here goes red.
   const discoOf = ({ type, system, field, tab }) => page.evaluate(async ({ type, system, field, tab }) => {
     for (const a of game.actors.filter((a) => a.name.startsWith("ZZ Notes"))) await a.delete();
     const actor = await CONFIG.Actor.documentClass.create({ name: "ZZ Notes disco", type, system });
@@ -339,9 +361,18 @@ try {
       await actor.sheet.render(true);
       for (let i = 0; i < 40 && !actor.sheet.element; i++) await new Promise((r) => setTimeout(r, 100));
       await new Promise((r) => setTimeout(r, 700));
-      actor.sheet.element.querySelector(`.tabs .item[data-tab="${tab}"]`)?.click();
+      const el = actor.sheet.element;
+      el.querySelector(`nav.tabs [data-tab="${tab}"]`)?.click();
+      for (let i = 0; i < 40 && !el.querySelector(`.tab[data-tab="${tab}"]`)?.classList.contains("active"); i++) {
+        await new Promise((r) => setTimeout(r, 100));
+      }
       await new Promise((r) => setTimeout(r, 400));
-      return actor.sheet.element.querySelector(`prose-mirror[name="${field}"]`);
+      // Every open must stand on the page (the character opens on Character
+      // since 2026-11-19, so the turn is not a formality). Computed style reads
+      // the same on a hidden page, so without this a missed turn would still
+      // pass the field-look and pencil legs.
+      out.pageActive = (out.pageActive ?? true) && !!el.querySelector(`.tab[data-tab="${tab}"].active`);
+      return el.querySelector(`.tab[data-tab="${tab}"] prose-mirror[name="${field}"]`);
     };
     const out = {};
 
@@ -386,10 +417,14 @@ try {
 
   for (const c of [
     { label: "character notes tab", type: "character", system: {}, field: "system.notes", tab: "notes" },
+    { label: "character growth journal", type: "character", system: {}, field: "system.growth", tab: "growth" },
     { label: "npc description tab", type: "npc", system: { role: "npc" }, field: "system.description", tab: "description" },
   ]) {
     console.log(`\ndiscoverability (${c.label})`);
     const disco = await discoOf(c);
+    disco.pageActive
+      ? ok("the page under test is the open one", c.tab)
+      : fail("the page under test is the open one", `the ${c.tab} page never activated`);
     disco.field.borderStyle !== "none" && disco.field.background !== "rgba(0, 0, 0, 0)"
       ? ok("the empty editor reads as a field", `border ${disco.field.borderStyle}, bg ${disco.field.background}`)
       : fail("the empty editor reads as a field", JSON.stringify(disco.field));

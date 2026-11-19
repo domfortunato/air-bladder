@@ -381,10 +381,24 @@ try {
       await page.evaluate((sel) => window.__abWarm(document.querySelector(sel)), sheet.sel);
 
       // Audit every tab: inactive panels are display:none and would be skipped.
+      // The character's thumb-tab rail (2026-11-19) is a `nav.tabs` of icon
+      // buttons, so the first selector reaches its pages — Character and
+      // Growth included — and the rail itself, hung outside the frame but
+      // inside the window's element, is audited with every page. Its pages
+      // are asserted below: a rail this selector stopped matching would
+      // shrink the audit to whichever page stood open, and pass.
       const tabs = await page.evaluate((sel) => {
         const root = document.querySelector(sel);
         return [...root.querySelectorAll("nav.tabs [data-tab], nav .item[data-tab]")].map((t) => t.dataset.tab);
       }, sheet.sel);
+      if (sheet.slug === "character") {
+        const want = ["character", "items", "growth", "description", "notes"];
+        const missing = want.filter((t) => !tabs.includes(t));
+        if (missing.length) {
+          console.error(`  FAIL  the character sheet's pages were not all found to audit (${scheme}): missing ${missing.join(", ")}; found [${tabs.join(", ")}]`);
+          failed = true;
+        }
+      }
 
       const all = { text: [], borders: [] };
       for (const tab of tabs.length ? tabs : [null]) {
@@ -416,7 +430,20 @@ try {
           app?.bringToFront?.() ?? app?.bringToTop?.();
         }, sheet.sel);
         await page.waitForTimeout(150);
-        await page.locator(sheet.sel).screenshot({ path: path.join(outDir, `theme-${sheet.slug}-${scheme}.png`) });
+        // The character's rail hangs OUTSIDE its frame (2026-11-19), and an
+        // element shot clips to the frame's box — so the shot is the union of
+        // the frame and the rail, or the reader never sees the rail's colours.
+        const clip = await page.evaluate((sel) => {
+          const root = document.querySelector(sel);
+          const boxes = [root, root.querySelector(":scope > .window-content > nav.cairn-tab-rail:not([hidden])")]
+            .filter(Boolean).map((e) => e.getBoundingClientRect()).filter((b) => b.width && b.height);
+          const x = Math.max(0, Math.min(...boxes.map((b) => b.left)));
+          const y = Math.max(0, Math.min(...boxes.map((b) => b.top)));
+          const r = Math.min(window.innerWidth, Math.max(...boxes.map((b) => b.right)));
+          const btm = Math.min(window.innerHeight, Math.max(...boxes.map((b) => b.bottom)));
+          return { x, y, width: r - x, height: btm - y };
+        }, sheet.sel);
+        await page.screenshot({ path: path.join(outDir, `theme-${sheet.slug}-${scheme}.png`), clip });
       }
     }
   }
@@ -699,12 +726,38 @@ try {
       out.bgH3 = h3 ? getComputedStyle(h3).fontSize : null;
       await bg.sheet.close();
     }
-    // (101) the gold counter of an actor whose coins overburden it.
+    // (101) the gold counter of an actor whose coins overburden it. On a
+    // character that is page 1's Gold BAND ROW since 2026-11-19, which has no
+    // counter frame to paint: its cue is the red label and figure, and the
+    // input's red edge (cairn.css, "Too much gold"). Reading the row's own
+    // border, as this did, would now read a `border: none` that is never
+    // maroon — a pass with nothing measured. So the cue's three colours are
+    // read, and the palette's peril red is RESOLVED in the same place (a
+    // throwaway span taking var(--ab-peril), as the For Hire leg does) to be
+    // the target; the row's ordinary ink is the precondition that the cue is
+    // a change at all.
     const rich = await Actor.create({ name: "ZZ Theme Rich", type: "character", system: { gold: 5000 } });
     await rich.sheet.render(true);
     for (let i = 0; i < 30 && !rich.sheet.element?.querySelector(".overburdened-gold"); i++) await sleep(150);
-    const gold = rich.sheet.element?.querySelector(".overburdened-gold");
-    out.goldBorder = gold ? getComputedStyle(gold).borderTopColor : null;
+    const gold = rich.sheet.element?.querySelector(".band-gold.overburdened-gold");
+    if (gold) {
+      const probe = document.createElement("span");
+      probe.style.color = "var(--ab-peril)";
+      gold.append(probe);
+      const peril = getComputedStyle(probe).color;
+      probe.remove();
+      const label = gold.querySelector(".band-label");
+      const input = gold.querySelector(".gold-input");
+      out.gold = {
+        peril,
+        ink: getComputedStyle(gold.closest(".cairn-band") ?? gold.parentElement).color,
+        label: label ? getComputedStyle(label).color : null,
+        figure: input ? getComputedStyle(input).color : null,
+        edge: input ? getComputedStyle(input).borderTopColor : null,
+      };
+    } else {
+      out.gold = null;
+    }
     await rich.sheet.close();
     await rich.delete();
     return out;
@@ -730,8 +783,13 @@ try {
     JSON.stringify(lightC.faces));
   verdict(darkC.bgH3 && darkC.bgH3 !== "28px" && lightC.bgH3 !== "28px",
     "a locked background's Details headings are not core's 28px", JSON.stringify({ light: lightC.bgH3, dark: darkC.bgH3 }));
-  verdict(darkC.goldBorder && darkC.goldBorder !== "rgb(117, 0, 3)" && lightC.goldBorder !== "rgb(117, 0, 3)",
-    "the overburdened-gold border is the theme's peril red, not core's fixed maroon", JSON.stringify({ light: lightC.goldBorder, dark: darkC.goldBorder }));
+  {
+    const isPeril = (g) => g && g.peril !== "rgb(117, 0, 3)" && g.ink !== g.peril
+      && g.label === g.peril && g.figure === g.peril && g.edge === g.peril;
+    verdict(isPeril(lightC.gold) && isPeril(darkC.gold) && lightC.gold.peril !== darkC.gold.peril,
+      "the overburdened-gold cue is the theme's peril red (each scheme's own), not core's fixed maroon",
+      JSON.stringify({ light: lightC.gold, dark: darkC.gold }));
+  }
 
   // A HOVERED BUTTON KEEPS ITS INK (review #34 finding 187). Core's hover is a
   // PAIR: `button:hover { background: var(--button-hover-background-color);
@@ -848,11 +906,19 @@ try {
   // glyph (`:focus { outline: none }`, then `:focus-visible::before { outline }`;
   // `:disabled` recolours the glyphs and sets `cursor: inherit`), and the
   // sheets' six restyled boxes switch that ::before off. Every box on a
-  // character's sheet (Description tab included) and a hireling's is focused
+  // character's sheet (every page that draws one) and a hireling's is focused
   // from the KEYBOARD, Shift+Tab then Tab, which is what makes :focus-visible
   // match (the precondition), and must show a ring that reads against its
   // backdrop; then it is disabled, as core's _toggleDisabled does on a sheet the
   // viewer cannot edit, and must stop looking and pointing live.
+  //
+  // A character's boxes live on THREE pages since 2026-11-19: Deprived and
+  // Panicked on page 1 (Character), the Omen on Description, the Scars on
+  // Growth. Only the standing page is drawn, so each page is turned to and its
+  // own boxes tagged and tested while it stands — tagging every page's boxes up
+  // front would find the hidden ones 0px wide and silently skip them. (Before,
+  // Deprived/Panicked sat in the always-visible header and one turn to
+  // Description reached the rest.)
   const BOXES = ".deprived-check, .panicked-check, .for-hire-check, .omen-enable, .scar-enable, .scar-check";
   const boxPass = async (scheme) => {
     await setScheme(page, scheme);
@@ -860,59 +926,64 @@ try {
     const sheets = await page.evaluate(async () => {
       const Cls = CONFIG.Actor.documentClass;
       const out = [];
-      for (const [type, tab] of [["character", "description"], ["hireling", null]]) {
+      for (const [type, pages] of [["character", ["character", "growth", "description"]], ["hireling", [null]]]) {
         const a = await Cls.create({ name: `ZZ Theme Boxes ${type}`, type });
         await a.sheet.render(true);
         for (let i = 0; i < 40 && !a.sheet.element; i++) await new Promise((r) => setTimeout(r, 100));
         await new Promise((r) => setTimeout(r, 500));
-        if (tab) a.sheet.element.querySelector(`.tabs .item[data-tab="${tab}"]`)?.click();
-        await new Promise((r) => setTimeout(r, 300));
-        out.push({ actorId: a.id, sheetId: a.sheet.element.id });
+        out.push({ actorId: a.id, sheetId: a.sheet.element.id, pages });
       }
       return out;
     });
     const found = [];
-    for (const { actorId, sheetId } of sheets) {
-      const n = await page.evaluate(([sheetId, BOXES]) => {
-        const boxes = [...document.querySelectorAll(`#${sheetId} :is(${BOXES})`)].filter((b) => b.getBoundingClientRect().width > 0);
-        boxes.forEach((b, i) => b.setAttribute("data-ab-box", `${sheetId}-${i}`));
-        return boxes.length;
-      }, [sheetId, BOXES]);
-      for (let i = 0; i < n; i++) {
-        const sel = `[data-ab-box="${sheetId}-${i}"]`;
-        await page.focus(sel);
-        await page.keyboard.press("Shift+Tab");
-        await page.keyboard.press("Tab");
-        await page.waitForTimeout(100);
-        found.push(await page.evaluate(async (sel) => {
-          const el = document.querySelector(sel);
-          await window.__abWarm(el.closest(".application") ?? el);
-          const parse = (s) => {
-            const m = /rgba?\(([^)]+)\)/.exec(s || "");
-            if (!m) return null;
-            const p = m[1].split(/[,\s/]+/).filter(Boolean).map(Number);
-            return { r: p[0], g: p[1], b: p[2], a: p.length > 3 ? p[3] : 1 };
-          };
-          const srgb = (c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
-          const lum = (c) => 0.2126 * srgb(c.r / 255) + 0.7152 * srgb(c.g / 255) + 0.0722 * srgb(c.b / 255);
-          const cs = getComputedStyle(el);
-          const ring = parse(cs.outlineColor);
-          const bg = window.__abBackdrop(el.parentElement);
-          const [hi, lo] = ring ? [lum(ring), lum(bg)].sort((x, y) => y - x) : [0, 0];
-          const out = {
-            box: el.className,
-            focusVisible: el === document.activeElement && el.matches(":focus-visible"),
-            ring: cs.outlineStyle !== "none" && parseFloat(cs.outlineWidth) >= 1,
-            ringRatio: ring ? Math.round(((hi + 0.05) / (lo + 0.05)) * 100) / 100 : 0,
-          };
-          el.blur();
-          el.disabled = true;
-          const ds = getComputedStyle(el);
-          out.disabledCursor = ds.cursor;
-          out.disabledOpacity = Number(ds.opacity);
-          el.disabled = false;
-          return out;
-        }, sel));
+    for (const { actorId, sheetId, pages } of sheets) {
+      for (const tab of pages) {
+        const n = await page.evaluate(async ([sheetId, BOXES, actorId, tab]) => {
+          if (tab) {
+            game.actors.get(actorId)?.sheet.changeTab(tab, "primary");
+            await new Promise((r) => setTimeout(r, 300));
+          }
+          const boxes = [...document.querySelectorAll(`#${sheetId} :is(${BOXES})`)].filter((b) => b.getBoundingClientRect().width > 0);
+          boxes.forEach((b, i) => b.setAttribute("data-ab-box", `${sheetId}-${tab ?? "only"}-${i}`));
+          return boxes.length;
+        }, [sheetId, BOXES, actorId, tab]);
+        for (let i = 0; i < n; i++) {
+          const sel = `[data-ab-box="${sheetId}-${tab ?? "only"}-${i}"]`;
+          await page.focus(sel);
+          await page.keyboard.press("Shift+Tab");
+          await page.keyboard.press("Tab");
+          await page.waitForTimeout(100);
+          found.push(await page.evaluate(async (sel) => {
+            const el = document.querySelector(sel);
+            await window.__abWarm(el.closest(".application") ?? el);
+            const parse = (s) => {
+              const m = /rgba?\(([^)]+)\)/.exec(s || "");
+              if (!m) return null;
+              const p = m[1].split(/[,\s/]+/).filter(Boolean).map(Number);
+              return { r: p[0], g: p[1], b: p[2], a: p.length > 3 ? p[3] : 1 };
+            };
+            const srgb = (c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
+            const lum = (c) => 0.2126 * srgb(c.r / 255) + 0.7152 * srgb(c.g / 255) + 0.0722 * srgb(c.b / 255);
+            const cs = getComputedStyle(el);
+            const ring = parse(cs.outlineColor);
+            const bg = window.__abBackdrop(el.parentElement);
+            const [hi, lo] = ring ? [lum(ring), lum(bg)].sort((x, y) => y - x) : [0, 0];
+            const out = {
+              box: el.className,
+              focusVisible: el === document.activeElement && el.matches(":focus-visible"),
+              ring: cs.outlineStyle !== "none" && parseFloat(cs.outlineWidth) >= 1,
+              ringRatio: ring ? Math.round(((hi + 0.05) / (lo + 0.05)) * 100) / 100 : 0,
+            };
+            el.blur();
+            el.disabled = true;
+            const ds = getComputedStyle(el);
+            out.disabledCursor = ds.cursor;
+            out.disabledOpacity = Number(ds.opacity);
+            el.disabled = false;
+            return out;
+          }, sel));
+          found.at(-1).page = tab;
+        }
       }
     }
     await page.evaluate(async (sheets) => {
@@ -928,7 +999,12 @@ try {
   await restoreScheme(page);
   const allBoxes = [...boxesLight, ...boxesDark];
   const kinds = new Set(allBoxes.map((b) => b.box));
-  verdict(kinds.size >= 4 && allBoxes.every((b) => b.focusVisible && b.ring && b.ringRatio >= BORDER_MIN),
+  // The page-by-page walk's own precondition: page 1 (Deprived) and Growth
+  // (the Scars switch) each gave boxes in both schemes. A turn that failed
+  // would leave that page's boxes 0px wide and quietly out of the count.
+  const pagesWalked = ["character", "growth"].every((p) =>
+    boxesLight.some((b) => b.page === p) && boxesDark.some((b) => b.page === p));
+  verdict(pagesWalked && kinds.size >= 4 && allBoxes.every((b) => b.focusVisible && b.ring && b.ringRatio >= BORDER_MIN),
     "a restyled sheet checkbox shows a focus ring from the keyboard, both schemes (review #34 finding 199)",
     JSON.stringify({ kinds: [...kinds], light: boxesLight, dark: boxesDark }));
   verdict(allBoxes.length > 0 && allBoxes.every((b) => b.disabledCursor !== "pointer" && b.disabledOpacity < 1),

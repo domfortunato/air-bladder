@@ -1,6 +1,6 @@
 # Customizing the marketplace
 
-The **Marketplace** is the shop a character opens from the **Items** tab of their
+The **Marketplace** is the shop a character opens from the **Inventory** page of their
 sheet. It arrives with four aisles — Weapons, Armor, Gear, and Transports &
 Containers — and every row in it points at a real item somewhere in your world.
 Nothing in the shop is a price list: the price, the description, the tags and

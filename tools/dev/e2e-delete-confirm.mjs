@@ -63,6 +63,11 @@ try {
     const actor = await CONFIG.Actor.documentClass.create({ name: `${n} Victim`, type: "character" });
     const [item] = await actor.createEmbeddedDocuments("Item", [{ name: `${n} Item`, type: "item" }]);
     await actor.sheet.render(true);
+    // To the Inventory page: a character's sheet opens on its Character page
+    // since 2026-11-19, and a row on a page that is not showing has an
+    // offsetHeight of 0 — which `minHeight > 0` below rightly refuses, so the
+    // height reading would go red on the layout, not the delete.
+    await actor.sheet.changeTab("items", "primary");
     return { actorId: actor.id, itemId: item.id };
   }, NAME);
   await page.waitForSelector(".cairn.sheet.actor", { timeout: 15000 });

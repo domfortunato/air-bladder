@@ -1,367 +1,396 @@
 {{!-- No <form> here: ApplicationV2 supplies it (DocumentSheetV2 sets tag: "form").
-      A nested one is dropped by the parser, taking this element's class with it. --}}
+      A nested one is dropped by the parser, taking this element's class with it.
+
+      LAID OUT AFTER BASE KNAVERY'S (2026-11-19, user ask): five pages turned
+      from a thumb-tab rail hung off the window's edge (parts/tab-rail.html, a
+      render part of its own; module/actor/tab-rail.js places it). Page 1
+      (Character) carries the head and the stat block; Inventory, Growth,
+      Description and Background & Notes follow. Same fields, same buttons,
+      same rules: every control kept its class, name, id and data-action, so
+      the handlers in actor-sheet.js are untouched. The npc sheet keeps its own
+      template and today's tab strip. --}}
     {{#if limitedView}}
     {{!-- LIMITED view (review #22, user ruling 2026-09-02): the npc sheet's
           2026-08-21 wall, extended to characters. LIMITED used to open the FULL
           sheet here — statblock and inventory included — while the Print gate
           withheld the button on the stated grounds of hiding what was already
           on screen; now the level is a wall on every person-type. Portrait and
-          name only. A character's `system.description` is no longer orphaned
-          (review #34 finding 55: the Kettlewright importer writes it, the paper
-          prints it, and the Description tab below shows it while it holds
-          prose), but the LIMITED wall was never extended to it; that would be
-          a ruling of its own. --}}
+          name only (the rail is drawn empty and hidden). A character's
+          `system.description` is no longer orphaned (review #34 finding 55: the
+          Kettlewright importer writes it, the paper prints it, and the
+          Description page shows it while it holds prose), but the LIMITED wall
+          was never extended to it; that would be a ruling of its own. --}}
     <div class="cairn-limited-sheet">
         <img class="portrait" src="{{actor.img}}" alt="" />
         <h1 class="cairn-limited-name">{{nameDisplay}}</h1>
     </div>
     {{else}}
-    <div class="charater-sheet-grid">
-        <!-- Portrait: click to pick from the shipped gallery, d20 to re-roll one -->
-        <div class="portrait-wrap">
-            <img class="portrait" src="{{actor.img}}" data-action="editPortrait" title="{{ localize 'CAIRN.ChoosePortrait' }}" />
-            {{#if generationEnabled}}
-            {{!-- Creation dice and pickers carry data-tooltip (bare i18n KEY,
-                  core-styled — the Age die's ruled look, 2026-09-01) rather
-                  than native title=. Non-creation titles on this sheet stay
-                  native on purpose. aria-label rides beside every one (review
-                  #21): a bare key is nothing to a screen reader, and core
-                  itself pairs the two (dialog.mjs:238-241) — localized TEXT,
-                  because core never localizes aria-label. --}}
-            <a class="portrait-roll" data-action="rollPortrait" data-tooltip="CAIRN.RollPortrait" aria-label="{{ localize 'CAIRN.RollPortrait' }}"><i class="fas fa-dice-d20"></i></a>
-            {{!-- The list button IS the portrait click, said out loud: same
-                  editPortrait action, one behavior with two affordances. --}}
-            <a class="portrait-pick" data-action="editPortrait" data-tooltip="CAIRN.ChoosePortrait" aria-label="{{ localize 'CAIRN.ChoosePortrait' }}"><i class="fas fa-list-ul"></i></a>
-            {{/if}}
-        </div>
-        <!-- Name, background, HP and deprived -->
-        <div class="character-sheet-section-name">
-            <div class="name-line">
-                <input class="name-input" type="text" name="name" value="{{actor.name}}" placeholder="{{ localize 'CAIRN.Name' }}" />
-                {{#if generationEnabled}}
-                <a class="name-roll" data-action="rollName" data-tooltip="CAIRN.RollName" aria-label="{{ localize 'CAIRN.RollName' }}"><i class="fas fa-dice-d20"></i></a>
-                <a class="name-pick" data-action="pickName" data-tooltip="CAIRN.PickName" aria-label="{{ localize 'CAIRN.PickName' }}"><i class="fas fa-list-ul"></i></a>
-                {{/if}}
-            </div>
-            <div class="background-line">
-                {{#if hasGeneratedBackground}}
-                {{#if isBarebonesBackground}}
-                <span class="background-label">{{ localize 'CAIRN.BackgroundLabel' }}</span>
-                {{/if}}
-                <span class="background-name">{{backgroundName}}</span>
-                {{#if generationEnabled}}
-                <a class="background-roll" data-action="rollBackground" data-tooltip="CAIRN.RollBackground" aria-label="{{ localize 'CAIRN.RollBackground' }}"><i class="fas fa-dice-d20"></i></a>
-                <a class="background-pick" data-action="pickBackground" data-tooltip="CAIRN.ChangeBackground" aria-label="{{ localize 'CAIRN.ChangeBackground' }}"><i class="fas fa-list-ul"></i></a>
-                {{/if}}
-                {{else}}
-                <input class="background-input" type="text" name="system.background" value="{{system.background}}"
-                    placeholder="{{ localize 'CAIRN.Background' }}" />
-                {{! The die and the picker belong on THIS branch too (2026-09-11).
-                    They used to hang off the generated branch alone, so a
-                    character with no background stored had a text box and no way
-                    to reach the table — and typing a name grants nothing, because
-                    the gear rides changeBackground. That was invisible while every
-                    character arrived generated; an EMPTY sheet is nothing but this
-                    branch, and picking a background is the whole point of it. }}
-                {{#if generationEnabled}}
-                <a class="background-roll" data-action="rollBackground" data-tooltip="CAIRN.RollBackground" aria-label="{{ localize 'CAIRN.RollBackground' }}"><i class="fas fa-dice-d20"></i></a>
-                <a class="background-pick" data-action="pickBackground" data-tooltip="CAIRN.ChangeBackground" aria-label="{{ localize 'CAIRN.ChangeBackground' }}"><i class="fas fa-list-ul"></i></a>
-                {{/if}}
-                {{/if}}
-                {{#if system.contentSource}}
-                <span class="content-source-label">({{ localize 'CAIRN.Source' }} {{contentSourceLabel}})</span>
-                {{/if}}
-            </div>
-            {{! Row 3 of the name grid: 2e carries the background's description
-                here, Barebones the failed-career line. The two never coexist. }}
-            {{#if backgroundDescription}}
-            <div class="background-description">{{{backgroundDescription}}}</div>
-            {{/if}}
-            {{#if showFailedCareer}}
-            <div class="failed-career-block">
-                <div class="failed-career-line">
-                    <span class="failed-career-label">{{ localize 'CAIRN.FailedCareerLabel' }}</span>
-                    <span class="failed-career-name">{{failedCareer}}</span>
-                    {{#if generationEnabled}}
-                    <a class="failed-career-roll" data-action="rollFailedCareer" data-tooltip="CAIRN.RollFailedCareer" aria-label="{{ localize 'CAIRN.RollFailedCareer' }}"><i class="fas fa-dice-d20"></i></a>
-                    <a class="failed-career-pick" data-action="pickFailedCareer" data-tooltip="CAIRN.ChangeFailedCareer" aria-label="{{ localize 'CAIRN.ChangeFailedCareer' }}"><i class="fas fa-list-ul"></i></a>
-                    {{/if}}
-                </div>
-                <div class="failed-career-item-line">
-                    <span class="failed-career-item-label">{{ localize 'CAIRN.FailedCareerItemLabel' }}</span>
-                    <span class="failed-career-item-name">{{failedCareerItem}}</span>
-                    {{#if generationEnabled}}
-                    <a class="failed-career-item-roll" data-action="rollFailedCareerItem" data-tooltip="CAIRN.RollFailedCareerItem" aria-label="{{ localize 'CAIRN.RollFailedCareerItem' }}"><i class="fas fa-dice-d20"></i></a>
-                    {{/if}}
-                </div>
-            </div>
-            {{/if}}
-            <div class="resource-counter hp-counter {{#if hpLow}}low{{/if}}">
-                {{!-- hpTip appends "Rolled at creation." while the mode is On;
-                      the boxes say WHICH side is which, formatted per stat
-                      (currentTips/maxTips, _computeStatContext). --}}
-                <label for="{{@root.idp}}-system.hp.value" data-tooltip="{{hpTip}}">{{ localize 'CAIRN.HitProtection' }}</label>
-                <div class="resource-input-wrapper">
-                    <input type="number" min="0" max="18" step="1" class="stat-input" name="system.hp.value" id="{{@root.idp}}-system.hp.value"
-                           value="{{system.hp.value}}" data-dtype="Number" data-tooltip="{{currentTips.HP}}" />
-                    <span> / </span>
-                    <input type="number" min="0" max="18" step="1" class="stat-input" name="system.hp.max" value="{{system.hp.max}}" data-dtype="Number" data-tooltip="{{maxTips.HP}}" />
-                </div>
-            </div>
-            <div class="resource-counter deprived-counter long-counter {{#if system.maybeTooMuchGold }}overburdened-gold{{/if}}"
-            {{#if system.maybeTooMuchGold }} title="{{localize 'CAIRN.OverburdenByGold'}}" {{/if}} >
-                <label for="{{@root.idp}}-system.gold" data-tooltip="{{goldTip}}">
-                    {{ localize 'CAIRN.Gold' }}
-                </label>
-                <div class="resource-input-wrapper">
-                    <input type="number" name="system.gold" id="{{@root.idp}}-system.gold" value="{{system.gold}}" data-dtype="Number" />
-                </div>
-            </div>
-
-        </div>
-        <!-- Buttons -->
-        <div class="character-sheet-section-buttons">
-            {{!-- While Deprived the tooltip says WHY the button is off (DeprivedTip),
-                  not how resting works. A disabled control still receives pointerenter
-                  in Chromium and Firefox both (verified live 2026-08-08), so the
-                  tooltip fires on the disabled button as-is — no aria-disabled
-                  workaround needed, and dev:ui-parity hovers it for real. --}}
-            {{!-- RestTip is Cairn's own Healing & Recovery sentence, the same on
-                  the NPC sheet: Rest follows the rules as written. (The ration
-                  house rule of 0.1.24 and its RestRationTip were removed
-                  2026-11-06 — do not rebuild.) --}}
-            <button id="rest-button" type="button" data-action="rest" class="strict-size-button" data-tooltip="{{#if system.deprived}}{{ localize deprivedTipKey }}{{else}}{{ localize 'CAIRN.RestTip' }}{{/if}}" {{#if system.deprived}}disabled{{/if}}><i class="fas fa-campground"></i> {{ localize 'CAIRN.Rest' }}</button>
-            <button id="restore-abilities-button" type="button" data-action="restoreAbilities" class="strict-size-button" data-tooltip="{{#if system.deprived}}{{ localize deprivedTipKey }}{{else}}{{ localize 'CAIRN.RestoreTip' }}{{/if}}" {{#if system.deprived}}disabled{{/if}}><i class="fas fa-heart-pulse"></i> {{ localize 'CAIRN.RestoreAbilities' }}</button>
-            <button id="die-of-fate-button" type="button" data-action="dieOfFate" class="strict-size-button" data-tooltip="{{ localize 'CAIRN.DieOfFateTip' }}"><i class="fas fa-dice-d6"></i> {{ localize 'CAIRN.DieOfFate' }}</button>
-        </div>
-        <!-- Abilities -->
-        <div class="character-sheet-section-abilities">
-            {{#each system.abilities as |ability key|}}
-            <div class="resource-counter {{key}}-counter {{#if (lookup ../abilityPeril key)}}peril{{/if}} {{#if (lookup ../abilityLow key)}}low{{/if}}">
-                {{!-- While Character Creation Mode is On the save die is INERT
-                      (2026-09-01, user spec): no data-action — a display gate,
-                      not a wall — grayed by .save-roll-off, still hoverable so
-                      the tooltip (abilityTips, swapped to "turn the mode off")
-                      can say why. NEVER pointer-events:none — it kills the
-                      pointerenter TooltipManager needs (the disabled-Rest
-                      precedent below). saveRollOff, not generationEnabled:
-                      on a character they are the same, but the npc sheet
-                      narrows the lock past the monster role (2026-09-02
-                      ruling) and the two anchors must read one flag. --}}
-                {{#if ../saveRollOff}}
-                <a class="resource-roll save-roll-off" data-tooltip="{{ lookup ../abilityTips key }}"><i class="fas fa-dice-d20 roll-icon"></i> {{ localize key }}</a>
-                {{else}}
-                <a class="resource-roll" data-action="rollAbility" data-ability="{{key}}" data-roll="d20cs<=@abilities.{{key}}.value"
-                    data-label="{{ localize 'CAIRN.Save' key=(localize key)}}" data-tooltip="{{ lookup ../abilityTips key }}"><i class="fas fa-dice-d20 roll-icon"></i> {{ localize key }}</a>
-                {{/if}}
-                <div class="resource-input-wrapper">
-                    <input type="number" min="0" max="18" step="1" class="stat-input" name="system.abilities.{{key}}.value" value="{{ability.value}}"
-                        data-dtype="Number" data-tooltip="{{ lookup ../currentTips key }}" />
-                    <span> / </span>
-                    <input type="number" min="0" max="18" step="1" class="stat-input" name="system.abilities.{{key}}.max" value="{{ability.max}}" data-dtype="Number"
-                        data-tooltip="{{ lookup ../maxTips key }}" />
-                </div>
-                {{#if (lookup ../criticalToggle key)}}
-                <a class="critical-toggle {{#if (lookup ../criticalActive key)}}active{{/if}}" data-action="toggleCritical" data-key="{{key}}"
-                    title="{{ localize 'CAIRN.CriticalDamageToggle' }}"><i class="fas fa-skull"></i></a>
-                {{/if}}
+    <div class="cairn-character">
+        <!-- Attribute-loss status banners (2e), above every page: empty while
+             healthy, otherwise one unmissable bar per active condition (Dead,
+             STR Critical Damage, Paralyzed, Delirious, Overburdened). The line
+             goes through CAIRN.StatusBannerLine WHOLE — the same key the chat
+             bars use (postStatusCard), so a translator reordering it cannot
+             split the pair. Triple-stache because the key carries the <strong>;
+             label and text are system i18n strings, never authored data (see
+             the statusBanners builder in actor-sheet.js). -->
+        <div class="critical-banner">
+            {{#each statusBanners}}
+            <div class="status-banner status-{{this.key}}">
+                <i class="fas {{this.icon}}"></i>
+                <span>{{{localize "CAIRN.StatusBannerLine" label=this.label text=this.text}}}</span>
             </div>
             {{/each}}
         </div>
-        <!-- (panic) deprived and armor -->
-        <div class="character-sheet-section-others">
-            <div class="resource-counter long-counter armor-counter {{#if system.armorOverridden}}armor-overridden{{/if}}">
-                <label data-tooltip="{{ localize 'CAIRN.ArmorTip' }}">{{ localize 'CAIRN.Armor' }}</label>
-                <div class="resource-input-wrapper">
-                    <input type="number" min="0" max="3" step="1" class="armor-input" value="{{system.armor}}"
-                        title="{{#if system.armorOverridden}}{{ localize 'CAIRN.ArmorOverrideActive' }}{{else}}{{ localize 'CAIRN.ArmorAuto' }}{{/if}}" />
-                    {{#if system.armorOverridden}}
-                    <a class="armor-reset" data-action="armorReset" title="{{ localize 'CAIRN.ArmorReset' }}"><i class="fas fa-rotate-left"></i></a>
+
+        <section class="content cairn-pages">
+            <!-- Character: the head, then abilities + band | vitals -->
+            <div class="tab cairn-page cairn-page-character {{tabs.character.cssClass}}" data-group="primary" data-tab="character">
+                <div class="cairn-head">
+                    <!-- Portrait: click to pick from the shipped gallery, d20 to re-roll one -->
+                    <div class="portrait-wrap">
+                        <img class="portrait" src="{{actor.img}}" data-action="editPortrait" title="{{ localize 'CAIRN.ChoosePortrait' }}" />
+                        {{#if generationEnabled}}
+                        {{!-- Creation dice and pickers carry data-tooltip (bare i18n KEY,
+                              core-styled — the Age die's ruled look, 2026-09-01) rather
+                              than native title=. Non-creation titles on this sheet stay
+                              native on purpose. aria-label rides beside every one (review
+                              #21): a bare key is nothing to a screen reader, and core
+                              itself pairs the two (dialog.mjs:238-241) — localized TEXT,
+                              because core never localizes aria-label. --}}
+                        <a class="portrait-roll" data-action="rollPortrait" data-tooltip="CAIRN.RollPortrait" aria-label="{{ localize 'CAIRN.RollPortrait' }}"><i class="fas fa-dice-d20"></i></a>
+                        {{!-- The list button IS the portrait click, said out loud: same
+                              editPortrait action, one behavior with two affordances. --}}
+                        <a class="portrait-pick" data-action="editPortrait" data-tooltip="CAIRN.ChoosePortrait" aria-label="{{ localize 'CAIRN.ChoosePortrait' }}"><i class="fas fa-list-ul"></i></a>
+                        {{/if}}
+                    </div>
+                    <!-- Name and background -->
+                    <div class="character-sheet-section-name cairn-identity">
+                        <div class="name-line">
+                            <input class="name-input" type="text" name="name" value="{{actor.name}}" placeholder="{{ localize 'CAIRN.Name' }}" />
+                            {{#if generationEnabled}}
+                            <a class="name-roll" data-action="rollName" data-tooltip="CAIRN.RollName" aria-label="{{ localize 'CAIRN.RollName' }}"><i class="fas fa-dice-d20"></i></a>
+                            <a class="name-pick" data-action="pickName" data-tooltip="CAIRN.PickName" aria-label="{{ localize 'CAIRN.PickName' }}"><i class="fas fa-list-ul"></i></a>
+                            {{/if}}
+                        </div>
+                        <div class="background-line">
+                            {{#if hasGeneratedBackground}}
+                            {{#if isBarebonesBackground}}
+                            <span class="background-label">{{ localize 'CAIRN.BackgroundLabel' }}</span>
+                            {{/if}}
+                            <span class="background-name">{{backgroundName}}</span>
+                            {{#if generationEnabled}}
+                            <a class="background-roll" data-action="rollBackground" data-tooltip="CAIRN.RollBackground" aria-label="{{ localize 'CAIRN.RollBackground' }}"><i class="fas fa-dice-d20"></i></a>
+                            <a class="background-pick" data-action="pickBackground" data-tooltip="CAIRN.ChangeBackground" aria-label="{{ localize 'CAIRN.ChangeBackground' }}"><i class="fas fa-list-ul"></i></a>
+                            {{/if}}
+                            {{else}}
+                            <input class="background-input" type="text" name="system.background" value="{{system.background}}"
+                                placeholder="{{ localize 'CAIRN.Background' }}" />
+                            {{! The die and the picker belong on THIS branch too (2026-09-11).
+                                They used to hang off the generated branch alone, so a
+                                character with no background stored had a text box and no way
+                                to reach the table — and typing a name grants nothing, because
+                                the gear rides changeBackground. That was invisible while every
+                                character arrived generated; an EMPTY sheet is nothing but this
+                                branch, and picking a background is the whole point of it. }}
+                            {{#if generationEnabled}}
+                            <a class="background-roll" data-action="rollBackground" data-tooltip="CAIRN.RollBackground" aria-label="{{ localize 'CAIRN.RollBackground' }}"><i class="fas fa-dice-d20"></i></a>
+                            <a class="background-pick" data-action="pickBackground" data-tooltip="CAIRN.ChangeBackground" aria-label="{{ localize 'CAIRN.ChangeBackground' }}"><i class="fas fa-list-ul"></i></a>
+                            {{/if}}
+                            {{/if}}
+                            {{#if system.contentSource}}
+                            <span class="content-source-label">({{ localize 'CAIRN.Source' }} {{contentSourceLabel}})</span>
+                            {{/if}}
+                        </div>
+                        {{! Row 3 of the name grid: 2e carries the background's description
+                            here, Barebones the failed-career line. The two never coexist. }}
+                        {{#if backgroundDescription}}
+                        <div class="background-description">{{{backgroundDescription}}}</div>
+                        {{/if}}
+                        {{#if showFailedCareer}}
+                        <div class="failed-career-block">
+                            <div class="failed-career-line">
+                                <span class="failed-career-label">{{ localize 'CAIRN.FailedCareerLabel' }}</span>
+                                <span class="failed-career-name">{{failedCareer}}</span>
+                                {{#if generationEnabled}}
+                                <a class="failed-career-roll" data-action="rollFailedCareer" data-tooltip="CAIRN.RollFailedCareer" aria-label="{{ localize 'CAIRN.RollFailedCareer' }}"><i class="fas fa-dice-d20"></i></a>
+                                <a class="failed-career-pick" data-action="pickFailedCareer" data-tooltip="CAIRN.ChangeFailedCareer" aria-label="{{ localize 'CAIRN.ChangeFailedCareer' }}"><i class="fas fa-list-ul"></i></a>
+                                {{/if}}
+                            </div>
+                            <div class="failed-career-item-line">
+                                <span class="failed-career-item-label">{{ localize 'CAIRN.FailedCareerItemLabel' }}</span>
+                                <span class="failed-career-item-name">{{failedCareerItem}}</span>
+                                {{#if generationEnabled}}
+                                <a class="failed-career-item-roll" data-action="rollFailedCareerItem" data-tooltip="CAIRN.RollFailedCareerItem" aria-label="{{ localize 'CAIRN.RollFailedCareerItem' }}"><i class="fas fa-dice-d20"></i></a>
+                                {{/if}}
+                            </div>
+                        </div>
+                        {{/if}}
+                    </div>
+                </div>
+
+                <div class="cairn-body">
+                    <div class="cairn-left">
+                        <!-- Abilities: the current score in a circle, the max beside it,
+                             the save die, and Cairn's own sentence for what it covers -->
+                        <div class="cairn-abilities">
+                            {{#each system.abilities as |ability key|}}
+                            <div class="cairn-ability {{key}}-ability {{#if (lookup ../abilityPeril key)}}peril{{/if}} {{#if (lookup ../abilityLow key)}}low{{/if}}">
+                                <div class="cairn-ability-circle">
+                                    <input type="number" min="0" max="18" step="1" class="stat-input" name="system.abilities.{{key}}.value" value="{{ability.value}}"
+                                        data-dtype="Number" data-tooltip="{{ lookup ../currentTips key }}" aria-label="{{ lookup ../currentTips key }}" />
+                                </div>
+                                <div class="cairn-ability-max">
+                                    <span>/</span>
+                                    <input type="number" min="0" max="18" step="1" class="stat-input" name="system.abilities.{{key}}.max" value="{{ability.max}}" data-dtype="Number"
+                                        data-tooltip="{{ lookup ../maxTips key }}" aria-label="{{ lookup ../maxTips key }}" />
+                                </div>
+                                <div class="cairn-ability-words">
+                                    <div class="cairn-ability-name-line">
+                                        {{!-- While Character Creation Mode is On the save die is INERT
+                                              (2026-09-01, user spec): no data-action — a display gate,
+                                              not a wall — grayed by .save-roll-off, still hoverable so
+                                              the tooltip (abilityTips, swapped to "turn the mode off")
+                                              can say why. NEVER pointer-events:none — it kills the
+                                              pointerenter TooltipManager needs (the disabled-Rest
+                                              precedent below). saveRollOff, not generationEnabled:
+                                              on a character they are the same, but the npc sheet
+                                              narrows the lock past the monster role (2026-09-02
+                                              ruling) and the two anchors must read one flag. --}}
+                                        {{#if ../saveRollOff}}
+                                        <a class="resource-roll save-roll-off" data-tooltip="{{ lookup ../abilityTips key }}"><i class="fas fa-dice-d20 roll-icon"></i> {{ localize key }}</a>
+                                        {{else}}
+                                        <a class="resource-roll" data-action="rollAbility" data-ability="{{key}}" data-roll="d20cs<=@abilities.{{key}}.value"
+                                            data-label="{{ localize 'CAIRN.Save' key=(localize key)}}" data-tooltip="{{ lookup ../abilityTips key }}"><i class="fas fa-dice-d20 roll-icon"></i> {{ localize key }}</a>
+                                        {{/if}}
+                                        {{#if (lookup ../criticalToggle key)}}
+                                        <a class="critical-toggle {{#if (lookup ../criticalActive key)}}active{{/if}}" data-action="toggleCritical" data-key="{{key}}"
+                                            title="{{ localize 'CAIRN.CriticalDamageToggle' }}"><i class="fas fa-skull"></i></a>
+                                        {{/if}}
+                                    </div>
+                                    {{!-- Cairn's own sentence (StrTip/DexTip/WilTip), in every
+                                          mode: Creation Mode swaps the die's TOOLTIP, never this. --}}
+                                    <span class="cairn-ability-hint">{{ lookup ../abilityHints key }}</span>
+                                </div>
+                            </div>
+                            {{/each}}
+                        </div>
+
+                        <!-- The band under the abilities: Gold, Deprived, Panicked -->
+                        <div class="cairn-band">
+                            <div class="band-row band-gold {{#if system.maybeTooMuchGold }}overburdened-gold{{/if}}"
+                                {{#if system.maybeTooMuchGold }} title="{{localize 'CAIRN.OverburdenByGold'}}" {{/if}}>
+                                <label class="band-label" for="{{@root.idp}}-system.gold" data-tooltip="{{goldTip}}">{{ localize 'CAIRN.Gold' }}</label>
+                                <input type="number" class="gold-input" name="system.gold" id="{{@root.idp}}-system.gold" value="{{system.gold}}" data-dtype="Number" />
+                            </div>
+                            <div class="band-row band-deprived">
+                                {{!-- id for core's focus restore: _preSyncPartState records
+                                      focus only as #id or TAG[name] (review #22), and these
+                                      class-managed controls deliberately carry no name. --}}
+                                <label class="band-label" for="{{@root.idp}}-deprived-check" data-tooltip="{{ localize deprivedTipKey }}">{{ localize 'CAIRN.Deprived' }}</label>
+                                <input type="checkbox" class="deprived-check" id="{{@root.idp}}-deprived-check" {{checked system.deprived}} />
+                            </div>
+                            {{#if system.usePanic}}
+                            <div class="band-row band-panicked">
+                                <label class="band-label" for="{{@root.idp}}-panicked-check" data-tooltip="{{ localize panickedTipKey }}">{{ localize 'CAIRN.Panicked' }}</label>
+                                <input type="checkbox" class="panicked-check" id="{{@root.idp}}-panicked-check" {{checked system.panicked}} />
+                            </div>
+                            {{/if}}
+                        </div>
+                    </div>
+
+                    <!-- Vitals: Armor, HP, slots, and the between-fights buttons -->
+                    <div class="cairn-vitals">
+                        <div class="cairn-shield armor-counter {{#if system.armorOverridden}}armor-overridden{{/if}}">
+                            <label for="{{@root.idp}}-armor" data-tooltip="{{ localize 'CAIRN.ArmorTip' }}">{{ localize 'CAIRN.Armor' }}</label>
+                            <input type="number" min="0" max="3" step="1" class="armor-input" id="{{@root.idp}}-armor" value="{{system.armor}}"
+                                title="{{#if system.armorOverridden}}{{ localize 'CAIRN.ArmorOverrideActive' }}{{else}}{{ localize 'CAIRN.ArmorAuto' }}{{/if}}" />
+                            {{#if system.armorOverridden}}
+                            <a class="armor-reset" data-action="armorReset" title="{{ localize 'CAIRN.ArmorReset' }}"><i class="fas fa-rotate-left"></i></a>
+                            {{/if}}
+                        </div>
+
+                        <div class="resource-counter hp-counter {{#if hpLow}}low{{/if}}">
+                            {{!-- hpTip appends "Rolled at creation." while the mode is On;
+                                  the boxes say WHICH side is which, formatted per stat
+                                  (currentTips/maxTips, _computeStatContext). --}}
+                            <label for="{{@root.idp}}-system.hp.value" data-tooltip="{{hpTip}}">{{ localize 'CAIRN.HitProtection' }}</label>
+                            <div class="resource-input-wrapper">
+                                <input type="number" min="0" max="18" step="1" class="stat-input" name="system.hp.value" id="{{@root.idp}}-system.hp.value"
+                                       value="{{system.hp.value}}" data-dtype="Number" data-tooltip="{{currentTips.HP}}" />
+                                <span> / </span>
+                                <input type="number" min="0" max="18" step="1" class="stat-input" name="system.hp.max" value="{{system.hp.max}}" data-dtype="Number" data-tooltip="{{maxTips.HP}}" />
+                            </div>
+                        </div>
+
+                        {{!-- The slot count, which the old Items tab label carried; the
+                              per-character limit's double-click came with it (the rail's
+                              Inventory tooltip says the count too). --}}
+                        <div class="cairn-slots-line {{#if system.encumbered}}peril{{/if}}" id="set-equipment-limit"
+                            {{#if system.characterEquipmentLimit}}title="{{localize 'CAIRN.EquipmentLimitTip'}}"{{/if}}>
+                            {{#if system.characterEquipmentLimit}}<i class="fas fa-gears" inert></i>{{/if}}
+                            <span class="slots-label">{{ localize 'CAIRN.Slots' }}</span>
+                            <span class="slots-value">{{system.slotsUsed}} / {{slotsMaxLabel}}</span>
+                        </div>
+
+                        <div class="cairn-vital-buttons character-sheet-section-buttons">
+                            {{!-- While Deprived the tooltip says WHY the button is off (DeprivedTip),
+                                  not how resting works. A disabled control still receives pointerenter
+                                  in Chromium and Firefox both (verified live 2026-08-08), so the
+                                  tooltip fires on the disabled button as-is — no aria-disabled
+                                  workaround needed, and dev:ui-parity hovers it for real. --}}
+                            {{!-- RestTip is Cairn's own Healing & Recovery sentence, the same on
+                                  the NPC sheet: Rest follows the rules as written. (The ration
+                                  house rule of 0.1.24 and its RestRationTip were removed
+                                  2026-11-06 — do not rebuild.) --}}
+                            <button id="rest-button" type="button" data-action="rest" class="strict-size-button" data-tooltip="{{#if system.deprived}}{{ localize deprivedTipKey }}{{else}}{{ localize 'CAIRN.RestTip' }}{{/if}}" {{#if system.deprived}}disabled{{/if}}><i class="fas fa-campground"></i> {{ localize 'CAIRN.Rest' }}</button>
+                            <button id="restore-abilities-button" type="button" data-action="restoreAbilities" class="strict-size-button" data-tooltip="{{#if system.deprived}}{{ localize deprivedTipKey }}{{else}}{{ localize 'CAIRN.RestoreTip' }}{{/if}}" {{#if system.deprived}}disabled{{/if}}><i class="fas fa-heart-pulse"></i> {{ localize 'CAIRN.RestoreAbilities' }}</button>
+                            <button id="die-of-fate-button" type="button" data-action="dieOfFate" data-always-live class="strict-size-button" data-tooltip="{{ localize 'CAIRN.DieOfFateTip' }}"><i class="fas fa-dice-d6"></i> {{ localize 'CAIRN.DieOfFate' }}</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Inventory -->
+            <div class="tab cairn-page cairn-page-items {{tabs.items.cssClass}}" data-group="primary" data-tab="items">
+                {{> "systems/air-bladder/templates/parts/items-list.html" withFatigue=1 withShop=withShop withImprovised=canImprovise improvisedFormula=improvisedFormula withDrop=canDrop withDropNote=isPile}}
+            </div>
+
+            <!-- Growth: Cairn's principle, the Scars, and the player's own record -->
+            <div class="tab cairn-page cairn-page-growth {{tabs.growth.cssClass}}" data-group="primary" data-tab="growth">
+                {{!-- Cairn's own sentence (Overview & Principles, "Growth"), quoted: Cairn
+                      has no experience points, and a character changes in the world. --}}
+                <p class="cairn-growth-intro">{{ localize 'CAIRN.Growth.Intro' }}</p>
+                <div class="cairn-growth-scars">
+                    {{> "systems/air-bladder/templates/parts/scar-block.html"}}
+                </div>
+                <div class="cairn-growth-journal">
+                    <div class="cairn-growth-heading">{{ localize 'CAIRN.Growth.Journal' }}</div>
+                    {{!-- Toggled + collaborate, exactly as the Notes editor below (the
+                          measured-safe pairing), with its empty-state hint in the display
+                          half for the same reason. `system.growth` is in system.json's
+                          htmlFields, so the server sanitizes it like Notes. --}}
+                    <prose-mirror name="system.growth" value="{{system.growth}}" toggled collaborate relative
+                        data-document-uuid="{{actor.uuid}}">{{#if system.growth}}{{{enrichedGrowth}}}{{else}}<p class="cairn-editor-placeholder">{{ localize 'CAIRN.Growth.JournalPlaceholder' }}</p>{{/if}}</prose-mirror>
+                </div>
+            </div>
+
+            <!-- Description -->
+            <div class="tab cairn-page cairn-page-description {{tabs.description.cssClass}}" data-group="primary" data-tab="description">
+                <div class="description">
+                    {{!-- The pronouns/age/traits/omen block lives in a partial — the npc
+                          sheet renders the same one for role-npc people (2026-08-01). A
+                          character's Scars are NOT in it any more: they are on Growth
+                          (showScars false, 2026-11-19). --}}
+                    {{> "systems/air-bladder/templates/parts/bio-block.html"}}
+                    {{!-- The Features list rendered here until 2026-08-09,
+                          behind the show-features-section setting; both went
+                          (user ruling). `system.features` survives on the
+                          document, unrendered. --}}
+                    {{!-- The character's own Description, ONLY while it holds prose
+                          (review #34 finding 55, user ruling 2026-10-31). The always-on
+                          editor went on 2026-07-29 as a second, unlabelled notes box
+                          competing with the real one on the Notes tab, on the belief
+                          that the field was orphaned. It was not: the Kettlewright
+                          importer writes `system.description` and the printed sheet
+                          prints it, so an imported character's text was on paper and
+                          nowhere on screen. So it comes back for the characters that
+                          have some, LABELLED, and a character made in Foundry still sees
+                          no box. `showDescription` is `holdsProse`, the print page's
+                          own test, so an editor its player empties (`<p></p>`) goes
+                          away on the next render and prints no empty heading. The
+                          `npc-description-section` class is borrowed on purpose: it is
+                          in the selector lists that give a toggled editor its field look
+                          and unhovered pencil (cairn.css), and a second copy of those
+                          rules is a second thing to drift. --}}
+                    {{#if showDescription}}
+                    <div class="npc-description-section character-description">
+                        <div class="character-description-heading">{{ localize 'CAIRN.Description' }}</div>
+                        <prose-mirror name="system.description" value="{{system.description}}" toggled collaborate relative
+                            data-document-uuid="{{actor.uuid}}">{{{enrichedDescription}}}</prose-mirror>
+                    </div>
                     {{/if}}
+                    <div class="cairn-compat-footer">
+                        <a href="https://cairnrpg.com" target="_blank" rel="noopener" title="{{ localize 'CAIRN.CompatibleAlt' }}">
+                            <img src="systems/air-bladder/logo/Cairn_Stamp.jpg" alt="{{ localize 'CAIRN.CompatibleAlt' }}" />
+                        </a>
+                        <div class="cairn-compat-caption">{{{ localize 'CAIRN.CompatibleCredit' }}}</div>
+                    </div>
                 </div>
             </div>
 
-            <div class="resource-counter long-counter deprived-counter">
-                <label data-tooltip="{{ localize deprivedTipKey }}">{{ localize 'CAIRN.Deprived' }}</label>
-                <div class="resource-input-wrapper">
-                    {{!-- id for core's focus restore: _preSyncPartState records
-                          focus only as #id or TAG[name] (review #22), and these
-                          class-managed controls deliberately carry no name. --}}
-                    <input type="checkbox" class="deprived-check" id="{{@root.idp}}-deprived-check" {{checked system.deprived}} />
-                </div>
-            </div>
-
-            {{#if system.usePanic}}
-            <div class="resource-counter long-counter deprived-counter">
-                <label data-tooltip="{{ localize panickedTipKey }}">{{ localize 'CAIRN.Panicked' }}</label>
-                <div class="resource-input-wrapper">
-                    <input type="checkbox" class="panicked-check" id="{{@root.idp}}-panicked-check" {{checked system.panicked}} />
-                </div>
+            {{#if system.showContainersTab}}
+            <div class="tab cairn-page cairn-page-containers {{tabs.containers.cssClass}}" data-group="primary" data-tab="containers">
+                {{> "systems/air-bladder/templates/parts/container-list.html"}}
             </div>
             {{/if}}
 
-        </div>
-        <div class="character-sheet-section-tabs">
-            <!-- Attribute-loss status banners (2e): empty/0-height when healthy,
-                 otherwise one unmissable bar per active condition (Dead, STR
-                 Critical Damage, Paralyzed, Delirious, Overburdened). The line
-                 goes through CAIRN.StatusBannerLine WHOLE — the same key the
-                 chat bars use (postStatusCard), so a translator reordering it
-                 cannot split the pair. Triple-stache because the key carries the
-                 <strong>; label and text are system i18n strings, never authored
-                 data (see the statusBanners builder in actor-sheet.js). -->
-            <div class="critical-banner">
-                {{#each statusBanners}}
-                <div class="status-banner status-{{this.key}}">
-                    <i class="fas {{this.icon}}"></i>
-                    <span>{{{localize "CAIRN.StatusBannerLine" label=this.label text=this.text}}}</span>
+            <!-- Background & Notes -->
+            <div class="tab cairn-page cairn-page-notes {{tabs.notes.cssClass}}" data-group="primary" data-tab="notes">
+                {{! Bonds + the background's re-rollable questions sit above the
+                    free-form notes editor. Both are 2e content. }}
+                {{#if showBonds}}
+                {{#each bonds}}
+                <div class="bond-block">
+                    {{!-- Die + pick-list button (2026-09-01): re-roll the bond, or
+                          pick one off the resolved Bonds table — a player
+                          recreating a book-rolled character needs the row
+                          they already rolled. --}}
+                    <p class="bond-line"><strong>{{ localize 'CAIRN.Bond' }}:</strong>{{#if ../generationEnabled}}<a class="bond-reroll" data-action="rerollBond"
+                            data-bond-id="{{this.id}}" data-tooltip="CAIRN.RerollBond" aria-label="{{ localize 'CAIRN.RerollBond' }}"><i
+                                class="fas fa-dice-d20"></i></a><a class="bond-pick" data-action="pickBond"
+                            data-bond-id="{{this.id}}" data-tooltip="CAIRN.PickBond" aria-label="{{ localize 'CAIRN.PickBond' }}"><i
+                                class="fas fa-list-ul"></i></a>{{#if @index}}<a class="bond-remove" data-action="removeBond"
+                            data-bond-id="{{this.id}}" data-tooltip="CAIRN.RemoveBond" aria-label="{{ localize 'CAIRN.RemoveBond' }}"><i
+                                class="fas fa-xmark"></i></a>{{/if}}{{/if}}</p>
+                    <p class="bond-answer">{{this.description}}</p>
                 </div>
                 {{/each}}
+                {{#if generationEnabled}}{{#if canAddBond}}
+                <a class="bond-add" data-action="addBond" data-tooltip="CAIRN.AddBond"><i class="fas fa-plus"></i> {{ localize 'CAIRN.AddBond' }}</a>
+                {{/if}}{{/if}}
+                {{/if}}
+                {{#if is2eBackground}}
+                {{#each questions}}
+                <div class="question-block">
+                    {{!-- Die + pick-list button (2026-09-01), like the bond line:
+                          re-roll the answer, or choose it off the
+                          background's own options. --}}
+                    <p class="question-line"><strong>{{this.question}}</strong>{{#if ../generationEnabled}}<a class="question-reroll" data-action="rerollQuestion"
+                            data-index="{{@index}}" data-tooltip="CAIRN.RerollQuestion" aria-label="{{ localize 'CAIRN.RerollQuestion' }}"><i
+                                class="fas fa-dice-d20"></i></a><a class="question-pick" data-action="pickQuestion"
+                            data-index="{{@index}}" data-tooltip="CAIRN.PickQuestion" aria-label="{{ localize 'CAIRN.PickQuestion' }}"><i
+                                class="fas fa-list-ul"></i></a>{{/if}}</p>
+                    <p class="question-answer">{{this.answer}}</p>
+                </div>
+                {{/each}}
+                {{/if}}
+                {{!-- The background's credit, below the bonds and questions it
+                      belongs to and above the player's own notes. DOUBLE stash:
+                      this is authored free text, unlike the enriched
+                      backgroundDescription in the header, and must never be parsed
+                      as markup. Absent when empty — the canon 2e and Barebones
+                      backgrounds ship it that way on purpose, and a bare label over
+                      nothing reads as a fault. --}}
+                {{#if backgroundAttribution}}
+                <p class="background-credit">{{backgroundAttribution}}</p>
+                {{/if}}
+                {{#if showNotesDivider}}<hr class="notes-divider" />{{/if}}
+                {{!-- TOGGLED since 2026-08-02, reversing the always-active decision
+                      recorded here: the user reads a permanent toolbar over an empty
+                      box as clutter. `toggled collaborate` is the MEASURED-SAFE
+                      pairing — the race was always-active + collaborate, where
+                      activation awaits a handshake long enough for a submitOnChange
+                      re-render to detach the element mid-activation and
+                      ProseMirrorMenu.render then throws on a null node.
+                      The empty-state hint is a REAL element in the display half, not
+                      a ::before on .editor-container: a toggled editor only grows
+                      that container on activation, so a hint anchored to it appears
+                      after the click it exists to prompt.
+                      Gated by `npm run dev:notes-editor`. --}}
+                <prose-mirror name="system.notes" value="{{system.notes}}" toggled collaborate relative
+                    data-document-uuid="{{actor.uuid}}">{{#if system.notes}}{{{enrichedNotes}}}{{else}}<p class="cairn-editor-placeholder">{{ localize 'CAIRN.NotesPlaceholder' }}</p>{{/if}}</prose-mirror>
             </div>
-            {{!-- The nav is hand-written rather than using Foundry's shipped
-                  tab-navigation partial, because the labels carry live data
-                  (slot counts, connection counts) and, on the NPC sheet, a
-                  per-role static name — "Background & Notes" for a person, plain
-                  "Notes" for a monster, mount, transport or container. A player
-                  character always reads "Background & Notes".
-                  NOTE the `--` form. A short `{{! }}` comment ends at the FIRST
-                  `}}`, so one containing a handlebars expression spills the rest
-                  of itself onto the sheet as literal text. --}}
-            <nav class="tabs" data-group="primary">
-                <a class="item {{tabs.items.cssClass}}" data-action="tab" data-group="primary" data-tab="items" id="set-equipment-limit"
-                    {{#if system.characterEquipmentLimit}}title="{{localize 'CAIRN.EquipmentLimitTip'}}"{{/if}}>
-                    {{!-- `inert`, like core's tab template (templates/generic/tab-navigation.hbs):
-                          _onClickTab reads event.target.dataset.tab, so a click landing ON the
-                          icon found no tab id and silently did nothing — a dead spot exactly
-                          where the tooltip invites the click. --}}
-                    {{#if system.characterEquipmentLimit}}<i class="fas fa-gears" inert style="opacity:0.5;z-index:5000" ></i>{{/if}}
-                    {{ localize 'CAIRN.Items' }} ({{system.slotsUsed}} / {{system.slotsMax}})
-                </a>
-                <a class="item {{tabs.description.cssClass}}" data-action="tab" data-group="primary" data-tab="description">{{ localize 'CAIRN.Description' }}</a>
-                {{#if system.showContainersTab}}
-                {{!-- Counts `containerObjects`, NOT the legacy `containers` array --
-                      see the note on the NPC sheet's copy of this row. --}}
-                <a class="item {{tabs.containers.cssClass}}" data-action="tab" data-group="primary" data-tab="containers">{{ localize 'CAIRN.Connections' }} ({{system.containerObjects.length}}) </a>
-                {{/if}}
-                <a class="item {{tabs.notes.cssClass}}" data-action="tab" data-group="primary" data-tab="notes">{{ localize 'CAIRN.BackgroundAndNotes' }}</a>
-            </nav>
-            <section class="content">
-                <div class="tab {{tabs.items.cssClass}}" data-group="primary" data-tab="items">
-                    {{> "systems/air-bladder/templates/parts/items-list.html" withFatigue=1 withShop=withShop withImprovised=canImprovise improvisedFormula=improvisedFormula withDrop=canDrop withDropNote=isPile}}
-                </div>
-                <div class="tab {{tabs.description.cssClass}}" data-group="primary" data-tab="description">
-                    <div class="description">
-                        {{!-- The pronouns/age/traits/scars block lives in a
-                              partial now — the npc sheet renders the same one
-                              for role-npc people (2026-08-01). Moved, not
-                              copied: this is its original home. --}}
-                        {{> "systems/air-bladder/templates/parts/bio-block.html"}}
-                        {{!-- The Features list rendered here until 2026-08-09,
-                              behind the show-features-section setting; both went
-                              (user ruling). `system.features` survives on the
-                              document, unrendered. --}}
-                        {{!-- The character's own Description, ONLY while it holds prose
-                              (review #34 finding 55, user ruling 2026-10-31). The always-on
-                              editor went on 2026-07-29 as a second, unlabelled notes box
-                              competing with the real one on the Notes tab, on the belief
-                              that the field was orphaned. It was not: the Kettlewright
-                              importer writes `system.description` and the printed sheet
-                              prints it, so an imported character's text was on paper and
-                              nowhere on screen. So it comes back for the characters that
-                              have some, LABELLED, and a character made in Foundry still sees
-                              no box. `showDescription` is `holdsProse`, the print page's
-                              own test, so an editor its player empties (`<p></p>`) goes
-                              away on the next render and prints no empty heading. The
-                              `npc-description-section` class is borrowed on purpose: it is
-                              in the selector lists that give a toggled editor its field look
-                              and unhovered pencil (cairn.css), and a second copy of those
-                              rules is a second thing to drift. --}}
-                        {{#if showDescription}}
-                        <div class="npc-description-section character-description">
-                            <div class="character-description-heading">{{ localize 'CAIRN.Description' }}</div>
-                            <prose-mirror name="system.description" value="{{system.description}}" toggled collaborate relative
-                                data-document-uuid="{{actor.uuid}}">{{{enrichedDescription}}}</prose-mirror>
-                        </div>
-                        {{/if}}
-                        <div class="cairn-compat-footer">
-                            <a href="https://cairnrpg.com" target="_blank" rel="noopener" title="{{ localize 'CAIRN.CompatibleAlt' }}">
-                                <img src="systems/air-bladder/logo/Cairn_Stamp.jpg" alt="{{ localize 'CAIRN.CompatibleAlt' }}" />
-                            </a>
-                            <div class="cairn-compat-caption">{{{ localize 'CAIRN.CompatibleCredit' }}}</div>
-                        </div>
-                    </div>
-                </div>
-                {{#if system.showContainersTab}}
-                <div class="tab {{tabs.containers.cssClass}}" data-group="primary" data-tab="containers">
-                    {{> "systems/air-bladder/templates/parts/container-list.html"}}
-                </div>
-                {{/if}}
-                <div class="tab {{tabs.notes.cssClass}}" data-group="primary" data-tab="notes">
-                    {{! Bonds + the background's re-rollable questions sit above the
-                        free-form notes editor. Both are 2e content. }}
-                    {{#if showBonds}}
-                    {{#each bonds}}
-                    <div class="bond-block">
-                        {{!-- Die + pick-list button (2026-09-01): re-roll the bond, or
-                              pick one off the resolved Bonds table — a player
-                              recreating a book-rolled character needs the row
-                              they already rolled. --}}
-                        <p class="bond-line"><strong>{{ localize 'CAIRN.Bond' }}:</strong>{{#if ../generationEnabled}}<a class="bond-reroll" data-action="rerollBond"
-                                data-bond-id="{{this.id}}" data-tooltip="CAIRN.RerollBond" aria-label="{{ localize 'CAIRN.RerollBond' }}"><i
-                                    class="fas fa-dice-d20"></i></a><a class="bond-pick" data-action="pickBond"
-                                data-bond-id="{{this.id}}" data-tooltip="CAIRN.PickBond" aria-label="{{ localize 'CAIRN.PickBond' }}"><i
-                                    class="fas fa-list-ul"></i></a>{{#if @index}}<a class="bond-remove" data-action="removeBond"
-                                data-bond-id="{{this.id}}" data-tooltip="CAIRN.RemoveBond" aria-label="{{ localize 'CAIRN.RemoveBond' }}"><i
-                                    class="fas fa-xmark"></i></a>{{/if}}{{/if}}</p>
-                        <p class="bond-answer">{{this.description}}</p>
-                    </div>
-                    {{/each}}
-                    {{#if generationEnabled}}{{#if canAddBond}}
-                    <a class="bond-add" data-action="addBond" data-tooltip="CAIRN.AddBond"><i class="fas fa-plus"></i> {{ localize 'CAIRN.AddBond' }}</a>
-                    {{/if}}{{/if}}
-                    {{/if}}
-                    {{#if is2eBackground}}
-                    {{#each questions}}
-                    <div class="question-block">
-                        {{!-- Die + pick-list button (2026-09-01), like the bond line:
-                              re-roll the answer, or choose it off the
-                              background's own options. --}}
-                        <p class="question-line"><strong>{{this.question}}</strong>{{#if ../generationEnabled}}<a class="question-reroll" data-action="rerollQuestion"
-                                data-index="{{@index}}" data-tooltip="CAIRN.RerollQuestion" aria-label="{{ localize 'CAIRN.RerollQuestion' }}"><i
-                                    class="fas fa-dice-d20"></i></a><a class="question-pick" data-action="pickQuestion"
-                                data-index="{{@index}}" data-tooltip="CAIRN.PickQuestion" aria-label="{{ localize 'CAIRN.PickQuestion' }}"><i
-                                    class="fas fa-list-ul"></i></a>{{/if}}</p>
-                        <p class="question-answer">{{this.answer}}</p>
-                    </div>
-                    {{/each}}
-                    {{/if}}
-                    {{!-- The background's credit, below the bonds and questions it
-                          belongs to and above the player's own notes. DOUBLE stash:
-                          this is authored free text, unlike the enriched
-                          backgroundDescription in the header, and must never be parsed
-                          as markup. Absent when empty — the canon 2e and Barebones
-                          backgrounds ship it that way on purpose, and a bare label over
-                          nothing reads as a fault. --}}
-                    {{#if backgroundAttribution}}
-                    <p class="background-credit">{{backgroundAttribution}}</p>
-                    {{/if}}
-                    {{#if showNotesDivider}}<hr class="notes-divider" />{{/if}}
-                    {{!-- TOGGLED since 2026-08-02, reversing the always-active decision
-                          recorded here: the user reads a permanent toolbar over an empty
-                          box as clutter. `toggled collaborate` is the MEASURED-SAFE
-                          pairing — the race was always-active + collaborate, where
-                          activation awaits a handshake long enough for a submitOnChange
-                          re-render to detach the element mid-activation and
-                          ProseMirrorMenu.render then throws on a null node.
-                          The empty-state hint is a REAL element in the display half, not
-                          a ::before on .editor-container: a toggled editor only grows
-                          that container on activation, so a hint anchored to it appears
-                          after the click it exists to prompt.
-                          Gated by `npm run dev:notes-editor`. --}}
-                    <prose-mirror name="system.notes" value="{{system.notes}}" toggled collaborate relative
-                        data-document-uuid="{{actor.uuid}}">{{#if system.notes}}{{{enrichedNotes}}}{{else}}<p class="cairn-editor-placeholder">{{ localize 'CAIRN.NotesPlaceholder' }}</p>{{/if}}</prose-mirror>
-                </div>
-            </section>
-        </div>
+        </section>
     </div>
     {{/if}}

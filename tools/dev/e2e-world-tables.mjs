@@ -409,7 +409,10 @@ try {
     await pc.sheet.render(true);
     for (let i = 0; i < 40 && !pc.sheet.element; i++) await new Promise((r) => setTimeout(r, 100));
     await new Promise((r) => setTimeout(r, 500));
-    pc.sheet.element.querySelector('.tabs .item[data-tab="description"]')?.click();
+    // To the Omen's page through the sheet's own changeTab: a character's pages
+    // are turned from the rail since 2026-11-19, and the strip's
+    // `.tabs .item` link this used to click is gone from a character.
+    await pc.sheet.changeTab("description", "primary");
     await new Promise((r) => setTimeout(r, 300));
     const die = pc.sheet.element.querySelector('[data-action="rollOmen"]');
     die?.click();

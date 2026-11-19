@@ -6,6 +6,16 @@
  * one is checked as GEOMETRY or COMPUTED STYLE — never by reading the stylesheet
  * back, which only proves a rule was written, not that it applied or won.
  *
+ * SINCE 2026-11-19 the header and stat block are the sheet's CHARACTER PAGE
+ * (page 1 of five, turned from a thumb-tab rail hung outside the frame, laid
+ * out after Base Knavery's): a head (portrait + name and background) over
+ * abilities and the Gold/Deprived/Panicked band on the left and the vitals
+ * column (Armor, HP, slots, the three buttons) on the right. The legs that
+ * measured the old header grid — HP above STR, Gold beside HP, the 70/30
+ * counter split — measure the same promises against that layout: the stat
+ * rows stand in one even column, the band's controls line up, the vitals stand
+ * in reading order beside them. The tab-strip legs read the rail's tooltips.
+ *
  * Rolls a real character (the Gold counter only exists on a generated one) and
  * deletes it afterwards.
  */
@@ -76,30 +86,70 @@ try {
       };
     });
 
-    // The Notes tab's name, read off the rendered nav rather than the context.
-    out.notesTabLabel = root.querySelector('.tabs .item[data-tab="notes"]')?.textContent?.trim() ?? null;
-    // Gold uses the 70/30 long-counter split, matching Armor/Deprived beneath it.
-    const goldLabel = root.querySelector(".character-sheet-section-name .deprived-counter label");
-    const goldBox = root.querySelector(".character-sheet-section-name .deprived-counter");
-    out.goldLabelRatio = goldLabel && goldBox
-      ? Math.round((goldLabel.getBoundingClientRect().width / goldBox.getBoundingClientRect().width) * 100)
-      : null;
-    const armorLabel = root.querySelector(".armor-counter label");
-    const armorBox = root.querySelector(".armor-counter");
-    out.armorLabelRatio = armorLabel && armorBox
-      ? Math.round((armorLabel.getBoundingClientRect().width / armorBox.getBoundingClientRect().width) * 100)
-      : null;
+    // Everything below is measured on page 1, so the leg first proves it is
+    // standing there: an inactive page is display:none, every box on it reads
+    // 0x0 at (0,0), and "HP sits above STR" between two zero boxes at the
+    // origin would pass. A fresh character sheet opens on its Character page.
+    out.page1Active = root.querySelector('.tab[data-tab="character"]')?.classList.contains("active") ?? null;
 
-    out.hp = box(".hp-counter");
-    out.gold = box(".character-sheet-section-name .deprived-counter");
-    out.str = box(".STR-counter");
-    out.dex = box(".DEX-counter");
-    out.wil = box(".WIL-counter");
-    out.armor = box(".armor-counter");
-    out.deprived = box(".character-sheet-section-others .deprived-counter");
+    // The Notes page's name, read off the rendered rail rather than the
+    // context: the tooltip the player hovers, and the aria-label a screen
+    // reader speaks, which are the same string by construction (tab.tip).
+    const notesBtn = root.querySelector('nav.cairn-tab-rail button[data-tab="notes"]');
+    out.notesTabLabel = notesBtn?.dataset.tooltipText ?? null;
+    out.notesAriaLabel = notesBtn?.getAttribute("aria-label") ?? null;
+    // The slot count the old Items tab label carried, now in two places — the
+    // rail's Inventory tooltip and page 1's slots line — which must agree.
+    out.inventoryTip = root.querySelector('nav.cairn-tab-rail button[data-tab="items"]')?.dataset.tooltipText ?? null;
+    out.slotsValue = root.querySelector(".cairn-slots-line .slots-value")?.textContent?.trim() ?? null;
+    // What the tooltip must read, built from the slot line's own two numbers
+    // through the key the sheet formats it with — so the leg does not hardcode
+    // the English sentence, and a line and a tooltip fed different counts part.
+    {
+      const [used, max] = (out.slotsValue ?? "").split("/").map((s) => s.trim());
+      out.inventoryWant = used && max ? game.i18n.format("CAIRN.Tab.InventoryCount", { used, max }) : null;
+    }
+    out.slotsLineHasLimitId = !!root.querySelector(".cairn-slots-line#set-equipment-limit");
 
-    out.dexRadius = style(".DEX-counter", "borderTopLeftRadius");
-    out.strRadius = style(".STR-counter", "borderBottomLeftRadius");
+    // Gold used the 70/30 long-counter split, matching Armor/Deprived beneath
+    // it, so the black label bars lined up. The band has no label bars: its
+    // promise is the same one in its own terms — Gold's, Deprived's and
+    // Panicked's labels are one width, and their controls start on one line.
+    const bandRows = [...root.querySelectorAll(".cairn-band .band-row")].map((row) => {
+      const l = row.querySelector(".band-label")?.getBoundingClientRect();
+      const c = row.querySelector("input")?.getBoundingClientRect();
+      return {
+        row: [...row.classList].find((k) => k.startsWith("band-") && k !== "band-row") ?? "?",
+        labelW: l ? Math.round(l.width) : null,
+        controlX: c ? Math.round(c.x) : null,
+      };
+    });
+    out.bandRows = bandRows;
+
+    out.hp = box(".cairn-vitals .hp-counter");
+    out.gold = box(".cairn-band .band-gold");
+    out.str = box(".cairn-ability.STR-ability");
+    out.dex = box(".cairn-ability.DEX-ability");
+    out.wil = box(".cairn-ability.WIL-ability");
+    out.armor = box(".cairn-shield.armor-counter");
+    out.deprived = box(".cairn-band .band-deprived");
+    out.slots = box(".cairn-slots-line");
+    out.buttons = box(".cairn-vital-buttons");
+    out.abilities = box(".cairn-abilities");
+    out.vitals = box(".cairn-vitals");
+    out.head = box(".cairn-head");
+    out.body = box(".cairn-body");
+
+    // The old counters' rounded corners; the new abilities sit in CIRCLES. A
+    // circle is a square box whose corner radius is at least half its side.
+    out.circles = ["STR", "DEX", "WIL"].map((k) => {
+      const el = root.querySelector(`.${k}-ability .cairn-ability-circle`);
+      if (!el) return { k, missing: true };
+      const b = el.getBoundingClientRect();
+      const rad = getComputedStyle(el).borderTopLeftRadius;
+      const radPx = rad.endsWith("%") ? (parseFloat(rad) / 100) * b.width : parseFloat(rad);
+      return { k, w: Math.round(b.width), h: Math.round(b.height), rad, round: radPx >= b.width / 2 - 0.5 };
+    });
     // The three header buttons were reverted to Foundry's own chrome on
     // 2026-07-28 (they had carried a cream fill + 2px black border). "Foundry's
     // default" is MEASURED, not hardcoded: a bare button appended to the same
@@ -137,8 +187,10 @@ try {
     // Duplicating it here would mean two probes to update for one behaviour.
 
     // --- Description tab: the background description moved to the HEADER, and
-    // the Cairn-compatible badge sits at the foot.
-    out.descInHeader = !!root.querySelector(".character-sheet-section-name .background-description");
+    // the Cairn-compatible badge sits at the foot. The header is page 1's head
+    // since 2026-11-19 — the identity column beside the portrait — and the
+    // Description page is still where it must NOT be.
+    out.descInHeader = !!root.querySelector('.tab[data-tab="character"] .cairn-head .cairn-identity .background-description');
     out.descInTab = !!root.querySelector('.tab[data-tab="description"] .background-description');
     const badge = root.querySelector(".cairn-compat-footer img");
     // naturalWidth is the only honest test that the file actually resolved --
@@ -179,8 +231,9 @@ try {
       // handler behind it. CLICK Add Connection and assert its dialog opens,
       // offering the connectable npc seeded here for exactly that purpose.
       //
-      // Open the tab as a player would, then click the control.
-      cRoot.querySelector('.tabs .item[data-tab="containers"]')?.click();
+      // Open the tab as a player would, then click the control. On a
+      // character that is its rail button (2026-11-19), not a strip label.
+      cRoot.querySelector('nav.cairn-tab-rail button[data-tab="containers"]')?.click();
       await new Promise((res) => setTimeout(res, 400));
       out.tabActive = cRoot.querySelector('.tab[data-tab="containers"]')?.classList.contains("active") ?? null;
 
@@ -251,15 +304,30 @@ try {
     // --- No untranslated keys anywhere on either sheet. A missing lang entry
     // renders the raw "CAIRN.Foo" key as visible text, which is easy to ship
     // unnoticed -- this sweeps every tab of a 2e AND a Barebones character.
+    //
+    // Every PAGE since 2026-11-19: Character and Growth joined, turned from
+    // the rail. And the rail's own words are swept too: the old strip's labels
+    // were visible text and `innerText` caught a raw key in them; the rail's
+    // are tooltips and aria-labels, which innerText never sees, so they are
+    // read off the attributes. (Connections is parked and absent; its click
+    // is a no-op, kept for the day it is unparked.)
     out.rawKeys = [];
+    out.sweptPages = [];
     const sweep = async (a) => {
       await a.sheet.render(true);
       await new Promise((res) => setTimeout(res, 700));
       const el = a.sheet.element;
-      for (const tab of ["items", "containers", "description", "notes"]) {
-        el.querySelector(`.tabs .item[data-tab="${tab}"]`)?.click();
+      for (const tab of ["character", "items", "growth", "description", "containers", "notes"]) {
+        const btn = el.querySelector(`nav.cairn-tab-rail button[data-tab="${tab}"]`);
+        if (!btn) continue;
+        btn.click();
         await new Promise((res) => setTimeout(res, 250));
+        if (el.querySelector(`.tab[data-tab="${tab}"]`)?.classList.contains("active")) out.sweptPages.push(`${a.id}:${tab}`);
         for (const m of (el.innerText ?? "").matchAll(/CAIRN\.[A-Za-z.]+/g)) out.rawKeys.push(m[0]);
+      }
+      for (const b of el.querySelectorAll("nav.cairn-tab-rail button")) {
+        const words = [b.getAttribute("aria-label"), b.dataset.tooltipText, b.dataset.tooltipHtml].join(" ");
+        for (const m of words.matchAll(/CAIRN\.[A-Za-z.]+/g)) out.rawKeys.push(m[0]);
       }
     };
     await sweep(actor);
@@ -361,7 +429,15 @@ try {
     out.derivedOffByDefault = actor.system.showContainersTab === false;
     await actor.sheet.render(true);
     await new Promise((res) => setTimeout(res, 400));
-    out.tabAbsentByDefault = !actor.sheet.element.querySelector('.tabs .item[data-tab="containers"]');
+    // Read off the RAIL (2026-11-19), and only while the rail is really there
+    // with its Notes button: the old `.tabs .item` selector matches nothing on
+    // a character now, so "absent" would hold of any sheet, parked or not.
+    {
+      const railEl = actor.sheet.element.querySelector("nav.cairn-tab-rail");
+      out.tabAbsentByDefault = !!railEl?.querySelector('button[data-tab="notes"]')
+        && !railEl.querySelector('[data-tab="containers"]')
+        && !actor.sheet.element.querySelector('.tab[data-tab="containers"]');
+    }
 
     await game.settings.set(NS, "show-generate-header", was);
     return out;
@@ -376,38 +452,73 @@ try {
   // every character reads "Background & Notes", generated or not, and only the
   // non-person NPC roles say plain "Notes". This leg asserts the generated case
   // agrees with the hand-made one, which is what both flips were about.
-  r.notesTabLabel === "Background & Notes"
-    ? ok(`the Notes tab reads one name on a GENERATED character too ("${r.notesTabLabel}")`)
-    : fail(`Notes tab reads "${r.notesTabLabel}", expected "Background & Notes" — the label is data-driven again`);
-  r.goldLabelRatio && Math.abs(r.goldLabelRatio - r.armorLabelRatio) <= 2
-    ? ok(`Gold uses the same label/value split as Armor below it (${r.goldLabelRatio}% / ${r.armorLabelRatio}%)`)
-    : fail(`Gold's split (${r.goldLabelRatio}%) does not match Armor's (${r.armorLabelRatio}%)`);
+  // Every geometry leg below stands on page 1; without it they compare boxes
+  // that are all 0x0 at the origin.
+  r.page1Active === true
+    ? ok("precondition: the fresh character sheet stands on its Character page")
+    : fail(`precondition: page 1 is not the active page (active=${r.page1Active}) — the layout legs below measure nothing`);
 
-  // Layout: HP above STR, Gold above Armor, and the two rows evenly spaced.
-  r.hp && r.str && near(r.hp.x, r.str.x)
-    ? ok(`HP sits directly above STR (x ${r.hp.x} vs ${r.str.x})`)
-    : fail(`HP is not above STR: HP x=${r.hp?.x} STR x=${r.str?.x}`);
-  r.gold && r.armor && near(r.gold.x, r.armor.x)
-    ? ok(`Gold sits directly above Armor (x ${r.gold.x} vs ${r.armor.x})`)
-    : fail(`Gold is not above Armor: Gold x=${r.gold?.x} Armor x=${r.armor?.x}`);
-  r.hp && r.gold && near(r.hp.y, r.gold.y)
-    ? ok(`HP and Gold share one row (y ${r.hp.y} / ${r.gold.y})`)
-    : fail(`HP and Gold are on different rows: y=${r.hp?.y} vs ${r.gold?.y}`);
+  r.notesTabLabel === "Background & Notes" && r.notesAriaLabel === r.notesTabLabel
+    ? ok(`the Notes page reads one name on a GENERATED character too ("${r.notesTabLabel}", tooltip and aria-label)`)
+    : fail(`Notes page reads tooltip "${r.notesTabLabel}" / aria-label "${r.notesAriaLabel}", expected "Background & Notes" for both — the label is data-driven again`);
+  // The count the Items tab label carried, carried twice now; one source.
+  r.inventoryWant && r.inventoryTip === r.inventoryWant && !/CAIRN\./.test(r.inventoryTip)
+    ? ok(`the rail's Inventory tooltip and page 1's slot line tell one count ("${r.inventoryTip}" / "${r.slotsValue}")`)
+    : fail(`Inventory tooltip "${r.inventoryTip}" and slot line "${r.slotsValue}" disagree`);
+  r.slotsLineHasLimitId
+    ? ok("the per-character slot limit's double-click target (#set-equipment-limit) is the slot line")
+    : fail("#set-equipment-limit is not on .cairn-slots-line — the double-click to set a limit has no home");
 
-  // The HP->STR gap must match the STR->DEX gap (row-gap 2px, not 8px).
-  const gapToStr = r.str && r.hp ? r.str.y - (r.hp.y + r.hp.h) : null;
+  // The band: one label width, one column of controls (Gold's input,
+  // Deprived's and Panicked's boxes) — what the 70/30 split gave the old
+  // counters, a Gold that lines up with the rows below it.
+  {
+    const rows = r.bandRows ?? [];
+    const gold = rows.find((x) => x.row === "band-gold");
+    const allMeasured = rows.length >= 2 && gold && rows.every((x) => x.labelW > 0 && x.controlX !== null);
+    allMeasured && rows.every((x) => near(x.labelW, gold.labelW, 1) && near(x.controlX, gold.controlX, 1))
+      ? ok(`Gold lines up with the band rows below it (labels ${gold.labelW}px, controls at x ${gold.controlX}; ${rows.map((x) => x.row).join(", ")})`)
+      : fail(`the band does not line up: ${JSON.stringify(rows)}`);
+  }
+
+  // Layout: the three stats in one evenly spaced column, the band under them,
+  // the vitals beside them in reading order. The old legs (HP above STR, Gold
+  // beside HP, the HP/STR gap matching STR/DEX) measured the one header grid
+  // that no longer exists; these are the same promises — nothing steps out of
+  // its column, nothing is unevenly spaced — against the one that does.
+  r.str && r.dex && r.wil && near(r.str.x, r.dex.x) && near(r.dex.x, r.wil.x)
+    ? ok(`STR, DEX and WIL stand in one column (x ${r.str.x} / ${r.dex.x} / ${r.wil.x})`)
+    : fail(`the stats step out of their column: STR x=${r.str?.x} DEX x=${r.dex?.x} WIL x=${r.wil?.x}`);
   const gapStrDex = r.dex && r.str ? r.dex.y - (r.str.y + r.str.h) : null;
-  gapToStr !== null && near(gapToStr, gapStrDex)
-    ? ok(`the HP/STR gap matches the STR/DEX gap (${gapToStr}px vs ${gapStrDex}px)`)
-    : fail(`uneven vertical spacing: HP->STR ${gapToStr}px, STR->DEX ${gapStrDex}px`);
+  const gapDexWil = r.wil && r.dex ? r.wil.y - (r.dex.y + r.dex.h) : null;
+  gapStrDex !== null && gapDexWil !== null && gapStrDex >= 0 && near(gapStrDex, gapDexWil)
+    ? ok(`the STR/DEX gap matches the DEX/WIL gap (${gapStrDex}px vs ${gapDexWil}px)`)
+    : fail(`uneven vertical spacing: STR->DEX ${gapStrDex}px, DEX->WIL ${gapDexWil}px`);
+  r.gold && r.wil && r.deprived && r.gold.y >= r.wil.y + r.wil.h && r.deprived.y >= r.gold.y + r.gold.h
+    ? ok(`the band sits under the stats, Gold then Deprived (y ${r.gold.y}, ${r.deprived.y} below WIL's foot at ${r.wil.y + r.wil.h})`)
+    : fail(`band misplaced: WIL ${JSON.stringify(r.wil)} Gold ${JSON.stringify(r.gold)} Deprived ${JSON.stringify(r.deprived)}`);
+  r.abilities && r.vitals && r.vitals.x >= r.abilities.x + r.abilities.w
+    ? ok(`the vitals column stands beside the stats, not over them (vitals x ${r.vitals.x}, stats end ${r.abilities.x + r.abilities.w})`)
+    : fail(`the vitals overlap the stats: stats ${JSON.stringify(r.abilities)} vitals ${JSON.stringify(r.vitals)}`);
+  {
+    const order = [["Armor", r.armor], ["HP", r.hp], ["Slots", r.slots], ["buttons", r.buttons]];
+    const present = order.every(([, b]) => b && b.w > 0 && b.h > 0);
+    const stacked = present && order.every(([, b], i) => i === 0 || b.y >= order[i - 1][1].y + order[i - 1][1].h - 1);
+    stacked
+      ? ok(`the vitals read top to bottom: ${order.map(([n, b]) => `${n} y${b.y}`).join(", ")}`)
+      : fail(`the vitals are out of order or missing: ${JSON.stringify(Object.fromEntries(order))}`);
+  }
+  r.head && r.body && r.body.y >= r.head.y + r.head.h
+    ? ok(`the stat block starts below the head (body y ${r.body.y}, head ends ${r.head.y + r.head.h})`)
+    : fail(`the head runs into the stat block: head ${JSON.stringify(r.head)} body ${JSON.stringify(r.body)}`);
 
-  // Corners.
-  r.dexRadius && parseFloat(r.dexRadius) > 0
-    ? ok(`DEX has rounded corners (${r.dexRadius})`)
-    : fail(`DEX corners are square (border-radius ${r.dexRadius})`);
-  r.strRadius && parseFloat(r.strRadius) > 0
-    ? ok(`STR is rounded on every corner (${r.strRadius})`)
-    : fail(`STR's lower corners are square (${r.strRadius})`);
+  // Corners: the stat counters were rounded; the stats are circles now.
+  {
+    const c = r.circles ?? [];
+    c.length === 3 && c.every((x) => !x.missing && x.w > 0 && x.w === x.h && x.round)
+      ? ok(`STR, DEX and WIL sit in circles (${c.map((x) => `${x.k} ${x.w}x${x.h} r=${x.rad}`).join(", ")})`)
+      : fail(`a stat is not drawn in a circle: ${JSON.stringify(c)}`);
+  }
 
   // The three portrait buttons: Foundry's chrome, and ONLY Die of Fate's glow
   // is ours. Until 2026-07-28 all three took a cream fill and a 2px black
@@ -463,6 +574,15 @@ try {
 
   // (Dialogs are Foundry's own chrome now -- see the note in the page context.)
 
+  // The sweep's precondition: it really turned to every page on both sheets.
+  // A rail it could not find would sweep nothing and the leg below would pass.
+  {
+    const want = ["character", "items", "growth", "description", "notes"];
+    const missed = (r.made ?? []).flatMap((id) => want.filter((p) => !r.sweptPages?.includes(`${id}:${p}`)).map((p) => `${id}:${p}`));
+    (r.made ?? []).length === 2 && missed.length === 0
+      ? ok(`the key sweep turned to all ${want.length} pages on both sheets`)
+      : fail(`the key sweep missed page(s): ${missed.join(", ") || "(no sheets)"}`);
+  }
   r.rawKeys?.length === 0
     ? ok("no untranslated CAIRN.* keys render on either the 2e or Barebones sheet")
     : fail(`untranslated keys visible: ${r.rawKeys?.join(", ")}`);
@@ -606,7 +726,12 @@ try {
     // an audit line into the dev world's chat.
     await actor.update({ "system.deprived": true }, { abNoStatusCard: true });
     await actor.sheet.render(true);
+    // The buttons are on page 1 since 2026-11-19, and the sweep above left this
+    // sheet on its last page: a button on a hidden page measures 0x0 at the
+    // origin, and the real pointer would hover nothing. Turn back to it.
+    actor.sheet.changeTab("character", "primary");
     await new Promise((res) => setTimeout(res, 700));
+    out.page1Active = actor.sheet.element.querySelector('.tab[data-tab="character"]')?.classList.contains("active") ?? false;
     out.rest = read("#rest-button");
     out.restore = read("#restore-abilities-button");
     out.deprivedTip = game.i18n.localize("CAIRN.DeprivedTip");
@@ -617,6 +742,7 @@ try {
     out.restTip = game.i18n.localize("CAIRN.RestTip");
     const rct = actor.sheet.element.querySelector("#rest-button").getBoundingClientRect();
     out.center = { x: rct.x + rct.width / 2, y: rct.y + rct.height / 2 };
+    out.restSize = { w: Math.round(rct.width), h: Math.round(rct.height) };
     return out;
   }, r.made ?? []);
 
@@ -627,6 +753,13 @@ try {
     && dep.rest?.tooltip === dep.deprivedTip && dep.restore?.tooltip === dep.deprivedTip
     ? ok("the tooltip swaps to DeprivedTip while deprived; otherwise it is Cairn's own Rest prose, as on the NPC sheet")
     : fail(`tooltip not swapped: before="${dep.restBefore?.tooltip?.slice(0, 60)}" deprived="${dep.rest?.tooltip?.slice(0, 40)}"`);
+
+  // The hover's precondition: Rest is really drawn (page 1 standing), or the
+  // pointer below would hover empty space and the tooltip leg would fail for a
+  // reason that is not the tooltip.
+  dep.page1Active && dep.restSize?.w > 0 && dep.restSize?.h > 0
+    ? ok(`precondition: Rest is on screen on page 1 (${dep.restSize.w}x${dep.restSize.h})`)
+    : fail(`precondition: Rest is not on screen — page1Active=${dep.page1Active} size=${JSON.stringify(dep.restSize)}`);
 
   await page.mouse.move(dep.center.x - 180, dep.center.y - 120);
   await page.waitForTimeout(200);

@@ -504,7 +504,10 @@ try {
     await sheet.render(true);
     await wait(900);
     const root3 = sheet.element instanceof HTMLElement ? sheet.element : sheet.element?.[0];
-    root3?.querySelector('[data-tab="notes"]')?.click();
+    // Through the sheet's own changeTab, not a click on the first
+    // [data-tab="notes"]: on the character sheet that is the rail's button
+    // only because the rail part renders first (2026-11-19).
+    sheet.changeTab("notes", "primary");
     await wait(300);
     const addBtn = root3?.querySelector('[data-action="addBond"]');
     const bondRace = { control: !!addBtn, before: (raceActor.system.bonds ?? []).length };

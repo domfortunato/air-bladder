@@ -258,7 +258,11 @@ try {
   // Bonds live on the Background & Notes tab, which is not the one a sheet opens
   // on — the re-roll link exists in the DOM but is not visible, and Playwright
   // waits on visibility, so this click is what makes the leg run at all.
-  await page.click('a[data-action="tab"][data-tab="notes"]');
+  // Since 2026-11-19 a character's pages are turned from the rail's icon
+  // buttons (the strip's `a[data-tab]` links are gone), so it is the rail's
+  // Background & Notes button, on THIS sheet, that is clicked.
+  const sheetSel = await page.evaluate((id) => `#${game.actors.get(id).sheet.element.id}`, actorId);
+  await page.click(`${sheetSel} nav.cairn-tab-rail button[data-action="tab"][data-tab="notes"]`);
   await page.waitForSelector('[data-action="rerollBond"]', { state: "visible", timeout: 15000 });
 
   // Pin the dice for ONE click. `drawBond` rolls the table once per attempt, so

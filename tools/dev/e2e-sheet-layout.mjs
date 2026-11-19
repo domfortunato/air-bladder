@@ -23,6 +23,13 @@
  * depends on how long that background's description happens to be — a single
  * sample passes on a two-line description and misses a three-line one.
  *
+ * THE CHARACTER SHEET LEFT THE GRID on 2026-11-19 (a 480px sheet of pages
+ * turned from a thumb-tab rail, after Base Knavery's): `__abCharacterLayout`
+ * asserts the same invariant on its page 1, region by region, plus the
+ * horizontal twin the narrow sheet needs, plus that the rail hangs outside the
+ * frame, on screen and pressable. The npc, thing and item sheets keep their
+ * grids and `__abLayout`.
+ *
  *   npm run dev:sheet-layout
  */
 
@@ -142,6 +149,141 @@ try {
 
       return { overlaps, spilling, scrollable, overflowY, count: children.length, underfilled, clippedLabels };
     };
+
+    /**
+     * The CHARACTER sheet, since 2026-11-19. It has no `.charater-sheet-grid`
+     * any more: five pages turned from a thumb-tab rail hung outside the frame
+     * (laid out after Base Knavery's), page 1 a head (portrait | name and
+     * background) over a body (abilities + the Gold/Deprived/Panicked band |
+     * the vitals column). The mechanism this probe was written for has the
+     * same shape there — a head grown by a long background description, a
+     * fixed-row name grid (`.cairn-identity`'s 46px / 24px / auto) spilling
+     * over what follows — so the SAME invariant is asserted, one level at a
+     * time: no two visible direct children of any page-1 region intersect,
+     * and no region's content is taller than its box. Narrowing the window to
+     * 480px added the horizontal twin, which the 600px header grid never
+     * needed: no region's content is WIDER than its box either.
+     *
+     * Page 1 must be the page standing: an inactive page is display:none and
+     * every region on it is 0x0, which the visibility filter would drop — a
+     * sheet on the wrong page would report zero regions and zero overlaps.
+     * So every region named in REQUIRED must be present and drawn, or the
+     * sheet fails as `missing`.
+     */
+    window.__abCharacterLayout = (root) => {
+      const page1 = root.querySelector('.tab[data-tab="character"]');
+      if (!page1) return { error: "no Character page (.tab[data-tab=character])" };
+      const name = (el) => `${el.tagName.toLowerCase()}.${[...el.classList].filter((c) => c !== "resource-counter")[0] ?? "?"}`;
+      const drawn = (el) => {
+        const r = el.getBoundingClientRect();
+        return r.width > 0 && r.height > 0;
+      };
+
+      const REQUIRED = [".cairn-head", ".portrait-wrap", ".cairn-identity", ".cairn-body",
+        ".cairn-left", ".cairn-abilities", ".STR-ability", ".DEX-ability", ".WIL-ability",
+        ".cairn-band", ".band-gold", ".band-deprived", ".cairn-vitals", ".cairn-shield",
+        ".hp-counter", ".cairn-slots-line", ".cairn-vital-buttons"];
+      const missing = REQUIRED.filter((sel) => {
+        const el = page1.querySelector(sel);
+        return !el || !drawn(el);
+      });
+
+      // Each region whose visible direct children must not meet. The frame-level
+      // pair (banners | pages) first, then down page 1.
+      const parents = [
+        root.querySelector(".cairn-character"),
+        page1,
+        ...page1.querySelectorAll(".cairn-head, .cairn-identity, .cairn-body, .cairn-left, "
+          + ".cairn-abilities, .cairn-ability, .cairn-band, .cairn-vitals, .cairn-vital-buttons"),
+      ].filter(Boolean);
+
+      const overlaps = [];
+      const spilling = [];
+      const regions = new Set();
+      for (const parent of parents) {
+        const kids = [...parent.children].filter(drawn);
+        kids.forEach((k) => regions.add(k));
+        for (let i = 0; i < kids.length; i++) {
+          for (let j = i + 1; j < kids.length; j++) {
+            if (window.__abOverlap(kids[i].getBoundingClientRect(), kids[j].getBoundingClientRect())) {
+              overlaps.push(`${name(parent)}: ${name(kids[i])} × ${name(kids[j])}`);
+            }
+          }
+        }
+      }
+      // A region whose content outgrows its box is the state that PRODUCES an
+      // overlap, so it names the cause. Vertically as before; horizontally for
+      // the narrow sheet. `.cairn-shield` is exempt from the horizontal half
+      // only: its Armor-reset button is placed to hang off the shield's right
+      // edge on purpose (right: -20px), which is overflow by design and stays
+      // inside the vitals column — and that column IS checked.
+      for (const el of regions) {
+        const cs = getComputedStyle(el);
+        if (el.scrollHeight > el.clientHeight + 1 && cs.overflowY === "visible") {
+          spilling.push(`${name(el)} (${el.scrollHeight} in ${el.clientHeight} tall)`);
+        }
+        if (!el.matches(".cairn-shield") && el.scrollWidth > el.clientWidth + 1 && cs.overflowX === "visible") {
+          spilling.push(`${name(el)} (${el.scrollWidth} in ${el.clientWidth} wide)`);
+        }
+      }
+
+      const content = root.querySelector(".window-content");
+      const overflowY = content ? getComputedStyle(content).overflowY : "";
+      const scrollable = ["auto", "scroll"].includes(overflowY);
+
+      // The underfilled-counter check, on the one `.resource-counter` page 1
+      // still draws (HP; the ability and Armor counters became circles and a
+      // shield). Same 12px of slack as the generic check.
+      const underfilled = [];
+      for (const c of page1.querySelectorAll(".resource-counter")) {
+        const cw = c.getBoundingClientRect().width;
+        if (cw < 2) continue;
+        const kids = [...c.children].reduce((n, k) => n + k.getBoundingClientRect().width, 0);
+        const gap = Math.round(cw - kids);
+        if (gap > 12) underfilled.push(`${[...c.classList].join(".")} (${gap}px empty of ${Math.round(cw)})`);
+      }
+
+      // The clipped-label gate, carried to page 1's fixed-size boxes: the HP
+      // counter's label as before, the three buttons (34px tall — a label
+      // wrapped to two lines loses its second), the shield's label and the
+      // band's labels, and each ability's die-and-name link. A label that wraps
+      // inside an auto-height box just grows it, and reads scrollHeight ===
+      // clientHeight, so this only ever flags a line that is really hidden.
+      const clippedLabels = [];
+      for (const l of page1.querySelectorAll(".resource-counter > label, .resource-counter > a, "
+        + ".cairn-vital-buttons > button, .cairn-shield > label, .cairn-band .band-label, "
+        + ".cairn-ability-name-line > a.resource-roll")) {
+        if (l.getBoundingClientRect().width < 2) continue;
+        if (l.scrollHeight > l.clientHeight + 1) {
+          clippedLabels.push(`"${l.textContent.trim()}" (${l.scrollHeight}px of text in ${l.clientHeight}px)`);
+        }
+      }
+
+      // The rail hangs OUTSIDE the frame (module/actor/tab-rail.js): it must
+      // not lie over the sheet's own content, it must be on screen (it flips to
+      // the left edge rather than run off the right), and each page button
+      // must be the thing under its own centre — a rail drawn under the frame
+      // or another window is a rail no one can press.
+      const rail = root.querySelector(":scope > .window-content > nav.cairn-tab-rail");
+      const railCheck = { present: !!rail };
+      if (rail) {
+        const rb = rail.getBoundingClientRect();
+        const fb = root.getBoundingClientRect();
+        railCheck.side = root.classList.contains("cairn-rail-left") ? "left" : "right";
+        railCheck.overFrame = window.__abOverlap(rb, fb);
+        railCheck.onScreen = rb.left >= 0 && rb.top >= 0 && rb.right <= window.innerWidth && rb.bottom <= window.innerHeight;
+        railCheck.buttons = rail.querySelectorAll("button[data-tab]").length;
+        railCheck.covered = [...rail.querySelectorAll("button")].flatMap((b) => {
+          const r = b.getBoundingClientRect();
+          if (!r.width || !r.height) return [`${b.dataset.tab ?? b.className} (zero-size)`];
+          const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+          return b === hit || b.contains(hit) ? [] : [`${b.dataset.tab ?? b.className} under ${hit?.className || hit?.tagName || "nothing"}`];
+        });
+      }
+
+      return { overlaps, spilling, scrollable, overflowY, count: regions.size, underfilled, clippedLabels,
+        missing, rail: railCheck, page1Active: page1.classList.contains("active") };
+    };
   });
 
   /* ---- characters: several, because description length decides whether it fits ---- */
@@ -159,7 +301,10 @@ try {
       };
       for (let k = 0; k < 60 && !node(); k++) await new Promise((r) => setTimeout(r, 100));
       await new Promise((r) => setTimeout(r, 400));
-      const res = node() ? window.__abLayout(node()) : { error: "never rendered" };
+      // The character's own check (2026-11-19): its sheet has no grid for
+      // __abLayout to find, and asserting that function's "no sheet grid"
+      // against it would be a red with nothing wrong behind it.
+      const res = node() ? window.__abCharacterLayout(node()) : { error: "never rendered" };
       out.push({ name: actor.name, background: actor.system.background, ...res });
       await actor.sheet.close();
       await actor.delete();
@@ -170,12 +315,24 @@ try {
   for (const r of results) {
     const who = `${r.name} (${r.background})`;
     if (r.error) { fail(who, r.error); continue; }
-    if (r.overlaps.length) fail(who, `regions overlap: ${r.overlaps.join(", ")}`);
+    // Precondition first: page 1 standing and every region drawn. Without it
+    // the checks below run over an empty set and pass.
+    if (!r.page1Active || r.missing?.length) fail(who, `page 1 not standing or regions not drawn (active=${r.page1Active}; missing: ${r.missing?.join(", ") || "none"})`);
+    else if (r.overlaps.length) fail(who, `regions overlap: ${r.overlaps.join(", ")}`);
     else if (r.spilling.length) fail(who, `region overflows its box: ${r.spilling.join(", ")}`);
     else if (!r.scrollable) fail(who, `.window-content cannot scroll (overflow-y: ${r.overflowY})`);
     else if (r.underfilled?.length) fail(who, `counter left part-empty: ${r.underfilled.join(", ")}`);
-    else if (r.clippedLabels?.length) fail(who, `counter label does not fit: ${r.clippedLabels.join(", ")}`);
-    else ok(who, `${r.count} regions, none overlapping`);
+    else if (r.clippedLabels?.length) fail(who, `label does not fit: ${r.clippedLabels.join(", ")}`);
+    else ok(who, `${r.count} page-1 regions, none overlapping or overflowing`);
+
+    // The rail, on its own line: a separate failure from page 1's layout.
+    const rl = r.rail ?? {};
+    if (!rl.present) fail(who, "no thumb-tab rail on the character sheet");
+    else if (rl.buttons < 2) fail(who, `the rail holds ${rl.buttons} page button(s)`);
+    else if (rl.overFrame) fail(who, `the rail lies over the sheet (hung ${rl.side}) — it must hang outside the frame`);
+    else if (!rl.onScreen) fail(who, `the rail runs off the screen (hung ${rl.side})`);
+    else if (rl.covered?.length) fail(who, `a rail button is not on top: ${rl.covered.join(", ")}`);
+    else ok(who, `rail: ${rl.buttons} pages, hung ${rl.side} outside the frame, on screen, every button on top`);
   }
 
   /* ---- the other three actor types, one each ---- */

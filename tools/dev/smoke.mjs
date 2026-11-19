@@ -75,7 +75,24 @@ try {
       // Ask the sheet for its own element rather than matching a framework class:
       // AppV1 windows are `.app.window-app`, ApplicationV2's are `.application`.
       out.inDom = !!node?.isConnected;
-      out.tabs = [...(node?.querySelectorAll?.("nav .item, .tabs .item") ?? [])].map(t => t.textContent.trim());
+      // A character's pages are turned from the thumb-tab RAIL since 2026-11-19
+      // (parts/tab-rail.html): icon buttons with no text, each named by its
+      // aria-label (the tooltip). The old `nav .item` text strip is the npc
+      // sheet's alone now, so reading it here listed nothing on a character.
+      // Every page is TURNED, the way a player does — a click on its rail
+      // button — because a page whose tab handler throws is exactly the
+      // breakage this smoke exists for, and an unvisited page cannot throw.
+      const rail = [...(node?.querySelectorAll?.("nav.cairn-tab-rail button[data-tab]") ?? [])];
+      out.tabs = rail.map(b => `${b.dataset.tab}: ${b.getAttribute("aria-label") ?? ""}`.trim());
+      out.tabIds = rail.map(b => b.dataset.tab);
+      out.turned = [];
+      for (const b of rail) {
+        b.click();
+        await new Promise(r => setTimeout(r, 250));
+        const shown = [...node.querySelectorAll(".tab[data-tab]")]
+          .filter(p => getComputedStyle(p).display !== "none").map(p => p.dataset.tab);
+        out.turned.push({ id: b.dataset.tab, shown });
+      }
       await a.delete();
     } catch (e) { out.error = `${e.name}: ${e.message}`; }
     return out;
@@ -83,7 +100,19 @@ try {
 
   if (sheet.error) fail(`sheet render threw: ${sheet.error}`);
   else if (!sheet.inDom) fail("sheet did not appear in the DOM");
-  else ok(`${sheet.sheetClass} rendered [${sheet.tabs.join(" | ")}]`);
+  else {
+    ok(`${sheet.sheetClass} rendered [${sheet.tabs.join(" | ")}]`);
+    // The character's five pages (the parked Connections page is absent by
+    // default). A page missing from the rail is unreachable for a player, and
+    // an empty rail would make the turning loop above prove nothing.
+    const want = ["character", "items", "growth", "description", "notes"];
+    const missing = want.filter(id => !sheet.tabIds.includes(id));
+    missing.length
+      ? fail(`the character sheet's rail lacks page(s): ${missing.join(", ")} (rail: ${sheet.tabIds.join(", ") || "empty"})`)
+      : ok(`the rail turns to every page (${sheet.tabIds.join(", ")})`);
+    const wrong = sheet.turned.filter(t => t.shown.length !== 1 || t.shown[0] !== t.id);
+    if (wrong.length) fail(`turning a page did not show it alone: ${JSON.stringify(wrong)}`);
+  }
 
   await page.screenshot({ path: path.join(outDir, "smoke.png"), fullPage: true });
 } catch (e) {

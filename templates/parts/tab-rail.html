@@ -1,0 +1,32 @@
+{{!-- A character's pages as a column of icon tabs hung off the window's edge
+      (2026-11-19, after Base Knavery's): a part of its own, so it sits straight
+      inside .window-content where core's changeTab looks for the tabs
+      (module/actor/tab-rail.js). Buttons, so core marks the open one pressed;
+      data-always-live keeps them pressable on a sheet this user cannot edit,
+      since turning a page is reading (_onRender re-enables them after core's
+      _toggleDisabled). The icon is inert so a press on it reaches the button
+      core reads the page from.
+      A LIMITED viewer sees only portrait and name: the rail is drawn empty and
+      hidden (a part must still render one element). NPC sheets render no rail
+      part at all (_configureRenderParts). --}}
+<nav class="tabs cairn-tab-rail" aria-label="{{localize 'CAIRN.Tab.Rail'}}"{{#if limitedView}} hidden{{/if}}>
+  {{#unless limitedView}}
+  {{#each tabs as |tab|}}
+  <button type="button" class="{{tab.cssClass}}" data-action="tab" data-group="{{tab.group}}" data-tab="{{tab.id}}"
+    data-always-live aria-pressed="{{#if tab.active}}true{{else}}false{{/if}}" aria-label="{{tab.tip}}" data-tooltip-text="{{tab.tip}}">
+    <i class="{{tab.icon}}" inert></i>
+  </button>
+  {{/each}}
+  {{#if canImprovise}}
+  {{!-- Not a page: the Improvised Attack, from any page. The SAME action the
+        inventory's Improvised Attack row carries, so one handler answers both
+        (owner gate and all); the row stays where it is. --}}
+  <span class="cairn-rail-divider" aria-hidden="true"></span>
+  <button type="button" class="cairn-rail-attack" data-action="improvisedAttack" data-always-live
+    aria-label="{{localize 'CAIRN.ImprovisedAttack'}}"
+    data-tooltip-html="<strong>{{localize 'CAIRN.ImprovisedAttack'}}</strong><br>{{localize 'CAIRN.ImprovisedAttackTip'}}">
+    <i class="fa-solid fa-burst" inert></i>
+  </button>
+  {{/if}}
+  {{/unless}}
+</nav>

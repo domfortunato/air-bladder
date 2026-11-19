@@ -49,6 +49,7 @@ import { FATIGUE_NAME } from "../item/item.js";
 import { castFromGrimoire, castScroll, grimoiresOn, pagesOfGrimoire, ensureGrimoireKey,
   groupPagesUnderBooks } from "../grimoire.js";
 import { pickArt } from "../art-picker.js";
+import { placeRail, placeRailSoon } from "./tab-rail.js";
 
 const { HandlebarsApplicationMixin } = foundry.applications.api;
 const { ActorSheetV2 } = foundry.applications.sheets;
@@ -80,7 +81,11 @@ const TAB_LABELS = {
  *  (`connectionLine` below) and a tab whose count could only ever read (0) or
  *  (1) went with it. */
 const TAB_IDS = {
-  character: ["items", "description", "containers", "notes"],
+  // The character's five pages, turned from the rail (2026-11-19, laid out
+  // after Base Knavery's): Character first — the head and the stat block —
+  // then Inventory, Growth, Description, the parked Connections, and
+  // Background & Notes. `items`, `description` and `notes` kept their ids.
+  character: ["character", "items", "growth", "description", "containers", "notes"],
   // Description FIRST on the non-player sheet (2026-08-01, asked for): a Warden
   // opens an NPC to remember who they are — statblock, biography —
   // and reaches for the inventory second. The character sheet deliberately
@@ -93,6 +98,27 @@ const TAB_IDS = {
   // items+notes, so anything written in its Description was unreachable.
   hireling: ["description", "items", "notes"],
 };
+
+/** The character's rail: each page's tooltip key and its icon
+ *  (parts/tab-rail.html; wording approved by the user 2026-11-19). The
+ *  Inventory's tooltip carries the slot count (`CAIRN.Tab.InventoryCount`,
+ *  formatted in _prepareCharacterContext) and the parked Connections page its
+ *  connection count, as the old strip's labels did. The npc sheet keeps
+ *  TAB_LABELS and its hand-written strip. */
+const CHARACTER_RAIL = {
+  character: { label: "CAIRN.Tab.Character", icon: "fa-solid fa-mask" },
+  items: { label: "CAIRN.Tab.Inventory", icon: "fa-solid fa-sack" },
+  growth: { label: "CAIRN.Tab.Growth", icon: "fa-solid fa-seedling" },
+  description: { label: "CAIRN.Description", icon: "fa-solid fa-feather" },
+  containers: { label: "CAIRN.Connections", icon: "fa-solid fa-link" },
+  notes: { label: "CAIRN.BackgroundAndNotes", icon: "fa-solid fa-scroll" },
+};
+
+/** A character sheet's size (2026-11-19, user): Base Knavery's narrow sheet,
+ *  as wide as page 1's abilities and vitals. Other actor types keep
+ *  DEFAULT_OPTIONS' 600 x 750. */
+const CHARACTER_SHEET_WIDTH = 480;
+const CHARACTER_SHEET_HEIGHT = 700;
 
 /** The roles whose FRESH sheet stands on Items. The person roles came first
  *  (2026-08-21, user ask); the CONTAINER joined on 2026-08-31 (user ask) —
@@ -108,7 +134,7 @@ const ITEMS_FIRST_ROLES = [...PERSON_ROLES, "container"];
  *  an ITEMS_FIRST_ROLES sheet opens on Items, the character's default,
  *  while the nav ORDER above is untouched — Description still leads the
  *  bar, the sheet just stands on Items. `npcRole` is null on a character,
- *  whose list already leads with Items. */
+ *  whose list leads with its Character page (2026-11-19). */
 const initialTabId = (doc) => {
   const ids = TAB_IDS[doc?.type] ?? ["items"];
   return ITEMS_FIRST_ROLES.includes(doc?.npcRole) ? "items" : ids[0];
@@ -483,6 +509,14 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     if (["npc", "hireling"].includes(options.document?.type)) {
       applied.classes.push("cairn-npc-sheet");
     }
+    // The character's sheet (2026-11-19, after Base Knavery's): narrow, its
+    // pages turned from a rail hung outside the frame. `cairn-railed` is what
+    // the stylesheet un-clips the frame by; `cairn-character-sheet` scopes the
+    // page-1 layout, so the npc sheet's shared classes are never touched.
+    if (options.document?.type === "character") {
+      applied.classes.push("cairn-character-sheet", "cairn-railed");
+      Object.assign(applied.position, { width: CHARACTER_SHEET_WIDTH, height: CHARACTER_SHEET_HEIGHT });
+    }
     return applied;
   }
 
@@ -497,13 +531,22 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // ACTOR_DATA_MODELS), so there is one template rather than two that had to be
     // kept in step by hand.
     const t = this.actor.type === "hireling" ? "npc" : this.actor.type;
+    // A character's pages are turned from the rail, a part of its own drawn
+    // FIRST, straight inside .window-content where core's changeTab looks for
+    // the tabs; it takes no room there, hanging outside the frame
+    // (tab-rail.js and the stylesheet). Other types draw no rail.
+    const rail = t === "character"
+      ? { rail: { template: "systems/air-bladder/templates/parts/tab-rail.html" } }
+      : {};
     return {
+      ...rail,
       form: {
         template: `systems/air-bladder/templates/actor/${t}-sheet.html`,
         templates: [
           "systems/air-bladder/templates/parts/items-list.html",
           "systems/air-bladder/templates/parts/container-list.html",
           "systems/air-bladder/templates/parts/bio-block.html",
+          "systems/air-bladder/templates/parts/scar-block.html",
         ],
         // AppV2 restores scroll only for the selectors named here — a part
         // with no `scrollable` is replaced wholesale and every scroll box
@@ -529,7 +572,11 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     if (!config) return config;
     const ids = (TAB_IDS[this.actor.type] ?? ["items"])
       .filter((id) => id !== "containers" || this.actor.system.showContainersTab);
-    config.tabs = ids.map((id) => ({ id, label: TAB_LABELS[id] }));
+    // A character's tabs carry the rail's label and icon; the npc sheet's the
+    // strip's label alone.
+    config.tabs = this.actor.type === "character"
+      ? ids.map((id) => ({ id, ...CHARACTER_RAIL[id] }))
+      : ids.map((id) => ({ id, label: TAB_LABELS[id] }));
     // The group's initial is ROLE-aware (`initialTabId`), not the static TABS
     // default ("items") and not blindly the list head: a person-role sheet
     // opens on Items (2026-08-21) under a nav that still leads with
@@ -776,12 +823,25 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
   _onDetach(from, to) {
     super._onDetach(from, to);
     this.#syncPopOut();
+    // A move between browser windows: the rail's side is decided against the new one.
+    placeRailSoon(this);
   }
 
   /** @override */
   _onAttach(from, to) {
     super._onAttach(from, to);
     this.#syncPopOut();
+    placeRailSoon(this);
+  }
+
+  /**
+   * Every move, a drag's every frame included, decides the character rail's
+   * side again (tab-rail.js); a sheet without a rail returns at once.
+   * @override
+   */
+  _onPosition(position) {
+    super._onPosition(position);
+    placeRail(this, position);
   }
 
   /**
@@ -1677,7 +1737,11 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // "One system, two generators"). Age and the trait rows ride the
     // Warden's show-traits switch instead (2026-09-07, also edition-blind);
     // render-only like showOmen below, and for the same reasons.
-    context.showScars = true;
+    // FALSE HERE, and not because a character lacks them: a character's Scars
+    // are on its Growth page (2026-11-19), which includes scar-block.html
+    // itself. `showScars` is the bio-block's flag, so false keeps them off
+    // Description; the npc sheet's people still show them there.
+    context.showScars = false;
     context.showAge = traitsVisible();
     context.showTraits = traitsVisible();
     // Omen is the one exception, and it is a CONTENT question rather than a rule:
@@ -1790,6 +1854,36 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
         this.actor.system.notes,
         { relativeTo: this.actor },
       ));
+    // The Growth page's journal (2026-11-19): the player's own record of how
+    // the character has changed, the Notes editor's twin — toggled, so this
+    // is its display half, enriched and cleaned exactly as Notes, never
+    // translated.
+    context.enrichedGrowth =
+      cleanDescription(await foundry.applications.ux.TextEditor.implementation.enrichHTML(
+        this.actor.system.growth,
+        { relativeTo: this.actor },
+      ));
+    // Page 1's ability rows carry Cairn's own sentence for each save under the
+    // die, in every mode: Creation Mode swaps the die's tooltip
+    // (`abilityTips`), never this line.
+    context.abilityHints = {
+      STR: game.i18n.localize("CAIRN.StrTip"),
+      DEX: game.i18n.localize("CAIRN.DexTip"),
+      WIL: game.i18n.localize("CAIRN.WilTip"),
+    };
+    // The rail's tooltips: each page's own word, Inventory's with the slot
+    // count and the parked Connections page's with its count, as the old
+    // strip's labels carried them.
+    for (const tab of Object.values(context.tabs ?? {})) {
+      if (tab.id === "items") {
+        tab.tip = game.i18n.format("CAIRN.Tab.InventoryCount",
+          { used: this.actor.system.slotsUsed, max: context.slotsMaxLabel });
+      } else if (tab.id === "containers") {
+        tab.tip = `${game.i18n.localize(tab.label)} (${this.actor.system.containerObjects?.length ?? 0})`;
+      } else {
+        tab.tip = game.i18n.localize(tab.label);
+      }
+    }
     // The character's own Description editor (review #34 finding 55, user
     // ruling 2026-10-31): shown ONLY while the field holds prose. The
     // Kettlewright importer writes `system.description` and the paper prints it,
@@ -1981,16 +2075,26 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // precisely why every weapon row's roll control has always worked on a locked
     // pack. Adding an anchor here would be an exemption from a sweep that never
     // touches it: inert today, and a false claim about why it works.
+    //
+    // The character's rail joined it on 2026-11-19: its page buttons are
+    // <button>s, and turning a page is a read, so an observer of another
+    // player's character must still be able to turn it. The rail's Improvised
+    // Attack is a <button> as well — unlike the inventory row's <a> above — so
+    // it needs the exemption the row never did, to work wherever the row works
+    // (a Warden's locked-pack character); its handler keeps its own owner
+    // gate. All of them carry `data-always-live` (the character sheet's Die of
+    // Fate too); the npc sheet's Die of Fate is still found by its action.
     if (!this.isEditable) {
-      for (const action of ["dieOfFate"]) {
-        const btn = el.querySelector(`[data-action="${action}"]`);
-        if (btn) btn.disabled = false;
-      }
+      el.querySelectorAll('[data-always-live], [data-action="dieOfFate"]').forEach((btn) => { btn.disabled = false; });
     }
 
     // The title-bar generation buttons live on the frame, which is built once —
     // so their state is re-applied here, on every render of the content.
     this.#syncGenerationButtons();
+
+    // Hang the character's rail on the side with room for it, once this
+    // render is laid out (a no-op on a sheet without one).
+    placeRailSoon(this);
 
     // Drag-to-reorder is always on (its setting retired 2026-08-22), so the
     // sheet always carries the class that gives item rows a grab cursor and
@@ -2038,7 +2142,9 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // The npc sheet's Description editor joined this on 2026-08-20 — it is the
     // same toggled editor with the same empty display half, and the hint below
     // is what makes the click meaningful.
-    on('.tab[data-tab="notes"] prose-mirror, .npc-description-section prose-mirror', "click", (ev) => {
+    // The character's Growth journal joined it on 2026-11-19, the Notes
+    // editor's twin.
+    on('.tab[data-tab="notes"] prose-mirror, .tab[data-tab="growth"] prose-mirror, .npc-description-section prose-mirror', "click", (ev) => {
       const pm = ev.currentTarget;
       if (!pm.classList.contains("inactive")) return;
       if (ev.target.closest("a, button")) return;

@@ -1,5 +1,6 @@
 {{!-- The biography block: pronouns + age, the trait sentence and its
-      pick-lists, then Omen (showOmen) and Scars (showScars). MOVED verbatim
+      pick-lists, then Omen (showOmen) and Scars (showScars, the
+      scar-block.html partial; a character's are on its Growth page). MOVED verbatim
       from character-sheet.html (2026-08-01) when role-npc PEOPLE got the same
       block — the character sheet includes it ungated, the npc sheet behind
       `{{#if showBiography}}` (BOTH person roles since the 2026-08-20 split:
@@ -84,7 +85,7 @@
                             {{/if}}
                         </div>
                         {{/if}}
-                        {{#if showScars}}
+                        {{#if (or showOmen showScars)}}
                         <div class="character-omen-scar">
                             {{#if showOmen}}
                             <div class="omen-row {{#if system.omenEnabled}}omen-enabled{{/if}}">
@@ -113,42 +114,12 @@
                                 {{/if}}
                             </div>
                             {{/if}}
-                            <div class="scar-section">
-                                <div class="scar-header">
-                                    <label class="scar-label">
-                                        <input type="checkbox" class="scar-enable" id="{{@root.idp}}-scar-enable" {{checked system.scarEnabled}} />
-                                        {{ localize 'CAIRN.ScarsSection' }}
-                                    </label>
-                                    {{#if system.scarEnabled}}
-                                    <a class="scar-toggle" data-action="toggleScars" title="{{ localize 'CAIRN.ToggleScars' }}"><i
-                                            class="fas {{#if scarsCollapsed}}fa-plus-square{{else}}fa-minus-square{{/if}}"></i></a>
-                                    {{else}}
-                                    <span class="scar-display">{{ localize 'CAIRN.ScarsHint' }}</span>
-                                    {{/if}}
-                                </div>
-                                {{#if system.scarEnabled}}
-                                    {{#unless scarsCollapsed}}
-                                    <div class="scar-list">
-                                        {{#each scarOptions}}
-                                        <label class="scar-option">
-                                            {{! `value` is the STORED English (the change handler
-                                                persists it verbatim); `display` is what you read.
-                                                `data-legacy` is the utils prose this row also stands
-                                                for, so the handler can replace it (review #30). }}
-                                            <input type="checkbox" class="scar-check" value="{{this.name}}"
-                                                data-legacy="{{this.legacy}}"
-                                                {{#if this.selected}}checked{{/if}} />
-                                            <span class="scar-text">
-                                                <span class="scar-name">{{this.display}}</span>
-                                                <span class="scar-desc">{{this.description}}</span>
-                                            </span>
-                                        </label>
-                                        {{/each}}
-                                    </div>
-                                    {{else}}
-                                    <span class="scar-display">{{#if scarDisplay}}{{scarDisplay}}{{else}}{{ localize 'CAIRN.NoneYet' }}{{/if}}</span>
-                                    {{/unless}}
-                                {{/if}}
-                            </div>
+                            {{!-- The Scars checklist lives in its own partial since
+                                  2026-11-19: the character sheet shows it on the
+                                  Growth page instead (showScars false here), the
+                                  npc sheet here, as before. --}}
+                            {{#if showScars}}
+                            {{> "systems/air-bladder/templates/parts/scar-block.html"}}
+                            {{/if}}
                         </div>
                         {{/if}}

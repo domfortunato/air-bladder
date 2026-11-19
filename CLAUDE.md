@@ -115,8 +115,8 @@ The detail that used to sit here moved, word for word, into
   log and event journals
 - `tables-marketplace-take-over.md` — world-first tables, the marketplace, the take-over
   doors, the table banner
-- `sheets-creation-offers.md` — GLOG sheet flags, creation routes and hand-built sheets,
-  item offers
+- `sheets-creation-offers.md` — the character sheet's rail and five pages, GLOG sheet
+  flags, creation routes and hand-built sheets, item offers
 - `settings.md` — the submenus, registration order, PC dice settings
 - `content-translation-chat-cards.md` — the content overlay and per-viewer chat cards
 - `packs.md` — the pack-build guard in full

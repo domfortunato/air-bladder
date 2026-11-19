@@ -27,7 +27,10 @@
  *    visibility, not just the class. It also clicks the tab LABEL text, because AppV2's
  *    `_onClickTab` reads `event.target` directly rather than `.closest()`
  *    (application.mjs:1974-1981) -- a click on a child element only works
- *    because of `nav.tabs [data-tab] > * { pointer-events: none }`.
+ *    because of `nav.tabs [data-tab] > * { pointer-events: none }`. On a
+ *    character since 2026-11-19 the tab is a rail BUTTON whose child is an
+ *    `inert` icon, and the click lands on that icon: the same hazard, the same
+ *    leg.
  *
  * Selectors are framework-neutral on purpose: `.cairn.sheet.actor` is on the
  * outer element under both AppV1 (`app-window.html` renders `{{classes}}`) and
@@ -70,6 +73,17 @@ await page.waitForTimeout(1500);
 
 const read = (id, path) =>
   page.evaluate(([i, p]) => foundry.utils.getProperty(game.actors.get(i), p), [id, path]);
+
+// A fresh character sheet stands on its CHARACTER page (2026-11-19: the
+// head and stat block, the rail's first page), no longer on Items. Read
+// before any click below turns a page, as computed visibility like the tab
+// leg further down — the class alone is what this probe never trusts.
+const openedOn = await page.evaluate((sel) =>
+  Array.from(document.querySelectorAll(`${sel} .tab[data-tab]`))
+    .filter((p) => getComputedStyle(p).display !== "none").map((p) => p.dataset.tab), SHEET);
+openedOn.length === 1 && openedOn[0] === "character"
+  ? ok("a fresh character sheet opens on page 1", "character")
+  : fail("a fresh character sheet opens on page 1", `visible: [${openedOn.join(", ")}]`);
 
 console.log("\nform persistence — no save button, change alone must commit");
 
@@ -132,7 +146,12 @@ await read(actorId, "system.omen") === "A probe omen."
   : fail("textarea persisted", `got "${await read(actorId, "system.omen")}"`);
 
 /* -------------------------------------------------------------- number ---- */
-// Coins is on the header, visible from any tab.
+// Gold was on the header, visible from any tab, until 2026-11-19: the
+// character sheet's head and stat block are its Character page now (the first
+// of the rail's pages), and an inactive page is display:none, so Playwright
+// cannot fill a field on it. Turn back to page 1 first, from the rail.
+await page.locator(`${SHEET} nav.tabs [data-tab="character"]`).click();
+await page.waitForTimeout(500);
 await page.fill(`${SHEET} input[name="system.gold"]`, "42");
 await page.locator(`${SHEET} input[name="system.gold"]`).blur();
 await page.waitForTimeout(1200);
@@ -159,14 +178,22 @@ updates === 1
 
 console.log("\ntab switching — exactly one panel visible, and it is the right one");
 
+// On a character the tabs are the thumb-tab RAIL since 2026-11-19
+// (parts/tab-rail.html): a `nav.tabs` too, so the selector holds, but its
+// tabs are icon <button>s hung outside the window frame. The two new pages,
+// Character (page 1) and Growth, must be among them — a page the rail does
+// not list is a page no player can reach, and this loop would skip it.
 const tabIds = await page.evaluate((sel) =>
   Array.from(document.querySelectorAll(`${sel} nav.tabs [data-tab]`)).map((a) => a.dataset.tab), SHEET);
-tabIds.length >= 2
+tabIds.length >= 2 && ["character", "growth"].every((id) => tabIds.includes(id))
   ? ok("tabs present", tabIds.join(", "))
-  : fail("tabs present", `found ${tabIds.length}`);
+  : fail("tabs present", `found ${tabIds.length}: [${tabIds.join(", ")}] — want character and growth among them`);
 
 for (const id of tabIds) {
-  // Click the LABEL text, not the anchor, so pointer-events handling is exercised.
+  // Click the button's CENTRE, where its icon sits, so the pointer-events
+  // handling is exercised: the <i> is `inert` (and pointer-events: none in
+  // cairn.css), so the press reaches the button core reads the page from.
+  // Before the rail this clicked the strip's label text, for the same reason.
   const label = page.locator(`${SHEET} nav.tabs [data-tab="${id}"]`);
   await label.click();
   await page.waitForTimeout(400);

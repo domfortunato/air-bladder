@@ -796,7 +796,11 @@ try {
         ?.closest("div")?.textContent.trim() ?? null;
 
       // ---- scars: two visible strings localized, the stored value English ----
-      const opt = [...(root?.querySelectorAll(".scar-option") ?? [])]
+      // A character's Scars are on its Growth page since 2026-11-19 (they were
+      // on Description). The read is page-blind on purpose: what is asserted
+      // is the strings a viewer gets, wherever the checklist sits, and every
+      // read here is of the DOM, which holds every page whichever is open.
+      const opt =[...(root?.querySelectorAll(".scar-option") ?? [])]
         .find((l) => l.querySelector(".scar-check")?.value === scarEn);
       out.scarName = opt?.querySelector(".scar-name")?.textContent.trim() ?? null;
       out.scarDesc = opt?.querySelector(".scar-desc")?.textContent.trim() ?? null;

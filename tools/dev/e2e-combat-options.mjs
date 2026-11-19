@@ -1427,12 +1427,21 @@ try {
         for (let i = 0; i < 30 && !(actor.sheet.element instanceof HTMLElement); i++) await sleep(100);
         await sleep(300);
         // THE ROW IS ON THE ITEMS TAB, so the tab is opened explicitly rather
-        // than relied on. A person sheet's initial tab IS Items, which is
-        // precisely why not clicking it would let this leg pass on a default
-        // that a later ruling could change without anything here noticing.
+        // than relied on. A person sheet's initial tab WAS Items until the
+        // character sheet's 2026-11-19 redesign, when a character's fresh
+        // sheet moved to its Character page — exactly the later ruling this
+        // click was put here against. On a character the selector finds the
+        // rail's Inventory button; on the npc sheet the strip's Items tab.
         actor.sheet.element?.querySelector('[data-action="tab"][data-tab="items"]')?.click();
         await sleep(250);
-        const ctrl = actor.sheet.element?.querySelector('[data-action="improvisedAttack"]');
+        // THE ROW'S CONTROL, SCOPED TO THE INVENTORY PAGE. Since 2026-11-19 a
+        // character's rail carries an Improvised Attack button of its own, with
+        // the same data-action, and the rail is drawn FIRST — so an unscoped
+        // query hands back the rail's <button>, whose missing `.improvised-row`
+        // reads as "the row is gone". The rail button is a second door to the
+        // same handler; this leg is about the row.
+        const itemsPage = actor.sheet.element?.querySelector('.tab[data-tab="items"]');
+        const ctrl = itemsPage?.querySelector('[data-action="improvisedAttack"]');
         if (!ctrl) { await actor.sheet.close(); return { err: "no Improvised Attack control" }; }
         // The row itself, and that it is not an item: a trash can on this row
         // would mean somebody had made it a document.
@@ -1451,13 +1460,19 @@ try {
         // in a box that already shared its neighbours' top edge. Read as computed
         // style AND as geometry, because the boxes matching was what ruled out
         // flex alignment and sent the search to the rule.
-        const anyRow = [...(actor.sheet.element?.querySelectorAll(".cairn-item-controls") ?? [])]
+        const anyRow = [...(itemsPage?.querySelectorAll(".cairn-item-controls") ?? [])]
           .find((c) => c.querySelector("a.roll-control i") && c.querySelector('[data-action="itemDelete"] i'));
         if (anyRow) {
           const die = anyRow.querySelector("a.roll-control i");
           const bin = anyRow.querySelector('[data-action="itemDelete"] i');
           const box = (el) => el.getBoundingClientRect();
           rowShape.align = {
+            // THE PAGE IS SHOWING, measured. A row on a page that is not the
+            // active one has zero-size boxes, and two zero boxes are "level to
+            // 0px" — so a tab click that silently missed would turn topGap
+            // into a leg that always passes. Until 2026-11-19 the Items tab
+            // was where a character's sheet opened, and nothing needed this.
+            shown: !!itemsPage?.classList.contains("active") && box(die).height > 0 && box(bin).height > 0,
             dieClass: die.className,
             binClass: bin.className,
             dieLine: getComputedStyle(die).lineHeight,
@@ -1678,7 +1693,10 @@ try {
         await sleep(400);
         pc.sheet.element?.querySelector('[data-action="tab"][data-tab="items"]')?.click();
         await sleep(250);
-        // The affordance: the row is not rendered at all.
+        // The affordance: the row is not rendered at all. UNSCOPED ON PURPOSE:
+        // since 2026-11-19 the character's rail carries a second Improvised
+        // Attack button behind the same `canImprovise`, and neither door may
+        // be drawn for a non-owner.
         out.gateHidesButton = !pc.sheet.element?.querySelector('[data-action="improvisedAttack"]');
         // The refusal: reaching the action another way is still turned away, and
         // posts nothing.
@@ -2129,7 +2147,7 @@ try {
 
   {
     const al = r.impD6?.rowShape?.align;
-    al && al.dieLine === al.binLine && al.topGap < 1
+    al && al.shown && al.dieLine === al.binLine && al.topGap < 1
       ? ok(`the damage die sits on the line its neighbours sit on: line-height ${al.dieLine} on both, boxes level to ${al.topGap.toFixed(2)}px — the rule covers "${al.dieClass.split(" ")[0]}" as well as "${al.binClass.split(" ")[0]}"`)
       : fail(`die alignment: ${JSON.stringify(al)} — a rule keyed to one spelling misses the other, and Font Awesome's own \`line-height: 1\` takes over (14px against 26px)`);
   }

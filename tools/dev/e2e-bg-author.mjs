@@ -298,7 +298,12 @@ try {
         await doc.sheet.render(true);
         for (let i = 0; i < 40 && !doc.sheet.element; i++) await sleep(100);
         await sleep(400);
-        if (tab) { sheetRoot(doc.sheet).querySelector(`.tabs .item[data-tab="${tab}"]`)?.click(); await sleep(300); }
+        // Through the sheet's own changeTab, not a click on a tab link: since
+        // 2026-11-19 a character's pages are turned from the rail's icon
+        // buttons, and the strip's `.tabs .item` anchor this clicked is gone —
+        // a query that matches nothing would leave the sheet on its Character
+        // page in silence.
+        if (tab) { await doc.sheet.changeTab(tab, "primary"); await sleep(300); }
         out[key] = { before: read(sheetRoot(doc.sheet)) };
         const editor = sheetRoot(doc.sheet).querySelector("prose-mirror[toggled]");
         const pencil = editor?.querySelector(":scope > button.toggle");

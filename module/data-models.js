@@ -299,6 +299,11 @@ class CharacterData extends CairnDataModel {
       // the next sheet submit.
       description: html(),
       notes: html(),
+      // The Growth page's journal (2026-11-19): free prose, the player's record
+      // of how the character changed in the world. Sanitized by the server
+      // because it is in system.json's htmlFields (check:fields holds the two
+      // together). No migration: a character that never stored it reads "".
+      growth: html(),
       questions: objList(),
       pronouns: str(),
       omenEnabled: bool(),

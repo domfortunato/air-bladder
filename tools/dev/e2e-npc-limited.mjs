@@ -18,7 +18,9 @@
  *      Print — the character sheet rendered its FULL sheet to a LIMITED viewer
  *      before this while the Print gate withheld the button on the stated
  *      grounds of hiding what was already on screen. Same in-page negative
- *      control as leg 1.
+ *      control as leg 1. Since 2026-11-19 the character's pages turn from a
+ *      thumb-tab rail (a render part of its own): a LIMITED viewer's rail is
+ *      drawn empty and hidden, and the control must bring it back populated.
  *
  *   1c. The Print frame button follows LIVE ownership (review #22): the frame
  *      builds once (isFirstRender only), so the button is built always and
@@ -159,15 +161,35 @@ try {
         const el = root?.querySelector(sel);
         return !!el && !el.classList.contains("cairn-header-hidden");
       };
+      // The FULL sheet's root: the npc sheet's `.charater-sheet-grid`, and the
+      // character's `.cairn-character` since its 2026-11-19 layout (pages
+      // turned from a thumb-tab rail). Either one is the leak this probe hunts.
+      const FULL = ".charater-sheet-grid, .cairn-character";
+      // The character's rail is a render part of its own, straight inside
+      // .window-content: a LIMITED viewer gets it drawn EMPTY and `hidden` (a
+      // part must still render one element). An npc sheet draws none at all.
+      const rail = root?.querySelector(":scope > .window-content > nav.cairn-tab-rail");
+      const block = root?.querySelector(".cairn-limited-sheet");
       const res = {
         limited: actor.limited,
-        limitedBlock: q(".cairn-limited-sheet"),
-        fullGrid: q(".charater-sheet-grid"),
+        limitedBlock: !!block,
+        fullGrid: q(FULL),
         name: root?.querySelector(".cairn-limited-name")?.textContent?.trim() ?? null,
         desc: /ZZ LIMITED DESC sentinel/.test(root?.textContent ?? ""),
         statDice: q('[data-action="rollAbility"]'),
-        statText: /STR/.test(root?.querySelector(".charater-sheet-grid")?.textContent ?? ""),
+        statText: /STR/.test(root?.querySelector(FULL)?.textContent ?? ""),
         itemsTab: q('[data-tab="items"]'),
+        // What the limited block holds, element by element, and what else the
+        // window content holds beside it and the rail — "portrait and name
+        // only" is a claim about everything on screen, not about two selectors.
+        blockKids: block ? [...block.children].map((c) => `${c.tagName.toLowerCase()}.${[...c.classList].join(".")}`) : null,
+        contentKids: [...(root?.querySelector(".window-content")?.children ?? [])]
+          .filter((c) => c !== rail)
+          .map((c) => `${c.tagName.toLowerCase()}.${[...c.classList].join(".")}`),
+        rail: rail
+          ? { hidden: rail.hidden, kids: rail.children.length, buttons: rail.querySelectorAll("button").length,
+              attack: !!rail.querySelector('[data-action="improvisedAttack"]') }
+          : null,
         genDice: q('[data-action="rollProfession"], [data-action="rollName"], [data-action="rollPortrait"]'),
         pickers: q('[data-action="pickProfession"], [data-action="pickFaction"]'),
         printButton: visible('.window-header button[data-action="printSheet"]'),
@@ -232,6 +254,22 @@ try {
     else fail(`limited character name: "${pcLim.name}"`);
     if (!pcLim.statDice && !pcLim.statText && !pcLim.itemsTab) ok("no stats, no items tab");
     else fail(`leaked: statDice ${pcLim.statDice}, statText ${pcLim.statText}, itemsTab ${pcLim.itemsTab}`);
+    // Portrait and name ONLY: the block holds exactly those two, and nothing
+    // else sits in the window content beside it and the rail.
+    const KIDS = ["img.portrait", "h1.cairn-limited-name"];
+    if (JSON.stringify(pcLim.blockKids) === JSON.stringify(KIDS)
+      && JSON.stringify(pcLim.contentKids) === JSON.stringify(["div.cairn-limited-sheet"])) {
+      ok("the limited view is the portrait and the name, nothing else");
+    } else {
+      fail(`limited character content: block ${JSON.stringify(pcLim.blockKids)}, beside it ${JSON.stringify(pcLim.contentKids)}`);
+    }
+    // The thumb-tab rail (2026-11-19) is drawn EMPTY and hidden: no page to
+    // turn to, and no Improvised Attack. A rail with buttons would hand a
+    // LIMITED viewer page tabs onto nothing — or, if the wall ever slipped,
+    // onto everything.
+    const R = pcLim.rail;
+    if (R && R.hidden && R.kids === 0 && !R.attack) ok("the page rail is drawn empty and hidden");
+    else fail(`limited character rail: ${JSON.stringify(R)}`);
     if (!pcLim.printButton) ok("and no Print button");
     else fail("the Print button is offered to a LIMITED character viewer");
   }
@@ -245,6 +283,12 @@ try {
     fail(`the control did NOT reproduce (full grid ${pcLimc.fullGrid}, stats ${pcLimc.statText}) — `
       + "the character limited branch cannot be shown to be load-bearing");
   }
+  // The rail's half of the same control: with limitedView forced false the
+  // rail must come back populated and shown, or "drawn empty and hidden"
+  // above could be a rail that is never drawn for anyone.
+  pcLimc.rail && !pcLimc.rail.hidden && pcLimc.rail.buttons > 0
+    ? ok(`   ...and the rail comes back with its pages (${pcLimc.rail.buttons} button(s))`)
+    : fail(`the control's rail did not come back: ${JSON.stringify(pcLimc.rail)}`);
 
   /* --- Alice: the Print button follows LIVE ownership (review #22) ------------ */
 
@@ -261,23 +305,30 @@ try {
     ? ok("at LIMITED the Print button is BUILT but hidden — the frame can only build once")
     : fail(`at LIMITED: built ${printOpen.built}, visible ${printOpen.visible}`);
 
+  // A CHARACTER sheet here, so the full sheet's root is `.cairn-character`
+  // (the 2026-11-19 layout). The rail is read with it: it is a render part of
+  // its own, so the content swapping full/limited does not by itself prove the
+  // rail followed — a promoted owner left with a hidden rail could not turn a
+  // page, a demoted one left with a live rail would be offered pages onto the wall.
   const pollPrint = (want) => alice.evaluate(async ({ id, want }) => {
     const sheet = game.actors.get(id).sheet;
-    for (let i = 0; i < 60; i++) {
+    const read = () => {
       const btn = sheet.element?.querySelector('.window-header button[data-action="printSheet"]');
-      const visible = !!btn && !btn.classList.contains("cairn-header-hidden");
-      if (visible === want.visible
-        && !!sheet.element?.querySelector(".charater-sheet-grid") === want.fullGrid) {
-        return { visible, fullGrid: want.fullGrid, ok: true };
+      const rail = sheet.element?.querySelector(":scope > .window-content > nav.cairn-tab-rail");
+      return {
+        visible: !!btn && !btn.classList.contains("cairn-header-hidden"),
+        fullGrid: !!sheet.element?.querySelector(".cairn-character"),
+        railLive: !!rail && !rail.hidden && rail.querySelectorAll("button[data-tab]").length > 0,
+      };
+    };
+    for (let i = 0; i < 60; i++) {
+      const now = read();
+      if (now.visible === want.visible && now.fullGrid === want.fullGrid && now.railLive === want.fullGrid) {
+        return { ...now, ok: true };
       }
       await new Promise((r) => setTimeout(r, 200));
     }
-    const btn = sheet.element?.querySelector('.window-header button[data-action="printSheet"]');
-    return {
-      visible: !!btn && !btn.classList.contains("cairn-header-hidden"),
-      fullGrid: !!sheet.element?.querySelector(".charater-sheet-grid"),
-      ok: false,
-    };
+    return { ...read(), ok: false };
   }, { id: pcId, want });
 
   await gm.evaluate(async ({ id, aliceId }) => {
@@ -285,16 +336,16 @@ try {
   }, { id: pcId, aliceId: setup.aliceId });
   const promoted = await pollPrint({ visible: true, fullGrid: true });
   promoted.ok
-    ? ok("promoted to OWNER: the open sheet re-renders full and the Print button appears")
-    : fail(`after promote: print visible ${promoted.visible}, full grid ${promoted.fullGrid}`);
+    ? ok("promoted to OWNER: the open sheet re-renders full, its rail live, and the Print button appears")
+    : fail(`after promote: print visible ${promoted.visible}, full grid ${promoted.fullGrid}, rail live ${promoted.railLive}`);
 
   await gm.evaluate(async ({ id, aliceId }) => {
     await game.actors.get(id).update({ [`ownership.${aliceId}`]: CONST.DOCUMENT_OWNERSHIP_LEVELS.LIMITED });
   }, { id: pcId, aliceId: setup.aliceId });
   const demoted = await pollPrint({ visible: false, fullGrid: false });
   demoted.ok
-    ? ok("demoted to LIMITED: the sheet walls itself and the Print button hides — no reopen needed")
-    : fail(`after demote: print visible ${demoted.visible}, full grid ${demoted.fullGrid}`);
+    ? ok("demoted to LIMITED: the sheet walls itself, the rail empties and the Print button hides — no reopen needed")
+    : fail(`after demote: print visible ${demoted.visible}, full grid ${demoted.fullGrid}, rail live ${demoted.railLive}`);
   await alice.evaluate(async (id) => { await game.actors.get(id).sheet.close(); }, pcId);
 
   /* --- Alice: an OWNED hireling shows her no dice ----------------------------- */

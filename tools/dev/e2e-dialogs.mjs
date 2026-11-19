@@ -61,9 +61,19 @@ try {
     return { actorId: a.id };
   }));
   await page.waitForTimeout(2500);
+  // The sheet's own frame, so every click below lands on THIS sheet and not on
+  // whatever else the world left open.
+  const pcSel = await page.evaluate((id) => `#${game.actors.get(id).sheet.element.id}`, actorId);
 
   /* ---------------------------------------------------------------- item ---- */
-  await page.locator(".item-create").first().click();
+  // A character's sheet opens on its Character page since 2026-11-19, so the
+  // Add Item control (items-list.html, on the Inventory page) is in a hidden
+  // panel on arrival and a real click on it can never land. The page is turned
+  // the way a player turns it — a real click on the rail's Inventory button —
+  // so a rail that stopped turning pages fails here as a timeout, not a pass.
+  await page.locator(`${pcSel} nav.cairn-tab-rail button[data-tab="items"]`).click();
+  await page.waitForTimeout(400);
+  await page.locator(`${pcSel} .tab[data-tab="items"] .item-create`).first().click();
   await page.waitForSelector("dialog.dialog input[name='itemname']", { timeout: 5000 });
 
   // The content template must NOT have introduced a nested form.
@@ -125,7 +135,9 @@ try {
   // survive on the document (the field stays declared; user data is kept).
   await page.evaluate((id) =>
     game.actors.get(id).update({ "system.features": [{ id: "zzdlg1", name: "ZZ Stored Feature", description: "kept" }] }), actorId);
-  await page.locator(`nav.tabs a[data-tab="description"]`).first().click();
+  // The rail's Description button: the strip's `nav.tabs a[data-tab]` link
+  // this used to click is gone from a character since 2026-11-19.
+  await page.locator(`${pcSel} nav.cairn-tab-rail button[data-tab="description"]`).click();
   await page.waitForTimeout(600);
   const featGone = await page.evaluate((id) => {
     const a = game.actors.get(id);

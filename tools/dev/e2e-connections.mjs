@@ -175,10 +175,13 @@ const parked = await gmPage.evaluate(async ({ pcUuid, freeUuid }) => {
   const out = {};
 
   // Parked default: a rendered PC sheet has neither the nav entry nor the
-  // panel, and the drag spelling of Connect refuses silently.
+  // panel, and the drag spelling of Connect refuses silently. The nav entry
+  // is the thumb-tab RAIL's button since 2026-11-19 (the character's text
+  // strip went); the absence below is only meaningful because the shadow leg
+  // finds the SAME selector present, which it must.
   await pc.sheet.render(true);
   await sleep(600);
-  out.tabGone = !pc.sheet.element.querySelector('.tabs .item[data-tab="containers"]');
+  out.tabGone = !pc.sheet.element.querySelector('nav.cairn-tab-rail button[data-tab="containers"]');
   out.panelGone = !pc.sheet.element.querySelector('.tab[data-tab="containers"]');
   out.dropRefused = (await pc.sheet._onDropActor(new Event("drop"), free)) === null
     && !free.system.connectedTo;
@@ -199,9 +202,9 @@ const parked = await gmPage.evaluate(async ({ pcUuid, freeUuid }) => {
     pc.prepareData();                       // showContainersTab derives here
     await pc.sheet.render(true);
     await sleep(600);
-    out.tabBackUnderShadow = !!pc.sheet.element.querySelector('.tabs .item[data-tab="containers"]');
+    out.tabBackUnderShadow = !!pc.sheet.element.querySelector('nav.cairn-tab-rail button[data-tab="containers"]');
     // Stand on the tab, so the re-park below exercises the vanished-tab reset.
-    pc.sheet.element.querySelector('.tabs .item[data-tab="containers"]')?.click();
+    pc.sheet.element.querySelector('nav.cairn-tab-rail button[data-tab="containers"]')?.click();
     await sleep(300);
     out.stoodOnTab = pc.sheet.tabGroups.primary === "containers";
     await free.sheet.render(true);
@@ -226,9 +229,12 @@ const parked = await gmPage.evaluate(async ({ pcUuid, freeUuid }) => {
   pc.prepareData();
   await pc.sheet.render(true);
   await sleep(600);
-  out.tabGoneAgain = !pc.sheet.element.querySelector('.tabs .item[data-tab="containers"]');
-  out.resetLandsOnItems = pc.sheet.tabGroups.primary === "items"
-    && !!pc.sheet.element.querySelector('.tab.active[data-tab="items"]');
+  out.tabGoneAgain = !pc.sheet.element.querySelector('nav.cairn-tab-rail button[data-tab="containers"]');
+  // The reset lands on the group's INITIAL (`_getTabsConfig`), which on a
+  // character is its Character page since 2026-11-19 — it was Items, when
+  // Items led the character's list. Same mechanism, new answer.
+  out.resetLandsOnInitial = pc.sheet.tabGroups.primary === "character"
+    && !!pc.sheet.element.querySelector('.tab.active[data-tab="character"]');
   await pc.sheet.close();
   await free.sheet.close();
   return out;
@@ -242,9 +248,9 @@ parked.dropRefused
 parked.tabBackUnderShadow && parked.attachOfferedUnderShadow
   ? ok("   shadow: the whole UI returns", "tab + attach affordance")
   : fail("   shadow: the whole UI returns", JSON.stringify(parked));
-parked.stoodOnTab && parked.tabGoneAgain && parked.resetLandsOnItems
-  ? ok("re-parked mid-stand: the reset lands on Items", "no blank sheet body")
-  : fail("re-parked mid-stand: the reset lands on Items", JSON.stringify(parked));
+parked.stoodOnTab && parked.tabGoneAgain && parked.resetLandsOnInitial
+  ? ok("re-parked mid-stand: the reset lands on Character", "no blank sheet body")
+  : fail("re-parked mid-stand: the reset lands on Character", JSON.stringify(parked));
 parked.staleClickRefused
   ? ok("a stale sheet's control is refused by the handler", "no picker, nothing written")
   : fail("a stale sheet's control is refused by the handler", JSON.stringify(parked));

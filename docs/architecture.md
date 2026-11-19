@@ -44,8 +44,8 @@ and a set of feature files that mostly do not know about each other.
 | `module/`, physical lines | **~40,200** |
 | `module/`, code lines | **~16,600** |
 | Comment and blank share | **~59%** |
-| JavaScript files | 41 (re-counted 2026-11-19, with the welcome window) |
-| Handlebars templates | 22 files (re-counted 2026-11-19), ~3,400 lines |
+| JavaScript files | 42 (re-counted 2026-11-19, with the welcome window and the character sheet's tab rail) |
+| Handlebars templates | 24 files (re-counted 2026-11-19, with the rail and the Scars partial), ~3,400 lines |
 | Stylesheet | 1 file, ~5,100 lines |
 | Compendium source documents | ~1,140 YAML files across 29 packs |
 | Interface translations | 7 languages, plus 1 content overlay |
@@ -120,7 +120,7 @@ complicated it is. `art-picker.js` sits at tier 8 and is 159 lines of code.
 
 | Tier | Files |
 |---|---|
-| **0** — no internal imports at all | `art-paths.js`, `compendium.js`, `config.js`, `i18n-content.js`, `icons.js`, `settings-menus.js` |
+| **0** — no internal imports at all | `actor/tab-rail.js`, `art-paths.js`, `compendium.js`, `config.js`, `i18n-content.js`, `icons.js`, `settings-menus.js` |
 | **1** | `settings.js`, `data-models.js` |
 | **2** | `utils.js`, `connections.js` |
 | **3** | `combat.js`, `game-time.js`, `glog.js`, `macros.js` |
@@ -203,13 +203,13 @@ Six things carry roughly half the logic, and nothing routes around them.
 
 ## The leaf features
 
-Fourteen files are imported only by the boot file or by a sheet, which means
+Fifteen files are imported only by the boot file or by a sheet, which means
 **no other feature depends on them**. Each can be read, understood and changed
 on its own once the spine is familiar:
 
 `art-picker.js` · `combat.js` · `encounters.js` · `faction-generator.js` ·
 `grimoire.js` · `item-offer.js` · `kettlewright-import.js` · `macros.js` ·
-`monster-generator.js` · `table-banner.js` ·
+`monster-generator.js` · `actor/tab-rail.js` · `table-banner.js` ·
 `warden-dashboard.js` · `watch-clock.js` · `weather-log.js` · `welcome.js`
 
 Three more are shared by a few features rather than the system:

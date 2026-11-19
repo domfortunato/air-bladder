@@ -98,6 +98,13 @@ try {
       await sheet.render(true);
       await wait(800);
       const rootOf = () => (sheet.element instanceof HTMLElement ? sheet.element : sheet.element?.[0]);
+      // The character's pages are turned from the thumb-tab RAIL since
+      // 2026-11-19 (nav.cairn-tab-rail, its own render part, outside the
+      // frame). Named outright rather than a bare `[data-tab="…"]`: that also
+      // matches the page `.tab` div, and which one comes first is part order,
+      // not a promise — a click on the div turns nothing, and every leg below
+      // that measures a Description-page box would then read zeros.
+      const turnTo = (id) => rootOf()?.querySelector(`nav.cairn-tab-rail button[data-tab="${id}"]`)?.click();
 
       // ---- 1 + 2 + 3 + 4 + 5, mode ON -------------------------------------
       let root = rootOf();
@@ -111,7 +118,9 @@ try {
         bgNoTitle: !!bgDie && !bgDie.hasAttribute("title"),
       };
 
-      const strOn = root?.querySelector(".STR-counter a.resource-roll");
+      // The character's STR row is `.cairn-ability.STR-ability` since the
+      // 2026-11-19 layout (page 1); the npc sheet keeps `.STR-counter` below.
+      const strOn = root?.querySelector(".STR-ability a.resource-roll");
       out.savesOn = {
         noAction: !!strOn && !strOn.dataset.action,
         offClass: !!strOn?.classList.contains("save-roll-off"),
@@ -129,7 +138,7 @@ try {
         hp: root?.querySelector('label[for$="system.hp.value"]')?.dataset.tooltip ?? "",
         gold: root?.querySelector('label[for$="system.gold"]')?.dataset.tooltip ?? "",
       };
-      root?.querySelector('[data-tab="description"]')?.click();
+      turnTo("description");
       await wait(300);
       root = rootOf();
       out.hintsOn.traits = root?.querySelector(".trait-picklist-label")?.dataset.tooltip ?? "";
@@ -218,7 +227,7 @@ try {
         });
         await sheet.render(true);
         await wait(800);
-        rootOf()?.querySelector('[data-tab="description"]')?.click();
+        turnTo("description");
         await wait(300);
         // WHICH world Physique the resolver elects: a Warden's own copy (the
         // Create Custom 2e Tables door makes one) is found first by name and
@@ -237,7 +246,7 @@ try {
         if (worldPhys) await worldPhys.delete();
         await sheet.render(true);
         await wait(600);
-        rootOf()?.querySelector('[data-tab="description"]')?.click();
+        turnTo("description");
         await wait(300);
         root = rootOf();
       }
@@ -364,7 +373,7 @@ try {
 
       // ---- 7. The bond picker ---------------------------------------------
       root = rootOf();
-      root?.querySelector('[data-tab="notes"]')?.click();
+      turnTo("notes");
       await wait(300);
       root = rootOf();
       const bondId = (actor.system.bonds ?? [])[0]?.id;
@@ -486,12 +495,12 @@ try {
       // ---- mode OFF: dice roll again, hints gone --------------------------
       await actor.update({ "system.generationEnabled": false });
       await waitFor(() => {
-        const el = rootOf()?.querySelector(".STR-counter a.resource-roll");
+        const el = rootOf()?.querySelector(".STR-ability a.resource-roll");
         return el && el.dataset.action === "rollAbility";
       }, 10000);
       root = rootOf();
       out.toggleOffKey = toggleEl()?.dataset.tooltip ?? "";
-      const strOff = root?.querySelector(".STR-counter a.resource-roll");
+      const strOff = root?.querySelector(".STR-ability a.resource-roll");
       out.savesOff = {
         action: strOff?.dataset.action ?? "",
         noOffClass: !!strOff && !strOff.classList.contains("save-roll-off"),
@@ -508,7 +517,7 @@ try {
         portraitPick: !!root?.querySelector("a.portrait-pick"),
         portraitDie: !!root?.querySelector("a.portrait-roll"),
       };
-      root?.querySelector('[data-tab="description"]')?.click();
+      turnTo("description");
       await wait(300);
       out.hintsOff.traits = rootOf()?.querySelector(".trait-picklist-label")?.hasAttribute("data-tooltip") ?? false;
       // The trait grid is still expanded (sheet-instance state), so the rows
