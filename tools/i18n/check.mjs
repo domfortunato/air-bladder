@@ -307,9 +307,9 @@ const pct = Math.round((translated / enCount) * 100);
  * are anchored on the sentence, so a reword fails rather than quietly
  * matching nothing. Spanish only: the figure is the Spanish translation's.
  */
+// The READMEs left this list on 2026-11-19: the short README (the welcome
+// window's words) states no percentage.
 const COVERAGE_SITES = LANG === "es" ? [
-  ["README.md", /\((\d+)% of the current strings, by /],
-  ["README.es.md", /\(el (\d+) % de las cadenas actuales, por /],
   ["site/index.html", /\((\d+)% of the interface and nearly all the game content, by /],
 ] : [];
 /* ---- the INHERITED languages' published figure -----------------------------
@@ -340,8 +340,6 @@ const inheritedPct = inheritedPcts.length
   ? Math.round(inheritedPcts.reduce((a, b) => a + b, 0) / inheritedPcts.length)
   : null;
 const INHERITED_SITES = (LANG === "es" && inheritedPct !== null) ? [
-  ["README.md", /They cover \*\*about (\d+)%\*\* of the current interface/],
-  ["README.es.md", /Cubren \*\*alrededor del (\d+) %\*\* de la interfaz actual/],
   ["site/index.html", /sit at about (\d+)%/],
   ["docs/TRANSLATING.md", /covering about (\d+)% of the current interface/],
   ["docs/translating-self-service.md", /Cairn system sit at about (\d+)%/],

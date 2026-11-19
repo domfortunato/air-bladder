@@ -29,9 +29,9 @@
     <div class="ab-welcome-col ab-welcome-col-main">
       <h2 class="ab-welcome-heading">{{localize "CAIRN.Welcome.RulesHeading"}}</h2>
       <ul class="ab-welcome-rules">
-        <li><strong>{{localize "CAIRN.Welcome.Rules2eTitle"}}</strong> {{localize "CAIRN.Welcome.Rules2eBody"}}</li>
-        <li><strong>{{localize "CAIRN.Welcome.RulesBarebonesTitle"}}</strong> {{localize "CAIRN.Welcome.RulesBarebonesBody"}}</li>
-        <li><strong>{{localize "CAIRN.Welcome.RulesCustomTitle"}}</strong> {{localize "CAIRN.Welcome.RulesCustomBody"}}</li>
+        {{#each rules}}
+        <li><strong>{{localize this.[0]}}</strong> {{localize this.[1]}}</li>
+        {{/each}}
       </ul>
       <p class="ab-welcome-world"><i class="fa-solid fa-scale-balanced" inert></i> {{thisWorld}}</p>
       <p class="ab-welcome-change">{{localize "CAIRN.Welcome.ChangeSources"}}</p>
@@ -39,9 +39,9 @@
       {{!-- AI disclosure, as Base Knavery's: no AI art first, then no AI game text, then the code. --}}
       <h2 class="ab-welcome-heading">{{localize "CAIRN.Welcome.AiHeading"}}</h2>
       <section class="ab-welcome-ai">
-        <p class="ab-welcome-noai"><i class="fa-solid fa-paintbrush" inert></i> <strong>{{localize "CAIRN.Welcome.NoAiArt"}}</strong> {{localize "CAIRN.Welcome.NoAiArtBody"}}</p>
-        <p class="ab-welcome-noai ab-welcome-notext"><i class="fa-solid fa-scroll" inert></i> <strong>{{localize "CAIRN.Welcome.NoAiText"}}</strong> {{localize "CAIRN.Welcome.NoAiTextBody"}}</p>
-        <p class="ab-welcome-noai ab-welcome-aicode"><i class="fa-solid fa-brain-circuit" inert></i> <strong>{{localize "CAIRN.Welcome.AiCode"}}</strong></p>
+        {{#each ai}}
+        <p class="ab-welcome-noai {{this.cls}}"><i class="{{this.fa}}" inert></i> <strong>{{localize this.title}}</strong>{{#if this.body}} {{localize this.body}}{{/if}}</p>
+        {{/each}}
       </section>
     </div>
 
@@ -73,24 +73,14 @@
       <h2 class="ab-welcome-heading">{{localize "CAIRN.Welcome.Licensing"}}</h2>
       <section class="ab-welcome-small ab-welcome-licensing">
         <ul class="ab-welcome-folds ab-welcome-licences">
+          {{#each folds}}
           <li>
-            <details class="ab-welcome-fold ab-welcome-cairn">
-              <summary>{{localize "CAIRN.Welcome.CairnLicenseHeading"}}</summary>
-              <p>{{{cairnBody}}}</p>
+            <details class="ab-welcome-fold {{this.cls}}">
+              <summary>{{this.heading}}</summary>
+              <p>{{{this.body}}}</p>
             </details>
           </li>
-          <li>
-            <details class="ab-welcome-fold ab-welcome-backgrounds">
-              <summary>{{localize "CAIRN.Welcome.BackgroundsLicenseHeading"}}</summary>
-              <p>{{{backgroundsBody}}}</p>
-            </details>
-          </li>
-          <li>
-            <details class="ab-welcome-fold ab-welcome-glog">
-              <summary>{{localize "CAIRN.Welcome.GlogLicenseHeading"}}</summary>
-              <p>{{{glogBody}}}</p>
-            </details>
-          </li>
+          {{/each}}
           <li>
             <details class="ab-welcome-fold ab-welcome-art">
               <summary>{{localize "CAIRN.Welcome.ArtLicensing"}}</summary>
@@ -102,13 +92,12 @@
             </details>
           </li>
         </ul>
-        {{!-- The "For Use With Cairn" stamp the sheets show, at the foot of the side column (user,
-             2026-11-19), in Base Knavery's slot for its own compatibility mark. Whole and opaque: never
-             altered (logo/README.md). --}}
-        {{!-- The Air Bladder logo and the stamp side by side, both at full strength (user, 2026-11-19). --}}
+        {{!-- The Air Bladder logo and the "For Use With Cairn" stamp the sheets show, side by side at
+             full strength at the foot of the side column (user, 2026-11-19), in Base Knavery's slot for
+             its own compatibility mark. The stamp whole and opaque: never altered (logo/README.md). --}}
         {{!-- Where the name comes from (user, 2026-11-19: "prominent"), under the licensing
              and above the logos, as the user placed it. Never in the masthead: under the ™
-             title it read as part of the mark, and Cairn 2e is not the user's to put in it. --}}
+             title it read as part of the mark. --}}
         <p class="ab-welcome-origin">{{localize "CAIRN.Welcome.Origin"}}</p>
         <div class="ab-welcome-marks">
           <img class="ab-welcome-logo ab-logo-light" src="{{logo}}" alt="{{title}}">

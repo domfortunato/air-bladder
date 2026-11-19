@@ -44,8 +44,8 @@ and a set of feature files that mostly do not know about each other.
 | `module/`, physical lines | **~40,200** |
 | `module/`, code lines | **~16,600** |
 | Comment and blank share | **~59%** |
-| JavaScript files | 39 |
-| Handlebars templates | 21 files, ~3,400 lines |
+| JavaScript files | 41 (re-counted 2026-11-19, with the welcome window) |
+| Handlebars templates | 22 files (re-counted 2026-11-19), ~3,400 lines |
 | Stylesheet | 1 file, ~5,100 lines |
 | Compendium source documents | ~1,140 YAML files across 29 packs |
 | Interface translations | 7 languages, plus 1 content overlay |
@@ -216,7 +216,9 @@ Three more are shared by a few features rather than the system:
 `vald-calendar.js` (imported by the boot file, the dashboard and the clock),
 `calendar-events.js` (by the Vald calendar, the weather log and the party pile)
 and `warden-damage.js` (by the boot file and the dashboard). `settings-menus.js`
-is a leaf of `settings.js` rather than of the system. `party-pile.js` is NOT a
+is a leaf of `settings.js` rather than of the system, and `welcome-data.js` a
+leaf of `welcome.js` (it has no Foundry in it, so `tools/build-readme.mjs`
+reads it too: README.md's top and bottom are the welcome window's words). `party-pile.js` is NOT a
 leaf: the Actor class and its sheet import it as well as the boot file, because
 the pile's identity test (`isDroppedPile`) and the drop sit under every actor.
 `marketplace.js` and `take-over.js` left this list on 2026-09-15, when

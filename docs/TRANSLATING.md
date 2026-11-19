@@ -127,7 +127,7 @@ guess.
 >   Spanish translation is shared the same way — you're credited as its author,
 >   but it becomes part of the free, open project rather than something kept
 >   private. Where you adapt the official Spanish edition, we credit that team
->   too. (See **Credits & licenses** in the [README](../README.md).)
+>   too. (See **Credits & licenses** in [LICENSE.txt](../LICENSE.txt).)
 
 ## To get started, we just need
 

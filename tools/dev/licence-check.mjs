@@ -19,9 +19,12 @@
  * The first four checks, all offline:
  *
  *   1. LICENSE.txt does not OPEN as a bare licence template.
- *   2. Every licence named in README's "Credits & licenses" is named in
- *      LICENSE.txt too. README is canonical; this is a drift detector, not a
- *      second source of truth.
+ *   2. Every licence named in README's licensing folds is named in
+ *      LICENSE.txt too, and LICENSE.txt names all seven regimes. Since
+ *      2026-11-19 LICENSE.txt is canonical: README.md became the welcome
+ *      window's short summary (tools/build-readme.mjs) and its long "Credits &
+ *      licenses" list moved into LICENSE.txt word for word, so every check
+ *      below that read that list now reads the same words there.
  *   3. Every repo path LICENSE.txt points at exists — the per-asset notices it
  *      delegates to are the attribution itself, so a rotted pointer is a broken
  *      licence, not a broken link.
@@ -79,14 +82,14 @@ const LICENCES = [
   { name: "all rights reserved", re: /all rights reserved/i },
 ];
 
-console.log("\nLICENSE.txt vs README.md");
+console.log("\nLICENSE.txt (canonical) and README.md's licensing folds");
 
 /* 1. Not a bare template ---------------------------------------------------- */
 
 const firstLine = licence.split("\n").find((l) => l.trim() !== "")?.trim() ?? "";
 if (/^(MIT|Apache|BSD|GNU|ISC|The MIT)\b/i.test(firstLine)) {
   fail(`LICENSE.txt opens with "${firstLine}" — it reads as a single-licence file. `
-    + "Seven regimes ship here and MIT covers the code only; see README.md.");
+    + "Seven regimes ship here and MIT covers the code only; see its Credits & licenses section.");
 } else {
   ok(`LICENSE.txt opens as a multi-licence notice ("${firstLine}")`);
 }
@@ -102,20 +105,20 @@ if (!/Permission is hereby granted, free of charge/.test(licence)) {
 
 /* 2. Both files name the same regimes -------------------------------------- */
 
-// README's credits section is the canonical list.
-const credits = readme.slice(readme.indexOf("## Credits & licenses"));
-if (!credits) fail("could not find README's '## Credits & licenses' section");
+// LICENSE.txt is canonical and must name every regime that ships. README.md's
+// generated licensing block (the welcome window's folds) names a subset (it
+// never mentions MIT), so the README direction is one way: nothing it credits
+// may be missing from LICENSE.txt.
+const foldsStart = readme.indexOf("<!-- licensing:start");
+const folds = foldsStart < 0 ? "" : readme.slice(foldsStart, readme.indexOf("<!-- licensing:end", foldsStart));
+if (!folds) fail("could not find README's licensing block (<!-- licensing:start --> to <!-- licensing:end -->)");
 
+const failedBefore = failed;
 for (const { name, re } of LICENCES) {
-  const inReadme = re.test(credits);
-  const inLicence = re.test(licence);
-  if (inReadme && !inLicence) {
-    fail(`README credits "${name}" but LICENSE.txt never mentions it`);
-  } else if (!inReadme && inLicence) {
-    fail(`LICENSE.txt claims "${name}" but README's credits do not — one of them is wrong`);
-  }
+  if (re.test(folds) && !re.test(licence)) fail(`README credits "${name}" but LICENSE.txt never mentions it`);
+  else if (!re.test(licence)) fail(`LICENSE.txt never names "${name}", one of the regimes that ship`);
 }
-if (!failed) ok(`both files name the same ${LICENCES.length} regimes`);
+if (failed === failedBefore) ok(`LICENSE.txt names all ${LICENCES.length} regimes, and every one README's folds credit`);
 
 /* 3. Every notice LICENSE.txt delegates to exists --------------------------- */
 
@@ -263,8 +266,7 @@ const onDisk = galleryDirs
 const catsOnDisk = galleryDirs.length;
 
 const COUNT_SITES = [
-  ["README.md", /picker gallery — ([\d,]+) glyphs/],
-  ["README.es.md", /del selector de imágenes — ([\d,]+) íconos/],
+  ["LICENSE.txt", /picker gallery — ([\d,]+) glyphs/],
   ["module/art-picker.js", /gameicons\s+([\d,]+) game-icons\.net glyphs/],
   ["module/art-picker.js", /at once is ([\d,]+) <img>/],
   ["module/art-picker.js", /the ([\d,]+)-glyph gallery/],
@@ -288,8 +290,7 @@ const COUNT_SITES = [
 // made this gate fail for the RIGHT collection whenever a category was added:
 // it read as a stale glyph count when nothing about the glyphs had changed.
 const CATEGORY_SITES = [
-  ["README.md", /picker gallery — [\d,]+ glyphs in (\d+) categories/],
-  ["README.es.md", /del selector de imágenes — [\d,]+ íconos en (\d+) categorías/],
+  ["LICENSE.txt", /picker gallery — [\d,]+ glyphs in (\d+) categories/],
   ["module/art-picker.js", /\*\s+(\d+) folder tiles, then that category's thumbnails/],
   ["module/art-picker.js", /rendering all (\d+) at once/],
   ["module/character-generator.js", /game-icons\.net glyphs in (\d+) categories/],
@@ -334,14 +335,14 @@ const unnamedArtists = [];
 if (!creditedArtists.length) {
   unnamedArtists.push("art/game-icons/CREDITS.md: no 'Icons made by …' line to check against");
 } else {
-  for (const file of ["README.md", "README.es.md"]) {
+  for (const file of ["LICENSE.txt"]) {
     const text = read(file);
     const missing = creditedArtists.filter((a) => !text.includes(a));
     if (missing.length) unnamedArtists.push(`${file}: does not name ${missing.join(", ")}`);
   }
 }
 unnamedArtists.length === 0
-  ? ok(`both READMEs name every credited artist (${creditedArtists.length})`)
+  ? ok(`LICENSE.txt names every credited artist (${creditedArtists.length})`)
   : fail(`gallery artists missing from a CC BY attribution:\n        ${unnamedArtists.join("\n        ")}`);
 
 // The CLASS icons in icons/ are a SECOND game-icons attribution with a second,
@@ -357,7 +358,7 @@ unnamedArtists.length === 0
 // what tools/import/icons.mjs writes a row into, so it is right by
 // construction; the sentence is hand-kept and drifts on exactly the occasion
 // these four do.
-const ICON_CREDIT_SITES = ["README.md", "README.es.md", "LICENSE.txt", "site/index.html"];
+const ICON_CREDIT_SITES = ["LICENSE.txt", "site/index.html"];
 const classIconAuthors = [...new Set(
   [...read("icons/CREDITS.md").matchAll(/^\|[^|\n]*\|[^|\n]*\|[^|\n]*\|\s*([^|\n]+?)\s*\|/gm)]
     .map((m) => m[1].trim())
@@ -458,23 +459,10 @@ const LYDIA_COUNT_SITES = [
   // further along: a count is only as honest as the list that walks it.
   ["site/index.html", /The (\d+) creatures and \d+ characters offered/, "monsters"],
   ["site/index.html", /The \d+ creatures and (\d+) characters offered/, "characters"],
-  ["README.md", /(\d+) creatures and \d+ characters \(source:/, "monsters"],
-  ["README.md", /\d+ creatures and (\d+) characters \(source:/, "characters"],
-  ["README.es.md", /(\d+) criaturas y \d+ personajes \(fuente:/, "monsters"],
-  ["README.es.md", /\d+ criaturas y (\d+) personajes \(fuente:/, "characters"],
+  ["LICENSE.txt", /(\d+) creatures and \d+ characters \(source:/, "monsters"],
+  ["LICENSE.txt", /\d+ creatures and (\d+) characters \(source:/, "characters"],
   ["art/lydia-comer/CREDITS.md", /^(\d+) characters and \d+ creatures, \d+ files\./m, "characters"],
   ["art/lydia-comer/CREDITS.md", /^\d+ characters and (\d+) creatures, \d+ files\./m, "monsters"],
-  // Both READMEs state the numbers a second time, up in the feature list. Two
-  // statements of one number in one file is the ordinary way a count goes
-  // stale. The anchor deliberately stops at the countable phrase: the
-  // 2026-08-10 tightening pass folded the three gallery bullets into one and
-  // dropped the "A gallery of" lead-in, which is exactly how the 0.1.15
-  // workflow failed at the tag — the gate anchored on wording, not on the
-  // fact it checks.
-  ["README.md", /(\d+) monsters and \d+ characters by/, "monsters"],
-  ["README.md", /\d+ monsters and (\d+) characters by/, "characters"],
-  ["README.es.md", /(\d+) monstruos y \d+ personajes de/, "monsters"],
-  ["README.es.md", /\d+ monstruos y (\d+) personajes de/, "characters"],
 ];
 for (const [file, pattern, setName] of LYDIA_COUNT_SITES) {
   const m = read(file).match(pattern);
@@ -520,15 +508,10 @@ if (aspPortraits !== aspTokens) {
 const tlomdevCount = countImages("art/tlomdev");
 
 const GALLERY_COUNT_SITES = [
-  ["README.md", /(\d+) character portraits by \[Jon Aspeheim\]/, () => aspPortraits, "Aspeheim portraits"],
-  ["README.md", /The (\d+) paired portrait\/token images/, () => aspPortraits, "Aspeheim portraits"],
-  ["README.es.md", /(\d+) retratos de personaje/, () => aspPortraits, "Aspeheim portraits"],
+  ["LICENSE.txt", /The (\d+) paired portrait\/token images/, () => aspPortraits, "Aspeheim portraits"],
   ["site/index.html", /(\d+) character portraits by/, () => aspPortraits, "Aspeheim portraits"],
-  ["README.md", /(\d+) creature & NPC tokens by \[tlomdev\]/, () => tlomdevCount, "tlomdev tokens"],
-  ["README.md", /The (\d+) black-and-white token drawings/, () => tlomdevCount, "tlomdev tokens"],
+  ["LICENSE.txt", /The (\d+) black-and-white token drawings/, () => tlomdevCount, "tlomdev tokens"],
   ["art/tlomdev/CREDITS.md", /(\d+) drawings\./, () => tlomdevCount, "tlomdev tokens"],
-  ["README.es.md", /(\d+) tokens de criaturas y PNJ/, () => tlomdevCount, "tlomdev tokens"],
-  ["README.es.md", /Los (\d+) dibujos de token/, () => tlomdevCount, "tlomdev tokens"],
   ["LICENSE.txt", /(\d+) token drawings in the Tlomdev picker gallery/, () => tlomdevCount, "tlomdev tokens"],
   ["docs/provenance.md", /\| `art\/tlomdev\/` \| (\d+) \|/, () => tlomdevCount, "tlomdev tokens"],
   ["docs/provenance.md", /across (\d+) files, published as a paid asset pack/, () => tlomdevCount, "tlomdev tokens"],
@@ -563,9 +546,9 @@ galleryProblems.length === 0
 const MOD_SITES = [
   ["art/tlomdev/CREDITS.md", /## Modifications[\s\S]*re-encoded from PNG to WebP \(quality 95\)/],
   ["LICENSE.txt", /re-encoded from\s+PNG to WebP \(quality 95\)[\s\S]*?art\/tlomdev\/CREDITS\.md/],
-  ["README.md", /Modified: re-encoded from PNG to WebP \(quality 95\)[\s\S]*?art\/tlomdev\/CREDITS\.md/],
+  ["LICENSE.txt", /Modified: re-encoded from PNG to WebP \(quality 95\)[\s\S]*?art\/tlomdev\/CREDITS\.md/],
   ["LICENSE.txt", /MODIFIED: the source ships 1000×1000 PNG portraits and no tokens[\s\S]*?cropped and downscaled to 256×256/],
-  ["README.md", /Modified: the source ships 1000×1000 PNG portraits and no tokens[\s\S]*?256×256 for the canvas/],
+  ["LICENSE.txt", /Modified: the source ships 1000×1000 PNG portraits and no tokens[\s\S]*?256×256 for the canvas/],
 ];
 let modMissing = 0;
 for (const [file, pattern] of MOD_SITES) {
@@ -601,8 +584,7 @@ if (!modMissing) ok(`the §3(a)(1)(B) modification indications (tlomdev, Aspehei
 const TEXT_RULE_SITES = [
   ["LICENSE.txt", /CAIRN'S GAME TEXT IS ALWAYS CC BY-SA 4\.0, WHEREVER IT SITS/],
   ["LICENSE.txt", /this clause follows Cairn's text wherever it is written/],
-  ["README.md", /Cairn's text is CC BY-SA 4\.0 wherever it sits/],
-  ["README.es.md", /El texto de Cairn es CC BY-SA 4\.0 esté donde esté/],
+  ["LICENSE.txt", /Cairn's text is CC BY-SA 4\.0 wherever it sits/],
 ];
 let ruleMissing = 0;
 for (const [file, pattern] of TEXT_RULE_SITES) {

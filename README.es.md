@@ -1,162 +1,107 @@
-<p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)"  srcset="art/lydia-comer/Airbladder06.webp">
-    <source media="(prefers-color-scheme: light)" srcset="art/lydia-comer/Airbladder02.webp">
-    <img alt="Air Bladder" src="art/lydia-comer/Airbladder01.webp" width="520">
-  </picture>
-</p>
-
-<div align="center">
-
-### [Visita el sitio web de Air Bladder →](https://domfortunato.github.io/air-bladder/)
-
-<sub>(en inglés)</sub>
-
-[English](README.md) · **Español**
-
-<sub>Esta traducción puede estar desactualizada; el README en inglés es la versión de referencia.</sub>
-
-</div>
-
 <!--
-  Traducción al español de España (es-ES), para que coincida con la traducción
-  del sistema.
+  Traducción al español de España (es-ES) de README.md, para que coincida con la
+  traducción del sistema.
 
   MANTENIMIENTO: este archivo lo mantiene el proyecto, NO el traductor del
   sistema. La traducción del juego (lang/es.json, lang/content/es.json) es obra
   de un traductor humano; este README es documentación del proyecto y se
-  actualiza junto con README.md, que es la versión de referencia. Al cambiar
-  README.md, actualiza también este archivo.
+  actualiza a mano junto con README.md, que es la versión de referencia.
 
-  ESTE ARCHIVO ES UNA TRADUCCIÓN FIEL DE README.md. No debe contener ninguna
-  sección, dato ni crédito que no esté en el original: si algo merece figurar
-  aquí, primero se añade a README.md y después se traduce. Una sección que
-  existía solo en español (créditos a colaboradores) se eliminó el 2026-07-30
-  precisamente por esto -- dejaba a una persona acreditada en un solo idioma y
-  las dos versiones divergían sin que nada lo detectara.
+  Desde el 2026-11-19 la parte de arriba y la de abajo de README.md se generan a
+  partir del texto de la ventana de bienvenida (npm run build:readme). Este
+  archivo no se genera: es una traducción a mano de todo README.md, y no debe
+  contener ninguna sección, dato ni crédito que no esté en el original.
 
   Terminología: usa siempre lo que el jugador VE en el sistema, es decir
-  lang/es.json, no una conjetura de este archivo:
-    Warden   -> "Guardián"  (CAIRN.Warden)
-    Items    -> "Equipo"    (CAIRN.Items, la pestaña de la hoja)
-  La fila "Hireling -> Seguidor" se retiró el 2026-08-01: CAIRN.Hireling ya no
-  existe en lang/en.json (ser contratable pasó a ser una casilla del PNJ, no una
-  clase de persona), así que apuntaba a una clave muerta. El término sobrevive en
-  tools/i18n/glossary.tsv, que es donde le corresponde estar.
-  Los nombres propios, ediciones (Cairn 2e, Barebones), módulos (Item Piles) y
-  licencias no se traducen.
+  lang/es.json, no una conjetura de este archivo (Warden -> "Guardián",
+  Dashboard -> "Panel del Guardián", Marketplace -> "Mercado"). El resto está en
+  tools/i18n/glossary.tsv. Los nombres propios, ediciones (Cairn 2e, Barebones)
+  y licencias no se traducen.
 -->
+<h1 align="center"><img src="art/lydia-comer/welcome/Knight12w-t.webp" alt="Un retrato dibujado por Lydia Comer" height="100" align="middle"> Air Bladder™ <img src="art/lydia-comer/welcome/Femme20w-t.webp" alt="Un retrato dibujado por Lydia Comer" height="100" align="middle"></h1>
+<p align="center">de <a href="https://github.com/domfortunato">Dom Bosco</a><br>Traducción al español de <a href="https://github.com/fsmalecho">Malecho</a></p>
 
-Un sistema de juego para [Foundry VTT](https://foundryvtt.com) para jugar contenido de **Cairn 2e** y de la **Edición Barebones de Cairn**: trasfondos detallados, algunas opciones que añaden funciones de 2e a las hojas Barebones, y tablas del Guardián de 2e. **Compatible con [Cairn](https://cairnrpg.com) de Yochai Gal.**
+<p align="center"><a href="README.md">English</a> · <b>Español</b></p>
 
-## Resumen
+<p align="center"><sub>Esta traducción puede estar desactualizada; el README en inglés es la versión de referencia.</sub></p>
 
-Air Bladder es un sistema complementario amigable, no el sistema oficial de Cairn. Desciende de [yochaigal/Cairn-FoundryVTT](https://github.com/yochaigal/Cairn-FoundryVTT) (de Yochai Gal y Oskar Świda), que a su vez desciende del sistema Electric Bastionland y de Into the Odd. *Air Bladder* es el primer objeto de la tabla de Equipo en la p. 17 de la Guía del jugador de Cairn 2e.
+<p align="center"><em>Air Bladder es un sistema no oficial para Foundry VTT, hecho por aficionados, para Cairn 2e y Cairn Barebones.<br>No es el sistema oficial de Cairn, y Yochai Gal no lo ha respaldado.</em></p>
 
-## Características principales
+## Hecho para Cairn 2e y para tus propias reglas
 
-- [Generación aleatoria de personajes](https://github.com/domfortunato/air-bladder/blob/master/docs/generating-characters.md) a partir de trasfondos de Cairn 2e, **Cairn 2e personalizado** y Cairn Barebones — cada fuente se activa o desactiva, y el **Modo de creación de personaje** de la hoja permite volver a tirar partes sueltas del resultado. ¿Lo has tirado en la mesa? Desmarca **Usar generación aleatoria** y el mismo botón abre una hoja vacía, con las listas de selección listas. Una hoja vacía nunca recibe nada: se registra lo que eliges y tú escribes el inventario que ya tienes
-- **El Panel del Guardián** ([guía](https://github.com/domfortunato/air-bladder/blob/master/docs/warden-dashboard.md)) — las 45 tablas de tiradas del Guardián, cada una en un botón, en una sola ventana redimensionable y desacoplable: viajes y clima, encuentros por terreno, PNJ, facciones y monstruos. Las tiradas son privadas para ti salvo que indiques lo contrario, un conjunto entero se tira en una sola tarjeta, y accede a los generadores y al Daño del Guardián desde el mismo sitio
-- **Las guardias, contadas por ti** ([guía](https://github.com/domfortunato/air-bladder/blob/master/docs/keeping-time.md)) — en Cairn el día se divide en tres guardias, y la guardia actual aparece en la pantalla de todos, sobre la lista de jugadores. El Guardián mueve el reloj desde el Panel, y **Tirar el clima de hoy** tira la tabla de la estación en la que esté el mundo. El calendario propio de Vald —doce meses, semana de seis días y las estaciones Muerta, Seca, Húmeda y de Cosecha, cada una con su tabla de clima— está disponible como un hack opcional, con un calendario mensual que cualquiera puede abrir desde el reloj
-- Generadores de [PNJ y seguidores](https://github.com/domfortunato/air-bladder/blob/master/docs/generating-npcs.md), [monstruos](https://github.com/domfortunato/air-bladder/blob/master/docs/generating-monsters.md) y [facciones](https://github.com/domfortunato/air-bladder/blob/master/docs/generating-factions.md), [tablas de encuentros](https://github.com/domfortunato/air-bladder/blob/master/docs/encounter-tables.md) con añadir a la escena en un clic, y más tablas de tiradas orientadas al Guardián
-- Importación de personajes en .json desde la aplicación oficial de Cairn, [Kettlewright](https://kettlewright.com/) — para el Guardián, y para que cada jugador traiga su propio personaje cuando el Guardián lo permita (debe haber un Guardián conectado)
-- **Magia GLOG opcional** — el [hack GLOG](https://cairnrpg.com/hacks/glog-magic/) oficial tras un interruptor del Guardián: lanza desde un grimorio encontrado con 1–4 dados de magia, los valores obtenidos se escriben en el texto del conjuro, percances con dobles — los 100 conjuros incluidos; [cómo usarlo](https://github.com/domfortunato/air-bladder/blob/master/docs/glog-magic.md)
-- Trasfondos de 2e personalizados — siete se incluyen en el compendio **Backgrounds (Custom)**; [crea y revisa los tuyos](https://github.com/domfortunato/air-bladder/blob/master/docs/creating-custom-backgrounds.md), [compártelos entre mundos](https://github.com/domfortunato/air-bladder/blob/master/docs/sharing-custom-backgrounds.md), o pulsa **Create Custom 2e Backgrounds and Tables…** una vez y todos los trasfondos incluidos, y las tablas de vínculos, presagios, cicatrices y rasgos, pasan a ser tuyos para editarlos, u oculta cualquiera de los incluidos con el icono del ojo
-- Vínculos personalizados, y todo lo demás también — una tabla del mundo llamada **Bonds** sustituye a la tabla de 2e incluida, tanto para los trasfondos canónicos como para los personalizados, un trasfondo personalizado puede nombrar su propia tabla, y la misma regla cubre todas las tablas que usan los generadores: rasgos, tablas de PNJ y de monstruos, creación Barebones, cicatrices, la tabla de hechizos aleatorios; [personalizar los vínculos](https://github.com/domfortunato/air-bladder/blob/master/docs/customizing-bonds.md)
-- **Mercado** personalizable — pulsa **Create a Custom Marketplace…** una vez y toda la tienda pasa a ser tuya para editarla, o una tabla del mundo llamada **Market: Gear** (o Weapons, Armor, Transports & Containers) sustituye a esa sección y un nombre propio añade una nueva. Cada precio se lee del propio objeto, así que cambiar los precios de la tienda es editar un número, y tu mercado sobrevive a todas las actualizaciones; [personalizar el mercado](https://github.com/domfortunato/air-bladder/blob/master/docs/customizing-the-marketplace.md)
-- Hojas de personaje desacoplables e **imprimibles** — imprime el personaje entero en una o dos páginas
-- [Macros incluidas](https://github.com/domfortunato/air-bladder/blob/master/docs/supplied-macros.md) — cuatro interruptores del Guardián para la barra de macros, sin pasar por la configuración del juego
-- Una **fórmula de edad** editable por el Guardián: las edades generadas tiran los dados que tú escribas; la [guía de fórmulas de dados](https://github.com/domfortunato/air-bladder/blob/master/docs/dice-formulas.md) explica el signo más de Cairn (conservar el mayor), mínimos y máximos, y recetas listas para usar
-- Tres galerías del selector de retratos: 80 retratos de personaje de [Jon Aspeheim](https://jonaspeheim.itch.io/), 368 tokens de criaturas y PNJ de [tlomdev](https://tlomdev.itch.io/) (un personaje importado de Kettlewright conserva su rostro) y 22 monstruos y 31 personajes de [Lydia Comer](https://linktr.ee/lydiadidmyink)
-- **Ofertas de objetos** entre jugadores — entrega un objeto desde su fila del inventario (o arrastrándolo a la ficha de otro personaje); la oferta es una tarjeta de chat que el otro jugador acepta o rechaza, y aceptar con la mochila llena simplemente lo deja sobrecargado tras un aviso que indica el coste
-- Automatización mínima — botones para descansar, restaurar características, pánico y daño crítico
-- Tiradas de daño mermadas y potenciadas — elige una al tirar; un personaje con pánico tira mermado automáticamente
-- Funciona con el módulo [Torch](https://github.com/League-of-Foundry-Developers/Torch) — un archivo de fuentes de luz ya preparado enciende antorchas, linternas, velas y las lámparas más raras directamente desde el inventario, gastando sus usos: [cómo configurarlo](https://github.com/domfortunato/air-bladder/blob/master/docs/torch-module.md)
+- **Cairn 2e viene incluido.** Sus 20 trasfondos, sus tablas y su equipo vienen con el sistema, y puedes leer sus reglas básicas en Foundry.
+- **Cairn Barebones también viene incluido.** Sus 100 trasfondos vienen con el sistema. Un personaje de Barebones juega con las mismas reglas que uno de 2e; solo cambia cómo se crea.
+- **Trasfondos personalizados.** Escribe tus propios trasfondos de 2e en un compendio del mundo y ofrécelos junto a los oficiales. Los siete trasfondos de clase de Backgrounds for Cairn, de Gordon McCormick, vienen con el sistema.
 
-## Capturas de pantalla
+## Cairn es gratis. ¡Pero puedes comprar los libros!
 
-<table>
-  <tr>
-    <td><img src="https://raw.githubusercontent.com/domfortunato/air-bladder/master/docs/images/sheet-items.png" alt="Hoja de personaje — pestaña de Equipo" width="250"></td>
-    <td><img src="https://raw.githubusercontent.com/domfortunato/air-bladder/master/docs/images/sheet-description.png" alt="Hoja de personaje — pestaña de Descripción" width="250"></td>
-    <td><img src="https://raw.githubusercontent.com/domfortunato/air-bladder/master/docs/images/sheet-background-notes.png" alt="Hoja de personaje — pestaña de Trasfondo y notas" width="250"></td>
-  </tr>
-</table>
+Cairn lo escribió Yochai Gal. Puedes descargar los libros de reglas gratis, o comprar en papel los libros de reglas y de aventuras de Cairn.
 
-*La hoja de personaje: pestañas de Equipo, Descripción, y Trasfondo y notas. Las hojas siguen el esquema de color de tu Foundry; estas están en modo claro.*
+- **Cairn**: [PDF](https://cairnrpg.com/second-edition/game-files/) · [En papel](https://cairnrpg.com/second-edition/print-copies/) · [Tienda](https://cairnrpg.com/store/books/)
 
-<img src="https://raw.githubusercontent.com/domfortunato/air-bladder/master/docs/images/sheet-creation-mode.png" alt="Hoja de personaje con la Aleatorización activada" width="320">
+Este sistema ya incluye las reglas de Cairn 2e: no necesitas comprar ni subir nada más para jugar a Cairn 2e con él.
 
-*Con el modo «Aleatorización: activada», puedes tirar un nuevo trasfondo, nombre, preguntas de trasfondo, equipo, etc., o elegir entradas concretas de las tablas.*
+## Uso de IA
 
-<img src="https://raw.githubusercontent.com/domfortunato/air-bladder/master/docs/images/sheet-print.png" alt="Una hoja de personaje impresa — el personaje entero en una o dos páginas" width="320">
+- 🖌️ **Nada de arte hecho con IA.** Air Bladder incluye más de 2.900 recursos artísticos hechos por personas (retratos, tokens e iconos) y nunca usará arte generado por IA.
+- 📜 **Nada de texto de juego hecho con IA.** Ninguna descripción de trasfondo, tabla, conjuro, objeto o monstruo la ha escrito una IA.
+- 🧠 **El código de Air Bladder se escribe con la ayuda de un asistente de programación con IA.**
 
-*Imprime una hoja de personaje limpia: características, inventario, trasfondo, vínculos y augurio en una o dos páginas, lista para la mesa.*
-
-También hay Personajes Jugadores pregenerados disponibles en la <a href="https://domfortunato.itch.io/cairn-2e-pre-gens" target="_blank" rel="noopener">página de itch.io de Dom Bosco</a>.
-
-<img src="https://raw.githubusercontent.com/domfortunato/air-bladder/master/docs/images/game-settings.png" alt="La configuración de juego del Guardián" width="480">
-
-*La configuración de juego del Guardián — cuatro submenús, uno abierto — mostrada aquí en modo oscuro.*
-
-## Estado
-
-Desarrollo temprano y activo. ¡Envía comentarios y arte! Los compendios incluidos son plantillas: copia en tu mundo lo que quieras cambiar (botones como **Crear un mercado personalizado…** lo hacen con un clic), y la generación y el mercado leen primero la copia de tu mundo. Una actualización reemplaza los compendios incluidos y nunca toca tus copias.
-
-## Idiomas
-
-La interfaz está traducida al **español** (el 93 % de las cadenas actuales, por [Malecho](https://github.com/fsmalecho)), y el *contenido* del juego —trasfondos, objetos, hechizos, monstruos, tablas y diarios— está traducido únicamente al español.
-
-Los archivos de interfaz en alemán, danés, francés, polaco y portugués de Brasil se heredaron del sistema original de Cairn. Cubren **alrededor del 5 %** de la interfaz actual, son anteriores a la mayoría de las funciones de este sistema y **no reciben mantenimiento**: en la práctica, una partida en esos idiomas está mayormente en inglés. Todo lo que no esté traducido recae en el inglés cadena por cadena, así que una traducción parcial siempre se puede usar en lugar de quedar rota.
-
-Las herramientas son independientes del idioma (`--lang <código>` en todas), así que un idioma nuevo no requiere ningún cambio de código: solo un traductor.
-
-**¡Se busca ayuda con las traducciones!** — consulta [docs/TRANSLATING.md](https://github.com/domfortunato/air-bladder/blob/master/docs/TRANSLATING.md) (en inglés) para el flujo sin programación, o [docs/translating-self-service.md](https://github.com/domfortunato/air-bladder/blob/master/docs/translating-self-service.md) si prefieres trabajar con git.
-
-## Instalación (manual)
+## Requisitos e instalación
 
 **Requiere Foundry VTT v14.368 o superior.**
 
-1. En el menú **Sistemas de juego** de Foundry, haz clic en **Instalar sistema**.
-2. Introduce la URL del manifiesto: `https://github.com/domfortunato/air-bladder/releases/latest/download/system.json`
+En Foundry, en **Game Systems → Install System**, pega la URL del manifiesto:
 
-Para desarrollo, clona este repositorio en `Data/systems/air-bladder` (una unión de directorios / *junction* funciona), ejecuta `npm install` y luego `npm run build:packs` antes de iniciar Foundry. `npm run dev:smoke` realiza una carga sin interfaz (*headless*) como verificación básica.
+```
+https://github.com/domfortunato/air-bladder/releases/latest/download/system.json
+```
 
-Para probar el trabajo **aún no publicado**, clona la rama `dev`: ahí vive todo lo que está en curso. El paso `npm run build:packs` hace falta en ambos casos: los compendios se generan a partir de `src/packs/` y no se guardan en git, así que un clon sin compilar carga con todos los compendios vacíos.
+## Qué incluye
 
-## Cómo contribuir
+- Generación aleatoria de personajes a partir de trasfondos de Cairn 2e, de Cairn Barebones y personalizados, con cualquier parte suelta que se puede volver a tirar; o una hoja vacía con las listas de selección preparadas, si tiras en la mesa.
+- Generadores de PNJ, seguidores, monstruos y facciones, y tablas de encuentros con «Añadir a la escena» en un clic.
+- El Panel del Guardián: las 45 tablas de tiradas del Guardián en botones, el reloj de las guardias y el clima del día.
+- Dos hacks opcionales, cada uno tras un interruptor del Guardián: el hack oficial de Magia GLOG, con sus 100 conjuros, y el calendario y las estaciones de Vald.
+- Un Mercado, vínculos y tablas de tiradas personalizables. Tus copias sobreviven a cada actualización.
+- Importación de personajes desde Kettlewright, la aplicación oficial de Cairn.
+- Hojas de personaje imprimibles: el personaje entero en una o dos páginas.
+- Tres galerías de retratos, y más de 2.900 piezas de arte hechas por personas.
+- Una guía de cada función, en el compendio System Docs.
+- La interfaz y el contenido del juego en español; se buscan traductores (consulta [TRANSLATING.md](docs/TRANSLATING.md), en inglés).
 
-Las *pull requests* son bienvenidas: ábrelas contra **`dev`**, no contra `master`. Consulta [CONTRIBUTING.md](https://github.com/domfortunato/air-bladder/blob/master/CONTRIBUTING.md) (en inglés) para los detalles, y [docs/git-flow.md](https://github.com/domfortunato/air-bladder/blob/master/docs/git-flow.md) para saber cómo funcionan aquí las ramas y las versiones.
+## Licencias
 
-## Cómo se construye este sistema
+<details><summary><b>Cairn: CC BY-SA 4.0</b></summary>
 
-**El arte generado por IA nunca aparecerá en este repositorio, jamás.** Nada de lo que hay en `art/` o `icons/` está generado por una máquina, y cada colección nombra a su artista y su licencia.
+Las reglas, los trasfondos, las tablas y el texto de Cairn 2e y Cairn Barebones son de Yochai Gal, con licencia <a href="https://creativecommons.org/licenses/by-sa/4.0/deed.es">Creative Commons Atribución-CompartirIgual 4.0</a>.
 
-El código se escribe con asistencia de IA, usando [Claude Code](https://www.anthropic.com/claude-code), sobre una base heredada del sistema original de Cairn de Yochai Gal. Las decisiones de diseño que contiene —cada resolución, restricción y cambio de criterio— son del responsable del proyecto, y quedan registradas en el momento en que se tomaron, en el historial de *commits* y en `CLAUDE.md`.
+</details>
+<details><summary><b>Backgrounds for Cairn: CC BY-SA 4.0</b></summary>
 
-Quién hizo qué, por categoría y con las pruebas de cada caso: [docs/provenance.md](https://github.com/domfortunato/air-bladder/blob/master/docs/provenance.md) (en inglés).
+Los siete trasfondos de clase del compendio Custom son de Backgrounds for Cairn, de Gordon McCormick, con licencia <a href="https://creativecommons.org/licenses/by-sa/4.0/deed.es">Creative Commons Atribución-CompartirIgual 4.0</a>.
 
-## Créditos y licencias
+</details>
+<details><summary><b>Magia GLOG: CC BY-SA 4.0</b></summary>
 
-Air Bladder combina varios regímenes de licencia; por favor, conserva la atribución intacta:
+Los conjuros GLOG, la tabla de percances y los diarios de Magia GLOG son del hack oficial de Magia GLOG para Cairn, publicado en cairnrpg.com, con licencia <a href="https://creativecommons.org/licenses/by-sa/4.0/deed.es">Creative Commons Atribución-CompartirIgual 4.0</a>.
 
-- **Texto del juego — CC BY-SA 4.0.** Las reglas y el texto de Cairn (1.ª y 2.ª edición) son de **Yochai Gal**, con licencia [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/). El contenido de 2e en este sistema hereda esa licencia; las obras derivadas deben compartirse igual y atribuir a Yochai Gal. Eso incluye el texto de las reglas que se distribuye como páginas legibles: el compendio **Cairn 2e Rules** contiene «Overview & Principles» y «Core Rules for Players», transcritos del texto de 2e, y el compendio **Vald** contiene el capítulo de ambientación de la Guía del Guardián del mismo nombre, junto con las 24 fiestas de su calendario, ambos obtenidos del SRD de Cairn. El catálogo de carreras que lee el generador, `module/npc-careers-2e.json`, también es texto del juego, igual que los consejos de reglas de `lang/en.json` que citan la redacción de 2e. **El texto de Cairn es CC BY-SA 4.0 esté donde esté:** que un directorio figure bajo la licencia del código no cambia lo que hay dentro de sus archivos, y la MIT nunca lo alcanza.
-- **Este README — CC BY-SA 4.0.** `README.md` y `README.es.md` se incluyen dentro del archivo de publicación, y ambos resumen y citan el texto de Cairn 2e que acreditan, por lo que se acogen a la licencia del texto del juego y no a la licencia MIT del código. Hasta el 11-09-2026 ninguna cláusula los nombraba, lo que —bajo el «solo estas» de la cláusula de código— dejaba dos documentos publicados sin licencia alguna.
-- **Traducción al español — CC BY-SA 4.0.** La traducción al español de España (es-ES) es de **[Malecho](https://github.com/fsmalecho)**: `lang/es.json` (interfaz) y `lang/content/es.json` (contenido del juego). Como obra derivada del texto del juego con licencia CC BY-SA, la traducción se licencia igualmente bajo [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/).
-- **«Backgrounds for Cairn» — CC BY-SA 4.0 (texto).** Los siete trasfondos de clase del compendio Custom (Fighter, Cleric, Magic-User, Thief, Dwarf, Elf, Halfling) provienen de **Backgrounds for Cairn**, de **Gordon McCormick**, basado en Cairn de Yochai Gal y en el D&D BECMI de Frank Mentzer; el texto está licenciado bajo [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/). Solo el texto: el arte del folleto (de Perplexing Ruins y Jeff Koch) no se incluye.
-- **Magia GLOG — CC BY-SA 4.0.** Los 100 conjuros del compendio GLOG Spellscrolls son la lista de [GLOG Spells](https://cairnrpg.com/hacks/glog-spells/) del hack oficial [GLOG Magic](https://cairnrpg.com/hacks/glog-magic/) de cairnrpg.com, licenciada bajo [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/) según consta en esas páginas. La tabla de percances de Tables (GLOG) y los dos diarios de Journals (GLOG) —«GLOG Magic — Player Rules» y «GLOG Magic — Spells»— son texto del mismo hack bajo la misma licencia. El texto se transcribe literalmente; `[dice]` y `[sum]` son las variables de lanzamiento del propio hack y permanecen como prosa. El flujo de lanzamiento del sistema adopta su diseño de texto resuelto —los bloques por potencia y la sustitución de `[dice]`/`[sum]`— de una macro de lanzamiento de **[Malecho](https://github.com/fsmalecho)**, que probó la idea contra esta lista de conjuros antes de que el sistema tuviera un botón de lanzar.
-- **Código — MIT.** El código del sistema de Foundry desciende del **Cairn-FoundryVTT** original, de **Yochai Gal y Oskar Świda** (MIT), que a su vez desciende del sistema Electric Bastionland. Consulta `LICENSE.txt`. La misma licencia MIT cubre las cadenas de interfaz de `lang/`, salvo las que citan el texto de las reglas de Cairn: eso sigue siendo CC BY-SA esté donde esté, según la cláusula del texto del juego anterior. Los archivos en alemán, danés, francés, polaco y portugués de Brasil se heredaron de Cairn-FoundryVTT y se distribuyen bajo su licencia. Las cuatro macros del Guardián incluidas (el compendio `macros`) son JavaScript original bajo la misma licencia MIT: la cláusula CC BY-SA cubre el texto de Cairn, del que las macros no contienen nada. Los diarios de **System Docs** también se distribuyen aquí: son las guías del Guardián propias de este proyecto, generadas a partir de `docs/`, y no reproducen ningún texto de Cairn.
-- **«For Use With Cairn»** — las marcas de compatibilidad de `logo/` se usan según los términos de [cairnrpg.com/resources/logos](https://cairnrpg.com/resources/logos) (CC BY-SA 4.0, Yochai Gal), sin modificar. La ficha de personaje, la hoja impresa y la ventana de bienvenida muestran el sello «For Use With Cairn»; la insignia anterior «Compatible with Cairn 2e», a la que sustituye, se conserva junto a él. Los detalles están en `logo/README.md`.
-- **Logo de Air Bladder — © Lydia Comer, todos los derechos reservados. Arte de monstruos y personajes — CC BY-NC-SA 4.0.** Todo el contenido de `art/lydia-comer/` es de **[Lydia Comer](https://linktr.ee/lydiadidmyink)**, bajo dos licencias. Las galerías —22 criaturas y 31 personajes (fuente: [domfortunato.itch.io/lydia-comer](https://domfortunato.itch.io/lydia-comer)), cada uno como un retrato cuadrado emparejado con el token circular recortado a partir de él, disponibles en la pestaña **Lydia Comer** del selector de retratos (sus personajes en las fichas de personaje jugador, PNJ y seguidor; sus monstruos en las fichas de monstruo)— están licenciadas bajo [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/): la redistribución y la adaptación están permitidas para **uso no comercial**, la atribución es obligatoria, las adaptaciones deben compartirse bajo la misma licencia y la artista indica que no se usó IA. **Modificado: recodificado a WebP q95, las mitades de token redimensionadas a 400×400 para el lienzo, y sin ningún otro cambio** — la indicación que exige la cláusula §3(a)(1)(B) de CC BY-NC-SA 4.0. La misma licencia cubre `art/lydia-comer/welcome/`, los dos retratos junto al título de la ventana de bienvenida, **reducidos de 1000×1000 a 250×250 y recodificados a WebP q95**. Los archivos del **logo**, en la raíz de la carpeta, permanecen **con todos los derechos reservados**, con licencia para el sistema Air Bladder para su inclusión y redistribución como parte del sistema y sus bifurcaciones (*forks*), y para su uso en la representación y promoción del proyecto; cualquier uso ajeno al proyecto requiere permiso. El contenido está listado en `art/lydia-comer/CREDITS.md`; ambos conjuntos de términos están en `art/lydia-comer/license.txt`.
-- **Arte de personajes — CC BY 4.0.** Las 80 imágenes emparejadas de retrato/token en `art/jon-aspeheim/portraits/` y `art/jon-aspeheim/tokens/` son de **[Jon Aspeheim](https://jonaspeheim.itch.io/)** (fuente: [Lemur's Portraits](https://jonaspeheim.itch.io/lemurs-portraits)), con licencia [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) (consulta `art/jon-aspeheim/license.txt`, que cubre ambas subcarpetas). CC BY simple: la redistribución está permitida y la atribución es obligatoria. El artista indica que estos retratos se crearon sin IA. **Modificado: la fuente incluye retratos PNG de 1000×1000 y ningún token — la mitad `portraits/` se recodifica a WebP al mismo tamaño, y la mitad `tokens/` se recorta y reduce a partir de ellos a 256×256 para el lienzo** — la indicación que exige la cláusula §3(a)(1)(B) de CC BY 4.0. Conserva este crédito si el arte se distribuye.
-- **Arte de game-icons.net — CC BY 3.0.** Dos carpetas, una misma licencia, ambas de [game-icons.net](https://game-icons.net) bajo [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/). `icons/` contiene los íconos de clase (equipo, grimorios, transportes, contenedores, monstruos) por **Lorc, Delapouite, Skoll y SeregaCthtuf**; `art/game-icons/` contiene la galería **Game-Icons** del selector de imágenes — 2275 íconos en 38 categorías por **Andy Meneely, Aussiesim, Carl Olsen, Caro Asercion, Cathelineau, DarkZaitzev, Delapouite, Faithtoken, GeneralAce135, Guard13007, Irongamer, Lorc, Lord Berandas, Lucas, Quoting, Rihlsul, Sbed, SeregaCthtuf, Skoll, Sparker, Starseeker, Willdabeast** y un ícono acreditado a varios artistas. Los créditos de autor y de la página de origen de cada ícono están en `icons/CREDITS.md` y `art/game-icons/CREDITS.md`; esos archivos **son** la atribución, ya que la ruta publicada solo registra la categoría. El aviso original se distribuye literalmente como `art/game-icons/license.txt`.
-- **Tlomdev's Tokens — CC BY-SA 4.0.** Los 368 dibujos de token en blanco y negro de `art/tlomdev/` son de **[tlomdev](https://tlomdev.itch.io/)** (fuente: [Tlomdev's Tokens](https://tlomdev.itch.io/tlomdevs-tokens)), con licencia [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/). **Modificados: recodificados de PNG a WebP (calidad 95) y sin ningún otro cambio** — el aviso de modificación completo que exige la cláusula §3(a)(1)(B) de CC BY-SA está en la sección «Modifications» de `art/tlomdev/CREDITS.md`. Aparecen en la galería **Tlomdev** del selector de retratos, bajo las carpetas de categoría del propio artista. La subcarpeta `kettlewright-portraits/` (el selector la muestra como «Kettlewright Portraits») contiene los dibujos del mismo artista tal como los distribuye [Kettlewright](https://github.com/yochaigal/kettlewright), con los nombres de archivo exactos de Kettlewright, de modo que un personaje importado de Kettlewright conserva el retrato que eligió su jugador. ShareAlike: las adaptaciones del arte deben llevar la misma licencia. La atribución y la procedencia están registradas en `art/tlomdev/CREDITS.md`; el aviso se distribuye como `art/tlomdev/license.txt`.
-- **Tipografía Alegreya — SIL Open Font License 1.1.** Las tres fuentes web de `fonts/` son **Alegreya**, de Juan Pablo del Peral y los autores del Proyecto Alegreya ([Huerta Tipográfica](https://github.com/huertatipografica/Alegreya)), © 2011, con licencia [OFL 1.1](https://openfontlicense.org/). **Modificadas: convertidas a WOFF2 para su distribución web y sin ningún otro cambio** — la OFL considera un cambio de formato como una «Versión Modificada» (§1), así que no se trata de una redistribución sin modificaciones. Eso no incumple nada: Alegreya no declara ningún «Reserved Font Name», por lo que el nombre sigue siendo utilizable, y la licencia exige que su aviso acompañe a cada copia, por lo que `fonts/OFL.txt` y `fonts/license.txt` se distribuyen junto a ellas.
+</details>
+<details><summary><b>Licencias del arte</b></summary>
 
-**Y un agradecimiento, no una licencia: [Kettlewright](https://kettlewright.com/)**, la aplicación oficial de Cairn de Yochai Gal. El diseño de la hoja de personaje imprimible está inspirado en la página de impresión de Kettlewright, y la importación de personajes `.json` existe para que un personaje de Kettlewright pueda entrar directamente. Inspiración e interoperabilidad — aquí no se distribuye código ni material de Kettlewright más allá de lo que recoge la entrada de Tlomdev de más arriba.
+- [Retratos, tokens y monstruos](https://linktr.ee/lydiadidmyink), Lydia Comer: [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/deed.es)
+- [Lemur's Portraits](https://jonaspeheim.itch.io/lemurs-portraits), Jon Aspeheim: [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/deed.es)
+- [Tlomdev's Tokens](https://tlomdev.itch.io/tlomdevs-tokens), tlomdev: [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/deed.es)
+- [Game-icons.net](https://game-icons.net), muchos artistas, cada uno acreditado en icons/CREDITS.md y art/game-icons/CREDITS.md: [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/deed.es)
+- [Los dos retratos junto al título](https://linktr.ee/lydiadidmyink), Lydia Comer: [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/deed.es)
+- [El logotipo de Air Bladder](https://linktr.ee/lydiadidmyink), Lydia Comer: todos los derechos reservados
+- [El sello «For Use With Cairn»](https://cairnrpg.com/resources/logos), Yochai Gal: [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/deed.es)
+- [Las fuentes Alegreya](https://github.com/huertatipografica/Alegreya), The Alegreya Project Authors: [SIL OFL 1.1](https://openfontlicense.org/)
 
----
+</details>
 
-<p align="center">
-  <img src="logo/Cairn-2e-Compatible_white.jpg" alt="Compatible con Cairn 2e" width="200">
-</p>
+Para más detalle, consulta [LICENSE.txt](LICENSE.txt) (en inglés).
+
+> «Air Bladder» (vejiga de aire) es el primer objeto de la tabla de equipo de la p. 17 de la Guía del jugador de Cairn 2e.
+
+<p align="right"><picture><source media="(prefers-color-scheme: dark)" srcset="art/lydia-comer/Airbladder06.webp"><img src="art/lydia-comer/Airbladder02.webp" alt="Air Bladder" width="150" align="middle"></picture> <img src="logo/Cairn_Stamp.jpg" alt="For Use With Cairn" width="110" align="middle"></p>

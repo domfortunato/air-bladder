@@ -197,7 +197,7 @@ so you can ship a pack at a time.
 You're **credited** by name or handle — your choice. Because Cairn's text is
 **CC BY-SA 4.0**, your translation is shared under the same license as part of the
 open project (and where you adapt the official Spanish edition, that team is
-credited too). See **Credits & licenses** in the [README](../README.md).
+credited too). See **Credits & licenses** in [LICENSE.txt](../LICENSE.txt).
 
 ---
 

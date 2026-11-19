@@ -12,8 +12,15 @@
  * never shown it unasked; anyone opens it from the Settings sidebar or
  * `game.cairn.openWelcome()`. The probes' `dismissChrome` asks `welcomeDue()` and
  * closes it, so a window nobody asked for never sits over what a probe clicks.
+ *
+ * Its lists (portraits, links, credits, the rules and AI lines) live in
+ * welcome-data.js, which the README builder reads too: README.md's top and
+ * bottom are this window's words (tools/build-readme.mjs, check:readme).
  */
 import { SETTINGS_NS } from "./settings.js";
+import {
+  AI_LINES, ART_CREDITS, BUY_LINKS, CC_BY_SA_URL, LICENCE_FOLDS, MARK_NAME, RULES, WELCOME_BOOKENDS, WELCOME_MARKS,
+} from "./welcome-data.js";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 const L = (k) => game.i18n.localize(k);
@@ -21,43 +28,7 @@ const F = (k, d) => game.i18n.format(k, d);
 
 const SYS_PATH = "systems/air-bladder";
 const WELCOME_ID = "air-bladder-welcome";
-const CC_BY_SA_URL = "https://creativecommons.org/licenses/by-sa/4.0/";
-const LYDIA_URL = "https://linktr.ee/lydiadidmyink";
-
-/**
- * Two portraits by Lydia Comer either side of the title, chosen by the user
- * (2026-11-19): the knight on the left, facing out of the page; the woman on the
- * right, turned in toward the title. Her white-filled transparent versions, shrunk
- * from 1000px to 250px and changed in no other way (house practice: never crop
- * her work).
- */
-const WELCOME_BOOKENDS = {
-  left: `${SYS_PATH}/art/lydia-comer/welcome/Knight12w-t.webp`,
-  right: `${SYS_PATH}/art/lydia-comer/welcome/Femme20w-t.webp`,
-};
-
-/** Where to buy Cairn: Yochai Gal's own site (user ask 2026-11-19), its three doors. */
-const BUY_LINKS = [
-  { label: "CAIRN.Welcome.BuyPdf", icon: "fa-solid fa-file-pdf", href: "https://cairnrpg.com/second-edition/game-files/" },
-  { label: "CAIRN.Welcome.BuyPrint", icon: "fa-solid fa-book", href: "https://cairnrpg.com/second-edition/print-copies/" },
-  { label: "CAIRN.Welcome.BuyStore", icon: "fa-solid fa-cart-shopping", href: "https://cairnrpg.com/store/books/" },
-];
-
-/**
- * The art that ships, for the folded Art licensing. Names and licences are proper
- * names and stay as they are; a credit's words that are not names are language
- * keys. README.md "Credits & licenses" is canonical: change both together.
- */
-const ART_CREDITS = [
-  { nameKey: "CAIRN.Welcome.Credit.LydiaGallery", by: "Lydia Comer", url: LYDIA_URL, license: "CC BY-NC-SA 4.0", licenseUrl: "https://creativecommons.org/licenses/by-nc-sa/4.0/" },
-  { name: "Lemur's Portraits", by: "Jon Aspeheim", url: "https://jonaspeheim.itch.io/lemurs-portraits", license: "CC BY 4.0", licenseUrl: "https://creativecommons.org/licenses/by/4.0/" },
-  { name: "Tlomdev's Tokens", by: "tlomdev", url: "https://tlomdev.itch.io/tlomdevs-tokens", license: "CC BY-SA 4.0", licenseUrl: CC_BY_SA_URL },
-  { name: "Game-icons.net", byKey: "CAIRN.Welcome.Credit.GameIconsBy", url: "https://game-icons.net", license: "CC BY 3.0", licenseUrl: "https://creativecommons.org/licenses/by/3.0/" },
-  { nameKey: "CAIRN.Welcome.Credit.Bookends", by: "Lydia Comer", url: LYDIA_URL, license: "CC BY-NC-SA 4.0", licenseUrl: "https://creativecommons.org/licenses/by-nc-sa/4.0/" },
-  { nameKey: "CAIRN.Welcome.Credit.Logo", by: "Lydia Comer", url: LYDIA_URL, licenseKey: "CAIRN.Welcome.Credit.AllRightsReserved", licenseUrl: null },
-  { nameKey: "CAIRN.Welcome.Credit.CairnMarks", by: "Yochai Gal", url: "https://cairnrpg.com/resources/logos", license: "CC BY-SA 4.0", licenseUrl: CC_BY_SA_URL },
-  { nameKey: "CAIRN.Welcome.Credit.Alegreya", by: "The Alegreya Project Authors", url: "https://github.com/huertatipografica/Alegreya", license: "SIL OFL 1.1", licenseUrl: "https://openfontlicense.org/" },
-];
+const sys = (p) => `${SYS_PATH}/${p}`;
 
 /** The background sources this world offers, in the Character Generation menu's order. */
 const SOURCES = [
@@ -103,30 +74,22 @@ export class WelcomeWindow extends HandlebarsApplicationMixin(ApplicationV2) {
     const author = [...(game.system.authors ?? [])].find((a) => a.name === "Dom Bosco") ?? { name: "Dom Bosco" };
     const translator = [...(game.system.authors ?? [])].find((a) => a.name === "Malecho") ?? { name: "Malecho" };
     return {
-      title: game.system.title,
+      title: MARK_NAME,
       byline: F("CAIRN.Welcome.By", { author: author.name, version: game.system.version }),
       authorUrl: author.url ?? "",
       // The Spanish translator under the byline (user, 2026-11-19), linked from
       // the same system.json entry the release credits.
       translator: F("CAIRN.Welcome.Translation", { translator: translator.name }),
       translatorUrl: translator.url ?? "",
-      bookends: WELCOME_BOOKENDS,
-      // The "For Use With Cairn" stamp at the foot of the side column, where Base
-      // Knavery shows its own compatibility mark: the same file the character
-      // sheet and the printed page show (user ask 2026-11-19). A white JPG, so
-      // one file on both themes (a white card on the dark one, as on the sheet),
-      // shown whole and opaque: logo/README.md rules out altering the mark.
-      stamp: `${SYS_PATH}/logo/Cairn_Stamp.jpg`,
-      // And the Air Bladder logo beside it, at full strength (user, 2026-11-19:
-      // both, and "does not need to be a watermark"): black lettering on the
-      // light theme, white on the dark (art/lydia-comer/license.txt, LOGO).
-      logo: `${SYS_PATH}/art/lydia-comer/Airbladder02.webp`,
-      logoDark: `${SYS_PATH}/art/lydia-comer/Airbladder06.webp`,
+      bookends: { left: sys(WELCOME_BOOKENDS.left), right: sys(WELCOME_BOOKENDS.right) },
+      stamp: sys(WELCOME_MARKS.stamp),
+      logo: sys(WELCOME_MARKS.logo),
+      logoDark: sys(WELCOME_MARKS.logoDark),
       thisWorld: thisWorldLine(),
+      rules: RULES,
+      ai: AI_LINES,
       // The licence links are built here: the strings carry only their words.
-      cairnBody: F("CAIRN.Welcome.CairnLicenseBody", { license: this.#licenseLink() }),
-      backgroundsBody: F("CAIRN.Welcome.BackgroundsLicenseBody", { license: this.#licenseLink() }),
-      glogBody: F("CAIRN.Welcome.GlogLicenseBody", { license: this.#licenseLink() }),
+      folds: LICENCE_FOLDS.map((f) => ({ cls: f.cls, heading: L(f.heading), body: F(f.body, { license: this.#licenseLink() }) })),
       buyLinks: BUY_LINKS,
       art: ART_CREDITS.map((a) => ({
         ...a,

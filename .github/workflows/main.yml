@@ -127,6 +127,7 @@ jobs:
           gate check:refs
           gate check:traits
           gate check:licence
+          gate check:readme
           gate check:probes
           gate i18n:check
           gate i18n:source

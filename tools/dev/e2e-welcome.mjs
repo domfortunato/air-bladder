@@ -131,7 +131,8 @@ try {
         logos,
       };
     }, ID);
-    check("the title is the system's", /Air Bladder/.test(content.title ?? ""), content.title);
+    // The name alone carries the ™, never system.json's "Air Bladder — Cairn 2e" (user, 2026-11-19).
+    check("the title is the name alone, marked ™", content.title === "Air Bladder™", content.title);
     check("the Spanish translator is credited under the byline, linked", /Malecho/.test(content.translator ?? ""), String(content.translator));
     check("the name's origin (Gear table, p. 17) sits under the licensing, above the logos, not in the masthead",
       /Gear table on p\. 17/.test(content.origin?.text ?? "") && content.origin.inHead === false
