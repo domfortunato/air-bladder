@@ -181,8 +181,8 @@ try {
 
       const REQUIRED = [".cairn-head", ".portrait-wrap", ".cairn-identity", ".cairn-body",
         ".cairn-left", ".cairn-abilities", ".STR-ability", ".DEX-ability", ".WIL-ability",
-        ".cairn-band", ".band-gold", ".band-deprived", ".cairn-vitals", ".cairn-shield",
-        ".hp-counter", ".cairn-slots-line", ".cairn-vital-buttons"];
+        ".cairn-band", ".band-gold", ".cairn-vitals", ".cairn-shield", ".hp-counter",
+        ".cairn-states", ".band-deprived", ".cairn-slots-line", ".cairn-vital-buttons"];
       const missing = REQUIRED.filter((sel) => {
         const el = page1.querySelector(sel);
         return !el || !drawn(el);
@@ -194,7 +194,7 @@ try {
         root.querySelector(".cairn-character"),
         page1,
         ...page1.querySelectorAll(".cairn-head, .cairn-identity, .cairn-body, .cairn-left, "
-          + ".cairn-abilities, .cairn-ability, .cairn-band, .cairn-vitals, .cairn-vital-buttons"),
+          + ".cairn-abilities, .cairn-ability, .cairn-band, .cairn-vitals, .cairn-states, .cairn-vital-buttons"),
       ].filter(Boolean);
 
       const overlaps = [];
@@ -251,7 +251,7 @@ try {
       // clientHeight, so this only ever flags a line that is really hidden.
       const clippedLabels = [];
       for (const l of page1.querySelectorAll(".resource-counter > label, .resource-counter > a, "
-        + ".cairn-vital-buttons > button, .cairn-shield > label, .cairn-band .band-label, "
+        + ".cairn-vital-buttons > button, .cairn-shield > label, .cairn-band .band-label, .cairn-states .band-label, "
         + ".cairn-ability-name-line > a.resource-roll")) {
         if (l.getBoundingClientRect().width < 2) continue;
         if (l.scrollHeight > l.clientHeight + 1) {

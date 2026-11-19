@@ -112,10 +112,10 @@ try {
     out.slotsLineHasLimitId = !!root.querySelector(".cairn-slots-line#set-equipment-limit");
 
     // Gold used the 70/30 long-counter split, matching Armor/Deprived beneath
-    // it, so the black label bars lined up. The band has no label bars: its
-    // promise is the same one in its own terms — Gold's, Deprived's and
-    // Panicked's labels are one width, and their controls start on one line.
-    const bandRows = [...root.querySelectorAll(".cairn-band .band-row")].map((row) => {
+    // it, so the black label bars lined up. Deprived and Panicked moved to the
+    // vitals column (2026-11-19, user ask), so the promise is theirs in their
+    // own terms: their labels are one width, and their boxes start on one line.
+    const bandRows = [...root.querySelectorAll(".cairn-states .band-row")].map((row) => {
       const l = row.querySelector(".band-label")?.getBoundingClientRect();
       const c = row.querySelector("input")?.getBoundingClientRect();
       return {
@@ -132,7 +132,7 @@ try {
     out.dex = box(".cairn-ability.DEX-ability");
     out.wil = box(".cairn-ability.WIL-ability");
     out.armor = box(".cairn-shield.armor-counter");
-    out.deprived = box(".cairn-band .band-deprived");
+    out.deprived = box(".cairn-vitals .cairn-states .band-deprived");
     out.slots = box(".cairn-slots-line");
     out.buttons = box(".cairn-vital-buttons");
     out.abilities = box(".cairn-abilities");
@@ -469,16 +469,15 @@ try {
     ? ok("the per-character slot limit's double-click target (#set-equipment-limit) is the slot line")
     : fail("#set-equipment-limit is not on .cairn-slots-line — the double-click to set a limit has no home");
 
-  // The band: one label width, one column of controls (Gold's input,
-  // Deprived's and Panicked's boxes) — what the 70/30 split gave the old
-  // counters, a Gold that lines up with the rows below it.
+  // Deprived and Panicked: one label width, one column of boxes — what the
+  // 70/30 split gave the old counters (2026-11-19: in the vitals column now).
   {
     const rows = r.bandRows ?? [];
-    const gold = rows.find((x) => x.row === "band-gold");
-    const allMeasured = rows.length >= 2 && gold && rows.every((x) => x.labelW > 0 && x.controlX !== null);
-    allMeasured && rows.every((x) => near(x.labelW, gold.labelW, 1) && near(x.controlX, gold.controlX, 1))
-      ? ok(`Gold lines up with the band rows below it (labels ${gold.labelW}px, controls at x ${gold.controlX}; ${rows.map((x) => x.row).join(", ")})`)
-      : fail(`the band does not line up: ${JSON.stringify(rows)}`);
+    const first = rows.find((x) => x.row === "band-deprived");
+    const allMeasured = rows.length >= 1 && first && rows.every((x) => x.labelW > 0 && x.controlX !== null);
+    allMeasured && rows.every((x) => near(x.labelW, first.labelW, 1) && near(x.controlX, first.controlX, 1))
+      ? ok(`Deprived lines up with the state rows under it (labels ${first.labelW}px, boxes at x ${first.controlX}; ${rows.map((x) => x.row).join(", ")})`)
+      : fail(`the state rows do not line up: ${JSON.stringify(rows)}`);
   }
 
   // Layout: the three stats in one evenly spaced column, the band under them,
@@ -494,14 +493,14 @@ try {
   gapStrDex !== null && gapDexWil !== null && gapStrDex >= 0 && near(gapStrDex, gapDexWil)
     ? ok(`the STR/DEX gap matches the DEX/WIL gap (${gapStrDex}px vs ${gapDexWil}px)`)
     : fail(`uneven vertical spacing: STR->DEX ${gapStrDex}px, DEX->WIL ${gapDexWil}px`);
-  r.gold && r.wil && r.deprived && r.gold.y >= r.wil.y + r.wil.h && r.deprived.y >= r.gold.y + r.gold.h
-    ? ok(`the band sits under the stats, Gold then Deprived (y ${r.gold.y}, ${r.deprived.y} below WIL's foot at ${r.wil.y + r.wil.h})`)
-    : fail(`band misplaced: WIL ${JSON.stringify(r.wil)} Gold ${JSON.stringify(r.gold)} Deprived ${JSON.stringify(r.deprived)}`);
+  r.gold && r.wil && r.gold.y >= r.wil.y + r.wil.h
+    ? ok(`Gold sits under the stats (y ${r.gold.y}, below WIL's foot at ${r.wil.y + r.wil.h})`)
+    : fail(`Gold misplaced: WIL ${JSON.stringify(r.wil)} Gold ${JSON.stringify(r.gold)}`);
   r.abilities && r.vitals && r.vitals.x >= r.abilities.x + r.abilities.w
     ? ok(`the vitals column stands beside the stats, not over them (vitals x ${r.vitals.x}, stats end ${r.abilities.x + r.abilities.w})`)
     : fail(`the vitals overlap the stats: stats ${JSON.stringify(r.abilities)} vitals ${JSON.stringify(r.vitals)}`);
   {
-    const order = [["Armor", r.armor], ["HP", r.hp], ["Slots", r.slots], ["buttons", r.buttons]];
+    const order = [["Armor", r.armor], ["HP", r.hp], ["Deprived", r.deprived], ["Slots", r.slots], ["buttons", r.buttons]];
     const present = order.every(([, b]) => b && b.w > 0 && b.h > 0);
     const stacked = present && order.every(([, b], i) => i === 0 || b.y >= order[i - 1][1].y + order[i - 1][1].h - 1);
     stacked

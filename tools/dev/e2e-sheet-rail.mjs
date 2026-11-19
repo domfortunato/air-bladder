@@ -31,6 +31,16 @@
  *      on a sheet they cannot edit) and is offered no Improvised Attack;
  *  10. a LIMITED viewer's rail is hidden and empty.
  *
+ * Added 2026-11-19 (user asks, the second round):
+ *   3b. the "For Use With Cairn" footer stands under EVERY page (outside the
+ *      pages, as Base Knavery's Made for Knave footer), once;
+ *  11. page 1 carries an Improvised Attack button under Die of Fate, the rail's
+ *      red burst, the same action, live on a sheet the viewer cannot edit;
+ *  12. Deprived (over Panicked) stands in the vitals column, under HP and above
+ *      Slots and Rest;
+ *  13. a click on the slot line, or on the Overburdened banner, turns to
+ *      Inventory.
+ *
  * Red-first: run against the commit before the redesign, every leg but 8 and
  * 10 fails (no rail, no growth page, no growth field).
  */
@@ -133,7 +143,16 @@ try {
       await until(() => frame.querySelector(`.tab[data-group="primary"][data-tab="${id}"]`)?.classList.contains("active"));
       const shown = [...frame.querySelectorAll('.tab[data-group="primary"]')]
         .filter((t) => t.getBoundingClientRect().height > 0).map((t) => t.dataset.tab);
-      out.turns.push({ id, shown, pressed: b.getAttribute("aria-pressed") });
+      // The "For Use With Cairn" footer under EVERY page: outside the pages,
+      // drawn, its stamp loaded, and below the page it closes.
+      const foot = frame.querySelector(".cairn-character > .cairn-compat-footer");
+      const img = foot?.querySelector("img");
+      if (img && !img.complete) await new Promise((res) => { img.onload = img.onerror = res; });
+      const page = frame.querySelector(`.tab[data-group="primary"][data-tab="${id}"]`);
+      const footer = !!foot && !foot.closest(".tab") && foot.getBoundingClientRect().height > 0
+        && (img?.naturalWidth ?? 0) > 0
+        && foot.getBoundingClientRect().top >= (page?.getBoundingClientRect().bottom ?? Infinity) - 1;
+      out.turns.push({ id, shown, pressed: b.getAttribute("aria-pressed"), footer });
     }
 
     /* ---- 4. the rail hangs outside, and flips at the screen's edge ------ */
@@ -176,7 +195,7 @@ try {
       heading: growth?.querySelector(".cairn-growth-heading")?.textContent.trim() ?? null,
       expectHeading: L("CAIRN.Growth.Journal"),
       descScars: !!desc?.querySelector(".scar-section"),
-      descFooter: !!desc?.querySelector(".cairn-compat-footer"),
+      footers: frame.querySelectorAll(".cairn-compat-footer").length,
     };
 
     /* ---- 6. the journal shows what is stored --------------------------- */
@@ -203,6 +222,66 @@ try {
       dlg?.querySelector('[data-action="close"]')?.click();
       const t1 = Date.now();
       while (dlg?.isConnected && Date.now() - t1 < 5000) await sleep(100);
+    }
+
+    /* ---- 11. page 1's Improvised Attack button, under Die of Fate ------- */
+    await sheet.changeTab("character", "primary");
+    await sleep(300);
+    const fate = frame.querySelector("#die-of-fate-button");
+    const btn = frame.querySelector('.tab[data-tab="character"] .cairn-vital-buttons [data-action="improvisedAttack"]');
+    out.button = { present: !!btn, live: btn?.hasAttribute("data-always-live") ?? false,
+      afterFate: !!fate && fate.nextElementSibling === btn,
+      below: !!fate && !!btn && btn.getBoundingClientRect().top >= fate.getBoundingClientRect().bottom - 1,
+      burst: btn?.querySelector("i")?.classList.contains("fa-burst") ?? false,
+      // The rail's burst is red (--ab-peril); the button's must be the same red.
+      red: btn && atk ? getComputedStyle(btn.querySelector("i")).color === getComputedStyle(atk.querySelector("i")).color : false };
+    if (btn) {
+      const stale = new Set(document.querySelectorAll(".application.dialog"));
+      btn.click();
+      let dlg = null;
+      const t0 = Date.now();
+      while (!(dlg = [...document.querySelectorAll(".application.dialog")].find((d) => !stale.has(d))) && Date.now() - t0 < 5000) await sleep(100);
+      out.button.dialog = !!dlg;
+      dlg?.querySelector('[data-action="close"]')?.click();
+      const t1 = Date.now();
+      while (dlg?.isConnected && Date.now() - t1 < 5000) await sleep(100);
+    }
+
+    /* ---- 12. Deprived over Panicked, between HP and Slots --------------- */
+    {
+      const top = (sel) => frame.querySelector(`.tab[data-tab="character"] ${sel}`)?.getBoundingClientRect() ?? null;
+      const hp = top(".cairn-vitals .hp-counter"), dep = top(".cairn-vitals .cairn-states .band-deprived");
+      const pan = top(".cairn-vitals .cairn-states .band-panicked"), slots = top(".cairn-vitals .cairn-slots-line");
+      const rest = top("#rest-button");
+      out.states = { usePanic: !!pc.system.usePanic, hp: !!hp, dep: !!dep, pan: !!pan, slots: !!slots, rest: !!rest,
+        inBand: !!frame.querySelector(".cairn-band .band-deprived, .cairn-band .band-panicked"),
+        order: !!(hp && dep && slots && rest) && dep.top >= hp.bottom - 1
+          && (pan ? pan.top >= dep.bottom - 1 && slots.top >= pan.bottom - 1 : slots.top >= dep.bottom - 1)
+          && rest.top >= slots.bottom - 1 };
+    }
+
+    /* ---- 13. the slot line and the Overburdened banner open Inventory --- */
+    {
+      const limitOn = game.settings.get("air-bladder", "character-inventory-limit");
+      const onItems = () => frame.querySelector('.tab[data-tab="items"]')?.classList.contains("active") ?? false;
+      out.toInventory = { limitOn };
+      await sheet.changeTab("character", "primary");
+      await sleep(200);
+      frame.querySelector(".cairn-slots-line")?.click();
+      await until(onItems, limitOn ? 2000 : 1000);
+      out.toInventory.slots = onItems();
+      // Overburdened: a pack heavier than any slot limit (raw embedded create,
+      // under the capacity guard, which lives in createOwnedItem).
+      const [load] = await pc.createEmbeddedDocuments("Item", [{ name: "ZZ Rail Load", type: "item", system: { quantity: 40 } }]);
+      await until(() => frame.querySelector(".status-banner.status-encumbered"));
+      await sheet.changeTab("growth", "primary");
+      await sleep(200);
+      const banner = frame.querySelector(".status-banner.status-encumbered");
+      out.toInventory.banner = !!banner;
+      banner?.click();
+      await until(onItems);
+      out.toInventory.bannerTurns = onItems();
+      await load?.delete();
     }
     await sheet.close();
 
@@ -236,7 +315,8 @@ try {
         const el = actor.sheet.element;
         const growthBtn = el.querySelector('nav.cairn-tab-rail button[data-tab="growth"]');
         const res = { editable: actor.sheet.isEditable, disabled: growthBtn?.disabled ?? null,
-          attack: !!el.querySelector("nav.cairn-tab-rail .cairn-rail-attack") };
+          attack: !!el.querySelector("nav.cairn-tab-rail .cairn-rail-attack")
+            || !!el.querySelector('.cairn-vital-buttons [data-action="improvisedAttack"]') };
         growthBtn?.click();
         await sleep(400);
         res.turned = el.querySelector('.tab[data-tab="growth"]')?.classList.contains("active") ?? false;
@@ -303,6 +383,10 @@ else {
   badTurn.length === 0 && r.turns.length === want.length
     ? ok("every rail button turns to its own page, alone, and is pressed")
     : fail(`turns: ${JSON.stringify(badTurn.length ? badTurn : r.turns)}`);
+  const noFoot = r.turns.filter((t) => !t.footer).map((t) => t.id);
+  noFoot.length === 0 && r.turns.length === want.length
+    ? ok("the \"For Use With Cairn\" footer stands under every page, outside the pages, its stamp loaded")
+    : fail(`no footer under: ${JSON.stringify(noFoot)}`);
 
   // 4
   const a = r.placeRight, e = r.placeEdge, b = r.placeBack;
@@ -330,9 +414,9 @@ else {
   g.journal && g.heading === g.expectHeading && g.placeholder === g.expectPlaceholder
     ? ok(`the growth journal is there, headed "${g.heading}", with its placeholder`)
     : fail(`journal ${g.journal}, heading ${JSON.stringify(g.heading)}, placeholder ${JSON.stringify(g.placeholder)}`);
-  g.descFooter
-    ? ok("Description keeps the Cairn compatibility footer")
-    : fail("the compatibility footer left Description");
+  g.footers === 1
+    ? ok("the sheet draws the compatibility footer once (no second copy on Description)")
+    : fail(`the sheet draws ${g.footers} compatibility footers, want 1`);
 
   // 6
   const j = r.journal;
@@ -344,6 +428,27 @@ else {
   r.attack.present && r.attack.action === "improvisedAttack" && r.attack.action === r.attack.rowAction && r.attack.dialog
     ? ok("the rail's Improvised Attack is the inventory row's own action, and opens its dialog")
     : fail(`rail attack: ${JSON.stringify(r.attack)}`);
+
+  // 11
+  const bt = r.button;
+  bt.present && bt.live && bt.afterFate && bt.below && bt.burst && bt.red && bt.dialog
+    ? ok("page 1's Improvised Attack sits under Die of Fate, wears the rail's red burst, stays live, and opens its dialog")
+    : fail(`page-1 attack button: ${JSON.stringify(bt)}`);
+
+  // 12
+  const s = r.states;
+  !s.inBand && s.order && (!s.usePanic || s.pan)
+    ? ok(`Deprived${s.usePanic ? " over Panicked" : ""} stands in the vitals, under HP and above Slots and Rest`)
+    : fail(`Deprived/Panicked placement: ${JSON.stringify(s)}`);
+
+  // 13
+  const ti = r.toInventory;
+  ti.slots
+    ? ok(`a click on the slot line turns to Inventory (slot-limit setting ${ti.limitOn ? "on" : "off"})`)
+    : fail(`the slot line did not open Inventory: ${JSON.stringify(ti)}`);
+  ti.banner && ti.bannerTurns
+    ? ok("a click on the Overburdened banner turns to Inventory")
+    : fail(`the Overburdened banner did not open Inventory: ${JSON.stringify(ti)}`);
 
   // 8
   !r.npc.rail && r.npc.strip && !r.npc.railed && r.npc.width === 600
