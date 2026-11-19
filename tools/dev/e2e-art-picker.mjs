@@ -791,7 +791,10 @@ try {
   cats.inSubfolders > 0
     ? ok("the scan reaches images inside subfolders", `${cats.inSubfolders} of ${cats.scanned} — this was 0 before the fix`)
     : fail("the scan reaches images inside subfolders", `${cats.scanned} found, none below the top level`);
-  eq(cats.tiles, ["Portraits", "Portraits Monsters", "Tokens", "Tokens Monsters"]) && cats.headings.length === 0
+  // Every subfolder on disk, in order: `welcome/` (the welcome window's two
+  // portraits, 2026-11-19) is a subfolder like the rest, so a Warden pointing a
+  // custom folder here sees it as a tile too.
+  eq(cats.tiles, ["Portraits", "Portraits Monsters", "Tokens", "Tokens Monsters", "Welcome"]) && cats.headings.length === 0
     ? ok("each subfolder becomes a category tile", `${cats.tiles.join(" / ")}, no parent headings`)
     : fail("each subfolder becomes a category tile", JSON.stringify([cats.tiles, cats.headings]));
   cats.looseCells?.length === 3 && cats.looseCells.every((p) => !p.slice(lydiaRoot.length + 1).includes("/"))
