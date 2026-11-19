@@ -162,8 +162,7 @@ Adventurer abilities with Default gold is a perfectly good table.
 
 Hit Protection takes a formula rather than a menu because a fixed value is
 the common want: type `4` and every character arrives with 4. Leave it blank
-for `1d6`. The notation is explained in **Dice Formulas**, also at
-airbladder.xyz under Guides.
+for `1d6`. The notation is explained in **Dice Formulas**.
 
 These govern the **base roll** only. Coins a bond or a background question
 grants are added on top, as they always were, so a Crawler character still

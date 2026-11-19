@@ -82,8 +82,9 @@ is permanent. Full model in `docs/git-flow.md`; summary in `CONTRIBUTING.md`.
   copies only at the next release, so **Pages is switched off in GitHub's settings
   (by the user) only AFTER that release** — before it, every installed copy's "View
   Package Website" would 404. `airbladder.xyz` stays, retargeted by the user to the
-  repo; it is used only where a person types it by hand (printed sheet footer
-  `CAIRN.PrintCreditGenerated`, two setting hints). The old github.io page is not
+  repo; it is used only where a person types it by hand (the printed sheet footer
+  `CAIRN.PrintCreditGenerated`; the two setting hints that sent readers "to
+  airbladder.xyz under Guides" dropped it 2026-11-19, user-approved). The old github.io page is not
   rebuilt: no `site/`, no `pages.yml`, no `build:site`/`dev:site`.
 
 ## Architecture
