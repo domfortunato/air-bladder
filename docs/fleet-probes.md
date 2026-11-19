@@ -1,7 +1,7 @@
 # Running the probes on the fleet
 
 The probe fleet runs this repo's whole e2e suite on the homelab cluster, eleven probes at a time:
-107 probes in about seven minutes, against an hour or more one by one on CT 123. This page covers
+108 probes in about seven minutes, against an hour or more one by one on CT 123. This page covers
 starting a run from here, reading what it found, and where the suite stands.
 
 The fleet's machinery (the probe boxes, their baseline world, the runner) belongs to the ops repo,
@@ -94,7 +94,26 @@ in a batch. A red on a different box in each run, with the same message every ti
 baseline world. A red that follows one box's queue points at an earlier probe on that box that leaked
 something.
 
-## Where things stand (2026-11-19)
+## Where things stand (2026-11-19, evening)
+
+**The sheet's second round (footer under every page, the Slots line and Overburdened banner open
+Inventory, Deprived and Panicked by the vitals) and the Attack window, at `666250f3` / `71d96814`:
+green on all three builds.** 108 probes now, with `dev:attack` new.
+
+- **Negative controls first, both red:** `sheet-rail` at `6af5be33` (`20261119T222600Z`, its five new
+  legs red, the other 20 green) and `attack,sheet-rail` at `60c9230b` (`20261119T222316Z`: no Attack
+  window; the burst still opened the improvised dialog).
+- **At `504c6376`, 107/108 on 14.370** (`20261119T222807Z`): the red was the probe's own panic leg,
+  which fired `form.requestSubmit()` (submitter null, so DialogV2 resolved with no answer). Fixed in
+  `666250f3`: the leg clicks Impaired, and a real Playwright Enter gets a leg of its own.
+- **At `666250f3`: 108/108 on 14.369** (`20261119T223724Z`) **and 108/108 on 14.368**
+  (`20261119T224420Z`); **107/108 on 14.370** (`20261119T225116Z`): `attack` passed all 10 checks and
+  failed on a console error in core's `Token._drawTargetArrows`, UNDERSTOOD: `TokenLayer#animateTargets`
+  redraws every targeted token each frame, and the probe's cleanup deleted the scene under its targeted
+  foe. Fixed in `71d96814` (release targets first); `attack` green there on all three builds
+  (`20261119T225840Z`, `20261119T230003Z`, `20261119T230120Z`).
+
+## Earlier the same day (2026-11-19)
 
 **The character sheet redesign (a rail, five pages, a Growth page) at `505767a3`: green on all three
 builds.** 107 probes now, with `dev:sheet-rail` new.
