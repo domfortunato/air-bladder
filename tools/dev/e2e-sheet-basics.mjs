@@ -88,10 +88,8 @@ openedOn.length === 1 && openedOn[0] === "character"
 console.log("\nform persistence — no save button, change alone must commit");
 
 /* ---------------------------------------------------------------- text ---- */
-// Pronouns lives on the Description tab, so switch first.
-await page.locator(`${SHEET} nav.tabs [data-tab="description"]`).click();
-await page.waitForTimeout(500);
-
+// Pronouns lives on the Character page, under Gold, since 2026-11-19: the page a
+// fresh sheet opens on, so no page turn.
 await page.fill(`${SHEET} input[name="system.pronouns"]`, "they/them");
 await page.locator(`${SHEET} input[name="system.pronouns"]`).blur();
 await page.waitForTimeout(1200);
@@ -100,10 +98,11 @@ await read(actorId, "system.pronouns") === "they/them"
   : fail("text input persisted", `got "${await read(actorId, "system.pronouns")}"`);
 
 /* -------------------------------------------------------------- select ---- */
-// The trait pick-lists render only when the section is expanded -- the sheet
-// defaults `_traitsCollapsed` to true and re-renders by hand on toggle. Expand
-// first, which incidentally exercises that transient-state-plus-manual-render
-// pattern (AppV2's `details[data-sync]` is what would replace it).
+// The trait pick-lists are on the Description page. They render only while the
+// section is expanded -- open by default since 2026-11-19 (`_traitsCollapsed ??
+// false`), re-rendered by hand on toggle -- so expand only if they are shut.
+await page.locator(`${SHEET} nav.tabs [data-tab="description"]`).click();
+await page.waitForTimeout(500);
 const expanded = await page.evaluate((sel) =>
   !!document.querySelector(`${sel} select[name^="system.traits."]`), SHEET);
 if (!expanded) {

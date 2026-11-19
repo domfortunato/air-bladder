@@ -40,6 +40,10 @@
  *      Slots and Rest;
  *  13. a click on the slot line, or on the Overburdened banner, turns to
  *      Inventory.
+ *  14. (the third round) Pronouns, Age and the trait sentence stand in page
+ *      1's band under Gold, in that order, and not on Description, whose trait
+ *      pick-lists render OPEN on a fresh sheet; a hireling's open too, its
+ *      pronouns kept on its own sheet.
  *
  * Red-first: run against the commit before the redesign, every leg but 8 and
  * 10 fails (no rail, no growth page, no growth field).
@@ -91,7 +95,8 @@ try {
 
     const pc = await getDocumentClass("Actor").create({
       name: "ZZ Rail PC", type: "character",
-      system: { hp: { value: 4, max: 6 } },
+      // An age and a trait, so the trait sentence has something to say (leg 14).
+      system: { hp: { value: 4, max: 6 }, age: "30", traits: { physique: "Athletic" } },
       ownership: alice ? { default: 0, [alice.id]: CONST.DOCUMENT_OWNERSHIP_LEVELS.OBSERVER } : { default: 0 },
       flags: { "air-bladder": { probeFixture: fixture } },
     }, { abNoStatusCard: true });
@@ -198,6 +203,22 @@ try {
       footers: frame.querySelectorAll(".cairn-compat-footer").length,
     };
 
+    /* ---- 14. Pronouns, Age and the sentence under Gold; traits open ------ */
+    {
+      const band = frame.querySelector('.tab[data-tab="character"] .cairn-band');
+      const kinds = [...(band?.children ?? [])].map((c) =>
+        ["band-gold", "pronouns-row", "age-row", "trait-sentence"].find((k) => c.classList.contains(k)) ?? "?");
+      out.bio = {
+        band: kinds,
+        pronounsInput: !!band?.querySelector('.pronouns-row input[name="system.pronouns"]'),
+        ageInput: !!band?.querySelector('.age-row input[name="system.age"]'),
+        sentence: band?.querySelector(".trait-sentence")?.textContent.trim() ?? "",
+        onDescription: !!desc?.querySelector('.pronouns-row, .age-row, .trait-sentence, input[name="system.pronouns"]'),
+        // Fresh sheet, never toggled: the pick-lists must already be there.
+        traitSelects: desc?.querySelectorAll('select[name^="system.traits."]').length ?? 0,
+      };
+    }
+
     /* ---- 6. the journal shows what is stored --------------------------- */
     await pc.update({ "system.growth": "<p>ZZ grew in the world</p>" });
     const journal = () => frame.querySelector('.tab[data-tab="growth"] prose-mirror[name="system.growth"]');
@@ -294,7 +315,11 @@ try {
     await sleep(300);
     const ne = npc.sheet.element;
     out.npc = { rail: !!ne.querySelector("nav.cairn-tab-rail"), strip: !!ne.querySelector('nav.tabs a[data-tab]'),
-      railed: ne.classList.contains("cairn-railed"), width: npc.sheet.position.width };
+      railed: ne.classList.contains("cairn-railed"), width: npc.sheet.position.width,
+      // Leg 14's other half: a hireling's traits open by default too, and its
+      // pronouns stay on its own sheet (the move is the character sheet's).
+      traitSelects: ne.querySelectorAll('select[name^="system.traits."]').length,
+      pronouns: !!ne.querySelector('.character-traits input[name="system.pronouns"]') };
     await npc.sheet.close();
     return out;
   }, FIXTURE);
@@ -448,6 +473,19 @@ else {
   ti.banner && ti.bannerTurns
     ? ok("a click on the Overburdened banner turns to Inventory")
     : fail(`the Overburdened banner did not open Inventory: ${JSON.stringify(ti)}`);
+
+  // 14
+  const bio = r.bio ?? {};
+  JSON.stringify(bio.band) === JSON.stringify(["band-gold", "pronouns-row", "age-row", "trait-sentence"])
+    && bio.pronounsInput && bio.ageInput && bio.sentence && !bio.onDescription
+    ? ok(`Pronouns, Age and the trait sentence stand under Gold on page 1 ("${bio.sentence}"), not on Description`)
+    : fail(`page-1 band: ${JSON.stringify(bio)}`);
+  bio.traitSelects > 0
+    ? ok(`Description's trait pick-lists are open on a fresh sheet (${bio.traitSelects} selects)`)
+    : fail("Description's trait pick-lists start collapsed");
+  r.npc.traitSelects > 0 && r.npc.pronouns
+    ? ok("a hireling's trait pick-lists are open too, its pronouns on its own sheet")
+    : fail(`hireling traits/pronouns: ${JSON.stringify(r.npc)}`);
 
   // 8
   !r.npc.rail && r.npc.strip && !r.npc.railed && r.npc.width === 600

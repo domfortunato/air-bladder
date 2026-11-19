@@ -401,10 +401,12 @@ try {
     roundTrip.pronouns = actor.system.pronouns === "ze/zir";
     roundTrip.age = actor.system.age === "44";
 
-    // Traits hide behind the collapse; the toggle is transient sheet state, so
-    // expanding once holds for the rest of this section.
-    el8()?.querySelector(".trait-toggle")?.click();
-    await settle(900);
+    // The pick-lists open by default since 2026-11-19 (transient sheet state);
+    // click the toggle only if they are shut, or the click would CLOSE them.
+    if (!el8()?.querySelector('select[name^="system.traits."]')) {
+      el8()?.querySelector(".trait-toggle")?.click();
+      await settle(900);
+    }
     const sels = [...(el8()?.querySelectorAll('select[name^="system.traits."]') ?? [])];
     roundTrip.traitSelects = sels.length;
     const picked = {};

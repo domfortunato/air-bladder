@@ -155,8 +155,11 @@ try {
       // render only while the pick-lists are EXPANDED, so expand first — and
       // before the aria sweep below, so the eight new anchors are held to the
       // same localized-aria-label rule as every other icon-only control.
-      root?.querySelector('a[data-action="toggleTraits"]')?.click();
-      await wait(300);
+      // Open by default since 2026-11-19: click only if shut, or it closes them.
+      if (!root?.querySelector(".trait-grid")) {
+        root?.querySelector('a[data-action="toggleTraits"]')?.click();
+        await wait(300);
+      }
       root = rootOf();
       const traitDice = [...(root?.querySelectorAll('a[data-action="rollTrait"]') ?? [])];
       out.traitDice = {

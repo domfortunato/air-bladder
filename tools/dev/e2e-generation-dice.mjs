@@ -218,7 +218,11 @@ try {
     // promises rolled generation is never logged. The log is switched ON for the
     // leg (withSettings restores it), so the silence is not the setting's.
     await game.settings.set(NS, "change-log", true);
-    actor.sheet.element?.querySelector('[data-action="toggleTraits"]')?.click();
+    // The pick-lists open by default since 2026-11-19; click the toggle only
+    // if they are shut, or the click would CLOSE them.
+    if (!actor.sheet.element?.querySelector('[data-action="rollTrait"]')) {
+      actor.sheet.element?.querySelector('[data-action="toggleTraits"]')?.click();
+    }
     for (let i = 0; i < 30 && !actor.sheet.element?.querySelector('[data-action="rollTrait"]'); i++) await sleep(150);
     const traitDie = actor.sheet.element?.querySelector('[data-action="rollTrait"]');
     out.traitDie = !!traitDie;
