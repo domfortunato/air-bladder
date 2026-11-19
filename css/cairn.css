@@ -5413,9 +5413,15 @@ header.character-generator.directory-header .header-actions > button:not(.cairn-
 .cairn-character-sheet .identity-bio-line label {
     margin: 0; white-space: nowrap; font-weight: bold; font-variant: small-caps; line-height: 18px;
 }
+/* Pronouns takes the squeeze, Age never does: with both rows left at the
+   default flex-shrink, a line too narrow for Pronouns plus Age squeezed Age
+   below its content (79px in a 76px box, dev:sheet-layout, 2026-11-19).
+   The Pronouns input grows from width 0, so its intrinsic size never sets
+   the basis. */
 .cairn-character-sheet .identity-bio-line .pronouns-row { flex: 1 1 auto; }
+.cairn-character-sheet .identity-bio-line .age-row { flex: 0 0 auto; }
 .cairn-character-sheet .identity-bio-line .trait-input { height: 24px; }
-.cairn-character-sheet .identity-bio-line .pronouns-row .trait-input { flex: 1 1 auto; min-width: 0; }
+.cairn-character-sheet .identity-bio-line .pronouns-row .trait-input { flex: 1 1 auto; width: 0; min-width: 0; }
 .cairn-character-sheet .identity-bio-line .age-row .trait-input { flex: 0 0 48px; width: 48px; text-align: center; }
 .cairn-character-sheet .identity-bio-line .age-roll { flex: 0 0 auto; cursor: pointer; }
 
