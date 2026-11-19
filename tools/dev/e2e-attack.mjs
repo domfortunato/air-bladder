@@ -23,11 +23,13 @@
  *      particular" posts a card with the typed die, unarmed, and no target;
  *   6. the window remembers the attack last made with it;
  *   7. PANIC (use-panic on, the character panicked) offers only Impaired for a
- *      weapon, says why, and Enter rolls the d4 (implicit submission must not
- *      reach a hidden Standard).
+ *      weapon, says why, and Impaired rolls the d4;
+ *   8. a REAL Enter (Playwright's keyboard, not requestSubmit(), whose submit
+ *      event names no button) in the improvised description rolls the typed
+ *      die: implicit submission presses the first submit button on offer.
  *
- * use-panic is shadowed IN-PAGE for leg 7 only (never written), and the leg runs
- * last so it cannot leak. Red-first: before the Attack window exists the burst
+ * use-panic is shadowed IN-PAGE for leg 7 only (never written), and both it and
+ * the panicked flag are put back in its finally. Red-first: before the window the burst
  * opens the Improvised Attack dialog, and every leg fails.
  */
 import { chromium } from "playwright";
@@ -195,15 +197,45 @@ try {
         out.panic = { buttons: shown(dlg), note: !!dlg.querySelector(".cairn-attack-panic:not([hidden])"),
           checked: dlg.querySelector('input[name="weapon"]:checked')?.value ?? null };
         const before = new Set(game.messages.map((m) => m.id));
-        dlg.querySelector("form").requestSubmit();
+        dlg.querySelector('footer button[data-action="impaired"]').click();
         out.panicCard = card(await newMessage(before));
       }
     } finally {
       game.settings.get = origGet;
+      await pc.update({ "system.panicked": false }, { abNoStatusCard: true });
     }
-    await sheet.close();
+
+    /* ---- 8 (set up): the improvised attack, ready for a real Enter ------ */
+    dlg = await openWindow();
+    if (dlg) {
+      const impro = dlg.querySelector('input[name="weapon"][value="improvised"]');
+      impro.checked = true;
+      impro.dispatchEvent(new Event("change", { bubbles: true }));
+      dlg.querySelector('input[name="formula"]').value = "1d8";
+      dlg.querySelector('input[name="description"]').value = "a stool";
+      window.__abAttackBefore = game.messages.map((m) => m.id);
+      out.enterReady = true;
+    }
+    out.pcId = pc.id;
     return out;
   }, FIXTURE);
+
+  /* ---- 8. a real Enter in the improvised description ------------------- */
+  if (r?.enterReady) {
+    await gm.locator('.cairn-attack-dialog input[name="description"]').press("Enter");
+    r.enterCard = await gm.evaluate(async ({ pcId, fixture }) => {
+      const before = new Set(window.__abAttackBefore ?? []);
+      let m = null;
+      for (let i = 0; i < 50 && !(m = game.messages.contents.find((x) => !before.has(x.id) && x.speaker?.actor === pcId)); i++) {
+        await new Promise((res) => setTimeout(res, 100));
+      }
+      if (m) await m.setFlag("air-bladder", "probeFixture", fixture);
+      const div = document.createElement("div");
+      div.innerHTML = m?.flavor ?? "";
+      await game.actors.get(pcId)?.sheet?.close();
+      return { faces: m?.rolls?.[0]?.dice?.[0]?.faces ?? null, weapon: div.querySelector(".dmg-label")?.dataset.weapon ?? null };
+    }, { pcId: r.pcId, fixture: FIXTURE });
+  }
 } catch (e) {
   fail(`the run threw: ${e.message}`);
 } finally {
@@ -250,8 +282,13 @@ else {
     ? ok("panicked, a weapon is offered Impaired alone, and the window says why")
     : fail(`panic window: ${JSON.stringify(p)}`);
   pc.faces === 4
-    ? ok("...and Enter rolls the d4 (no hidden Standard behind it)")
+    ? ok("...and Impaired rolls the d4")
     : fail(`panic card: ${JSON.stringify(pc)}`);
+  // 8
+  const e = r.enterCard ?? {};
+  e.faces === 8 && e.weapon === "a stool"
+    ? ok("a real Enter in the improvised description rolls the typed die (Roll Damage is the first submit on offer)")
+    : fail(`Enter in the improvised field: ${JSON.stringify(e)}`);
 }
 if (errors.length) { failed = true; console.log("Console errors:\n" + errors.join("\n")); }
 console.log(failed ? "\nattack e2e FAILED" : "\nattack e2e passed");
