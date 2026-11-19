@@ -36,7 +36,9 @@
              the statusBanners builder in actor-sheet.js). -->
         <div class="critical-banner">
             {{#each statusBanners}}
-            <div class="status-banner status-{{this.key}}">
+            {{!-- Overburdened is a carry state, and Inventory is where it is
+                  undone: its banner turns to that page (user ask 2026-11-19). --}}
+            <div class="status-banner status-{{this.key}}"{{#if this.opensInventory}} data-action="openInventory"{{/if}}>
                 <i class="fas {{this.icon}}"></i>
                 <span>{{{localize "CAIRN.StatusBannerLine" label=this.label text=this.text}}}</span>
             </div>
@@ -176,30 +178,18 @@
                             {{/each}}
                         </div>
 
-                        <!-- The band under the abilities: Gold, Deprived, Panicked -->
+                        <!-- The band under the abilities: Gold (Deprived and Panicked
+                             moved to the vitals column, above Slots, 2026-11-19) -->
                         <div class="cairn-band">
                             <div class="band-row band-gold {{#if system.maybeTooMuchGold }}overburdened-gold{{/if}}"
                                 {{#if system.maybeTooMuchGold }} title="{{localize 'CAIRN.OverburdenByGold'}}" {{/if}}>
                                 <label class="band-label" for="{{@root.idp}}-system.gold" data-tooltip="{{goldTip}}">{{ localize 'CAIRN.Gold' }}</label>
                                 <input type="number" class="gold-input" name="system.gold" id="{{@root.idp}}-system.gold" value="{{system.gold}}" data-dtype="Number" />
                             </div>
-                            <div class="band-row band-deprived">
-                                {{!-- id for core's focus restore: _preSyncPartState records
-                                      focus only as #id or TAG[name] (review #22), and these
-                                      class-managed controls deliberately carry no name. --}}
-                                <label class="band-label" for="{{@root.idp}}-deprived-check" data-tooltip="{{ localize deprivedTipKey }}">{{ localize 'CAIRN.Deprived' }}</label>
-                                <input type="checkbox" class="deprived-check" id="{{@root.idp}}-deprived-check" {{checked system.deprived}} />
-                            </div>
-                            {{#if system.usePanic}}
-                            <div class="band-row band-panicked">
-                                <label class="band-label" for="{{@root.idp}}-panicked-check" data-tooltip="{{ localize panickedTipKey }}">{{ localize 'CAIRN.Panicked' }}</label>
-                                <input type="checkbox" class="panicked-check" id="{{@root.idp}}-panicked-check" {{checked system.panicked}} />
-                            </div>
-                            {{/if}}
                         </div>
                     </div>
 
-                    <!-- Vitals: Armor, HP, slots, and the between-fights buttons -->
+                    <!-- Vitals: Armor, HP, Deprived and Panicked, slots, and the buttons -->
                     <div class="cairn-vitals">
                         <div class="cairn-shield armor-counter {{#if system.armorOverridden}}armor-overridden{{/if}}">
                             <label for="{{@root.idp}}-armor" data-tooltip="{{ localize 'CAIRN.ArmorTip' }}">{{ localize 'CAIRN.Armor' }}</label>
@@ -223,10 +213,30 @@
                             </div>
                         </div>
 
+                        {{!-- Deprived over Panicked, above Slots and above the Rest
+                              button that Deprived switches off (user ask 2026-11-19). --}}
+                        <div class="cairn-states">
+                            <div class="band-row band-deprived">
+                                {{!-- id for core's focus restore: _preSyncPartState records
+                                      focus only as #id or TAG[name] (review #22), and these
+                                      class-managed controls deliberately carry no name. --}}
+                                <label class="band-label" for="{{@root.idp}}-deprived-check" data-tooltip="{{ localize deprivedTipKey }}">{{ localize 'CAIRN.Deprived' }}</label>
+                                <input type="checkbox" class="deprived-check" id="{{@root.idp}}-deprived-check" {{checked system.deprived}} />
+                            </div>
+                            {{#if system.usePanic}}
+                            <div class="band-row band-panicked">
+                                <label class="band-label" for="{{@root.idp}}-panicked-check" data-tooltip="{{ localize panickedTipKey }}">{{ localize 'CAIRN.Panicked' }}</label>
+                                <input type="checkbox" class="panicked-check" id="{{@root.idp}}-panicked-check" {{checked system.panicked}} />
+                            </div>
+                            {{/if}}
+                        </div>
+
                         {{!-- The slot count, which the old Items tab label carried; the
                               per-character limit's double-click came with it (the rail's
-                              Inventory tooltip says the count too). --}}
-                        <div class="cairn-slots-line {{#if system.encumbered}}peril{{/if}}" id="set-equipment-limit"
+                              Inventory tooltip says the count too). A click turns to
+                              Inventory (user ask 2026-11-19); #onOpenInventory waits out
+                              a double-click while the limit setting is on. --}}
+                        <div class="cairn-slots-line {{#if system.encumbered}}peril{{/if}}" id="set-equipment-limit" data-action="openInventory"
                             {{#if system.characterEquipmentLimit}}title="{{localize 'CAIRN.EquipmentLimitTip'}}"{{/if}}>
                             {{#if system.characterEquipmentLimit}}<i class="fas fa-gears" inert></i>{{/if}}
                             <span class="slots-label">{{ localize 'CAIRN.Slots' }}</span>
@@ -246,6 +256,13 @@
                             <button id="rest-button" type="button" data-action="rest" class="strict-size-button" data-tooltip="{{#if system.deprived}}{{ localize deprivedTipKey }}{{else}}{{ localize 'CAIRN.RestTip' }}{{/if}}" {{#if system.deprived}}disabled{{/if}}><i class="fas fa-campground"></i> {{ localize 'CAIRN.Rest' }}</button>
                             <button id="restore-abilities-button" type="button" data-action="restoreAbilities" class="strict-size-button" data-tooltip="{{#if system.deprived}}{{ localize deprivedTipKey }}{{else}}{{ localize 'CAIRN.RestoreTip' }}{{/if}}" {{#if system.deprived}}disabled{{/if}}><i class="fas fa-heart-pulse"></i> {{ localize 'CAIRN.RestoreAbilities' }}</button>
                             <button id="die-of-fate-button" type="button" data-action="dieOfFate" data-always-live class="strict-size-button" data-tooltip="{{ localize 'CAIRN.DieOfFateTip' }}"><i class="fas fa-dice-d6"></i> {{ localize 'CAIRN.DieOfFate' }}</button>
+                            {{!-- The rail's Improvised Attack, as a button (user ask
+                                  2026-11-19): the same gate, action and tooltip as
+                                  parts/tab-rail.html, so the two cannot part. --}}
+                            {{#if canImprovise}}
+                            <button id="improvised-attack-button" type="button" data-action="improvisedAttack" data-always-live class="strict-size-button cairn-attack-button"
+                                data-tooltip-html="<strong>{{localize 'CAIRN.ImprovisedAttack'}}</strong><br>{{localize 'CAIRN.ImprovisedAttackTip'}}"><i class="fa-solid fa-burst" inert></i> {{ localize 'CAIRN.ImprovisedAttack' }}</button>
+                            {{/if}}
                         </div>
                     </div>
                 </div>
@@ -310,12 +327,6 @@
                             data-document-uuid="{{actor.uuid}}">{{{enrichedDescription}}}</prose-mirror>
                     </div>
                     {{/if}}
-                    <div class="cairn-compat-footer">
-                        <a href="https://cairnrpg.com" target="_blank" rel="noopener" title="{{ localize 'CAIRN.CompatibleAlt' }}">
-                            <img src="systems/air-bladder/logo/Cairn_Stamp.jpg" alt="{{ localize 'CAIRN.CompatibleAlt' }}" />
-                        </a>
-                        <div class="cairn-compat-caption">{{{ localize 'CAIRN.CompatibleCredit' }}}</div>
-                    </div>
                 </div>
             </div>
 
@@ -392,5 +403,15 @@
                     data-document-uuid="{{actor.uuid}}">{{#if system.notes}}{{{enrichedNotes}}}{{else}}<p class="cairn-editor-placeholder">{{ localize 'CAIRN.NotesPlaceholder' }}</p>{{/if}}</prose-mirror>
             </div>
         </section>
+
+        <!-- The "For Use With Cairn" stamp and its credit under EVERY page, where
+             Base Knavery's sheet keeps its Made for Knave logo (user ask
+             2026-11-19; it sat at the foot of Description only). -->
+        <footer class="cairn-compat-footer">
+            <a href="https://cairnrpg.com" target="_blank" rel="noopener" title="{{ localize 'CAIRN.CompatibleAlt' }}">
+                <img src="systems/air-bladder/logo/Cairn_Stamp.jpg" alt="{{ localize 'CAIRN.CompatibleAlt' }}" />
+            </a>
+            <div class="cairn-compat-caption">{{{ localize 'CAIRN.CompatibleCredit' }}}</div>
+        </footer>
     </div>
     {{/if}}

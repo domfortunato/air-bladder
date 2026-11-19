@@ -33,6 +33,15 @@ Moved word for word from CLAUDE.md (2026-11-01); CLAUDE.md points here.
   it as a player). Cairn has no XP: do not add a level ladder.
 - The rail's Improvised Attack is the row's own `improvisedAttack` action; no
   dialog of its own, no "advantage" (Cairn has Impaired and Enhanced).
+- Second round (user asks, 2026-11-19): page 1 carries the same Improvised Attack
+  as a button under Die of Fate (`canImprovise`, `data-always-live`, the rail's red
+  burst). Deprived over Panicked moved from the band to the vitals column, between
+  HP and Slots (`.cairn-states`); the band is Gold alone. The Slots line and the
+  Overburdened banner (`opensInventory`) carry `openInventory`, which waits out a
+  double-click while `character-inventory-limit` is on, so the line's dblclick
+  still sets the limit. The "For Use With Cairn" footer left Description for the
+  foot of `.cairn-character`, under every page, as Base Knavery's Made for Knave
+  footer.
 - Gate `dev:sheet-rail`.
 
 ## Creation routes

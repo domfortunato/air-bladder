@@ -435,6 +435,9 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       // which also refuses a locked compendium -- the bug review #18 fixed for
       // Die of Fate. Its own ownership gate is inside the handler.
       improvisedAttack: CairnActorSheet.#onImprovisedAttack,
+      // Page 1's slot line and the Overburdened banner turn to Inventory. Not
+      // owned(): turning a page is a read, as the rail is.
+      openInventory: CairnActorSheet.#onOpenInventory,
       // Description tab
       rollAge: owned(mayRandomize(CairnActorSheet.#onRollAge)),
       rollOmen: owned(mayRandomize(CairnActorSheet.#onRollOmen)),
@@ -2019,9 +2022,11 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       // One wording for every table: the Crawler Combat Mode variant ("…and
       // you are Deprived until you free a slot") went with the derived
       // Deprived rule it described, reversed 2026-10-03.
+      // opensInventory: the character sheet's banner turns to the Inventory
+      // page, where the burden is put down (user ask 2026-11-19).
       banners.push({
         key: "encumbered", icon: "fa-weight-hanging", label: L("CAIRN.Overburdened"),
-        text: L("CAIRN.OverburdenedBanner"),
+        text: L("CAIRN.OverburdenedBanner"), opensInventory: true,
       });
     }
     context.statusBanners = banners;
@@ -4886,6 +4891,23 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    *
    * @this {CairnActorSheet}
    */
+  /**
+   * Turn to the Inventory page (user ask 2026-11-19): page 1's slot line and
+   * the Overburdened banner. The slot line also takes a DOUBLE-click (set the
+   * per-character limit, _onSetEquipmentLimit) while that setting is on; a
+   * page turned on the first click would leave the second, and the dblclick,
+   * landing on Inventory. So while it is on, the turn waits out a double-click
+   * and the second click cancels it. With the setting off it turns at once.
+   */
+  static #onOpenInventory(event, target) {
+    const turn = () => { if (this.rendered) this.changeTab("items", "primary"); };
+    const waits = target.id === "set-equipment-limit"
+      && game.settings.get(SETTINGS_NS, "character-inventory-limit");
+    if (!waits) return turn();
+    clearTimeout(this._inventoryTurn);
+    this._inventoryTurn = event.detail > 1 ? null : setTimeout(turn, 300);
+  }
+
   static async #onImprovisedAttack() {
     if (!this.actor.isOwner) {
       ui.notifications.warn(game.i18n.localize("CAIRN.Notify.ImprovisedNotYours"));

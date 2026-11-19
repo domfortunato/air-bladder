@@ -3699,7 +3699,8 @@ ol.combat-tracker li.combatant.cairn-drop-below {
 }
 
 /* "Compatible with Cairn" badge + CC BY-SA attribution at the foot of the
-   Description tab (both 2e and Barebones sheets). The badge is self-bordered
+   character sheet, under every page (both 2e and Barebones sheets; laid out
+   as Base Knavery's footer further down, 2026-11-19). The badge is self-bordered
    black-on-white, so it reads on either sheet theme. */
 .cairn-compat-footer {
     margin-top: 18px;
@@ -5491,6 +5492,39 @@ header.character-generator.directory-header .header-actions > button:not(.cairn-
 .cairn-character-sheet .cairn-slots-line.peril { color: var(--ab-peril); }
 .cairn-character-sheet .cairn-vital-buttons { width: 100%; gap: 3px; }
 .cairn-character-sheet .cairn-vital-buttons button { height: 34px; }
+/* The Improvised Attack button under Die of Fate: the rail's red burst. */
+.cairn-character-sheet .cairn-vital-buttons .cairn-attack-button i { color: var(--ab-peril); }
+
+/* Deprived over Panicked, in the vitals column between HP and Slots
+   (user ask 2026-11-19). One label width, so the two boxes line up. */
+.cairn-character-sheet .cairn-states {
+    display: flex; flex-direction: column; gap: 4px;
+    font-family: "Alegreya", Times, "Times New Roman", Georgia, serif; font-size: 16px;
+}
+.cairn-character-sheet .cairn-states .band-row { display: flex; align-items: center; gap: 8px; }
+.cairn-character-sheet .cairn-states .band-label { flex: 0 0 84px; margin: 0; font-weight: bold; font-variant: small-caps; }
+.cairn-character-sheet .cairn-states .deprived-check,
+.cairn-character-sheet .cairn-states .panicked-check { margin: 0; }
+
+/* The slot line and the Overburdened banner turn to Inventory on a click. */
+.cairn-character-sheet .cairn-slots-line[data-action],
+.cairn-character-sheet .status-banner[data-action] { cursor: pointer; }
+.cairn-character-sheet .cairn-slots-line[data-action]:hover .slots-label { text-decoration: underline; }
+
+/* The "For Use With Cairn" stamp under every page, laid out as Base Knavery's
+   Made for Knave footer: the mark at the left, its credit beside it. The
+   .cairn-character column is min-height 100% with the pages growing, so a
+   short page still leaves the footer at the window's foot. A width only,
+   height following: a squashed mark is a cropped one (logo/README.md). */
+.cairn-character-sheet .cairn-character > .cairn-compat-footer {
+    display: flex; align-items: center; gap: 12px;
+    margin-top: 12px; padding-top: 6px; text-align: left;
+}
+.cairn-character-sheet .cairn-character > .cairn-compat-footer a { flex: 0 0 auto; }
+.cairn-character-sheet .cairn-character > .cairn-compat-footer img { width: 84px; margin: 0; border: none; }
+.cairn-character-sheet .cairn-character > .cairn-compat-footer .cairn-compat-caption {
+    margin: 0; font-size: 10px; line-height: 1.3; font-style: normal; text-align: left; color: var(--ab-muted); opacity: 1;
+}
 
 /* ---- Growth: Cairn's principle, the Scars, the journal --------------------- */
 .cairn-character-sheet .cairn-growth-intro { margin: 0 0 10px; font-style: italic; color: var(--ab-muted); }
