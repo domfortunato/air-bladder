@@ -14,8 +14,8 @@
  *   - the window renders: the title, both portraits loaded, no raw CAIRN. key,
  *     the three System Rules lines, the three buy links on cairnrpg.com, the
  *     licence folds, the sheets' "For Use With Cairn" stamp in BOTH schemes
- *     (configureUI, never a write), opaque and at its own aspect, and the faint
- *     Air Bladder logo beside it, swapped by theme;
+ *     (configureUI, never a write), and the Air Bladder logo beside it, swapped
+ *     by theme; both opaque and at their own aspect;
  *   - "This world offers …" follows the three background switches;
  *   - the footer box writes the setting both ways;
  *   - Open the guide and Open the rulebook open the System Docs and Cairn 2e Rules
@@ -91,6 +91,14 @@ try {
           const shownSel = (sel) => { const e = el.querySelector(sel); return !!e && getComputedStyle(e).display !== "none"; };
           logos[s] = { shown: !!vis && getComputedStyle(vis).display !== "none",
             logoLight: shownSel(".ab-logo-light"), logoDark: shownSel(".ab-logo-dark"),
+            logo: await (async () => {
+              const lg = [...el.querySelectorAll(".ab-welcome-logo")].find((i) => getComputedStyle(i).display !== "none");
+              if (!lg) return null;
+              try { await lg.decode(); } catch { /* naturalWidth 0 reports it */ }
+              const b = lg.getBoundingClientRect();
+              return { natural: lg.naturalWidth, opacity: getComputedStyle(lg).opacity,
+                aspectOff: lg.naturalWidth ? Math.abs(b.width / b.height - lg.naturalWidth / lg.naturalHeight) : null };
+            })(),
             src: vis?.getAttribute("src") ?? null,
             ink: getComputedStyle(el.querySelector(".ab-welcome-title")).color,
             natural: vis?.naturalWidth ?? 0,
@@ -125,6 +133,11 @@ try {
       content.logos.light?.logoLight === true && content.logos.light?.logoDark === false, JSON.stringify(content.logos.light));
     check("dark scheme: the white-lettered Air Bladder logo shows, the black one does not",
       content.logos.dark?.logoLight === false && content.logos.dark?.logoDark === true, JSON.stringify(content.logos.dark));
+    for (const s of ["light", "dark"]) {
+      const lg = content.logos[s]?.logo ?? {};
+      check(`${s} scheme: the Air Bladder logo loaded, at full strength, at its own aspect`,
+        lg.natural > 0 && lg.opacity === "1" && lg.aspectOff !== null && lg.aspectOff < 0.02, JSON.stringify(lg));
+    }
     for (const s of ["light", "dark"]) {
       const l = content.logos[s] ?? {};
       check(`${s} scheme: the sheets' "For Use With Cairn" stamp shows, loaded, fully opaque, at its own aspect`,

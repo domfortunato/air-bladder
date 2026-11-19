@@ -5182,17 +5182,17 @@ header.character-generator.directory-header .header-actions > button:not(.cairn-
    squashed mark is a cropped one (logo/README.md). */
 .ab-welcome-small { display: flex; flex-direction: column; gap: 4px; }
 .ab-welcome-col-side { align-self: stretch; }
-.ab-welcome-licensing { position: relative; isolation: isolate; flex: 1 1 auto; }
-.ab-welcome-licensing .ab-welcome-stamp {
-    margin-top: auto; align-self: flex-end; width: 110px; height: auto; border: none;
+.ab-welcome-licensing { flex: 1 1 auto; }
+/* The Air Bladder logo and the stamp in one row at the column's foot, both at
+   full strength (user, 2026-11-19: "does not need to be a watermark"). Widths
+   chosen so the two stand the same height (~70px: the logo is 2267x1060, the
+   stamp 338x218); a width only, height following, so neither is squashed. */
+.ab-welcome-marks {
+    display: flex; align-items: center; justify-content: flex-end; gap: 14px; margin-top: auto; padding-top: 6px;
 }
-/* The Air Bladder logo, faint, at the foot to the LEFT of the stamp (user,
-   2026-11-19: both). Behind the text like Base Knavery's watermark; the file is
-   unaltered, only shown faint. */
-.ab-welcome-licensing .ab-welcome-watermark {
-    position: absolute; right: 126px; bottom: 0; z-index: -1; width: 170px; height: auto; border: none;
-    opacity: 0.14; pointer-events: none;
-}
+.ab-welcome-marks img { display: block; height: auto; border: none; }
+.ab-welcome-marks .ab-welcome-logo { width: 150px; }
+.ab-welcome-marks .ab-welcome-stamp { width: 110px; }
 .air-bladder-welcome .ab-logo-dark { display: none; }
 .theme-dark .air-bladder-welcome:not(.theme-light) .ab-logo-light,
 .air-bladder-welcome.theme-dark .ab-logo-light { display: none; }
