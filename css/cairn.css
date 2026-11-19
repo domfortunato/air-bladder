@@ -5523,8 +5523,11 @@ header.character-generator.directory-header .header-actions > button:not(.cairn-
 .cairn-character-sheet .cairn-character > .cairn-compat-footer a { flex: 0 0 auto; }
 .cairn-character-sheet .cairn-character > .cairn-compat-footer img { width: 84px; margin: 0; border: none; }
 .cairn-character-sheet .cairn-character > .cairn-compat-footer .cairn-compat-caption {
-    margin: 0; font-size: 10px; line-height: 1.3; font-style: normal; text-align: left; color: var(--ab-muted); opacity: 1;
+    flex: 1 1 auto; margin: 0; font-size: 10px; line-height: 1.3; font-style: normal; text-align: left; color: var(--ab-muted); opacity: 1;
 }
+/* The shared `.cairn-compat-footer a { display: block }` is for the stamp's
+   link; the credit's two links stay in its line. */
+.cairn-character-sheet .cairn-character > .cairn-compat-footer .cairn-compat-caption a { display: inline; }
 
 /* ---- Growth: Cairn's principle, the Scars, the journal --------------------- */
 .cairn-character-sheet .cairn-growth-intro { margin: 0 0 10px; font-style: italic; color: var(--ab-muted); }
