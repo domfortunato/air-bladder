@@ -572,6 +572,216 @@ export const askImprovisedAttack = async ({ panicked = false, windowId = undefin
   return (answer && typeof answer === "object") ? answer : null;
 };
 
+/** The Attack window's value for the improvised attack, which is no item. */
+export const IMPROVISED_ID = "improvised";
+
+/** The weapon each actor last attacked with from the Attack window, this session. */
+const lastAttackWeapon = new Map();
+
+/**
+ * THE ATTACK WINDOW (user ask 2026-11-19, after Base Knavery's): the rail's
+ * burst and page 1's Attack button open it, for EVERY attack. One window asks
+ * the three things Cairn's attack needs: who is attacked, with what, and
+ * whether the roll is standard, impaired or enhanced.
+ *
+ *   - WHO: the tokens this user may be told about on the viewed scene
+ *     (`nameableTokens`, the one concealment test), the attacker's own left
+ *     out, in the target picker's two groups. The user's one current target
+ *     comes preselected; several make a "current targets" choice of their own.
+ *     "No one in particular" rolls a card with no target, as an untargeted
+ *     damage click always has.
+ *   - WITH WHAT: the equipped items that roll damage (the rows that carry a
+ *     damage die in the inventory), then the improvised attack with its two
+ *     fields, the description and the formula, exactly as its own dialog asks.
+ *   - HOW: the quality dialog's three buttons (Standard (die) / Impaired 1d4 /
+ *     Enhanced 1d12), Standard relabelled with the chosen weapon's die. An
+ *     improvised attack keeps the 2026-10-02 ruling, reaffirmed 2026-11-19: no
+ *     quality, the typed die is the quality, so its choice swaps the three for
+ *     its own Roll Damage. PANIC imposes impaired (ruling 2026-08-07): only
+ *     Impaired is offered for a weapon, and the note says so; an improvised
+ *     attack's typed die is overridden by the caller, as before.
+ *
+ * Buttons not on offer are hidden AND made `type="button"`: implicit
+ * submission presses the form's FIRST submit button even when it is hidden, so
+ * a hidden Standard would be what Enter rolls for a panicked character.
+ * DialogV2 still runs a type="button"'s action on click (_onClickButton).
+ *
+ * Everything authored (token and item names) goes in as textContent on nodes:
+ * DialogV2 takes an element's innerHTML verbatim (dialog.mjs:187-190), and the
+ * listeners are attached in `render`, since content is serialized.
+ *
+ * @param {Object} o
+ * @param {Actor} o.actor
+ * @param {Item[]} o.weapons      equipped items with a damage formula, in order
+ * @param {Boolean} [o.panicked]
+ * @param {String} [o.windowId]
+ * @return {Promise<null|{weaponId: String, quality: String|null, targetIds: String[],
+ *   description: String, formula: String}>} null = dismissed: roll nothing.
+ */
+export const askAttack = async ({ actor, weapons, panicked = false, windowId = undefined } = {}) => {
+  const L = (k) => game.i18n.localize(k);
+  const scene = canvas?.scene ?? null;
+  const own = (id) => scene?.tokens?.get(id)?.actorId === actor.id;
+  const listed = nameableTokens((scene?.tokens?.contents ?? []).map((t) => t.id), scene)
+    .filter((t) => !own(t.id));
+  const current = [...game.user.targets].map((t) => t.id).filter((id) => listed.some((t) => t.id === id));
+
+  const content = document.createElement("div");
+  const inner = document.createElement("div");
+  inner.className = "cairn-attack";
+  content.append(inner);
+  const el = (tag, cls, text) => {
+    const n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text !== undefined) n.textContent = text;
+    return n;
+  };
+
+  // Who.
+  const who = el("div", "form-group");
+  who.append(el("label", "", L("CAIRN.AttackDialog.Target")));
+  const fields = el("div", "form-fields");
+  const select = el("select");
+  select.setAttribute("name", "target");
+  const option = (value, text, selected = false) => {
+    const o = el("option", "", text);
+    o.setAttribute("value", value);
+    if (selected) o.setAttribute("selected", "");
+    return o;
+  };
+  if (current.length > 1) {
+    const names = listed.filter((t) => current.includes(t.id)).map((t) => t.name).join(", ");
+    select.append(option("current", game.i18n.format("CAIRN.AttackDialog.Current", { names }), true));
+  }
+  select.append(option("", L("CAIRN.AttackDialog.NoTarget")));
+  const isPC = (id) => scene?.tokens?.get(id)?.actor?.type === "character";
+  for (const [key, pcs] of [["CAIRN.DamageTargets.Foes", false], ["CAIRN.DamageTargets.Party", true]]) {
+    const entries = listed.filter((t) => isPC(t.id) === pcs);
+    if (!entries.length) continue;
+    const group = el("optgroup");
+    group.setAttribute("label", L(key));
+    for (const t of entries) group.append(option(t.id, t.name, current.length === 1 && current[0] === t.id));
+    select.append(group);
+  }
+  fields.append(select);
+  who.append(fields);
+  inner.append(who);
+
+  // With what.
+  const all = [...weapons.map((w) => ({ id: w.id, name: w.name, formula: w.system.damageFormula })),
+    { id: IMPROVISED_ID, name: L("CAIRN.ImprovisedAttack"), formula: "" }];
+  const last = lastAttackWeapon.get(actor.id);
+  const chosen = all.some((w) => w.id === last) ? last : all[0].id;
+  const set = el("fieldset", "cairn-attack-weapons");
+  set.append(el("legend", "", L("CAIRN.AttackDialog.Weapon")));
+  for (const w of all) {
+    const row = el("label", `cairn-attack-weapon${w.id === IMPROVISED_ID ? " improvised" : ""}`);
+    const radio = el("input");
+    radio.setAttribute("type", "radio");
+    radio.setAttribute("name", "weapon");
+    radio.setAttribute("value", w.id);
+    if (w.formula) radio.dataset.formula = w.formula;
+    if (w.id === chosen) radio.setAttribute("checked", "");
+    row.append(radio, el("strong", "", w.name));
+    if (w.formula) row.append(el("span", "cairn-attack-die", w.formula));
+    set.append(row);
+  }
+  // The improvised attack's own two fields, shown while it is the choice.
+  const impro = el("div", "cairn-attack-improvised");
+  const field = (labelKey, name, value = "", placeholder = "") => {
+    const g = el("div", "form-group");
+    g.append(el("label", "", L(labelKey)));
+    const f = el("div", "form-fields");
+    const input = el("input");
+    input.setAttribute("type", "text");
+    input.setAttribute("name", name);
+    if (value) input.setAttribute("value", value);
+    if (placeholder) input.setAttribute("placeholder", L(placeholder));
+    f.append(input);
+    g.append(f);
+    impro.append(g);
+  };
+  field("CAIRN.Improvised.With", "description", "", "CAIRN.Improvised.WithPlaceholder");
+  field("CAIRN.Damage", "formula", IMPROVISED_FORMULA);
+  if (panicked) impro.append(el("p", "cairn-improvised-panic", game.i18n.format("CAIRN.Improvised.PanicNote", { formula: IMPROVISED_FORMULA })));
+  set.append(impro);
+  inner.append(set);
+
+  // How.
+  const quality = el("p", "cairn-attack-quality", L("CAIRN.DamageQuality.Prompt"));
+  inner.append(quality);
+  const weaponPanic = panicked
+    ? el("p", "cairn-attack-panic", game.i18n.format("CAIRN.AttackDialog.PanicNote", { formula: IMPAIRED_FORMULA }))
+    : null;
+  if (weaponPanic) inner.append(weaponPanic);
+
+  const read = (q) => (_event, button) => {
+    const f = button.form.elements;
+    return {
+      weaponId: f.weapon?.value ?? chosen,
+      quality: q,
+      targetIds: f.target?.value === "current" ? current : (f.target?.value ? [f.target.value] : []),
+      description: String(f.description?.value ?? "").trim(),
+      formula: String(f.formula?.value ?? "").trim(),
+    };
+  };
+  const answer = await foundry.applications.api.DialogV2.wait({
+    classes: ["cairn-attack-dialog", "cairn-damage-quality"],
+    window: { title: L("CAIRN.Attack") },
+    renderOptions: { window: { windowId } },   // see _confirmAction in actor-sheet.js
+    position: { width: 440 },
+    content,
+    render: (_event, dialog) => {
+      const root = dialog.element;
+      const button = (action) => root.querySelector(`footer button[data-action="${action}"]`);
+      const offer = (action, on) => {
+        const b = button(action);
+        if (!b) return;
+        b.hidden = !on;
+        b.type = on ? "submit" : "button";
+      };
+      const sync = () => {
+        const radio = root.querySelector('input[name="weapon"]:checked');
+        const improvised = radio?.value === IMPROVISED_ID;
+        root.querySelector(".cairn-attack-improvised").hidden = !improvised;
+        root.querySelector(".cairn-attack-quality").hidden = improvised || panicked;
+        const note = root.querySelector(".cairn-attack-panic");
+        if (note) note.hidden = improvised;
+        offer("standard", !improvised && !panicked);
+        offer("impaired", !improvised);
+        offer("enhanced", !improvised && !panicked);
+        offer("roll", improvised);
+        // The Enter cue (the ⏎ and the accent border) follows the button Enter
+        // now presses: the first one on offer.
+        const first = root.querySelector('footer button[type="submit"]');
+        root.querySelectorAll("footer button").forEach((b) => b.classList.toggle("cairn-quality-default", b === first));
+        // Standard names the chosen weapon's own die, as the quality dialog does.
+        const standard = button("standard");
+        if (standard && radio?.dataset.formula) {
+          standard.querySelector("span").textContent = game.i18n.format("CAIRN.DamageQuality.Standard", { formula: radio.dataset.formula });
+          standard.querySelector("i").className = dieIcon(radio.dataset.formula);
+        }
+      };
+      root.querySelectorAll('input[name="weapon"]').forEach((r) => r.addEventListener("change", sync));
+      sync();
+    },
+    buttons: [
+      { action: "standard", label: game.i18n.format("CAIRN.DamageQuality.Standard", { formula: all[0].formula || IMPROVISED_FORMULA }),
+        icon: dieIcon(all[0].formula || IMPROVISED_FORMULA), default: true, class: "cairn-quality-default",
+        tooltip: "CAIRN.DamageQuality.DefaultTip", callback: read("standard") },
+      { action: "impaired", label: game.i18n.format("CAIRN.DamageQuality.Impaired", { formula: IMPAIRED_FORMULA }),
+        icon: dieIcon(IMPAIRED_FORMULA), callback: read("impaired") },
+      { action: "enhanced", label: game.i18n.format("CAIRN.DamageQuality.Enhanced", { formula: ENHANCED_FORMULA }),
+        icon: dieIcon(ENHANCED_FORMULA), callback: read("enhanced") },
+      { action: "roll", label: L("CAIRN.Improvised.Roll"), icon: "fa-solid fa-hand-fist", callback: read(null) },
+    ],
+    rejectClose: false,
+  });
+  if (!answer || typeof answer !== "object") return null;
+  lastAttackWeapon.set(actor.id, answer.weaponId);
+  return answer;
+};
+
 /**
  * The dice builder: a row of die buttons, a clear, and a sum/keep-highest pair.
  *

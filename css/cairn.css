@@ -1839,6 +1839,24 @@
     color: var(--ab-muted);
 }
 
+/* THE ATTACK WINDOW (askAttack in module/utils.js; user ask 2026-11-19). It
+   wears the quality dialog's class too, so its footer is that column of
+   buttons; the ones not on offer for the chosen attack are hidden, and core's
+   `button { display: flex }` would otherwise outrank the [hidden] attribute. */
+.cairn-attack-dialog [hidden] { display: none !important; }
+.cairn-attack-dialog .cairn-attack-weapons {
+    display: flex; flex-direction: column; gap: 2px; margin: 8px 0; padding: 4px 8px 8px;
+    border: 1px solid var(--ab-rule); border-radius: 4px;
+}
+.cairn-attack-dialog .cairn-attack-weapons legend { padding: 0 4px; font-weight: bold; }
+.cairn-attack-dialog .cairn-attack-weapon { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+.cairn-attack-dialog .cairn-attack-weapon input { margin: 0; flex: 0 0 auto; }
+.cairn-attack-dialog .cairn-attack-weapon strong { flex: 1 1 auto; }
+.cairn-attack-dialog .cairn-attack-die { color: var(--ab-muted); font-family: var(--font-mono, monospace); }
+.cairn-attack-dialog .cairn-attack-improvised { margin: 4px 0 0 24px; display: flex; flex-direction: column; gap: 4px; }
+.cairn-attack-dialog .cairn-attack-quality { margin: 4px 0 0; }
+.cairn-attack-dialog .cairn-attack-panic { margin: 4px 0 0; font-size: var(--font-size-12); color: var(--ab-muted); }
+
 /* THE DROP PICKER -- askWhatToDrop in module/party-pile.js, opened by Take a
    Fatigue Instead. A roster of what the character is carrying, not a form: the
    same reasoning as .cairn-damage-targets above, and the same shape, so the two

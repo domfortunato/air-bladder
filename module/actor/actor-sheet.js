@@ -2,7 +2,7 @@ import { dieIconOrGeneric } from "../utils.js";
 import { drawBond, bondRecordFrom, withGrantSource, bondEntitlement, bondsEnabled, backgroundDescriptionText, resolveRefs, replaceGrantedContainers, promptBackground, changeBackground, promptFailedCareer, rollFailedCareerName, buildFailedCareerItem, getPortraitManifest, pairedTokenFor, randomPortraitInSameFolder, portraitCategoryFor, regenerateNpc, regenerateHireling, rerollNpcBackground, rerollHirelingCareer, rerollNpcName, rerollNpcFaction, promptHirelingCareer, promptNpcBackground, promptNpcFaction, promptPickOmen, promptPickBond, promptPickQuestionOption, promptPickName, findOmensTable, rollNameFromTable, rollAge, rollTextItems, effectiveAgeFormula, effectivePcAbilityFormula, effectivePcGoldFormula, effectivePcHpFormula, rollPcHitProtection, resolveActorBackground, redealBackgroundGear, redealBarebonesKit, rerollAllBonds, reorderInventory, postGenerationRolls, isHandBuilt, clearHandBuilt, isBackgroundDisabled, equipIfArms, failedCareerActive, FLAG_SCOPE } from "../character-generator.js";
 import { promptMonsterTier, regenerateMonster } from "../monster-generator.js";
 import { openMarketplace, TRANSPORTS_CATEGORY } from "../marketplace.js";
-import { evaluateFormula, cairnSavePasses, cleanDescription, concealSecrets, holdsProse, bindEditorClickAwaySave, formatCount, sourceLabel, askDamageQuality, damageFormulaFor, damageQualityLabel, damageQualityKind, d20CardBody, d20CardFlavor, D20_CARD_ABILITIES, combatOption, combatDamageFormula, askImprovisedAttack, IMPROVISED_FORMULA, nameEditorToggles } from "../utils.js";
+import { evaluateFormula, cairnSavePasses, cleanDescription, concealSecrets, holdsProse, bindEditorClickAwaySave, formatCount, sourceLabel, askDamageQuality, damageFormulaFor, damageQualityLabel, damageQualityKind, d20CardBody, d20CardFlavor, D20_CARD_ABILITIES, combatOption, combatDamageFormula, askImprovisedAttack, askAttack, IMPROVISED_FORMULA, IMPROVISED_ID, nameEditorToggles } from "../utils.js";
 import { resultText, resultPlainText, compendiumInfoFromString } from "../compendium.js";
 import { SETTINGS_NS } from "../settings.js";
 import { CONTAINER_ART_CHOICES, CONTAINER_CLASSES } from "../icons.js";
@@ -369,6 +369,16 @@ const owned = (fn) => function (event, target) {
  *
  * @extends {ActorSheetV2}
  */
+/**
+ * The user's current Foundry targets as the damage card stores them
+ * (token ids joined by ";"), or null for none. The inventory rows' rolls read
+ * them; the Attack window passes its own choice instead.
+ */
+const userTargetIds = () => {
+  const ids = Array.from(game.user.targets).map((tk) => tk.id);
+  return ids.length ? ids.join(";") : null;
+};
+
 export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
   /** @override */
   static DEFAULT_OPTIONS = {
@@ -438,6 +448,9 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       // Page 1's slot line and the Overburdened banner turn to Inventory. Not
       // owned(): turning a page is a read, as the rail is.
       openInventory: CairnActorSheet.#onOpenInventory,
+      // The Attack window (the rail's burst, page 1's button): every attack.
+      // Not owned(), for Improvised Attack's reason; its gate is inside.
+      attack: CairnActorSheet.#onAttack,
       // Description tab
       rollAge: owned(mayRandomize(CairnActorSheet.#onRollAge)),
       rollOmen: owned(mayRandomize(CairnActorSheet.#onRollOmen)),
@@ -4432,6 +4445,21 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       quality = await askDamageQuality(dataset.roll, dataset.label ?? "", { windowId: this.window?.windowId });
       if (quality === null) return; // dismissed: roll nothing
     }
+    return this._postWeaponDamage({ formula: dataset.roll, weapon: dataset.label ?? "", quality, panicked, targetIds: userTargetIds() });
+  }
+
+  /**
+   * Roll a weapon's damage at the chosen quality and post the damage card: the
+   * inventory row's die and the Attack window both end here (2026-11-19), so
+   * the card one attack makes is the card the other makes.
+   * @param {Object} o
+   * @param {String} o.formula   the weapon's own damage formula
+   * @param {String} o.weapon    its display name ("" for none)
+   * @param {String} o.quality   "standard" | "impaired" | "enhanced"
+   * @param {Boolean} o.panicked
+   * @param {String|null} o.targetIds  token ids joined by ";", or null
+   */
+  async _postWeaponDamage({ formula: weaponFormula, weapon, quality, panicked, targetIds }) {
     // THE OPTIONAL COMBAT RULES, through the ONE gate (`combatDamageFormula`,
     // utils.js): a player character's die explodes at roll time when that
     // option is on, and the card is marked for the maneuver line when that one
@@ -4439,7 +4467,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // reasons its docblock states. NO DIE-SIZE FLOOR since 2026-10-03 (user
     // ruling): an impaired 1d4 is judged like any other die. Melee and ranged
     // are the same to both since the night of 2026-10-03.
-    const base = damageFormulaFor(quality, dataset.roll);
+    const base = damageFormulaFor(quality, weaponFormula);
     const { formula, maneuver: mayManeuver } = combatDamageFormula(base, {
       pc: this.actor.type === "character",
     });
@@ -4448,13 +4476,10 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // Two whole-sentence keys, not fragments glued with `+`: word order is not
     // universal, and the translator could not move the weapon name or the
     // parenthetical. Same rule as _buildTraitSentence and _prepareConnectionLabel.
-    const label = dataset.label
+    const label = weapon
       ? game.i18n.format(panicked ? "CAIRN.RollingDmgWithWeaponPanic" : "CAIRN.RollingDmgWithWeapon",
-        { weapon: dataset.label })
+        { weapon })
       : "";
-
-    const targetedTokens = Array.from(game.user.targets).map((tk) => tk.id);
-    const targetIds = targetedTokens.length ? targetedTokens.join(";") : null;
 
     const flavor = await foundry.applications.handlebars.renderTemplate(
       "systems/air-bladder/templates/chat/dmg-roll-card.html",
@@ -4462,7 +4487,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
         label, targets: targetIds,
         // The weapon travels as a datum too — the attack line rebuilds the
         // sentence at render and cannot read it back out of localized prose.
-        weapon: dataset.label ?? "",
+        weapon,
         quality: damageQualityLabel(quality, { panicked }),
         // The KIND rides beside the sentence, exactly as `weapon` rides beside
         // the attack line, so the render hook can rebuild the badge per viewer
@@ -4908,6 +4933,35 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     this._inventoryTurn = event.detail > 1 ? null : setTimeout(turn, 300);
   }
 
+  /**
+   * The Attack window (user ask 2026-11-19, after Base Knavery's): one window
+   * for every attack, asking who, with what, and how (askAttack, utils.js).
+   * A weapon rolls through the row's own path, an improvised attack through
+   * its row's, so a card from here is the card the inventory would post.
+   * The button renders only for an owner (`canImprovise`); a stale sheet's
+   * click from anyone else rolls nothing.
+   */
+  static async #onAttack() {
+    if (!this.actor.isOwner) return;
+    const panicked = game.settings.get(SETTINGS_NS, "use-panic")
+      && this.actor.system.panicked === true;
+    const weapons = this.actor.items
+      .filter((i) => i.system?.equipped && i.system?.damageFormula)
+      .sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0));
+    const answer = await askAttack({ actor: this.actor, weapons, panicked, windowId: this.window?.windowId });
+    if (!answer) return;                    // dismissed: roll nothing
+    const targetIds = answer.targetIds.length ? answer.targetIds.join(";") : null;
+    if (answer.weaponId === IMPROVISED_ID) {
+      return this._postImprovisedDamage({ description: answer.description, formula: answer.formula, panicked, targetIds });
+    }
+    const weapon = this.actor.items.get(answer.weaponId);
+    if (!weapon) return;
+    // Panic imposes impaired whatever was pressed (ruling 2026-08-07); the
+    // window offers only Impaired then, and this is the rule.
+    const quality = panicked ? "impaired" : answer.quality;
+    return this._postWeaponDamage({ formula: weapon.system.damageFormula, weapon: weapon.name, quality, panicked, targetIds });
+  }
+
   static async #onImprovisedAttack() {
     if (!this.actor.isOwner) {
       ui.notifications.warn(game.i18n.localize("CAIRN.Notify.ImprovisedNotYours"));
@@ -4919,11 +4973,24 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
 
     const answer = await askImprovisedAttack({ panicked, windowId: this.window?.windowId });
     if (!answer) return;                    // dismissed or cancelled: roll nothing
+    return this._postImprovisedDamage({ ...answer, panicked, targetIds: userTargetIds() });
+  }
+
+  /**
+   * Roll an improvised attack and post its card: the inventory's Improvised
+   * Attack row and the Attack window's improvised choice both end here
+   * (2026-11-19). The checks below are the row's, unchanged.
+   * @param {Object} o
+   * @param {String} o.description  what it is made with ("" for nothing typed)
+   * @param {String} o.formula      the typed damage formula
+   * @param {Boolean} o.panicked
+   * @param {String|null} o.targetIds  token ids joined by ";", or null
+   */
+  async _postImprovisedDamage({ description, formula: typed, panicked, targetIds }) {
 
     // The same three rules, in the same order, as the Warden's Damage field.
     // The `@` guard comes FIRST because `Roll.validate` stubs every `@ref` to 1
     // and then says yes to a formula the evaluator would silently gut.
-    const typed = answer.formula;
 
     // PANIC OVERRIDES WHATEVER WAS TYPED, and it is overridden HERE rather than
     // in the dialog: this is the one place that decides what gets rolled, and it
@@ -4970,14 +5037,12 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // The phrase is NEVER stored as the weapon -- see `data-unarmed` in
     // dmg-roll-card.html for why it cannot be -- so `weapon: what` below stays
     // "" when blank, and `unarmed: true` is what the two rebuilds read instead.
-    const what = answer.description;
+    const what = description;
     const label = what
       ? game.i18n.format(panicked ? "CAIRN.RollingDmgWithWeaponPanic" : "CAIRN.RollingDmgWithWeapon",
         { weapon: what })
       : game.i18n.localize(panicked ? "CAIRN.RollingDmgImprovisedPanic" : "CAIRN.RollingDmgImprovised");
 
-    const targetedTokens = Array.from(game.user.targets).map((tk) => tk.id);
-    const targetIds = targetedTokens.length ? targetedTokens.join(";") : null;
 
     const flavor = await foundry.applications.handlebars.renderTemplate(
       "systems/air-bladder/templates/chat/dmg-roll-card.html",

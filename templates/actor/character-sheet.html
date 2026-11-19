@@ -256,12 +256,13 @@
                             <button id="rest-button" type="button" data-action="rest" class="strict-size-button" data-tooltip="{{#if system.deprived}}{{ localize deprivedTipKey }}{{else}}{{ localize 'CAIRN.RestTip' }}{{/if}}" {{#if system.deprived}}disabled{{/if}}><i class="fas fa-campground"></i> {{ localize 'CAIRN.Rest' }}</button>
                             <button id="restore-abilities-button" type="button" data-action="restoreAbilities" class="strict-size-button" data-tooltip="{{#if system.deprived}}{{ localize deprivedTipKey }}{{else}}{{ localize 'CAIRN.RestoreTip' }}{{/if}}" {{#if system.deprived}}disabled{{/if}}><i class="fas fa-heart-pulse"></i> {{ localize 'CAIRN.RestoreAbilities' }}</button>
                             <button id="die-of-fate-button" type="button" data-action="dieOfFate" data-always-live class="strict-size-button" data-tooltip="{{ localize 'CAIRN.DieOfFateTip' }}"><i class="fas fa-dice-d6"></i> {{ localize 'CAIRN.DieOfFate' }}</button>
-                            {{!-- The rail's Improvised Attack, as a button (user ask
-                                  2026-11-19): the same gate, action and tooltip as
-                                  parts/tab-rail.html, so the two cannot part. --}}
+                            {{!-- The rail's Attack, as a button (user asks 2026-11-19):
+                                  the same gate, action and tooltip as parts/tab-rail.html,
+                                  so the two cannot part. Every attack, not the improvised
+                                  one alone: it opens the Attack window. --}}
                             {{#if canImprovise}}
-                            <button id="improvised-attack-button" type="button" data-action="improvisedAttack" data-always-live class="strict-size-button cairn-attack-button"
-                                data-tooltip-html="<strong>{{localize 'CAIRN.ImprovisedAttack'}}</strong><br>{{localize 'CAIRN.ImprovisedAttackTip'}}"><i class="fa-solid fa-burst" inert></i> {{ localize 'CAIRN.ImprovisedAttack' }}</button>
+                            <button id="attack-button" type="button" data-action="attack" data-always-live class="strict-size-button cairn-attack-button"
+                                data-tooltip-html="<strong>{{localize 'CAIRN.Attack'}}</strong><br>{{localize 'CAIRN.AttackTip'}}"><i class="fa-solid fa-burst" inert></i> {{ localize 'CAIRN.Attack' }}</button>
                             {{/if}}
                         </div>
                     </div>

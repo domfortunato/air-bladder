@@ -18,13 +18,14 @@
   </button>
   {{/each}}
   {{#if canImprovise}}
-  {{!-- Not a page: the Improvised Attack, from any page. The SAME action the
-        inventory's Improvised Attack row carries, so one handler answers both
-        (owner gate and all); the row stays where it is. --}}
+  {{!-- Not a page: the Attack window, from any page, for EVERY attack (user,
+        2026-11-19: not the improvised attack alone). Who, with what, and
+        standard / impaired / enhanced (askAttack, utils.js). The inventory's
+        rows keep their own dice and Improvised Attack row. --}}
   <span class="cairn-rail-divider" aria-hidden="true"></span>
-  <button type="button" class="cairn-rail-attack" data-action="improvisedAttack" data-always-live
-    aria-label="{{localize 'CAIRN.ImprovisedAttack'}}"
-    data-tooltip-html="<strong>{{localize 'CAIRN.ImprovisedAttack'}}</strong><br>{{localize 'CAIRN.ImprovisedAttackTip'}}">
+  <button type="button" class="cairn-rail-attack" data-action="attack" data-always-live
+    aria-label="{{localize 'CAIRN.Attack'}}"
+    data-tooltip-html="<strong>{{localize 'CAIRN.Attack'}}</strong><br>{{localize 'CAIRN.AttackTip'}}">
     <i class="fa-solid fa-burst" inert></i>
   </button>
   {{/if}}
