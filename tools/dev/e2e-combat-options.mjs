@@ -1434,12 +1434,11 @@ try {
         // rail's Inventory button; on the npc sheet the strip's Items tab.
         actor.sheet.element?.querySelector('[data-action="tab"][data-tab="items"]')?.click();
         await sleep(250);
-        // THE ROW'S CONTROL, SCOPED TO THE INVENTORY PAGE. Since 2026-11-19 a
-        // character's rail carries an Improvised Attack button of its own, with
-        // the same data-action, and the rail is drawn FIRST — so an unscoped
-        // query hands back the rail's <button>, whose missing `.improvised-row`
-        // reads as "the row is gone". The rail button is a second door to the
-        // same handler; this leg is about the row.
+        // THE ROW'S CONTROL, SCOPED TO THE INVENTORY PAGE. For a few hours on
+        // 2026-11-19 the rail carried an Improvised Attack button with the same
+        // data-action, drawn FIRST, so an unscoped query handed back the rail's
+        // <button>. The rail's burst is the Attack window now (`attack`), but
+        // the scope stays: this leg is about the row.
         const itemsPage = actor.sheet.element?.querySelector('.tab[data-tab="items"]');
         const ctrl = itemsPage?.querySelector('[data-action="improvisedAttack"]');
         if (!ctrl) { await actor.sheet.close(); return { err: "no Improvised Attack control" }; }
@@ -1694,10 +1693,10 @@ try {
         pc.sheet.element?.querySelector('[data-action="tab"][data-tab="items"]')?.click();
         await sleep(250);
         // The affordance: the row is not rendered at all. UNSCOPED ON PURPOSE:
-        // since 2026-11-19 the character's rail carries a second Improvised
-        // Attack button behind the same `canImprovise`, and neither door may
-        // be drawn for a non-owner.
-        out.gateHidesButton = !pc.sheet.element?.querySelector('[data-action="improvisedAttack"]');
+        // since 2026-11-19 the rail's burst and page 1's Attack button (the
+        // Attack window, which also makes improvised attacks) sit behind the
+        // same `canImprovise`, and no door may be drawn for a non-owner.
+        out.gateHidesButton = !pc.sheet.element?.querySelector('[data-action="improvisedAttack"], [data-action="attack"]');
         // The refusal: reaching the action another way is still turned away, and
         // posts nothing.
         const before = game.messages.size;

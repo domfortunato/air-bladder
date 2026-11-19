@@ -188,7 +188,7 @@ try {
           .map((c) => `${c.tagName.toLowerCase()}.${[...c.classList].join(".")}`),
         rail: rail
           ? { hidden: rail.hidden, kids: rail.children.length, buttons: rail.querySelectorAll("button").length,
-              attack: !!rail.querySelector('[data-action="improvisedAttack"]') }
+              attack: !!rail.querySelector('[data-action="attack"], [data-action="improvisedAttack"]') }
           : null,
         genDice: q('[data-action="rollProfession"], [data-action="rollName"], [data-action="rollPortrait"]'),
         pickers: q('[data-action="pickProfession"], [data-action="pickFaction"]'),

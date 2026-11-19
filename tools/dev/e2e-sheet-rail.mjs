@@ -9,7 +9,7 @@
  * from a column of icon buttons hung off the window's edge
  * (templates/parts/tab-rail.html, placed by module/actor/tab-rail.js):
  * Character, Inventory, Growth, Description, Background & Notes, then the
- * Improvised Attack. The npc sheet keeps its text tab strip. What this holds:
+ * Attack window. The npc sheet keeps its text tab strip. What this holds:
  *
  *   1. the frame: `cairn-railed` + `cairn-character-sheet`, 480 x 700;
  *   2. the rail: a direct child of .window-content, the five pages in order,
@@ -24,18 +24,18 @@
  *   6. what is written to `system.growth` shows in the journal. That the SERVER
  *      sanitizes it (system.json's htmlFields, the security control) is
  *      `dev:sanitize`'s, which writes it as a real player;
- *   7. the rail's Improvised Attack is the inventory row's own action and opens
- *      its dialog;
+ *   7. the rail's burst opens the Attack window (every attack; 2026-11-19 the
+ *      user corrected the first cut, which opened the improvised attack only);
  *   8. an npc sheet draws no rail and keeps its strip;
  *   9. a player OBSERVING the character can turn its pages (the rail stays live
- *      on a sheet they cannot edit) and is offered no Improvised Attack;
+ *      on a sheet they cannot edit) and is offered no Attack;
  *  10. a LIMITED viewer's rail is hidden and empty.
  *
  * Added 2026-11-19 (user asks, the second round):
  *   3b. the "For Use With Cairn" footer stands under EVERY page (outside the
  *      pages, as Base Knavery's Made for Knave footer), once;
- *  11. page 1 carries an Improvised Attack button under Die of Fate, the rail's
- *      red burst, the same action, live on a sheet the viewer cannot edit;
+ *  11. page 1 carries an Attack button under Die of Fate, the rail's red burst,
+ *      the same action, live on a sheet the viewer cannot edit;
  *  12. Deprived (over Panicked) stands in the vitals column, under HP and above
  *      Slots and Rest;
  *  13. a click on the slot line, or on the Overburdened banner, turns to
@@ -208,27 +208,26 @@ try {
       placeholderGone: !journal()?.querySelector(".cairn-editor-placeholder"),
     };
 
-    /* ---- 7. the rail's Improvised Attack ------------------------------- */
+    /* ---- 7. the rail's Attack ------------------------------------------ */
     const atk = frame.querySelector("nav.cairn-tab-rail button.cairn-rail-attack");
-    out.attack = { present: !!atk, action: atk?.dataset.action ?? null,
-      rowAction: frame.querySelector(".improvised-row [data-action]")?.dataset.action ?? null };
+    out.attack = { present: !!atk, action: atk?.dataset.action ?? null };
     if (atk) {
       const stale = new Set(document.querySelectorAll(".application.dialog"));
       atk.click();
       let dlg = null;
       const t0 = Date.now();
       while (!(dlg = [...document.querySelectorAll(".application.dialog")].find((d) => !stale.has(d))) && Date.now() - t0 < 5000) await sleep(100);
-      out.attack.dialog = !!dlg;
+      out.attack.dialog = !!dlg?.classList.contains("cairn-attack-dialog");
       dlg?.querySelector('[data-action="close"]')?.click();
       const t1 = Date.now();
       while (dlg?.isConnected && Date.now() - t1 < 5000) await sleep(100);
     }
 
-    /* ---- 11. page 1's Improvised Attack button, under Die of Fate ------- */
+    /* ---- 11. page 1's Attack button, under Die of Fate ------------------ */
     await sheet.changeTab("character", "primary");
     await sleep(300);
     const fate = frame.querySelector("#die-of-fate-button");
-    const btn = frame.querySelector('.tab[data-tab="character"] .cairn-vital-buttons [data-action="improvisedAttack"]');
+    const btn = frame.querySelector('.tab[data-tab="character"] .cairn-vital-buttons [data-action="attack"]');
     out.button = { present: !!btn, live: btn?.hasAttribute("data-always-live") ?? false,
       afterFate: !!fate && fate.nextElementSibling === btn,
       below: !!fate && !!btn && btn.getBoundingClientRect().top >= fate.getBoundingClientRect().bottom - 1,
@@ -241,7 +240,7 @@ try {
       let dlg = null;
       const t0 = Date.now();
       while (!(dlg = [...document.querySelectorAll(".application.dialog")].find((d) => !stale.has(d))) && Date.now() - t0 < 5000) await sleep(100);
-      out.button.dialog = !!dlg;
+      out.button.dialog = !!dlg?.classList.contains("cairn-attack-dialog");
       dlg?.querySelector('[data-action="close"]')?.click();
       const t1 = Date.now();
       while (dlg?.isConnected && Date.now() - t1 < 5000) await sleep(100);
@@ -316,7 +315,7 @@ try {
         const growthBtn = el.querySelector('nav.cairn-tab-rail button[data-tab="growth"]');
         const res = { editable: actor.sheet.isEditable, disabled: growthBtn?.disabled ?? null,
           attack: !!el.querySelector("nav.cairn-tab-rail .cairn-rail-attack")
-            || !!el.querySelector('.cairn-vital-buttons [data-action="improvisedAttack"]') };
+            || !!el.querySelector('.cairn-vital-buttons [data-action="attack"]') };
         growthBtn?.click();
         await sleep(400);
         res.turned = el.querySelector('.tab[data-tab="growth"]')?.classList.contains("active") ?? false;
@@ -425,14 +424,14 @@ else {
     : fail(`journal: ${JSON.stringify(j)}`);
 
   // 7
-  r.attack.present && r.attack.action === "improvisedAttack" && r.attack.action === r.attack.rowAction && r.attack.dialog
-    ? ok("the rail's Improvised Attack is the inventory row's own action, and opens its dialog")
+  r.attack.present && r.attack.action === "attack" && r.attack.dialog
+    ? ok("the rail's burst opens the Attack window (every attack, not the improvised one alone)")
     : fail(`rail attack: ${JSON.stringify(r.attack)}`);
 
   // 11
   const bt = r.button;
   bt.present && bt.live && bt.afterFate && bt.below && bt.burst && bt.red && bt.dialog
-    ? ok("page 1's Improvised Attack sits under Die of Fate, wears the rail's red burst, stays live, and opens its dialog")
+    ? ok("page 1's Attack button sits under Die of Fate, wears the rail's red burst, stays live, and opens the Attack window")
     : fail(`page-1 attack button: ${JSON.stringify(bt)}`);
 
   // 12
@@ -462,7 +461,7 @@ else {
     const o = p.observer;
     o?.error ? fail(`observer: ${o.error}`)
       : !o.editable && o.disabled === false && o.turned && !o.attack
-        ? ok("an observing player cannot edit the sheet but can turn its pages, and is offered no Improvised Attack")
+        ? ok("an observing player cannot edit the sheet but can turn its pages, and is offered no Attack")
         : fail(`observer: ${JSON.stringify(o)}`);
     const l = p.limited;
     l?.limited && l.block && l.railHidden === true && l.railButtons === 0
