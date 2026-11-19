@@ -101,10 +101,15 @@ export class WelcomeWindow extends HandlebarsApplicationMixin(ApplicationV2) {
     // The maintainer by name: system.json lists the inherited authors first, so
     // the first entry is Yochai Gal's, not the person this window speaks for.
     const author = [...(game.system.authors ?? [])].find((a) => a.name === "Dom Bosco") ?? { name: "Dom Bosco" };
+    const translator = [...(game.system.authors ?? [])].find((a) => a.name === "Malecho") ?? { name: "Malecho" };
     return {
       title: game.system.title,
       byline: F("CAIRN.Welcome.By", { author: author.name, version: game.system.version }),
       authorUrl: author.url ?? "",
+      // The Spanish translator under the byline (user, 2026-11-19), linked from
+      // the same system.json entry the release credits.
+      translator: F("CAIRN.Welcome.Translation", { translator: translator.name }),
+      translatorUrl: translator.url ?? "",
       bookends: WELCOME_BOOKENDS,
       // The "For Use With Cairn" stamp at the foot of the side column, where Base
       // Knavery shows its own compatibility mark: the same file the character

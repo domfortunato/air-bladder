@@ -14,6 +14,9 @@
       <p class="ab-welcome-byline">
         {{#if authorUrl}}<a href="{{authorUrl}}" target="_blank" rel="noopener">{{byline}}</a>{{else}}{{byline}}{{/if}}
       </p>
+      <p class="ab-welcome-byline ab-welcome-translator">
+        {{#if translatorUrl}}<a href="{{translatorUrl}}" target="_blank" rel="noopener">{{translator}}</a>{{else}}{{translator}}{{/if}}
+      </p>
     </div>
     <div class="ab-welcome-bookend ab-welcome-bookend-right">
       <img src="{{bookends.right}}" alt="{{localize 'CAIRN.Welcome.PortraitAlt'}}">
