@@ -111,7 +111,16 @@ try {
       return {
         title: el.querySelector(".ab-welcome-title")?.textContent.trim(),
         translator: el.querySelector(".ab-welcome-translator a")?.textContent.trim() ?? null,
-        origin: el.querySelector(".ab-welcome-titles .ab-welcome-origin")?.textContent.trim() ?? null,
+        origin: (() => {
+          // Never in the masthead (it would read as part of the ™ title); under the
+          // licensing, straight above the logos, and nothing spilling out of its box.
+          const o = el.querySelector(".ab-welcome-origin");
+          if (!o) return null;
+          return { text: o.textContent.trim(), inHead: !!o.closest(".ab-welcome-head"),
+            inLicensing: !!o.closest(".ab-welcome-licensing"),
+            aboveLogos: o.nextElementSibling?.classList.contains("ab-welcome-marks") ?? false,
+            overflow: o.scrollWidth > o.clientWidth + 1 };
+        })(),
         portraits: imgs.map((i) => i.naturalWidth),
         rawKeys: (el.textContent.match(/CAIRN\.\w+/g) ?? []),
         rules: el.querySelectorAll(".ab-welcome-rules li").length,
@@ -124,7 +133,9 @@ try {
     }, ID);
     check("the title is the system's", /Air Bladder/.test(content.title ?? ""), content.title);
     check("the Spanish translator is credited under the byline, linked", /Malecho/.test(content.translator ?? ""), String(content.translator));
-    check("the name's origin (Gear table, p. 17) sits under the title", /Gear table on p\. 17/.test(content.origin ?? ""), String(content.origin));
+    check("the name's origin (Gear table, p. 17) sits under the licensing, above the logos, not in the masthead",
+      /Gear table on p\. 17/.test(content.origin?.text ?? "") && content.origin.inHead === false
+        && content.origin.inLicensing && content.origin.aboveLogos && !content.origin.overflow, JSON.stringify(content.origin));
     check("both portraits loaded", content.portraits.length === 2 && content.portraits.every((w) => w > 0), JSON.stringify(content.portraits));
     check("no raw language key on screen", content.rawKeys.length === 0, content.rawKeys.join(", "));
     check("three System Rules lines: Cairn 2e, Barebones, custom backgrounds", content.rules === 3, String(content.rules));

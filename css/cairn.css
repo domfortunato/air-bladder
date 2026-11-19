@@ -5128,11 +5128,15 @@ header.character-generator.directory-header .header-actions > button:not(.cairn-
     font-variant: small-caps; font-weight: bold; font-size: 30px; color: var(--ab-ink);
 }
 .ab-welcome-title sup { font-size: 0.45em; font-variant: normal; vertical-align: super; margin-left: 1px; }
-/* The name's origin, under the title and above the byline: prominent, so in the
-   ink colour and larger than the byline (user, 2026-11-19). */
+/* The name's origin: in the side column under the licensing, above the logos
+   (user, 2026-11-19), boxed like the "This world offers" line so it stands out.
+   The column is too narrow for one line, so the lines are balanced rather than
+   leaving a word or two alone on the last. Kept out of the masthead so it never
+   reads as part of the ™ mark. */
 .ab-welcome-origin {
-    margin: 2px 0 6px; text-align: center; font-family: "Alegreya", Times, "Times New Roman", Georgia, serif;
-    font-style: italic; font-size: 16px; line-height: 1.3; color: var(--ab-ink);
+    margin: 10px 0 0; padding: 6px 12px; border: 1px solid var(--ab-accent); border-radius: 4px; background: var(--ab-accent-wash);
+    text-align: center; text-wrap: balance; font-family: "Alegreya", Times, "Times New Roman", Georgia, serif;
+    font-size: 16px; line-height: 1.3; color: var(--ab-ink);
 }
 .ab-welcome-byline { margin: 0; color: var(--ab-muted); font-size: 13px; }
 .ab-welcome-byline a { color: inherit; }

@@ -11,8 +11,6 @@
     </div>
     <div class="ab-welcome-titles">
       <h1 class="ab-welcome-title">{{title}}<sup>™</sup></h1>
-      {{!-- Where the name comes from, straight under the title (user, 2026-11-19: "prominent"). --}}
-      <p class="ab-welcome-origin">{{localize "CAIRN.Welcome.Origin"}}</p>
       <p class="ab-welcome-byline">
         {{#if authorUrl}}<a href="{{authorUrl}}" target="_blank" rel="noopener">{{byline}}</a>{{else}}{{byline}}{{/if}}
       </p>
@@ -108,6 +106,10 @@
              2026-11-19), in Base Knavery's slot for its own compatibility mark. Whole and opaque: never
              altered (logo/README.md). --}}
         {{!-- The Air Bladder logo and the stamp side by side, both at full strength (user, 2026-11-19). --}}
+        {{!-- Where the name comes from (user, 2026-11-19: "prominent"), under the licensing
+             and above the logos, as the user placed it. Never in the masthead: under the ™
+             title it read as part of the mark, and Cairn 2e is not the user's to put in it. --}}
+        <p class="ab-welcome-origin">{{localize "CAIRN.Welcome.Origin"}}</p>
         <div class="ab-welcome-marks">
           <img class="ab-welcome-logo ab-logo-light" src="{{logo}}" alt="{{title}}">
           <img class="ab-welcome-logo ab-logo-dark" src="{{logoDark}}" alt="{{title}}">
