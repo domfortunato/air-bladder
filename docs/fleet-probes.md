@@ -1,7 +1,7 @@
 # Running the probes on the fleet
 
 The probe fleet runs this repo's whole e2e suite on the homelab cluster, eleven probes at a time:
-105 probes in about five minutes, against an hour or more one by one on CT 123. This page covers
+107 probes in about seven minutes, against an hour or more one by one on CT 123. This page covers
 starting a run from here, reading what it found, and where the suite stands.
 
 The fleet's machinery (the probe boxes, their baseline world, the runner) belongs to the ops repo,
@@ -26,7 +26,7 @@ a probe, the dev world or the system is this repo's to fix.
 - **A run** rolls every box back to its `pristine` snapshot and deploys the ref under test into the box's
   system folder. It then runs several probes per box in turn, **with no reset between them**.
 - **Which probes run:** every `dev:` script in `package.json` whose command runs a `tools/dev/e2e-*.mjs`
-  file, so a new probe joins the fleet just by being declared there. That is 106 of the 110 `dev:` scripts:
+  file, so a new probe joins the fleet just by being declared there. That is 107 of the 111 `dev:` scripts:
   the ops registry leaves out `dev:upgrade`, and `dev:smoke`, `dev:actors` and `dev:players`
   are not probes.
 - **`pristine` holds a copy of CT 123's dev world as it stood on 2026-10-21**, launched once at 14.369 on
@@ -94,7 +94,25 @@ in a batch. A red on a different box in each run, with the same message every ti
 baseline world. A red that follows one box's queue points at an earlier probe on that box that leaked
 something.
 
-## Where things stand (2026-11-09)
+## Where things stand (2026-11-19)
+
+**The character sheet redesign (a rail, five pages, a Growth page) at `505767a3`: green on all three
+builds.** 107 probes now, with `dev:sheet-rail` new.
+
+- **Negative control first:** `dev:sheet-rail` and the extended `dev:sanitize` alone at `d69849b8`, the
+  probes-only commit ahead of the change, both red (`20261119T195356Z`): no rail module, no
+  `system.growth`.
+- **At `31af7348`, 104/107 on 14.370** (`20261119T204238Z`): two real reds, fixed in `505767a3` (the
+  rail's Connections count read the actor's stale copy; the shield's Armor label clipped), and a
+  `review-batch2` crash at the join page (greaves-130 served no join form), which passed at the next run.
+- **At `505767a3`: 107/107 on 14.370** (`20261119T205409Z`), **107/107 on 14.369**
+  (`20261119T210538Z`), and **106/107 on 14.368** (`20261119T211602Z`). The red there is UNDERSTOOD:
+  `connections` passed all 29 checks and failed on Dice So Nice's "Error creating WebGL context", and its
+  Chromium log (greaves-116) shows a Vulkan image allocation failing, `SharedContextState context lost via
+  Skia OOM` and the GPU process restarting: the card ran out, the 11-06 `hazard` class. Green solo at the
+  same SHA (`20261119T212333Z`).
+
+## Before that (2026-11-09)
 
 **Every Foundry 14 build from 14.368 on, before every release (user ruling 2026-11-09), so three
 projects now.** The boxes moved to 14.370, which the plain `air-bladder` project serves, and that left
