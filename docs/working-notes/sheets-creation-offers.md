@@ -52,6 +52,12 @@ Moved word for word from CLAUDE.md (2026-11-01); CLAUDE.md points here.
   still sets the limit. The "For Use With Cairn" footer left Description for the
   foot of `.cairn-character`, under every page, as Base Knavery's Made for Knave
   footer.
+- Third round (user asks, 2026-11-19): a character's Pronouns and Age stand
+  under the name (`.identity-bio-line`, a row of the identity grid) and its trait
+  sentence under Gold; `bioOnPageOne` keeps them off the Description bio-block.
+  The npc sheet is unchanged. Trait pick-lists open by default on EVERY sheet
+  (`_traitsCollapsed ?? false`, ruled for all sheets); a probe that clicks the
+  toggle must check first, or it closes them.
 - Gate `dev:sheet-rail`.
 
 ## Creation routes

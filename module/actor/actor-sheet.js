@@ -1654,9 +1654,12 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     });
 
     // Live constructed trait sentence + collapsible pick-lists (transient
-    // sheet state; defaults collapsed so the sentence is the clean default view).
+    // sheet state). OPEN by default on every sheet since 2026-11-19 (user
+    // ruling; they were collapsed behind the sentence): a character's
+    // sentence moved to its Character page, and the pick-lists are what the
+    // Description tab is for.
     context.traitSentence = this._buildTraitSentence(this.actor.system.traits, this.actor.system.age);
-    context.traitsCollapsed = this._traitsCollapsed ?? true;
+    context.traitsCollapsed = this._traitsCollapsed ?? false;
 
     // Scars pick-list from the same tables-2e pack. Neither Omen nor Scar is
     // generated: a player ticks the field's checkbox to enable it, then rolls
@@ -1710,6 +1713,10 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    */
   async _prepareCharacterContext(context) {
     await this._prepareBiographyContext(context);
+    // A character's Pronouns, Age and trait sentence stand on its Character
+    // page, under Gold (user ask 2026-11-19); the bio-block on Description
+    // leaves them out. The npc sheet never sets this, so it keeps them.
+    context.bioOnPageOne = true;
 
     // Background description (from the linked Item) + a friendly source label,
     // shown in the sheet header. "2e" -> "Cairn 2e".
@@ -5193,14 +5200,14 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
 
   /**
    * Expand/collapse the trait pick-lists (+/-). Transient sheet state, so it
-   * survives re-renders but is not stored on the actor. Defaults collapsed
-   * (_prepareContext uses `?? true`), so read the effective value rather than
-   * negating a maybe-undefined flag.
+   * survives re-renders but is not stored on the actor. Defaults OPEN since
+   * 2026-11-19 (_prepareBiographyContext uses `?? false`), so read the
+   * effective value rather than negating a maybe-undefined flag.
    * @this {CairnActorSheet}
    */
   static #onToggleTraits(event) {
     event.preventDefault();
-    this._traitsCollapsed = !(this._traitsCollapsed ?? true);
+    this._traitsCollapsed = !(this._traitsCollapsed ?? false);
     this.render(false);
   }
 

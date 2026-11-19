@@ -5388,12 +5388,27 @@ header.character-generator.directory-header .header-actions > button:not(.cairn-
 .cairn-character-sheet .cairn-head .portrait { height: 104px; }
 /* Two badges on the portrait, the die LEFT of the list button, as before. */
 .cairn-character-sheet .cairn-head .portrait-roll { right: 32px; }
-/* The name grid without the HP/Gold row it used to end in. */
+/* The name grid without the HP/Gold row it used to end in: the name, then
+   Pronouns and Age (moved up from Description, user ask 2026-11-19), then the
+   background line and its description. */
 .cairn-character-sheet .cairn-identity {
     min-width: 0;
     min-height: 104px;
-    grid-template-rows: 46px 24px auto;
+    grid-template-rows: 46px 28px 24px auto;
 }
+.cairn-character-sheet .identity-bio-line {
+    display: flex; align-items: center; gap: 12px; min-width: 0;
+    font-family: "Alegreya", Times, "Times New Roman", Georgia, serif; font-size: 15px;
+}
+.cairn-character-sheet .identity-bio-line > div { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.cairn-character-sheet .identity-bio-line label {
+    margin: 0; white-space: nowrap; font-weight: bold; font-variant: small-caps; line-height: 18px;
+}
+.cairn-character-sheet .identity-bio-line .pronouns-row { flex: 1 1 auto; }
+.cairn-character-sheet .identity-bio-line .trait-input { height: 24px; }
+.cairn-character-sheet .identity-bio-line .pronouns-row .trait-input { flex: 1 1 auto; min-width: 0; }
+.cairn-character-sheet .identity-bio-line .age-row .trait-input { flex: 0 0 48px; width: 48px; text-align: center; }
+.cairn-character-sheet .identity-bio-line .age-roll { flex: 0 0 auto; cursor: pointer; }
 
 /* ---- Character page: abilities + band | vitals ---------------------------- */
 .cairn-character-sheet .cairn-body {
@@ -5471,6 +5486,8 @@ header.character-generator.directory-header .header-actions > button:not(.cairn-
 .cairn-character-sheet .cairn-band .gold-input { width: 96px; text-align: right; font-size: 16px; }
 .cairn-character-sheet .cairn-band .deprived-check,
 .cairn-character-sheet .cairn-band .panicked-check { margin: 0; }
+/* The trait sentence under Gold (moved from Description, 2026-11-19). */
+.cairn-character-sheet .cairn-band .trait-sentence { margin: 2px 0 0; font-style: italic; line-height: 1.4; }
 /* Too much gold: the shared .overburdened-gold paints a COUNTER's frame red
    over a black fill; a band row has neither, so the cue is the red figure. */
 .cairn-character-sheet .cairn-band .band-gold.overburdened-gold { background: none; border: none; }

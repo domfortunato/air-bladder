@@ -10,6 +10,10 @@
                         {{#if traitRows}}
                         <div class="character-traits">
                             <!-- Pronouns + Age at the top, then the constructed sentence. -->
+                            {{!-- bioOnPageOne: a CHARACTER's Pronouns, Age and sentence
+                                  stand on its Character page under Gold since 2026-11-19
+                                  (character-sheet.html); the npc sheet keeps them here. --}}
+                            {{#unless bioOnPageOne}}
                             <div class="bio-top">
                                 <div class="trait-row pronouns-row">
                                     <label class="trait-label">{{ localize 'CAIRN.Pronouns' }}</label>
@@ -29,15 +33,16 @@
                                 </div>
                                 {{/if}}
                             </div>
+                            {{/unless}}
                             {{!-- showTraits (2026-09-07): the Warden's show-traits switch
                                   hides the sentence and the whole pick-list section.
                                   Pronouns above stay — never rolled, never hidden. --}}
                             {{#if showTraits}}
-                            {{#if traitSentence}}
+                            {{#unless bioOnPageOne}}{{#if traitSentence}}
                             <p class="trait-sentence">{{traitSentence}}</p>
-                            {{/if}}
-                            <!-- Collapsible pick-lists: the sentence is the default view;
-                                 expand to change any individual trait. -->
+                            {{/if}}{{/unless}}
+                            <!-- Collapsible pick-lists, OPEN by default since 2026-11-19
+                                 (traitsCollapsed ?? false); +/- folds them away. -->
                             <div class="trait-picklist-section">
                                 <div class="trait-picklist-header">
                                     {{!-- While the mode is On, say where the traits came

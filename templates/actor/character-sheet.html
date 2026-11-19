@@ -75,6 +75,31 @@
                             <a class="name-pick" data-action="pickName" data-tooltip="CAIRN.PickName" aria-label="{{ localize 'CAIRN.PickName' }}"><i class="fas fa-list-ul"></i></a>
                             {{/if}}
                         </div>
+                        {{!-- Pronouns and Age, under the name (user ask 2026-11-19), moved
+                              from the Description page's bio-block under its gates there
+                              (traitRows, then showAge). Names, classes and the rollAge
+                              action are the bio-block's, so the submit path and the Age
+                              die are untouched. --}}
+                        {{#if traitRows}}
+                        <div class="identity-bio-line">
+                            <div class="pronouns-row">
+                                <label for="{{@root.idp}}-system.pronouns">{{ localize 'CAIRN.Pronouns' }}</label>
+                                <input class="trait-input" type="text" name="system.pronouns" id="{{@root.idp}}-system.pronouns"
+                                    value="{{system.pronouns}}" maxlength="20" />
+                            </div>
+                            {{#if showAge}}
+                            <div class="age-row">
+                                <label for="{{@root.idp}}-system.age">{{ localize 'CAIRN.Age' }}</label>
+                                <input class="trait-input" type="text" name="system.age" id="{{@root.idp}}-system.age" value="{{system.age}}" />
+                                {{#if generationEnabled}}
+                                {{!-- rollAgeTitle is pre-FORMATTED text (it carries the
+                                      Warden's formula), so the aria-label takes it verbatim. --}}
+                                <a class="age-roll" data-action="rollAge" data-tooltip="{{rollAgeTitle}}" aria-label="{{rollAgeTitle}}"><i class="fas fa-dice-d20"></i></a>
+                                {{/if}}
+                            </div>
+                            {{/if}}
+                        </div>
+                        {{/if}}
                         <div class="background-line">
                             {{#if hasGeneratedBackground}}
                             {{#if isBarebonesBackground}}
@@ -178,14 +203,21 @@
                             {{/each}}
                         </div>
 
-                        <!-- The band under the abilities: Gold (Deprived and Panicked
-                             moved to the vitals column, above Slots, 2026-11-19) -->
+                        <!-- The band under the abilities: Gold, then the trait sentence
+                             (Deprived and Panicked moved to the vitals column, above
+                             Slots, 2026-11-19) -->
                         <div class="cairn-band">
                             <div class="band-row band-gold {{#if system.maybeTooMuchGold }}overburdened-gold{{/if}}"
                                 {{#if system.maybeTooMuchGold }} title="{{localize 'CAIRN.OverburdenByGold'}}" {{/if}}>
                                 <label class="band-label" for="{{@root.idp}}-system.gold" data-tooltip="{{goldTip}}">{{ localize 'CAIRN.Gold' }}</label>
                                 <input type="number" class="gold-input" name="system.gold" id="{{@root.idp}}-system.gold" value="{{system.gold}}" data-dtype="Number" />
                             </div>
+                            {{!-- The trait sentence, moved here from the Description page's
+                                  bio-block (user ask 2026-11-19), under its gates there:
+                                  traitRows, then showTraits. --}}
+                            {{#if traitRows}}{{#if showTraits}}{{#if traitSentence}}
+                            <p class="trait-sentence">{{traitSentence}}</p>
+                            {{/if}}{{/if}}{{/if}}
                         </div>
                     </div>
 
