@@ -1513,31 +1513,45 @@ try {
               content: getComputedStyle(dropI, "::before").content }
             : null;
         }
+        // A CHARACTER's row opens the Attack window on Improvised (2026-11-20,
+        // user ask); every other sheet keeps the Improvised Attack dialog. The
+        // window's improvised half is the dialog's two fields and Roll Damage,
+        // so what follows measures it the same way. A window still closing
+        // from the previous call must not be taken for this one's.
+        const kind = actor.type === "character" ? "cairn-attack-dialog" : "cairn-improvised-dialog";
+        const stale = new Set(document.querySelectorAll(`dialog.dialog.${kind}`));
         ctrl.click();
 
         let dlg = null;
         for (let i = 0; i < 80 && !dlg; i++) {
-          dlg = document.querySelector("dialog.dialog.cairn-improvised-dialog");
+          dlg = [...document.querySelectorAll(`dialog.dialog.${kind}`)].find((d) => !stale.has(d)) ?? null;
           if (!dlg) await sleep(150);
         }
-        if (!dlg) { await actor.sheet.close(); return { err: "no improvised dialog", rowShape }; }
+        if (!dlg) { await actor.sheet.close(); return { err: `no ${kind}`, rowShape }; }
+        await sleep(150);
 
         // WHAT THE DIALOG OFFERS IS HALF THE MEASUREMENT. Two fields and two
         // buttons: the dice builder and the three quality buttons were removed
         // by ruling, and their ABSENCE is asserted rather than assumed, because
         // a stale template would put them back in silence. The formula field is
         // present even when panicked -- panic overrides the value, it does not
-        // take the field away.
+        // take the field away. OFFERED means drawn: the Attack window carries
+        // the quality buttons for a weapon and HIDES them while Improvised is
+        // the choice.
+        const offered = (sel) => [...dlg.querySelectorAll(sel)].some((b) => !b.hidden && b.getBoundingClientRect().height > 0);
         const fField = dlg.querySelector('input[name="formula"]');
         const shape = {
+          kind,
+          improvisedChosen: kind === "cairn-improvised-dialog"
+            || dlg.querySelector('input[name="weapon"]:checked')?.value === "improvised",
           hasDescription: !!dlg.querySelector('input[name="description"]'),
           hasFormula: !!fField,
           formulaStart: fField?.value ?? null,
           hasBuilder: !!dlg.querySelector(".wd-dice-builder"),
-          hasQuality: !!dlg.querySelector('button[data-action="standard"]')
-            || !!dlg.querySelector('button[data-action="enhanced"]'),
-          hasRoll: !!dlg.querySelector('button[data-action="roll"]'),
-          hasCancel: !!dlg.querySelector('button[data-action="cancel"]'),
+          hasQuality: offered('button[data-action="standard"]') || offered('button[data-action="enhanced"]')
+            || offered('button[data-action="impaired"]'),
+          hasRoll: offered('button[data-action="roll"]'),
+          hasCancel: offered('button[data-action="cancel"]'),
           panicNote: dlg.querySelector(".cairn-improvised-panic")?.textContent.trim() ?? null,
         };
 
@@ -1708,7 +1722,7 @@ try {
           pc.sheet, { preventDefault() {} }, document.createElement("a"));
         await sleep(500);
         out.gateRefuses = game.messages.size === before
-          && !document.querySelector("dialog.dialog.cairn-improvised-dialog");
+          && !document.querySelector("dialog.dialog.cairn-improvised-dialog, dialog.dialog.cairn-attack-dialog");
         await pc.sheet.close();
       } finally {
         delete pc.isOwner;
@@ -2134,10 +2148,11 @@ try {
   // TWO FIELDS AND TWO BUTTONS. The absences are the ruling, so they are
   // asserted: a stale template would restore the builder or the qualities in
   // silence, and every other leg here would still pass.
-  r.impD6?.shape?.hasDescription && r.impD6?.shape?.hasFormula
+  r.impD6?.shape?.kind === "cairn-attack-dialog" && r.impD6?.shape?.improvisedChosen
+    && r.impD6?.shape?.hasDescription && r.impD6?.shape?.hasFormula
     && r.impD6?.shape?.hasRoll && r.impD6?.shape?.hasCancel
     && !r.impD6?.shape?.hasBuilder && !r.impD6?.shape?.hasQuality
-    ? ok(`...and the dialog is exactly two fields and two buttons: no dice builder, no Standard/Impaired/Enhanced (opens on ${r.impD6.shape.formulaStart})`)
+    ? ok(`...and a character's row opens the Attack window on Improvised: two fields and two buttons, no dice builder, no Standard/Impaired/Enhanced (opens on ${r.impD6.shape.formulaStart})`)
     : fail(`dialog shape: ${JSON.stringify(r.impD6?.shape)}`);
   // Apply on the card that carries the line: it was WITHHELD there for a day,
   // while a maneuver forwent the damage.

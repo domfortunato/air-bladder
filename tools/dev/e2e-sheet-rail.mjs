@@ -71,7 +71,7 @@
  *      under its circle, one point each, off at max / 0; the name is 28px;
  *      the title bar's toggle reads "CharGen".
  *  19. (user asks 2026-11-20) on Background & Notes the Bond heading (no
- *      colon), each question and the Description heading wear page 1's
+ *      colon), each question, the Description heading and Omen's label wear page 1's
  *      Background label face, small caps; each answer is indented under a
  *      visible left rule in both schemes; "Saves" heads the ability names,
  *      the size of "Current"; with CharGen off the four max boxes are
@@ -808,6 +808,8 @@ try {
       // Bonds must be on to draw: SET what the leg needs, put back what was read.
       const bondsWas = game.settings.get("air-bladder", "use-bonds");
       if (bondsWas === false) await game.settings.set("air-bladder", "use-bonds", true);
+      const omensWas = game.settings.get("air-bladder", "show-omens");
+      if (omensWas === false) await game.settings.set("air-bladder", "show-omens", true);
       const notesPc = await getDocumentClass("Actor").create({
         name: "ZZ Rail Notes PC", type: "character",
         system: {
@@ -908,6 +910,9 @@ try {
           bond: face(bondHead),
           question: face(q(".tab[data-tab='notes'] .question-line strong")),
           description: face(q(".tab[data-tab='notes'] .character-description-heading")),
+          // Omen's label too: it read in its own bold sans beside the small
+          // caps on CT 123 (the plan's "fold it in if it reads differently").
+          omen: face(q(".tab[data-tab='notes'] .notes-omen .omen-label")),
         };
         R8.bondText = bondHead?.textContent.trim() ?? null;
 
@@ -978,6 +983,7 @@ try {
       } finally {
         await ns.close();
         if (bondsWas === false) await game.settings.set("air-bladder", "use-bonds", false);
+        if (omensWas === false) await game.settings.set("air-bladder", "show-omens", false);
       }
     }
 
@@ -1289,8 +1295,8 @@ else {
   // 19
   const R8 = r.r8 ?? {};
   const sameFace = (f) => !!f && !!R8.labelFace?.fontFamily && JSON.stringify(f) === JSON.stringify(R8.labelFace);
-  R8.labelFace?.fontVariantCaps === "small-caps" && ["bond", "question", "description"].every((k) => sameFace(R8.faces?.[k]))
-    ? ok("the Bond heading, the question and the Description heading wear page 1's Background label face, small caps")
+  R8.labelFace?.fontVariantCaps === "small-caps" && ["bond", "question", "description", "omen"].every((k) => sameFace(R8.faces?.[k]))
+    ? ok("the Bond heading, the question, the Description heading and Omen's label wear page 1's Background label face, small caps")
     : fail(`notes headings' face: ${JSON.stringify({ want: R8.labelFace, got: R8.faces })}`);
   R8.bondText === R8.wantBond && !/:\s*$/.test(R8.bondText ?? ":")
     ? ok(`the Bond heading reads "${R8.bondText}", no colon`)
