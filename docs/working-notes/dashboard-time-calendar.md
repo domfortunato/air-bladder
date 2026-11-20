@@ -17,10 +17,19 @@ Moved word for word from CLAUDE.md (2026-11-01); CLAUDE.md points here.
   `timeToComponents`. `leapStart` must be 0; Reclamation season entry first;
   `yearZero: 7728` is FROZEN. Two upstream errata recorded in
   `docs/keeping-time.md`, not fixed.
-- Clock goes before `#players` in `#ui-left-column-1` with `margin-top: auto`; no
-  re-attach hook needed. It is chrome: copy core's per-theme values for both ground
-  and ink. **Check chrome in BOTH interface schemes** via `game.configureUI`
-  (`dev:theme`, strict surface). Dashboard time band is its own part
+- **The clock is the CALENDAR BAR since 2026-11-20** (user ask: "a bar across the top
+  of the canvas, like Mythic Bastionland displays its calendar", their db-mythic). It
+  is prepended into core's `#ui-top` (static markup, never rewritten; no re-attach
+  hook needed), centred and scaled by `#ui-middle`, `pointer-events` back on its tabs
+  only. Tabs: watch, date (the calendar's door under Vald, keeping the old
+  `.cairn-watch-inner` class), season (Vald only); the weather HANGS UNDER the bar so
+  it never widens it. Tones are fixed per watch/season in both schemes. Per-person
+  TUCK (`tuck-calendar-bar`, client scope, config: true — the one air-bladder row on
+  core's flat list, because the submenus are Warden-only) and the Y key
+  (`pullCalendarBar`), after db-mythic. Internal names (`WatchClock`,
+  `#cairn-watch-clock`, `show-watch-clock`) stayed. **Check it in BOTH interface
+  schemes** via `game.configureUI` (`dev:theme`, strict surface); `dev:vald-time`
+  legs 4, 6, 7. Dashboard time band is its own part
   (`parts: ["time"]`). No Make Camp button. Vald weather REPLACES Cairn's on the
   Dashboard.
 - Date guards: Set the Date shows a live preview in DAYS (`describeDateAt`,

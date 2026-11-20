@@ -4640,164 +4640,164 @@ ol.combat-tracker li.combatant.cairn-drop-below {
     margin-bottom: 0;
 }
 
-/* ---- The watch clock ------------------------------------------------------
-   THE ONE PLACE THIS FILE'S PALETTE RULE DOES NOT APPLY, and it is worth
-   saying why rather than looking like an oversight.
+/* ---- The calendar bar -----------------------------------------------------
+   The watch, the date and (under Vald) the season, hanging from the top edge
+   of the screen in core's #ui-top (module/watch-clock.js; user ask
+   2026-11-20, "like Mythic Bastionland displays its calendar" — their own
+   db-mythic). It was a card above the player list until then; its id and the
+   `cairn-watch-*` text classes stayed.
 
-   "No literal colours; every colour is an --ab-* token" was written for
-   SHEETS, which paint dark ink on parchment in light mode and invert in dark.
-   This element is not a sheet. It lives in #ui-left-column-1 beside the player
-   list, wearing core's own `faded-ui`, and the panel it has to match is a
-   translucent DARK slab with light text in BOTH schemes. Painting --ab-ink
-   here would be invisible in light mode.
+   THE ONE PLACE THIS FILE'S PALETTE RULE DOES NOT APPLY. "Every colour is an
+   --ab-* token" was written for SHEETS, which paint dark ink on parchment in
+   light mode and invert in dark. This bar is not a sheet: each tab is painted
+   in its watch's or its season's TONE, and a tone is a fixed pair of colours —
+   a ground and an ink — the same under either interface scheme, the way a chat
+   card's parchment is (the `--ab-glog` precedent). Nothing here reads a
+   theme-switching token, so there is no scheme in which ink and ground can
+   come apart, which is exactly what sank the old card in 0.1.21. `dev:theme`
+   audits it STRICTLY in both schemes all the same.
 
-   So it reads CORE's chrome variables. BUT NOT ALL OF THEM SWITCH, and that
-   distinction is the whole of the defect this block shipped with in 0.1.21.
-   `--color-cool-5-75` and `--color-cool-4` are palette CONSTANTS — one literal
-   each, declared on `body` in @layer variables.base and never redefined.
-   `--color-text-secondary` and `--color-text-primary` are semantic TOKENS,
-   which `body.theme-light` and `.themed.theme-light` repoint in @layer
-   variables.themes. Pinning the GROUND to a constant while the INK follows the
-   theme is the bug: under a light interface the clock painted `#333` text on a
-   near-black slab at 1.26:1 — unreadable, hover included, and out in a release.
-   This file's own comment claimed it agreed with the player list "in every
-   theme, for free", which was never measured and was false.
+   HOW IT HANGS. #ui-top is a column flexbox centred in #ui-middle, which core
+   makes `pointer-events: none` and scales by --ui-scale from the top centre;
+   so the bar is centred and scaled for free. It takes the pointer back on its
+   tabs alone, so the map under the rest of the strip still takes clicks.
 
-   #players does not have this problem because it declares its OWN
-   `--background-color` per theme and reads that. So this block does the same,
-   with core's own two values lifted from `#players` — foundry2.css:592 (dark)
-   and :2423 / :2728 (light). Those light values are literal rgba in core too;
-   there is no token for them, which is why two literals appear below.
-
-   TWO SELECTORS PER SCHEME, and the order is core's rather than a guess.
-   Configure UI has TWO dropdowns and `configureUI` (client/game.mjs:1852-1875)
-   sends them to different elements: Applications lands on <body>, INTERFACE
-   lands on #interface. Core lets the interface theme win by SUBLAYER order,
-   not specificity: `body.theme-light #players` sits in @layer
-   variables.themes.general and `.themed.theme-light #players` in
-   variables.themes.specific, which is declared after it (foundry2.css :986 and
-   :1315 in 14.365), so the `.themed` rule wins whatever either selector weighs
-   (review #34 finding 202). This file is one layer, so the pairs below get the
-   same ordering from specificity instead, (0,3,0) over (0,2,1). Get it backwards and
-   a Warden running Interface dark with Applications light gets a white clock
-   over a dark player list. `dev:theme` measures the clock as a STRICT surface
-   now: a finding in EITHER scheme fails, because nothing inside this panel is
-   core's to blame. See docs/theming.md.
-
-   The 200px width and the margin are not arbitrary either: #players-active is
-   200px and deliberately OVERFLOWS this narrow column (the column is only as
-   wide as the control icons), so matching it is what makes the two read as
-   one stack. `margin-top: auto` absorbs the column's free space so core's
-   `justify-content: space-between` has none left to redistribute — without it
-   a third child pushes the player list into the middle of the screen. */
-.cairn-watch-clock {
-    /* Dark, matching core's unthemed #players block, so a client that has
-       resolved no theme at all still gets the pairing right. */
-    --ab-clock-bg: var(--color-cool-5-75);
-    --ab-clock-border: var(--color-cool-4);
-    position: relative; /* the calendar door is absolutely placed in the corner */
-    pointer-events: all;
+   TUCKED (a per-person setting): it slides up until a 6px lip shows; pointing
+   at the lip pulls it down (`.is-down`). The slide is a translate, never a
+   height change, so the layout box stays where core put it. */
+#ui-top > .cairn-calendar-bar {
+    order: -1;
     flex: none;
-    width: 200px;
-    margin-top: auto;
-    padding: 6px 8px;
-    border: 1px solid var(--ab-clock-border);
-    border-radius: 8px;
-    background: var(--ab-clock-bg);
-    color: var(--color-text-secondary);
-    /* LARGER AGAIN on 2026-09-11 (user ask). It is read from across the room
-       at 12px and was not being read at all. Taller, never wider: the 200px
-       below is pinned to #players-active. */
-    font-size: var(--font-size-14);
+    position: relative;
+    margin: 0;
+    padding: 0;
+    pointer-events: none;
+    transition: translate 200ms ease;
 }
 
-/* The two schemes, in the order core gives them for #players (core by
-   sublayer, these by specificity; see the note above). The dark pair restates
-   the base so an INTERFACE dark under an APPLICATIONS light still wins. */
-body.theme-dark .cairn-watch-clock,
-.themed.theme-dark .cairn-watch-clock {
-    --ab-clock-bg: var(--color-cool-5-75);
-    --ab-clock-border: var(--color-cool-4);
+#ui-top > .cairn-calendar-bar.is-tucked:not(.is-down) {
+    translate: 0 calc(6px - 100%);
 }
 
-body.theme-light .cairn-watch-clock,
-.themed.theme-light .cairn-watch-clock {
-    --ab-clock-bg: rgba(255, 255, 255, 0.6);
-    --ab-clock-border: rgba(255, 255, 255, 0.8);
+@media (prefers-reduced-motion: reduce) {
+    #ui-top > .cairn-calendar-bar {
+        transition: none;
+    }
 }
 
-/* BOLDER, AND IT CARRIES THE WEATHER (user ruling, on seeing it in place).
-   Bigger here means taller and heavier type, never wider: the 200px is pinned
-   to #players-active so the two line up, and growing sideways would break that.
+.cairn-calendar-bar .cairn-bar {
+    position: relative;
+}
 
-   A FOURTH LINE IS SAFE BECAUSE OF WHERE THIS SITS. The panel is ABOVE
-   #players and takes the column's slack with `margin-top: auto`, so a line
-   that appears grows UPWARD into empty space and the player list does not
-   move. `dev:vald-time` measures the player list's position before and after
-   the Warden calls the weather, because that is the only way to know. */
-/* Under Vald this element is a real <button>, so its chrome is stated away
-   explicitly — otherwise the panel would have a button drawn inside itself.
-   Core pins a button's HEIGHT (foundry2.css:4043, @layer elements.forms),
-   which is why `height: auto` and `min-height: 0` are here; that layer comes
-   before `system`, so neither they nor the colours need `!important` (the
-   colours measured — see the calendar's day cell for the full note). */
-.cairn-watch-clock .cairn-watch-inner {
+.cairn-calendar-bar .cairn-bar-tabs {
     display: flex;
-    flex-direction: column;
-    gap: 2px;
-    width: 100%;
+    align-items: stretch;
+    border-radius: 0 0 10px 10px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgb(0 0 0 / 45%);
+}
+
+/* A tab is the frame; its face is what is painted. Core's button styling is
+   undone on the tabs that are buttons (the date and season, under Vald): core
+   pins a button's height in @layer elements.forms, an EARLIER layer than the
+   system's, so plain declarations win without !important. A min-width per tab
+   keeps the bar from jumping as the words change from watch to watch. */
+.cairn-calendar-bar .cairn-bar-tab {
+    display: flex;
+    flex: none;
+    align-items: stretch;
     height: auto;
     min-height: 0;
+    margin: 0;
     padding: 0;
     border: none;
+    border-radius: 0;
     background: none;
-    color: inherit;
-    text-align: left;
-    font-family: inherit;
-    font-size: inherit;
+    font-family: var(--font-body, inherit);
+    pointer-events: auto;
 }
 
-/* The door to the calendar, top-right of the panel and out of the text's way.
-   Only rendered when there is a calendar to open. */
-.cairn-watch-clock .cairn-watch-door {
-    position: absolute;
-    top: 6px;
-    right: 8px;
-    opacity: 0.5;
+.cairn-calendar-bar .cairn-bar-tab + .cairn-bar-tab {
+    border-left: 1px solid rgb(0 0 0 / 25%);
 }
 
-.cairn-watch-clock button.cairn-watch-inner {
+.cairn-calendar-bar .cairn-bar-face {
+    display: flex;
+    flex: 1;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 4px 14px 5px;
+    background: linear-gradient(160deg, var(--ab-tone-from), var(--ab-tone-to));
+    color: var(--ab-tone-ink);
+    font-size: var(--font-size-16);
+    font-weight: 600;
+    line-height: 1.2;
+    white-space: nowrap;
+}
+
+.cairn-calendar-bar .cairn-bar-face i {
+    color: var(--ab-tone-icon, var(--ab-tone-ink));
+}
+
+/* The watch reads largest: it is the line the table looks up for. */
+.cairn-calendar-bar .cairn-watch-watch {
+    font-size: var(--font-size-18);
+    font-weight: 700;
+}
+
+.cairn-calendar-bar .cairn-bar-watch { min-width: 11em; }
+.cairn-calendar-bar .cairn-bar-date { min-width: 8em; }
+.cairn-calendar-bar .cairn-bar-season { min-width: 8em; }
+
+.cairn-calendar-bar button.cairn-bar-tab {
     cursor: pointer;
 }
 
-.cairn-watch-clock button.cairn-watch-inner:hover .cairn-watch-door,
-.cairn-watch-clock button.cairn-watch-inner:focus-visible .cairn-watch-door {
-    opacity: 1;
+.cairn-calendar-bar button.cairn-bar-tab:hover .cairn-bar-face,
+.cairn-calendar-bar button.cairn-bar-tab:focus-visible .cairn-bar-face {
+    filter: brightness(1.08);
 }
 
-.cairn-watch-clock .cairn-watch-watch {
-    font-weight: 700;
-    font-size: var(--font-size-18);
-    line-height: 1.2;
-    color: var(--color-text-primary);
-}
-
-.cairn-watch-clock .cairn-watch-date,
-.cairn-watch-clock .cairn-watch-season,
-.cairn-watch-clock .cairn-watch-weather {
-    color: var(--color-text-secondary);
-}
-
-.cairn-watch-clock .cairn-watch-season,
-.cairn-watch-clock .cairn-watch-weather {
+/* Today's weather hangs UNDER the bar, centred, out of the flow: calling the
+   weather never widens the bar or moves a tab. It is its own pointer target
+   for its tooltip; a long row is cut with an ellipsis, the tooltip whole. */
+.cairn-calendar-bar .cairn-bar-weather {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 50%;
+    translate: -50% 0;
     display: flex;
-    align-items: baseline;
-    gap: 4px;
+    align-items: center;
+    gap: 6px;
+    max-width: 36em;
+    padding: 2px 12px;
+    border-radius: 8px;
+    background: linear-gradient(160deg, var(--ab-tone-from), var(--ab-tone-to));
+    color: var(--ab-tone-ink);
+    box-shadow: 0 2px 6px rgb(0 0 0 / 35%);
+    font-size: var(--font-size-14);
+    font-style: italic;
+    white-space: nowrap;
+    pointer-events: auto;
 }
 
-.cairn-watch-clock .cairn-watch-weather {
-    font-style: italic;
+.cairn-calendar-bar .cairn-bar-weather span {
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
+
+/* The tones. Fixed in both schemes (see the banner). Each ink is chosen dark
+   on a light ground or light on a dark one, for contrast well past 4.5:1. */
+.cairn-calendar-bar .tone-parchment { --ab-tone-from: #f1e8d4; --ab-tone-to: #dccfae; --ab-tone-ink: #2c2418; --ab-tone-icon: #6b5532; }
+.cairn-calendar-bar .tone-morning { --ab-tone-from: #f6e2b0; --ab-tone-to: #e9bf72; --ab-tone-ink: #3a2810; --ab-tone-icon: #8a4f00; }
+.cairn-calendar-bar .tone-afternoon { --ab-tone-from: #d6e8f3; --ab-tone-to: #a3c6de; --ab-tone-ink: #1b2a38; --ab-tone-icon: #2f5878; }
+.cairn-calendar-bar .tone-night { --ab-tone-from: #2f3460; --ab-tone-to: #171a35; --ab-tone-ink: #ecebf7; --ab-tone-icon: #c9c3f0; }
+.cairn-calendar-bar .tone-dead { --ab-tone-from: #d2cdc5; --ab-tone-to: #a49d92; --ab-tone-ink: #262320; --ab-tone-icon: #4a4540; }
+.cairn-calendar-bar .tone-dry { --ab-tone-from: #f0dcab; --ab-tone-to: #d7b36c; --ab-tone-ink: #34260c; --ab-tone-icon: #7a5410; }
+.cairn-calendar-bar .tone-wet { --ab-tone-from: #c4ded5; --ab-tone-to: #8dbcad; --ab-tone-ink: #152c25; --ab-tone-icon: #23574a; }
+.cairn-calendar-bar .tone-harvest { --ab-tone-from: #efc996; --ab-tone-to: #cf9152; --ab-tone-ink: #2f1a06; --ab-tone-icon: #6e3a0a; }
+.cairn-calendar-bar .tone-reclamation { --ab-tone-from: #ddd0ef; --ab-tone-to: #ad93d4; --ab-tone-ink: #26173c; --ab-tone-icon: #4e2f80; }
 
 /* ---- The Vald calendar ----------------------------------------------------
    A month grid, today circled and the day you picked highlighted. Two markers
@@ -4953,7 +4953,7 @@ body.theme-light .cairn-watch-clock,
 }
 
 /* The four seasons, faint. --ab-* tokens only, per docs/theming.md: this is a
-   sheet-style window and not Foundry chrome, unlike the watch clock. */
+   sheet-style window and not Foundry chrome, unlike the calendar bar. */
 .cairn-vald-calendar .cairn-season-dead { background: var(--ab-season-dead); }
 .cairn-vald-calendar .cairn-season-dry { background: var(--ab-season-dry); }
 .cairn-vald-calendar .cairn-season-wet { background: var(--ab-season-wet); }

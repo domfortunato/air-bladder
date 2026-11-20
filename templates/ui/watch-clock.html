@@ -1,59 +1,81 @@
 {{!--
-  The watch clock, in Foundry's left column beneath the player list.
+  The calendar bar, hanging from the top of the screen in core's #ui-top
+  (module/watch-clock.js says why there).
 
   ONE ROOT ELEMENT, like every other ApplicationV2 part here: several
   top-level elements fail with "Template part must render a single HTML
   element" and nothing renders at all.
 
-  Every line below the watch is CONDITIONAL rather than blank, because an
-  empty div still takes its line-height and would leave a gap whenever the
-  Vald calendar is switched off or the Warden has not rolled the weather.
+  Tabs: the watch, the date, and under Vald the season, each painted in its
+  tone (cairn.css `.tone-*`). The SEASON tab and the WEATHER line are
+  CONDITIONAL rather than blank, so the bar never carries an empty tab. The
+  weather HANGS UNDER the bar (absolutely placed), so calling it never widens
+  the bar or moves a tab.
 
-  THE INNER ELEMENT IS A BUTTON ONLY WHERE THERE IS A CALENDAR TO OPEN.
-  This used to say "no buttons, no links, nothing focusable", on the reasoning
-  that only the Warden may move the clock and the cheapest way to honour that
-  is to give a player nothing to click. That reasoning still holds and nothing
-  about it changed: opening the calendar does not move the world, and the
-  calendar itself offers a player no control that does. The clock is simply
-  the door to it (user ruling 2026-09-10). Under Foundry's own calendar there
-  is no door, and this renders exactly as it always did.
+  The DATE tab keeps the old panel's `cairn-watch-inner` class, and is a real
+  button only where there is a calendar to open: the probes that walk "the
+  clock is the door" read it. Every text keeps its old `cairn-watch-*` class
+  too.
 
-  The controls that DO move the clock still live only on the Warden's
-  Dashboard.
+  Tooltips are written to `data-bar-tooltip` and copied to core's
+  `data-tooltip` by the bar itself, which withholds them while the bar is
+  tucked behind its lip. The WATCH tab's is the whole time in one sentence.
 --}}
-{{#if calendar}}
-    <button type="button" class="cairn-watch-inner" data-action="openCalendar"
-            data-tooltip="{{tooltip}}" aria-label="{{localize 'CAIRN.Calendar.Open'}}">
-        <i class="fa-solid fa-calendar-days cairn-watch-door" aria-hidden="true"></i>
-        <div class="cairn-watch-line cairn-watch-watch">{{watchLine}}</div>
-        <div class="cairn-watch-line cairn-watch-date">{{dateLine}}</div>
+<div class="cairn-bar" aria-label="{{tooltip}}">
+    <div class="cairn-bar-tabs">
+        <div class="cairn-bar-tab cairn-bar-watch tone-{{watchTone}}"
+             data-bar-tooltip="{{tooltip}}" data-tooltip="{{tooltip}}" data-tooltip-direction="DOWN">
+            <span class="cairn-bar-face">
+                <i class="fa-solid {{watchIcon}}" aria-hidden="true"></i>
+                <span class="cairn-watch-line cairn-watch-watch">{{watchLine}}</span>
+            </span>
+        </div>
+        {{#if calendar}}
+        <button type="button" class="cairn-bar-tab cairn-bar-date cairn-watch-inner tone-parchment" data-action="openCalendar"
+                data-bar-tooltip="{{dateLong}}" data-tooltip="{{dateLong}}" data-tooltip-direction="DOWN"
+                aria-label="{{localize 'CAIRN.Calendar.Open'}}">
+            <span class="cairn-bar-face">
+                <i class="fa-solid fa-calendar-days" aria-hidden="true"></i>
+                <span class="cairn-watch-line cairn-watch-date">{{dateLine}}</span>
+            </span>
+        </button>
+        {{else}}
+        <div class="cairn-bar-tab cairn-bar-date cairn-watch-inner tone-parchment"
+             data-bar-tooltip="{{dateLong}}" data-tooltip="{{dateLong}}" data-tooltip-direction="DOWN">
+            <span class="cairn-bar-face">
+                <i class="fa-solid fa-calendar-days" aria-hidden="true"></i>
+                <span class="cairn-watch-line cairn-watch-date">{{dateLine}}</span>
+            </span>
+        </div>
+        {{/if}}
         {{#if seasonLine}}
-            <div class="cairn-watch-line cairn-watch-season">
-                {{#if seasonIcon}}<i class="fa-solid {{seasonIcon}}"></i>{{/if}}
-                <span>{{seasonLine}}</span>
-            </div>
+        {{#if calendar}}
+        <button type="button" class="cairn-bar-tab cairn-bar-season tone-{{seasonTone}}" data-action="openCalendar"
+                data-bar-tooltip="{{seasonLine}}" data-tooltip="{{seasonLine}}" data-tooltip-direction="DOWN"
+                aria-label="{{localize 'CAIRN.Calendar.Open'}}">
+            <span class="cairn-bar-face">
+                {{#if seasonIcon}}<i class="fa-solid {{seasonIcon}}" aria-hidden="true"></i>{{/if}}
+                <span class="cairn-watch-line cairn-watch-season">{{seasonLine}}</span>
+            </span>
+        </button>
+        {{else}}
+        <div class="cairn-bar-tab cairn-bar-season tone-{{seasonTone}}"
+             data-bar-tooltip="{{seasonLine}}" data-tooltip="{{seasonLine}}" data-tooltip-direction="DOWN">
+            <span class="cairn-bar-face">
+                {{#if seasonIcon}}<i class="fa-solid {{seasonIcon}}" aria-hidden="true"></i>{{/if}}
+                <span class="cairn-watch-line cairn-watch-season">{{seasonLine}}</span>
+            </span>
+        </div>
         {{/if}}
-        {{#if weather}}
-            <div class="cairn-watch-line cairn-watch-weather">
-                <i class="fa-solid fa-cloud-sun"></i>
-                <span>{{weather}}</span>
-            </div>
-        {{/if}}
-    </button>
-{{else}}
-    <div class="cairn-watch-inner" data-tooltip="{{tooltip}}">
-        <div class="cairn-watch-line cairn-watch-watch">{{watchLine}}</div>
-        <div class="cairn-watch-line cairn-watch-date">{{dateLine}}</div>
-        {{#if seasonLine}}
-            <div class="cairn-watch-line cairn-watch-season">{{seasonLine}}</div>
-        {{/if}}
-        {{!-- The same weather line as the door's (review #34 finding 80): today's
-              weather is core Cairn, so it shows without the Vald calendar too. --}}
-        {{#if weather}}
-            <div class="cairn-watch-line cairn-watch-weather">
-                <i class="fa-solid fa-cloud-sun"></i>
-                <span>{{weather}}</span>
-            </div>
         {{/if}}
     </div>
-{{/if}}
+    {{!-- Today's weather, under either calendar (review #34 finding 80):
+          watches and weather are core Cairn; only the calendar is the hack. --}}
+    {{#if weather}}
+    <div class="cairn-bar-weather cairn-watch-line cairn-watch-weather tone-parchment"
+         data-bar-tooltip="{{weather}}" data-tooltip="{{weather}}" data-tooltip-direction="DOWN">
+        <i class="fa-solid fa-cloud-sun" aria-hidden="true"></i>
+        <span>{{weather}}</span>
+    </div>
+    {{/if}}
+</div>

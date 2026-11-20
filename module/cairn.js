@@ -21,7 +21,7 @@ import { registerWardenDashboardControl, refreshDashboardTime, localizeDashboard
 import { handlePileQuery, localizePileCard, PILE_DROP_QUERY, askWhatToDrop, dropItemToPile, partyFolderId, stripPlantedPileFlags, findDroppedPile } from "./party-pile.js";
 import { mustDropForFatigue } from "./gear.js";
 import { installWorldCalendar, checkWorldCalendar } from "./game-time.js";
-import { renderWatchClock, refreshWatchClock } from "./watch-clock.js";
+import { renderWatchClock, refreshWatchClock, pullCalendarBar } from "./watch-clock.js";
 import { refreshValdCalendar } from "./vald-calendar.js";
 import { registerSettings, SETTINGS_NS, SETTING_GROUPS, migrateSettingsNamespace } from "./settings.js";
 import { ACTOR_DATA_MODELS, ITEM_DATA_MODELS, deriveNpcRole, CONTAINER_LINE_ROLES } from "./data-models.js";
@@ -116,6 +116,15 @@ Hooks.once("init", async function () {
   foundry.documents.collections.Items.registerSheet("cairn", CairnItemSheet, { makeDefault: true, label });
 
   registerSettings();
+  // The calendar bar's key (2026-11-20): Y pulls a TUCKED bar down to stay and
+  // tucks it again. On a bar that is not tucked it returns false, so the key
+  // falls through to anything else bound to it. Keybindings must register at
+  // init.
+  game.keybindings.register(SETTINGS_NS, "pullCalendarBar", {
+    name: "CAIRN.CalendarBarKey",
+    editable: [{ key: "KeyY" }],
+    onDown: () => pullCalendarBar(),
+  });
   configureHandleBar();
   // The Warden's damage tool. Registered from `init` rather than at import time
   // so it sits with the rest of the system's registrations, and because the

@@ -618,7 +618,8 @@ export const registerSettings = () => {
     onChange: rerenderActorSheets,
   });
 
-  // The watch clock in the left column (2026-09-10, user ask). A day in Cairn
+  // The calendar bar (the watch clock until 2026-11-20, when it moved from the
+  // left column to a bar across the top of the screen). A day in Cairn
   // is three watches and the travel tables already price journeys in them, so
   // this is CORE Cairn and is deliberately NOT behind the Vald hack — gating a
   // 2e unit behind a setting-specific switch would be a category error.
@@ -647,6 +648,28 @@ export const registerSettings = () => {
         // anonymous unhandled rejection — the glog precedent.
         console.error("air-bladder | the watch clock failed to follow its setting:", err);
       }
+    },
+  });
+
+  // The calendar bar's TUCK, per person (2026-11-20, the user's pick, after
+  // their db-mythic): on, this browser's bar slides up to a 6px lip that pulls
+  // down on a point, a tab or the Y key (watch-clock.js). CLIENT scope, and the
+  // ONE air-bladder setting on core's flat list (`config: true`): every
+  // submenu is `restricted` (Warden-only, its settings all world-scoped), so a
+  // player could not reach a per-person row inside one. Unlisted in
+  // SETTING_KEYS for the reason the markers are: it postdates the namespace
+  // move, so there is no "cairn.<key>" value to carry. `dev:settings` names it
+  // as the one flat row.
+  game.settings.register(SETTINGS_NS, "tuck-calendar-bar", {
+    name: "CAIRN.Settings.TuckCalendarBar.label",
+    hint: "CAIRN.Settings.TuckCalendarBar.hint",
+    scope: "client",
+    config: true,
+    type: Boolean,
+    default: false,
+    onChange: async () => {
+      const { followTuckSetting } = await import("./watch-clock.js");
+      followTuckSetting();
     },
   });
 

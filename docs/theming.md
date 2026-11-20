@@ -171,61 +171,40 @@ paper is white and the page exists to be printed. Its styles are inline in the t
 use theme tokens. Do not "fix" this by tokenising it; `dev:print` asserts the page
 computes black-on-white with the Foundry theme set dark.
 
-## The watch clock is exempt too — for the opposite reason
+## The calendar bar is exempt too — for the opposite reason
 
-`.cairn-watch-clock` (`module/watch-clock.js`, the panel above the player list) is
-the second surface that does not read the `--ab-*` palette, and the reason is not
-the print page's. The print page leaves the palette because it is always paper. This
-one leaves it because it is **not a sheet at all**.
+`.cairn-calendar-bar` (`module/watch-clock.js`; the watch clock until 2026-11-20,
+when it moved from a card above the player list to a bar across the top of the
+screen) is the second surface that does not read the `--ab-*` palette, and the reason
+is not the print page's. The print page leaves the palette because it is always paper.
+This one leaves it because it is **not a sheet at all**.
 
-It lives inside `#ui-left-column-1`, beside Foundry's own player list, wearing core's
-`faded-ui` class. The panel it has to match is Foundry's chrome, not parchment — so
-`--ab-ink`, which is dark ink for a light sheet, is the wrong ink for it. Painting it
-with our tokens would make it wrong in whichever scheme it was not written for.
+Each tab is painted in a **tone** — its watch's (morning, afternoon, night) or its Vald
+season's, the date tab and the weather line in parchment — and a tone is a fixed pair,
+a gradient ground and an ink, **the same under either interface scheme**, the way a
+chat card's parchment is (the `--ab-glog` precedent). The tones are literals declared
+on `.tone-*` inside the bar's own block in `css/cairn.css`.
 
-So it reads **core's** chrome variables. This section used to end there, saying they
-were "body-scoped in `foundry2.css`" and therefore kept the clock and the player list
-"agreeing in every theme, for free". **That was never measured and it was false**, and
-0.1.21 shipped the consequence: under a light interface the clock painted `#333` text
-on a near-black slab at 1.26:1 — unreadable, hover included.
-
-**Core's chrome variables are two different kinds of thing, and only one of them
-switches.**
+That is the lesson of the card it replaced. The card read **core's** chrome variables,
+and those are two different kinds of thing, only one of which switches:
 
 | | Examples | Theme-aware? |
 |---|---|---|
 | Palette **constant** | `--color-cool-5-75`, `--color-cool-4`, `--color-light-3` | **No.** Declared once on `body` in `@layer variables.base`, never redefined. |
 | Semantic **token** | `--color-text-primary`, `--color-text-secondary`, `--color-border` | **Yes.** `body.theme-light` and `.themed.theme-light` repoint them in `@layer variables.themes`. |
 
-Pinning the **ground** to a constant while the **ink** follows a token is the defect.
-`#players` avoids it by declaring its own `--background-color` and `--border-color`
-*per theme* and reading those (`foundry2.css:592` dark, `:2423` and `:2728` light), so
-the clock now does the same, with core's own values.
+Pinning the **ground** to a constant while the **ink** follows a token is the defect
+0.1.21 shipped: under a light interface the card painted `#333` text on a near-black
+slab at 1.26:1. The bar reads **neither** kind — no colour in it depends on a scheme —
+so ink and ground cannot come apart.
 
-**Two selectors per scheme, because Configure UI has two dropdowns.** `configureUI`
-(`client/game.mjs:1852-1875`) sends **Applications** to `<body>` and **Interface** to
-`#interface` and each open app. Interface chrome resolves variables from `#interface`,
-the nearer ancestor. Core lets the interface theme win — `.themed.theme-light #players`
-outranks `body.theme-light #players` by sublayer order, not specificity (the first is in
-`variables.themes.specific`, declared after `.general`) — and our pair keeps that
-ordering, by specificity inside our one layer, so a Warden
-running Interface dark with Applications light does not get a white clock over a dark
-player list.
-
-**Testing it needs the same care, and this is the part that let the defect through.**
-Flipping `document.body.classList` to `theme-light` does *not* put interface chrome in
-light mode: `#interface` keeps the scheme it had, the clock keeps its old ink, and a
-probe measures the dark clock twice while labelling one of them light. `dev:theme` now
-switches through core's own `game.configureUI({...uiConfig, colorScheme: {applications,
-interface}})`, which is exactly what `core.uiConfig`'s `onChange` calls, and writes
-nothing.
-
-The rule this qualifies is "every colour a SHEET picks goes in an `--ab-*` token".
-Anything we add to Foundry's own chrome follows the chrome — but *following* it means
-following its theme switches too, not copying one scheme's literals. `dev:theme` reads
-the clock's contrast in both schemes, including the season and weather lines and the
-calendar glyph in its corner, and treats the clock as a **strict** surface: a finding
-in *either* scheme fails, because nothing inside that panel is core's to blame.
+**Testing it still needs the care that let that defect through.** Flipping
+`document.body.classList` to `theme-light` does *not* put interface chrome in light
+mode: `#interface` keeps the scheme it had. `dev:theme` switches through core's own
+`game.configureUI({...uiConfig, colorScheme: {applications, interface}})`, which is
+exactly what `core.uiConfig`'s `onChange` calls, writes nothing, and treats the bar as
+a **strict** surface in both schemes, plain and Vald-shaped (a button tab, a season
+glyph, the weather line): a finding in *either* scheme fails.
 
 **The Vald calendar window is NOT exempt**, and the boundary is worth stating
 because the two shipped together. `.cairn-vald-calendar` is an ordinary framed
