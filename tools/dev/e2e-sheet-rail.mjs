@@ -77,10 +77,13 @@
  *      the size of "Current"; with CharGen off the four max boxes are
  *      disabled with the locked tooltip and a submit writes none of them,
  *      and with CharGen on they are live.
- *  20. (user asks 2026-11-20) the trait sentence stands under a "Traits"
- *      label in page 1's Background label face, and over a thin rule with
- *      space before the Current / Max / Saves header; a blank character's pen
- *      stands alone under the label. Omen is laid out like a Bond: the die and
+ *  20. (user asks 2026-11-20) the trait sentence opens with a run-in "Traits"
+ *      label in page 1's Background label face (a line of its own pushed the
+ *      footer out of the 480 x 700 window; the user picked run-in), and stands
+ *      over a thin rule with space before the Current / Max / Saves header; a
+ *      blank character's slot holds the label and the pen. At 480 x 700, with
+ *      the longest sentence, a shield and a light, page 1 fits and the footer
+ *      is wholly visible. Omen is laid out like a Bond: the die and
  *      the list on the heading row right of its label, the text below it,
  *      indented on the answers' left rule in both schemes, with no field box,
  *      in the answers' face; switched off it shows the new hint in the notes
@@ -130,6 +133,14 @@ try {
       return fn();
     };
     const L = (k) => game.i18n.localize(k);
+    // The sentence's own words: since 2026-11-20 the "Traits" label runs in at
+    // its start (leg 20), and the pen ends it.
+    const sentenceText = (p) => {
+      if (!p) return null;
+      const c = p.cloneNode(true);
+      c.querySelectorAll(".traits-label, .trait-edit").forEach((n) => n.remove());
+      return c.textContent.trim();
+    };
     const out = {};
     const alice = game.users.getName("Alice");
     out.aliceId = alice?.id ?? null;
@@ -398,7 +409,7 @@ try {
       R.remembered = frame.querySelector(".tab.active[data-group='primary']")?.dataset.tab ?? null;
       // b. the sentence, sentence case, first in the left column.
       const left = () => frame.querySelector(".tab[data-tab='character'] .cairn-left");
-      R.handSentence = left()?.querySelector(":scope > .trait-sentence")?.textContent.trim() ?? null;
+      R.handSentence = sentenceText(left()?.querySelector(":scope > .trait-sentence"));
       R.handPen = !!left()?.querySelector(":scope > .trait-sentence .trait-edit[data-action='editTraits']");
       // Creation Mode off: the sentence stays, the pen goes.
       await pc.update({ "system.generationEnabled": false }, { abNoStatusCard: true });
@@ -413,12 +424,12 @@ try {
       await until(() => !left()?.querySelector(".trait-sentence")?.textContent.includes("physique"));
       await sleep(200);
       const blank = left()?.querySelector(":scope > .trait-sentence");
-      // Leg 20: the label says "Traits" now; the sentence slot holds the pen alone.
-      const blankLabel = left()?.firstElementChild?.matches(".traits-label") ? left().firstElementChild : null;
+      // Leg 20: the run-in "Traits" label, then the pen alone.
+      const blankLabel = blank?.querySelector(":scope > .traits-label") ?? null;
       R.blank = {
         label: blankLabel?.textContent.trim() ?? null,
-        labelLeads: !!blankLabel && blankLabel.nextElementSibling === blank,
-        text: blank?.textContent.trim() ?? null, pen: !!blank?.querySelector(".trait-edit"), want: L("CAIRN.Traits"),
+        labelLeads: !!blankLabel && blank.firstElementChild === blankLabel,
+        text: sentenceText(blank), pen: !!blank?.querySelector(".trait-edit"), want: L("CAIRN.Traits"),
       };
     }
 
@@ -691,6 +702,12 @@ try {
           omenEnabled: true, omen: "ZZ an omen", generationEnabled: true,
           description: "<p>ZZ imported prose</p>",
         },
+        // A shield and a light, so page 1 draws everything it can (the footer
+        // check below).
+        items: [
+          { name: "ZZ Rail Shield", type: "armor", system: { armor: 1, shield: true, equipped: true } },
+          { name: "Torch", type: "item", system: { equipped: true, uses: { value: 3, max: 3 } } },
+        ],
         flags: { "air-bladder": { probeFixture: fixture } },
       }, { abNoStatusCard: true });
       R.bgName = bgDoc?.name ?? null;
@@ -726,12 +743,12 @@ try {
       const lead = left?.firstElementChild ?? null;
       const bgDesc = bf.querySelector(".tab[data-tab='character'] .background-description");
       R.sentence = {
-        // First in the column, or first after its own label (leg 20).
-        first: !!sent && (lead === sent || (!!lead?.matches(".traits-label") && lead.nextElementSibling === sent)),
+        // First in the column (its "Traits" label runs in inside it, leg 20).
+        first: !!sent && lead === sent,
         // Before the abilities, with round 5's header row between them.
         beforeAbilities: !!sent && !!left?.querySelector(":scope > .cairn-abilities")
           && !!(sent.compareDocumentPosition(left.querySelector(":scope > .cairn-abilities")) & Node.DOCUMENT_POSITION_FOLLOWING),
-        text: sent?.textContent.trim() ?? null,
+        text: sentenceText(sent),
         want: "You have athletic physique, pale skin, and braided hair. Your face is broken, your speech booming. "
           + "You have antique clothing. You are lazy and honest. You are 30 years old.",
         size: sent ? getComputedStyle(sent).fontSize : null,
@@ -740,25 +757,41 @@ try {
         descFace: bgDesc ? getComputedStyle(bgDesc).fontFamily : null,
         inBand: !!bf.querySelector(".cairn-band .trait-sentence"),
       };
-      // Leg 20: the "Traits" label above the sentence, in the Background
-      // label's face, and a thin rule under the sentence with space before
-      // the Current / Max / Saves header.
+      // Leg 20: the "Traits" label RUNS IN at the sentence's start (user pick
+      // 2026-11-20, over a line of its own: page 1 must fit 480 x 700), in the
+      // Background label's face, and a thin rule under the sentence with
+      // space before the Current / Max / Saves header.
       {
         const FACE = ["fontFamily", "fontVariantCaps", "fontSize", "fontWeight", "color"];
         const face = (n) => { const cs = n ? getComputedStyle(n) : null; return Object.fromEntries(FACE.map((k) => [k, cs?.[k] ?? null])); };
-        const label = lead?.matches(".traits-label") ? lead : null;
+        const label = sent?.querySelector(":scope > .traits-label") ?? null;
         const head = left?.querySelector(":scope > .cairn-abilities-head");
         const cs = sent ? getComputedStyle(sent) : null;
         const sb = sent?.getBoundingClientRect(), hb = head?.getBoundingClientRect(), lb = label?.getBoundingClientRect();
         R.t20 = {
           label: label?.textContent.trim() ?? null,
           want: L("CAIRN.Traits"),
-          above: !!lb && !!sb && lb.bottom <= sb.top + 0.5,
+          // First in the sentence, on its first line.
+          runIn: !!lb && !!sb && sent.firstElementChild === label && lb.top >= sb.top - 1 && lb.top < sb.top + 8,
           face: face(label),
           bgFace: face(bf.querySelector(".tab[data-tab='character'] .background-line .background-label")),
           rule: cs ? { width: cs.borderBottomWidth, style: cs.borderBottomStyle } : null,
           // The rule is the sentence's bottom edge; the header starts below it.
           gap: sb && hb ? Math.round(hb.top - sb.bottom) : null,
+        };
+        // The footer (user report 2026-11-20: "opening a character sheet now
+        // shows the foot obscured"): at the default 480 x 700, with the
+        // longest sentence the traits make, a shield and a light held, page 1
+        // fits and "For Use With Cairn" is wholly inside the window.
+        await bs.changeTab("character", "primary");
+        await sleep(300);
+        const wc = bf.querySelector(".window-content");
+        const foot = bf.querySelector(".cairn-compat-footer");
+        const wb = wc?.getBoundingClientRect(), fb = foot?.getBoundingClientRect();
+        R.t20.fit = {
+          size: [bs.position.width, bs.position.height],
+          scroll: wc ? [wc.scrollHeight, wc.clientHeight] : null,
+          footInside: !!wb && !!fb && fb.bottom <= wb.bottom + 0.5 && fb.top >= wb.top,
         };
       }
       // c. the pen and the Traits window.
@@ -1312,14 +1345,18 @@ else {
     ? ok("with Character Creation Mode off the sentence stays and the pen goes")
     : fail(`Creation Mode off: sentence ${R.offSentence}, pen ${R.offPen}`);
   R.blank?.label === R.blank?.want && R.blank?.labelLeads && R.blank?.text === "" && R.blank?.pen
-    ? ok(`with no traits and no age the pen stands alone under the "${R.blank.label}" label`)
+    ? ok(`with no traits and no age the slot holds the run-in "${R.blank.label}" label and the pen alone`)
     : fail(`blank sentence slot: ${JSON.stringify(R.blank)}`);
   // 20
   const t20 = R.t20 ?? {};
   const sameBgFace = !!t20.bgFace?.fontFamily && JSON.stringify(t20.face) === JSON.stringify(t20.bgFace);
-  t20.label === t20.want && t20.above && sameBgFace
-    ? ok(`a "${t20.label}" label stands above the trait sentence, in the Background label's face`)
+  t20.label === t20.want && t20.runIn && sameBgFace
+    ? ok(`a "${t20.label}" label runs in at the start of the trait sentence, in the Background label's face`)
     : fail(`Traits label: ${JSON.stringify(t20)}`);
+  const fit = t20.fit ?? {};
+  fit.size?.[0] === 480 && fit.size?.[1] === 700 && fit.scroll && fit.scroll[0] <= fit.scroll[1] + 1 && fit.footInside
+    ? ok(`at 480 x 700, with the longest sentence, a shield and a light, page 1 fits and the footer is wholly visible (${fit.scroll[0]} in ${fit.scroll[1]})`)
+    : fail(`page 1 at the default size: ${JSON.stringify(fit)}`);
   t20.rule && parseFloat(t20.rule.width) >= 1 && t20.rule.style !== "none" && (t20.gap ?? -1) >= 4
     ? ok(`a thin rule (${t20.rule.width} ${t20.rule.style}) under the sentence, ${t20.gap}px before the header`)
     : fail(`rule under the sentence: ${JSON.stringify({ rule: t20.rule, gap: t20.gap })}`);

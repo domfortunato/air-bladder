@@ -35,10 +35,15 @@
  *      the row and the shop say Bulky (2 slots), the body armor beside it is
  *      untouched, the item sheet's Bulky box is ticked, greyed and says why,
  *      and a sheet submit stores nothing (the stored `bulky` stays false).
- *   6. Hold light (user ask 2026-11-20): a light source (a plain item named as
- *      one, not its fuel) shows the hand; a "Hold light" switch stands
- *      directly under "Hold shield"; a press holds the FIRST light in
- *      inventory order, a second stows every held one. Both switches are
+ *   6. Hold light (user asks 2026-11-20): a light source (a plain item named
+ *      as one or named in the radius table — the Glowsnail, the Sun Stick —
+ *      never its fuel) shows the hand. The light BADGE right of the Armor box
+ *      is the Hold light control: a neutral lantern reading "Hold light", "No
+ *      light held."; with several lights a press asks which (each listed with
+ *      its radius; Cancel holds nothing), with one it holds at once; held, the
+ *      icon matches the light, glows, and the radius shows under it; with two
+ *      held a press puts both away. The darkness light and a light with no
+ *      numbers read as they should. Both switches are
  *      ALWAYS drawn: with none of their kind they are disabled, off, and say
  *      why (this REWRITES leg 3's "no switch without a shield"); a live switch
  *      carries no tooltip. With the Torch module active (game.Torch and the
@@ -375,6 +380,9 @@ try {
           { name: "Lantern", type: "item", sort: 200 },
           { name: "Oil Can", type: "item", sort: 300 },
           { name: "ZZ Rope", type: "item", sort: 400 },
+          // Named in the radius table though not by the light-name rule (user, 2026-11-20).
+          { name: "Glowsnail", type: "item", sort: 500 },
+          { name: "Sun Stick", type: "item", sort: 600 },
         ],
       }, { abNoStatusCard: true });
       const it = (n) => pc.items.find((i) => i.name === n);
@@ -385,29 +393,106 @@ try {
       const page = () => sheet.element.querySelector('.tab[data-tab="character"]');
       const sw = () => page()?.querySelector(".light-hold");
       const hand = (n) => !!sheet.element.querySelector(`.cairn-items-list-row[data-item-id="${it(n)?.id}"] [data-action="itemToggleEquipped"]`);
-      out.hands = { torch: hand("Torch"), lantern: hand("Lantern"), oil: hand("Oil Can"), rope: hand("ZZ Rope") };
+      out.hands = { torch: hand("Torch"), lantern: hand("Lantern"), oil: hand("Oil Can"), rope: hand("ZZ Rope"),
+        glowsnail: hand("Glowsnail"), sunStick: hand("Sun Stick") };
+      // The badge: the light's icon (a CSS mask on .light-icon), its label, and
+      // the radius while one is held.
+      const badge = () => {
+        const b = sw();
+        const icon = b?.querySelector(".light-icon");
+        const cs = icon ? getComputedStyle(icon) : null;
+        return {
+          label: b?.querySelector(".light-label")?.textContent.trim() ?? null,
+          radius: b?.querySelector(".light-radius")?.textContent.trim() ?? null,
+          icon: (cs?.maskImage || cs?.webkitMaskImage || "").match(/game-icons\/fire\/([a-z-]+)\.svg/)?.[1] ?? null,
+          color: cs?.backgroundColor ?? null,
+          filter: cs?.filter ?? null,
+          checked: b?.getAttribute("aria-checked") ?? null,
+          tip: b?.dataset.tooltip ?? null,
+          disabled: b?.disabled ?? null,
+        };
+      };
+      const heldTip = (name) => game.i18n.format("CAIRN.LightHeldTip", { name });
+      out.want = {
+        noneHeld: L("CAIRN.LightNoneHeld"),
+        prompt: L("CAIRN.HoldLightPick.Prompt"),
+        heldLantern: heldTip("Lantern"), heldTorch: heldTip("Torch"), heldGlowsnail: heldTip("Glowsnail"),
+      };
+      out.want.bright = game.i18n.format("CAIRN.LightRadius", { bright: 20, dim: 40 });
+      out.want.dimOnly = game.i18n.format("CAIRN.LightRadiusDim", { dim: 10 });
       {
-        const a = page()?.querySelector(".shield-hold")?.getBoundingClientRect();
+        // Right of the Armor box, level with it: the icon IS the Hold light control.
+        const a = page()?.querySelector(".cairn-shield")?.getBoundingClientRect();
         const b = sw()?.getBoundingClientRect();
         out.place = {
-          text: sw()?.textContent.trim() ?? null,
-          disabled: sw()?.disabled ?? null,
-          tip: sw()?.dataset.tooltip ?? null,
-          under: !!a && !!b && b.top >= a.bottom - 0.5,
-          column: !!a && !!b && Math.abs((a.left + a.right) / 2 - (b.left + b.right) / 2) <= 4,
+          ...badge(),
+          right: !!a && !!b && b.left >= a.right - 0.5,
+          beside: !!a && !!b && b.top < a.bottom && b.bottom > a.top,
         };
       }
+      // Several lights, none held: a press asks which, listing each with its
+      // radius; Cancel holds nothing; the pick is held.
+      const openPicker = async () => {
+        const stale = new Set(document.querySelectorAll(".cairn-light-picker"));
+        sw()?.click();
+        let d = null;
+        await until(() => (d = [...document.querySelectorAll(".cairn-light-picker")].find((x) => !stale.has(x))), 3000);
+        await sleep(200);
+        return d;
+      };
+      {
+        let d = await openPicker();
+        const rows = [...(d?.querySelectorAll('input[name="light"]') ?? [])].map((i) => ({
+          id: i.value, text: i.closest("label")?.textContent.replace(/\s+/g, " ").trim() ?? "",
+        }));
+        out.picker = {
+          opened: !!d,
+          prompt: d?.querySelector(".cairn-light-prompt")?.textContent.trim() ?? null,
+          rows: rows.map((x) => x.text),
+          ids: rows.map((x) => x.id),
+          order: [it("Torch").id, it("Lantern").id, it("Glowsnail").id, it("Sun Stick").id],
+        };
+        d?.querySelector('footer button[data-action="cancel"]')?.click();
+        await until(() => !d?.isConnected, 3000);
+        await sleep(300);
+        out.picker.afterCancel = ["Torch", "Lantern", "Glowsnail", "Sun Stick"].filter((n) => it(n)?.system.equipped);
+        d = await openPicker();
+        const pick = d?.querySelector(`input[name="light"][value="${it("Lantern").id}"]`);
+        if (pick) { pick.checked = true; pick.dispatchEvent(new Event("change", { bubbles: true })); }
+        d?.querySelector('footer button[data-action="hold"]')?.click();
+        await until(() => it("Lantern")?.system.equipped === true, 3000);
+        await sleep(500);
+        out.picker.held = ["Torch", "Lantern", "Glowsnail", "Sun Stick"].filter((n) => it(n)?.system.equipped);
+        out.lanternBadge = badge();
+      }
+      // A second held light; one press puts every one away (no picker).
+      await it("Glowsnail").update({ "system.equipped": true });
+      await sleep(400);
+      out.glowBadge = badge();
+      sw()?.click();
+      await until(() => !it("Lantern")?.system.equipped && !it("Glowsnail")?.system.equipped, 3000);
+      await sleep(400);
+      out.stowed = { held: ["Torch", "Lantern", "Glowsnail", "Sun Stick"].filter((n) => it(n)?.system.equipped),
+        picker: !!document.querySelector(".cairn-light-picker"), badge: badge() };
+      // The radius text for the darkness light and for a light with no numbers.
+      try {
+        const ls = await import("/systems/air-bladder/module/light-sources.js");
+        out.texts = { darkness: ls.lightRadiusText("Lightsucker Candle"), none: ls.lightRadiusText("Wraith Lantern"),
+          alias: ls.lightRadiusText("Torches"), wantDark: game.i18n.format("CAIRN.LightRadiusDarkness", { bright: 10, dim: 20 }) };
+      } catch (e) {
+        out.texts = { error: e.message };
+      }
+      // Down to ONE light for the Torch legs below: a press holds it at once.
+      await pc.deleteEmbeddedDocuments("Item", [it("Lantern").id, it("Glowsnail").id, it("Sun Stick").id]);
+      await sleep(400);
       const press = async (test) => {
         sw()?.click();
         await until(test, 3000);
         await sleep(400);
       };
       await press(() => it("Torch")?.system.equipped === true);
-      out.held = { torch: it("Torch").system.equipped, lantern: it("Lantern").system.equipped, checked: sw()?.getAttribute("aria-checked") ?? null };
-      await it("Lantern").update({ "system.equipped": true });
-      await sleep(300);
-      await press(() => !it("Torch")?.system.equipped && !it("Lantern")?.system.equipped);
-      out.stowed = { torch: it("Torch").system.equipped, lantern: it("Lantern").system.equipped, checked: sw()?.getAttribute("aria-checked") ?? null };
+      out.torchBadge = { ...badge(), picker: !!document.querySelector(".cairn-light-picker") };
+      await press(() => !it("Torch")?.system.equipped);
 
       // Torch, stubbed.
       let calls = [];
@@ -650,8 +735,10 @@ sh.shield === true && sh.hacked === true && sh.buckler === true && sh.helmet ===
   : fail(`shipped shields: ${JSON.stringify(sh)}`);
 // Leg 3, rewritten by leg 6: both switches are always drawn.
 const greyed = (x, tip) => !!x && x.present && x.disabled === true && x.checked === "false" && x.off && x.tip === tip;
+// The light control is the badge since 2026-11-20 (no toggle glyph).
+const greyedLight = (x, tip) => !!x && x.present && x.disabled === true && x.checked === "false" && x.tip === tip;
 greyed(u.none, u.wantShieldNone) && greyed(u.helmetOnly, u.wantShieldNone)
-  && greyed(u.none?.light, u.wantLightNone) && greyed(u.helmetOnly?.light, u.wantLightNone)
+  && greyedLight(u.none?.light, u.wantLightNone) && greyedLight(u.helmetOnly?.light, u.wantLightNone)
   ? ok(`with no shield (or only a helmet) and no light, both switches are drawn disabled and off, saying "${u.wantShieldNone}" / "${u.wantLightNone}"`)
   : fail(`switches without a shield or a light: ${JSON.stringify({ none: u.none, helmetOnly: u.helmetOnly, want: [u.wantShieldNone, u.wantLightNone] })}`);
 const sl = u.slung ?? {};
@@ -706,17 +793,41 @@ bOn.afterSubmit?.armor === 2 && bOn.afterSubmit?.bulky === false
 // 6
 const lt = r.light ?? {};
 const hs = lt.hands ?? {};
-hs.torch && hs.lantern && !hs.oil && !hs.rope
-  ? ok("a Torch and a Lantern show the hand; the Oil Can (fuel) and a rope do not")
+hs.torch && hs.lantern && hs.glowsnail && hs.sunStick && !hs.oil && !hs.rope
+  ? ok("a Torch, a Lantern, the Glowsnail and the Sun Stick show the hand; the Oil Can (fuel) and a rope do not")
   : fail(`light hands: ${JSON.stringify(hs)}`);
+const lw = lt.want ?? {};
 const lp = lt.place ?? {};
-lp.text === lt.wantLight && lp.disabled === false && lp.tip === null && lp.under && lp.column
-  ? ok(`"${lp.text}" stands directly under Hold shield, live, with no tooltip`)
-  : fail(`Hold light switch: ${JSON.stringify(lp)} (want ${JSON.stringify(lt.wantLight)})`);
-lt.held?.torch === true && lt.held?.lantern === false && lt.held?.checked === "true"
-  && lt.stowed?.torch === false && lt.stowed?.lantern === false && lt.stowed?.checked === "false"
-  ? ok("a press holds the first light in inventory order; with two held, a press stows both")
-  : fail(`Hold light presses: ${JSON.stringify({ held: lt.held, stowed: lt.stowed })}`);
+lp.label === lt.wantLight && lp.disabled === false && lp.checked === "false" && lp.tip === lw.noneHeld
+  && lp.radius === null && lp.icon === "lantern-flame" && lp.right && lp.beside
+  ? ok(`the light badge stands right of the Armor box: a neutral lantern, "${lp.label}", "${lp.tip}", no radius`)
+  : fail(`light badge, none held: ${JSON.stringify(lp)} (want label ${JSON.stringify(lt.wantLight)}, tip ${JSON.stringify(lw.noneHeld)})`);
+const pk = lt.picker ?? {};
+pk.opened && pk.prompt === lw.prompt && JSON.stringify(pk.ids) === JSON.stringify(pk.order)
+  && pk.rows?.[0]?.includes("Torch") && pk.rows[0].includes(lw.bright)
+  && pk.rows?.[2]?.includes("Glowsnail") && pk.rows[2].includes(lw.dimOnly)
+  ? ok(`several lights, none held: a press asks "${pk.prompt}", listing each in order with its radius`)
+  : fail(`light picker: ${JSON.stringify(pk)} (want prompt ${JSON.stringify(lw.prompt)}, ${JSON.stringify(lw.bright)} / ${JSON.stringify(lw.dimOnly)})`);
+JSON.stringify(pk.afterCancel) === "[]" && JSON.stringify(pk.held) === JSON.stringify(["Lantern"])
+  ? ok("Cancel holds nothing; picking the Lantern holds the Lantern alone")
+  : fail(`picker outcome: cancel ${JSON.stringify(pk.afterCancel)}, pick ${JSON.stringify(pk.held)}`);
+const lb = lt.lanternBadge ?? {};
+lb.checked === "true" && lb.icon === "lantern-flame" && lb.radius === lw.bright && lb.tip === lw.heldLantern
+  && lb.color !== lp.color && lb.filter && lb.filter !== "none"
+  ? ok(`held, the badge glows (${lb.color}, ${lb.filter}) and reads "${lb.radius}", "${lb.tip}"`)
+  : fail(`lantern badge: ${JSON.stringify(lb)} (none-held colour ${lp.color})`);
+const st = lt.stowed ?? {};
+JSON.stringify(st.held) === "[]" && !st.picker && st.badge?.checked === "false" && st.badge?.radius === null
+  ? ok("with two held, one press puts both away, with no picker")
+  : fail(`stow all: ${JSON.stringify(st)}`);
+const tb = lt.torchBadge ?? {};
+tb.checked === "true" && !tb.picker && tb.icon === "torch" && tb.radius === lw.bright && tb.tip === lw.heldTorch
+  ? ok("with one light, a press holds it at once: the torch icon, its radius")
+  : fail(`single light: ${JSON.stringify(tb)}`);
+const tx = lt.texts ?? {};
+tx.darkness === tx.wantDark && tx.none === "" && tx.alias === lw.bright
+  ? ok(`the darkness light reads "${tx.darkness}"; a light with no numbers reads nothing; "Torches" reads as a Torch`)
+  : fail(`radius texts: ${JSON.stringify(tx)}`);
 const tc = lt.torch ?? {};
 const lightCalls = [["selectSource", "zzScene", "zzTok", "Torch"], ["currentState", "zzScene", "zzTok"], ["toggle", "zzScene", "zzTok"]];
 const outCalls = [["extinguish", "zzScene", "zzTok"]];
