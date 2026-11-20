@@ -62,7 +62,9 @@ who adds their shield to an attack rolls the weapon's die and the shield's d4
 and keeps the higher, and that mix does explode, by the rule above: only the die
 you keep explodes, if it rolled its highest face. A d6 rolling 6 against the d4's
 3 keeps the 6 and rolls again; a d6 rolling 5 against the d4's 4 keeps the 5, and
-nothing explodes. The maneuver line follows the die you keep, so a d4 that rolls
+nothing explodes. On a tie, the weapon's die is the one kept: a d6 and the d4
+both rolling 4 keep the d6's 4, which is not its highest face, so nothing
+explodes. The maneuver line follows the die you keep, so a d4 that rolls
 4 but loses to the weapon's 5 earns no maneuver.
 
 **Two more, for formulas of your own.** A damage formula that **adds** two

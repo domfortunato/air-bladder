@@ -70,15 +70,18 @@ light without spending a use unless you switch the second one on.
 
 ## Hold light
 
-Right of the Armor box on a character sheet is the **Hold light** badge: a
+Right of the Armor box on a character's or a creature's sheet is the **Hold light** badge: a
 light that glows while one is held, with how far it reaches written underneath.
 Pressing it holds a light, the same as pressing that light's hand in the
 inventory; with more than one light carried, it asks which. Pressing it again
-puts every held light away.
+puts every held light away. One light is held at a time: holding another by its
+hand puts the first away.
 
 With Torch active and the character's token on the scene you are viewing,
 holding a light also lights the token, and putting it away puts the light out,
-which spends a use as above. It works one way only: Torch's own button on the
+which spends a use as above. A light that leaves the hand any other way (marked
+Broken, given away, dropped or deleted) is put out too. A torch with no uses
+left is held but doesn't light. It works one way only: Torch's own button on the
 token HUD does not move the badge. A light Torch doesn't know (a name missing
 from the file) is still held, but it doesn't shine. Without Torch, or with no
 token on the scene, the badge only holds or puts away the item.
