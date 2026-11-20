@@ -147,6 +147,10 @@ try {
     const hacks = mod.SETTING_GROUPS.find((g) => g.id === "hacks");
     out.hackKeys = hacks?.keys ?? [];
     out.subSpecs = [hacks?.subOptions].flat().filter(Boolean).map((s) => s.master);
+    // What the ruling is about: no spec GATES any of the three. Read the keys
+    // too, since the group gained a second spec on 2026-11-20 (GLOG's
+    // Grimoires), which has nothing to do with combat.
+    out.subGated = [hacks?.subOptions].flat().filter(Boolean).flatMap((s) => s.keys ?? []);
     if (KEYS.some((k) => !out.registered[k])) return out;
 
     /* ---- 1. the keystone: modifier ORDER -------------------------------- */
@@ -1999,9 +2003,9 @@ try {
   KEYS_ALL.every((k) => (r.hackKeys ?? []).includes(k))
     ? ok("...and the three options are in the Hacks group")
     : fail(`hack keys: ${JSON.stringify(r.hackKeys)}`);
-  JSON.stringify(r.subSpecs) === JSON.stringify(["content-source-barebones"])
-    ? ok("the Hacks group's only subOptions spec is Barebones' — nothing gates the three")
-    : fail(`subOptions masters are ${JSON.stringify(r.subSpecs)}`);
+  !(r.subSpecs ?? []).includes("crawler-combat-mode") && !KEYS_ALL.some((k) => (r.subGated ?? []).includes(k))
+    ? ok(`no subOptions spec gates the three (the Hacks group's specs: ${JSON.stringify(r.subSpecs)})`)
+    : fail(`subOptions masters ${JSON.stringify(r.subSpecs)}, gated keys ${JSON.stringify(r.subGated)}`);
   KEYS_ALL.every((k) => r.rowsLive?.[k]?.present && r.rowsLive[k].disabled === false && !r.rowsLive[k].greyed)
     ? ok("all three rows are LIVE with every option off — no disabled input, no greyed row")
     : fail(`rows: ${JSON.stringify(r.rowsLive)} — the master build greyed them while it was off`);
