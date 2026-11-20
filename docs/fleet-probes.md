@@ -113,6 +113,28 @@ green on all three builds.** 108 probes now, with `dev:attack` new.
   foe. Fixed in `71d96814` (release targets first); `attack` green there on all three builds
   (`20261119T225840Z`, `20261119T230003Z`, `20261119T230120Z`).
 
+## Character sheet rounds 5 and 6, Hold shield, Broken (2026-11-20)
+
+**At `e1866dc8`: 110/110 on 14.370 and 14.369, 108/110 on 14.368** (`20261120T020852Z`,
+`20261120T021555Z`, `20261120T022258Z`). The two 14.368 reds are the GPU crash below, not the code.
+
+- **Negative controls, each red on exactly its new checks:** round 5 `740e1561`; round 6
+  `9683e23c` (`20261120T011526Z`); Hold shield `442fd09d` (`20261120T012136Z`); the batch
+  (Broken, ability ±, Attack Cancel, CharGen, hint, name) `734c90fe` (`20261120T014829Z`); the
+  inline-created broken item `9801c1d6` (`20261120T020206Z`); HP's bar `c824fbcb`
+  (`20261120T020348Z`). The last two were found walking CT 123, not by a probe.
+- **Reds that were the probes' fault:** a `sheet-rail` race on 14.369 and 14.368 (a render still in
+  flight after `changeTab("items")` put the sheet back on Character; all-zero rects), fixed in
+  `fdf615ba` and `8768e534`; `settings` (a new migration marker must join `MARKERS`,
+  `83d94f5e`); `header-buttons` (the CharGen label hard-coded in English, `e1866dc8`).
+- **The GPU crash, four times:** `combat-options` (and once `companions`) red on 14.368 or 14.369
+  with `join: no user control on …/join`, forms `[]`: a PLAYER's second browser. Every one has
+  Chromium's GPU process crashing or losing its WebGL context just before
+  (`shots/<probe>/chromium-*.log`: "GPU process exited unexpectedly", "CONTEXT_LOST_WEBGL"). In
+  `20261120T022258Z` two probes on different boxes (CT 114, CT 130) crashed in the same second,
+  02:25:35, which points at the shared GPU, not the code. Same family as the 11-19 GPU OOM. The
+  probes passed every other check.
+
 ## Character sheet round 4 (2026-11-19/20)
 
 **Round 4 (the Description page retired, the Traits window, sentence case, the labelled Background
