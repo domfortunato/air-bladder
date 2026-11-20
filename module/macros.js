@@ -1,6 +1,7 @@
-import { evaluateFormula, getInfoFromDropData, askDamageQuality, damageFormulaFor, damageQualityLabel, damageQualityKind, combatDamageFormula, explodeKeptPoolDie } from "./utils.js";
+import { evaluateFormula, getInfoFromDropData, askDamageQuality, damageFormulaFor, damageQualityLabel, damageQualityKind, combatDamageFormula, settleKeptPool } from "./utils.js";
 import { SETTINGS_NS } from "./settings.js";
 import { t, actorDisplayName, itemNamespaces } from "./i18n-content.js";
+import { handsBlock } from "./gear.js";
 
 /**
  * @param {Object} data
@@ -95,6 +96,14 @@ export const rollItemMacro = async (actorId, itemId) => {
   // (`itemNamespaces`): a monster's item, then item.name.
   const weaponName = t(itemNamespaces(actor).nameNs, item.name);
 
+  // A player character's button keeps the sheet's rules (review #35, user
+  // ruling 2026-11-20): a Broken weapon gives no benefit, and "Hands full"
+  // leaves only the held shield and light to attack with. Refused, saying why.
+  if (actor.type === "character" && item.system?.broken) {
+    return ui.notifications.warn(game.i18n.format("CAIRN.Macro.Broken", { name: weaponName }));
+  }
+  if (handsBlock(item)) return ui.notifications.warn(game.i18n.localize("CAIRN.HandsFullNote"));
+
   const usePanic = game.settings.get(SETTINGS_NS, "use-panic");
   const panicked = usePanic && actor.system.panicked;
 
@@ -124,7 +133,7 @@ export const rollItemMacro = async (actorId, itemId) => {
 
   // determine roll result (a keep-highest pool keeps first, then explodes)
   let roll = await evaluateFormula(rollSchema, actor.getRollData());
-  if (explodeKept) roll = await explodeKeptPoolDie(roll);
+  roll = await settleKeptPool(roll, { explode: explodeKept });
   // Whole-sentence keys, same as the sheet's damage roll — this was the third
   // copy of the localize()+concat shape and the one nobody remembered.
   const label = weaponName

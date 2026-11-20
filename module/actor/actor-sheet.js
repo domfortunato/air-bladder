@@ -2,7 +2,7 @@ import { dieIconOrGeneric } from "../utils.js";
 import { drawBond, bondRecordFrom, withGrantSource, bondEntitlement, bondsEnabled, backgroundDescriptionText, resolveRefs, replaceGrantedContainers, promptBackground, changeBackground, promptFailedCareer, rollFailedCareerName, buildFailedCareerItem, getPortraitManifest, pairedTokenFor, randomPortraitInSameFolder, portraitCategoryFor, regenerateNpc, regenerateHireling, rerollNpcBackground, rerollHirelingCareer, rerollNpcName, rerollNpcFaction, promptHirelingCareer, promptNpcBackground, promptNpcFaction, promptPickOmen, promptPickBond, promptPickQuestionOption, promptPickName, findOmensTable, rollNameFromTable, rollAge, rollTextItems, effectiveAgeFormula, effectivePcAbilityFormula, effectivePcGoldFormula, effectivePcHpFormula, rollPcHitProtection, resolveActorBackground, redealBackgroundGear, redealBarebonesKit, rerollAllBonds, reorderInventory, postGenerationRolls, isHandBuilt, clearHandBuilt, isBackgroundDisabled, equipIfArms, failedCareerActive, FLAG_SCOPE } from "../character-generator.js";
 import { promptMonsterTier, regenerateMonster } from "../monster-generator.js";
 import { openMarketplace, TRANSPORTS_CATEGORY } from "../marketplace.js";
-import { evaluateFormula, cairnSavePasses, cleanDescription, concealSecrets, holdsProse, bindEditorClickAwaySave, formatCount, sourceLabel, askDamageQuality, damageFormulaFor, damageQualityLabel, damageQualityKind, d20CardBody, d20CardFlavor, D20_CARD_ABILITIES, combatOption, combatDamageFormula, explodeKeptPoolDie, askImprovisedAttack, askAttack, IMPROVISED_FORMULA, IMPROVISED_ID, nameEditorToggles,
+import { evaluateFormula, cairnSavePasses, cleanDescription, concealSecrets, holdsProse, bindEditorClickAwaySave, formatCount, sourceLabel, askDamageQuality, damageFormulaFor, damageQualityLabel, damageQualityKind, d20CardBody, d20CardFlavor, D20_CARD_ABILITIES, combatOption, combatDamageFormula, settleKeptPool, askImprovisedAttack, askAttack, IMPROVISED_FORMULA, IMPROVISED_ID, nameEditorToggles,
   attackFormula, shieldDamage, handsFullHack, shieldWeaponHack, isTwoHanded, shieldPoolFormula, askWhichLight } from "../utils.js";
 import { lightIcon, lightRadiusText, LIGHT_ICON_NEUTRAL } from "../light-sources.js";
 import { resultText, resultPlainText, compendiumInfoFromString } from "../compendium.js";
@@ -40,7 +40,7 @@ const NPC_TRAIT_LABELS = {
   vice: "CAIRN.Trait.Vice",
 };
 import { atConnectionLimit, maxConnections, connectionsUiEnabled, brokenOwnershipShape, OWNERSHIP_SYNC_FLAG } from "../connections.js";
-import { findMatchingStack, capacityVerdict, landingNeed, isHoldableLight, isHeldLight } from "../gear.js";
+import { findMatchingStack, capacityVerdict, landingNeed, isHoldableLight, isHeldLight, handsFull, handsBlock } from "../gear.js";
 import {
   canOfferItem, promptOfferTarget, createItemOffer, offerFromDrop,
   canReceiveOffer, settleOwnOffer,
@@ -4881,7 +4881,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
 
     // A keep-highest pool keeps first, then its kept die explodes (2026-11-20).
     let roll = await evaluateFormula(formula, this.actor.getRollData());
-    if (explodeKept) roll = await explodeKeptPoolDie(roll);
+    roll = await settleKeptPool(roll, { explode: explodeKept });
     // Two whole-sentence keys, not fragments glued with `+`: word order is not
     // universal, and the translator could not move the weapon name or the
     // parenthetical. Same rule as _buildTraitSentence and _prepareConnectionLabel.
@@ -5377,9 +5377,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    * @param {Actor} actor
    */
   static #handsFull(actor) {
-    if (actor?.type !== "character" || !handsFullHack()) return false;
-    const held = actor.items.filter((i) => i.system?.equipped && !i.system?.broken);
-    return held.some((i) => i.type === "armor" && i.system?.shield === true) && held.some((i) => isHoldableLight(i));
+    return handsFull(actor);              // gear.js: the macro reads it too
   }
 
   /**
@@ -5388,8 +5386,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    * @param {Item} item
    */
   static #handsBlock(item) {
-    if (!CairnActorSheet.#handsFull(item?.actor)) return false;
-    return !((item.type === "armor" && item.system?.shield === true) || isHoldableLight(item));
+    return handsBlock(item);              // gear.js
   }
 
   /**
@@ -5504,7 +5501,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
 
     // A keep-highest pool keeps first, then its kept die explodes (2026-11-20).
     let roll = await evaluateFormula(formula, this.actor.getRollData());
-    if (explodeKept) roll = await explodeKeptPoolDie(roll);
+    roll = await settleKeptPool(roll, { explode: explodeKept });
 
     // THE DESCRIPTION RIDES AS THE WEAPON. `data-weapon` exists to carry "the
     // thing this attack was made with" verbatim so the sentences rebuild per

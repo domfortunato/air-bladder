@@ -410,7 +410,38 @@ export const explodingDamageFormula = (formula) => {
  * @param {Roll} roll  an evaluated roll
  * @returns {Promise<Roll>}
  */
-export const explodeKeptPoolDie = async (roll) => {
+export const explodeKeptPoolDie = async (roll) => keptPoolExplosion(roll);
+
+/**
+ * Settle a keep-highest pool after it is rolled: on a TIE the FIRST member
+ * (the weapon's die, which the shield pool always lists first) is the kept
+ * one (user ruling 2026-11-20, review #35: "Weapon die"), then, under the
+ * exploding option, the kept die explodes (explodeKeptPoolDie). Foundry's
+ * keep chose the shield's d4 on a 4-4, which then exploded and earned a
+ * maneuver line though the weapon's die was not at its maximum. The total is
+ * the same either way; only which member is kept moves. Any roll that is not
+ * a lone pool comes back as it was. The ONE call the three damage sites make.
+ * @param {Roll} roll  an evaluated roll
+ * @param {{explode: Boolean}} o
+ * @returns {Promise<Roll>}
+ */
+export const settleKeptPool = async (roll, { explode = false } = {}) => {
+  const { PoolTerm } = foundry.dice.terms;
+  const pool = roll?.terms?.length === 1 ? roll.terms[0] : null;
+  if (pool instanceof PoolTerm) {
+    const results = pool.results ?? [];
+    const kept = results.findIndex((r) => r?.active);
+    const first = kept > 0 ? results.findIndex((r) => r?.result === results[kept].result) : -1;
+    if (first >= 0 && first < kept) {
+      const [a, b] = [results[first], results[kept]];
+      [a.active, b.active] = [true, false];
+      [a.discarded, b.discarded] = [b.discarded, a.discarded];
+    }
+  }
+  return explode ? keptPoolExplosion(roll) : roll;
+};
+
+const keptPoolExplosion = async (roll) => {
   const { OperatorTerm, PoolTerm } = foundry.dice.terms;
   const pool = roll?.terms?.length === 1 ? roll.terms[0] : null;
   if (!(pool instanceof PoolTerm)) return roll;
@@ -418,12 +449,18 @@ export const explodeKeptPoolDie = async (roll) => {
   const member = pool.rolls?.[kept];
   const die = member?.dice?.length === 1 ? member.dice[0] : null;
   const faces = Number(die?.faces);
-  const top = die?.results?.find((r) => r?.active);
   const cap = explosionCap(faces);
-  if (!top || top.result !== faces || cap < 1) return roll;
-  top.exploded = true;
-  const rest = cap - 1;
-  const chain = await new Roll(rest > 0 ? `1d${faces}x${rest}=${faces}` : `1d${faces}`).evaluate();
+  // EVERY die of the kept member at its maximum (review #35): a summed member
+  // (`{2d6,1d4}kh`, a hand-written additive weapon) shares ONE cap between its
+  // dice, as the same 2d6 does unshielded (`2d6x2`); reading only its first
+  // die lost a six on the second. Each maximum spends one of the cap and adds
+  // one die; the rest of the cap is the chain's.
+  const tops = (die?.results ?? []).filter((r) => r?.active && r.result === faces).slice(0, Math.max(0, cap));
+  if (!tops.length || cap < 1) return roll;
+  for (const top of tops) top.exploded = true;
+  const rest = cap - tops.length;
+  const n = tops.length;
+  const chain = await new Roll(rest > 0 ? `${n}d${faces}x${rest}=${faces}` : `${n}d${faces}`).evaluate();
   // An OperatorTerm is born evaluated (dice/terms/operator.mjs), so the three
   // are all evaluated, which is what Roll.fromTerms requires.
   return Roll.fromTerms([pool, new OperatorTerm({ operator: "+" }), ...chain.terms]);
@@ -564,13 +601,25 @@ export const isTwoHanded = (item) => !!item
  * A weapon's attack with the shield added: both dice, keep the highest, as
  * an EXPLICIT pool. A Cairn `+` keep-highest weapon goes in as its keep form
  * (`2d6k`, judgedDie) so it stays one term; with notation off a `+` weapon
- * is a sum, and goes in as written.
+ * is a sum, and goes in as written. A hand-written `+` weapon of OTHER bare
+ * dice (`d6 + d8`, `2d6 + d6`), which evaluateFormula reads as keep-highest
+ * while notation is on, goes in one member per die term (review #35): as a
+ * single member it was summed, max(d6 + d8, d4) where the weapon alone
+ * rolls the higher of its dice.
  * @param {String} weaponFormula
  */
 export const shieldPoolFormula = (weaponFormula) => {
   const f = String(weaponFormula ?? "").trim();
-  const judged = f.includes("+") ? judgedDie(f) : null;
-  return `{${judged ? judged.formula : f},${SHIELD_FORMULA}}kh`;
+  if (f.includes("+")) {
+    const judged = judgedDie(f);
+    if (judged) return `{${judged.formula},${SHIELD_FORMULA}}kh`;
+    const terms = f.split("+").map((x) => x.trim());
+    if (game.settings.get(SETTINGS_NS, "use-cairn-dice-notation") && terms.length > 1
+        && terms.every((x) => /^\d*d\d+$/i.test(x))) {
+      return `{${terms.join(",")},${SHIELD_FORMULA}}kh`;
+    }
+  }
+  return `{${f},${SHIELD_FORMULA}}kh`;
 };
 
 /**

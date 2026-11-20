@@ -25,7 +25,7 @@ import { warmPackDocuments } from "./compendium.js";
 
 import { iconForItem, SPELLSCROLL_ICON, SPELLBOOK_ICON } from "./icons.js";
 import { glogEnabled, grimoiresEnabled, GLOG_PACK, GLOG_SPELL_PACKS, GLOG_NAME_ALIASES } from "./glog.js";
-import { isBulky } from "./utils.js";
+import { isBulky, handsFullHack } from "./utils.js";
 import { lightSource } from "./light-sources.js";
 
 // Packs searched to resolve a gear name, in precedence order — an earlier pack
@@ -184,6 +184,29 @@ export const holdLight = async (actor, item, held) => {
   } catch {
     // Torch failed: the hold stands, unlit.
   }
+};
+
+/**
+ * Are a CHARACTER's hands full under the "Hands full" hack (2026-11-20, user
+ * ask)? Holding = EQUIPPED: an armor ticked Shield and a light source, neither
+ * broken. The ONE test the sheet's rollers, the Attack window and the hotbar
+ * macro read (review #35: the macro had none).
+ * @param {Actor} actor
+ */
+export const handsFull = (actor) => {
+  if (actor?.type !== "character" || !handsFullHack()) return false;
+  const held = actor.items.filter((i) => i.system?.equipped && !i.system?.broken);
+  return held.some((i) => i.type === "armor" && i.system?.shield === true) && held.some((i) => isHoldableLight(i));
+};
+
+/**
+ * Does "Hands full" keep this item from attacking? True for anything that is
+ * not the held shield or light, on a character whose hands are full.
+ * @param {Item} item
+ */
+export const handsBlock = (item) => {
+  if (!handsFull(item?.actor)) return false;
+  return !((item.type === "armor" && item.system?.shield === true) || isHoldableLight(item));
 };
 
 /** Is this item a light held right now (equipped and not broken)? */
