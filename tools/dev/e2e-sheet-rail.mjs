@@ -450,8 +450,13 @@ try {
       R5.fill = { low: await setHp(4), full: await setHp(6), zero: await setHp(0) };
       await pc.update({ "system.hp.value": hpWas.value, "system.hp.max": hpWas.max }, { abNoStatusCard: true });
       // The Inventory hint: first on the page, in full ink.
+      // The HP restore above re-renders the sheet AFTER its update resolves;
+      // a node taken before that render is detached and measures 0 high (a
+      // race seen on 14.369 at 4454cbe7). Wait for the LIVE hint to show,
+      // re-querying each time, then let the render settle.
       await sheet.changeTab("items", "primary");
-      await sleep(300);
+      await until(() => (frame.querySelector('.tab[data-tab="items"] .cairn-expand-hint')?.getBoundingClientRect().height ?? 0) > 0, 4000);
+      await sleep(400);
       const items = frame.querySelector('.tab[data-tab="items"]');
       const hint = items?.querySelector(".cairn-expand-hint");
       const reorder = items?.querySelector(".cairn-reorder-hint");
@@ -521,11 +526,14 @@ try {
       await setHp(4);
       const [load] = await pc.createEmbeddedDocuments("Item", [{ name: "ZZ Rail HP Load", type: "item", system: { quantity: 40 } }]);
       await until(() => q('[data-action="hpUp"]')?.disabled === true, 3000);
-      await sleep(200);
+      // Let the load's renders settle, so the forced press lands on the LIVE
+      // button (a detached one would pass without testing anything).
+      await sleep(600);
       R6.burdened = state();
       const forced = q('[data-action="hpUp"]');
       forced?.removeAttribute("disabled");
       forced?.click();
+      R6.forcedLive = !!forced?.isConnected;
       await sleep(800);
       R6.burdenedStored = pc._source.system.hp.value;
       await load?.delete();
@@ -947,9 +955,9 @@ else {
   R6.at6?.up === true && R6.at6?.down === false && R6.capped === 6 && R6.at0?.down === true && R6.at0?.up === false && R6.floored === 0
     ? ok("+ is off at max and − at 0; neither steps past its bound")
     : fail(`HP bounds: ${JSON.stringify({ at6: R6.at6, capped: R6.capped, at0: R6.at0, floored: R6.floored })}`);
-  R6.burdened?.up === true && R6.burdened?.down === true && R6.burdenedStored === 4
+  R6.burdened?.up === true && R6.burdened?.down === true && R6.forcedLive && R6.burdenedStored === 4
     ? ok("overburdened, both are off, and a forced + leaves the stored 4 alone")
-    : fail(`HP while overburdened: ${JSON.stringify({ burdened: R6.burdened, stored: R6.burdenedStored })}`);
+    : fail(`HP while overburdened: ${JSON.stringify({ burdened: R6.burdened, live: R6.forcedLive, stored: R6.burdenedStored })}`);
 
   // 8
   !r.npc.rail && r.npc.strip && !r.npc.railed && r.npc.width === 600
