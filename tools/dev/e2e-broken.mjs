@@ -29,6 +29,14 @@
  *      the stored flag stays true — found walking CT 123, 2026-11-20) still
  *      reads it unequipped: the row is not bold, a weapon has no damage roll,
  *      its Armor does not count, and a shield gives no switch.
+ *   9. (review #35) a broken item and an intact one of the same name and
+ *      type are not one stack, either way round (findMatchingStack); two
+ *      intact ones are;
+ *  10. (review #35, GLoG and Grimoires read on IN-PAGE, never written) the
+ *      Grimoire's cast picker leaves out a broken bound page;
+ *  11. (review #35) a broken Grimoire offers no Transmute on a loose book, a
+ *      forced Transmute asks nothing and binds nothing, and castFromGrimoire
+ *      itself opens nothing and returns null.
  *
  * Usage: npm run dev:broken
  */
@@ -208,6 +216,93 @@ try {
       axeRoll: !!row2("ZZ Old Axe")?.querySelector('[data-action="rollDamage"]'),
     };
     await s2.close();
+
+    // 9. Stacking (review #35): a broken item and an intact one of the same
+    // name and type are not one stack, either way round; two intact are.
+    {
+      const { findMatchingStack } = await import("/systems/air-bladder/module/gear.js");
+      const pc3 = await getDocumentClass("Actor").create({
+        name: "ZZ Broken Stack", type: "character", flags,
+        items: [
+          { name: "ZZ Rope", type: "item", system: { broken: true } },
+          { name: "ZZ Chain", type: "item", system: {} },
+        ],
+      }, { abNoStatusCard: true });
+      out.stack = {
+        intactOnBroken: !!findMatchingStack(pc3, { name: "ZZ Rope", type: "item", system: {} }),
+        brokenOnIntact: !!findMatchingStack(pc3, { name: "ZZ Chain", type: "item", system: { broken: true } }),
+        intactOnIntact: !!findMatchingStack(pc3, { name: "ZZ Chain", type: "item", system: {} }),
+      };
+    }
+
+    // 10-11. The Grimoire (review #35), GLoG and Grimoires read ON in-page
+    // (never written; put back in the finally): a broken page is not in the
+    // cast picker; a broken Grimoire offers no Transmute, a forced Transmute
+    // binds nothing, and castFromGrimoire itself opens nothing.
+    {
+      const ns = game.system.id;
+      const origGet = game.settings.get;
+      game.settings.get = function (scope, key, ...rest) {
+        if (rest[0]?.document) return foundry.helpers.ClientSettings.prototype.get.call(this, scope, key, ...rest);
+        if (scope === ns && (key === "enable-glog-magic" || key === "glog-grimoires")) return true;
+        return origGet.call(this, scope, key, ...rest);
+      };
+      const grim = await import("/systems/air-bladder/module/grimoire.js");
+      const dialogs = () => [...foundry.applications.instances.values()].filter((d) => d instanceof foundry.applications.api.DialogV2);
+      const closeNew = async (before) => {
+        for (const d of dialogs()) if (!before.has(d)) await d.close();
+      };
+      try {
+        const pc4 = await getDocumentClass("Actor").create({
+          name: "ZZ Broken Grimoire", type: "character", flags,
+          items: [
+            { name: "ZZ Grim", type: "item", system: { grimoire: true, grimoirePages: 3, grimoireKey: "zzbroken" } },
+            { name: "ZZ Page A", type: "spellbook", system: { bound: true, boundTo: "zzbroken" } },
+            { name: "ZZ Page B", type: "spellbook", system: { bound: true, boundTo: "zzbroken", broken: true } },
+            { name: "ZZ Loose", type: "spellbook", system: {} },
+          ],
+        }, { abNoStatusCard: true });
+        const it4 = (n) => pc4.items.find((i) => i.name === n);
+        // 10: the picker.
+        let before = new Set(dialogs());
+        const pending = grim.castFromGrimoire(pc4);
+        let dlg = null;
+        await until(() => (dlg = dialogs().find((d) => !before.has(d))));
+        await sleep(200);
+        out.picker = dlg ? [...dlg.element.querySelectorAll('select[name="page"] option')].map((o) => o.value) : null;
+        out.pageIds = { a: it4("ZZ Page A").id, b: it4("ZZ Page B").id };
+        await closeNew(before);
+        await pending;
+        // 11: break the Grimoire.
+        await it4("ZZ Grim").update({ "system.broken": true });
+        await until(() => it4("ZZ Grim")._source.system.broken === true, 3000);
+        const s4 = pc4.sheet;
+        await s4.render(true);
+        await until(() => s4.element?.querySelector?.(".cairn-items-list-row"));
+        await sleep(400);
+        const looseRow = s4.element.querySelector(`.cairn-items-list-row[data-item-id="${it4("ZZ Loose").id}"]`);
+        out.transmute = { offered: !!looseRow?.querySelector('[data-action="pageTransmute"]') };
+        before = new Set(dialogs());
+        if (looseRow) {
+          const forced = document.createElement("a");
+          forced.dataset.action = "pageTransmute";
+          looseRow.append(forced);
+          forced.click();
+        }
+        await sleep(700);
+        out.transmute.asked = dialogs().some((d) => !before.has(d));
+        await closeNew(before);
+        await sleep(300);
+        out.transmute.bound = it4("ZZ Loose")?.system.bound === true;
+        await s4.close();
+        before = new Set(dialogs());
+        const cast = await Promise.race([grim.castFromGrimoire(pc4), sleep(1500).then(() => "open")]);
+        out.brokenCast = { result: cast === null ? null : String(cast), opened: dialogs().some((d) => !before.has(d)) };
+        await closeNew(before);
+      } finally {
+        game.settings.get = origGet;
+      }
+    }
     return out;
   }, FIXTURE);
 } catch (e) {
@@ -252,6 +347,24 @@ else {
   u.equipped === false && u.row?.hand && !u.row?.tag?.length
     ? ok("unticked, it can be equipped again and is not re-equipped")
     : fail(`unbroken: ${JSON.stringify(u)}`);
+  // 9
+  const st = r.stack ?? {};
+  st.intactOnBroken === false && st.brokenOnIntact === false && st.intactOnIntact === true
+    ? ok("a broken item and an intact one of the same name are not one stack; two intact are")
+    : fail(`stacking: ${JSON.stringify(st)}`);
+  // 10
+  Array.isArray(r.picker) && r.picker.includes(r.pageIds?.a) && !r.picker.includes(r.pageIds?.b)
+    ? ok("the Grimoire's cast picker leaves out a broken page")
+    : fail(`cast picker: ${JSON.stringify(r.picker)} (pages ${JSON.stringify(r.pageIds)})`);
+  // 11
+  const tm = r.transmute ?? {};
+  tm.offered === false && tm.asked === false && tm.bound === false
+    ? ok("a broken Grimoire offers no Transmute, and a forced one asks nothing and binds nothing")
+    : fail(`broken Grimoire transmute: ${JSON.stringify(tm)}`);
+  const bc = r.brokenCast ?? {};
+  bc.result === null && bc.opened === false
+    ? ok("castFromGrimoire on a broken Grimoire opens nothing and returns null")
+    : fail(`broken Grimoire cast: ${JSON.stringify(bc)}`);
 }
 errors.length === 0 ? ok("no console errors") : fail(`console errors: ${errors.join(" | ")}`);
 

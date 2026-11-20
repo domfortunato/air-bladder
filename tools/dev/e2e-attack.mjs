@@ -47,6 +47,9 @@
  *      ticked, Standard names both dice and rolls a keep-highest pool (RNG
  *      pinned for that roll: the d4 kept); Impaired ignores it; the hack off
  *      shows no shield entry, box or roller.
+ *  13. (review #35) with a content overlay planted in-page, the window lists
+ *      a weapon by its display name and the damage card names it so, as the
+ *      row's roller did through 0.1.26.
  *
  * Both hacks, and the two combat options, are shadowed IN-PAGE for legs 11-12
  * (never written).
@@ -229,6 +232,30 @@ try {
     if (dlg) {
       dlg.querySelector('header [data-action="close"]')?.click();
       await until(() => !dlg.isConnected);
+    }
+
+    /* ---- 13. the content overlay names the weapon (review #35) --------- */
+    // In-page overlay, put back in the finally: the window lists the
+    // weapon by its display name, and the card names it so, as the row's
+    // roller did through 0.1.26 (its data-label was the localized name).
+    {
+      const i18n = await import("/systems/air-bladder/module/i18n-content.js");
+      try {
+        i18n._setOverlay({ "item.name": { "ZZ Blade": "ZZ Hoja" } });
+        dlg = await openWindow();
+        if (dlg) {
+          const radio = dlg.querySelector(`input[name="weapon"][value="${blade.id}"]`);
+          out.overlay = { listed: radio?.parentElement?.querySelector("strong")?.textContent.trim() ?? null };
+          radio.checked = true;
+          radio.dispatchEvent(new Event("change", { bubbles: true }));
+          await sleep(100);
+          const before = new Set(game.messages.map((m) => m.id));
+          dlg.querySelector('footer button[data-action="impaired"]').click();
+          out.overlay.card = card(await newMessage(before)).weapon;
+        }
+      } finally {
+        i18n._setOverlay(null);
+      }
     }
 
     /* ---- 9. Cancel closes it and posts nothing -------------------------- */
@@ -644,6 +671,11 @@ else {
   k.present && k.last && k.closed && k.posted === 0
     ? ok("Cancel stands last in the footer, closes the window and posts nothing")
     : fail(`Cancel: ${JSON.stringify(k)}`);
+  // 13
+  const ov = r.overlay ?? {};
+  ov.listed === "ZZ Hoja" && ov.card === "ZZ Hoja"
+    ? ok("with a content overlay, the window lists the weapon by its display name and the card names it so")
+    : fail(`overlay names: ${JSON.stringify(ov)} (want "ZZ Hoja" in the list and on the card)`);
   // 10
   const rr = r.rowRoller ?? {};
   rr.weapon?.attack && rr.spear && rr.weapon.checked === rr.spear && rr.spear !== rr.remembered && rr.weapon.posted === 0

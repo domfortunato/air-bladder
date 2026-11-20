@@ -102,6 +102,11 @@
  *      wording on a creature, absent on a thing, whose description stands
  *      on page 1; a thing remembering Description lands on page 1.
  *      Red-first at 688ced5f on every part but the companion's open boxes.
+ *  22. (review #35; the all-sheets plan's ruling 6, "Hold shield and Hold
+ *      light on every creature ... Never on a thing") the same actors now
+ *      carry a slung Shield and an unlit Torch: on npc, hireling, monster
+ *      and companion both controls are live with no "none" tooltip and a
+ *      press on Hold shield holds it; a thing still draws neither.
  *
  * Red-first: run against the commit before the redesign, every leg but 8 and
  * 10 fails (no rail, no growth page, no growth field).
@@ -1214,6 +1219,27 @@ try {
         res.reset = { group: s.tabGroups.primary,
           active: s.element.querySelector('.tab.active[data-group="primary"]')?.dataset.tab ?? null };
       }
+      // Leg 22 (review #35): the same actor now CARRIES a slung Shield and an
+      // unlit Torch. A creature's two controls come alive and a press on the
+      // shield's holds it; a thing still draws neither.
+      await a.createEmbeddedDocuments("Item", [
+        { name: "ZZ Rail Shield", type: "armor", system: { shield: true, armor: 1, equipped: false } },
+        { name: "Torch", type: "item", system: { equipped: false } },
+      ], { abNoStatusCard: true });
+      await s.render(true);
+      await until(() => s.element?.querySelector?.(".tab.active"));
+      await sleep(400);
+      const sh2 = s.element.querySelector(".shield-hold");
+      const li2 = s.element.querySelector(".light-hold");
+      res.carrying = {
+        shield: sh2 ? { disabled: sh2.disabled, tip: sh2.dataset.tooltip ?? null } : null,
+        light: li2 ? { disabled: li2.disabled, tip: li2.dataset.tooltip ?? null } : null,
+      };
+      if (sh2 && !sh2.disabled) {
+        sh2.click();
+        await until(() => a.items.find((i) => i.name === "ZZ Rail Shield")?.system.equipped === true, 5000);
+      }
+      res.carrying.held = a.items.find((i) => i.name === "ZZ Rail Shield")?.system.equipped === true;
       out.roles[role] = res;
       await s.close();
     }
@@ -1588,7 +1614,18 @@ else {
       !x.shield && !x.light && x.maxes.every((m) => m === null) && x.descOnPage1
         ? ok(`${role}: no stat block and no hold controls; its description stands on page 1`)
         : fail(`${role} page 1: ${JSON.stringify({ shield: x.shield, light: x.light, maxes: x.maxes, desc: x.descOnPage1 })}`);
+      // 22: a thing carrying a shield and a torch still draws neither.
+      !x.carrying?.shield && !x.carrying?.light
+        ? ok(`${role}: carrying a shield and a torch, still no hold controls`)
+        : fail(`${role} carrying: ${JSON.stringify(x.carrying)}`);
     } else {
+      // 22: carrying a slung shield and an unlit torch, both controls are
+      // live with no "none" tooltip, and a press holds the shield.
+      const c = x.carrying ?? {};
+      c.shield && !c.shield.disabled && c.shield.tip === null && c.light && !c.light.disabled
+        && c.light.tip !== r.npcWords.light && c.held
+        ? ok(`${role}: carrying a shield and a torch, both controls live; a press holds the shield`)
+        : fail(`${role} carrying a shield and a torch: ${JSON.stringify(c)}`);
       const wantLocked = LOCKED.includes(role);
       x.maxes.length === 4 && x.maxes.every((m) => m === wantLocked)
         ? ok(`${role}: with CharGen off the four max boxes are ${wantLocked ? "locked" : "open (no CharGen)"}`)
