@@ -1899,6 +1899,13 @@
 .cairn-attack-dialog .cairn-attack-improvised > :not(.form-group) { grid-column: 1 / -1; }
 .cairn-attack-dialog .cairn-attack-quality { margin: 4px 0 0; }
 .cairn-attack-dialog .cairn-attack-panic { margin: 4px 0 0; font-size: var(--font-size-12); color: var(--ab-muted); }
+/* Which light to hold (askWhichLight, 2026-11-20): one row per light — the
+   radio, the name, its radius — in the Attack window's weapon-row shape. */
+.cairn-light-picker .cairn-light-prompt { margin: 0 0 6px; }
+.cairn-light-picker .cairn-light-choice { display: flex; align-items: center; gap: 8px; padding: 2px 0; cursor: pointer; }
+.cairn-light-picker .cairn-light-choice input { margin: 0; flex: 0 0 auto; }
+.cairn-light-picker .cairn-light-choice strong { flex: 1 1 auto; }
+.cairn-light-picker .cairn-light-radius { flex: 0 0 auto; font-size: var(--font-size-12); color: var(--ab-muted); white-space: nowrap; }
 /* The shield hacks (2026-11-20): "Hands full"'s note, as the panic note, and
    "Add the shield (d4)" under the weapon list. */
 .cairn-attack-dialog .cairn-attack-hands { margin: 4px 0 0; font-size: var(--font-size-12); color: var(--ab-muted); }
