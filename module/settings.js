@@ -30,7 +30,7 @@ export const SETTING_KEYS = [
   "use-panic", "use-cairn-dice-notation", "use-item-icons", "show-grant-tags",
   "show-grant-tags-print", "show-traits", "show-omens", "show-watch-clock",
   "weather-log", "use-warden-title", "change-log", "auto-record-scars",
-  "enable-glog-magic", "enable-vald-calendar",
+  "enable-glog-magic", "glog-grimoires", "enable-vald-calendar",
   "exploding-damage-dice", "fatigue-for-critical-damage", "maneuver-on-max-damage",
   "bulky-shields",
   // Character Generation
@@ -43,7 +43,8 @@ export const SETTING_KEYS = [
   // listed here (review #9); the completion markers (roles-restamped,
   // companion-restamped, hireling-split and its hireling-split-pending,
   // grimoire-keys-stamped, connections-migrated, art-migration-generation,
-  // glog-converted, shield-flag-stamped) stay unlisted on purpose.
+  // glog-converted, shield-flag-stamped, glog-grimoires-seeded) stay unlisted
+  // on purpose.
   // Every one of them dates
   // from AFTER the namespace move, so there is no "cairn.<key>" value for this
   // list to carry across — listing them would iterate keys that cannot exist.
@@ -253,7 +254,7 @@ export const SETTING_GROUPS = [
     hint: "CAIRN.Settings.GroupHacksHint",
     icon: "fa-solid fa-flask",
     keys: [
-      "enable-glog-magic", "enable-vald-calendar", "barebones-failed-career",
+      "enable-glog-magic", "glog-grimoires", "enable-vald-calendar", "barebones-failed-career",
       // The three optional combat rules (2026-10-02). Standalone since
       // 2026-10-03: they sat under a "Crawler Combat Mode" master for a day,
       // and the user took the master away — each is off by default and none
@@ -274,6 +275,10 @@ export const SETTING_GROUPS = [
     // costs nothing and a group may still declare more than one.
     subOptions: [
       { master: "content-source-barebones", keys: ["barebones-failed-career"] },
+      // Grimoires are meaningless without GLOG (2026-11-20). Its master sits
+      // in THIS app, so the row follows the checkbox live — the first user of
+      // that branch in settings-menus.js.
+      { master: "enable-glog-magic", keys: ["glog-grimoires"] },
     ],
   },
 ];
@@ -408,6 +413,17 @@ export const registerSettings = () => {
     config: false,
     type: Number,
     default: 0,
+  });
+
+  // Completion marker for the Grimoires seed (2026-11-20, glog.js
+  // `seedGlogGrimoires`): a world that already had GLOG on when the option
+  // arrived gets Grimoires on, ONCE. Set either way, so a Warden who turns
+  // Grimoires off afterwards is never overruled. `config: false`: internal.
+  game.settings.register(SETTINGS_NS, "glog-grimoires-seeded", {
+    scope: "world",
+    config: false,
+    type: Boolean,
+    default: false,
   });
 
   // Completion marker for the shield-flag stamp (2026-11-20): existing copies
@@ -703,9 +719,9 @@ export const registerSettings = () => {
   // GLOG Magic (the official Cairn hack) — a RULES setting like use-panic, not
   // a content source: it never joins SOURCE_KEYS or the floor below. OVERRIDING
   // by ruling (2026-08-05): while on, generation uses only GLOG and custom
-  // spells and every granted spell lands as a spellscroll — and TURNING IT ON
-  // CONVERTS THE WORLD, totally: every canon spellbook anywhere becomes a GLOG
-  // spellscroll and every canon scroll's text swaps (module/glog.js). Turning
+  // spells — and TURNING IT ON CONVERTS THE WORLD, totally: every canon spell
+  // anywhere takes its GLOG wording (module/glog.js). Books became scrolls too
+  // until 2026-11-20; that half is now the "Use Grimoires" option below. Turning
   // it OFF converts nothing back; that asymmetry was accepted at ruling time,
   // which is why the hint says so out loud. The onChange runs the sweep on the
   // active GM's client only, and the sweep is idempotent, so the two-tab GM
@@ -745,6 +761,35 @@ export const registerSettings = () => {
       // spellbook's GLOG box read this setting live since 2026-09-13, and the
       // actor-only fan left an open Grimoire sheet offering a live, submittable
       // hack control on a hack that had just been switched off.
+      rerenderActorSheets();
+      rerenderItemSheets();
+    },
+  });
+
+  // GLOG's Grimoires (2026-11-20, user ask), OFF by default and greyed while
+  // GLOG is off (the hacks group's `subOptions`). Read through glog.js
+  // `grimoiresEnabled`, which ANDs GLOG in. On: spellbooks become scrolls (the
+  // sweep, the create seam, generation) and a Grimoire casts and binds pages,
+  // the hack as built in 2026-08. Off: spellbooks stay books in their GLOG
+  // wording and cast from their own rows. Turning it ON with GLOG on converts
+  // the world's books to scrolls, forced past the marker because the marker
+  // recorded a conversion made without them; OFF converts nothing back, as
+  // GLOG's own switch. A world that already had GLOG on keeps Grimoires
+  // (`seedGlogGrimoires`).
+  game.settings.register(SETTINGS_NS, "glog-grimoires", {
+    name: "CAIRN.Settings.GlogGrimoires.label",
+    hint: "CAIRN.Settings.GlogGrimoires.hint",
+    scope: "world",
+    config: false,
+    type: Boolean,
+    default: false,
+    onChange: async (value) => {
+      if (value) {
+        const { resumeGlogConversion } = await import("./glog.js");
+        await resumeGlogConversion({ force: true });
+      }
+      // Cast, Transmute and the Grimoire box all read this live, and turning
+      // it off writes no document, so an open sheet would keep stale controls.
       rerenderActorSheets();
       rerenderItemSheets();
     },

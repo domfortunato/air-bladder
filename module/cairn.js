@@ -1855,7 +1855,10 @@ Hooks.once("ready", async () => {
   // phase for a dev:review-batch2 red; that was the probe's own election race,
   // fixed in the probe — GLOG is off on the fleet and this returns at once.)
   await phase("GLOG conversion resume", async () => {
-    const { resumeGlogConversion } = await import("./glog.js");
+    const { resumeGlogConversion, seedGlogGrimoires } = await import("./glog.js");
+    // Grimoires for a world that already had GLOG on when the option arrived
+    // (2026-11-20), FIRST, so a resumed sweep converts with them in force.
+    await seedGlogGrimoires();
     await resumeGlogConversion();
   });
 });

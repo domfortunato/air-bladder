@@ -46,8 +46,9 @@ import {
 import { actorDisplayName, localizeNameDesc, sourceOf, t, itemNamespaces } from "../i18n-content.js";
 import { dropItemToPile, isDroppedPile, buildWhereField, cleanDropNote, pileDisplayName } from "../party-pile.js";
 import { FATIGUE_NAME } from "../item/item.js";
-import { castFromGrimoire, castScroll, grimoiresOn, pagesOfGrimoire, ensureGrimoireKey,
+import { castFromGrimoire, castScroll, castSpellbook, grimoiresOn, pagesOfGrimoire, ensureGrimoireKey,
   groupPagesUnderBooks } from "../grimoire.js";
+import { grimoiresEnabled } from "../glog.js";
 import { pickArt } from "../art-picker.js";
 import { placeRail, placeRailSoon } from "./tab-rail.js";
 
@@ -428,6 +429,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       pageTransmute: owned(CairnActorSheet.#onPageTransmute),
       grimoireCast: owned(CairnActorSheet.#onGrimoireCast),
       scrollCast: owned(CairnActorSheet.#onScrollCast),
+      spellbookCast: owned(CairnActorSheet.#onSpellbookCast),
       itemDescription: CairnActorSheet.#onItemDescription,
       addFatigue: owned(CairnActorSheet.#onAddFatigue),
       removeFatigue: owned(CairnActorSheet.#onRemoveFatigue),
@@ -1279,11 +1281,21 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
             && (i.system.uses?.value ?? 0) > 0
             ? { ...i, system: { ...i.system, canCastScroll: true } } : i);
       }
+      // GLOG WITHOUT GRIMOIRES (2026-11-20): a spellbook stays a book and casts
+      // from its own row with Magic Dice; nothing is spent. castSpellbook
+      // re-derives every guard.
+      const grimoires = grimoiresEnabled();
+      if (glog && !grimoires) {
+        context.items = context.items.map((i) =>
+          i.type === "spellbook" && !i.system.scroll && !i.system.bound && !i.system.broken
+            ? { ...i, system: { ...i.system, canCastBook: true } } : i);
+      }
       // The Grimoire's Cast and every Transmute are the hack's too (review #34
       // finding 223; 2174792d's record: "Cast, scroll conversion and transmute
-      // all sit behind enable-glog-magic"). Magic Dice are a rule of this world
-      // only while the hack is on, and a transmute binds a book for good.
-      const grimoire = glog ? grimoiresOn(this.actor)[0] : null;
+      // all sit behind enable-glog-magic"), and since 2026-11-20 its GRIMOIRES
+      // option's. Magic Dice are a rule of this world only while the hack is
+      // on, and a transmute binds a book for good.
+      const grimoire = grimoires ? grimoiresOn(this.actor)[0] : null;
       if (grimoire) {
         const pageCount = pagesOfGrimoire(this.actor, grimoire).length;
         const hasRoom = pageCount < (grimoire.system.grimoirePages ?? 0);
@@ -4375,9 +4387,10 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     const item = this.actor.getOwnedItem(row?.dataset.itemId);
     if (!item || item.type !== "spellbook" || item.system.bound) return;
     if (this.actor.type !== "character") return;
-    // The hack's gesture, gated as castScroll is (review #34 finding 223): the
-    // row control is the affordance, this is the enforcement.
-    if (!game.settings.get(SETTINGS_NS, "enable-glog-magic")) return;
+    // The hack's gesture, gated as castScroll is (review #34 finding 223), and
+    // on its Grimoires option (2026-11-20): the row control is the affordance,
+    // this is the enforcement.
+    if (!grimoiresEnabled()) return;
     const grimoire = grimoiresOn(this.actor)[0];
     if (!grimoire) return;
     const pageCount = pagesOfGrimoire(this.actor, grimoire).length;
@@ -4461,6 +4474,19 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // A broken scroll gives no benefit (2026-11-20): the row offers no Cast,
     // and a stale sheet's click casts nothing.
     if (item && !item.system.broken) await castScroll(this.actor, item, { windowId: this.window?.windowId });
+  }
+
+  /**
+   * The Cast control on a spellbook's row while GLOG runs without Grimoires
+   * (2026-11-20). The dice window, the roll and both cards are grimoire.js's;
+   * the book is not spent. All guards re-derive there.
+   * @this {CairnActorSheet}
+   */
+  static async #onSpellbookCast(event, target) {
+    event.preventDefault();
+    const row = CairnActorSheet.#row(target);
+    const item = this.actor.getOwnedItem(row?.dataset.itemId);
+    if (item) await castSpellbook(this.actor, item, { windowId: this.window?.windowId });
   }
 
   /** Not exactly quantity, this is about uses. @this {CairnActorSheet} */

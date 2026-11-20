@@ -12,12 +12,17 @@
  * Add N Fatigue, never refused (`ignoreCapacity`) — and on doubles it carries
  * the drawn Mishap. The Mishaps table resolves WORLD-FIRST, the Faction-die
  * precedent, so a Warden customizes it by importing a world copy.
+ *
+ * Three ways in, one back half (`reportCast`): a Grimoire's page (Grimoires
+ * on), a spellscroll (spent by the cast), and since 2026-11-20 a SPELLBOOK
+ * cast from its own row while Grimoires are off (not spent: it is a book).
  */
 import { FATIGUE_NAME } from "./item/item.js";
 import { findTableByName, resultText } from "./compendium.js";
 import { t, speakerDisplayName } from "./i18n-content.js";
 import { cleanDescription, concealSecrets, formatCount } from "./utils.js";
 import { SETTINGS_NS } from "./settings.js";
+import { grimoiresEnabled } from "./glog.js";
 
 /** The shipped Mishaps table's stored English name (tables-glog). */
 export const MISHAPS_TABLE_NAME = "GLOG Magic: Mishaps";
@@ -403,8 +408,10 @@ const reportCast = async (actor, spell, dice) => {
 export const castFromGrimoire = async (actor, { windowId } = {}) => {
   if (actor?.type !== "character") return null;
   // Gated like castScroll below, for its reason: the setting is what makes
-  // Magic Dice a rule of this world at all (review #34 finding 223).
-  if (!game.settings.get(SETTINGS_NS, "enable-glog-magic")) return null;
+  // Magic Dice a rule of this world at all (review #34 finding 223). And on
+  // GRIMOIRES (2026-11-20): without them a Grimoire is an ordinary bulky book
+  // and its pages are not cast from it.
+  if (!grimoiresEnabled()) return null;
   const book = grimoiresOn(actor)[0];
   if (!book) return null;
   // This book's pages, not every page on the actor. Identical on a character
@@ -509,38 +516,7 @@ export const castScroll = async (actor, scroll, { windowId } = {}) => {
     return null;
   }
 
-  const L = (k) => game.i18n.localize(k);
-  const powerOptions = Array.from({ length: maxDice }, (_, i) =>
-    `<option value="${i + 1}">${i + 1}</option>`).join("");
-  const picked = await foundry.applications.api.DialogV2.wait({
-    renderOptions: { window: { windowId } },   // see castFromGrimoire
-    window: {
-      title: game.i18n.format("CAIRN.GrimoireCastTitle", { spell: t("item.name", scroll.name) }),
-      icon: "fas fa-hand-sparkles",
-    },
-    position: { width: 400 },
-    content: `
-      <div class="form-group">
-        <label>${game.i18n.format("CAIRN.GrimoireCastPick", { max: maxDice })}</label>
-        <select name="dice">${powerOptions}</select>
-      </div>`,
-    buttons: [
-      {
-        action: "cast", label: L("CAIRN.GrimoireCast"), icon: "fas fa-hand-sparkles", default: true,
-        callback: (_ev, button) => Number(button.form?.elements?.dice?.value) || 1,
-      },
-      // `false`, never `null` — see castFromGrimoire above for why. THIS is the
-      // site where it bit: `picked` is read as the dice count with no shape
-      // test, so Cancel resolved "cancel", passed the guard below, and reached
-      // `new Roll("canceld6")` — which throws `Unresolved StringTerm` into an
-      // action handler core never awaits, so the player saw a dialog close and
-      // nothing else, with the error only in their console. The scroll's charge
-      // survived by the ordering below (the spend follows the card), not by any
-      // guard.
-      { action: "cancel", label: L("CAIRN.Cancel"), callback: () => false },
-    ],
-    rejectClose: false,
-  });
+  const picked = await askMagicDice(scroll, maxDice, windowId);
   if (!picked) return null;
   // Re-asked: the dialog is seconds wide and NOT modal (review #34 finding
   // 133). A second press on the row's Cast opened a second dialog on the same
@@ -559,6 +535,80 @@ export const castScroll = async (actor, scroll, { windowId } = {}) => {
   } finally {
     scrollCastInFlight.delete(scroll.uuid);
   }
+};
+
+/**
+ * The dice window one spell's cast asks — how many Magic Dice, 1..`maxDice` —
+ * shared by the scroll's and the book's Cast so the two cannot drift. Resolves
+ * the count, or `false` on Cancel, ×, or Escape.
+ * @param {CairnItem} spell
+ * @param {Number} maxDice
+ * @param {String} [windowId]  the launching sheet's window, when popped out
+ * @returns {Promise<Number|false|null>}
+ */
+const askMagicDice = (spell, maxDice, windowId) => {
+  const L = (k) => game.i18n.localize(k);
+  const powerOptions = Array.from({ length: maxDice }, (_, i) =>
+    `<option value="${i + 1}">${i + 1}</option>`).join("");
+  return foundry.applications.api.DialogV2.wait({
+    renderOptions: { window: { windowId } },   // see castFromGrimoire
+    window: {
+      title: game.i18n.format("CAIRN.GrimoireCastTitle", { spell: t("item.name", spell.name) }),
+      icon: "fas fa-hand-sparkles",
+    },
+    position: { width: 400 },
+    content: `
+      <div class="form-group">
+        <label>${game.i18n.format("CAIRN.GrimoireCastPick", { max: maxDice })}</label>
+        <select name="dice">${powerOptions}</select>
+      </div>`,
+    buttons: [
+      {
+        action: "cast", label: L("CAIRN.GrimoireCast"), icon: "fas fa-hand-sparkles", default: true,
+        callback: (_ev, button) => Number(button.form?.elements?.dice?.value) || 1,
+      },
+      // `false`, never `null` — see castFromGrimoire above for why. THIS is the
+      // site where it bit: the answer is read as the dice count with no shape
+      // test, so Cancel resolved "cancel", passed the caller's guard, and
+      // reached `new Roll("canceld6")` — which throws `Unresolved StringTerm`
+      // into an action handler core never awaits, so the player saw a dialog
+      // close and nothing else, with the error only in their console. A
+      // scroll's charge survived by its ordering (the spend follows the card),
+      // not by any guard.
+      { action: "cancel", label: L("CAIRN.Cancel"), callback: () => false },
+    ],
+    rejectClose: false,
+  });
+};
+
+/**
+ * Cast a SPELLBOOK from its own row: GLOG Magic WITHOUT Grimoires (2026-11-20,
+ * user ask: spellbooks "should instead stay spell books but use the GloG magic
+ * dice"). The whole cast machinery runs — Magic Dice up to min(4, free slots),
+ * the resolved card, Fatigue, Mishaps — through the scroll's dice window and
+ * the one `reportCast`, and nothing is spent: a book is not a scroll. A
+ * carried book is not petty, so it costs a Magic Die like anything else in a
+ * slot; that is the hack's own arithmetic.
+ *
+ * With Grimoires on there is no such cast (books there are scrolls, pages or
+ * Transmute fodder); the row control is the affordance, every guard is here.
+ * @param {CairnActor} actor
+ * @param {CairnItem} book
+ * @returns {Promise<ChatMessage|null>}
+ */
+export const castSpellbook = async (actor, book, { windowId } = {}) => {
+  if (actor?.type !== "character") return null;
+  if (!game.settings.get(SETTINGS_NS, "enable-glog-magic") || grimoiresEnabled()) return null;
+  if (book?.type !== "spellbook" || book.system.scroll || book.system.bound || book.system.broken) return null;
+  const maxDice = magicDice(actor);
+  if (maxDice < 1) {
+    ui.notifications.warn(game.i18n.format("CAIRN.Notify.GrimoireNoDice", { name: actor.name }));
+    return null;
+  }
+  const picked = await askMagicDice(book, maxDice, windowId);
+  if (!picked) return null;
+  if (!actor.items.get(book.id)) return null;
+  return reportCast(actor, book, picked);
 };
 
 /** Scrolls whose cast is between its answer and its spend on this client,

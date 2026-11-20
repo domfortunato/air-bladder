@@ -174,10 +174,9 @@ export class SettingsGroupMenu extends HandlebarsApplicationMixin(ApplicationV2)
     // A LIST since 2026-10-02 (Crawler Combat Mode needed a second master in
     // Hacks). Normalized rather than converted, so a group may still declare a
     // single object and both shapes behave identically. That master went on
-    // 2026-10-03, so the one live declaration (Barebones, whose master is in
-    // another submenu) exercises only the STORED-value branch of `masterOn`;
-    // the live-follow branch is kept as plain code, unexercised, for the next
-    // group whose master sits in its own submenu.
+    // 2026-10-03; Barebones (its master in another submenu) exercises the
+    // STORED-value branch of `masterOn`, and GLOG's Grimoires (2026-11-20,
+    // master in the same submenu) the live-follow branch.
     for (const spec of [subOptions].flat().filter(Boolean)) {
       const master = root.querySelector(`[name="${ns}.${spec.master}"]`);
       const masterOn = () => (master ? !!master.checked : !!game.settings.get(ns, spec.master));

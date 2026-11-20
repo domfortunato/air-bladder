@@ -4,7 +4,7 @@ import { t, itemNamespaces } from "../i18n-content.js";
 import { TRANSPORT_KINDS } from "../icons.js";
 import { bindEditorClickAwaySave, cleanDescription, formatCount, sourceLabel, nameEditorToggles, isBulky } from "../utils.js";
 import { pickArt } from "../art-picker.js";
-import { glogEnabled } from "../glog.js";
+import { glogEnabled, grimoiresEnabled } from "../glog.js";
 
 const { HandlebarsApplicationMixin } = foundry.applications.api;
 const { ItemSheetV2 } = foundry.applications.sheets;
@@ -347,9 +347,10 @@ export class CairnItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     // spell ticks it — but the Grimoire box shows ONLY on an item that already
     // IS one: a Grimoire is found, made or taken, never declared by ticking a
     // box on a rope (docs/glog-magic.md sends a Warden to the Reliquary), and
-    // a mis-tick made that rope the character's one permitted book.
+    // a mis-tick made that rope the character's one permitted book. Since
+    // 2026-11-20 the Grimoire box is the GRIMOIRES option's, not GLOG's alone.
     context.glogEnabled = glogEnabled();
-    context.showGrimoire = context.glogEnabled && !!this.item.system?.grimoire;
+    context.showGrimoire = grimoiresEnabled() && !!this.item.system?.grimoire;
     // A spellbook that is neither a scroll nor under GLOG has FOUR counters —
     // two rows — where the spellbook grid declares three counter rows for the
     // five or six it was laid out for; without this the third row sat empty

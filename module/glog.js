@@ -19,6 +19,17 @@
  *
  * The Grimoire itself (the flag-marked item, the cast flow) lives in
  * grimoire.js and item.js; this file is only the setting's reach into CONTENT.
+ *
+ * GRIMOIRES ARE OPTIONAL since 2026-11-20 (user ask: "If GLoG magic is
+ * selected, Grimoires should not be enabled by default and all spell books
+ * should not automatically convert [to] spell scrolls. They should instead stay
+ * spell books but use the GloG magic dice"). Everything above about SCROLLS —
+ * the sweep's form change, the create seam's, generation's — is now
+ * `glog-grimoires`' (`grimoiresEnabled`), off by default and meaningless
+ * without GLOG. GLOG alone swaps the WORDING (every canon spell anywhere wears
+ * its GLOG text) and keeps a book a book; the book casts from its own row
+ * (grimoire.js `castSpellbook`). A world that already had GLOG on when the
+ * option arrived keeps Grimoires (`seedGlogGrimoires`).
  */
 import { SETTINGS_NS } from "./settings.js";
 import { formatCount } from "./utils.js";
@@ -46,6 +57,23 @@ export const glogEnabled = () => {
     return !!game.settings.get(SETTINGS_NS, "enable-glog-magic");
   } catch {
     return false;   // settings not registered yet (early init)
+  }
+};
+
+/**
+ * Grimoires in force: GLOG on AND its "Use Grimoires" option (2026-11-20). The
+ * option is greyed while GLOG is off, but its STORED value survives that, so
+ * every reader asks this, never the option alone — the failed career's rule.
+ * In force: spellbooks become scrolls (the sweep, the create seam, generation),
+ * a Grimoire casts and binds pages. Not: books stay books and cast themselves.
+ * @returns {Boolean}
+ */
+export const grimoiresEnabled = () => {
+  if (!glogEnabled()) return false;
+  try {
+    return !!game.settings.get(SETTINGS_NS, "glog-grimoires");
+  } catch {
+    return false;
   }
 };
 
@@ -95,15 +123,17 @@ export const glogTextByName = async () => {
 
 /**
  * The update that converts ONE owned/world spellbook item under the ruling:
- * books become scrolls (the document's own _preUpdate pins petty + one unspent
- * use on the flip — the same machinery the sheet checkbox uses, so every path
- * agrees); an existing scroll keeps its uses untouched, spent staying spent.
+ * with Grimoires in force (`form`, default `grimoiresEnabled()`), books become
+ * scrolls (the document's own _preUpdate pins petty + one unspent use on the
+ * flip — the same machinery the sheet checkbox uses, so every path agrees);
+ * without them a book stays a book and only its wording changes. An existing
+ * scroll keeps its uses untouched, spent staying spent.
  * Where a GLOG counterpart exists (by NAME) the text swaps and `glog` is set;
  * a spell with no counterpart converts in FORM and keeps its own words — its
  * `glog` flag stays false, because the flag marks the wording, not the rules
  * in force. Returns null when the item needs nothing (already conforming).
  */
-export const glogConversionDiff = (item, glogText) => {
+export const glogConversionDiff = (item, glogText, { form = grimoiresEnabled() } = {}) => {
   const sys = item.system ?? {};
   // A bound Grimoire page is not found magic — it is already INSIDE the book,
   // past the scroll stage. Converting it would set `scroll` while `bound`
@@ -113,7 +143,7 @@ export const glogConversionDiff = (item, glogText) => {
   // Grimoire would turn every page back into a scroll.
   if (sys.bound) return null;
   const diff = {};
-  if (!sys.scroll) diff["system.scroll"] = true;
+  if (form && !sys.scroll) diff["system.scroll"] = true;
   const swap = glogText.get(String(item.name).toLowerCase());
   if (swap !== undefined && sys.description !== swap) diff["system.description"] = swap;
   if (swap !== undefined && !sys.glog) diff["system.glog"] = true;
@@ -271,4 +301,29 @@ export const resumeGlogConversion = async ({ force = false } = {}) => {
     console.error("air-bladder | GLOG world conversion failed:", err);
     ui.notifications.error(game.i18n.localize("CAIRN.Notify.GlogConversionFailed"));
   }
+};
+
+/**
+ * Grimoires for a world that ALREADY played GLOG when the option arrived
+ * (2026-11-20, the user's pick: "Keep Grimoires on there"). Its spellbooks
+ * were converted to scrolls and its players may hold a Grimoire; an update
+ * switching that off would change what the table sees, the rule every new
+ * option here keeps. So once, on the active Warden's ready: GLOG already on
+ * means Grimoires on. A marker (`glog-grimoires-seeded`) makes it a one-shot,
+ * set either way, so a Warden who later turns Grimoires off is never
+ * overruled, and a new world, which starts with GLOG off, starts with
+ * Grimoires off too.
+ *
+ * Runs BEFORE the ready hook's GLOG resume phase, so a resumed sweep in a
+ * seeded world converts with Grimoires already in force.
+ * @returns {Promise<void>}
+ */
+export const seedGlogGrimoires = async () => {
+  if (game.users.activeGM !== game.user) return;
+  if (game.settings.get(SETTINGS_NS, "glog-grimoires-seeded")) return;
+  if (game.settings.get(SETTINGS_NS, "enable-glog-magic")
+      && !game.settings.get(SETTINGS_NS, "glog-grimoires")) {
+    await game.settings.set(SETTINGS_NS, "glog-grimoires", true);
+  }
+  await game.settings.set(SETTINGS_NS, "glog-grimoires-seeded", true);
 };

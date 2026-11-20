@@ -3,7 +3,7 @@ import { rollTablePlainText, resultPlainText, findTableByName, findDeclaredTable
 import { Cairn } from "./config.js";
 import { evaluateFormula, formatCount, concealSecrets } from "./utils.js";
 import {
-  resolveGearItem, warmGearItems, itemDataFromDocument, GEAR_ALIASES, spellScrollItem,
+  resolveGearItem, warmGearItems, itemDataFromDocument, GEAR_ALIASES, spellScrollItem, spellbookItem,
   orderGrantedItems, isLightGear, RATIONS_RE,
   CANONICAL_GEAR_PACKS, SPELL_PACKS,
 } from "./gear.js";
@@ -11,7 +11,7 @@ import { containerClass, iconForTransport } from "./icons.js";
 import { connectionHeadroom, maxConnections, connectedOwnershipShape, brokenOwnershipShape, keepOthersOwners,
   ownersGivenBy, OWNERSHIP_SYNC_FLAG } from "./connections.js";
 import { SETTINGS_NS } from "./settings.js";
-import { glogEnabled, GLOG_SPELL_PACKS } from "./glog.js";
+import { glogEnabled, grimoiresEnabled, GLOG_SPELL_PACKS } from "./glog.js";
 import { PERSON_ROLES } from "./data-models.js";
 import { t, ORPHAN_PREFIX } from "./i18n-content.js";
 
@@ -2122,11 +2122,14 @@ export const randomSpellbookDoc = async () => {
 export const randomSpellbookItem = async () => {
   const b = await randomSpellbookDoc();
   if (!b) return null;
-  // Under GLOG every granted spell is a SCROLL, and this path is reachable then:
-  // the Barebones "Spellbook" / "Random Spellbook" instruction rows call it, and
-  // GLOG is a rules setting, not a content source — it does not turn Barebones
-  // off. Same rule as resolveGearItem's book grants (rulings 2 and 7, 2026-08-05).
-  if (glogEnabled()) return spellScrollItem(b);
+  // Under GLOG WITH GRIMOIRES every granted spell is a SCROLL, and this path is
+  // reachable then: the Barebones "Spellbook" / "Random Spellbook" instruction
+  // rows call it, and GLOG is a rules setting, not a content source — it does
+  // not turn Barebones off. Same rule as resolveGearItem's book grants (rulings
+  // 2 and 7, 2026-08-05). Without Grimoires (2026-11-20) it is a book, rebuilt
+  // as one because the GLOG pack the table draws from stores scrolls.
+  if (grimoiresEnabled()) return spellScrollItem(b);
+  if (glogEnabled() && b.system?.scroll) return spellbookItem(b);
   // toObject(), not deepClone — deepClone returns a TypeDataModel by reference,
   // so this would alias the compendium document. See gear.js resolveGearItem.
   return { name: b.name, type: b.type, img: b.img, system: b.system.toObject() };

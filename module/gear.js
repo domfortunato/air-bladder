@@ -23,8 +23,8 @@ import { warmPackDocuments } from "./compendium.js";
  * only inside resolveGearItem's body.
  */
 
-import { iconForItem, SPELLSCROLL_ICON } from "./icons.js";
-import { glogEnabled, GLOG_SPELL_PACKS, GLOG_NAME_ALIASES } from "./glog.js";
+import { iconForItem, SPELLSCROLL_ICON, SPELLBOOK_ICON } from "./icons.js";
+import { glogEnabled, grimoiresEnabled, GLOG_PACK, GLOG_SPELL_PACKS, GLOG_NAME_ALIASES } from "./glog.js";
 import { isBulky } from "./utils.js";
 
 // Packs searched to resolve a gear name, in precedence order — an earlier pack
@@ -408,6 +408,30 @@ const gearEntries = async (name) => {
 };
 
 /**
+ * A spellBOOK built from a resolved spell document, the inverse of
+ * `spellScrollItem`: not petty, no uses, never equipped, the book art. For GLOG
+ * without Grimoires (2026-11-20): the GLOG pack ships every spell as a SCROLL
+ * (it was built when GLOG meant scrolls), so a book grant resolved there would
+ * otherwise arrive as the pack stores it. The spell's GLOG wording and its
+ * `glog` flag ride along in the copied system data.
+ * @param {Item} book
+ * @param {{quantity?: number}} [options]
+ */
+export const spellbookItem = (book, { quantity = 1 } = {}) => ({
+  name: book.name,
+  type: "spellbook",
+  img: SPELLBOOK_ICON,
+  system: {
+    ...book.system.toObject(),
+    scroll: false,
+    weightless: false,
+    equipped: false,
+    quantity,
+    uses: { value: 0, max: 0 },
+  },
+});
+
+/**
  * A fresh owned-item payload built from an item DOCUMENT — the tail of
  * `resolveGearItem`, factored out 2026-09-14 for the Barebones table reader,
  * which hands over a row's own WORLD item rather than looking its name up in
@@ -424,11 +448,17 @@ export const itemDataFromDocument = (doc, { quantity = 1, uses, grantName } = {}
   // A "Scroll (X)" grant is the spell as a single-use petty scroll, not the
   // slot-taking book. Without this a background handing out a scroll silently
   // grants a full spellbook (and the sheet even labels it "Spellbook — X").
-  // Under GLOG, EVERY spell grant is a scroll — "Spellbook (X)" included: found
-  // magic is a scroll you copy into your grimoire, and permanent books are
-  // treasure, never handed out (rulings 2 and 7, 2026-08-05).
-  if (doc.type === "spellbook" && (isScrollGrant(grantName ?? doc.name) || glogEnabled())) {
+  // Under GLOG WITH GRIMOIRES, every spell grant is a scroll — "Spellbook (X)"
+  // included: found magic is a scroll you copy into your grimoire, and
+  // permanent books are treasure, never handed out (rulings 2 and 7,
+  // 2026-08-05). Without Grimoires (2026-11-20) a book grant is a book; the
+  // GLOG pack stores its spells as scrolls, so one resolved there is rebuilt
+  // as a book (`spellbookItem`).
+  if (doc.type === "spellbook" && (isScrollGrant(grantName ?? doc.name) || grimoiresEnabled())) {
     return spellScrollItem(doc, { quantity, uses });
+  }
+  if (doc.type === "spellbook" && doc.system?.scroll && doc.pack === GLOG_PACK && glogEnabled()) {
+    return spellbookItem(doc, { quantity });
   }
 
   const item = {

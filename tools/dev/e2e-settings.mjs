@@ -101,7 +101,10 @@ try {
       "welcome-on-start",
       // The shield-flag stamp's completion marker (2026-11-20, Hold shield);
       // postdates the namespace move, as every marker here does.
-      "shield-flag-stamped"];
+      "shield-flag-stamped",
+      // The Grimoires seed's completion marker (2026-11-20): a world that
+      // already had GLOG on keeps Grimoires, once.
+      "glog-grimoires-seeded"];
     out.unlisted = [...game.settings.settings.keys()]
       .filter((k) => k.startsWith(`${mod.SETTINGS_NS}.`))
       .map((k) => k.slice(mod.SETTINGS_NS.length + 1))

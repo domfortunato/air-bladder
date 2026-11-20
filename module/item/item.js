@@ -1,7 +1,7 @@
 import { SETTINGS_NS } from "../settings.js";
 import { grantSourceLabel, isBulky } from "../utils.js";
 import { iconForItem, SPELLBOOK_ICON, SPELLSCROLL_ICON } from "../icons.js";
-import { glogEnabled, glogConversionDiff, glogTextCached } from "../glog.js";
+import { glogEnabled, grimoiresEnabled, glogConversionDiff, glogTextCached } from "../glog.js";
 import { repointWholeWrite } from "../art-paths.js";
 
 /**
@@ -78,8 +78,10 @@ const isClearing = (value) => !value
   || (value instanceof foundry.data.operators.ForcedDeletion);
 
 /**
- * Under GLOG there are no spellbooks (user ruling 2026-08-09) — only
- * Grimoires, their bound pages, and spellscrolls. The source update that
+ * Under GLOG WITH GRIMOIRES there are no spellbooks (user ruling 2026-08-09) —
+ * only Grimoires, their bound pages, and spellscrolls. Without Grimoires
+ * (2026-11-20, the option's default) a book stays a book and only its wording
+ * changes, so the update below is the text half alone. The source update that
  * turns an ARRIVING canon book into a scroll, or null: one rule for an item
  * created on its own (`CairnItem._preCreate`) and one riding inside an actor
  * (`arrivingItemSources`). Bound pages are exempt (the travel bundle must land
@@ -99,8 +101,10 @@ const isClearing = (value) => !value
  */
 const glogArrivalUpdate = (source, glogText) => {
   if (source?.type !== "spellbook" || source.system?.scroll || source.system?.bound) return null;
-  const diff = glogConversionDiff(source, glogText);
+  const form = grimoiresEnabled();
+  const diff = glogConversionDiff(source, glogText, { form });
   if (!diff) return null;
+  if (!form) return foundry.utils.expandObject(diff);
   const update = foundry.utils.expandObject({ ...diff, "system.uses.value": 1 });
   if (source.img === SPELLBOOK_ICON) update.img = SPELLSCROLL_ICON;
   return update;
@@ -122,8 +126,9 @@ const glogArrivalUpdate = (source, glogText) => {
  *     duplication), and every page lookup is within one actor.
  *   - the ONE-BOOK WALL on a character: the first book stays, the rest are
  *     spliced out and one warning says so — `#enforceOneBook`'s splice.
- *   - under GLOG, a canon spellbook arrives an unspent scroll in the GLOG
- *     wording, pinned as every scroll is (`glogArrivalUpdate`, SCROLL_PINNED).
+ *   - under GLOG, a canon spellbook arrives in the GLOG wording: with
+ *     Grimoires an unspent scroll, pinned as every scroll is
+ *     (`glogArrivalUpdate`, SCROLL_PINNED); without them still a book.
  * @param {object[]} sources  whole item sources
  * @param {string} actorType
  * @returns {Promise<object[]|null>}  the array rewritten, or null when nothing changed
@@ -150,7 +155,7 @@ export const arrivingItemSources = async (sources, actorType) => {
     const update = glogText ? glogArrivalUpdate(source, glogText) : null;
     if (update) {
       const converted = foundry.utils.mergeObject(foundry.utils.deepClone(source), update);
-      foundry.utils.mergeObject(converted.system, foundry.utils.expandObject(SCROLL_PINNED));
+      if (update.system?.scroll) foundry.utils.mergeObject(converted.system, foundry.utils.expandObject(SCROLL_PINNED));
       items.push(converted);
       changed = true;
       continue;
@@ -354,8 +359,9 @@ export class CairnItem extends Item {
       this.updateSource({ system: { ...PAGE_PINNED } });
     }
 
-    // Under GLOG there are no spellbooks. The flip's world sweep (glog.js)
-    // converts what EXISTS; this seam converts what ARRIVES: a compendium
+    // Under GLOG with Grimoires there are no spellbooks; without them a book
+    // keeps its form and takes the GLOG wording (2026-11-20). The flip's world
+    // sweep (glog.js) converts what EXISTS; this seam converts what ARRIVES: a compendium
     // drag, the Create Item dialog, an importer, a macro — which is how a
     // post-flip drop of Haste stayed a book. The rule itself, art and unspent
     // use included, is `glogArrivalUpdate`, shared with the items that ride

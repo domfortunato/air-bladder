@@ -182,6 +182,14 @@
       </a>
       {{/if}}
 
+      {{!-- A spellbook's own Cast: GLOG without Grimoires (2026-11-20). --}}
+      {{#if item.system.canCastBook}}
+      <a class="item-control spellbook-cast" data-action="spellbookCast"
+        title="{{ localize 'CAIRN.SpellbookCastHint' }}">
+        <i class="fas fa-hand-sparkles"></i>
+      </a>
+      {{/if}}
+
       {{! Equipping is a character-only affordance -- gear stowed in a container
           is not to hand, so a container's rows never offer the toggle. }}
       {{#unless container}}

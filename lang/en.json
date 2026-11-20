@@ -973,12 +973,16 @@
       "label": "Custom character portrait folder"
     },
     "EnableGlogMagic": {
-      "hint": "The official Cairn GLOG Magic hack. Turning this ON converts the whole world: every canon spellbook anywhere becomes a single-use spellscroll carrying the GLOG wording of its spell, and generation hands out only GLOG and custom spells. Turning it off does NOT convert anything back.",
-      "label": "Use GLOG Magic (converts all spellbooks!)"
+      "hint": "The official Cairn GLOG Magic hack: spells are cast with magic dice, and generation hands out only GLOG and custom spells. Turning this on rewrites every canon spell anywhere in the world with its GLOG wording. Turning it off does NOT change anything back.",
+      "label": "Use GLOG Magic"
     },
     "EnableValdCalendar": {
       "hint": "Vald keeps its own year: twelve months of twenty-four days, a six-day week, and four seasons — Dead, Dry, Wet and Harvest — each with its own weather table, plus a six-day Reclamation week every tenth year. Cairn's own seasonal tables stay where they are. This converts nothing, so you can switch it off again, but the date on screen will jump when you switch it on. Set the date afterwards.",
       "label": "Use the Vald calendar and seasons"
+    },
+    "GlogGrimoires": {
+      "hint": "The GLOG hack's Grimoires. Turning this ON converts the whole world: every spellbook anywhere becomes a single-use spellscroll, and spells are cast from a Grimoire's bound pages or from scrolls. Off, spellbooks stay spellbooks and cast with magic dice straight from the inventory. Turning it off does NOT convert anything back. Only available while 'Use GLOG Magic' is on; the row is greyed out otherwise.",
+      "label": "Use Grimoires (converts all spellbooks!)"
     },
     "GroupGeneral": "General Settings",
     "GroupGeneralButton": "Configure General Settings",
@@ -988,7 +992,7 @@
     "GroupGenerationHint": "Which content sources are offered, bonds, the Roll buttons, what players may generate or randomize, showing generation rolls in chat, the portrait folder, and the dice for abilities, HP, gold and age.",
     "GroupHacks": "GLOG & Other Hacks",
     "GroupHacksButton": "Configure Hacks",
-    "GroupHacksHint": "Optional rule hacks: GLOG Magic, the Vald calendar, three optional combat rules, bulky shields, and a Knave-style failed career for Barebones characters.",
+    "GroupHacksHint": "Optional rule hacks: GLOG Magic and its Grimoires, the Vald calendar, three optional combat rules, bulky shields, and a Knave-style failed career for Barebones characters.",
     "GroupInventory": "Inventory & Encumbrance",
     "GroupInventoryButton": "Configure Inventory",
     "GroupInventoryHint": "Slot limit, the inventory cap, the marketplace and the coins-per-slot threshold.",
@@ -1067,6 +1071,7 @@
   "CAIRN.Slots": "Slots",
   "CAIRN.Source": "Source:",
   "CAIRN.SpellPagePrefix": "Spell — ",
+  "CAIRN.SpellbookCastHint": "Cast this spell with magic dice",
   "CAIRN.SpellbookPrefix": "Spellbook — ",
   "CAIRN.Spellscroll": "Spellscroll",
   "CAIRN.SpellscrollPrefix": "Spellscroll — ",
