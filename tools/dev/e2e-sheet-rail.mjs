@@ -453,6 +453,12 @@ try {
       const hpWas = { value: pc._source.system.hp?.value, max: pc._source.system.hp?.max };
       R5.fill = { low: await setHp(4), full: await setHp(6), zero: await setHp(0) };
       await pc.update({ "system.hp.value": hpWas.value, "system.hp.max": hpWas.max }, { abNoStatusCard: true });
+      // Let the restore's re-render LAND before the next leg turns a page: on
+      // 14.369 and 14.368 a render still in flight after changeTab("items")
+      // put the sheet back on Character, and the Inventory measured all zeros
+      // (fc24463e, 20261120T013343Z / 20261120T014109Z; green on 14.370).
+      await until(() => frame.querySelector('.tab[data-tab="character"] input[name="system.hp.value"]')?.value === String(hpWas.value), 3000);
+      await sleep(500);
       // The Inventory hint: first on the page, in full ink.
       // The HP restore above re-renders the sheet AFTER its update resolves;
       // a node taken before that render is detached and measures 0 high (a
@@ -460,6 +466,10 @@ try {
       // re-querying each time, then let the render settle.
       await sheet.changeTab("items", "primary");
       await until(() => (frame.querySelector('.tab[data-tab="items"] .cairn-expand-hint')?.getBoundingClientRect().height ?? 0) > 0, 4000);
+      if (!((frame.querySelector('.tab[data-tab="items"] .cairn-expand-hint')?.getBoundingClientRect().height ?? 0) > 0)) {
+        await sheet.changeTab("items", "primary");
+        await until(() => (frame.querySelector('.tab[data-tab="items"] .cairn-expand-hint')?.getBoundingClientRect().height ?? 0) > 0, 4000);
+      }
       await sleep(400);
       const items = frame.querySelector('.tab[data-tab="items"]');
       const hint = items?.querySelector(".cairn-expand-hint");
@@ -542,6 +552,12 @@ try {
       R6.burdenedStored = pc._source.system.hp.value;
       await load?.delete();
       await pc.update({ "system.hp.value": hpWas.value, "system.hp.max": hpWas.max }, { abNoStatusCard: true });
+      // Let the restore's re-render LAND before the next leg turns a page: on
+      // 14.369 and 14.368 a render still in flight after changeTab("items")
+      // put the sheet back on Character, and the Inventory measured all zeros
+      // (fc24463e, 20261120T013343Z / 20261120T014109Z; green on 14.370).
+      await until(() => frame.querySelector('.tab[data-tab="character"] input[name="system.hp.value"]')?.value === String(hpWas.value), 3000);
+      await sleep(500);
     }
 
     /* ---- 18. the hint's words and hand, ability ±, the name, CharGen ---- */
@@ -549,6 +565,10 @@ try {
       const R7 = out.r7 = { wantHint: L("CAIRN.ExpandHint"), wantUp: L("CAIRN.AbilityUp"), lang: game.i18n.lang };
       await sheet.changeTab("items", "primary");
       await until(() => (frame.querySelector('.tab[data-tab="items"] .cairn-expand-hint')?.getBoundingClientRect().height ?? 0) > 0, 4000);
+      if (!((frame.querySelector('.tab[data-tab="items"] .cairn-expand-hint')?.getBoundingClientRect().height ?? 0) > 0)) {
+        await sheet.changeTab("items", "primary");
+        await until(() => (frame.querySelector('.tab[data-tab="items"] .cairn-expand-hint')?.getBoundingClientRect().height ?? 0) > 0, 4000);
+      }
       const hint = frame.querySelector('.tab[data-tab="items"] .cairn-expand-hint');
       R7.hint = { text: hint?.textContent.trim() ?? null, down: !!hint?.querySelector(".fa-hand-point-down"), up: !!hint?.querySelector(".fa-hand-pointer") };
       await sheet.changeTab("character", "primary");
