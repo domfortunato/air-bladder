@@ -12,7 +12,7 @@ its own it offers an Air Bladder token nothing. This page gives it what it needs
 
 Air Bladder never lights anything on its own. The file below tells Torch which
 inventory items are lights and how far they reach, and the character sheet's
-**Hold light** switch asks Torch to light the one a character holds. Whether to
+**Hold light** badge asks Torch to light the one a character holds. Whether to
 run Torch at all is the Warden's call.
 
 ## Install
@@ -70,16 +70,18 @@ light without spending a use unless you switch the second one on.
 
 ## Hold light
 
-A character sheet has a **Hold light** switch under **Hold shield**. Switching
-it on holds the first light in the character's inventory, the same as pressing
-that light's hand. Switching it off puts every held light away.
+Right of the Armor box on a character sheet is the **Hold light** badge: a
+light that glows while one is held, with how far it reaches written underneath.
+Pressing it holds a light, the same as pressing that light's hand in the
+inventory; with more than one light carried, it asks which. Pressing it again
+puts every held light away.
 
 With Torch active and the character's token on the scene you are viewing,
 holding a light also lights the token, and putting it away puts the light out,
 which spends a use as above. It works one way only: Torch's own button on the
-token HUD does not move the switch. A light Torch doesn't know (a name missing
+token HUD does not move the badge. A light Torch doesn't know (a name missing
 from the file) is still held, but it doesn't shine. Without Torch, or with no
-token on the scene, the switch only holds or puts away the item.
+token on the scene, the badge only holds or puts away the item.
 
 ## Names are what match
 

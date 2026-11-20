@@ -113,6 +113,21 @@ green on all three builds.** 108 probes now, with `dev:attack` new.
   foe. Fixed in `71d96814` (release targets first); `attack` green there on all three builds
   (`20261119T225840Z`, `20261119T230003Z`, `20261119T230120Z`).
 
+## The footer, the run-in Traits label, the light badge and picker (2026-11-20)
+
+**At `f8a67bf4`: 111/111 on 14.370** (`20261120T140315Z`).
+
+- **Negative control:** probes `bd7da5aa` (`20261120T135025Z`), every new check red, with the Torch-call
+  legs downstream of the failed picker and a 404 for the missing `light-sources.js`.
+- **`e42d3953` broke every character sheet** (a template edit lost the Armor box's opening div: "Template
+  part form must render a single HTML element"); the targeted run (`20261120T135452Z`) was red on all 14
+  for that reason, and the CT 123 walk caught it the same minute. Fixed in `ee91cef1`.
+- **The badge's icon was a 404 that `dev:shield` passed:** a relative `url()` in a custom property resolves
+  against the stylesheet (`css/`), and the leg read only the icon's name. All 14 at `ee91cef1`
+  (`20261120T135644Z`) failed on that 404 as a console error, every other check green. The leg now fetches
+  the resolved url (`13b53ca0`, red on exactly those checks, `20261120T135914Z`); fixed with `getRoute` in
+  `34925d54`, targeted 14/14 (`20261120T140107Z`).
+
 ## Traits label, Omen like a Bond, Hold light, the shield hacks, weapon data (2026-11-20)
 
 **At `22b733c5`: 111/111 on 14.370** (`20261120T130100Z`). Day-to-day rule: the newest build only; the

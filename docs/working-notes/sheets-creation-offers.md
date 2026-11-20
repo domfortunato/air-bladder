@@ -135,16 +135,25 @@ Moved word for word from CLAUDE.md (2026-11-01); CLAUDE.md points here.
   shield's Bulky box on the armor sheet is ticked and DISABLED with its reason, so
   it is never submitted. Reloads, like every slot-arithmetic setting. Gate
   `dev:shield` leg 5.
-- **Hold light** (2026-11-20, user ask): `isHoldableLight` (gear.js) = a plain `item`
-  named as a light (`LIGHT_SOURCE_RE`), never its fuel (`LIGHT_FUEL`); `isEquipable`
-  gains it, so a light gets the hand and held = equipped. "Hold light" stands under
-  "Hold shield" in `.hold-switches`; ONE handler `#onToggleHold` (`data-hold`). BOTH
-  switches are ALWAYS drawn: `shieldSwitch` / `lightSwitch` are `{ held, none }`, and
-  `none` disables the switch with `CAIRN.HoldShieldNone` / `HoldLightNone` as its
-  tooltip (a live one has none). `holdLight` (gear.js) is the ONE Torch call, shared by
-  the switch and a light's row hand: Torch active + a token on the viewed scene, else
-  nothing; a throw is swallowed and the hold stands. Torch is NOT installed on CT 123,
-  so only the stubbed probe (`dev:shield` leg 6) has exercised the lighting.
+- **Hold light** (2026-11-20, user asks): `isHoldableLight` (gear.js) = a plain `item`
+  whose name passes `isLightName` (the keyword rule OR a name in `LIGHT_SOURCES`, so the
+  Glowsnail and Sun Stick count), never its fuel; `isEquipable` gains it, so a light gets
+  the hand and held = equipped. The Armor row is Hold shield | Armor (54 x 60) | the
+  light BADGE, and the badge IS the Hold light control (the 172px column cannot hold two
+  switches, the shield and a badge with text: user pick). ONE handler `#onToggleHold`
+  (`data-hold`); several lights and none held asks which (`askWhichLight`, utils.js).
+  Both controls are ALWAYS drawn; `none` disables with `CAIRN.HoldShieldNone` /
+  `HoldLightNone`. The badge's icon (`lightIcon`, light-sources.js: torch / lantern-flame
+  / candle-flame) is a LUMINANCE mask (game-icons are a white glyph on a black square),
+  muted, accent + glow when held; its url goes through `foundry.utils.getRoute` — a
+  relative url() in a custom property resolves against the STYLESHEET and 404ed. Radius
+  text (`lightRadiusText`) from `module/light-sources.js`, the Torch file's numbers ruled
+  the maintainer's; `check:refs` holds the two copies identical. `holdLight` (gear.js) is
+  the ONE Torch call, shared by the badge and a light's row hand: Torch active + a token
+  on the viewed scene, else nothing; a throw is swallowed and the hold stands. Torch is
+  NOT installed on CT 123, so only the stubbed probe (`dev:shield` leg 6) has exercised
+  the lighting. Hands full counts EVERY held light, the Lantern's "hands free" text
+  notwithstanding (user ruling).
 - **Hands full** (hack `hands-full`) and **Shields are d4 weapons** (hack
   `shield-weapon`), 2026-11-20, user asks: both read through the sheet's ONE attack
   gate `#attackWeapon` (`#handsFull` / `#handsBlock`, `attackFormula` / `shieldDamage`
@@ -154,8 +163,10 @@ Moved word for word from CLAUDE.md (2026-11-01); CLAUDE.md points here.
   `dev:attack` legs 11-12. Open cosmetic question: the add-shield box sits under the
   whole list, so under "Improvised Attack".
 - **Traits label + rule; Omen like a Bond** (2026-11-20, user asks): `.traits-label`
-  joins the one label-face rule; the trait sentence wears the notes page's
-  between-items rule under it. `omen-row.html` has a heading row (`.omen-head`) and the
+  RUNS IN as the sentence's first child (a line of its own pushed the footer out of
+  480 x 700; user pick), in the one label-face rule; the trait sentence wears the notes
+  page's rule under it, 4px either side. `dev:sheet-rail` leg 20 holds page 1 inside
+  480 x 700 with the longest sentence, a shield and a light. `omen-row.html` has a heading row (`.omen-head`) and the
   text under it; on the character sheet the `<textarea>` keeps its name and the overlay
   anchor but loses core's box and joins the answers' indented rule; off,
   `.omen-display` joins the notes placeholder's rule. Gate `dev:sheet-rail` leg 20.
