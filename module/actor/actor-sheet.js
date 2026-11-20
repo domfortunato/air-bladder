@@ -4683,9 +4683,14 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // user ask): the roller shows only on an equipped weapon, which is the
     // window's own list. Every other sheet keeps the quick roll below, and so
     // does a viewer who may not attack with this character (the window is an
-    // owner's; an observer's click rolled before and still does).
+    // owner's; an observer's click rolled before and still does). A roller
+    // rolls ITS OWN weapon: when the row's item is not one the window offers
+    // (no row, a stale sheet), the click keeps the quick roll of what the
+    // control names rather than opening the window on another weapon or the
+    // improvised attack (dev:dialogs at 329735c2, 20261120T114344Z).
     if (this.actor.type === "character" && this.actor.isOwner) {
-      return this.#openAttack(CairnActorSheet.#row(target)?.dataset.itemId);
+      const item = this.actor.items.get(CairnActorSheet.#row(target)?.dataset.itemId);
+      if (item && CairnActorSheet.#attackWeapon(item)) return this.#openAttack(item.id);
     }
 
     const usePanic = game.settings.get(SETTINGS_NS, "use-panic");
@@ -5212,6 +5217,17 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
   }
 
   /**
+   * Does the Attack window offer this item? Equipped and rolling damage. A
+   * broken item gives no benefit (2026-11-20); the document's invariant
+   * already unequips one, and this says it again where the list is made. The
+   * one statement the window's list and a row roller's check both read.
+   * @param {Item} item
+   */
+  static #attackWeapon(item) {
+    return !!(item.system?.equipped && item.system?.damageFormula && !item.system?.broken);
+  }
+
+  /**
    * Open the Attack window and roll what it answers. The Attack button opens
    * it on the weapon last attacked with; a character's inventory rollers
    * (2026-11-20) name their own weapon, or IMPROVISED_ID.
@@ -5222,9 +5238,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     const panicked = game.settings.get(SETTINGS_NS, "use-panic")
       && this.actor.system.panicked === true;
     const weapons = this.actor.items
-      // A broken item gives no benefit (2026-11-20); the document's invariant
-      // already unequips one, and this says it again where the list is made.
-      .filter((i) => i.system?.equipped && i.system?.damageFormula && !i.system?.broken)
+      .filter((i) => CairnActorSheet.#attackWeapon(i))
       .sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0));
     const answer = await askAttack({ actor: this.actor, weapons, panicked, windowId: this.window?.windowId, preselect });
     if (!answer) return;                    // dismissed: roll nothing
