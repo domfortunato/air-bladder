@@ -135,9 +135,9 @@ try {
   // survive on the document (the field stays declared; user data is kept).
   await page.evaluate((id) =>
     game.actors.get(id).update({ "system.features": [{ id: "zzdlg1", name: "ZZ Stored Feature", description: "kept" }] }), actorId);
-  // The rail's Description button: the strip's `nav.tabs a[data-tab]` link
-  // this used to click is gone from a character since 2026-11-19.
-  await page.locator(`${pcSel} nav.cairn-tab-rail button[data-tab="description"]`).click();
+  // The whole sheet, every page at once: the Description page that carried
+  // the section is itself gone since round 4 (2026-11-19), so there is no
+  // page to turn to. querySelector reads inactive pages too.
   await page.waitForTimeout(600);
   const featGone = await page.evaluate((id) => {
     const a = game.actors.get(id);
@@ -149,8 +149,8 @@ try {
     };
   }, actorId);
   !featGone.createControl && !featGone.section
-    ? ok("no Features section on the PC Description tab", "with a stored feature planted — gone, not merely empty")
-    : fail("no Features section on the PC Description tab", JSON.stringify(featGone));
+    ? ok("no Features section anywhere on the PC sheet", "with a stored feature planted — gone, not merely empty")
+    : fail("no Features section anywhere on the PC sheet", JSON.stringify(featGone));
   featGone.stored === 1
     ? ok("the stored feature survives on the document", "the field is orphaned, not dropped")
     : fail("the stored feature survives on the document", `system.features length ${featGone.stored}`);

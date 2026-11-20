@@ -212,9 +212,9 @@ try {
     for (let i = 0; i < 40 && !actor.sheet.element; i++) await new Promise((r) => setTimeout(r, 100));
     await new Promise((r) => setTimeout(r, 700));
     const el = actor.sheet.element;
-    el.querySelector('nav.tabs [data-tab="description"]')?.click();
+    el.querySelector('nav.tabs [data-tab="notes"]')?.click();
     await new Promise((r) => setTimeout(r, 400));
-    const pm = el.querySelector('.tab[data-tab="description"] prose-mirror[name="system.description"]');
+    const pm = el.querySelector('.tab[data-tab="notes"] prose-mirror[name="system.description"]');
     const heading = pm?.closest(".character-description")?.querySelector(".character-description-heading");
     // The paper, captured the way e2e-print does: wrap window.open before the
     // click and stub the popup's print() so nothing reaches a printer.
@@ -252,8 +252,8 @@ try {
 
     const imported = await descCase(IMPORTED);
     imported.editor && imported.toggled && imported.shows
-      ? ok("imported prose: the Description tab shows it", "toggled editor, display half serves it")
-      : fail("imported prose: the Description tab shows it",
+      ? ok("imported prose: Background & Notes shows it (the Description page went in round 4)", "toggled editor, display half serves it")
+      : fail("imported prose: Background & Notes shows it (the Description page went in round 4)",
           JSON.stringify({ editor: imported.editor, toggled: imported.toggled, shows: imported.shows }));
     imported.heading === imported.want
       ? ok("...under a Description heading", JSON.stringify(imported.heading))
@@ -266,7 +266,7 @@ try {
     if (imported.editor) {
       const opened = await page.evaluate(async (id) => {
         const pm = game.actors.get(id).sheet.element
-          .querySelector('.tab[data-tab="description"] prose-mirror[name="system.description"]');
+          .querySelector('.tab[data-tab="notes"] prose-mirror[name="system.description"]');
         pm?.querySelector("button")?.click();
         await new Promise((r) => setTimeout(r, 500));
         return pm?.querySelector(".editor-content")?.getAttribute("contenteditable") === "true";

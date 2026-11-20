@@ -102,10 +102,10 @@ try {
   else if (!sheet.inDom) fail("sheet did not appear in the DOM");
   else {
     ok(`${sheet.sheetClass} rendered [${sheet.tabs.join(" | ")}]`);
-    // The character's five pages (the parked Connections page is absent by
+    // The character's four pages since round 4 (the parked Connections page is absent by
     // default). A page missing from the rail is unreachable for a player, and
     // an empty rail would make the turning loop above prove nothing.
-    const want = ["character", "items", "growth", "description", "notes"];
+    const want = ["character", "items", "growth", "notes"];
     const missing = want.filter(id => !sheet.tabIds.includes(id));
     missing.length
       ? fail(`the character sheet's rail lacks page(s): ${missing.join(", ")} (rail: ${sheet.tabIds.join(", ") || "empty"})`)

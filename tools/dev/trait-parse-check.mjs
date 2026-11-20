@@ -109,6 +109,8 @@ run("Solene (real Kettlewright export)", fixture.traits, {
 // import back with the two swapped. And it has no "a" before the physique
 // since review #34 finding 185 ("{value} Physique", like Skin and Hair: "a
 // Athletic" was what the fixed article wrote), unlike Kettlewright's above.
+// The capitals are Kettlewright's, which is the text this parser reads: the
+// sheet's own sentence is lowercase since round 4 (2026-11-19).
 run("Air Bladder's own ordering (vice first)",
   "You have Lanky Physique, Scarred Skin, and Wild Hair. Your Face is Broken, your Speech Blunt. " +
   "You have Frayed Clothing. You are Greedy and Merciful. You are 22 years old.", {

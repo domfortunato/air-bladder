@@ -317,7 +317,7 @@ try {
       await a.sheet.render(true);
       await new Promise((res) => setTimeout(res, 700));
       const el = a.sheet.element;
-      for (const tab of ["character", "items", "growth", "description", "containers", "notes"]) {
+      for (const tab of ["character", "items", "growth", "containers", "notes"]) {
         const btn = el.querySelector(`nav.cairn-tab-rail button[data-tab="${tab}"]`);
         if (!btn) continue;
         btn.click();
@@ -576,7 +576,7 @@ try {
   // The sweep's precondition: it really turned to every page on both sheets.
   // A rail it could not find would sweep nothing and the leg below would pass.
   {
-    const want = ["character", "items", "growth", "description", "notes"];
+    const want = ["character", "items", "growth", "notes"];   // no Description page since round 4
     const missed = (r.made ?? []).flatMap((id) => want.filter((p) => !r.sweptPages?.includes(`${id}:${p}`)).map((p) => `${id}:${p}`));
     (r.made ?? []).length === 2 && missed.length === 0
       ? ok(`the key sweep turned to all ${want.length} pages on both sheets`)

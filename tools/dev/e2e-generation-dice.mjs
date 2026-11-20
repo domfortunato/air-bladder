@@ -218,17 +218,28 @@ try {
     // promises rolled generation is never logged. The log is switched ON for the
     // leg (withSettings restores it), so the silence is not the setting's.
     await game.settings.set(NS, "change-log", true);
-    // The pick-lists open by default since 2026-11-19; click the toggle only
-    // if they are shut, or the click would CLOSE them.
-    if (!actor.sheet.element?.querySelector('[data-action="rollTrait"]')) {
-      actor.sheet.element?.querySelector('[data-action="toggleTraits"]')?.click();
-    }
-    for (let i = 0; i < 30 && !actor.sheet.element?.querySelector('[data-action="rollTrait"]'); i++) await sleep(150);
-    const traitDie = actor.sheet.element?.querySelector('[data-action="rollTrait"]');
+    // Since round 4 (2026-11-19) a character's trait dice live in the Traits
+    // window, opened from the pen at the end of the sentence: the die fills its
+    // select, and Save writes what was rolled under the same flag. So the leg
+    // is pen, die, Save, and the roll it saves must still log nothing.
+    // An off-table value first, so the roll Save writes always differs from
+    // what is stored: a Save that wrote nothing would log nothing too.
+    await actor.update({ "system.traits.physique": "ZZ off-table" }, { abNoStatusCard: true });
+    await sleep(500);
+    const stale = new Set(document.querySelectorAll(".cairn-trait-editor"));
+    actor.sheet.element?.querySelector('.trait-sentence [data-action="editTraits"]')?.click();
+    let editor = null;
+    for (let i = 0; i < 40 && !(editor = [...document.querySelectorAll(".cairn-trait-editor")].find((d) => !stale.has(d))); i++) await sleep(150);
+    const traitDie = editor?.querySelector('[data-action="rollTrait"][data-key="physique"]');
     out.traitDie = !!traitDie;
     before = snapshot();
+    const traitSel = editor?.querySelector(`select[name="system.traits.${traitDie?.dataset.key}"]`);
+    if (traitSel) traitSel.value = "";
     traitDie?.click();
+    for (let i = 0; i < 30 && traitSel && !traitSel.value; i++) await sleep(100);
+    editor?.querySelector('footer button[data-action="save"]')?.click();
     await sleep(1500);
+    out.traitSaved = !!traitSel?.value && actor.system.traits.physique === traitSel.value;
     out.legs.traitRoll = describe(await newSince(before, { expect: 0 }));
 
     /* --- 5c. a double-click on the Background die swaps ONCE --------------- */
@@ -351,9 +362,9 @@ try {
   r.legs.fieldRerolls.length === 0
     ? ok("name / portrait / background re-rolls posted nothing to chat")
     : fail(`field re-rolls posted ${r.legs.fieldRerolls.length} message(s) [${r.legs.fieldRerolls.map((m) => m.id).join(", ")}]`);
-  r.traitDie && r.legs.traitRoll.length === 0
+  r.traitDie && r.traitSaved && r.legs.traitRoll.length === 0
     ? ok("a trait die posts nothing either, with the change log ON — a roll is not a manual change")
-    : fail(`trait die (present=${r.traitDie}) posted ${r.legs.traitRoll?.length} message(s) [${(r.legs.traitRoll ?? []).map((m) => m.id).join(", ")}]`);
+    : fail(`trait die (present=${r.traitDie}, saved=${r.traitSaved}) posted ${r.legs.traitRoll?.length} message(s) [${(r.legs.traitRoll ?? []).map((m) => m.id).join(", ")}]`);
   r.bgDoubleWrites === 1 && !r.bgDoubleErrors?.length
     ? ok("a double-click on the Background die swaps once, with no error")
     : fail(`a double-click on the Background die: ${r.bgDoubleWrites} write(s), errors ${JSON.stringify(r.bgDoubleErrors)}`);

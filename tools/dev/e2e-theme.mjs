@@ -392,7 +392,7 @@ try {
         return [...root.querySelectorAll("nav.tabs [data-tab], nav .item[data-tab]")].map((t) => t.dataset.tab);
       }, sheet.sel);
       if (sheet.slug === "character") {
-        const want = ["character", "items", "growth", "description", "notes"];
+        const want = ["character", "items", "growth", "notes"];   // no Description page since round 4
         const missing = want.filter((t) => !tabs.includes(t));
         if (missing.length) {
           console.error(`  FAIL  the character sheet's pages were not all found to audit (${scheme}): missing ${missing.join(", ")}; found [${tabs.join(", ")}]`);
@@ -913,7 +913,8 @@ try {
   // viewer cannot edit, and must stop looking and pointing live.
   //
   // A character's boxes live on THREE pages since 2026-11-19: Deprived and
-  // Panicked on page 1 (Character), the Omen on Description, the Scars on
+  // Panicked on page 1 (Character), the Omen on Background & Notes (on
+  // Description until round 4, which retired that page), the Scars on
   // Growth. Only the standing page is drawn, so each page is turned to and its
   // own boxes tagged and tested while it stands — tagging every page's boxes up
   // front would find the hidden ones 0px wide and silently skip them. (Before,
@@ -926,7 +927,7 @@ try {
     const sheets = await page.evaluate(async () => {
       const Cls = CONFIG.Actor.documentClass;
       const out = [];
-      for (const [type, pages] of [["character", ["character", "growth", "description"]], ["hireling", [null]]]) {
+      for (const [type, pages] of [["character", ["character", "growth", "notes"]], ["hireling", [null]]]) {
         const a = await Cls.create({ name: `ZZ Theme Boxes ${type}`, type });
         await a.sheet.render(true);
         for (let i = 0; i < 40 && !a.sheet.element; i++) await new Promise((r) => setTimeout(r, 100));

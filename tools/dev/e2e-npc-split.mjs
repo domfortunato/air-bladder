@@ -683,7 +683,8 @@ check(/\bThey\b/.test(HC.sentence) && !/\bYou\b/.test(HC.sentence),
 // The control. Without it "everything says They" would pass every leg above.
 check(/\bYou\b/.test(PC.sentence) && !/\bThey\b/.test(PC.sentence),
   "a character still reads YOU", JSON.stringify(PC.sentence?.slice(0, 70)));
-check(/Quirk is/.test(NC.sentence) && /seek/.test(NC.sentence),
+// "their quirk is", sentence case since round 4 (2026-11-19).
+check(/quirk is/.test(NC.sentence) && /seek/.test(NC.sentence),
   "and it carries the Quirk and Goal clauses", "");
 
 console.log("\nre-roling a person loses nothing");

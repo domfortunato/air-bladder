@@ -296,7 +296,7 @@ const r = await page.evaluate(async ({ xssName }) => {
   out.omenOmitted = !body.includes("ZZ OMEN MARKER");
   out.omenHeader = [...(doc?.querySelectorAll("h2") ?? [])].some((h) => h.textContent.trim() === game.i18n.localize("CAIRN.Omen"));
   out.traitsProse = [...(doc?.querySelectorAll("section p") ?? [])]
-    .map((p) => p.textContent).find((s) => s.includes("Physique")) ?? "";
+    .map((p) => p.textContent).find((s) => /physique/i.test(s)) ?? "";
   // A VOWEL-INITIAL PHYSIQUE (review #34 finding 185, wording approved
   // 2026-11-01). The clause was "a {value} Physique", so the shipped 2e
   // table's first row printed "You have a Athletic Physique". Built by the
@@ -1049,10 +1049,12 @@ check("stored features stay OFF the page", r.featureOffPage && r.featureSurvives
 check("a disabled omen is OMITTED", r.omenOmitted && !r.omenHeader,
   "text present on the actor, omenEnabled false — empty sections are dropped, not printed as placeholders");
 check("traits compose to prose, age included",
-  /Towering Physique/.test(r.traitsProse) && /40 years old/.test(r.traitsProse),
+  // Sentence case since round 4 (2026-11-19): the trait VALUE is lowercased
+  // and the clause's noun is lowercase too, on the sheet and so on paper.
+  /towering physique/.test(r.traitsProse) && /40 years old/.test(r.traitsProse),
   `"${r.traitsProse}" — the sheet's own _buildTraitSentence, not a second composer`);
 check("a vowel-initial physique reads as English (review #34 finding 185)",
-  /Athletic Physique/.test(r.vowelProse ?? "") && !/\ba Athletic\b/i.test(r.vowelProse ?? ""),
+  /athletic physique/.test(r.vowelProse ?? "") && !/\ba Athletic\b/i.test(r.vowelProse ?? ""),
   `"${r.vowelProse}" — the 2e Physique table's first row`);
 // SECOND PERSON on a character's page, and it has to be asserted here because
 // the printed page is the OTHER caller of that builder (2026-08-20). The
@@ -1235,8 +1237,9 @@ const asM = r.reroleAsMonster ?? {};
 check("re-roled to Monster, the page prints none of them — the sheet hides that block",
   r.reroleAsMonster && !asM.pron && !asM.phys && !asM.scar, JSON.stringify(asM));
 check("re-roled to hireling, the trait sentence names no Quirk or Goal",
-  typeof r.reroleHirelingSentence === "string" && r.reroleHirelingSentence.includes("ZZ-TRAIT-PHYS")
-    && !r.reroleHirelingSentence.includes("ZZ-TRAIT-QUIRK") && !r.reroleHirelingSentence.includes("ZZ-TRAIT-GOAL"),
+  // Read case-blind: the sentence lowercases every trait value since round 4.
+  typeof r.reroleHirelingSentence === "string" && r.reroleHirelingSentence.toLowerCase().includes("zz-trait-phys")
+    && !r.reroleHirelingSentence.toLowerCase().includes("zz-trait-quirk") && !r.reroleHirelingSentence.toLowerCase().includes("zz-trait-goal"),
   `sentence=${JSON.stringify(r.reroleHirelingSentence)} — no row of a hireling's offers either, so nothing could clear them`);
 
 console.log("\nthe thing's page");

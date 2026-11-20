@@ -98,45 +98,46 @@ await read(actorId, "system.pronouns") === "they/them"
   : fail("text input persisted", `got "${await read(actorId, "system.pronouns")}"`);
 
 /* -------------------------------------------------------------- select ---- */
-// The trait pick-lists are on the Description page. They render only while the
-// section is expanded -- open by default since 2026-11-19 (`_traitsCollapsed ??
-// false`), re-rendered by hand on toggle -- so expand only if they are shut.
-await page.locator(`${SHEET} nav.tabs [data-tab="description"]`).click();
-await page.waitForTimeout(500);
-const expanded = await page.evaluate((sel) =>
-  !!document.querySelector(`${sel} select[name^="system.traits."]`), SHEET);
-if (!expanded) {
-  await page.locator(`${SHEET} .trait-toggle`).click();
-  await page.waitForTimeout(900);
-}
-await page.waitForSelector(`${SHEET} select[name^="system.traits."]`, { timeout: 5000 })
-  .then(() => ok("traits section expands", "pick-lists rendered"))
-  .catch(() => fail("traits section expands", "no select after clicking .trait-toggle"));
-
-// v14 hides <select> behind a custom element, so Playwright's selectOption sees
-// an invisible node and times out. Set .value and dispatch a bubbling change
-// instead — the same workaround as `joinAs` in lib.mjs and the two in
-// e2e-dialogs.mjs.
-const traitPicked = await page.evaluate((sel) => {
-  const s = document.querySelector(`${sel} select[name^="system.traits."]`);
-  if (!s) return null;
-  const opt = Array.from(s.options).find((o) => o.value);
-  if (!opt) return null;
-  s.value = opt.value;
-  s.dispatchEvent(new Event("change", { bubbles: true }));
-  return { name: s.name, value: opt.value };
-}, SHEET);
-await page.waitForTimeout(1200);
+// The character sheet's form holds no <select> since round 4 (2026-11-19): its
+// trait pick-lists moved into the Traits window, which writes on Save, not on
+// change. A hireling's sheet still carries them in its form, through the same
+// submitOnChange and FormDataExtended path, so the <select> leg reads one
+// there: a throwaway hireling, made and deleted here.
+const traitPicked = await page.evaluate(async () => {
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const h = await Actor.create({ name: "ZZ Sheet Basics Hireling", type: "npc", system: { role: "hireling" } });
+  try {
+    await h.sheet.render(true);
+    const q = () => h.sheet.element?.querySelector?.('select[name^="system.traits."]');
+    for (let i = 0; i < 40 && !q(); i++) await sleep(150);
+    // v14 hides <select> behind a custom element, so Playwright's selectOption
+    // sees an invisible node and times out. Set .value and dispatch a bubbling
+    // change instead — the same workaround as `joinAs` in lib.mjs.
+    const s = q();
+    if (!s) return null;
+    const opt = Array.from(s.options).find((o) => o.value);
+    if (!opt) return null;
+    s.value = opt.value;
+    s.dispatchEvent(new Event("change", { bubbles: true }));
+    for (let i = 0; i < 20 && foundry.utils.getProperty(h, s.name) !== opt.value; i++) await sleep(150);
+    return { name: s.name, value: opt.value, stored: foundry.utils.getProperty(h, s.name) };
+  } finally {
+    await h.sheet.close();
+    await h.delete();
+  }
+});
 if (!traitPicked) {
-  fail("select persisted", "no trait <select> on the sheet");
+  fail("select persisted", "no trait <select> on the hireling's sheet");
 } else {
-  const stored = await read(actorId, traitPicked.name);
-  stored === traitPicked.value
-    ? ok("select persisted", `${traitPicked.name} = "${stored}"`)
-    : fail("select persisted", `expected "${traitPicked.value}", stored "${stored}"`);
+  traitPicked.stored === traitPicked.value
+    ? ok("select persisted", `${traitPicked.name} = "${traitPicked.stored}" (a hireling's)`)
+    : fail("select persisted", `expected "${traitPicked.value}", stored "${traitPicked.stored}"`);
 }
 
 /* ------------------------------------------------------------ textarea ---- */
+// Omen stands on Background & Notes since round 4.
+await page.locator(`${SHEET} nav.tabs [data-tab="notes"]`).click();
+await page.waitForTimeout(500);
 await page.fill(`${SHEET} textarea[name="system.omen"]`, "A probe omen.");
 await page.locator(`${SHEET} textarea[name="system.omen"]`).blur();
 await page.waitForTimeout(1200);
@@ -236,7 +237,7 @@ renderedIds.length >= 2 && renderedIds.every(([, v]) => v !== "MISSING")
 // Omen applies immediately and ends in the same full-render update.
 const focusLeg = await page.evaluate(async ({ id, sel }) => {
   const a = game.actors.get(id);
-  document.querySelector(`${sel} nav.tabs [data-tab="description"]`)?.click();
+  document.querySelector(`${sel} nav.tabs [data-tab="notes"]`)?.click();   // Omen: Background & Notes since round 4
   await new Promise((r) => setTimeout(r, 400));
   const box = document.querySelector(`${sel} .omen-enable`);
   if (!box) return { noBox: true };

@@ -168,6 +168,9 @@ try {
           section: !!el?.querySelector(".trait-picklist-section"),
           age: !!el?.querySelector('input[name="system.age"]'),
           sentence: !!el?.querySelector(".trait-sentence"),
+          // The Traits window's pen (round 4, 2026-11-19), the character's one
+          // way to its pick-lists: under the switch's gate with the sentence.
+          pen: !!el?.querySelector('[data-action="editTraits"]'),
           pronouns: !!el?.querySelector(".pronouns-row"),
         };
         await a2.sheet.close();
@@ -244,8 +247,8 @@ try {
     ? ok("   and on an npc sheet — the switch governs every person sheet")
     : fail(`   npc sheet ignored the switch (${r.npcTraitsHiddenOff})`);
   const dom = r.traitsDomOff ?? {};
-  dom.section === false && dom.age === false && dom.sentence === false && dom.pronouns === true
-    ? ok("   rendered OFF: section, age input and sentence gone, PRONOUNS stays", JSON.stringify(dom))
+  dom.section === false && dom.age === false && dom.sentence === false && dom.pen === false && dom.pronouns === true
+    ? ok("   rendered OFF: section, age input, sentence and the Traits pen gone, PRONOUNS stays", JSON.stringify(dom))
     : fail("   rendered OFF: the DOM does not match the ruling", JSON.stringify(dom));
   r.traitsKept === true
     ? ok("   stored traits and age are KEPT while hidden — hiding is not erasing")

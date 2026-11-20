@@ -277,8 +277,9 @@ try {
 
   // CORE'S EDITOR PENCIL HAS A NAME ON EVERY SHEET (user ruling 2026-11-01).
   // Two `_onRender`s draw every editor in the system, the actor sheet's and
-  // the item sheet's, so one sheet of each kind: a character's Description
-  // tab and a weapon. Each pencil must carry core's "Edit"
+  // the item sheet's, so one sheet of each kind: a character's Background &
+  // Notes page (its Description page, where this leg stood, went in round 4,
+  // 2026-11-19) and a weapon. Each pencil must carry core's "Edit"
   // (`CONTROLS.CommonEdit`) as its tooltip AND its accessible name, and keep
   // it after the editor is opened and saved — core puts the same button node
   // back on save (prosemirror-editor.mjs replaceChildren), and the save's own
@@ -294,7 +295,7 @@ try {
     const actor = await getDocumentClass("Actor").create({ name: "ZZ Probe Pencil PC", type: "character" });
     const item = await getDocumentClass("Item").create({ name: "ZZ Probe Pencil Blade", type: "weapon" });
     try {
-      for (const [key, doc, tab] of [["actor", actor, "description"], ["item", item, null]]) {
+      for (const [key, doc, tab] of [["actor", actor, "notes"], ["item", item, null]]) {
         await doc.sheet.render(true);
         for (let i = 0; i < 40 && !doc.sheet.element; i++) await sleep(100);
         await sleep(400);
@@ -305,7 +306,10 @@ try {
         // page in silence.
         if (tab) { await doc.sheet.changeTab(tab, "primary"); await sleep(300); }
         out[key] = { before: read(sheetRoot(doc.sheet)) };
-        const editor = sheetRoot(doc.sheet).querySelector("prose-mirror[toggled]");
+        // The open page's own editor first: the Notes editor is not the first
+        // toggled one in the character sheet's markup (Growth's comes earlier).
+        const editor = sheetRoot(doc.sheet).querySelector(".tab.active prose-mirror[toggled]")
+          ?? sheetRoot(doc.sheet).querySelector("prose-mirror[toggled]");
         const pencil = editor?.querySelector(":scope > button.toggle");
         if (editor && pencil) {
           pencil.click();

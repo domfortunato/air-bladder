@@ -8,7 +8,7 @@
  * A player character's sheet is narrow (480 x 700) and its pages are turned
  * from a column of icon buttons hung off the window's edge
  * (templates/parts/tab-rail.html, placed by module/actor/tab-rail.js):
- * Character, Inventory, Growth, Description, Background & Notes, then the
+ * Character, Inventory, Growth, Background & Notes (Description until round 4), then the
  * Attack window. The npc sheet keeps its text tab strip. What this holds:
  *
  *   1. the frame: `cairn-railed` + `cairn-character-sheet`, 480 x 700;
@@ -40,10 +40,21 @@
  *      Slots and Rest;
  *  13. a click on the slot line, or on the Overburdened banner, turns to
  *      Inventory.
- *  14. (the third round) Pronouns and Age stand under the name, the trait
- *      sentence under Gold, none of them on Description, whose trait pick-lists
- *      render OPEN on a fresh sheet; a hireling's open too, its pronouns kept on
- *      its own sheet.
+ *  14. (the third round) Pronouns and Age stand under the name; a hireling's
+ *      trait pick-lists render OPEN, its pronouns kept on its own sheet.
+ *  15. (the fourth round) the Background field is labelled "Background" and
+ *      drawn as a field, the Pronouns input's own box, on both branches; a
+ *      click on a generated background's name opens the picker. The trait
+ *      sentence is page 1's left column's first child, above STR, in sentence
+ *      case and in the background description's font size; in Character
+ *      Creation Mode it ends in a pen that opens a Traits window with every
+ *      picker (a die fills its select and writes nothing, Save writes and
+ *      closes, the close button discards), and with no traits the pen still
+ *      shows, labelled "Traits"; Creation Mode off, no pen. There is no
+ *      Description page (a sheet remembering it lands on Character); Omen and
+ *      the character's own Description stand on Background & Notes, with a
+ *      rule between every item; the slot line reads "Inventory Slots", or
+ *      "Slots" where the long label would clip.
  *
  * Red-first: run against the commit before the redesign, every leg but 8 and
  * 10 fails (no rail, no growth page, no growth field).
@@ -134,7 +145,6 @@ try {
       character: L("CAIRN.Tab.Character"),
       items: game.i18n.format("CAIRN.Tab.InventoryCount", { used: pc.system.slotsUsed, max: pc.system.slotsMax }),
       growth: L("CAIRN.Tab.Growth"),
-      description: L("CAIRN.Description"),
       notes: L("CAIRN.BackgroundAndNotes"),
       rail: L("CAIRN.Tab.Rail"),
     };
@@ -203,7 +213,7 @@ try {
       footers: frame.querySelectorAll(".cairn-compat-footer").length,
     };
 
-    /* ---- 14. Pronouns and Age under the name, the sentence under Gold ---- */
+    /* ---- 14. Pronouns and Age under the name ---------------------------- */
     {
       const page1 = frame.querySelector('.tab[data-tab="character"]');
       const band = page1?.querySelector(".cairn-band");
@@ -211,15 +221,12 @@ try {
       const kindOf = (keys) => (c) => keys.find((k) => c.classList.contains(k)) ?? "?";
       const bioLine = identity?.querySelector(":scope > .identity-bio-line");
       out.bio = {
+        // Gold alone: the sentence left the band in round 4 (leg 15).
         band: [...(band?.children ?? [])].map(kindOf(["band-gold", "trait-sentence"])),
         // The name line, then Pronouns and Age, then the background line.
         identity: [...(identity?.children ?? [])].slice(0, 3).map(kindOf(["name-line", "identity-bio-line", "background-line"])),
         pronounsInput: !!bioLine?.querySelector('.pronouns-row input[name="system.pronouns"]'),
         ageInput: !!bioLine?.querySelector('.age-row input[name="system.age"]'),
-        sentence: band?.querySelector(".trait-sentence")?.textContent.trim() ?? "",
-        onDescription: !!desc?.querySelector('.pronouns-row, .age-row, .trait-sentence, input[name="system.pronouns"]'),
-        // Fresh sheet, never toggled: the pick-lists must already be there.
-        traitSelects: desc?.querySelectorAll('select[name^="system.traits."]').length ?? 0,
       };
     }
 
@@ -307,7 +314,208 @@ try {
       out.toInventory.bannerTurns = onItems();
       await load?.delete();
     }
+
+    /* ---- 15. round 4: the Background field, the sentence and its editor,
+            Description retired, Omen and rules on Background & Notes ------ */
+    const msgsBefore = new Set(game.messages.map((m) => m.id));
+    const newDialog = async (stale) => {
+      let d = null;
+      const t0 = Date.now();
+      while (!(d = [...document.querySelectorAll(".application")].find((x) => !stale.has(x) && x !== frame)) && Date.now() - t0 < 5000) await sleep(100);
+      return d;
+    };
+    const closeApp = async (d) => {
+      d?.querySelector('header [data-action="close"]')?.click();
+      const t0 = Date.now();
+      while (d?.isConnected && Date.now() - t0 < 5000) await sleep(100);
+      return !d?.isConnected;
+    };
+    // The field look: the Pronouns input's own box, property by property.
+    const BOX = ["backgroundColor", "borderTopStyle", "borderTopWidth", "borderTopColor", "borderTopLeftRadius", "height"];
+    const boxOf = (node) => { const cs = node ? getComputedStyle(node) : null; return Object.fromEntries(BOX.map((k) => [k, cs?.[k] ?? null])); };
+    const fieldLike = (node, root) => {
+      const want = boxOf(root.querySelector(".identity-bio-line .pronouns-row .trait-input"));
+      const got = boxOf(node);
+      return { same: !!node && BOX.every((k) => got[k] === want[k]), got, want };
+    };
+    out.r4 = {};
+    {
+      const R = out.r4;
+      await sheet.changeTab("character", "primary");
+      await sleep(300);
+      // a. hand-made branch: label, then the input, drawn as a field.
+      const line = frame.querySelector(".tab[data-tab='character'] .background-line");
+      const first = line?.firstElementChild;
+      R.hand = {
+        label: first?.matches("label.background-label") ? first.textContent.trim() : null,
+        next: first?.nextElementSibling?.matches("input.background-input") ?? false,
+        box: fieldLike(line?.querySelector(".background-input"), frame),
+      };
+      R.expectLabel = L("CAIRN.Background");
+      // e. the slot line: the long label where it fits, never clipped.
+      const slots = frame.querySelector(".cairn-slots-line");
+      const lab = slots?.querySelector(".slots-label");
+      R.slots = { text: lab?.textContent.trim() ?? null, short: lab?.dataset.short ?? null,
+        long: L("CAIRN.InventorySlots"), shortWant: L("CAIRN.Slots"),
+        clips: slots ? slots.scrollWidth > slots.clientWidth : null };
+      // c. no Description page, and a sheet remembering it lands on Character.
+      R.descGone = !frame.querySelector('nav.cairn-tab-rail [data-tab="description"], .tab[data-tab="description"]');
+      sheet.tabGroups.primary = "description";
+      await sheet.render();
+      await sleep(400);
+      R.remembered = frame.querySelector(".tab.active[data-group='primary']")?.dataset.tab ?? null;
+      // b. the sentence, sentence case, first in the left column.
+      const left = () => frame.querySelector(".tab[data-tab='character'] .cairn-left");
+      R.handSentence = left()?.querySelector(":scope > .trait-sentence")?.textContent.trim() ?? null;
+      R.handPen = !!left()?.querySelector(":scope > .trait-sentence .trait-edit[data-action='editTraits']");
+      // Creation Mode off: the sentence stays, the pen goes.
+      await pc.update({ "system.generationEnabled": false }, { abNoStatusCard: true });
+      await until(() => !left()?.querySelector(".trait-edit"));
+      await sleep(200);
+      R.offSentence = !!left()?.querySelector(":scope > .trait-sentence");
+      R.offPen = !!left()?.querySelector(".trait-edit");
+      await pc.update({ "system.generationEnabled": true }, { abNoStatusCard: true });
+      await until(() => left()?.querySelector(".trait-edit"));
+      // No traits and no age: the pen still shows, labelled "Traits".
+      await pc.update({ "system.traits.physique": "", "system.age": "" }, { abNoStatusCard: true });
+      await until(() => !left()?.querySelector(".trait-sentence")?.textContent.includes("physique"));
+      await sleep(200);
+      const blank = left()?.querySelector(":scope > .trait-sentence");
+      R.blank = { text: blank?.textContent.trim() ?? null, pen: !!blank?.querySelector(".trait-edit"), want: L("CAIRN.Traits") };
+    }
     await sheet.close();
+
+    {
+      const R = out.r4;
+      const bgPack = game.packs.get("air-bladder.backgrounds-2e");
+      const bgDoc = (await bgPack.getDocuments()).find((d) => d.system?.description);
+      const bpc = await getDocumentClass("Actor").create({
+        name: "ZZ Rail Bg PC", type: "character",
+        system: {
+          background: bgDoc?.name ?? "", backgroundUuid: bgDoc?.uuid ?? "", contentSource: "2e", age: "30",
+          traits: { physique: "Athletic", skin: "Pale", hair: "Braided", face: "Broken", speech: "Booming",
+            clothing: "Antique", vice: "Lazy", virtue: "Honest" },
+          omenEnabled: true, omen: "ZZ an omen",
+          description: "<p>ZZ imported prose</p>",
+        },
+        flags: { "air-bladder": { probeFixture: fixture } },
+      }, { abNoStatusCard: true });
+      R.bgName = bgDoc?.name ?? null;
+      const bs = bpc.sheet;
+      await bs.render(true);
+      await until(() => bs.element?.querySelector?.(".tab[data-tab='character'] .cairn-left"));
+      await sleep(500);
+      const bf = bs.element;
+      // a. generated branch: label, then the name, drawn as a field.
+      const line = bf.querySelector(".tab[data-tab='character'] .background-line");
+      const first = line?.firstElementChild;
+      const name = line?.querySelector(".background-name");
+      R.gen = {
+        label: first?.matches("label.background-label") ? first.textContent.trim() : null,
+        next: first?.nextElementSibling === name && !!name,
+        box: fieldLike(name, bf),
+        text: name?.textContent.trim() ?? null,
+      };
+      // A click on the name opens the picker; its close button changes nothing.
+      {
+        const stale = new Set(document.querySelectorAll(".application"));
+        name?.click();
+        const d = await newDialog(stale);
+        R.gen.picker = !!d;
+        R.gen.pickerClosed = await closeApp(d);
+        R.gen.bgKept = bpc.system.backgroundUuid === bgDoc?.uuid;
+      }
+      // b. the sentence: first in the left column, before the abilities,
+      // sentence case, in the background description's size and face.
+      const left = bf.querySelector(".tab[data-tab='character'] .cairn-left");
+      const sent = left?.firstElementChild;
+      const bgDesc = bf.querySelector(".tab[data-tab='character'] .background-description");
+      R.sentence = {
+        first: sent?.matches("p.trait-sentence") ?? false,
+        beforeAbilities: sent?.nextElementSibling?.matches(".cairn-abilities") ?? false,
+        text: sent?.textContent.trim() ?? null,
+        want: "You have athletic physique, pale skin, and braided hair. Your face is broken, your speech booming. "
+          + "You have antique clothing. You are lazy and honest. You are 30 years old.",
+        size: sent ? getComputedStyle(sent).fontSize : null,
+        descSize: bgDesc ? getComputedStyle(bgDesc).fontSize : null,
+        face: sent ? getComputedStyle(sent).fontFamily : null,
+        descFace: bgDesc ? getComputedStyle(bgDesc).fontFamily : null,
+        inBand: !!bf.querySelector(".cairn-band .trait-sentence"),
+      };
+      // c. the pen and the Traits window.
+      let writes = 0;
+      const hook = Hooks.on("updateActor", (doc) => { if (doc.id === bpc.id) writes++; });
+      try {
+        const pen = sent?.querySelector(".trait-edit[data-action='editTraits']");
+        R.editor = { pen: !!pen, tip: pen?.dataset.tooltip ?? null };
+        let stale = new Set(document.querySelectorAll(".application"));
+        pen?.click();
+        let d = await newDialog(stale);
+        const sel = (k) => d?.querySelector(`select[name="system.traits.${k}"]`);
+        R.editor.dialog = d?.classList.contains("cairn-trait-editor") ?? false;
+        R.editor.title = d?.querySelector(".window-title")?.textContent.trim() ?? null;
+        R.editor.wantTitle = L("CAIRN.Traits");
+        R.editor.selects = d?.querySelectorAll("select").length ?? 0;
+        R.editor.dice = d?.querySelectorAll('a.trait-roll[data-action="rollTrait"]').length ?? 0;
+        R.editor.saveLabel = d?.querySelector('footer button[data-action="save"]')?.textContent.trim() ?? null;
+        R.editor.wantSave = L("CAIRN.TraitEditor.Save");
+        // A die fills its select and writes nothing.
+        if (sel("physique")) sel("physique").value = "";
+        writes = 0;
+        d?.querySelector('a.trait-roll[data-key="physique"]')?.click();
+        await until(() => sel("physique")?.value);
+        await sleep(300);
+        R.editor.rolled = sel("physique")?.value ?? "";
+        R.editor.dieWrites = writes;
+        R.editor.dieKept = bpc.system.traits.physique === "Athletic";
+        // A hand pick, then Save: both written, the window closed.
+        const skinSel = sel("skin");
+        const pick = [...(skinSel?.options ?? [])].map((o) => o.value).find((v) => v && v !== skinSel.value) ?? null;
+        if (skinSel && pick) { skinSel.value = pick; skinSel.dispatchEvent(new Event("change", { bubbles: true })); }
+        R.editor.pick = pick;
+        d?.querySelector('footer button[data-action="save"]')?.click();
+        await until(() => !d?.isConnected && bpc.system.traits.skin === pick);
+        await sleep(300);
+        R.editor.saveClosed = !d?.isConnected;
+        R.editor.savedSkin = bpc.system.traits.skin;
+        R.editor.savedPhysique = bpc.system.traits.physique;
+        // Reopen, change a select, close with the window's ×: nothing written.
+        stale = new Set(document.querySelectorAll(".application"));
+        bf.querySelector(".tab[data-tab='character'] .cairn-left .trait-edit")?.click();
+        d = await newDialog(stale);
+        const hair = sel("hair");
+        const other = [...(hair?.options ?? [])].map((o) => o.value).find((v) => v && v !== hair.value) ?? null;
+        if (hair && other) { hair.value = other; hair.dispatchEvent(new Event("change", { bubbles: true })); }
+        writes = 0;
+        R.editor.reopened = !!d;
+        R.editor.xClosed = await closeApp(d);
+        await sleep(400);
+        R.editor.xWrites = writes;
+        R.editor.xKept = bpc.system.traits.hair === "Braided";
+      } finally {
+        Hooks.off("updateActor", hook);
+      }
+      // d. Background & Notes: Omen and the Description, a rule between items.
+      await bs.changeTab("notes", "primary");
+      await sleep(400);
+      const notes = bf.querySelector(".tab[data-tab='notes']");
+      const items = [...(notes?.querySelectorAll(":scope > .notes-item") ?? [])];
+      const kind = (n) => n.matches(".bond-block") ? "bond" : n.matches(".question-block") ? "question"
+        : n.querySelector(".omen-row") ? "omen" : n.matches(".character-description") ? "description"
+        : n.querySelector('prose-mirror[name="system.notes"]') ? "notes" : "?";
+      R.notes = {
+        kinds: items.map(kind),
+        rules: items.slice(1).map((n) => getComputedStyle(n).borderTopWidth),
+        firstRule: items[0] ? getComputedStyle(items[0]).borderTopWidth : null,
+        divider: !!notes?.querySelector("hr.notes-divider"),
+        omenText: notes?.querySelector(".omen-row .omen-input")?.value ?? null,
+        prose: notes?.querySelector('.character-description prose-mirror[name="system.description"]')?.textContent.includes("ZZ imported prose") ?? false,
+      };
+      await bs.close();
+    }
+    // The hand-picked trait is logged as a hand edit; the change-log cards it
+    // posts are this leg's own, removed by id difference.
+    for (const m of game.messages.filter((x) => !msgsBefore.has(x.id))) await m.delete();
 
     /* ---- 8. an npc sheet draws no rail --------------------------------- */
     const npc = await getDocumentClass("Actor").create({
@@ -385,15 +593,16 @@ else {
     : fail(`frame: ${JSON.stringify(r.frame)}`);
 
   // 2
-  const want = ["character", "items", "growth", "description", ...(r.showContainers ? ["containers"] : []), "notes"];
-  const icons = { character: "fa-mask", items: "fa-sack", growth: "fa-seedling", description: "fa-feather", containers: "fa-link", notes: "fa-scroll" };
+  // No Description page since round 4 (leg 15).
+  const want = ["character", "items", "growth", ...(r.showContainers ? ["containers"] : []), "notes"];
+  const icons = { character: "fa-mask", items: "fa-sack", growth: "fa-seedling", containers: "fa-link", notes: "fa-scroll" };
   const got = r.rail.pages.map((b) => b.tab);
   r.rail.present && JSON.stringify(got) === JSON.stringify(want)
     ? ok(`the rail sits in .window-content with the pages in order: ${got.join(", ")}`)
     : fail(`rail present ${r.rail.present}, pages ${JSON.stringify(got)}, want ${JSON.stringify(want)}`);
   const badIcon = r.rail.pages.filter((b) => !b.icon?.split(/\s+/).includes(icons[b.tab]));
   badIcon.length === 0 && r.rail.pages.length
-    ? ok("each page wears its icon (mask, sack, seedling, feather, scroll)")
+    ? ok("each page wears its icon (mask, sack, seedling, scroll)")
     : fail(`icons: ${JSON.stringify(badIcon)}`);
   const badTip = r.rail.pages.filter((b) => b.tab !== "containers" && (b.tip !== r.expectTips[b.tab] || b.aria !== r.expectTips[b.tab]));
   badTip.length === 0 && r.rail.pages.length
@@ -480,17 +689,72 @@ else {
 
   // 14
   const bio = r.bio ?? {};
-  JSON.stringify(bio.band) === JSON.stringify(["band-gold", "trait-sentence"])
+  JSON.stringify(bio.band) === JSON.stringify(["band-gold"])
     && JSON.stringify(bio.identity) === JSON.stringify(["name-line", "identity-bio-line", "background-line"])
-    && bio.pronounsInput && bio.ageInput && bio.sentence && !bio.onDescription
-    ? ok(`Pronouns and Age stand under the name, the trait sentence under Gold ("${bio.sentence}"), none on Description`)
-    : fail(`page-1 band: ${JSON.stringify(bio)}`);
-  bio.traitSelects > 0
-    ? ok(`Description's trait pick-lists are open on a fresh sheet (${bio.traitSelects} selects)`)
-    : fail("Description's trait pick-lists start collapsed");
+    && bio.pronounsInput && bio.ageInput
+    ? ok("Pronouns and Age stand under the name; Gold stands alone in the band")
+    : fail(`page-1 head/band: ${JSON.stringify(bio)}`);
   r.npc.traitSelects > 0 && r.npc.pronouns
     ? ok("a hireling's trait pick-lists are open too, its pronouns on its own sheet")
     : fail(`hireling traits/pronouns: ${JSON.stringify(r.npc)}`);
+
+  // 15
+  const R = r.r4 ?? {};
+  const h = R.hand ?? {}, gn = R.gen ?? {};
+  h.label === R.expectLabel && h.next && h.box?.same
+    ? ok(`a hand-made background reads "${h.label}" before an input drawn as the Pronouns field`)
+    : fail(`hand-made background field: ${JSON.stringify(h)}`);
+  gn.label === R.expectLabel && gn.next && gn.box?.same && gn.text === R.bgName
+    ? ok(`a generated background reads "${gn.label}" before its name ("${gn.text}") drawn as the same field`)
+    : fail(`generated background field: ${JSON.stringify(gn)} (want name ${JSON.stringify(R.bgName)})`);
+  gn.picker && gn.pickerClosed && gn.bgKept
+    ? ok("a click on the generated background's name opens the picker, and closing it changes nothing")
+    : fail(`background name click: ${JSON.stringify(gn)}`);
+  const se = R.sentence ?? {};
+  se.first && se.beforeAbilities && !se.inBand
+    ? ok("the trait sentence is the left column's first child, above STR, and out of the band")
+    : fail(`sentence placement: ${JSON.stringify(se)}`);
+  se.text === se.want
+    ? ok(`the sentence reads in sentence case: "${se.text}"`)
+    : fail(`sentence text ${JSON.stringify(se.text)}, want ${JSON.stringify(se.want)}`);
+  se.size && se.size === se.descSize && se.face === se.descFace
+    ? ok(`the sentence is set like the background description (${se.size})`)
+    : fail(`sentence ${se.size} ${se.face} vs description ${se.descSize} ${se.descFace}`);
+  R.handSentence === "You have athletic physique. You are 30 years old." && R.handPen
+    ? ok("a hand-made character's sentence is lowercase too and ends in the pen")
+    : fail(`hand-made sentence ${JSON.stringify(R.handSentence)}, pen ${R.handPen}`);
+  R.offSentence && !R.offPen
+    ? ok("with Character Creation Mode off the sentence stays and the pen goes")
+    : fail(`Creation Mode off: sentence ${R.offSentence}, pen ${R.offPen}`);
+  R.blank?.text === R.blank?.want && R.blank?.pen
+    ? ok(`with no traits and no age the slot reads "${R.blank.text}" with the pen`)
+    : fail(`blank sentence slot: ${JSON.stringify(R.blank)}`);
+  const ed = R.editor ?? {};
+  ed.pen && ed.tip === "CAIRN.EditTraits" && ed.dialog && ed.title === ed.wantTitle && ed.selects === 8 && ed.dice === 8 && ed.saveLabel === ed.wantSave
+    ? ok(`the pen opens "${ed.title}" with 8 pickers and 8 dice, and one button, "${ed.saveLabel}"`)
+    : fail(`trait editor: ${JSON.stringify(ed)}`);
+  ed.rolled && ed.dieWrites === 0 && ed.dieKept
+    ? ok(`a die fills its select ("${ed.rolled}") and writes nothing`)
+    : fail(`editor die: rolled ${JSON.stringify(ed.rolled)}, writes ${ed.dieWrites}, kept ${ed.dieKept}`);
+  ed.pick && ed.saveClosed && ed.savedSkin === ed.pick && ed.savedPhysique === ed.rolled
+    ? ok("Save writes the hand pick and the rolled value, and closes the window")
+    : fail(`editor save: ${JSON.stringify(ed)}`);
+  ed.reopened && ed.xClosed && ed.xWrites === 0 && ed.xKept
+    ? ok("closing the window with × discards its changes")
+    : fail(`editor ×: ${JSON.stringify(ed)}`);
+  R.descGone && R.remembered === "character"
+    ? ok("there is no Description page, and a sheet remembering it opens on Character")
+    : fail(`description gone ${R.descGone}, remembered tab lands on ${R.remembered}`);
+  const nt = R.notes ?? {};
+  JSON.stringify(nt.kinds?.slice(-3)) === JSON.stringify(["omen", "description", "notes"])
+    && nt.rules?.length && nt.rules.every((w) => w !== "0px") && nt.firstRule === "0px" && !nt.divider
+    && nt.omenText === "ZZ an omen" && nt.prose
+    ? ok(`Background & Notes holds ${nt.kinds.join(", ")}, a rule between each, the old divider gone`)
+    : fail(`Background & Notes: ${JSON.stringify(nt)}`);
+  const sl = R.slots ?? {};
+  sl.short === sl.shortWant && !sl.clips && (sl.text === sl.long || sl.text === sl.shortWant)
+    ? ok(`the slot line reads "${sl.text}" and does not clip`)
+    : fail(`slot line: ${JSON.stringify(sl)}`);
 
   // 8
   !r.npc.rail && r.npc.strip && !r.npc.railed && r.npc.width === 600

@@ -300,14 +300,34 @@ try {
     // reads the world table offers exactly one non-blank option, marked; one
     // that still reads the pack offers the pack's rows, none marked.
     const read = async (actor, keys) => {
+      const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
       const sheet = actor.sheet;
       sheet._traitsCollapsed = false;        // the pick-lists render only expanded
       await sheet.render(true);
-      for (let i = 0; i < 60 && !sheet.element?.querySelector("select.trait-input"); i++) await new Promise((r) => setTimeout(r, 100));
+      // A character's pick-lists are in the Traits window since round 4
+      // (2026-11-19), opened by the pen at the end of its trait sentence (with
+      // no traits yet, the pen beside the word "Traits"); the npc sheet keeps
+      // them in its own form.
+      let root = null;
+      let editor = null;
+      if (actor.type === "character") {
+        for (let i = 0; i < 60 && !sheet.element?.querySelector('[data-action="editTraits"]'); i++) await sleep(100);
+        const stale = new Set(document.querySelectorAll(".cairn-trait-editor"));
+        sheet.element?.querySelector('[data-action="editTraits"]')?.click();
+        for (let i = 0; i < 60 && !(editor = [...document.querySelectorAll(".cairn-trait-editor")].find((d) => !stale.has(d))); i++) await sleep(100);
+        root = editor;
+      } else {
+        for (let i = 0; i < 60 && !sheet.element?.querySelector("select.trait-input"); i++) await sleep(100);
+        root = sheet.element;
+      }
       const out = {};
       for (const k of keys) {
-        const opts = [...(sheet.element?.querySelectorAll(`select[name="system.traits.${k}"] option`) ?? [])].map((o) => o.value).filter(Boolean);
+        const opts = [...(root?.querySelectorAll(`select[name="system.traits.${k}"] option`) ?? [])].map((o) => o.value).filter(Boolean);
         out[k] = { rows: opts.length, marked: opts.filter((v) => v.includes(MARK)).length };
+      }
+      if (editor) {
+        editor.querySelector('header [data-action="close"]')?.click();
+        for (let i = 0; i < 50 && editor.isConnected; i++) await sleep(100);
       }
       await sheet.close();
       return out;
@@ -411,8 +431,9 @@ try {
     await new Promise((r) => setTimeout(r, 500));
     // To the Omen's page through the sheet's own changeTab: a character's pages
     // are turned from the rail since 2026-11-19, and the strip's
-    // `.tabs .item` link this used to click is gone from a character.
-    await pc.sheet.changeTab("description", "primary");
+    // `.tabs .item` link this used to click is gone from a character. Omen
+    // stands on Background & Notes since round 4.
+    await pc.sheet.changeTab("notes", "primary");
     await new Promise((r) => setTimeout(r, 300));
     const die = pc.sheet.element.querySelector('[data-action="rollOmen"]');
     die?.click();

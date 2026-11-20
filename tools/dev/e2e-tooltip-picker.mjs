@@ -138,10 +138,12 @@ try {
         hp: root?.querySelector('label[for$="system.hp.value"]')?.dataset.tooltip ?? "",
         gold: root?.querySelector('label[for$="system.gold"]')?.dataset.tooltip ?? "",
       };
-      turnTo("description");
+      // Omen stands on Background & Notes since round 4 (2026-11-19). The
+      // traits header and its hint are no longer on a character at all; they
+      // are read on a hireling's sheet (3b below).
+      turnTo("notes");
       await wait(300);
       root = rootOf();
-      out.hintsOn.traits = root?.querySelector(".trait-picklist-label")?.dataset.tooltip ?? "";
       const omenDie = root?.querySelector('a[data-action="rollOmen"]');
       out.migrate.omenKey = omenDie?.dataset.tooltip ?? "";
       out.migrate.omenNoTitle = !!omenDie && !omenDie.hasAttribute("title");
@@ -156,15 +158,30 @@ try {
       // before the aria sweep below, so the eight new anchors are held to the
       // same localized-aria-label rule as every other icon-only control.
       // Open by default since 2026-11-19: click only if shut, or it closes them.
-      if (!root?.querySelector(".trait-grid")) {
-        root?.querySelector('a[data-action="toggleTraits"]')?.click();
+      // SINCE ROUND 4 (2026-11-19) a character's rows and dice are in the
+      // Traits window, opened by the pen at the end of the trait sentence on
+      // page 1; every leg below that read them off the Description page reads
+      // them off that window.
+      const openEditor = async () => {
+        const stale = new Set(document.querySelectorAll(".cairn-trait-editor"));
+        turnTo("character");
         await wait(300);
-      }
-      root = rootOf();
-      const traitDice = [...(root?.querySelectorAll('a[data-action="rollTrait"]') ?? [])];
+        rootOf()?.querySelector('.trait-sentence [data-action="editTraits"]')?.click();
+        return waitFor(() => [...document.querySelectorAll(".cairn-trait-editor")].find((d) => !stale.has(d)), 5000);
+      };
+      const closeEditor = async (d) => {
+        d?.querySelector('header [data-action="close"]')?.click();
+        await waitFor(() => !d?.isConnected, 5000);
+      };
+      const editor = await openEditor() || null;
+      out.ariaEditor = [...(editor?.querySelectorAll("a[data-action][data-tooltip]") ?? [])]
+        .filter((a) => !a.textContent.trim())
+        .map((a) => ({ action: a.dataset.action, aria: a.getAttribute("aria-label") ?? "" }));
+      const traitDice = [...(editor?.querySelectorAll('a[data-action="rollTrait"]') ?? [])];
       out.traitDice = {
+        editor: !!editor,
         count: traitDice.length,
-        rows: root?.querySelectorAll(".trait-grid .trait-row").length ?? 0,
+        rows: editor?.querySelectorAll(".trait-grid .trait-row").length ?? 0,
         keys: traitDice.map((a) => a.dataset.key),
         physTip: traitDice.find((a) => a.dataset.key === "physique")?.dataset.tooltip ?? "",
       };
@@ -194,7 +211,7 @@ try {
         }
         return rows;
       };
-      out.traitGlyphs = await glyphsOf(root, sheet._traitTableMapping());
+      out.traitGlyphs = await glyphsOf(editor, sheet._traitTableMapping());
 
       // ---- 5d. THE GRID'S GEOMETRY (2026-10-03, user: "deadspace") ---------
       // The label's TEXT extent, not its element: under the old fixed 96px
@@ -217,7 +234,8 @@ try {
           dieMid: die ? die.top + die.height / 2 : null, selMid: sel ? sel.top + sel.height / 2 : null,
         };
       });
-      out.traitGeomOn = geometry(root);
+      out.traitGeomOn = geometry(editor);
+      await closeEditor(editor);
 
       // World-first control for the glyph: a world Physique rolled on a d12
       // puts a d12 on the row. Planted, read, deleted — the trait-roll leg
@@ -230,8 +248,7 @@ try {
         });
         await sheet.render(true);
         await wait(800);
-        turnTo("description");
-        await wait(300);
+        const worldEd = await openEditor() || null;
         // WHICH world Physique the resolver elects: a Warden's own copy (the
         // Create Custom 2e Tables door makes one) is found first by name and
         // beats the planted one, so the leg reports the winner rather than
@@ -243,13 +260,14 @@ try {
           winner: resolved ? `${resolved.name} [${resolved.formula}${resolved.pack ? ", pack" : ", world"}]` : null,
           formula: resolved?.formula ?? null,
           expected: dieIconOrGeneric(resolved?.formula),
-          actual: rootOf()?.querySelector('a[data-action="rollTrait"][data-key="physique"] i')?.className ?? "",
+          actual: worldEd?.querySelector('a[data-action="rollTrait"][data-key="physique"] i')?.className ?? "",
         };
+        await closeEditor(worldEd);
       } finally {
         if (worldPhys) await worldPhys.delete();
         await sheet.render(true);
         await wait(600);
-        turnTo("description");
+        turnTo("character");
         await wait(300);
         root = rootOf();
       }
@@ -262,8 +280,12 @@ try {
         .find((t) => t.name === "Physique");
       const physTexts = physTable.results.map((res) => resultText(res));
       await actor.update({ "system.traits.physique": "" });
-      await waitFor(() => rootOf()?.querySelector('a[data-action="rollTrait"][data-key="physique"]'), 5000);
-      rootOf()?.querySelector('a[data-action="rollTrait"][data-key="physique"]')?.click();
+      await wait(400);
+      const rollEd = await openEditor() || null;
+      const physSel = rollEd?.querySelector('select[name="system.traits.physique"]');
+      rollEd?.querySelector('a[data-action="rollTrait"][data-key="physique"]')?.click();
+      await waitFor(() => physSel?.value, 5000);
+      rollEd?.querySelector('footer button[data-action="save"]')?.click();
       out.traitRoll = await waitFor(() => physTexts.includes(actor.system.traits?.physique ?? ""), 10000)
         ? actor.system.traits.physique
         : `physique is "${actor.system.traits?.physique}" (not a Physique-table row)`;
@@ -520,18 +542,14 @@ try {
         portraitPick: !!root?.querySelector("a.portrait-pick"),
         portraitDie: !!root?.querySelector("a.portrait-roll"),
       };
-      turnTo("description");
+      // A character's traits are edited only in Creation Mode (round 4): with
+      // the mode Off there is no pen, so no Traits window and no die.
+      turnTo("character");
       await wait(300);
-      out.hintsOff.traits = rootOf()?.querySelector(".trait-picklist-label")?.hasAttribute("data-tooltip") ?? false;
-      // The trait grid is still expanded (sheet-instance state), so the rows
-      // render — the DICE alone must be gone with the mode.
-      out.traitDiceOff = {
-        dice: rootOf()?.querySelectorAll('a[data-action="rollTrait"]').length ?? -1,
-        rows: rootOf()?.querySelectorAll(".trait-grid .trait-row").length ?? 0,
+      out.penOff = {
+        pen: !!rootOf()?.querySelector('[data-action="editTraits"]'),
+        sentence: !!rootOf()?.querySelector(".cairn-left > .trait-sentence"),
       };
-      // The geometry with NO die in the row: the select spans the empty die
-      // track, so one gap follows the label, not two.
-      out.traitGeomOff = geometry(rootOf());
       await sheet.close();
 
       // ---- 3b. The npc sheet's save dice take the same gate ---------------
@@ -550,6 +568,30 @@ try {
       };
       out.npcPickIcon = nRoot?.querySelector(".profession-pick i")?.className ?? "";
       out.aria.npc = bareAnchors(nRoot);
+      // The traits header's hint and the grid with NO die, read where they
+      // still render since round 4: a hireling's Description page (the
+      // character's pick-lists live in the Traits window, which only Creation
+      // Mode opens). A hireling's grid is eight rows, as a character's was.
+      const nq = (sel) => nSheet.element?.querySelector(sel);
+      const nTurn = async () => {
+        nq('nav.tabs [data-tab="description"]')?.click();
+        await wait(300);
+        if (!nq(".trait-grid")) { nq('a[data-action="toggleTraits"]')?.click(); await wait(300); }
+      };
+      await nTurn();
+      out.hintsOn.traits = nq(".trait-picklist-label")?.dataset.tooltip ?? "";
+      await npc.update({ "system.generationEnabled": false });
+      await wait(800);
+      await nTurn();
+      out.hintsOff.traits = nq(".trait-picklist-label")?.hasAttribute("data-tooltip") ?? false;
+      // The rows render, the DICE alone are gone with the mode.
+      out.traitDiceOff = {
+        dice: nSheet.element?.querySelectorAll('a[data-action="rollTrait"]').length ?? -1,
+        rows: nSheet.element?.querySelectorAll(".trait-grid .trait-row").length ?? 0,
+      };
+      // The geometry with NO die in the row: the select spans the empty die
+      // track, so one gap follows the label, not two.
+      out.traitGeomOff = geometry(nSheet.element);
       await nSheet.close();
 
       // ---- 3b'. The NPC sheet's trait dice wear THEIR tables' dice ---------
@@ -671,10 +713,11 @@ try {
     // Review #21 finding 7: no icon-only control lost its accessible name.
     const ariaChar = r.aria?.char ?? [];
     const ariaNpc = r.aria?.npc ?? [];
-    const badAria = [...ariaChar, ...ariaNpc].filter((a) => !a.aria.trim() || a.aria.startsWith("CAIRN."));
-    ariaChar.length >= 8 && ariaNpc.length >= 4 && badAria.length === 0
-      ? ok(`all ${ariaChar.length + ariaNpc.length} icon-only creation controls carry a localized aria-label`)
-      : fail(`aria-labels: char=${ariaChar.length}, npc=${ariaNpc.length}, `
+    const ariaEditor = r.ariaEditor ?? [];
+    const badAria = [...ariaChar, ...ariaNpc, ...ariaEditor].filter((a) => !a.aria.trim() || a.aria.startsWith("CAIRN."));
+    ariaChar.length >= 8 && ariaNpc.length >= 4 && ariaEditor.length >= 8 && badAria.length === 0
+      ? ok(`all ${ariaChar.length + ariaNpc.length + ariaEditor.length} icon-only creation controls carry a localized aria-label (the Traits window's ${ariaEditor.length} included)`)
+      : fail(`aria-labels: char=${ariaChar.length}, npc=${ariaNpc.length}, editor=${ariaEditor.length}, `
         + `missing/raw: ${JSON.stringify(badAria.slice(0, 6))}`);
     const pickBgAria = ariaChar.find((a) => a.action === "pickBackground");
     pickBgAria?.aria === r.aria?.wantPickBackground
@@ -725,14 +768,14 @@ try {
       ? ok("mode Off: the sentence is gone")
       : fail(`mode-Off labels still carry it: hp="${HF.hp}", gold="${HF.gold}"`);
     HN.traits === "CAIRN.TraitsRolledTip" && HF.traits === false
-      ? ok("the traits header hints only while On")
+      ? ok("the traits header hints only while On (a hireling's, the header's one home since round 4)")
       : fail(`traits header: on="${HN.traits}", off-has-attr=${HF.traits}`);
 
     // Per-trait dice (2026-09-05): one per row, keyed, tooltip pre-formatted
     // with the row's own label (the rollAgeTitle idiom — text, not a bare key).
     const TD = r.traitDice ?? {};
-    TD.count === 8 && TD.count === TD.rows && new Set(TD.keys).size === 8
-      ? ok(`every expanded trait row carries its own die (${TD.count} of ${TD.rows}, keys distinct)`)
+    TD.editor && TD.count === 8 && TD.count === TD.rows && new Set(TD.keys).size === 8
+      ? ok(`every trait row in the Traits window carries its own die (${TD.count} of ${TD.rows}, keys distinct)`)
       : fail(`trait dice: ${JSON.stringify(TD)}`);
     TD.physTip === "Roll Physique"
       ? ok(`…each tooltip names its own trait ("${TD.physTip}")`)
@@ -744,8 +787,12 @@ try {
       ? ok("…and writes no other trait")
       : fail("rolling one trait changed another");
     const TDO = r.traitDiceOff ?? {};
+    const PO = r.penOff ?? {};
+    !PO.pen && PO.sentence
+      ? ok("mode Off: a character's sentence stays and its pen (the way to the trait dice) goes")
+      : fail(`mode-off pen: ${JSON.stringify(PO)}`);
     TDO.dice === 0 && TDO.rows > 0
-      ? ok("mode Off: the rows stay, the trait dice vanish")
+      ? ok("mode Off: a hireling's rows stay, its trait dice vanish")
       : fail(`mode-off trait dice: ${JSON.stringify(TDO)}`);
 
     // THE DIE EACH ROW WEARS IS ITS TABLE'S (2026-10-03). Expected classes are
@@ -800,7 +847,7 @@ try {
     const GOff = r.traitGeomOff ?? [];
     const offBad = GOff.filter((g) => g.selLeft == null || g.selLeft - g.textRight > GAP);
     GOff.length === 8 && !offBad.length && halves(GOff) === 2
-      ? ok(`mode Off: with no die, the select follows the label text within ${GAP}px on all 8 rows — the hole beside "Skin" is gone`)
+      ? ok(`mode Off (a hireling's grid): with no die, the select follows the label text within ${GAP}px on all 8 rows — the hole beside "Skin" is gone`)
       : fail(`mode-off geometry: ${JSON.stringify(offBad.length ? offBad : GOff)} halves=${halves(GOff)}`);
 
     r.omenDieWorld === "PROBE OMEN — the sky is a lid"

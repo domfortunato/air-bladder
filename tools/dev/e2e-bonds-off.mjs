@@ -14,7 +14,8 @@
  *   2. generation: off deals no bond, no `bond:` item and no bond coins; on,
  *      the same background deals two bonds, their item and their coins
  *   3. the sheet: off renders no bond block, die, picker or "Add a bond", and
- *      keeps the Notes divider for the questions; on renders both bonds
+ *      keeps the rule under the questions (the Notes divider until round 4,
+ *      a rule between every item since); on renders both bonds
  *   4. the Roll Character checklist: off has no Bond(s) row and no bonds
  *      note; on has both
  *   5. the four bond handlers refuse while off (a sheet already open when
@@ -151,7 +152,15 @@ try {
           blocks: root?.querySelectorAll(".bond-block").length ?? null,
           dice: root?.querySelectorAll('[data-action="rerollBond"], [data-action="pickBond"]').length ?? null,
           add: !!root?.querySelector('[data-action="addBond"]'),
-          divider: !!root?.querySelector(".notes-divider"),
+          // The rule that closes the questions off from what follows: the
+          // item after the last question wears a top border (round 4, which
+          // replaced the single Notes divider with a rule between items).
+          divider: (() => {
+            const qs = [...(root?.querySelectorAll('.tab[data-tab="notes"] > .question-block') ?? [])];
+            let n = qs.at(-1)?.nextElementSibling ?? null;
+            while (n && !n.classList.contains("notes-item")) n = n.nextElementSibling;
+            return !!n && getComputedStyle(n).borderTopWidth !== "0px" && getComputedStyle(n).borderTopStyle !== "none";
+          })(),
           desc: root?.querySelector(".background-description")?.textContent ?? null,
         };
       };
@@ -282,7 +291,7 @@ try {
   const so = r.sheetOff ?? {}, sn = r.sheetOn ?? {};
   check(sn.blocks === 2, "control: with bonds ON the sheet shows both bonds", JSON.stringify(sn));
   check(so.blocks === 0 && so.dice === 0 && !so.add, "with bonds OFF the sheet shows no bond, die, picker or Add a bond", JSON.stringify(so));
-  check(so.divider, "with bonds OFF the Notes divider stays for the questions", JSON.stringify(so));
+  check(so.divider, "with bonds OFF a rule still closes the questions off from the notes", JSON.stringify(so));
 
   const dOff = r.dialogOff, dOn = r.dialogOn;
   if (!dOff || !dOn) fail(`the Roll Character checklist did not open (off ${JSON.stringify(dOff)}, on ${JSON.stringify(dOn)})`);
