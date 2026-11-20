@@ -153,6 +153,22 @@ Moved word for word from CLAUDE.md (2026-11-01); CLAUDE.md points here.
   wear `--ab-on-bar` (light theme had #111 on the black bar), gate
   `dev:sheet-rail` leg 17 — which re-renders after each `configureUI`, because a
   button already drawn keeps the ink of the scheme it was drawn in.
+- Later the same day (user asks after walking it): on Background & Notes the Bond
+  heading (its colon gone), each question, the Description heading and Omen's
+  label share page 1's Background label in ONE face rule (layout split off, so a
+  question wraps; Omen folded in after the walk showed it in bold sans),
+  and each answer is indented on a 2px `--ab-accent` rule. "Saves" heads the
+  ability names (`.head-saves`). On a CHARACTER, a row's damage roller and the
+  Improvised row's open the Attack window on their own weapon (`askAttack`'s
+  `preselect`, `#openAttack`); other sheets and a non-owner keep the quick roll.
+  The four max boxes are DISABLED while CharGen is off, for everyone
+  (`maxLocked`, read off the actor's own flag, not `generationEnabled`, which
+  also folds in the Warden's player-randomization switch; the title bar reads the
+  flag). Gates `dev:sheet-rail` leg 19 (its rule contrast measured against the
+  parchment IMAGE, averaged, dev:theme's method — a colour-only walk falls to
+  `<body>`'s black in light), `dev:attack` leg 10. `dev:combat-options` drives a
+  character's Improvised row, so its driver expects the Attack window there and
+  reads what is OFFERED (the window hides the quality buttons for Improvised).
 
 ## Creation routes
 

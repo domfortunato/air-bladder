@@ -5528,11 +5528,14 @@ header.character-generator.directory-header .header-actions > button:not(.cairn-
 .cairn-character-sheet .background-line .background-label { flex: 0 0 auto; margin: 0; white-space: nowrap; }
 /* The label FACE, one rule for every label on the character sheet that reads
    as one (2026-11-20, user ask): page 1's Background label, and on Background
-   & Notes the Bond heading, each question and the Description heading, so
-   each stands apart from the text under it. Layout stays with each element. */
+   & Notes the Bond heading, each question, the Description heading and Omen's
+   label (it read in its own bold sans beside them), so each stands apart from
+   the text under it. Layout stays with each element; the npc bio-block's Omen
+   row, the same partial, is not under this sheet class and keeps its look. */
 .cairn-character-sheet .background-line .background-label,
 .cairn-character-sheet :is(.bond-line, .question-line) > strong,
-.cairn-character-sheet .character-description .character-description-heading {
+.cairn-character-sheet .character-description .character-description-heading,
+.cairn-character-sheet .notes-omen .omen-label {
     color: var(--ab-ink);
     font-family: "Alegreya", Times, "Times New Roman", Georgia, serif;
     font-size: 15px; font-weight: bold; font-variant: small-caps; line-height: 18px;
