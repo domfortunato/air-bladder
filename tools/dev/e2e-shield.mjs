@@ -592,6 +592,74 @@ try {
       await settle();
       out.torch.throwing = { calls: calls.length, held: it("Torch").system.equipped };
       throwing = false;
+      await press(() => !it("Torch")?.system.equipped);
+      await settle();
+
+      // 6b (review #35). Each starts stowed, Torch off.
+      const handOf = (n) => sheet.element.querySelector(`.cairn-items-list-row[data-item-id="${it(n)?.id}"] [data-action="itemToggleEquipped"]`);
+      const T = out.torch2 = {};
+      // A light Torch does not know (not in the radius table): held, unlit, no call.
+      await pc.createEmbeddedDocuments("Item", [{ name: "Wraith Lantern", type: "item", sort: 700 }], { abNoStatusCard: true });
+      await sleep(400);
+      calls = []; state = "off";
+      handOf("Wraith Lantern")?.click();
+      await until(() => it("Wraith Lantern")?.system.equipped === true, 3000);
+      await settle();
+      T.unknown = { held: it("Wraith Lantern")?.system.equipped === true, calls: calls.map((c) => c[0]) };
+      handOf("Wraith Lantern")?.click();
+      await until(() => !it("Wraith Lantern")?.system.equipped, 3000);
+      await settle();
+      await pc.deleteEmbeddedDocuments("Item", [it("Wraith Lantern").id]);
+      await sleep(300);
+      // A torch with no uses left: held, not lit.
+      await it("Torch").update({ "system.uses.value": 0 });
+      await sleep(300);
+      calls = []; state = "off";
+      handOf("Torch")?.click();
+      await until(() => it("Torch")?.system.equipped === true, 3000);
+      await settle();
+      T.exhausted = { held: it("Torch")?.system.equipped === true, calls: calls.map((c) => c[0]), state };
+      handOf("Torch")?.click();
+      await until(() => !it("Torch")?.system.equipped, 3000);
+      await settle();
+      await it("Torch").update({ "system.uses.value": 3 });
+      // Two lights by their row hands: one light is held at once, and the
+      // token ends lit with the second.
+      await pc.createEmbeddedDocuments("Item", [{ name: "Lantern", type: "item", sort: 800 }], { abNoStatusCard: true });
+      await sleep(400);
+      calls = []; state = "off";
+      handOf("Torch")?.click();
+      await until(() => it("Torch")?.system.equipped === true, 3000);
+      await settle();
+      calls = [];
+      handOf("Lantern")?.click();
+      await until(() => it("Lantern")?.system.equipped === true, 3000);
+      await settle();
+      const selects = calls.filter((c) => c[0] === "selectSource").map((c) => c[3]);
+      T.second = { torch: it("Torch")?.system.equipped === true, lantern: it("Lantern")?.system.equipped === true,
+        lastSelect: selects.at(-1) ?? null, state, calls: calls.map((c) => c[0]) };
+      handOf("Lantern")?.click();
+      await until(() => !it("Lantern")?.system.equipped, 3000);
+      await settle();
+      // A held, lit light marked Broken, and one deleted: put out.
+      calls = []; state = "off";
+      handOf("Torch")?.click();
+      await until(() => it("Torch")?.system.equipped === true, 3000);
+      await settle();
+      calls = [];
+      await it("Torch").update({ "system.broken": true });
+      await settle();
+      T.broken = { calls: calls.map((c) => c[0]), state };
+      await it("Torch").update({ "system.broken": false });
+      await settle();
+      calls = []; state = "off";
+      handOf("Lantern")?.click();
+      await until(() => it("Lantern")?.system.equipped === true, 3000);
+      await settle();
+      calls = [];
+      await pc.deleteEmbeddedDocuments("Item", [it("Lantern").id]);
+      await settle();
+      T.deleted = { calls: calls.map((c) => c[0]), state };
       await sheet.close();
     } finally {
       game.Torch = realTorch;
@@ -961,6 +1029,23 @@ tc.noToken?.calls === 0 && tc.noToken?.held && tc.inactive?.calls === 0 && tc.in
 tc.throwing?.calls >= 1 && tc.throwing?.held
   ? ok("Torch throwing: the hold stands (the console-error check below covers the rest)")
   : fail(`Torch throwing: ${JSON.stringify(tc.throwing)}`);
+// 6b
+const T2 = lt.torch2 ?? {};
+T2.unknown?.held && !T2.unknown.calls.includes("selectSource") && !T2.unknown.calls.includes("toggle")
+  ? ok("a light Torch does not know is held but not lit: no select, no toggle")
+  : fail(`unknown light: ${JSON.stringify(T2.unknown)}`);
+T2.exhausted?.held && !T2.exhausted.calls.includes("toggle") && T2.exhausted.state === "off"
+  ? ok("a torch with no uses left is held but not lit")
+  : fail(`exhausted torch: ${JSON.stringify(T2.exhausted)}`);
+T2.second && !T2.second.torch && T2.second.lantern && T2.second.lastSelect === "Lantern" && T2.second.state === "on"
+  ? ok("a second light's hand puts the first away: one light held, the token lit with the second")
+  : fail(`second light: ${JSON.stringify(T2.second)}`);
+T2.broken?.calls.includes("extinguish") && T2.broken.state === "off"
+  ? ok("a held, lit light marked Broken is put out")
+  : fail(`broken held light: ${JSON.stringify(T2.broken)}`);
+T2.deleted?.calls.includes("extinguish") && T2.deleted.state === "off"
+  ? ok("a held, lit light deleted from the sheet is put out")
+  : fail(`deleted held light: ${JSON.stringify(T2.deleted)}`);
 // 7
 const gn = r.gnarled ?? {};
 gn.packStaff === false && gn.packSling === "1d6"

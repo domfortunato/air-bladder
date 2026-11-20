@@ -2687,7 +2687,7 @@ const SHIPPED_SHIELD_SOURCES = new Set([
   "Compendium.air-bladder.background-items.Item.CBziqgsnPhtbysXq",
   "Compendium.air-bladder.background-items.Item.3QHTT61bXqb2dAeB",
 ]);
-const migrateShieldFlags = async () => {
+export const migrateShieldFlags = async () => {
   if (game.settings.get(SETTINGS_NS, "shield-flag-stamped")) return;
   let count = 0;
   const isShippedShield = (i) => i.type === "armor" && i._source.system?.shield !== true
