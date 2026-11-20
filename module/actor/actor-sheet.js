@@ -2,7 +2,7 @@ import { dieIconOrGeneric } from "../utils.js";
 import { drawBond, bondRecordFrom, withGrantSource, bondEntitlement, bondsEnabled, backgroundDescriptionText, resolveRefs, replaceGrantedContainers, promptBackground, changeBackground, promptFailedCareer, rollFailedCareerName, buildFailedCareerItem, getPortraitManifest, pairedTokenFor, randomPortraitInSameFolder, portraitCategoryFor, regenerateNpc, regenerateHireling, rerollNpcBackground, rerollHirelingCareer, rerollNpcName, rerollNpcFaction, promptHirelingCareer, promptNpcBackground, promptNpcFaction, promptPickOmen, promptPickBond, promptPickQuestionOption, promptPickName, findOmensTable, rollNameFromTable, rollAge, rollTextItems, effectiveAgeFormula, effectivePcAbilityFormula, effectivePcGoldFormula, effectivePcHpFormula, rollPcHitProtection, resolveActorBackground, redealBackgroundGear, redealBarebonesKit, rerollAllBonds, reorderInventory, postGenerationRolls, isHandBuilt, clearHandBuilt, isBackgroundDisabled, equipIfArms, failedCareerActive, FLAG_SCOPE } from "../character-generator.js";
 import { promptMonsterTier, regenerateMonster } from "../monster-generator.js";
 import { openMarketplace, TRANSPORTS_CATEGORY } from "../marketplace.js";
-import { evaluateFormula, cairnSavePasses, cleanDescription, concealSecrets, holdsProse, bindEditorClickAwaySave, formatCount, sourceLabel, askDamageQuality, damageFormulaFor, damageQualityLabel, damageQualityKind, d20CardBody, d20CardFlavor, D20_CARD_ABILITIES, combatOption, combatDamageFormula, askImprovisedAttack, askAttack, IMPROVISED_FORMULA, IMPROVISED_ID, nameEditorToggles,
+import { evaluateFormula, cairnSavePasses, cleanDescription, concealSecrets, holdsProse, bindEditorClickAwaySave, formatCount, sourceLabel, askDamageQuality, damageFormulaFor, damageQualityLabel, damageQualityKind, d20CardBody, d20CardFlavor, D20_CARD_ABILITIES, combatOption, combatDamageFormula, explodeKeptPoolDie, askImprovisedAttack, askAttack, IMPROVISED_FORMULA, IMPROVISED_ID, nameEditorToggles,
   attackFormula, shieldDamage, handsFullHack, shieldWeaponHack, isTwoHanded, shieldPoolFormula, askWhichLight } from "../utils.js";
 import { lightIcon, lightRadiusText, LIGHT_ICON_NEUTRAL } from "../light-sources.js";
 import { resultText, resultPlainText, compendiumInfoFromString } from "../compendium.js";
@@ -4841,11 +4841,13 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // ruling): an impaired 1d4 is judged like any other die. Melee and ranged
     // are the same to both since the night of 2026-10-03.
     const base = damageFormulaFor(quality, weaponFormula);
-    const { formula, maneuver: mayManeuver } = combatDamageFormula(base, {
+    const { formula, maneuver: mayManeuver, explodeKept } = combatDamageFormula(base, {
       pc: this.actor.type === "character",
     });
 
-    const roll = await evaluateFormula(formula, this.actor.getRollData());
+    // A keep-highest pool keeps first, then its kept die explodes (2026-11-20).
+    let roll = await evaluateFormula(formula, this.actor.getRollData());
+    if (explodeKept) roll = await explodeKeptPoolDie(roll);
     // Two whole-sentence keys, not fragments glued with `+`: word order is not
     // universal, and the translator could not move the weapon name or the
     // parenthetical. Same rule as _buildTraitSentence and _prepareConnectionLabel.
@@ -5459,11 +5461,13 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // The same gate #onRollDamage reads, and since 2026-10-03 no die is too
     // small: a panicked 1d4 explodes, and earns the maneuver line at its max,
     // like any other.
-    const { formula, maneuver: mayManeuver } = combatDamageFormula(base, {
+    const { formula, maneuver: mayManeuver, explodeKept } = combatDamageFormula(base, {
       pc: this.actor.type === "character",
     });
 
-    const roll = await evaluateFormula(formula, this.actor.getRollData());
+    // A keep-highest pool keeps first, then its kept die explodes (2026-11-20).
+    let roll = await evaluateFormula(formula, this.actor.getRollData());
+    if (explodeKept) roll = await explodeKeptPoolDie(roll);
 
     // THE DESCRIPTION RIDES AS THE WEAPON. `data-weapon` exists to carry "the
     // thing this attack was made with" verbatim so the sentences rebuild per

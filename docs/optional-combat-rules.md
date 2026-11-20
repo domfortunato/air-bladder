@@ -59,11 +59,11 @@ written and does not explode — the Cutpurse's twin daggers included.
 
 **The shield is the exception.** With **Shields are d4 weapons** on, a character
 who adds their shield to an attack rolls the weapon's die and the shield's d4
-and keeps the higher. Here each die explodes on its own highest face, up to its
-own cap, and then the higher total is kept: a d6 rolling 6 then 1 (7) beats a d4
-rolling 3, and a d4 rolling 4 then 2 (6) beats a d6 rolling 5. The maneuver line
-follows the die you keep, so a d4 that rolls 4 but loses to the weapon's 5 earns
-no maneuver (with exploding dice off).
+and keeps the higher, and that mix does explode, by the rule above: only the die
+you keep explodes, if it rolled its highest face. A d6 rolling 6 against the d4's
+3 keeps the 6 and rolls again; a d6 rolling 5 against the d4's 4 keeps the 5, and
+nothing explodes. The maneuver line follows the die you keep, so a d4 that rolls
+4 but loses to the weapon's 5 earns no maneuver.
 
 **Two more, for formulas of your own.** A damage formula that **adds** two
 dice — `2d10`, which no shipped weapon uses — shares one cap between them

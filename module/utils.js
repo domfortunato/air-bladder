@@ -318,10 +318,13 @@ export const judgedDie = (formula) => {
  * this explicit pool (`shieldPoolFormula`), never as Cairn's `+`, which a
  * notation-off world reads as a sum. Its terms may be of MIXED sizes — the
  * boundary `judgedDie` draws for a `+` pool does not apply, because here
- * each term is rolled and judged on its own: the user's ruling is that each
- * die explodes on its OWN maximum, capped per term, before the highest is
- * kept, and the maneuver line follows the KEPT die (`nameManeuverAvailable`
- * in cairn.js walks `PoolTerm#results` for it). Every term must be one
+ * each term is rolled and judged on its own. Under the exploding option the
+ * pool KEEPS FIRST, THEN EXPLODES (user ruling 2026-11-20, revisiting the
+ * morning's explode-each-then-keep): the higher face is kept, and only the
+ * kept die explodes, if it rolled its maximum (`explodeKeptPoolDie`) — the
+ * order a `2d6kx` weapon already rolls in, so a losing die never explodes.
+ * The maneuver line follows the KEPT die (`nameManeuverAvailable` in
+ * cairn.js walks `PoolTerm#results` for it). Every term must be one
  * `judgedDie` accepts; anything else is null and left as written.
  *
  * @param {String} formula
@@ -386,11 +389,44 @@ const explodeJudged = (judged) => {
 export const explodingDamageFormula = (formula) => {
   const judged = judgedDie(formula);
   if (judged) return explodeJudged(judged);
-  // A keep-highest pool (the shield added, 2026-11-20): each term explodes on
-  // its own maximum, capped per term, and the highest chain is kept.
+  // A keep-highest pool (the shield added, 2026-11-20) is rolled UNEXPLODED:
+  // it keeps first, then the kept die explodes (`explodeKeptPoolDie`, user
+  // ruling 2026-11-20). Foundry's pool keeps on TOTALS, so an `x` inside a
+  // member would explode before the keep — exactly the order ruled out.
   const pool = judgedPool(formula);
-  if (pool) return `{${pool.terms.map(explodeJudged).join(",")}}kh`;
+  if (pool) return pool.formula;
   return formula;
+};
+
+/**
+ * Keep first, then explode, for a keep-highest pool (user ruling 2026-11-20):
+ * once `{a,b}kh` has kept the higher face, the kept die — if it rolled its
+ * maximum — explodes as any die does under the option, capped by
+ * `explosionCap`. Its maximum is marked `exploded` (the card's
+ * one-line-per-explosion count reads that flag) and the rest of the chain is
+ * rolled as `1dF`, exploding up to the cap less the one already spent, then
+ * added to the roll: `{1d6,1d4}kh + 1d6x1=6`. Any other roll comes back
+ * unchanged. The losing die never explodes, so the card can never name it.
+ * @param {Roll} roll  an evaluated roll
+ * @returns {Promise<Roll>}
+ */
+export const explodeKeptPoolDie = async (roll) => {
+  const { OperatorTerm, PoolTerm } = foundry.dice.terms;
+  const pool = roll?.terms?.length === 1 ? roll.terms[0] : null;
+  if (!(pool instanceof PoolTerm)) return roll;
+  const kept = pool.results.findIndex((r) => r?.active);
+  const member = pool.rolls?.[kept];
+  const die = member?.dice?.length === 1 ? member.dice[0] : null;
+  const faces = Number(die?.faces);
+  const top = die?.results?.find((r) => r?.active);
+  const cap = explosionCap(faces);
+  if (!top || top.result !== faces || cap < 1) return roll;
+  top.exploded = true;
+  const rest = cap - 1;
+  const chain = await new Roll(rest > 0 ? `1d${faces}x${rest}=${faces}` : `1d${faces}`).evaluate();
+  // An OperatorTerm is born evaluated (dice/terms/operator.mjs), so the three
+  // are all evaluated, which is what Roll.fromTerms requires.
+  return Roll.fromTerms([pool, new OperatorTerm({ operator: "+" }), ...chain.terms]);
 };
 
 /**
@@ -444,18 +480,24 @@ export const explosionCap = (faces) => Math.max(0, Math.floor(Number(faces) / 2)
  * @param {String} base       the formula after the quality substitution
  * @param {Object} [o]
  * @param {Boolean} [o.pc]    a player character's roll
- * @return {{formula: String, maneuver: Boolean}}
+ * `explodeKept` is true for a keep-highest pool under the exploding option:
+ * the caller rolls `formula` and hands the roll to `explodeKeptPoolDie`
+ * (keep first, then explode — user ruling 2026-11-20).
+ *
+ * @return {{formula: String, maneuver: Boolean, explodeKept: Boolean}}
  */
 export const combatDamageFormula = (base, { pc = false } = {}) => {
-  if (!pc) return { formula: base, maneuver: false };
+  if (!pc) return { formula: base, maneuver: false, explodeKept: false };
   // One die (or a same-size `+` pool), else a keep-highest pool of judged
   // dice — the shield added to a weapon (2026-11-20; see judgedPool).
-  const judged = judgedDie(base) ?? judgedPool(base);
+  const die = judgedDie(base);
+  const judged = die ?? judgedPool(base);
   const maneuver = judged !== null && combatOption("maneuver-on-max-damage");
-  const formula = combatOption("exploding-damage-dice") ? explodingDamageFormula(base)
+  const exploding = combatOption("exploding-damage-dice");
+  const formula = exploding ? explodingDamageFormula(base)
     : maneuver ? judged.formula
     : base;
-  return { formula, maneuver };
+  return { formula, maneuver, explodeKept: exploding && !die && judged !== null };
 };
 
 /* -------------------------------------------- */

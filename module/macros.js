@@ -1,4 +1,4 @@
-import { evaluateFormula, getInfoFromDropData, askDamageQuality, damageFormulaFor, damageQualityLabel, damageQualityKind, combatDamageFormula } from "./utils.js";
+import { evaluateFormula, getInfoFromDropData, askDamageQuality, damageFormulaFor, damageQualityLabel, damageQualityKind, combatDamageFormula, explodeKeptPoolDie } from "./utils.js";
 import { SETTINGS_NS } from "./settings.js";
 import { t, actorDisplayName, itemNamespaces } from "./i18n-content.js";
 
@@ -118,12 +118,13 @@ export const rollItemMacro = async (actorId, itemId) => {
   // deliberately NOT one of them (a trap has no actor). No die-size floor since
   // 2026-10-03, and melee and ranged are the same to both options since.
   const base = damageFormulaFor(quality, item.system.damageFormula);
-  const { formula: rollSchema, maneuver: mayManeuver } = combatDamageFormula(base, {
+  const { formula: rollSchema, maneuver: mayManeuver, explodeKept } = combatDamageFormula(base, {
     pc: actor.type === "character",
   });
 
-  // determine roll result
-  const roll = await evaluateFormula(rollSchema, actor.getRollData());
+  // determine roll result (a keep-highest pool keeps first, then explodes)
+  let roll = await evaluateFormula(rollSchema, actor.getRollData());
+  if (explodeKept) roll = await explodeKeptPoolDie(roll);
   // Whole-sentence keys, same as the sheet's damage roll — this was the third
   // copy of the localize()+concat shape and the one nobody remembered.
   const label = weaponName

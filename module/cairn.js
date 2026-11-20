@@ -3519,10 +3519,26 @@ const nameExplodedDice = (message, html) => {
  * @returns {DiceTerm[]}
  */
 const explodingDiceOf = (roll) => {
+  const pool = keptPoolOf(roll);
+  if (!pool) return roll?.dice ?? [];
+  // The kept member's dice, then the kept die's chain added after the pool
+  // (`explodeKeptPoolDie`, utils.js: `{a,b}kh + 1dFx…`).
+  const chain = (roll.terms ?? []).slice(1).filter((t) => Array.isArray(t?.results) && Number.isFinite(Number(t?.faces)));
+  return [...pool.rolls.filter((_, i) => pool.results[i]?.active).flatMap((r) => r?.dice ?? []), ...chain];
+};
+
+/**
+ * The keep-highest pool a damage roll leads with: the whole roll, or — under
+ * the exploding option since 2026-11-20 (keep first, then explode) — the pool
+ * followed by `+` and the kept die's chain. Null for any other shape.
+ * @param {Roll} roll
+ */
+const keptPoolOf = (roll) => {
   const terms = roll?.terms ?? [];
-  const pool = terms.length === 1 ? terms[0] : null;
-  if (!Array.isArray(pool?.rolls) || !Array.isArray(pool?.results)) return roll?.dice ?? [];
-  return pool.rolls.filter((_, i) => pool.results[i]?.active).flatMap((r) => r?.dice ?? []);
+  const pool = terms[0];
+  if (!Array.isArray(pool?.rolls) || !Array.isArray(pool?.results)) return null;
+  if (terms.length === 1) return pool;
+  return terms.length >= 3 && terms[1]?.operator === "+" ? pool : null;
 };
 
 /**
@@ -3550,9 +3566,9 @@ const soleDie = (roll) => {
 const judgedCardDie = (roll) => {
   const sole = soleDie(roll);
   if (sole) return sole;
-  const terms = roll?.terms ?? [];
-  const pool = terms.length === 1 ? terms[0] : null;
-  if (!Array.isArray(pool?.rolls) || !Array.isArray(pool?.results)) return null;
+  // The pool alone, or the pool and its kept die's chain (keptPoolOf).
+  const pool = keptPoolOf(roll);
+  if (!pool) return null;
   const kept = pool.results.map((r, i) => (r?.active ? i : -1)).filter((i) => i >= 0);
   return kept.length === 1 ? soleDie(pool.rolls[kept[0]]) : null;
 };

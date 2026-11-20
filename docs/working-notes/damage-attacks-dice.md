@@ -39,11 +39,13 @@ Moved word for word from CLAUDE.md (2026-11-01); CLAUDE.md points here.
     pool inverts it). Mixed sizes are left un-exploded — EXCEPT an explicit
     keep-highest pool of judged dice, `{1d6,1d4}kh` (`judgedPool`, 2026-11-20, the
     shield added under "Shields are d4 weapons", built by `shieldPoolFormula`, never
-    as `+`): each term explodes on its own maximum, capped per term, and the card's
-    maneuver line follows the KEPT member (`judgedCardDie` in cairn.js walks
-    `PoolTerm#results`), user ruling. `nameExplodedDice` still prints a losing
-    chain's explosions (it reads `roll.dice`, which flattens the pool) — known, not
-    ruled on.
+    as `+`): under the exploding option it KEEPS FIRST, THEN EXPLODES (user ruling
+    2026-11-20, revising that morning's explode-each-then-keep): rolled unexploded,
+    then `explodeKeptPoolDie` marks the kept die's maximum `exploded` and adds its
+    capped chain (`{a,b}kh + 1dFx…`); `combatDamageFormula`'s `explodeKept` tells
+    the three call sites. The card's maneuver line and explosion lines follow the
+    KEPT member (`keptPoolOf` / `judgedCardDie` / `explodingDiceOf` in cairn.js),
+    user rulings.
   - **A `+` pool is judged only while `use-cairn-dice-notation` is on**
     (`judgedDie` returns null otherwise). `judgedDie` is the one recogniser, no
     size floor: every die explodes, impaired and enhanced included.
