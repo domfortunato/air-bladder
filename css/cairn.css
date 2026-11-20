@@ -283,38 +283,6 @@
  * Character sheet grid.                                                      * 
  ******************************************************************************/
 
-.charater-sheet-grid {
-    display: grid;
-    column-gap: 8px;
-    /* Match the 2px gap between the ability rows (STR/DEX/WIL) so the HP/Gold
-       row sits the same distance above STR/Armor as the ability rows sit apart,
-       rather than leaving a jarring wider band between them. */
-    row-gap: 2px;
-    grid-template-columns: 140px 1fr 1fr;
-    /* Row 1 is `auto`, NOT `minmax(140px, auto)`. Both grow for a long background
-       description, but `minmax` sets the track's MINIMUM to 140px — so when the
-       sheet is short of height (a tall description plus a tall tab body), grid
-       shrinks the track back toward that minimum and the name section spills its
-       HP/Gold counters over STR and Armor. `auto` takes its minimum from the
-       content, so it can never be squeezed below what it holds. The 140px floor
-       is not lost: the portrait in column 1 is 140px tall and sets it. */
-    /* ROW 2 IS `auto`, NOT A FIXED 112px (2026-10-02). It was 112px to match the
-       three ability rows beside it (3 x 36px + 2 x 2px), which exactly fitted the
-       three stack buttons at 32px + 2px gaps = 100px. A FOURTH button -- then
-       called Improvised Attack -- made that stack 134px, and a fixed track does
-       not grow: the extra 22px overflowed into the tab section below.
-
-       THE STACK IS BACK TO THREE and this is STILL `auto`, deliberately. That
-       button became a row in the items list the same day, so 112px would fit
-       again -- but a fixed track is a standing trap that only fires when somebody
-       adds a control, and `auto` sizes the row to its tallest child, which is
-       what the npc sheet has always done for its own version of this (see
-       `.cairn-npc-sheet .charater-sheet-grid`). Restoring the number would be
-       re-arming it for nothing. */
-    grid-template-rows: auto auto 1fr;
-    height: 100%;
-}
-
 .character-sheet-section-name {
     grid-column-start: 2;
     grid-column-end: 4;
@@ -3222,14 +3190,6 @@ ol.combat-tracker li.combatant.cairn-drop-below {
     background: #000;
 }
 
-/* Character sheet only: two badges, the die to the LEFT of the list button
-   (user ask — the stacked bars sit to the right of the d20). Scoped because
-   the npc sheet renders the same .portrait-roll alone at right:4px; the
-   grid class's spelling is the shipped one. */
-.charater-sheet-grid .portrait-roll {
-    right: 32px;
-}
-
 .cairn-portrait-gallery {
     display: flex;
     flex-direction: column;
@@ -3464,28 +3424,6 @@ ol.combat-tracker li.combatant.cairn-drop-below {
     gap: 4px;
 }
 
-/* HP and Gold share the foot row of the header, matching the character sheet. The
-   name section is a flex COLUMN, so this is a nested flex ROW rather than the grid
-   placement the character sheet uses; each counter takes an equal half so the pair
-   lines up with the 213px counters in the blocks below.
-
-   `margin-top: auto` pins the pair to the column's FOOT. The column is stretched
-   to the portrait's 140px row, and any role whose stack is shorter (a Monster:
-   name, role, vitals) left the slack at the bottom — a dead band between HP/Gold
-   and the STR/Armor row below (Round 2). The auto margin moves that slack ABOVE
-   the vitals, which is exactly what the character sheet's 1fr slack row does to
-   its own HP/Gold pair. On a hireling (the tallest stack) it resolves to ~0. */
-.cairn-npc-sheet .npc-vitals-line {
-    display: flex;
-    gap: 8px;
-    margin-top: auto;
-}
-
-.cairn-npc-sheet .npc-vitals-line .resource-counter {
-    flex: 1 1 0;
-    min-width: 0;
-}
-
 /* The connection line (2026-08-02): a person's For Hire switch, then the
    "Hired by / Connected to / Formerly connected to" label with its break or
    Connect control. The label takes the slack so the control hugs the line's
@@ -3612,30 +3550,6 @@ ol.combat-tracker li.combatant.cairn-drop-below {
     overflow-y: auto;
 }
 
-/* Row 1 sizes to the name stack, which is taller or shorter than a character's
-   header depending on whether "For Hire" is ticked (the day-rate row appears), so
-   it is `auto` rather than the character sheet's fixed track. */
-.cairn-npc-sheet .charater-sheet-grid {
-    grid-template-rows: auto auto 1fr;
-}
-
-/* Inanimate drops the buttons/abilities/others sections entirely, so with three
-   tracks the tab section AUTO-PLACES into row 2 — the `auto` track — and sizes
-   to its content minimum while the 1fr third row sits EMPTY below it: a ~97px
-   tab body over ~400px of dead space, no error anywhere (review #5). Two tracks
-   put the tabs in the 1fr. The template stamps the class; nothing here reads
-   document state. */
-.cairn-npc-sheet .charater-sheet-grid.inanimate-grid {
-    grid-template-rows: auto 1fr;
-}
-
-/* Three rows, not four. HP used to be a fourth box in this column and the track
-   count was never brought back down when it moved up to the vitals line, leaving
-   a 36px phantom row under WIL. */
-.cairn-npc-sheet .character-sheet-section-abilities {
-    grid-template-rows: repeat(3, 36px);
-}
-
 /* Description tab: the sheet's one description editor, UNLABELLED since
    2026-08-20. The heading here read "Description" directly under a tab called
    Description; it was written when a second, unlabelled notes box sat above it,
@@ -3654,6 +3568,28 @@ ol.combat-tracker li.combatant.cairn-drop-below {
    here breaks activation (see the warning at the `.cairn prose-mirror` rule). */
 .cairn-npc-sheet .npc-description-section prose-mirror {
     font-size: 16px;
+}
+
+/* A THING's page 1 (2026-11-20, every sheet in the character sheet's format):
+   no stat block, so under the head stand its slot line and its description
+   prose, the editor taking what is left of the page above the footer rather
+   than the 480px floor every other editor keeps (which would push the footer
+   out of the 700px window). min-height only: setting `display` on a
+   prose-mirror breaks activation (see the `.cairn prose-mirror` rule). */
+.cairn-npc-sheet .cairn-thing-body {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    gap: 8px;
+    margin-top: 8px;
+    min-height: 0;
+}
+.cairn-npc-sheet .cairn-thing-body .npc-description-section {
+    flex: 1 1 auto;
+    min-height: 160px;
+}
+.cairn-npc-sheet .cairn-thing-body .npc-description-section prose-mirror {
+    min-height: 160px;
 }
 
 

@@ -1,0 +1,21 @@
+{{!-- The status banners above every page of every actor sheet (lifted out of
+      character-sheet.html 2026-11-20, when every sheet took the character
+      sheet's format): one partial, so the npc sheet's copy cannot drift. --}}
+        <!-- Attribute-loss status banners (2e), above every page: empty while
+             healthy, otherwise one unmissable bar per active condition (Dead,
+             STR Critical Damage, Paralyzed, Delirious, Overburdened). The line
+             goes through CAIRN.StatusBannerLine WHOLE — the same key the chat
+             bars use (postStatusCard), so a translator reordering it cannot
+             split the pair. Triple-stache because the key carries the <strong>;
+             label and text are system i18n strings, never authored data (see
+             the statusBanners builder in actor-sheet.js). -->
+        <div class="critical-banner">
+            {{#each statusBanners}}
+            {{!-- Overburdened is a carry state, and Inventory is where it is
+                  undone: its banner turns to that page (user ask 2026-11-19). --}}
+            <div class="status-banner status-{{this.key}}"{{#if this.opensInventory}} data-action="openInventory"{{/if}}>
+                <i class="fas {{this.icon}}"></i>
+                <span>{{{localize "CAIRN.StatusBannerLine" label=this.label text=this.text}}}</span>
+            </div>
+            {{/each}}
+        </div>

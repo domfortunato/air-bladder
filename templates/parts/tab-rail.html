@@ -1,4 +1,5 @@
-{{!-- A character's pages as a column of icon tabs hung off the window's edge
+{{!-- Every actor sheet's pages (a character's since 2026-11-19, every other
+      sheet's since 2026-11-20) as a column of icon tabs hung off the window's edge
       (2026-11-19, after Base Knavery's): a part of its own, so it sits straight
       inside .window-content where core's changeTab looks for the tabs
       (module/actor/tab-rail.js). Buttons, so core marks the open one pressed;
@@ -7,8 +8,7 @@
       _toggleDisabled). The icon is inert so a press on it reaches the button
       core reads the page from.
       A LIMITED viewer sees only portrait and name: the rail is drawn empty and
-      hidden (a part must still render one element). NPC sheets render no rail
-      part at all (_configureRenderParts). --}}
+      hidden (a part must still render one element). --}}
 <nav class="tabs cairn-tab-rail" aria-label="{{localize 'CAIRN.Tab.Rail'}}"{{#if limitedView}} hidden{{/if}}>
   {{#unless limitedView}}
   {{#each tabs as |tab|}}

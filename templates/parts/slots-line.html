@@ -1,0 +1,18 @@
+{{!-- Page 1's slot line, shared by the stat block and a thing's page 1
+      (2026-11-20): one copy, so its double-click, its turn to Inventory and
+      #fitSlotsLabel's long / short swap are the same on every sheet. --}}
+                        {{!-- The slot count, which the old Items tab label carried; the
+                              per-character limit's double-click came with it (the rail's
+                              Inventory tooltip says the count too). A click turns to
+                              Inventory (user ask 2026-11-19); #onOpenInventory waits out
+                              a double-click while the limit setting is on. The label
+                              reads "Inventory Slots" where it fits and "Slots" where it
+                              would clip (round 4): the swap is MEASURED, in _onRender
+                              and on a page turn (#fitSlotsLabel), so it holds in every
+                              language and beside the gears icon. --}}
+                        <div class="cairn-slots-line {{#if system.encumbered}}peril{{/if}}" id="set-equipment-limit" data-action="openInventory"
+                            {{#if system.characterEquipmentLimit}}title="{{localize 'CAIRN.EquipmentLimitTip'}}"{{/if}}>
+                            {{#if system.characterEquipmentLimit}}<i class="fas fa-gears" inert></i>{{/if}}
+                            <span class="slots-label" data-long="{{ localize 'CAIRN.InventorySlots' }}" data-short="{{ localize 'CAIRN.Slots' }}">{{ localize 'CAIRN.InventorySlots' }}</span>
+                            <span class="slots-value">{{system.slotsUsed}} / {{slotsMaxLabel}}</span>
+                        </div>

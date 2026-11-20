@@ -15,8 +15,8 @@
  * stylesheet mirrors it. Only the frame is measured, so the answer never flips
  * because the rail changed side. A popped-out sheet measures its own popup.
  *
- * Characters only: an NPC sheet renders no rail part, and every function here
- * is a no-op on a frame without one.
+ * Every actor sheet draws one since 2026-11-20 (each in the character sheet's
+ * format); every function here is a no-op on a frame without one.
  */
 
 /** Each frame's rail width, measured once: _onPosition runs on every drag frame. */

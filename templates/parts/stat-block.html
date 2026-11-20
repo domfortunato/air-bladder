@@ -1,0 +1,240 @@
+{{!-- Page 1's stat block, shared by every creature's sheet (lifted out of
+      character-sheet.html 2026-11-20, user ask: "All character sheets should
+      have the same format at style as the Player Character Sheet"). One
+      partial, so a change to the character's page 1 reaches every sheet.
+      The trait sentence is the character's (showTraitSentence): a person
+      npc keeps its traits on Description. The Gold band follows
+      system.showGold (a companion has no purse); statMax is the
+      character's 18 cap, absent on an npc (no cap); holdShieldNoneKey is
+      _wording's, so an npc reads "They have no shield to hold." --}}
+                <div class="cairn-body">
+                    <div class="cairn-left">
+                        {{!-- The trait sentence, FIRST in the left column: under the
+                              full-width rule and above STR (round 4, user ask 2026-11-19;
+                              it stood under Gold in round 3), under its old gates:
+                              traitRows, then showTraits. In Creation Mode, on a sheet the
+                              viewer may edit, it ends in the pen that opens the Traits
+                              window (#onEditTraits); with no traits and no age the pen
+                              stands alone, so a blank sheet still has a way in. Outside
+                              the mode a character's traits are read-only here, the bond
+                              and question pickers' gate. Since 2026-11-20 (user asks) it
+                              opens with a run-in "Traits" label in the one label face (a
+                              line of its own pushed the footer out of the 480 x 700
+                              window), and a thin rule (Background & Notes') under it,
+                              before the Current / Max / Saves header. --}}
+                        {{#if showTraitSentence}}{{#if traitRows}}{{#if showTraits}}
+                        {{#if traitSentence}}
+                        <p class="trait-sentence"><span class="traits-label">{{ localize 'CAIRN.Traits' }}</span> {{traitSentence}}{{#if canEditTraits}} <a class="trait-edit" data-action="editTraits" data-tooltip="CAIRN.EditTraits" aria-label="{{ localize 'CAIRN.EditTraits' }}"><i class="fa-solid fa-pen" inert></i></a>{{/if}}</p>
+                        {{else if canEditTraits}}
+                        <p class="trait-sentence trait-sentence-empty"><span class="traits-label">{{ localize 'CAIRN.Traits' }}</span> <a class="trait-edit" data-action="editTraits" data-tooltip="CAIRN.EditTraits" aria-label="{{ localize 'CAIRN.EditTraits' }}"><i class="fa-solid fa-pen" inert></i></a></p>
+                        {{/if}}
+                        {{/if}}{{/if}}{{/if}}
+                        {{!-- ONE header row over STR naming the columns (round 5, user
+                              ask 2026-11-20, the user's pick over a caption under each
+                              box): "Current" over the circle, "Max" over the max box. It
+                              copies an ability row's geometry (a 48px circle, a hidden "/"
+                              the max's own size, a 26px box), so each word centres over
+                              its box in any language. Visual only: the boxes' own
+                              aria-labels already name them ("Current Strength"). --}}
+                        <div class="cairn-abilities-head" aria-hidden="true">
+                            <span class="head-current" data-head="current">{{ localize 'CAIRN.AbilityCurrent' }}</span>
+                            <span class="head-max"><span class="head-slash">/</span><span class="head-max-word" data-head="max">{{ localize 'CAIRN.AbilityMax' }}</span></span>
+                            {{!-- "Saves" over the names column (2026-11-20, user ask): each
+                                  name is the save's die, so the column says what it rolls. --}}
+                            <span class="head-saves" data-head="saves">{{ localize 'CAIRN.AbilitySaves' }}</span>
+                        </div>
+                        <!-- Abilities: the current score in a circle, the max beside it,
+                             the save die, and Cairn's own sentence for what it covers -->
+                        <div class="cairn-abilities">
+                            {{#each system.abilities as |ability key|}}
+                            <div class="cairn-ability {{key}}-ability {{#if (lookup ../abilityPeril key)}}peril{{/if}} {{#if (lookup ../abilityLow key)}}low{{/if}}">
+                                {{!-- − and + under the current score (2026-11-20, user ask, the
+                                      layout the user picked): one point each, between 0 and
+                                      max, as typing the number would. Off at the bounds. --}}
+                                <div class="cairn-ability-current">
+                                <div class="cairn-ability-circle">
+                                    <input type="number" min="0"{{#if @root.statMax}} max="{{@root.statMax}}"{{/if}} step="1" class="stat-input" name="system.abilities.{{key}}.value" value="{{ability.value}}"
+                                        data-dtype="Number" data-tooltip="{{ lookup ../currentTips key }}" aria-label="{{ lookup ../currentTips key }}" />
+                                </div>
+                                <div class="ability-steps">
+                                    <button type="button" class="ability-step" data-action="abilityDown" data-key="{{key}}" data-tooltip="{{ localize 'CAIRN.AbilityDown' ability=(localize key) }}" aria-label="{{ localize 'CAIRN.AbilityDown' ability=(localize key) }}"{{#if (lookup ../abilityAtFloor key)}} disabled{{else}}{{#unless @root.editable}} disabled{{/unless}}{{/if}}><i class="fas fa-minus" inert></i></button>
+                                    <button type="button" class="ability-step" data-action="abilityUp" data-key="{{key}}" data-tooltip="{{ localize 'CAIRN.AbilityUp' ability=(localize key) }}" aria-label="{{ localize 'CAIRN.AbilityUp' ability=(localize key) }}"{{#if (lookup ../abilityAtMax key)}} disabled{{else}}{{#unless @root.editable}} disabled{{/unless}}{{/if}}><i class="fas fa-plus" inert></i></button>
+                                </div>
+                                </div>
+                                {{!-- The max is LOCKED while CharGen is off (2026-11-20, user
+                                      ask, for everyone: the Warden turns CharGen on to change
+                                      one). Disabled, so core's form data never carries it; the
+                                      tooltip still shows on a disabled control. --}}
+                                <div class="cairn-ability-max">
+                                    <span>/</span>
+                                    <input type="number" min="0"{{#if @root.statMax}} max="{{@root.statMax}}"{{/if}} step="1" class="stat-input" name="system.abilities.{{key}}.max" value="{{ability.max}}" data-dtype="Number"
+                                        data-tooltip="{{#if ../maxLocked}}{{ localize 'CAIRN.MaxLockedTip' }}{{else}}{{ lookup ../maxTips key }}{{/if}}" aria-label="{{ lookup ../maxTips key }}"{{#if ../maxLocked}} disabled{{/if}} />
+                                </div>
+                                <div class="cairn-ability-words">
+                                    <div class="cairn-ability-name-line">
+                                        {{!-- While Character Creation Mode is On the save die is INERT
+                                              (2026-09-01, user spec): no data-action — a display gate,
+                                              not a wall — grayed by .save-roll-off, still hoverable so
+                                              the tooltip (abilityTips, swapped to "turn the mode off")
+                                              can say why. NEVER pointer-events:none — it kills the
+                                              pointerenter TooltipManager needs (the disabled-Rest
+                                              precedent below). saveRollOff, not generationEnabled:
+                                              on a character they are the same, but the npc sheet
+                                              narrows the lock past the monster role (2026-09-02
+                                              ruling) and the two anchors must read one flag. --}}
+                                        {{#if ../saveRollOff}}
+                                        <a class="resource-roll save-roll-off" data-tooltip="{{ lookup ../abilityTips key }}"><i class="fas fa-dice-d20 roll-icon"></i> {{ localize key }}</a>
+                                        {{else}}
+                                        <a class="resource-roll" data-action="rollAbility" data-ability="{{key}}" data-roll="d20cs<=@abilities.{{key}}.value"
+                                            data-label="{{ localize 'CAIRN.Save' key=(localize key)}}" data-tooltip="{{ lookup ../abilityTips key }}"><i class="fas fa-dice-d20 roll-icon"></i> {{ localize key }}</a>
+                                        {{/if}}
+                                        {{#if (lookup ../criticalToggle key)}}
+                                        <a class="critical-toggle {{#if (lookup ../criticalActive key)}}active{{/if}}" data-action="toggleCritical" data-key="{{key}}"
+                                            title="{{ localize 'CAIRN.CriticalDamageToggle' }}"><i class="fas fa-skull"></i></a>
+                                        {{/if}}
+                                    </div>
+                                    {{!-- Cairn's own sentence (StrTip/DexTip/WilTip), in every
+                                          mode: Creation Mode swaps the die's TOOLTIP, never this. --}}
+                                    <span class="cairn-ability-hint">{{ lookup ../abilityHints key }}</span>
+                                </div>
+                            </div>
+                            {{/each}}
+                        </div>
+
+                        <!-- The band under the abilities: Gold (Deprived and Panicked
+                             moved to the vitals column, above Slots, and the trait
+                             sentence above STR, 2026-11-19) -->
+                        {{#if system.showGold}}
+                        <div class="cairn-band">
+                            <div class="band-row band-gold {{#if system.maybeTooMuchGold }}overburdened-gold{{/if}}"
+                                {{#if system.maybeTooMuchGold }} title="{{localize 'CAIRN.OverburdenByGold'}}" {{/if}}>
+                                <label class="band-label" for="{{@root.idp}}-system.gold" data-tooltip="{{goldTip}}">{{ localize 'CAIRN.Gold' }}</label>
+                                <input type="number" class="gold-input" name="system.gold" id="{{@root.idp}}-system.gold" value="{{system.gold}}" data-dtype="Number" />
+                            </div>
+                        </div>
+                        {{/if}}
+                    </div>
+
+                    <!-- Vitals: Armor, HP, Deprived and Panicked, slots, and the buttons -->
+                    <div class="cairn-vitals">
+                        {{!-- "Hold shield" (2026-11-20, user ask: "a toggle to the left of
+                              the shield with armor value ... the toggle should sling or hold
+                              the shield"): only while the character carries an armor item
+                              ticked Shield. Held is equipped, slung is not (the user's
+                              ruling): a press is the shield row's hand icon. The creation-
+                              mode toggle's icons, as a switch. A three-column row keeps the
+                              Armor box centred whether the switch is there or not. --}}
+                        <div class="cairn-armor-row">
+                        {{!-- Both controls are ALWAYS drawn, one mechanism (toggleHold):
+                              with none of that kind carried a control is disabled, off,
+                              and says why. The shield's switch carries no tooltip while
+                              live. --}}
+                        {{#if shieldSwitch}}
+                        <button type="button" class="shield-hold" data-action="toggleHold" data-hold="shield" role="switch" aria-checked="{{#if shieldSwitch.held}}true{{else}}false{{/if}}"{{#if shieldSwitch.none}} data-tooltip="{{ localize holdShieldNoneKey }}"{{/if}}{{#if (or shieldSwitch.none (not @root.editable))}} disabled{{/if}}>
+                            <i class="fas {{#if shieldSwitch.held}}fa-toggle-on{{else}}fa-toggle-off{{/if}}" inert></i>
+                            <span>{{ localize 'CAIRN.HoldShield' }}</span>
+                        </button>
+                        {{/if}}
+                        <div class="cairn-shield armor-counter {{#if system.armorOverridden}}armor-overridden{{/if}}">
+                            <label for="{{@root.idp}}-armor" data-tooltip="{{ localize 'CAIRN.ArmorTip' }}">{{ localize 'CAIRN.Armor' }}</label>
+                            <input type="number" min="0" max="3" step="1" class="armor-input" id="{{@root.idp}}-armor" value="{{system.armor}}"
+                                title="{{#if system.armorOverridden}}{{ localize 'CAIRN.ArmorOverrideActive' }}{{else}}{{ localize 'CAIRN.ArmorAuto' }}{{/if}}" />
+                            {{#if system.armorOverridden}}
+                            <a class="armor-reset" data-action="armorReset" title="{{ localize 'CAIRN.ArmorReset' }}"><i class="fas fa-rotate-left"></i></a>
+                            {{/if}}
+                        </div>
+                        {{!-- The light BADGE right of the Armor box (2026-11-20, user picks):
+                              it IS the Hold light control. The held light's icon (game-icons,
+                              matched to the light), glowing while held, a neutral lantern
+                              otherwise; "Hold light" under it, then the light's radius. Several
+                              lights and none held: a press asks which (askWhichLight). --}}
+                        {{#if lightSwitch}}
+                        <button type="button" class="light-hold" data-action="toggleHold" data-hold="light" role="switch" aria-checked="{{#if lightSwitch.held}}true{{else}}false{{/if}}" data-tooltip="{{lightSwitch.tip}}"{{#if (or lightSwitch.none (not @root.editable))}} disabled{{/if}}>
+                            <span class="light-icon" style="--light-icon: url('{{lightSwitch.icon}}')" inert></span>
+                            <span class="light-label">{{ localize 'CAIRN.HoldLight' }}</span>
+                            {{#if lightSwitch.radius}}<span class="light-radius">{{lightSwitch.radius}}</span>{{/if}}
+                        </button>
+                        {{/if}}
+                        </div>
+
+                        {{!-- HP's two numbers carry the abilities' words (round 5), in a
+                              header row copying the box's geometry: the label half empty,
+                              the number half split as the inputs split it. --}}
+                        <div class="cairn-hp-head" aria-hidden="true">
+                            <span class="head-spacer"></span>
+                            <span class="head-numbers"><span class="head-current" data-head="current">{{ localize 'CAIRN.AbilityCurrent' }}</span><span class="head-slash">/</span><span class="head-max" data-head="max">{{ localize 'CAIRN.AbilityMax' }}</span></span>
+                        </div>
+                        {{!-- The number half FILLS in proportion to HP / max (round 5, user
+                              ask: "a color bar like the knave hp", Base Knavery's bar and
+                              colours): one colour at full, another below it (`low`), and a
+                              red frame at 0 (`peril`). hpPercent is clamped 0-100 in
+                              _computeStatContext. --}}
+                        <div class="resource-counter hp-counter {{#if hpLow}}low{{/if}} {{#if hpPeril}}peril{{/if}}">
+                            {{!-- hpTip appends "Rolled at creation." while the mode is On;
+                                  the boxes say WHICH side is which, formatted per stat
+                                  (currentTips/maxTips, _computeStatContext). --}}
+                            {{!-- HP's + and − in the "HP" half (round 6, user ask
+                                  2026-11-20, reversing round 5's typing only): + to the
+                                  left of the label and − to the right, the user's order.
+                                  Outside the <label>, which must hold no other control.
+                                  Off at max / 0 and while the rule derives HP to 0
+                                  (hpDerived: encumbrance or panic). --}}
+                            <div class="hp-label-half">
+                                <button type="button" class="hp-step" data-action="hpUp" data-tooltip="CAIRN.HpUp" aria-label="{{ localize 'CAIRN.HpUp' }}"{{#if hpAtMax}} disabled{{else if hpDerived}} disabled{{/if}}><i class="fas fa-plus" inert></i></button>
+                                <label for="{{@root.idp}}-system.hp.value" data-tooltip="{{hpTip}}">{{ localize 'CAIRN.HitProtection' }}</label>
+                                <button type="button" class="hp-step" data-action="hpDown" data-tooltip="CAIRN.HpDown" aria-label="{{ localize 'CAIRN.HpDown' }}"{{#if hpAtFloor}} disabled{{else if hpDerived}} disabled{{/if}}><i class="fas fa-minus" inert></i></button>
+                            </div>
+                            <div class="resource-input-wrapper">
+                                <div class="hp-fill" style="width: {{hpPercent}}%"></div>
+                                <input type="number" min="0"{{#if @root.statMax}} max="{{@root.statMax}}"{{/if}} step="1" class="stat-input" name="system.hp.value" id="{{@root.idp}}-system.hp.value"
+                                       value="{{system.hp.value}}" data-dtype="Number" data-tooltip="{{currentTips.HP}}" />
+                                <span> / </span>
+                                <input type="number" min="0"{{#if @root.statMax}} max="{{@root.statMax}}"{{/if}} step="1" class="stat-input" name="system.hp.max" value="{{system.hp.max}}" data-dtype="Number"
+                                       data-tooltip="{{#if maxLocked}}{{ localize 'CAIRN.MaxLockedTip' }}{{else}}{{maxTips.HP}}{{/if}}" aria-label="{{maxTips.HP}}"{{#if maxLocked}} disabled{{/if}} />
+                            </div>
+                        </div>
+
+                        {{!-- Deprived over Panicked, above Slots and above the Rest
+                              button that Deprived switches off (user ask 2026-11-19). --}}
+                        <div class="cairn-states">
+                            <div class="band-row band-deprived">
+                                {{!-- id for core's focus restore: _preSyncPartState records
+                                      focus only as #id or TAG[name] (review #22), and these
+                                      class-managed controls deliberately carry no name. --}}
+                                <label class="band-label" for="{{@root.idp}}-deprived-check" data-tooltip="{{ localize deprivedTipKey }}">{{ localize 'CAIRN.Deprived' }}</label>
+                                <input type="checkbox" class="deprived-check" id="{{@root.idp}}-deprived-check" {{checked system.deprived}} />
+                            </div>
+                            {{#if system.usePanic}}
+                            <div class="band-row band-panicked">
+                                <label class="band-label" for="{{@root.idp}}-panicked-check" data-tooltip="{{ localize panickedTipKey }}">{{ localize 'CAIRN.Panicked' }}</label>
+                                <input type="checkbox" class="panicked-check" id="{{@root.idp}}-panicked-check" {{checked system.panicked}} />
+                            </div>
+                            {{/if}}
+                        </div>
+
+                        {{> "systems/air-bladder/templates/parts/slots-line.html"}}
+
+                        <div class="cairn-vital-buttons character-sheet-section-buttons">
+                            {{!-- While Deprived the tooltip says WHY the button is off (DeprivedTip),
+                                  not how resting works. A disabled control still receives pointerenter
+                                  in Chromium and Firefox both (verified live 2026-08-08), so the
+                                  tooltip fires on the disabled button as-is — no aria-disabled
+                                  workaround needed, and dev:ui-parity hovers it for real. --}}
+                            {{!-- RestTip is Cairn's own Healing & Recovery sentence, the same on
+                                  the NPC sheet: Rest follows the rules as written. (The ration
+                                  house rule of 0.1.24 and its RestRationTip were removed
+                                  2026-11-06 — do not rebuild.) --}}
+                            <button id="rest-button" type="button" data-action="rest" class="strict-size-button" data-tooltip="{{#if system.deprived}}{{ localize deprivedTipKey }}{{else}}{{ localize 'CAIRN.RestTip' }}{{/if}}" {{#if system.deprived}}disabled{{/if}}><i class="fas fa-campground"></i> {{ localize 'CAIRN.Rest' }}</button>
+                            <button id="restore-abilities-button" type="button" data-action="restoreAbilities" class="strict-size-button" data-tooltip="{{#if system.deprived}}{{ localize deprivedTipKey }}{{else}}{{ localize 'CAIRN.RestoreTip' }}{{/if}}" {{#if system.deprived}}disabled{{/if}}><i class="fas fa-heart-pulse"></i> {{ localize 'CAIRN.RestoreAbilities' }}</button>
+                            <button id="die-of-fate-button" type="button" data-action="dieOfFate" data-always-live class="strict-size-button" data-tooltip="{{ localize 'CAIRN.DieOfFateTip' }}"><i class="fas fa-dice-d6"></i> {{ localize 'CAIRN.DieOfFate' }}</button>
+                            {{!-- The rail's Attack, as a button (user asks 2026-11-19):
+                                  the same gate, action and tooltip as parts/tab-rail.html,
+                                  so the two cannot part. Every attack, not the improvised
+                                  one alone: it opens the Attack window. --}}
+                            {{#if canImprovise}}
+                            <button id="attack-button" type="button" data-action="attack" data-always-live class="strict-size-button cairn-attack-button"
+                                data-tooltip-html="<strong>{{localize 'CAIRN.Attack'}}</strong><br>{{localize 'CAIRN.AttackTip'}}"><i class="fa-solid fa-burst" inert></i> {{ localize 'CAIRN.Attack' }}</button>
+                            {{/if}}
+                        </div>
+                    </div>
+                </div>

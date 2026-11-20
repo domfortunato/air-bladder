@@ -57,32 +57,22 @@ import { placeRail, placeRailSoon } from "./tab-rail.js";
 const { HandlebarsApplicationMixin } = foundry.applications.api;
 const { ActorSheetV2 } = foundry.applications.sheets;
 
-/** Tab labels by id. The nav itself is hand-written in each template, because
- *  the labels carry live data (slot counts, connection counts) and, on the NPC
- *  sheet, a per-role static name: "Background & Notes" on a person and on a
- *  player character, plain "Notes" on a monster, mount, transport or container
- *  (see `context.notesTabLabel`). */
+/** The static TABS seed's label (core validates a TABS config at
+ *  construction; every real list comes from _getTabsConfig). */
 const TAB_LABELS = {
   items: "CAIRN.Items",
-  // The tab ID stays `containers` -- it is internal, and renaming it would touch
-  // both templates and the tab filter for no gain anyone can see. What a person READS is "Connections": the relationship
-  // graph — one PC to many NPCs, NPC under NPC below that — listing mounts,
-  // vehicles, loot piles AND hirelings, who never had a link back to whoever
-  // hired them until role hireling put them on it.
-  containers: "CAIRN.Connections",
-  description: "CAIRN.Description",
-  notes: "CAIRN.Notes",
 };
 
-/** Which tabs each actor type shows, in order. `containers` is dropped unless
- *  the actor actually has the Connections tab enabled (see _getTabsConfig —
- *  for the character list that means: not on an unlinked token's actor).
+/** Which pages each sheet shows, in order (`tabIdsOf`). `containers` is
+ *  dropped unless the actor actually has the Connections tab enabled (see
+ *  _getTabsConfig — for the character list that means: not on an unlinked
+ *  token's actor).
  *
  *  The CHARACTER alone carries `containers` (2026-08-02): a PC keeps up to ten
- *  connections, which is a list worth a tab. Any child role has at most ONE
+ *  connections, which is a list worth a page. Any child role has at most ONE
  *  keeper, so the npc sheet expresses that single fact as a header line
- *  (`connectionLine` below) and a tab whose count could only ever read (0) or
- *  (1) went with it. */
+ *  (`connectionLine` below). The tab ID stays `containers` -- it is
+ *  internal; what a person READS is "Connections". */
 const TAB_IDS = {
   // The character's pages, turned from the rail (2026-11-19, laid out after
   // Base Knavery's): Character first — the head and the stat block — then
@@ -93,25 +83,28 @@ const TAB_IDS = {
   // sheet still remembering it lands on the initial (_getTabsConfig's
   // vanished-tab reset).
   character: ["character", "items", "growth", "containers", "notes"],
-  // Description FIRST on the non-player sheet (2026-08-01, asked for): a Warden
-  // opens an NPC to remember who they are — statblock, biography —
-  // and reaches for the inventory second. The character sheet deliberately
-  // keeps Items first; the reorder is the NPC's alone. The order here must
-  // match the hand-written nav in npc-sheet.html. This list is ORDER only —
-  // the tab a fresh sheet OPENS on is `initialTabId` below, which is
-  // role-aware since 2026-08-21.
-  npc: ["description", "items", "notes"],
-  // Same set as npc: one sheet, one tab set. A hireling used to get only
-  // items+notes, so anything written in its Description was unreachable.
-  hireling: ["description", "items", "notes"],
+  // Every other sheet in the character sheet's format (2026-11-20, user ask:
+  // "All character sheets should have the same format at style as the Player
+  // Character Sheet"). A CREATURE (npc, hireling, monster, companion): page 1
+  // like the character's (head, abilities, HP, Armor, buttons), Inventory,
+  // Description (the statblock prose and, for a person, the bio-block),
+  // Notes. The id `character` is internal: it keeps `.cairn-page-character`,
+  // changeTab's slot-label fit and the character's page-1 CSS.
+  creature: ["character", "items", "description", "notes"],
+  // A THING (container, transport) has no stat block: page 1 is its head,
+  // slot count and description prose, so it has no Description page.
+  thing: ["character", "items", "notes"],
 };
+
+/** A sheet's page list: the character's, a creature's or a thing's. */
+const tabIdsOf = (doc) => (doc?.type === "character" ? TAB_IDS.character
+  : doc?.isThing ? TAB_IDS.thing : TAB_IDS.creature);
 
 /** The character's rail: each page's tooltip key and its icon
  *  (parts/tab-rail.html; wording approved by the user 2026-11-19). The
  *  Inventory's tooltip carries the slot count (`CAIRN.Tab.InventoryCount`,
- *  formatted in _prepareCharacterContext) and the parked Connections page its
- *  connection count, as the old strip's labels did. The npc sheet keeps
- *  TAB_LABELS and its hand-written strip. */
+ *  formatted in #railTips) and the parked Connections page its connection
+ *  count, as the old strip's labels did. */
 const CHARACTER_RAIL = {
   character: { label: "CAIRN.Tab.Character", icon: "fa-solid fa-mask" },
   items: { label: "CAIRN.Tab.Inventory", icon: "fa-solid fa-sack" },
@@ -120,31 +113,35 @@ const CHARACTER_RAIL = {
   notes: { label: "CAIRN.BackgroundAndNotes", icon: "fa-solid fa-scroll" },
 };
 
-/** A character sheet's size (2026-11-19, user): Base Knavery's narrow sheet,
- *  as wide as page 1's abilities and vitals. Other actor types keep
- *  DEFAULT_OPTIONS' 600 x 750. */
+/** Every other sheet's rail (2026-11-20). Page 1 is named by the actor's
+ *  ROLE, the Role picker's own string (user ruling), with an icon per role;
+ *  Inventory is the character's; Description and Notes their own words. */
+const NPC_RAIL = {
+  items: CHARACTER_RAIL.items,
+  description: { label: "CAIRN.Description", icon: "fa-solid fa-book-open" },
+  notes: { label: "CAIRN.Notes", icon: "fa-solid fa-scroll" },
+};
+const ROLE_PAGE = {
+  npc: { label: "CAIRN.RoleNpc", icon: "fa-solid fa-user" },
+  hireling: { label: "CAIRN.RoleHireling", icon: "fa-solid fa-handshake" },
+  monster: { label: "CAIRN.RoleMonster", icon: "fa-solid fa-dragon" },
+  companion: { label: "CAIRN.RoleCompanion", icon: "fa-solid fa-horse" },
+  container: { label: "CAIRN.RoleContainer", icon: "fa-solid fa-box-archive" },
+  transport: { label: "CAIRN.RoleTransport", icon: "fa-solid fa-cart-flatbed" },
+};
+
+/** Every actor sheet's size (2026-11-19 for the character, user: Base
+ *  Knavery's narrow sheet, as wide as page 1's abilities and vitals; every
+ *  other sheet since 2026-11-20). */
 const CHARACTER_SHEET_WIDTH = 480;
 const CHARACTER_SHEET_HEIGHT = 700;
 
-/** The roles whose FRESH sheet stands on Items. The person roles came first
- *  (2026-08-21, user ask); the CONTAINER joined on 2026-08-31 (user ask) —
- *  a container is opened for its contents, so Description-first buried the
- *  only list anyone came for. A named set rather than a predicate-plus-one,
- *  because a role predicate that quietly grows is how three earlier bugs
- *  happened (the split's lesson). Monster and transport keep the list head
- *  (Description): the 2026-08-01 "remember who they are" reasoning survives
- *  where no inventory-first ask displaced it. */
-const ITEMS_FIRST_ROLES = [...PERSON_ROLES, "container"];
-
-/** The tab a FRESH sheet opens on. Role-aware since 2026-08-21 (user ask):
- *  an ITEMS_FIRST_ROLES sheet opens on Items, the character's default,
- *  while the nav ORDER above is untouched — Description still leads the
- *  bar, the sheet just stands on Items. `npcRole` is null on a character,
- *  whose list leads with its Character page (2026-11-19). */
-const initialTabId = (doc) => {
-  const ids = TAB_IDS[doc?.type] ?? ["items"];
-  return ITEMS_FIRST_ROLES.includes(doc?.npcRole) ? "items" : ids[0];
-};
+/** The page a FRESH sheet opens on: page 1, for everyone (user ruling
+ *  2026-11-20). The role-aware initial of 2026-08-21 (persons and, from
+ *  08-31, containers opening on Items; monsters and transports on
+ *  Description) went with the redesign: page 1 now carries what each of
+ *  those was opened for, and Items is one press away. */
+const initialTabId = (doc) => tabIdsOf(doc)[0];
 
 /**
  * Memoized compendium reads for the sheet's static pick-lists (traits, scars, omens).
@@ -509,46 +506,43 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
   };
 
   /**
-   * The tab a FRESH sheet opens on, per actor type and role. Core seeds
+   * The tab a FRESH sheet opens on: page 1 (`initialTabId`). Core seeds
    * `tabGroups` from static TABS at construction (application.mjs:287-290 —
    * and its own doc says "subclasses may override this property to define
    * default tabs"), so by first render the group already holds the static's
    * "items" and `_prepareTabs`'s `??=` never consults `_getTabsConfig`'s
-   * initial. Without this override a monster sheet — whose initial is
-   * Description — would open standing on Items regardless. A subclass field
-   * initialises after every parent constructor, so `options.document` is set.
+   * initial. Without this override every sheet would open standing on Items.
+   * A subclass field initialises after every parent constructor, so
+   * `options.document` is set.
    */
   tabGroups = { primary: initialTabId(this.options.document) };
 
   /* -------------------------------------------- */
 
   /**
-   * The hireling sheet's old <form> carried a `hireling` class, which the whole
-   * `.hireling …` block in css/cairn.css hangs off (the stripped name/profession/
-   * day-rate stack, and HP joining the ability column). ApplicationV2 owns the
-   * form element, so the class has to come from the options instead.
+   * The window's classes and size, from the document's type.
    *
-   * Only this one type is added. Adding every type mechanically would put a bare
-   * `.container` / `.character` on the window, which is exactly the kind of
-   * generic class name a framework stylesheet is liable to claim.
+   * Only prefixed classes are added. Adding every type mechanically would put
+   * a bare `.container` / `.character` on the window, which is exactly the
+   * kind of generic class name a framework stylesheet is liable to claim.
    * @override
    */
   _initializeApplicationOptions(options) {
     const applied = super._initializeApplicationOptions(options);
-    // Both non-player types share one sheet, so both need the class its layout is
-    // scoped to. PREFIXED deliberately: the old name was `hireling`, which stopped
-    // describing anything once npc used the same template, and a bare `.npc` is
-    // exactly the generic token the note above warns about.
+    // Every actor sheet in the character sheet's format (2026-11-19 for the
+    // character, after Base Knavery's; every other sheet since 2026-11-20,
+    // user ask): narrow, its pages turned from a rail hung outside the frame.
+    // `cairn-railed` is what the stylesheet un-clips the frame by;
+    // `cairn-character-sheet` scopes the page-1 layout, which every sheet
+    // now shares.
+    applied.classes.push("cairn-character-sheet", "cairn-railed");
+    Object.assign(applied.position, { width: CHARACTER_SHEET_WIDTH, height: CHARACTER_SHEET_HEIGHT });
+    // The npc sheet's own head lines (Role, Career, Faction, the connection
+    // line, Day Rate) hang off this class. Both non-player types share one
+    // sheet. PREFIXED deliberately: the old name was `hireling`, which stopped
+    // describing anything once npc used the same template.
     if (["npc", "hireling"].includes(options.document?.type)) {
       applied.classes.push("cairn-npc-sheet");
-    }
-    // The character's sheet (2026-11-19, after Base Knavery's): narrow, its
-    // pages turned from a rail hung outside the frame. `cairn-railed` is what
-    // the stylesheet un-clips the frame by; `cairn-character-sheet` scopes the
-    // page-1 layout, so the npc sheet's shared classes are never touched.
-    if (options.document?.type === "character") {
-      applied.classes.push("cairn-character-sheet", "cairn-railed");
-      Object.assign(applied.position, { width: CHARACTER_SHEET_WIDTH, height: CHARACTER_SHEET_HEIGHT });
     }
     return applied;
   }
@@ -564,15 +558,12 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // ACTOR_DATA_MODELS), so there is one template rather than two that had to be
     // kept in step by hand.
     const t = this.actor.type === "hireling" ? "npc" : this.actor.type;
-    // A character's pages are turned from the rail, a part of its own drawn
+    // Every sheet's pages are turned from the rail, a part of its own drawn
     // FIRST, straight inside .window-content where core's changeTab looks for
     // the tabs; it takes no room there, hanging outside the frame
-    // (tab-rail.js and the stylesheet). Other types draw no rail.
-    const rail = t === "character"
-      ? { rail: { template: "systems/air-bladder/templates/parts/tab-rail.html" } }
-      : {};
+    // (tab-rail.js and the stylesheet).
     return {
-      ...rail,
+      rail: { template: "systems/air-bladder/templates/parts/tab-rail.html" },
       form: {
         template: `systems/air-bladder/templates/actor/${t}-sheet.html`,
         templates: [
@@ -584,6 +575,11 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
           // character's Traits window and Background & Notes page.
           "systems/air-bladder/templates/parts/trait-grid.html",
           "systems/air-bladder/templates/parts/omen-row.html",
+          // Page 1's frame pieces, shared by every actor sheet since
+          // 2026-11-20 (each sheet in the character sheet's format).
+          "systems/air-bladder/templates/parts/status-banners.html",
+          "systems/air-bladder/templates/parts/stat-block.html",
+          "systems/air-bladder/templates/parts/compat-footer.html",
         ],
         // AppV2 restores scroll only for the selectors named here — a part
         // with no `scrollable` is replaced wholesale and every scroll box
@@ -599,34 +595,32 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
   }
 
   /**
-   * The tab set varies by actor type, and the Containers tab shows only where
-   * `showContainersTab` allows it: the parked Connections UI switched on, not a
-   * monster, not an unlinked token.
+   * The page set varies by actor type and role (`tabIdsOf`), and the
+   * Containers page shows only where `showContainersTab` allows it: the
+   * parked Connections UI switched on, a character, not an unlinked token.
    * @override
    */
   _getTabsConfig(group) {
     const config = foundry.utils.deepClone(super._getTabsConfig(group));
     if (!config) return config;
-    const ids = (TAB_IDS[this.actor.type] ?? ["items"])
+    const ids = tabIdsOf(this.actor)
       .filter((id) => id !== "containers" || this.actor.system.showContainersTab);
-    // A character's tabs carry the rail's label and icon; the npc sheet's the
-    // strip's label alone.
-    config.tabs = this.actor.type === "character"
-      ? ids.map((id) => ({ id, ...CHARACTER_RAIL[id] }))
-      : ids.map((id) => ({ id, label: TAB_LABELS[id] }));
-    // The group's initial is ROLE-aware (`initialTabId`), not the static TABS
-    // default ("items") and not blindly the list head: a person-role sheet
-    // opens on Items (2026-08-21) under a nav that still leads with
-    // Description, a monster on Description. The vanished-tab reset below
-    // lands on the same answer. The includes() guard is for the character
-    // list only, whose head IS the initial, so it never actually filters —
-    // but an initial the filtered list dropped would strand the reset.
+    // Each page carries its rail label and icon: the character's own, or,
+    // on every other sheet, page 1 named by the role (ROLE_PAGE).
+    const role = this.actor.npcRole;
+    config.tabs = ids.map((id) => ({ id,
+      ...(this.actor.type === "character" ? CHARACTER_RAIL[id]
+        : id === "character" ? (ROLE_PAGE[role] ?? ROLE_PAGE.hireling) : NPC_RAIL[id]) }));
+    // Page 1 for everyone (user ruling 2026-11-20). The includes() guard
+    // keeps the reset below from stranding on a dropped initial.
     const initial = initialTabId(this.actor);
     config.initial = ids.includes(initial) ? initial : (ids[0] ?? config.initial);
     // A tab can vanish under the viewer: the Connections UI switched off, a
-    // role change, a sheet reopened as an unlinked token. `_prepareTabs` only defaults the group when it is unset (`??=`), so without
-    // this the group keeps pointing at a tab that is no longer rendered and NO
-    // panel is active — a blank sheet body with no error.
+    // role change (a creature turned into a thing loses Description), a
+    // sheet reopened as an unlinked token. `_prepareTabs` only defaults the
+    // group when it is unset (`??=`), so without this the group keeps
+    // pointing at a tab that is no longer rendered and NO panel is active —
+    // a blank sheet body with no error.
     if (!ids.includes(this.tabGroups[group])) this.tabGroups[group] = config.initial;
     return config;
   }
@@ -1448,6 +1442,28 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       context.saveRollOff = context.generationEnabled
         && PERSON_ROLES.includes(this.actor.npcRole);
       this._computeStatContext(context);
+      // Page 1's stat block is the character's since 2026-11-20 (user ask,
+      // parts/stat-block.html), so the values only the character's page 1
+      // read are built here too, by the character's rules:
+      // - the four max boxes lock while CharGen is off where CharGen exists
+      //   (user ruling: npc, hireling, monster), read off the actor's own
+      //   flag as the character's are; a companion has no CharGen switch, so
+      //   its boxes stay open;
+      // - HP's and Gold's label tooltips, with the "rolled at creation" note
+      //   while the mode is on;
+      // - Cairn's sentence under each save.
+      context.maxLocked = GENERATING_ROLES.includes(this.actor.npcRole)
+        && this.actor.system.generationEnabled === false;
+      const rolledAt = context.generationEnabled
+        ? " " + game.i18n.localize("CAIRN.RolledAtCreation")
+        : "";
+      context.hpTip = game.i18n.localize("CAIRN.HitProtectionTip") + rolledAt;
+      context.goldTip = (this.actor.system.coinTip ?? "") + rolledAt;
+      context.abilityHints = {
+        STR: game.i18n.localize("CAIRN.StrTip"),
+        DEX: game.i18n.localize("CAIRN.DexTip"),
+        WIL: game.i18n.localize("CAIRN.WilTip"),
+      };
       // The pickers ride the SAME Randomization toggle as the dice (2026-08-21
       // pm, user ask — REVERSING that morning's ruling, which kept them
       // available with the toggle off): "only available when Randomization is
@@ -1485,6 +1501,30 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // stay dumb.
     context.deprivedTipKey = this._wording("CAIRN.DeprivedTip");
     context.panickedTipKey = this._wording("CAIRN.PanickedTip");
+    // Hold shield's reason while none is carried, in the NPC wording on an
+    // npc (2026-11-20: every creature's page 1 is the character's stat block,
+    // parts/stat-block.html). Hold light's is built in _computeStatContext.
+    context.holdShieldNoneKey = this._wording("CAIRN.HoldShieldNone");
+    // The stat inputs' max attribute: a character's 18 cap, none on an npc
+    // (the statCap in _onRender, review #34 finding 52).
+    context.statMax = this.actor.type === "character" ? 18 : null;
+    // The rail's tooltips, on every sheet since 2026-11-20: each page's own
+    // word (an npc's page 1 its role), Inventory's with the slot count and
+    // the character's parked Connections page with its count, as the old
+    // strip's labels carried them.
+    for (const tab of Object.values(context.tabs ?? {})) {
+      if (tab.id === "items") {
+        tab.tip = game.i18n.format("CAIRN.Tab.InventoryCount",
+          { used: this.actor.system.slotsUsed, max: context.slotsMaxLabel });
+      } else if (tab.id === "containers") {
+        // context.system's list, re-derived for THIS render: the actor's own
+        // copy is from its last prepareData, and a mount connecting writes
+        // nothing to the keeper, so it would read the old count.
+        tab.tip = `${game.i18n.localize(tab.label)} (${context.system.containerObjects?.length ?? 0})`;
+      } else {
+        tab.tip = game.i18n.localize(tab.label);
+      }
+    }
     // `deprivedLocked` lived here for a day (2026-10-02): Crawler Combat Mode
     // derived Deprived from the load and the checkbox was disabled while it
     // held. Reversed 2026-10-03 (user) — Deprived is a box a person ticks, and
@@ -1921,6 +1961,10 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // action is owned() too: the two-layer rule). With the mode off a
     // character's traits are read-only on the sheet.
     context.canEditTraits = context.generationEnabled && this.isEditable;
+    // The trait sentence over STR is the character's: parts/stat-block.html
+    // serves every creature since 2026-11-20, and a person npc keeps its
+    // traits on its Description page.
+    context.showTraitSentence = true;
 
     // While the mode is On, the HP and Gold labels also say where their
     // numbers came from (2026-09-01, user's wording — ONE terse shared key,
@@ -1987,22 +2031,6 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       DEX: game.i18n.localize("CAIRN.DexTip"),
       WIL: game.i18n.localize("CAIRN.WilTip"),
     };
-    // The rail's tooltips: each page's own word, Inventory's with the slot
-    // count and the parked Connections page's with its count, as the old
-    // strip's labels carried them.
-    for (const tab of Object.values(context.tabs ?? {})) {
-      if (tab.id === "items") {
-        tab.tip = game.i18n.format("CAIRN.Tab.InventoryCount",
-          { used: this.actor.system.slotsUsed, max: context.slotsMaxLabel });
-      } else if (tab.id === "containers") {
-        // context.system's list, re-derived for THIS render: the actor's own
-        // copy is from its last prepareData, and a mount connecting writes
-        // nothing to the keeper, so it would read the old count.
-        tab.tip = `${game.i18n.localize(tab.label)} (${context.system.containerObjects?.length ?? 0})`;
-      } else {
-        tab.tip = game.i18n.localize(tab.label);
-      }
-    }
     // The character's own Description editor (review #34 finding 55, user
     // ruling 2026-10-31): shown ONLY while the field holds prose. The
     // Kettlewright importer writes `system.description` and the paper prints it,
@@ -2124,7 +2152,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
         // that uses it (css/), not the page — the icon 404ed on CT 123.
         icon: foundry.utils.getRoute(held ? lightIcon(held.name) : LIGHT_ICON_NEUTRAL),
         radius: held ? lightRadiusText(held.name) : "",
-        tip: !lights.length ? game.i18n.localize("CAIRN.HoldLightNone")
+        tip: !lights.length ? game.i18n.localize(this._wording("CAIRN.HoldLightNone"))
           : held ? game.i18n.format("CAIRN.LightHeldTip", { name: held.name })
             : game.i18n.localize("CAIRN.LightNoneHeld"),
       };
