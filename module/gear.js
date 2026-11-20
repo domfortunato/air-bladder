@@ -550,7 +550,8 @@ export const itemDataFromDocument = (doc, { quantity = 1, uses, grantName } = {}
  * make two libraries indistinguishable. A SPENT scroll and a fresh one of the
  * same spell are different things too: the merge only adds quantity, so a
  * fresh scroll dropped on a spent one became uncastable, and a spent one
- * dropped on a fresh one became castable (review #34 finding 95). Any future
+ * dropped on a fresh one became castable (review #34 finding 95). BROKEN
+ * splits likewise (review #35). Any future
  * flag-style splitter joins this test rather than growing a new merge.
  * @param {CairnActor} actor  the receiving actor
  * @param {CairnItem|Object} itemLike  the arriving item or its plain data
@@ -563,6 +564,11 @@ export const findMatchingStack = (actor, itemLike) =>
       && !!it.system?.bound === !!itemLike.system?.bound
       && !it.system?.grimoire && !itemLike.system?.grimoire
       && isSpentScroll(it) === isSpentScroll(itemLike)
+      // A broken item and an intact one are different things for the same
+      // reason (review #35): the merge only adds quantity, so an intact unit
+      // arriving on a broken stack broke, and a broken one arriving on an
+      // intact stack was mended.
+      && !!it.system?.broken === !!itemLike.system?.broken
   ) ?? null;
 
 /** A spellscroll whose single use is gone (the strike-through row). Plain data

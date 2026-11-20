@@ -1294,15 +1294,20 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       // on, and a transmute binds a book for good.
       const grimoire = grimoires ? grimoiresOn(this.actor)[0] : null;
       if (grimoire) {
-        const pageCount = pagesOfGrimoire(this.actor, grimoire).length;
-        const hasRoom = pageCount < (grimoire.system.grimoirePages ?? 0);
+        const bound = pagesOfGrimoire(this.actor, grimoire);
+        const pageCount = bound.length;
+        // A broken Grimoire takes no new page (review #35): Transmute binds
+        // for good, into a book that casts nothing.
+        const hasRoom = pageCount < (grimoire.system.grimoirePages ?? 0) && !grimoire.system.broken;
+        // Cast needs a page that is not broken (castFromGrimoire's picker).
+        const castable = bound.some((p) => !p.system.broken);
         context.items = context.items.map((i) => {
           // A broken book or Grimoire gives no benefit (2026-11-20).
           if (i.type === "spellbook" && !i.system.bound) {
             return { ...i, system: { ...i.system, canTransmute: hasRoom && !i.system.broken } };
           }
           if (i._id === grimoire.id) {
-            return { ...i, system: { ...i.system, canCast: pageCount > 0 && !i.system.broken } };
+            return { ...i, system: { ...i.system, canCast: castable && !i.system.broken } };
           }
           return i;
         });
@@ -2154,7 +2159,10 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
         icon: foundry.utils.getRoute(held ? lightIcon(held.name) : LIGHT_ICON_NEUTRAL),
         radius: held ? lightRadiusText(held.name) : "",
         tip: !lights.length ? game.i18n.localize(this._wording("CAIRN.HoldLightNone"))
-          : held ? game.i18n.format("CAIRN.LightHeldTip", { name: held.name })
+          // The row's display name, ESCAPED: core renders data-tooltip as
+          // HTML, and an item name is user text (review #35).
+          : held ? game.i18n.format("CAIRN.LightHeldTip",
+            { name: foundry.utils.escapeHTML(t(this._itemNamespaces().nameNs, held.name)) })
             : game.i18n.localize("CAIRN.LightNoneHeld"),
       };
     }
@@ -4471,7 +4479,9 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // this is the enforcement.
     if (!grimoiresEnabled()) return;
     const grimoire = grimoiresOn(this.actor)[0];
-    if (!grimoire) return;
+    // A broken Grimoire takes no new page (review #35), whatever a stale row
+    // offered.
+    if (!grimoire || grimoire.system.broken) return;
     const pageCount = pagesOfGrimoire(this.actor, grimoire).length;
     if (pageCount >= (grimoire.system.grimoirePages ?? 0)) {
       ui.notifications.warn(game.i18n.format("CAIRN.Notify.GrimoireFull",
@@ -4705,12 +4715,14 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
   }
 
   /**
-   * The armor items ticked Shield that a CHARACTER carries, in inventory order.
-   * Empty for every other actor type: the switch is the character sheet's.
+   * The armor items ticked Shield that a CREATURE carries, in inventory order:
+   * a character, npc, hireling, monster or companion (the all-sheets plan's
+   * ruling 6, "Hold shield and Hold light on every creature ... Never on a
+   * thing"; review #35). Empty for a thing, which draws no switch.
    * @returns {Item[]}
    */
   #shieldsCarried() {
-    if (this.actor.type !== "character") return [];
+    if (this.actor.isThing) return [];
     return this.actor.items
       // A broken shield gives no benefit, so no switch (2026-11-20).
       .filter((i) => i.type === "armor" && i.system?.shield === true && !i.system?.broken)
@@ -4718,12 +4730,13 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
   }
 
   /**
-   * The light sources a CHARACTER carries (`isHoldableLight`, gear.js), in
-   * inventory order: what "Hold light" holds. Empty for every other actor type.
+   * The light sources a CREATURE carries (`isHoldableLight`, gear.js), in
+   * inventory order: what "Hold light" holds. Empty for a thing, as
+   * #shieldsCarried (review #35).
    * @returns {Item[]}
    */
   #lightsCarried() {
-    if (this.actor.type !== "character") return [];
+    if (this.actor.isThing) return [];
     return this.actor.items
       .filter((i) => isHoldableLight(i) && !i.system?.broken)
       .sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0));
@@ -5404,7 +5417,10 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     const addShield = answer.addShield && quality === "standard" && shield
       && weapon.id !== shield.id && !isTwoHanded(weapon);
     if (addShield) formula = shieldPoolFormula(formula);
-    return this._postWeaponDamage({ formula, weapon: weapon.name, quality, panicked, targetIds });
+    // The weapon as its row names it, through the content overlay (review
+    // #35): the row's roller passed its localized data-label through 0.1.26.
+    const what = t(this._itemNamespaces().nameNs, weapon.name);
+    return this._postWeaponDamage({ formula, weapon: what, quality, panicked, targetIds });
   }
 
   static async #onImprovisedAttack() {

@@ -415,12 +415,16 @@ export const castFromGrimoire = async (actor, { windowId } = {}) => {
   // and its pages are not cast from it.
   if (!grimoiresEnabled()) return null;
   const book = grimoiresOn(actor)[0];
-  if (!book) return null;
+  // A broken Grimoire casts nothing (2026-11-20). The sheet's Cast handler
+  // said so; this is the enforcement every caller shares (review #35).
+  if (!book || book.system.broken) return null;
   // This book's pages, not every page on the actor. Identical on a character
   // (the one-book wall), and it is the wall that is doing that work — reading
   // the actor's whole shelf here would be a second place to fix if it ever
   // moved.
-  const pages = pagesOfGrimoire(actor, book);
+  // A broken page gives no benefit (review #35): it still fills a page of
+  // the book (pagesOfGrimoire, the capacity count), but it is not cast.
+  const pages = pagesOfGrimoire(actor, book).filter((p) => !p.system.broken);
   if (!pages.length) {
     // Through the overlay, like the page names in the picker below — this
     // refusal and that list name the same book. The two dice refusals under it
@@ -507,7 +511,8 @@ export const castFromGrimoire = async (actor, { windowId } = {}) => {
 export const castScroll = async (actor, scroll, { windowId } = {}) => {
   if (actor?.type !== "character") return null;
   if (!game.settings.get(SETTINGS_NS, "enable-glog-magic")) return null;
-  if (scroll?.type !== "spellbook" || !scroll.system.scroll || scroll.system.bound) return null;
+  // A broken scroll casts nothing (2026-11-20), whoever calls (review #35).
+  if (scroll?.type !== "spellbook" || !scroll.system.scroll || scroll.system.bound || scroll.system.broken) return null;
   if ((scroll.system.uses?.value ?? 0) < 1) {
     ui.notifications.warn(game.i18n.localize("CAIRN.Notify.ScrollSpent"));
     return null;

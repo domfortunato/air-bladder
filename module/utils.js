@@ -1,5 +1,5 @@
 import { SETTINGS_NS } from "./settings.js";
-import { tokenDisplayName } from "./i18n-content.js";
+import { itemNamespaces, t, tokenDisplayName } from "./i18n-content.js";
 import { lightRadiusText } from "./light-sources.js";
 /**
  * @param {String} formula
@@ -823,7 +823,10 @@ export const askAttack = async ({ actor, weapons, panicked = false, windowId = u
   // With what.
   // A held shield under "Shields are d4 weapons" attacks with its derived d4
   // (attackFormula); a two-handed weapon cannot take the shield as well.
-  const all = [...weapons.map((w) => ({ id: w.id, name: w.name, formula: attackFormula(w),
+  // Display names through the content overlay, as the inventory rows show
+  // them (review #35); the VALUE stays the item id.
+  const nameNs = itemNamespaces(actor).nameNs;
+  const all = [...weapons.map((w) => ({ id: w.id, name: t(nameNs, w.name), formula: attackFormula(w),
     twoHanded: isTwoHanded(w), shield: !!shieldId && w.id === shieldId })),
   { id: IMPROVISED_ID, name: L("CAIRN.ImprovisedAttack"), formula: "" }];
   const offered = (id) => !!id && all.some((w) => w.id === id);
@@ -1015,7 +1018,8 @@ export const askWhichLight = async (lights, { windowId = undefined } = {}) => {
     radio.setAttribute("value", light.id);
     if (i === 0) radio.setAttribute("checked", "");
     const name = document.createElement("strong");
-    name.textContent = light.name;
+    // The row's display name (review #35); the value stays the item id.
+    name.textContent = t(itemNamespaces(light.parent).nameNs, light.name);
     row.append(radio, name);
     const radius = lightRadiusText(light.name);
     if (radius) {
