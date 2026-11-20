@@ -3592,6 +3592,28 @@ ol.combat-tracker li.combatant.cairn-drop-below {
     min-height: 160px;
 }
 
+/* The Role line in the 480px sheet's identity column (2026-11-20): the Role
+   select keeps the width of its own word (squeezed, "Transport" read
+   "Transpo" beside the Kind picker), and while Kind is "Other…" its free-text
+   box takes a row of its own under the line instead of crushing the two
+   selects. :has() keeps it to that state; the box is `hidden` otherwise. */
+.cairn-npc-sheet .role-line .role-select {
+    flex: 0 0 auto;
+    width: auto;
+}
+.cairn-npc-sheet .role-line .kind-select {
+    flex: 1 1 auto;
+    width: auto;
+    min-width: 0;
+}
+.cairn-npc-sheet .role-line:has(.kind-input:not([hidden])) {
+    flex-wrap: wrap;
+    row-gap: 4px;
+}
+.cairn-npc-sheet .role-line .kind-input:not([hidden]) {
+    flex: 1 0 100%;
+}
+
 
 /******************************************************************************
  * Transports & containers.                                                    *
