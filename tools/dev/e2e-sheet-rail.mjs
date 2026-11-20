@@ -102,6 +102,10 @@
  *      wording on a creature, absent on a thing, whose description stands
  *      on page 1; a thing remembering Description lands on page 1.
  *      Red-first at 688ced5f on every part but the companion's open boxes.
+ *  23. (review #35) a companion re-typed to a monster on its OPEN sheet keeps
+ *      its max boxes open, since that frame has no CharGen switch for the
+ *      lock's tooltip to point at; closed and reopened, the switch is built
+ *      and the boxes lock.
  *  22. (review #35; the all-sheets plan's ruling 6, "Hold shield and Hold
  *      light on every creature ... Never on a thing") the same actors now
  *      carry a slung Shield and an unlit Torch: on npc, hireling, monster
@@ -1244,6 +1248,36 @@ try {
       await s.close();
     }
     out.npc = out.roles.hireling;
+
+    // Leg 23 (review #35): a companion (no CharGen switch on its title bar)
+    // re-typed to a monster on its OPEN sheet keeps its max boxes open: the
+    // frame was built without the switch the lock's tooltip points at. Closed
+    // and reopened, the frame has it, and the boxes lock.
+    {
+      const a = await getDocumentClass("Actor").create({
+        name: "ZZ Rail Retype", type: "npc", system: { role: "companion", generationEnabled: false },
+        flags: { "air-bladder": { probeFixture: fixture } },
+      }, { abNoStatusCard: true });
+      const s = a.sheet;
+      const maxes = () => ["STR", "DEX", "WIL"].map((k) => s.element?.querySelector(`input[name="system.abilities.${k}.max"]`))
+        .concat([s.element?.querySelector('input[name="system.hp.max"]')]).map((m) => (m ? m.disabled : null));
+      const toggle = () => !!s.element?.querySelector('[data-action="toggleGeneration"]');
+      await s.render(true);
+      await until(() => s.element?.querySelector?.(".tab.active"));
+      await sleep(400);
+      const was = s.element.querySelector(".tab.active");
+      await a.update({ "system.role": "monster" }, { abNoStatusCard: true });
+      await until(() => s.element?.querySelector?.(".tab.active") && s.element.querySelector(".tab.active") !== was);
+      await sleep(400);
+      out.retype = { open: { maxes: maxes(), toggle: toggle() } };
+      await s.close();
+      await sleep(300);
+      await s.render(true);
+      await until(() => s.element?.querySelector?.(".tab.active"));
+      await sleep(400);
+      out.retype.reopened = { maxes: maxes(), toggle: toggle() };
+      await s.close();
+    }
     return out;
   }, FIXTURE);
 
@@ -1640,6 +1674,13 @@ else {
   Object.keys(r.roles ?? {}).length === 6
     ? ok("all six roles checked")
     : fail(`roles checked: ${JSON.stringify(Object.keys(r.roles ?? {}))}`);
+  {
+    const rt = r.retype ?? {};
+    !rt.open?.toggle && rt.open?.maxes?.length === 4 && rt.open.maxes.every((m) => m === false)
+      && rt.reopened?.toggle && rt.reopened.maxes?.every((m) => m === true)
+      ? ok("a companion re-typed to a monster on its open sheet keeps its max boxes open (no CharGen switch there); reopened, the switch is built and they lock")
+      : fail(`re-typed on an open sheet: ${JSON.stringify(rt)}`);
+  }
   r.roles?.container?.reset?.group === "character" && r.roles.container.reset.active === "character"
     ? ok("a thing remembering a Description page lands on page 1")
     : fail(`thing reset: ${JSON.stringify(r.roles?.container?.reset)}`);
