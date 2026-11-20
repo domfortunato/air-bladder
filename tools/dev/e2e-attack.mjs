@@ -394,6 +394,10 @@ try {
           disabled: b?.disabled ?? null,
           tip: wrap?.dataset.tooltip ?? null,
           label: wrap?.textContent.trim() ?? null,
+          // Where it sits (user ruling 2026-11-20): after the last weapon,
+          // directly before the Improvised Attack row, never after it.
+          beforeImprovised: !!wrap?.nextElementSibling?.matches(".cairn-attack-weapon.improvised")
+            && !wrap?.previousElementSibling?.matches(".cairn-attack-weapon.improvised"),
         };
       };
       try {
@@ -680,6 +684,9 @@ else {
   S.mace?.shown && S.mace.disabled === false && S.mace.label === S.wantBox
     ? ok(`a one-handed weapon offers "${S.mace.label}", live`)
     : fail(`add-shield box on the mace: ${JSON.stringify(S.mace)} (want ${JSON.stringify(S.wantBox)})`);
+  S.mace?.beforeImprovised
+    ? ok("the add-shield box sits after the weapons, directly above Improvised Attack")
+    : fail(`add-shield box position: ${JSON.stringify(S.mace)}`);
   [S.halberd, S.bow].every((b) => b?.shown && b.disabled === true && b.tip === S.wantTip)
     ? ok(`a Bulky weapon and a bow grey the box: "${S.wantTip}"`)
     : fail(`add-shield box on two-handed weapons: ${JSON.stringify({ halberd: S.halberd, bow: S.bow })}`);
