@@ -391,11 +391,14 @@ try {
         const root = document.querySelector(sel);
         return [...root.querySelectorAll("nav.tabs [data-tab], nav .item[data-tab]")].map((t) => t.dataset.tab);
       }, sheet.sel);
-      if (sheet.slug === "character") {
-        const want = ["character", "items", "growth", "notes"];   // no Description page since round 4
+      // The npc sheet's pages since 2026-11-20 (the character sheet's format).
+      const WANT_PAGES = { character: ["character", "items", "growth", "notes"],   // no Description page since round 4
+        npc: ["character", "items", "description", "notes"] };
+      if (WANT_PAGES[sheet.slug]) {
+        const want = WANT_PAGES[sheet.slug];
         const missing = want.filter((t) => !tabs.includes(t));
         if (missing.length) {
-          console.error(`  FAIL  the character sheet's pages were not all found to audit (${scheme}): missing ${missing.join(", ")}; found [${tabs.join(", ")}]`);
+          console.error(`  FAIL  the ${sheet.slug} sheet's pages were not all found to audit (${scheme}): missing ${missing.join(", ")}; found [${tabs.join(", ")}]`);
           failed = true;
         }
       }
@@ -864,7 +867,7 @@ try {
       await a.sheet.render(true);
       for (let i = 0; i < 40 && !a.sheet.element; i++) await new Promise((r) => setTimeout(r, 100));
       await new Promise((r) => setTimeout(r, 500));
-      a.sheet.element.querySelector('.tabs .item[data-tab="notes"]')?.click();
+      a.sheet.element.querySelector('[data-action="tab"][data-tab="notes"]')?.click();
       await new Promise((r) => setTimeout(r, 400));
       return { actorId: a.id, sheetId: a.sheet.element.id };
     });
@@ -927,7 +930,9 @@ try {
     const sheets = await page.evaluate(async () => {
       const Cls = CONFIG.Actor.documentClass;
       const out = [];
-      for (const [type, pages] of [["character", ["character", "growth", "notes"]], ["hireling", [null]]]) {
+      // Every page of the hireling too since 2026-11-20 (the character sheet's
+      // format: page 1 is its stat block, and it opens there).
+      for (const [type, pages] of [["character", ["character", "growth", "notes"]], ["hireling", ["character", "items", "description", "notes"]]]) {
         const a = await Cls.create({ name: `ZZ Theme Boxes ${type}`, type });
         await a.sheet.render(true);
         for (let i = 0; i < 40 && !a.sheet.element; i++) await new Promise((r) => setTimeout(r, 100));

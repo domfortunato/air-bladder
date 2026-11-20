@@ -1488,7 +1488,7 @@ try {
         // character sheet's 2026-11-19 redesign, when a character's fresh
         // sheet moved to its Character page — exactly the later ruling this
         // click was put here against. On a character the selector finds the
-        // rail's Inventory button; on the npc sheet the strip's Items tab.
+        // rail's Inventory button, as on every sheet since 2026-11-20.
         actor.sheet.element?.querySelector('[data-action="tab"][data-tab="items"]')?.click();
         await sleep(250);
         // THE ROW'S CONTROL, SCOPED TO THE INVENTORY PAGE. For a few hours on

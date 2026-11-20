@@ -77,9 +77,9 @@ try {
   // field look by selector list — so it is held to every Notes leg here and in
   // the discoverability loop below. Twins drift apart one tidy-up at a time.
   //
-  // The page is turned through `nav.tabs [data-tab]`, which reads both navs:
-  // the npc sheet's text strip (`a.item`) and, since 2026-11-19, the
-  // character's thumb-tab rail (`nav.tabs.cairn-tab-rail > button`). The page
+  // The page is turned through `nav.tabs [data-tab]`: the thumb-tab rail
+  // (`nav.tabs.cairn-tab-rail > button`), the character's since 2026-11-19
+  // and every sheet's since 2026-11-20 (the npc's text strip went). The page
   // must then actually be the active one — only the active page is displayed,
   // so a turn that did not land would leave the hint with no box and read as a
   // hint failure, which is the wrong diagnosis; `tabActive` names it instead.

@@ -77,8 +77,8 @@ try {
       out.inDom = !!node?.isConnected;
       // A character's pages are turned from the thumb-tab RAIL since 2026-11-19
       // (parts/tab-rail.html): icon buttons with no text, each named by its
-      // aria-label (the tooltip). The old `nav .item` text strip is the npc
-      // sheet's alone now, so reading it here listed nothing on a character.
+      // aria-label (the tooltip); every other sheet's too since 2026-11-20.
+      // The old `nav .item` text strip is gone, so reading it lists nothing.
       // Every page is TURNED, the way a player does — a click on its rail
       // button — because a page whose tab handler throws is exactly the
       // breakage this smoke exists for, and an unvisited page cannot throw.

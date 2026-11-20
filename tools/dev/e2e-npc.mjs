@@ -263,13 +263,15 @@ try {
       // ApplicationV2 frames are `.application`; `.app.window-app` is the AppV1
       // window template and matches nothing after the port.
       inDom: !!document.querySelector(".application, .app.window-app"),
-      tabs: [...(node?.querySelectorAll?.("nav .item, .tabs .item") ?? [])].map((t) => t.textContent.trim()),
+      // The rail's page buttons since 2026-11-20 (every sheet the character
+      // sheet's format): each names its page in its tooltip.
+      tabs: [...(node?.querySelectorAll?.("nav.tabs [data-tab]") ?? [])].map((t) => t.dataset.tooltipText ?? t.textContent.trim()),
       // The notes tab reads plain "Notes" on EVERY npc role since 2026-08-08 —
       // the person role used to carry the character sheet's "Background &
       // Notes" wording (this actor IS a person, so it exercises exactly the
       // role that changed). The character sheet keeps the long label;
       // e2e-ui-parity.mjs asserts that half.
-      notesTabLabel: node?.querySelector?.('nav .item[data-tab="notes"]')?.textContent?.trim() ?? null,
+      notesTabLabel: node?.querySelector?.('nav.tabs [data-tab="notes"]')?.dataset?.tooltipText ?? null,
       hasProfession: !!node?.querySelector?.(".profession-input"),
       hasDayRate: !!node?.querySelector?.(".day-rate-input"),
       // A hireling has no Description tab -- that is the point of the stripped sheet.
@@ -278,7 +280,7 @@ try {
       // documents keeping prose in system.description — a two-tab sheet would
       // make all of it unreachable. This assertion was the exact opposite until
       // that merge.
-      hasDescriptionTab: [...(node?.querySelectorAll?.("nav .item") ?? [])]
+      hasDescriptionTab: [...(node?.querySelectorAll?.("nav.tabs [data-tab]") ?? [])]
         .some((t) => t.dataset.tab === "description"),
       // The Features UI is GONE (2026-08-09): no section, no Add control,
       // anywhere on the sheet — while the actor demonstrably STORES one.

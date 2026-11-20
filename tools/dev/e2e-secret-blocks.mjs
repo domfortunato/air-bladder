@@ -124,7 +124,7 @@ try {
       await chest.sheet.render(true);
       await until(() => chest.sheet.element);
       await sleep(500);
-      chest.sheet.element.querySelector('.tabs .item[data-tab="items"]')?.click();
+      chest.sheet.element.querySelector('[data-action="tab"][data-tab="items"]')?.click();
       await sleep(300);
       const row = [...chest.sheet.element.querySelectorAll("[data-item-id]")]
         .find((r) => /ZZ Secret Lantern/.test(r.textContent));

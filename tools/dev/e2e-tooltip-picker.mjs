@@ -119,7 +119,8 @@ try {
       };
 
       // The character's STR row is `.cairn-ability.STR-ability` since the
-      // 2026-11-19 layout (page 1); the npc sheet keeps `.STR-counter` below.
+      // 2026-11-19 layout (page 1), and the npc sheet's too since 2026-11-20
+      // (every sheet in the character sheet's format, one stat-block partial).
       const strOn = root?.querySelector(".STR-ability a.resource-roll");
       out.savesOn = {
         noAction: !!strOn && !strOn.dataset.action,
@@ -559,7 +560,7 @@ try {
       await nSheet.render(true);
       await wait(800);
       const nRoot = nSheet.element instanceof HTMLElement ? nSheet.element : nSheet.element?.[0];
-      const nStr = nRoot?.querySelector(".STR-counter a.resource-roll");
+      const nStr = nRoot?.querySelector(".STR-ability a.resource-roll");
       out.npcSavesOn = {
         noAction: !!nStr && !nStr.dataset.action,
         offClass: !!nStr?.classList.contains("save-roll-off"),
@@ -629,7 +630,7 @@ try {
       await mSheet.render(true);
       await wait(800);
       const mRoot = mSheet.element instanceof HTMLElement ? mSheet.element : mSheet.element?.[0];
-      const mStr = mRoot?.querySelector(".STR-counter a.resource-roll");
+      const mStr = mRoot?.querySelector(".STR-ability a.resource-roll");
       out.monsterSavesOn = {
         action: mStr?.dataset.action ?? "",
         noOffClass: !!mStr && !mStr.classList.contains("save-roll-off"),

@@ -161,13 +161,14 @@ try {
         const el = root?.querySelector(sel);
         return !!el && !el.classList.contains("cairn-header-hidden");
       };
-      // The FULL sheet's root: the npc sheet's `.charater-sheet-grid`, and the
-      // character's `.cairn-character` since its 2026-11-19 layout (pages
-      // turned from a thumb-tab rail). Either one is the leak this probe hunts.
+      // The FULL sheet's root: `.cairn-character`, the character's since its
+      // 2026-11-19 layout and every sheet's since 2026-11-20 (the npc sheet's
+      // `.charater-sheet-grid` before that, kept in the selector so an old
+      // grid coming back is caught too). Either is the leak this probe hunts.
       const FULL = ".charater-sheet-grid, .cairn-character";
       // The character's rail is a render part of its own, straight inside
       // .window-content: a LIMITED viewer gets it drawn EMPTY and `hidden` (a
-      // part must still render one element). An npc sheet draws none at all.
+      // part must still render one element). Every sheet since 2026-11-20.
       const rail = root?.querySelector(":scope > .window-content > nav.cairn-tab-rail");
       const block = root?.querySelector(".cairn-limited-sheet");
       const res = {
@@ -218,6 +219,10 @@ try {
       fail(`leaked: statDice ${lim.statDice}, statText ${lim.statText}, itemsTab ${lim.itemsTab}, `
         + `genDice ${lim.genDice}, pickers ${lim.pickers}`);
     }
+    // The rail every sheet draws since 2026-11-20: empty and hidden here.
+    lim.rail?.hidden === true && lim.rail.buttons === 0 && !lim.rail.attack
+      ? ok("the npc's rail is drawn empty and hidden")
+      : fail(`the npc's rail for a LIMITED viewer: ${JSON.stringify(lim.rail)}`);
     if (!lim.printButton) ok("and no Print button — the page would hand over the statblock");
     else fail("the Print button is offered to a LIMITED viewer");
   }
@@ -380,7 +385,8 @@ try {
           '[data-action="rollProfession"], [data-action="rollName"], [data-action="rollPortrait"], [data-action="rollFaction"]'),
         pickers: !!root?.querySelector('[data-action="pickProfession"], [data-action="pickFaction"]'),
         headerToggle: visible('.window-header button[data-action="toggleGeneration"]'),
-        fullGrid: !!root?.querySelector(".charater-sheet-grid"),
+        // The full sheet's root (`.cairn-character` since 2026-11-20).
+        fullGrid: !!root?.querySelector(".cairn-character"),
       };
       // ENFORCEMENT, fix-live only: the wrapped action must refuse a call that
       // arrives without its control — the crafted-client case.

@@ -99,6 +99,31 @@ const slowClickPortrait = async (sheetId) => {
   await page.waitForTimeout(400);   // let a click-away save commit behind it
 };
 
+/**
+ * Click AWAY from an active editor (legs 3-4): a real 200ms press on the
+ * rail's page-1 button. Since 2026-11-20 a monster's sheet is in the character
+ * sheet's format, its prose on the Description page and its portrait on page
+ * 1, so the portrait is no longer on screen beside the editor; the rail is,
+ * on every page, and a press on it is a click outside the editor while it is
+ * active, which is the gesture these legs are about.
+ */
+const slowClickAway = async (sheetId) => {
+  const btn = page.locator(`#${sheetId} nav.cairn-tab-rail button[data-tab="character"]`);
+  const box = await btn.boundingBox();
+  if (!box) throw new Error("the rail's page-1 button is not visible");
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.waitForTimeout(200);
+  await page.mouse.up();
+  await page.waitForTimeout(600);   // let a click-away save commit
+};
+
+/** Turn to the Description page, where a creature's prose stands. */
+const toDescription = (id) => page.evaluate(async (id) => {
+  game.actors.get(id).sheet.changeTab("description", "primary");
+  await new Promise((r) => setTimeout(r, 300));
+}, id);
+
 /** Activate the TOGGLED description editor the way dev:notes-editor does (the
  *  pencil is hover-hidden, so a synthetic click on the element's button is the
  *  reliable route), then wait for genuine activation — it is async
@@ -179,8 +204,9 @@ try {
 
   await page.evaluate(async (id) => { await game.actors.get(id).sheet.render(true); }, id);
   await page.waitForTimeout(600);
+  await toDescription(id);
   await activateDescription(sheetId);
-  await slowClickPortrait(sheetId);
+  await slowClickAway(sheetId);
   const after3 = await readState(id);
   after3.desc !== before.desc && after3.mt !== before.mt
     ? ok("an ACTIVE editor's click-away commits", "the toggled contract: click away = save")
@@ -201,8 +227,9 @@ try {
     await game.actors.get(id).sheet.render(true);
   }, id);
   await page.waitForTimeout(600);
+  await toDescription(id);
   await activateDescription(sheetId);
-  await slowClickPortrait(sheetId);
+  await slowClickAway(sheetId);
   const after4 = await readState(id);
   after4.mt === after3.mt && after4.desc === after3.desc
     ? ok("the same gesture on the canonical doc writes NOTHING", "convergence is a fixed point")
