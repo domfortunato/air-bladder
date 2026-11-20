@@ -825,6 +825,10 @@ export const registerSettings = () => {
     default: false,
     onChange: async (value) => {
       if (value) {
+        // The marker first (review #35): it recorded a conversion made
+        // without Grimoires, and left set, a sweep the Save's reload prompt
+        // cuts off would never resume.
+        if (game.users.activeGM === game.user) await game.settings.set(SETTINGS_NS, "glog-converted", false);
         const { resumeGlogConversion } = await import("./glog.js");
         await resumeGlogConversion({ force: true });
       }

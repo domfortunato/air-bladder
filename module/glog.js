@@ -71,6 +71,11 @@ export const glogEnabled = () => {
 export const grimoiresEnabled = () => {
   if (!glogEnabled()) return false;
   try {
+    // Until the active Warden's first load seeds it (seedGlogGrimoires), a
+    // world that already plays GLoG reads Grimoires ON, the value the seed
+    // will write (review #35): players who joined first found their Grimoire
+    // dead and a granted spellbook landing as a book.
+    if (!game.settings.get(SETTINGS_NS, "glog-grimoires-seeded")) return true;
     return !!game.settings.get(SETTINGS_NS, "glog-grimoires");
   } catch {
     return false;
@@ -290,17 +295,35 @@ export const runGlogConversion = async () => {
  * @param {{force?: Boolean}} [opts]
  * @returns {Promise<void>}
  */
+let sweeping = null;
+let sweepAgain = false;
 export const resumeGlogConversion = async ({ force = false } = {}) => {
   if (game.users.activeGM !== game.user) return;
   if (!game.settings.get(SETTINGS_NS, "enable-glog-magic")) return;
   if (!force && game.settings.get(SETTINGS_NS, "glog-converted")) return;
-  try {
-    await runGlogConversion();
-    await game.settings.set(SETTINGS_NS, "glog-converted", true);
-  } catch (err) {
-    console.error("air-bladder | GLOG world conversion failed:", err);
-    ui.notifications.error(game.i18n.localize("CAIRN.Notify.GlogConversionFailed"));
+  // ONE sweep at a time (review #35): ticking GLoG and Grimoires in one Save
+  // fired two forced sweeps over the same documents at once. A call made
+  // while one runs is folded into one more pass after it, which reads the
+  // settings as they then stand.
+  if (sweeping) {
+    sweepAgain = true;
+    return sweeping;
   }
+  sweeping = (async () => {
+    try {
+      do {
+        sweepAgain = false;
+        await runGlogConversion();
+      } while (sweepAgain);
+      await game.settings.set(SETTINGS_NS, "glog-converted", true);
+    } catch (err) {
+      console.error("air-bladder | GLOG world conversion failed:", err);
+      ui.notifications.error(game.i18n.localize("CAIRN.Notify.GlogConversionFailed"));
+    } finally {
+      sweeping = null;
+    }
+  })();
+  return sweeping;
 };
 
 /**
