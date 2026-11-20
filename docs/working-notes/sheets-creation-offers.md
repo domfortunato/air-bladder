@@ -148,15 +148,24 @@ Moved word for word from CLAUDE.md (2026-11-01); CLAUDE.md points here.
   relative url() in a custom property resolves against the STYLESHEET and 404ed. Radius
   text (`lightRadiusText`) from `module/light-sources.js`, the Torch file's numbers ruled
   the maintainer's; `check:refs` holds the two copies identical. `holdLight` (gear.js) is
-  the ONE Torch call, shared by the badge and a light's row hand: Torch active + a token
-  on the viewed scene, else nothing; a throw is swallowed and the hold stands. Torch is
+  the ONE Torch call: Torch active + a token on the viewed scene, else nothing; a throw is
+  swallowed and the hold stands. **Since review #35 the sheet never calls it**:
+  `registerHeldLightSync` (gear.js, init) calls it on the client that made the change
+  whenever a light's HELD state (`isHeldLight`: equipped, not broken) moves, by any route
+  (switch, row hand, Broken, delete, gift, drop), queued per actor. It selects only a light
+  in `LIGHT_SOURCES` (Torch does not throw on an unknown name; it lit another source) and
+  never lights one whose counted uses are spent; a stow with another light still held
+  lights that one. A row's hand holds one light at once, like the switch. Hold shield and
+  Hold light work on EVERY creature (`#shieldsCarried` / `#lightsCarried` gate on
+  `isThing`, the all-sheets plan's ruling 6). Torch is
   NOT installed on CT 123, so only the stubbed probe (`dev:shield` leg 6) has exercised
   the lighting. Hands full counts EVERY held light, the Lantern's "hands free" text
   notwithstanding (user ruling).
 - **Hands full** (hack `hands-full`) and **Shields are d4 weapons** (hack
   `shield-weapon`), 2026-11-20, user asks: both read through the sheet's ONE attack
-  gate `#attackWeapon` (`#handsFull` / `#handsBlock`, `attackFormula` / `shieldDamage`
-  in utils.js). The row annotations (`rollBlocked`, a shield's derived `damageFormula`)
+  gate `#attackWeapon` (`handsFull` / `handsBlock` in gear.js since review #35, which the
+  hotbar macro reads too; `attackFormula` / `shieldDamage` in utils.js, a player
+  character's shield only). The row annotations (`rollBlocked`, a shield's derived `damageFormula`)
   are on the context COPIES only; `#onRollDamage` refuses a blocked forced click rather
   than quick-rolling it, and `#openAttack` re-derives "Add the shield". Gate
   `dev:attack` legs 11-12. Open cosmetic question: the add-shield box sits under the

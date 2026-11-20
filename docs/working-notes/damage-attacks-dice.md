@@ -43,7 +43,13 @@ Moved word for word from CLAUDE.md (2026-11-01); CLAUDE.md points here.
     2026-11-20, revising that morning's explode-each-then-keep): rolled unexploded,
     then `explodeKeptPoolDie` marks the kept die's maximum `exploded` and adds its
     capped chain (`{a,b}kh + 1dFx…`); `combatDamageFormula`'s `explodeKept` tells
-    the three call sites. The card's maneuver line and explosion lines follow the
+    the three call sites, which all call `settleKeptPool` (review #35): on a TIE the
+    FIRST member, the weapon's die, is kept (user ruling 2026-11-20), then the kept
+    die explodes. Every die of a summed kept member at its maximum explodes, sharing
+    one cap (`{2d6,1d4}kh`, as `2d6x2` unshielded). `shieldPoolFormula` puts a
+    hand-written mixed `+` weapon in as one member per die term (notation on), so it
+    stays keep-highest. The hotbar macro refuses a player character's Broken weapon
+    (`CAIRN.Macro.Broken`) and one Hands full blocks (`CAIRN.HandsFullNote`). The card's maneuver line and explosion lines follow the
     KEPT member (`keptPoolOf` / `judgedCardDie` / `explodingDiceOf` in cairn.js),
     user rulings.
   - **A `+` pool is judged only while `use-cairn-dice-notation` is on**
