@@ -346,6 +346,40 @@ try {
     await sheet.close();
     const liveFlip = { on: liveOn, off: liveOff };
 
+    // 11. An EMPTY failed-career line hides outside Character Creation Mode
+    //     (user ruling 2026-11-20, after seeing "Failed career:" and "Failed
+    //     career item:" printed with nothing after them on CT 123). In the
+    //     mode each line stays, so its dice can fill it; a line with a value
+    //     always shows. Planted actor, the setting SET on and restored.
+    const emptyLines = {};
+    {
+      const careerWas = game.settings.get("air-bladder", "barebones-failed-career");
+      const fcActor = track(await Actor.create({
+        name: "PROBE-FC-EMPTY", type: "character",
+        system: { contentSource: "barebones", failedCareer: "", generationEnabled: false },
+      }));
+      try {
+        await game.settings.set("air-bladder", "barebones-failed-career", true);
+        const fs = fcActor.sheet;
+        await fs.render(true);
+        await pollFor(() => !!fs.element?.querySelector(".cairn-identity"));
+        const lines = () => ({
+          block: !!fs.element?.querySelector(".failed-career-block"),
+          career: !!fs.element?.querySelector(".failed-career-line"),
+          item: !!fs.element?.querySelector(".failed-career-item-line"),
+        });
+        const settle = async (want) => { await pollFor(() => JSON.stringify(lines()) === JSON.stringify(want)); return lines(); };
+        emptyLines.offEmpty = await settle({ block: false, career: false, item: false });
+        await fcActor.update({ "system.generationEnabled": true }, { abNoStatusCard: true });
+        emptyLines.onEmpty = await settle({ block: true, career: true, item: true });
+        await fcActor.update({ "system.generationEnabled": false, "system.failedCareer": colBgC.name }, { abNoStatusCard: true });
+        emptyLines.offCareer = await settle({ block: true, career: true, item: false });
+        await fs.close();
+      } finally {
+        await game.settings.set("air-bladder", "barebones-failed-career", careerWas);
+      }
+    }
+
     // 10. The keepsake on an INSTRUCTION row (review #34 finding 130). The
     //     keepsake resolved its drawn row with the bare by-name lookup, so the
     //     Acolyte's "Spellbook", the Fence's "Random Additional Gear" and the
@@ -376,7 +410,7 @@ try {
     }
 
     for (const a of made) { try { await a.delete(); } catch { /* already gone */ } }
-    return { setup, character, edit, regen, transport, step6, bonds, dupGuard, control, collision, liveFlip, keepsakeRows };
+    return { setup, character, edit, regen, transport, step6, bonds, dupGuard, control, collision, liveFlip, emptyLines, keepsakeRows };
   });
 
   if (r.error) {
@@ -447,6 +481,19 @@ try {
   lf.on && lf.off
     ? ok("flipping barebones-failed-career re-renders the open sheet, both directions")
     : fail(`stale open sheet: appeared=${lf.on} left=${lf.off} — the toggle is read at render and needs the onChange fan`);
+
+  // Step 11: an empty failed-career line hides outside Creation Mode.
+  const el = r.emptyLines ?? {};
+  const is = (o, b, c, i) => !!o && o.block === b && o.career === c && o.item === i;
+  is(el.offEmpty, false, false, false)
+    ? ok("with no failed career and Creation Mode off, neither failed-career line shows")
+    : fail(`empty failed career, mode off: ${JSON.stringify(el.offEmpty ?? null)}`);
+  is(el.onEmpty, true, true, true)
+    ? ok("in Creation Mode both empty lines show, so their dice can fill them")
+    : fail(`empty failed career, mode on: ${JSON.stringify(el.onEmpty ?? null)}`);
+  is(el.offCareer, true, true, false)
+    ? ok("a career with no keepsake shows its line and hides the empty item line")
+    : fail(`career without keepsake, mode off: ${JSON.stringify(el.offCareer ?? null)}`);
 
   // Step 10: a keepsake drawn on an instruction row is dealt, not dropped.
   if (Object.keys(r.keepsakeRows ?? {}).length !== 3) fail(`step 10 ran ${Object.keys(r.keepsakeRows ?? {}).length} of 3 careers`);

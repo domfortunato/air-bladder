@@ -180,6 +180,20 @@ try {
       impro.dispatchEvent(new Event("change", { bubbles: true }));
       await sleep(150);
       out.improvised = { buttons: shown(dlg), fields: !dlg.querySelector(".cairn-attack-improvised")?.hidden };
+      // Every field label sits on ONE line, and the two improvised inputs
+      // share a left edge (user ask 2026-11-20: "What are you attacking
+      // with?" broke onto two lines in the label column).
+      const lineCount = (n) => {
+        const cs = getComputedStyle(n);
+        const lh = parseFloat(cs.lineHeight) || parseFloat(cs.fontSize) * 1.4;
+        return Math.round(n.getBoundingClientRect().height / lh);
+      };
+      const inputs = [...dlg.querySelectorAll('.cairn-attack-improvised input[type="text"]')];
+      out.improvisedLabels = {
+        lines: Object.fromEntries([...dlg.querySelectorAll(".cairn-attack .form-group > label")]
+          .map((n) => [n.textContent.trim(), lineCount(n)])),
+        lefts: inputs.map((n) => Math.round(n.getBoundingClientRect().left)),
+      };
       dlg.querySelector('input[name="description"]').value = "a rock";
       dlg.querySelector('input[name="formula"]').value = "1d6";
       dlg.querySelector('select[name="target"]').value = "";
@@ -306,6 +320,11 @@ else {
   JSON.stringify(i.buttons) === JSON.stringify(["roll", "cancel"]) && i.fields
     ? ok("the improvised choice shows its two fields and Roll Damage alone (the 10-02 ruling)")
     : fail(`improvised window: ${JSON.stringify(i)}`);
+  const il = r.improvisedLabels ?? {};
+  const labelLines = Object.values(il.lines ?? {});
+  labelLines.length >= 3 && labelLines.every((n) => n === 1) && il.lefts?.length === 2 && il.lefts[0] === il.lefts[1]
+    ? ok(`every label in the window sits on one line (${Object.keys(il.lines).join(" / ")}), the improvised inputs aligned`)
+    : fail(`Attack window labels: ${JSON.stringify(il)}`);
   ic.faces === 6 && ic.weapon === "a rock" && ic.unarmed && ic.targets === null
     ? ok("...and posts the typed die, unarmed, with no target when \"no one\" is chosen")
     : fail(`improvised card: ${JSON.stringify(ic)}`);
