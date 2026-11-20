@@ -296,6 +296,21 @@ try {
       await game.settings.set("air-bladder", "tuck-calendar-bar", true);
       await sleep(500);
       out.tucked = { cls: !!el()?.classList.contains("is-tucked"), bottom: Math.round(tabs()?.bottom ?? -99), tip: watchTip() };
+      // 7b (review #35): today's weather pill goes up with the bar. A pill
+      // is planted in page (the bar's own markup and classes; removed
+      // below), as a day with the weather called draws it.
+      {
+        const pill = document.createElement("div");
+        pill.className = "cairn-bar-weather cairn-watch-line cairn-watch-weather tone-parchment";
+        pill.innerHTML = "<span>ZZ probe weather</span>";
+        el()?.querySelector(".cairn-bar")?.append(pill);
+        await sleep(100);
+        const rect = pill.getBoundingClientRect();
+        const cs = getComputedStyle(pill);
+        out.tuckedPill = { visible: cs.visibility !== "hidden" && rect.height > 0 && rect.bottom > 8,
+          target: cs.pointerEvents !== "none" && cs.visibility !== "hidden" };
+        pill.remove();
+      }
       el().dispatchEvent(new PointerEvent("pointerenter", { pointerType: "mouse" }));
       await sleep(500);
       out.pulled = { down: el().classList.contains("is-down"), top: Math.round(tabs()?.top ?? -99), tip: !!watchTip() };
@@ -329,6 +344,9 @@ try {
   tuck.pulled?.down && tuck.pulled.top >= -1 && tuck.pulled.top <= 2 && tuck.pulled.tip
     ? ok("pointing at the lip pulls it down, tooltips back")
     : fail("pulling the bar down", JSON.stringify(tuck.pulled));
+  tuck.tuckedPill && !tuck.tuckedPill.visible && !tuck.tuckedPill.target
+    ? ok("tucked, today's weather goes up with the bar: not on screen under the lip, and no pointer target")
+    : fail("the weather pill while tucked", JSON.stringify(tuck.tuckedPill));
   tuck.retucked && !tuck.retucked.down && tuck.retucked.bottom <= 8
     ? ok("leaving tucks it again")
     : fail("re-tucking", JSON.stringify(tuck.retucked));
