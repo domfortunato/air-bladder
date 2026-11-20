@@ -1277,6 +1277,15 @@ try {
     const twoSixes = await seqRoll("2d6kx", [MAXU, MAXU, 0.5]);
     out.twoSixesLines = linesOf(twoSixes);
 
+    // A KEEP-HIGHEST POOL (the shield added to a weapon, 2026-11-20): only the
+    // KEPT member's explosions earn lines (user ruling 2026-11-20, as the
+    // maneuver line follows the kept die). The d6 goes 6 -> 1 = 7 and loses;
+    // the d4 goes 4 -> 4 -> 1 = 9 and is kept: two d4 lines, no d6 line.
+    // Red before the fix: three lines, the losing d6's included.
+    const poolMsg = await seqRoll("{1d6x,1d4x}kh", [MAXU, LOWU, MAXU, MAXU, LOWU]);
+    out.poolTotal = game.messages.get(poolMsg.id)?.rolls?.[0]?.total ?? null;
+    out.poolLines = linesOf(poolMsg);
+
     // Nothing exploded: no lines at all.
     const plainMsg = await seqRoll("1d6", [0.5]);
     out.plainLines = linesOf(plainMsg);
@@ -2116,6 +2125,9 @@ try {
   r.cappedLines?.length === 2 && r.cappedTotal === 18 && r.cappedManeuver && /x2=6$/.test(r.cappedFormula ?? "")
     ? ok(`a capped chain on a card (${r.cappedFormula}: 6 -> 6 -> 6 = 18) prints exactly TWO lines and still carries the maneuver line — the stopping six is an active maximum, not an explosion`)
     : fail(`capped card: formula=${r.cappedFormula} total=${r.cappedTotal} lines=${JSON.stringify(r.cappedLines)} maneuver=${r.cappedManeuver} — want 2d6kx2=6, 18, two lines, the maneuver line`);
+  r.poolTotal === 9 && r.poolLines?.length === 2 && r.poolLines.every((t) => /d4/.test(t) && !/d6/.test(t))
+    ? ok(`a keep-highest pool prints only the KEPT die's explosions (d6 6->1 lost, d4 4->4->1 kept): ${JSON.stringify(r.poolLines)}`)
+    : fail(`pool card: total=${r.poolTotal} lines=${JSON.stringify(r.poolLines)} — want 9 and two d4 lines, no d6 line`);
   r.plainLines?.length === 0
     ? ok(`...and a card where nothing exploded carries no line at all`)
     : fail(`a plain 1d6 card carried ${r.plainLines?.length} line(s)`);
