@@ -120,7 +120,7 @@ complicated it is. `art-picker.js` sits at tier 8 and is 159 lines of code.
 
 | Tier | Files |
 |---|---|
-| **0** — no internal imports at all | `actor/tab-rail.js`, `art-paths.js`, `compendium.js`, `config.js`, `i18n-content.js`, `icons.js`, `settings-menus.js` |
+| **0** — no internal imports at all | `actor/tab-rail.js`, `art-paths.js`, `compendium.js`, `config.js`, `i18n-content.js`, `icons.js`, `light-sources.js`, `settings-menus.js` |
 | **1** | `settings.js`, `data-models.js` |
 | **2** | `utils.js`, `connections.js` |
 | **3** | `combat.js`, `game-time.js`, `glog.js`, `macros.js` |
@@ -172,7 +172,7 @@ Six things carry roughly half the logic, and nothing routes around them.
    It is the third-largest file in the system, and it is really
    four unrelated jobs sharing an address.
 
-2. **`module/settings.js` — the switches.** 46 setting registrations, grouped
+2. **`module/settings.js` — the switches.** 56 setting registrations, grouped
    into four submenus by one declaration (`SETTING_GROUPS`) that both the
    registration code and the tests read. Seventeen files import it. If a
    behaviour has an "unless the Warden turned it off" clause, it is here.

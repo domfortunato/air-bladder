@@ -5552,7 +5552,7 @@ header.character-generator.directory-header .header-actions > button:not(.cairn-
    the text under it. Layout stays with each element; the npc bio-block's Omen
    row, the same partial, is not under this sheet class and keeps its look. */
 .cairn-character-sheet .background-line .background-label,
-.cairn-character-sheet .cairn-left > .traits-label,
+.cairn-character-sheet .cairn-left > .trait-sentence > .traits-label,
 .cairn-character-sheet :is(.bond-line, .question-line) > strong,
 .cairn-character-sheet .character-description .character-description-heading,
 .cairn-character-sheet .notes-omen .omen-label {
@@ -5760,12 +5760,13 @@ header.character-generator.directory-header .header-actions > button:not(.cairn-
    and above STR (round 4, user ask 2026-11-19; under Gold in round 3), in
    the background description's size and face (13px; dev:sheet-rail compares
    the two), italic as before. Its pen opens the Traits window. Since
-   2026-11-20 (user ask) it stands under a "Traits" label (the label face,
-   above) and over Background & Notes' between-items rule — one --ab-rule
-   line, 10px of space either side of it — before the header. */
-.cairn-character-sheet .cairn-left > .traits-label { margin: 0 0 2px; }
+   2026-11-20 (user asks) it opens with a run-in "Traits" label (the label
+   face, above; upright) and stands over Background & Notes' rule, one
+   --ab-rule line with 4px either side, before the header: a label line of
+   its own and 10px either side pushed the footer out of 480 x 700. */
+.cairn-character-sheet .cairn-left > .trait-sentence > .traits-label { font-style: normal; margin-right: 2px; }
 .cairn-character-sheet .cairn-left > .trait-sentence {
-    margin: 0 0 10px; padding-bottom: 10px; border-bottom: 1px solid var(--ab-rule);
+    margin: 0 0 4px; padding-bottom: 4px; border-bottom: 1px solid var(--ab-rule);
     font-size: 13px; font-style: italic; line-height: 1.4;
 }
 .cairn-character-sheet .cairn-left > .trait-sentence .trait-edit {
@@ -5773,7 +5774,7 @@ header.character-generator.directory-header .header-actions > button:not(.cairn-
 }
 .cairn-character-sheet .cairn-left > .trait-sentence .trait-edit:hover,
 .cairn-character-sheet .cairn-left > .trait-sentence .trait-edit:focus-visible { color: var(--ab-ink); }
-/* No traits and no age: the pen alone under the label. */
+/* No traits and no age: the label and the pen alone. */
 .cairn-character-sheet .cairn-left > .trait-sentence.trait-sentence-empty .trait-edit { margin-left: 0; }
 /* Too much gold: the shared .overburdened-gold paints a COUNTER's frame red
    over a black fill; a band row has neither, so the cue is the red figure. */
@@ -5784,46 +5785,67 @@ header.character-generator.directory-header .header-actions > button:not(.cairn-
 
 /* Vitals: the Armor shield, HP, the slot count and the buttons. */
 .cairn-character-sheet .cairn-vitals { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+/* The Armor shield, 54 x 60 since 2026-11-20 (66 x 72 before): the row it
+   heads shares the 172px column with Hold shield and the light badge, and
+   page 1 must fit 480 x 700 (user report: "the foot obscured"). */
 .cairn-character-sheet .cairn-shield {
-    position: relative; width: 66px; height: 72px; box-sizing: border-box;
+    position: relative; width: 54px; height: 60px; box-sizing: border-box;
     border: 2px solid var(--ab-line);
     border-radius: 50% 50% 50% 50% / 12% 12% 88% 88%;
     display: flex; flex-direction: column; align-items: center; justify-content: center;
 }
 .cairn-character-sheet .cairn-shield label {
     font-family: "Alegreya", Times, "Times New Roman", Georgia, serif;
-    /* line-height 16px, not 1: Alegreya's glyphs run 15px tall at 13px, and
-       a 13px line box clips them (dev:sheet-layout, 2026-11-19). */
-    font-size: 13px; font-weight: bold; font-variant: small-caps; line-height: 16px; margin: 2px 0 0;
+    /* line-height above the size: Alegreya's glyphs run taller than their
+       size, and a line box of exactly the size clips them (dev:sheet-layout,
+       2026-11-19). */
+    font-size: 12px; font-weight: bold; font-variant: small-caps; line-height: 15px; margin: 2px 0 0;
 }
 .cairn-character-sheet .cairn-shield .armor-input {
-    width: 44px; height: 30px !important; padding: 0;
+    width: 40px; height: 26px !important; padding: 0;
     background: none !important; border: none !important;
-    text-align: center; font-size: 24px; font-weight: bold;
+    text-align: center; font-size: 20px; font-weight: bold;
 }
 .cairn-character-sheet .cairn-shield .armor-input:focus { box-shadow: none; }
-.cairn-character-sheet .cairn-shield .armor-reset { position: absolute; right: -20px; top: 4px; margin: 0; }
-/* "Hold shield" (2026-11-20) left of the Armor box. Three columns, the box in
-   the middle one, so it stays centred over HP with or without the switch. */
+/* Inside the shield's lower edge, clear of the light badge beside it. */
+.cairn-character-sheet .cairn-shield .armor-reset { position: absolute; right: -6px; bottom: -4px; margin: 0; font-size: 11px; }
+/* The Armor row (2026-11-20): Hold shield | the Armor box | the light badge.
+   Three columns, the box in the middle one, so it stays centred over HP. */
 .cairn-character-sheet .cairn-armor-row {
-    align-self: stretch; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; column-gap: 10px;
+    align-self: stretch; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; column-gap: 4px;
 }
 .cairn-character-sheet .cairn-armor-row > .cairn-shield { grid-column: 2; }
-/* "Hold light" directly under "Hold shield" (2026-11-20), one column. */
-.cairn-character-sheet .hold-switches {
-    grid-column: 1; justify-self: end;
-    display: flex; flex-direction: column; align-items: center; gap: 4px;
-}
+.cairn-character-sheet .cairn-armor-row > .shield-hold { grid-column: 1; justify-self: end; }
+.cairn-character-sheet .cairn-armor-row > .light-hold { grid-column: 3; justify-self: start; }
 .cairn-character-sheet :is(.shield-hold, .light-hold) {
     display: flex; flex-direction: column; align-items: center; gap: 2px;
-    width: auto; height: auto; min-height: 0; padding: 2px 4px; margin: 0;
+    width: auto; height: auto; min-height: 0; padding: 2px; margin: 0;
     background: none; border: none; box-shadow: none; line-height: 1;
     font-family: "Alegreya", Times, "Times New Roman", Georgia, serif;
     font-size: 12px; font-weight: bold; font-variant: small-caps; color: var(--ab-ink);
-    text-align: center; white-space: normal; max-width: 64px; cursor: pointer;
+    text-align: center; white-space: normal; max-width: 58px; cursor: pointer;
 }
-.cairn-character-sheet :is(.shield-hold, .light-hold) i { margin: 0; font-size: 20px; color: var(--ab-muted); }
-.cairn-character-sheet :is(.shield-hold, .light-hold)[aria-checked="true"] i { color: var(--ab-accent); }
+.cairn-character-sheet .shield-hold i { margin: 0; font-size: 20px; color: var(--ab-muted); }
+.cairn-character-sheet .shield-hold[aria-checked="true"] i { color: var(--ab-accent); }
+/* The light badge's icon: game-icons art (a white glyph on a black square),
+   used as a LUMINANCE mask so it takes a colour: muted while nothing is held,
+   the accent with a glow while a light is (2026-11-20, user ask: "toggling
+   the Hold light make that icon glow"). */
+.cairn-character-sheet .light-hold .light-icon {
+    display: block; width: 26px; height: 26px;
+    background-color: var(--ab-muted);
+    -webkit-mask: var(--light-icon) center / contain no-repeat;
+    mask: var(--light-icon) center / contain no-repeat;
+    mask-mode: luminance;
+}
+.cairn-character-sheet .light-hold[aria-checked="true"] .light-icon {
+    background-color: var(--ab-accent);
+    filter: drop-shadow(0 0 3px var(--ab-accent)) drop-shadow(0 0 6px var(--ab-accent));
+}
+.cairn-character-sheet .light-hold .light-radius {
+    font-family: "Signika", ui-sans-serif, sans-serif; font-size: 10px; font-weight: normal;
+    font-variant: normal; line-height: 12px; color: var(--ab-muted);
+}
 /* Greyed, and still hoverable for its tooltip (a disabled button gets
    pointerenter in Chromium: core's tooltip still finds it). */
 .cairn-character-sheet :is(.shield-hold, .light-hold):disabled { cursor: default; opacity: 0.45; }

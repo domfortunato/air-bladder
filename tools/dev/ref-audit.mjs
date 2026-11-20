@@ -402,6 +402,36 @@ if (artMissing.length) {
   console.log("  ok    every art path a pack document names exists on disk");
 }
 
+// The light radii, TWO COPIES held identical (2026-11-20): module/light-sources.js
+// ships with the system (the sheet's light badge and picker); docs/torch-light-sources.json
+// is the file a Warden uploads to the Torch module. Every source's bright / dim /
+// darkness, and every alias, must agree both ways.
+{
+  const { LIGHT_SOURCES, LIGHT_ALIASES, LIGHT_ICON_NEUTRAL } = await import(
+    new URL("../../module/light-sources.js", import.meta.url).href);
+  const torch = JSON.parse(fs.readFileSync(path.join(root, "docs", "torch-light-sources.json"), "utf8"))["air-bladder"];
+  const want = Object.fromEntries(Object.entries(torch.sources).map(([k, v]) => {
+    const l = v.light?.[0] ?? {};
+    return [k, { bright: l.bright ?? 0, dim: l.dim ?? 0, darkness: !!l.negative }];
+  }));
+  const have = Object.fromEntries(Object.entries(LIGHT_SOURCES).map(([k, v]) => [k, { bright: v.bright ?? 0, dim: v.dim ?? 0, darkness: !!v.darkness }]));
+  const drift = [];
+  for (const k of new Set([...Object.keys(want), ...Object.keys(have)])) {
+    if (JSON.stringify(want[k]) !== JSON.stringify(have[k])) drift.push(`${k}: docs ${JSON.stringify(want[k] ?? null)} vs module ${JSON.stringify(have[k] ?? null)}`);
+  }
+  for (const k of new Set([...Object.keys(torch.aliases ?? {}), ...Object.keys(LIGHT_ALIASES)])) {
+    if ((torch.aliases ?? {})[k] !== LIGHT_ALIASES[k]) drift.push(`alias ${k}: docs ${torch.aliases?.[k] ?? null} vs module ${LIGHT_ALIASES[k] ?? null}`);
+  }
+  if (!fs.existsSync(path.join(root, LIGHT_ICON_NEUTRAL.replace(/^systems\/air-bladder\//, "")))) drift.push(`icon missing: ${LIGHT_ICON_NEUTRAL}`);
+  if (drift.length) {
+    failed = true;
+    console.error(`\nLIGHT RADII DRIFT — module/light-sources.js and docs/torch-light-sources.json disagree:`);
+    for (const d of drift) console.error(`  ${d}`);
+  } else {
+    console.log(`  ok    the light radii agree: module/light-sources.js = docs/torch-light-sources.json (${Object.keys(have).length} sources, ${Object.keys(LIGHT_ALIASES).length} aliases)`);
+  }
+}
+
 if (verbose && !failed) {
   console.log(`\nindexed ${byId.size} documents`);
 }

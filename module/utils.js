@@ -1,5 +1,6 @@
 import { SETTINGS_NS } from "./settings.js";
 import { tokenDisplayName } from "./i18n-content.js";
+import { lightRadiusText } from "./light-sources.js";
 /**
  * @param {String} formula
  * @param {Object} [data]
@@ -936,6 +937,64 @@ export const askAttack = async ({ actor, weapons, panicked = false, windowId = u
   if (!answer || typeof answer !== "object") return null;
   lastAttackWeapon.set(actor.id, answer.weaponId);
   return answer;
+};
+
+/**
+ * Which light to hold? (2026-11-20, user pick "Ask which" over holding the
+ * first.) Hold light asks this only when the character carries more than one
+ * light and holds none. Each light is listed in inventory order with its
+ * radius (lightRadiusText), the first chosen; "Hold light" holds the choice,
+ * Cancel (or closing) holds nothing. Names go in as textContent: DialogV2
+ * takes content's innerHTML verbatim (see askAttack).
+ * @param {Item[]} lights   in inventory order, at least two
+ * @param {Object} [o]
+ * @param {String} [o.windowId]
+ * @returns {Promise<String|null>}  the chosen item's id, or null
+ */
+export const askWhichLight = async (lights, { windowId = undefined } = {}) => {
+  const L = (k) => game.i18n.localize(k);
+  const content = document.createElement("div");
+  const inner = document.createElement("div");
+  inner.className = "cairn-light-picker-body";
+  const prompt = document.createElement("p");
+  prompt.className = "cairn-light-prompt";
+  prompt.textContent = L("CAIRN.HoldLightPick.Prompt");
+  inner.append(prompt);
+  lights.forEach((light, i) => {
+    const row = document.createElement("label");
+    row.className = "cairn-light-choice";
+    const radio = document.createElement("input");
+    radio.setAttribute("type", "radio");
+    radio.setAttribute("name", "light");
+    radio.setAttribute("value", light.id);
+    if (i === 0) radio.setAttribute("checked", "");
+    const name = document.createElement("strong");
+    name.textContent = light.name;
+    row.append(radio, name);
+    const radius = lightRadiusText(light.name);
+    if (radius) {
+      const r = document.createElement("span");
+      r.className = "cairn-light-radius";
+      r.textContent = radius;
+      row.append(r);
+    }
+    inner.append(row);
+  });
+  content.append(inner);
+  const answer = await foundry.applications.api.DialogV2.wait({
+    classes: ["cairn-light-picker"],
+    window: { title: L("CAIRN.HoldLight") },
+    renderOptions: { window: { windowId } },   // see _confirmAction in actor-sheet.js
+    position: { width: 320 },
+    content,
+    buttons: [
+      { action: "hold", label: L("CAIRN.HoldLight"), icon: "fa-solid fa-fire", default: true,
+        callback: (_event, button) => button.form.elements.light?.value ?? null },
+      { action: "cancel", label: "Cancel", icon: "fa-solid fa-xmark", callback: () => null },
+    ],
+    rejectClose: false,
+  });
+  return typeof answer === "string" && answer && answer !== "cancel" ? answer : null;
 };
 
 /**

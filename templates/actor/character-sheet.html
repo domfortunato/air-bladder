@@ -182,17 +182,16 @@
                               window (#onEditTraits); with no traits and no age the pen
                               stands alone, so a blank sheet still has a way in. Outside
                               the mode a character's traits are read-only here, the bond
-                              and question pickers' gate. Since 2026-11-20 (user ask) a
-                              "Traits" label stands over it, in the one label face, and
-                              a thin rule (Background & Notes' between-items rule) under
-                              it, before the Current / Max / Saves header. --}}
+                              and question pickers' gate. Since 2026-11-20 (user asks) it
+                              opens with a run-in "Traits" label in the one label face (a
+                              line of its own pushed the footer out of the 480 x 700
+                              window), and a thin rule (Background & Notes') under it,
+                              before the Current / Max / Saves header. --}}
                         {{#if traitRows}}{{#if showTraits}}
                         {{#if traitSentence}}
-                        <div class="traits-label">{{ localize 'CAIRN.Traits' }}</div>
-                        <p class="trait-sentence">{{traitSentence}}{{#if canEditTraits}} <a class="trait-edit" data-action="editTraits" data-tooltip="CAIRN.EditTraits" aria-label="{{ localize 'CAIRN.EditTraits' }}"><i class="fa-solid fa-pen" inert></i></a>{{/if}}</p>
+                        <p class="trait-sentence"><span class="traits-label">{{ localize 'CAIRN.Traits' }}</span> {{traitSentence}}{{#if canEditTraits}} <a class="trait-edit" data-action="editTraits" data-tooltip="CAIRN.EditTraits" aria-label="{{ localize 'CAIRN.EditTraits' }}"><i class="fa-solid fa-pen" inert></i></a>{{/if}}</p>
                         {{else if canEditTraits}}
-                        <div class="traits-label">{{ localize 'CAIRN.Traits' }}</div>
-                        <p class="trait-sentence trait-sentence-empty"><a class="trait-edit" data-action="editTraits" data-tooltip="CAIRN.EditTraits" aria-label="{{ localize 'CAIRN.EditTraits' }}"><i class="fa-solid fa-pen" inert></i></a></p>
+                        <p class="trait-sentence trait-sentence-empty"><span class="traits-label">{{ localize 'CAIRN.Traits' }}</span> <a class="trait-edit" data-action="editTraits" data-tooltip="CAIRN.EditTraits" aria-label="{{ localize 'CAIRN.EditTraits' }}"><i class="fa-solid fa-pen" inert></i></a></p>
                         {{/if}}
                         {{/if}}{{/if}}
                         {{!-- ONE header row over STR naming the columns (round 5, user
@@ -289,23 +288,16 @@
                               mode toggle's icons, as a switch. A three-column row keeps the
                               Armor box centred whether the switch is there or not. --}}
                         <div class="cairn-armor-row">
-                        {{!-- "Hold light" directly under "Hold shield" (2026-11-20, user
-                              ask), one mechanism (toggleHold). Both ALWAYS drawn: with
-                              none of that kind carried a switch is disabled, off, and
-                              says why; a live one carries no tooltip. --}}
+                        {{!-- Both controls are ALWAYS drawn, one mechanism (toggleHold):
+                              with none of that kind carried a control is disabled, off,
+                              and says why. The shield's switch carries no tooltip while
+                              live. --}}
                         {{#if shieldSwitch}}
-                        <div class="hold-switches">
                         <button type="button" class="shield-hold" data-action="toggleHold" data-hold="shield" role="switch" aria-checked="{{#if shieldSwitch.held}}true{{else}}false{{/if}}"{{#if shieldSwitch.none}} data-tooltip="{{ localize 'CAIRN.HoldShieldNone' }}"{{/if}}{{#if (or shieldSwitch.none (not @root.editable))}} disabled{{/if}}>
                             <i class="fas {{#if shieldSwitch.held}}fa-toggle-on{{else}}fa-toggle-off{{/if}}" inert></i>
                             <span>{{ localize 'CAIRN.HoldShield' }}</span>
                         </button>
-                        <button type="button" class="light-hold" data-action="toggleHold" data-hold="light" role="switch" aria-checked="{{#if lightSwitch.held}}true{{else}}false{{/if}}"{{#if lightSwitch.none}} data-tooltip="{{ localize 'CAIRN.HoldLightNone' }}"{{/if}}{{#if (or lightSwitch.none (not @root.editable))}} disabled{{/if}}>
-                            <i class="fas {{#if lightSwitch.held}}fa-toggle-on{{else}}fa-toggle-off{{/if}}" inert></i>
-                            <span>{{ localize 'CAIRN.HoldLight' }}</span>
-                        </button>
-                        </div>
                         {{/if}}
-                        <div class="cairn-shield armor-counter {{#if system.armorOverridden}}armor-overridden{{/if}}">
                             <label for="{{@root.idp}}-armor" data-tooltip="{{ localize 'CAIRN.ArmorTip' }}">{{ localize 'CAIRN.Armor' }}</label>
                             <input type="number" min="0" max="3" step="1" class="armor-input" id="{{@root.idp}}-armor" value="{{system.armor}}"
                                 title="{{#if system.armorOverridden}}{{ localize 'CAIRN.ArmorOverrideActive' }}{{else}}{{ localize 'CAIRN.ArmorAuto' }}{{/if}}" />
@@ -313,6 +305,18 @@
                             <a class="armor-reset" data-action="armorReset" title="{{ localize 'CAIRN.ArmorReset' }}"><i class="fas fa-rotate-left"></i></a>
                             {{/if}}
                         </div>
+                        {{!-- The light BADGE right of the Armor box (2026-11-20, user picks):
+                              it IS the Hold light control. The held light's icon (game-icons,
+                              matched to the light), glowing while held, a neutral lantern
+                              otherwise; "Hold light" under it, then the light's radius. Several
+                              lights and none held: a press asks which (askWhichLight). --}}
+                        {{#if lightSwitch}}
+                        <button type="button" class="light-hold" data-action="toggleHold" data-hold="light" role="switch" aria-checked="{{#if lightSwitch.held}}true{{else}}false{{/if}}" data-tooltip="{{lightSwitch.tip}}"{{#if (or lightSwitch.none (not @root.editable))}} disabled{{/if}}>
+                            <span class="light-icon" style="--light-icon: url('{{lightSwitch.icon}}')" inert></span>
+                            <span class="light-label">{{ localize 'CAIRN.HoldLight' }}</span>
+                            {{#if lightSwitch.radius}}<span class="light-radius">{{lightSwitch.radius}}</span>{{/if}}
+                        </button>
+                        {{/if}}
                         </div>
 
                         {{!-- HP's two numbers carry the abilities' words (round 5), in a

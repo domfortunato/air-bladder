@@ -3,7 +3,8 @@ import { drawBond, bondRecordFrom, withGrantSource, bondEntitlement, bondsEnable
 import { promptMonsterTier, regenerateMonster } from "../monster-generator.js";
 import { openMarketplace, TRANSPORTS_CATEGORY } from "../marketplace.js";
 import { evaluateFormula, cairnSavePasses, cleanDescription, concealSecrets, holdsProse, bindEditorClickAwaySave, formatCount, sourceLabel, askDamageQuality, damageFormulaFor, damageQualityLabel, damageQualityKind, d20CardBody, d20CardFlavor, D20_CARD_ABILITIES, combatOption, combatDamageFormula, askImprovisedAttack, askAttack, IMPROVISED_FORMULA, IMPROVISED_ID, nameEditorToggles,
-  attackFormula, shieldDamage, handsFullHack, shieldWeaponHack, isTwoHanded, shieldPoolFormula } from "../utils.js";
+  attackFormula, shieldDamage, handsFullHack, shieldWeaponHack, isTwoHanded, shieldPoolFormula, askWhichLight } from "../utils.js";
+import { lightIcon, lightRadiusText, LIGHT_ICON_NEUTRAL } from "../light-sources.js";
 import { resultText, resultPlainText, compendiumInfoFromString } from "../compendium.js";
 import { SETTINGS_NS } from "../settings.js";
 import { CONTAINER_ART_CHOICES, CONTAINER_CLASSES } from "../icons.js";
@@ -2110,7 +2111,21 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // #onToggleHold is the press for both.
     const holdSwitch = (items) => ({ held: items.some((i) => i.system.equipped), none: !items.length });
     context.shieldSwitch = holdSwitch(this.#shieldsCarried());
-    context.lightSwitch = holdSwitch(this.#lightsCarried());
+    // The light BADGE is the Hold light control (2026-11-20, user picks): the
+    // held light's icon, glowing, and its radius under it; a neutral lantern
+    // while none is held. Its tooltip always says what it is holding.
+    {
+      const lights = this.#lightsCarried();
+      const held = lights.find((i) => i.system.equipped) ?? null;
+      context.lightSwitch = {
+        ...holdSwitch(lights),
+        icon: held ? lightIcon(held.name) : LIGHT_ICON_NEUTRAL,
+        radius: held ? lightRadiusText(held.name) : "",
+        tip: !lights.length ? game.i18n.localize("CAIRN.HoldLightNone")
+          : held ? game.i18n.format("CAIRN.LightHeldTip", { name: held.name })
+            : game.i18n.localize("CAIRN.LightNoneHeld"),
+      };
+    }
     // Skull offered when STR is damaged and still alive, or already marked.
     context.criticalToggle = { STR: (val("STR") < max("STR") && val("STR") > 0) || strCritical };
     context.criticalActive = { STR: strCritical };
@@ -4699,7 +4714,17 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     const carried = light ? this.#lightsCarried() : this.#shieldsCarried();
     if (!carried.length) return;
     const held = carried.filter((i) => i.system.equipped);
-    const first = carried.find((i) => i.system.isEquipable !== false);
+    let first = carried.find((i) => i.system.isEquipable !== false);
+    // Several lights and none held: ask which (2026-11-20, user pick). One
+    // light is held at once; a shield is never asked about.
+    if (light && !held.length) {
+      const offered = carried.filter((i) => i.system.isEquipable !== false);
+      if (offered.length > 1) {
+        const id = await askWhichLight(offered, { windowId: this.window?.windowId });
+        first = offered.find((i) => i.id === id);
+        if (!first) return;                 // cancelled: hold nothing
+      }
+    }
     const updates = held.length
       ? held.map((i) => ({ _id: i.id, "system.equipped": false }))
       : first ? [{ _id: first.id, "system.equipped": true }] : [];

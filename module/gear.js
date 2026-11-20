@@ -26,6 +26,7 @@ import { warmPackDocuments } from "./compendium.js";
 import { iconForItem, SPELLSCROLL_ICON, SPELLBOOK_ICON } from "./icons.js";
 import { glogEnabled, grimoiresEnabled, GLOG_PACK, GLOG_SPELL_PACKS, GLOG_NAME_ALIASES } from "./glog.js";
 import { isBulky } from "./utils.js";
+import { lightSource } from "./light-sources.js";
 
 // Packs searched to resolve a gear name, in precedence order — an earlier pack
 // wins a name collision. Spellbook packs are separate (spell grants route there).
@@ -131,7 +132,7 @@ export const LIGHT_FUEL = new Map([
  * @returns {Boolean}
  */
 export const isHoldableLight = (item) => item?.type === "item"
-  && LIGHT_SOURCE_RE.test(String(item?.name ?? ""))
+  && isLightName(item?.name)
   && !LIGHT_FUEL.has(String(item?.name ?? "").trim().toLowerCase());
 
 /**
@@ -171,7 +172,16 @@ export const RATIONS_RE = /\brations?\b/i;
 /** True for a light source or the fuel that feeds one — the block that sits
  *  directly above Rations. */
 export const isLightGear = (name) =>
-  LIGHT_SOURCE_RE.test(String(name ?? "")) || LIGHT_FUEL.has(String(name ?? "").trim().toLowerCase());
+  isLightName(name) || LIGHT_FUEL.has(String(name ?? "").trim().toLowerCase());
+
+/**
+ * Is this the name of a light? The keyword rule, OR a name in the radius
+ * table (light-sources.js), which brings in the Glowsnail and the Sun Stick
+ * (user ruling 2026-11-20). ONE test for the loadout's light band and for
+ * what a character can hold, so the two cannot disagree.
+ * @param {String} name
+ */
+export const isLightName = (name) => LIGHT_SOURCE_RE.test(String(name ?? "")) || !!lightSource(name);
 
 /**
  * The six ordering bands a granted loadout is arranged into, lowest first.
