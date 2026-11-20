@@ -547,6 +547,16 @@ export class CairnItem extends Item {
     // what the character holds, and its pages are not separately to hand.
     // A broken item cannot be equipped and its uses / charges cannot be spent
     // (2026-11-20, the user's "everything mechanical"); its pips still show.
+    // EQUIPPED IS DERIVED here too, TOTAL and from _source (prepareData does
+    // not reset `system`, so a one-sided write would go stale on an untick):
+    // _preCreate / _preUpdate keep the stored flag false, but an actor created
+    // with its items INLINE runs no item _preCreate, and a broken item stored
+    // as equipped stayed bold with its damage roll offered (found walking
+    // CT 123). Every reader — the row, the roll, calcArmor, Hold shield, the
+    // Attack list — reads this. Only types that carry `broken`.
+    if (this.system.broken !== undefined) {
+      this.system.equipped = !!this._source.system?.equipped && !this.system.broken;
+    }
     this.system.isEquipable =
       ["weapon", "armor", "spellbook"].includes(this.type) &&
       !this.system.scroll &&
