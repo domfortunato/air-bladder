@@ -534,8 +534,18 @@ try {
       // The + and − glyphs read ON that bar in BOTH schemes (seen on CT 123,
       // 2026-11-20: in light, core's button ink #111 sat on the black bar).
       // Schemes switch through core's own configureUI, nothing written (the
-      // dev:theme recipe); the contrast floor is dev:theme's 3.
+      // dev:theme recipe); the contrast floor is dev:theme's 3. The sheet is
+      // RE-RENDERED after each switch and its buttons read afresh: measured on
+      // CT 123, a button already drawn keeps the ink of the scheme it was drawn
+      // in (configureUI alone left 51,51,51 in dark), which let this check pass
+      // red-blind on the farm, whose client starts dark.
       {
+        const fresh = async () => {
+          const was = q('[data-action="hpUp"]');
+          await sheet.render();
+          await until(() => { const n = q('[data-action="hpUp"]'); return !!n && n !== was; }, 5000);
+          await sleep(200);
+        };
         const rgb = (s) => (s.match(/[\d.]+/g) ?? []).slice(0, 3).map(Number);
         const lum = ([r, g, b]) => {
           const c = [r, g, b].map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; });
@@ -548,16 +558,17 @@ try {
             const cfg = foundry.utils.deepClone(game.settings.get("core", "uiConfig"));
             cfg.colorScheme = { applications: scheme, interface: scheme };
             game.configureUI(cfg);
-            await sleep(200);
-            const barBg = getComputedStyle(half).backgroundColor;
-            R6.ink[scheme] = [up, down].map((b) => {
+            await fresh();
+            const barHalf = q('[data-action="hpUp"]').parentElement;
+            const barBg = getComputedStyle(barHalf).backgroundColor;
+            R6.ink[scheme] = [q('[data-action="hpUp"]'), q('[data-action="hpDown"]')].map((b) => {
               const ink = getComputedStyle(b.querySelector("i")).color;
               return { ink, barBg, ratio: Math.round(ratio(ink, barBg) * 100) / 100 };
             });
           }
         } finally {
           game.configureUI(game.settings.get("core", "uiConfig"));
-          await sleep(200);
+          await fresh();
         }
       }
       R6.at4 = state();
