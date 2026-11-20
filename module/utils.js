@@ -774,6 +774,10 @@ export const askAttack = async ({ actor, weapons, panicked = false, windowId = u
       { action: "enhanced", label: game.i18n.format("CAIRN.DamageQuality.Enhanced", { formula: ENHANCED_FORMULA }),
         icon: dieIcon(ENHANCED_FORMULA), callback: read("enhanced") },
       { action: "roll", label: L("CAIRN.Improvised.Roll"), icon: "fa-solid fa-hand-fist", callback: read(null) },
+      // Cancel (2026-11-20, user ask): LAST, so implicit submission (Enter
+      // presses the first submit on offer) never reaches it. It resolves null,
+      // which the guard below already reads as no attack; core's own key.
+      { action: "cancel", label: "Cancel", icon: "fa-solid fa-xmark", callback: () => null },
     ],
     rejectClose: false,
   });

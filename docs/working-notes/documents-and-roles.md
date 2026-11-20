@@ -61,3 +61,11 @@ Moved word for word from CLAUDE.md (2026-11-01); CLAUDE.md points here.
   player's change sets `ownershipSyncPending` and the active GM answers.
   **Connections UI is parked** (`connections-ui-enabled`, internal, default false);
   probes enable it by shadowing the settings read in-page, never a world write.
+- **Broken items** (2026-11-20, user ask: "still takes up a slot but doesn't provide any
+  benefit"). `system.broken` on every item type (`universal()`). The user's ruling is
+  everything mechanical: `CairnItem` unequips a broken item and strips an equip while it stays
+  broken (`_preCreate` / `_preUpdate`), so no Armor, no damage roll, no Hold shield and no
+  Attack-window entry; `isEquipable` and `hasPlusMinus` go false, so the hand and the uses /
+  charges controls go (the pips stay); Cast and Transmute go, and their handlers refuse too.
+  The slot stays: `itemSlotCost` never reads it. Marked on the item sheet only, in the name
+  row; the inventory row wears a Broken tag. Gate `dev:broken`.

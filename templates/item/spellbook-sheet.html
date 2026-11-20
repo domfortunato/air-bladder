@@ -9,6 +9,14 @@
     <div class="item-sheet-section-name">
         <input class="name-input" type="text" name="name" value="{{nameDisplay}}"
             placeholder="{{ localize 'CAIRN.Name' }}" />
+        {{!-- Broken (2026-11-20, user ask): still a slot, no benefit. In the NAME
+              row, the same place on every sheet: a counter would push the weapon,
+              plain-item, spellbook and object grids past their declared rows. --}}
+        {{#unless system.isFatigue}}
+        <label class="item-broken" for="{{@root.idp}}-system.broken">{{ localize 'CAIRN.Broken' }}
+            <input type="checkbox" {{checked system.broken}} name="system.broken" id="{{@root.idp}}-system.broken"
+                   value="{{system.broken}}" data-dtype="Boolean" /></label>
+        {{/unless}}
     </div>
     <!-- Equipped -->
     <div class="resource-counter long-counter">

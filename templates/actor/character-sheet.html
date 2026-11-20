@@ -202,9 +202,18 @@
                         <div class="cairn-abilities">
                             {{#each system.abilities as |ability key|}}
                             <div class="cairn-ability {{key}}-ability {{#if (lookup ../abilityPeril key)}}peril{{/if}} {{#if (lookup ../abilityLow key)}}low{{/if}}">
+                                {{!-- − and + under the current score (2026-11-20, user ask, the
+                                      layout the user picked): one point each, between 0 and
+                                      max, as typing the number would. Off at the bounds. --}}
+                                <div class="cairn-ability-current">
                                 <div class="cairn-ability-circle">
                                     <input type="number" min="0" max="18" step="1" class="stat-input" name="system.abilities.{{key}}.value" value="{{ability.value}}"
                                         data-dtype="Number" data-tooltip="{{ lookup ../currentTips key }}" aria-label="{{ lookup ../currentTips key }}" />
+                                </div>
+                                <div class="ability-steps">
+                                    <button type="button" class="ability-step" data-action="abilityDown" data-key="{{key}}" data-tooltip="{{ localize 'CAIRN.AbilityDown' ability=(localize key) }}" aria-label="{{ localize 'CAIRN.AbilityDown' ability=(localize key) }}"{{#if (lookup ../abilityAtFloor key)}} disabled{{else}}{{#unless @root.editable}} disabled{{/unless}}{{/if}}><i class="fas fa-minus" inert></i></button>
+                                    <button type="button" class="ability-step" data-action="abilityUp" data-key="{{key}}" data-tooltip="{{ localize 'CAIRN.AbilityUp' ability=(localize key) }}" aria-label="{{ localize 'CAIRN.AbilityUp' ability=(localize key) }}"{{#if (lookup ../abilityAtMax key)}} disabled{{else}}{{#unless @root.editable}} disabled{{/unless}}{{/if}}><i class="fas fa-plus" inert></i></button>
+                                </div>
                                 </div>
                                 <div class="cairn-ability-max">
                                     <span>/</span>

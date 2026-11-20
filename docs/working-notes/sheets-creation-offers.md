@@ -114,6 +114,14 @@ Moved word for word from CLAUDE.md (2026-11-01); CLAUDE.md points here.
   (`migrateShieldFlags`, marker `shield-flag-stamped`). The armor sheet's
   Shield box is its eleventh counter, so armor shares the plain-item grid's
   six counter rows. Gate `dev:shield`.
+- The 2026-11-20 batch (user asks): the title bar's toggle reads "CharGen: On/Off"
+  (its tooltips open "Character Creation Mode:", and the guides keep that name);
+  the Inventory hint reads "Click an item to read its description." with a hand
+  pointing down; − and + under each current ability circle
+  (`.cairn-ability-current`, `#onAbilityStep`, one point from the stored value, 0
+  to max, off at the bounds); the name at 28px in the same 46px row; the Attack
+  window ends in Cancel. Broken items: `documents-and-roles.md`. Gates
+  `dev:sheet-rail` leg 18, `dev:attack` leg 9, `dev:broken`.
 
 ## Creation routes
 

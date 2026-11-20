@@ -1651,6 +1651,9 @@ export class CairnActor extends Actor {
     const armor = this.items
       .filter((item) => ["armor", "item"].includes(item.type))
       .filter((item) => item.system.equipped ?? false)
+      // A broken item gives no benefit (2026-11-20); the document's invariant
+      // already unequips it, and the count says so again.
+      .filter((item) => !item.system.broken)
       .map((item) => parseInt(item.system.armor ?? 0, 10))
       .reduce((a, b) => a + b, 0);
 

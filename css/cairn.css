@@ -499,7 +499,19 @@
     grid-column-end: 4;
     grid-row-start: 1;
     grid-row-end: 2;
+    /* The name grows; the Broken box (2026-11-20) sits at its end. */
+    display: flex;
+    align-items: stretch;
+    gap: 8px;
+    min-width: 0;
 }
+.item-sheet-section-name .name-input { flex: 1 1 auto; min-width: 0; }
+.item-sheet-section-name .item-broken {
+    flex: 0 0 auto; display: flex; align-items: center; gap: 4px; margin: 0;
+    font-family: "Alegreya", Times, "Times New Roman", Georgia, serif;
+    font-weight: bold; font-variant: small-caps; font-size: 15px; white-space: nowrap;
+}
+.item-sheet-section-name .item-broken input { margin: 0; }
 
 .item-sheet-section-tabs {
     grid-column-start: 1;
@@ -1125,6 +1137,10 @@
     height: 26px;
     gap: 4px;
 }
+
+/* Broken (2026-11-20): the tag in the peril colour, the title dimmed. */
+.cairn-item-tag.tag-broken { color: var(--ab-peril); border-color: var(--ab-peril); font-weight: bold; }
+.cairn-items-list-row.is-broken .cairn-item-title { opacity: 0.6; }
 
 .cairn-item-tag {
     align-self: center;
@@ -5449,6 +5465,14 @@ header.character-generator.directory-header .header-actions > button:not(.cairn-
    auto-placement, so a new row 2 pushed the background line onto the
    description (seen on CT 123, 2026-11-19). */
 .cairn-character-sheet .cairn-identity > .name-line { grid-row: 1; }
+/* The character's name a size up (2026-11-20, user ask: "room for the
+   character name in a little larger font"): 28px in the same 46px row, the
+   vertical padding halved to keep it. !important against the shared
+   .name-input's own, same layer. A long name scrolls in its input as before. */
+.cairn-character-sheet .name-input {
+    font-size: 28px !important;
+    padding: 4px 8px !important;
+}
 .cairn-character-sheet .cairn-identity > .identity-bio-line { grid-row: 2; grid-column: 1 / 3; }
 .cairn-character-sheet .cairn-identity > .background-line { grid-row: 3; grid-column: 1 / 3; }
 .cairn-character-sheet .cairn-identity > .background-description,
@@ -5587,6 +5611,20 @@ header.character-generator.directory-header .header-actions > button:not(.cairn-
     text-align: center !important; font-size: 20px; font-weight: bold;
 }
 .cairn-character-sheet .cairn-ability-circle input:focus { box-shadow: none; }
+/* − and + under each current score (2026-11-20, user ask): a column the
+   circle's 48px wide, so round 5's "Current" still centres over it; the
+   buttons wear HP's step reset at 16px. */
+.cairn-character-sheet .cairn-ability-current {
+    flex: 0 0 48px; display: flex; flex-direction: column; align-items: center; gap: 2px;
+}
+.cairn-character-sheet .ability-steps { display: flex; gap: 4px; }
+.cairn-character-sheet .ability-step {
+    --button-size: 16px; flex: 0 0 auto; width: 18px; height: 16px; min-height: 16px;
+    padding: 0; margin: 0; line-height: 1;
+    display: flex; align-items: center; justify-content: center; font-size: 9px;
+}
+.cairn-character-sheet .ability-step i { margin: 0; }
+.cairn-character-sheet .ability-step:disabled { opacity: 0.35; }
 /* The max, small beside the circle, in the counters' "/ max" ink. */
 .cairn-character-sheet .cairn-ability-max {
     flex: 0 0 auto; display: flex; align-items: center; gap: 1px;

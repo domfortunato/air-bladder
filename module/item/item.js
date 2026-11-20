@@ -367,6 +367,11 @@ export class CairnItem extends Item {
       if (update) this.updateSource(update);
     }
 
+    // A broken item arrives unequipped (the invariant _preUpdate holds on edit).
+    if (this.system?.broken && this.system.equipped) {
+      this.updateSource({ system: { equipped: false } });
+    }
+
     // Class art for anything created WITHOUT its own image. Foundry's Item schema
     // initialises `img` to `icons/svg/item-bag.svg`, so every item made through the
     // Create Item dialog kept the generic bag: a hand-made weapon, armor, spellbook
@@ -423,6 +428,18 @@ export class CairnItem extends Item {
         && changed.system && "grimoireKey" in changed.system
         && isClearing(changed.system.grimoireKey)) {
       delete changed.system.grimoireKey;
+    }
+
+    // BROKEN MEANS UNEQUIPPED (2026-11-20, user ask: "still takes up a slot
+    // but doesn't provide any benefit"). Held on the document, the scroll
+    // pin's way, so every path agrees — the sheet's box, the row's hand, Hold
+    // shield, a drop, a macro: marking an item broken unequips it, and an
+    // equip while it stays broken is stripped (the rest of the edit lands).
+    {
+      const willBeBroken = changed.system?.broken !== undefined ? !!changed.system.broken : !!this.system?.broken;
+      if (willBeBroken && (this.system?.equipped || changed.system?.equipped)) {
+        foundry.utils.setProperty(changed, "system.equipped", false);
+      }
     }
 
     if (this.type !== "spellbook") return;
@@ -528,12 +545,15 @@ export class CairnItem extends Item {
     // A spellscroll is read once and consumed, never held ready, so it is the one
     // spellbook that cannot be equipped. A bound page is the other: the BOOK is
     // what the character holds, and its pages are not separately to hand.
+    // A broken item cannot be equipped and its uses / charges cannot be spent
+    // (2026-11-20, the user's "everything mechanical"); its pips still show.
     this.system.isEquipable =
       ["weapon", "armor", "spellbook"].includes(this.type) &&
       !this.system.scroll &&
       !this.system.bound &&
+      !this.system.broken &&
       !this.actor?.isThing;
-    this.system.hasPlusMinus = (this.system.uses?.max ?? 0) > 0;
+    this.system.hasPlusMinus = (this.system.uses?.max ?? 0) > 0 && !this.system.broken;
     if (this.system.uses) {
       if (this.system.uses.value > this.system.uses.max)
         this.system.uses.value = this.system.uses.max;

@@ -622,6 +622,14 @@ const universal = () => ({
   bulky: bool(),
   cost: money(0),
   quantity: int(1),
+  // BROKEN (2026-11-20, user ask: "When an item is Broken it still takes up a
+  // slot but doesn't provide any benefit"). The user's ruling: EVERYTHING
+  // mechanical goes — it cannot be equipped (so no Armor, no damage roll, no
+  // Hold shield), its uses / charges cannot be spent — and its slot stays
+  // (itemSlotCost never reads this). Marked on the item sheet only. The
+  // unequip is CairnItem's invariant (_preCreate / _preUpdate); the gates are
+  // isEquipable and hasPlusMinus in prepareDerivedData.
+  broken: bool(),
 });
 
 const withDamage = () => ({

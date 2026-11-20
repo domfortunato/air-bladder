@@ -4,7 +4,7 @@
       (user, same day): it shares its row with Fatigue's controls, the hint on the
       left; a sheet without Fatigue shows it alone. --}}
 <div class="cairn-items-list-header cairn-items-top">
-  <div class="cairn-expand-hint"><i class="fa-solid fa-hand-pointer" inert></i> {{ localize 'CAIRN.ExpandHint' }}</div>
+  <div class="cairn-expand-hint"><i class="fa-solid fa-hand-point-down" inert></i> {{ localize 'CAIRN.ExpandHint' }}</div>
   {{#if withFatigue}}
   <div class="end">
     <a class="item-control remove-fatigue" data-action="removeFatigue" title="{{ localize 'CAIRN.RemoveFatigue' }}"><i class="fas fa-minus"></i></a>
@@ -53,7 +53,7 @@
 </div>
 {{/if}}
 {{#each items as |item id|}}
-<div class="cairn-items-list-row {{#if item.system.isFatigue}}fatigue-row{{/if}}{{#if item.system.bound}} grimoire-page{{/if}}" data-item-id="{{item._id}}">
+<div class="cairn-items-list-row {{#if item.system.isFatigue}}fatigue-row{{/if}}{{#if item.system.bound}} grimoire-page{{/if}}{{#if item.system.broken}} is-broken{{/if}}" data-item-id="{{item._id}}">
   <div class="cairn-items-list-row-header">
     <div class="cairn-item-name-and-tags">
       {{#if item.system.useItemIcons}}
@@ -72,6 +72,11 @@
       {{#if item.system.grantLabel}}{{#unless item.system.bound}}
       <div class="cairn-item-tag cairn-grant-tag">{{item.system.grantLabel}}</div>
       {{/unless}}{{/if}}
+      {{!-- BROKEN (2026-11-20, user ask): still a slot, no benefit. First of
+            the item's own tags, in the peril colour, and the title dimmed. --}}
+      {{#if item.system.broken}}
+      <div class="cairn-item-tag tag-broken">{{ localize 'CAIRN.Broken' }}</div>
+      {{/if}}
       {{#if item.system.blast}}
       <div class="cairn-item-tag">{{ localize 'CAIRN.Blast' }}</div>
       {{/if}}

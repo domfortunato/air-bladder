@@ -434,6 +434,8 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       hpUp: owned(CairnActorSheet.#onHpStep),
       hpDown: owned(CairnActorSheet.#onHpStep),
       toggleShield: owned(CairnActorSheet.#onToggleShield),
+      abilityUp: owned(CairnActorSheet.#onAbilityStep),
+      abilityDown: owned(CairnActorSheet.#onAbilityStep),
       rollDamage: CairnActorSheet.#onRollDamage,
       // Connections
       connectionAdd: owned(CairnActorSheet.#onConnectionAdd),
@@ -1273,7 +1275,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       const glog = game.settings.get(SETTINGS_NS, "enable-glog-magic");
       if (glog) {
         context.items = context.items.map((i) =>
-          i.type === "spellbook" && i.system.scroll && !i.system.bound
+          i.type === "spellbook" && i.system.scroll && !i.system.bound && !i.system.broken
             && (i.system.uses?.value ?? 0) > 0
             ? { ...i, system: { ...i.system, canCastScroll: true } } : i);
       }
@@ -1286,11 +1288,12 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
         const pageCount = pagesOfGrimoire(this.actor, grimoire).length;
         const hasRoom = pageCount < (grimoire.system.grimoirePages ?? 0);
         context.items = context.items.map((i) => {
+          // A broken book or Grimoire gives no benefit (2026-11-20).
           if (i.type === "spellbook" && !i.system.bound) {
-            return { ...i, system: { ...i.system, canTransmute: hasRoom } };
+            return { ...i, system: { ...i.system, canTransmute: hasRoom && !i.system.broken } };
           }
           if (i._id === grimoire.id) {
-            return { ...i, system: { ...i.system, canCast: pageCount > 0 } };
+            return { ...i, system: { ...i.system, canCast: pageCount > 0 && !i.system.broken } };
           }
           return i;
         });
@@ -1998,6 +2001,8 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     if (this.actor.isThing) {
       context.abilityPeril = {};
       context.abilityLow = {};
+      context.abilityAtMax = {};
+      context.abilityAtFloor = {};
       context.hpLow = false;
       context.hpPeril = false;
       context.hpPercent = 0;
@@ -2029,6 +2034,15 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // takes precedence). HP uses it too.
     context.abilityLow = {};
     for (const k of ["STR", "DEX", "WIL"]) context.abilityLow[k] = val(k) < max(k) && !context.abilityPeril[k];
+    // The current scores' − and + (2026-11-20): off at their bounds, read
+    // from the STORED value #onAbilityStep writes.
+    context.abilityAtMax = {};
+    context.abilityAtFloor = {};
+    for (const k of ["STR", "DEX", "WIL"]) {
+      const sv = Number(this.actor._source.system?.abilities?.[k]?.value) || 0;
+      context.abilityAtMax[k] = !(sv < max(k));
+      context.abilityAtFloor[k] = !(sv > 0);
+    }
     context.hpLow = Number(this.actor.system.hp?.value) < Number(this.actor.system.hp?.max);
     // The character's HP fill (round 5, Base Knavery's bar): its share of the
     // box, clamped 0-100 (a max of 0 fills nothing), and the red frame at 0.
@@ -4422,6 +4436,8 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    */
   static async #onGrimoireCast(event) {
     event.preventDefault();
+    // A broken Grimoire casts nothing (2026-11-20), whatever a stale row offered.
+    if (grimoiresOn(this.actor)[0]?.system?.broken) return;
     await castFromGrimoire(this.actor, { windowId: this.window?.windowId });
   }
 
@@ -4435,7 +4451,9 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     event.preventDefault();
     const row = CairnActorSheet.#row(target);
     const item = this.actor.getOwnedItem(row?.dataset.itemId);
-    if (item) await castScroll(this.actor, item, { windowId: this.window?.windowId });
+    // A broken scroll gives no benefit (2026-11-20): the row offers no Cast,
+    // and a stale sheet's click casts nothing.
+    if (item && !item.system.broken) await castScroll(this.actor, item, { windowId: this.window?.windowId });
   }
 
   /** Not exactly quantity, this is about uses. @this {CairnActorSheet} */
@@ -4443,7 +4461,8 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     event.preventDefault();
     const row = CairnActorSheet.#row(target);
     const item = this.actor.getOwnedItem(row?.dataset.itemId);
-    if (!item) return;
+    // Broken: its uses / charges cannot be spent or restored (2026-11-20).
+    if (!item || item.system.broken) return;
     await item.update({
       "system.uses.value": Math.min(item.system.uses.value + 1, item.system.uses.max),
     });
@@ -4454,7 +4473,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     event.preventDefault();
     const row = CairnActorSheet.#row(target);
     const item = this.actor.getOwnedItem(row?.dataset.itemId);
-    if (!item) return;
+    if (!item || item.system.broken) return;
     // ONE write whether or not the tick rolls a unit over (review #13 #20),
     // and ONE copy of the arithmetic, `CairnItem#spendUse`, which returns the
     // diff; here it is simply written.
@@ -4557,6 +4576,23 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
   }
 
   /**
+   * A current ability score's − and + (2026-11-20, user ask, under the
+   * circle): one point from the STORED value, between 0 and max. No options,
+   * so a press is a typed number — the same status card and change log, and
+   * STR 0 reaches death by the paths a typed 0 does.
+   * @this {CairnActorSheet}
+   */
+  static async #onAbilityStep(event, target) {
+    event.preventDefault();
+    const key = target.dataset.key;
+    if (!["STR", "DEX", "WIL"].includes(key)) return;
+    const value = Number(this.actor._source.system?.abilities?.[key]?.value) || 0;
+    const max = Number(this.actor.system.abilities?.[key]?.max) || 0;
+    const next = Math.max(0, Math.min(max, value + (target.dataset.action === "abilityUp" ? 1 : -1)));
+    if (next !== value) await this.actor.update({ [`system.abilities.${key}.value`]: next });
+  }
+
+  /**
    * The armor items ticked Shield that a CHARACTER carries, in inventory order.
    * Empty for every other actor type: the switch is the character sheet's.
    * @returns {Item[]}
@@ -4564,7 +4600,8 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
   #shieldsCarried() {
     if (this.actor.type !== "character") return [];
     return this.actor.items
-      .filter((i) => i.type === "armor" && i.system?.shield === true)
+      // A broken shield gives no benefit, so no switch (2026-11-20).
+      .filter((i) => i.type === "armor" && i.system?.shield === true && !i.system?.broken)
       .sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0));
   }
 
@@ -5126,7 +5163,9 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     const panicked = game.settings.get(SETTINGS_NS, "use-panic")
       && this.actor.system.panicked === true;
     const weapons = this.actor.items
-      .filter((i) => i.system?.equipped && i.system?.damageFormula)
+      // A broken item gives no benefit (2026-11-20); the document's invariant
+      // already unequips one, and this says it again where the list is made.
+      .filter((i) => i.system?.equipped && i.system?.damageFormula && !i.system?.broken)
       .sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0));
     const answer = await askAttack({ actor: this.actor, weapons, panicked, windowId: this.window?.windowId });
     if (!answer) return;                    // dismissed: roll nothing
