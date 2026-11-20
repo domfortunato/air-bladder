@@ -789,7 +789,21 @@ export const askAttack = async ({ actor, weapons, panicked = false, windowId = u
   const chosen = offered(preselect) ? preselect : offered(last) ? last : all[0].id;
   const set = el("fieldset", "cairn-attack-weapons");
   set.append(el("legend", "", L("CAIRN.AttackDialog.Weapon")));
+  // "Add the shield (d4)" (2026-11-20, "Shields are d4 weapons"): while a
+  // shield is held, after the last weapon and BEFORE the Improvised Attack row
+  // (user ruling 2026-11-20: under the whole list it read as Improvised's);
+  // greyed for a two-handed weapon, hidden while the shield itself or
+  // Improvised is chosen (render's sync).
+  let add = null;
+  if (shieldId) {
+    add = el("label", "cairn-attack-addshield");
+    const box = el("input");
+    box.setAttribute("type", "checkbox");
+    box.setAttribute("name", "addShield");
+    add.append(box, el("span", "", L("CAIRN.AttackDialog.AddShield")));
+  }
   for (const w of all) {
+    if (w.id === IMPROVISED_ID && add) set.append(add);
     const row = el("label", `cairn-attack-weapon${w.id === IMPROVISED_ID ? " improvised" : ""}`);
     const radio = el("input");
     radio.setAttribute("type", "radio");
@@ -802,17 +816,6 @@ export const askAttack = async ({ actor, weapons, panicked = false, windowId = u
     row.append(radio, el("strong", "", w.name));
     if (w.formula) row.append(el("span", "cairn-attack-die", w.formula));
     set.append(row);
-  }
-  // "Add the shield (d4)" (2026-11-20, "Shields are d4 weapons"): under the
-  // list while a shield is held; greyed for a two-handed weapon, hidden while
-  // the shield itself or Improvised is chosen (render's sync).
-  if (shieldId) {
-    const add = el("label", "cairn-attack-addshield");
-    const box = el("input");
-    box.setAttribute("type", "checkbox");
-    box.setAttribute("name", "addShield");
-    add.append(box, el("span", "", L("CAIRN.AttackDialog.AddShield")));
-    set.append(add);
   }
   // The improvised attack's own two fields, shown while it is the choice.
   const impro = el("div", "cairn-attack-improvised");

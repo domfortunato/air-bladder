@@ -3492,7 +3492,7 @@ const nameExplodedDice = (message, html) => {
   // guard doubles its own lines the first time the log is re-rendered.
   if (row.querySelector(".dmg-exploded")) return;
   for (const roll of message.rolls ?? []) {
-    for (const die of roll?.dice ?? []) {
+    for (const die of explodingDiceOf(roll)) {
       const faces = Number(die?.faces);
       if (!Number.isFinite(faces)) continue;
       const n = (die.results ?? []).filter((r) => r?.exploded).length;
@@ -3506,6 +3506,23 @@ const nameExplodedDice = (message, html) => {
       }
     }
   }
+};
+
+/**
+ * The dice whose explosions a card names: every die the roll rolled, except
+ * that in a keep-highest POOL (the shield added to a weapon, 2026-11-20) only
+ * the KEPT member's — user ruling 2026-11-20: a losing member's "A d6
+ * exploded!" read as if it had counted, and the maneuver line already follows
+ * the kept die (`judgedCardDie`). The kept member is the pool's active result,
+ * as there.
+ * @param {Roll} roll
+ * @returns {DiceTerm[]}
+ */
+const explodingDiceOf = (roll) => {
+  const terms = roll?.terms ?? [];
+  const pool = terms.length === 1 ? terms[0] : null;
+  if (!Array.isArray(pool?.rolls) || !Array.isArray(pool?.results)) return roll?.dice ?? [];
+  return pool.rolls.filter((_, i) => pool.results[i]?.active).flatMap((r) => r?.dice ?? []);
 };
 
 /**
