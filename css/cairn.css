@@ -5525,10 +5525,21 @@ header.character-generator.directory-header .header-actions > button:not(.cairn-
    scopes those variables to input elements: a span measured transparent).
    dev:sheet-rail compares the boxes property by property. */
 .cairn-character-sheet .background-line { align-items: center; }
-.cairn-character-sheet .background-line .background-label {
-    flex: 0 0 auto; margin: 0; white-space: nowrap; color: var(--ab-ink);
+.cairn-character-sheet .background-line .background-label { flex: 0 0 auto; margin: 0; white-space: nowrap; }
+/* The label FACE, one rule for every label on the character sheet that reads
+   as one (2026-11-20, user ask): page 1's Background label, and on Background
+   & Notes the Bond heading, each question and the Description heading, so
+   each stands apart from the text under it. Layout stays with each element. */
+.cairn-character-sheet .background-line .background-label,
+.cairn-character-sheet :is(.bond-line, .question-line) > strong,
+.cairn-character-sheet .character-description .character-description-heading {
+    color: var(--ab-ink);
     font-family: "Alegreya", Times, "Times New Roman", Georgia, serif;
     font-size: 15px; font-weight: bold; font-variant: small-caps; line-height: 18px;
+}
+/* ...and the answers under them indented, on a thin accent rule. */
+.cairn-character-sheet :is(.bond-answer, .question-answer) {
+    margin-left: 4px; padding-left: 10px; border-left: 2px solid var(--ab-accent);
 }
 .cairn-character-sheet .background-line .background-field {
     flex: 1 1 auto; min-width: 0; box-sizing: border-box;
@@ -5579,6 +5590,9 @@ header.character-generator.directory-header .header-actions > button:not(.cairn-
 .cairn-character-sheet .cairn-abilities-head .head-max-word {
     flex: 0 0 26px; display: flex; justify-content: center; font-size: 12px; white-space: nowrap;
 }
+/* "Saves" over the names column: the row's third flex item after the same
+   6px gap, so its left edge is the names'. */
+.cairn-character-sheet .cairn-abilities-head .head-saves { flex: 1 1 auto; min-width: 0; white-space: nowrap; }
 /* HP's header: the box's 2px frame, its label half empty, its number half
    split as the inputs split it (each input width 100%, shrunk alike). */
 .cairn-character-sheet .cairn-hp-head {
@@ -5661,6 +5675,10 @@ header.character-generator.directory-header .header-actions > button:not(.cairn-
     text-align: center !important; font-size: 13px; color: var(--ab-faint);
 }
 .cairn-character-sheet .cairn-ability-max input:focus { box-shadow: none; }
+/* A max locked while CharGen is off (2026-11-20): greyed as the sheet's other
+   disabled controls are (opacity; core's own disabled look rides input
+   variables these boxes override), still legible, no text caret. */
+.cairn-character-sheet :is(.cairn-ability-max, .hp-counter) input[name$=".max"]:disabled { opacity: 0.5; cursor: default; }
 .cairn-character-sheet .cairn-ability-words { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; line-height: 1.2; }
 .cairn-character-sheet .cairn-ability-name-line { display: flex; align-items: center; gap: 6px; }
 /* The save die and the ability's name, one link; hovering lights both in the

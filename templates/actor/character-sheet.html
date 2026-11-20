@@ -200,6 +200,9 @@
                         <div class="cairn-abilities-head" aria-hidden="true">
                             <span class="head-current" data-head="current">{{ localize 'CAIRN.AbilityCurrent' }}</span>
                             <span class="head-max"><span class="head-slash">/</span><span class="head-max-word" data-head="max">{{ localize 'CAIRN.AbilityMax' }}</span></span>
+                            {{!-- "Saves" over the names column (2026-11-20, user ask): each
+                                  name is the save's die, so the column says what it rolls. --}}
+                            <span class="head-saves" data-head="saves">{{ localize 'CAIRN.AbilitySaves' }}</span>
                         </div>
                         <!-- Abilities: the current score in a circle, the max beside it,
                              the save die, and Cairn's own sentence for what it covers -->
@@ -219,10 +222,14 @@
                                     <button type="button" class="ability-step" data-action="abilityUp" data-key="{{key}}" data-tooltip="{{ localize 'CAIRN.AbilityUp' ability=(localize key) }}" aria-label="{{ localize 'CAIRN.AbilityUp' ability=(localize key) }}"{{#if (lookup ../abilityAtMax key)}} disabled{{else}}{{#unless @root.editable}} disabled{{/unless}}{{/if}}><i class="fas fa-plus" inert></i></button>
                                 </div>
                                 </div>
+                                {{!-- The max is LOCKED while CharGen is off (2026-11-20, user
+                                      ask, for everyone: the Warden turns CharGen on to change
+                                      one). Disabled, so core's form data never carries it; the
+                                      tooltip still shows on a disabled control. --}}
                                 <div class="cairn-ability-max">
                                     <span>/</span>
                                     <input type="number" min="0" max="18" step="1" class="stat-input" name="system.abilities.{{key}}.max" value="{{ability.max}}" data-dtype="Number"
-                                        data-tooltip="{{ lookup ../maxTips key }}" aria-label="{{ lookup ../maxTips key }}" />
+                                        data-tooltip="{{#if ../maxLocked}}{{ localize 'CAIRN.MaxLockedTip' }}{{else}}{{ lookup ../maxTips key }}{{/if}}" aria-label="{{ lookup ../maxTips key }}"{{#if ../maxLocked}} disabled{{/if}} />
                                 </div>
                                 <div class="cairn-ability-words">
                                     <div class="cairn-ability-name-line">
@@ -325,7 +332,8 @@
                                 <input type="number" min="0" max="18" step="1" class="stat-input" name="system.hp.value" id="{{@root.idp}}-system.hp.value"
                                        value="{{system.hp.value}}" data-dtype="Number" data-tooltip="{{currentTips.HP}}" />
                                 <span> / </span>
-                                <input type="number" min="0" max="18" step="1" class="stat-input" name="system.hp.max" value="{{system.hp.max}}" data-dtype="Number" data-tooltip="{{maxTips.HP}}" />
+                                <input type="number" min="0" max="18" step="1" class="stat-input" name="system.hp.max" value="{{system.hp.max}}" data-dtype="Number"
+                                       data-tooltip="{{#if maxLocked}}{{ localize 'CAIRN.MaxLockedTip' }}{{else}}{{maxTips.HP}}{{/if}}" aria-label="{{maxTips.HP}}"{{#if maxLocked}} disabled{{/if}} />
                             </div>
                         </div>
 
@@ -439,7 +447,7 @@
                           pick one off the resolved Bonds table — a player
                           recreating a book-rolled character needs the row
                           they already rolled. --}}
-                    <p class="bond-line"><strong>{{ localize 'CAIRN.Bond' }}:</strong>{{#if ../generationEnabled}}<a class="bond-reroll" data-action="rerollBond"
+                    <p class="bond-line"><strong>{{ localize 'CAIRN.Bond' }}</strong>{{#if ../generationEnabled}}<a class="bond-reroll" data-action="rerollBond"
                             data-bond-id="{{this.id}}" data-tooltip="CAIRN.RerollBond" aria-label="{{ localize 'CAIRN.RerollBond' }}"><i
                                 class="fas fa-dice-d20"></i></a><a class="bond-pick" data-action="pickBond"
                             data-bond-id="{{this.id}}" data-tooltip="CAIRN.PickBond" aria-label="{{ localize 'CAIRN.PickBond' }}"><i

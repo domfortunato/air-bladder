@@ -1882,6 +1882,14 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // the narrowing lives on the npc sheet, where the monster role keeps
     // live save dice (2026-09-02 ruling, review #21 finding 10).
     context.saveRollOff = context.generationEnabled;
+    // The four max boxes (STR, DEX, WIL, HP) are locked while CharGen is off
+    // (2026-11-20, user ask, for everyone: the Warden turns CharGen on to
+    // change one). Read off the MODE, the actor's own flag, not off
+    // generationEnabled: that also folds in _mayRandomize, which hides the
+    // DICE from a player while the Warden forbids player randomization, and
+    // a player whose title bar reads "CharGen: On" must not find the boxes
+    // locked behind a tooltip telling them to turn it on.
+    context.maxLocked = this.actor.system.generationEnabled === false;
     // Each failed-career line hides while EMPTY outside Creation Mode (user
     // ruling 2026-11-20: two labels with nothing after them); in the mode it
     // stays, so its dice can fill it. A line with a value always shows.
@@ -4671,6 +4679,14 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     event.preventDefault();
     const dataset = target.dataset;
     if (!dataset.roll) return;
+    // A CHARACTER's row opens the Attack window on this weapon (2026-11-20,
+    // user ask): the roller shows only on an equipped weapon, which is the
+    // window's own list. Every other sheet keeps the quick roll below, and so
+    // does a viewer who may not attack with this character (the window is an
+    // owner's; an observer's click rolled before and still does).
+    if (this.actor.type === "character" && this.actor.isOwner) {
+      return this.#openAttack(CairnActorSheet.#row(target)?.dataset.itemId);
+    }
 
     const usePanic = game.settings.get(SETTINGS_NS, "use-panic");
     const panicked = usePanic && this.actor.system.panicked;
@@ -5192,6 +5208,16 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    * click from anyone else rolls nothing.
    */
   static async #onAttack() {
+    return this.#openAttack();
+  }
+
+  /**
+   * Open the Attack window and roll what it answers. The Attack button opens
+   * it on the weapon last attacked with; a character's inventory rollers
+   * (2026-11-20) name their own weapon, or IMPROVISED_ID.
+   * @param {String} [preselect]  the weapon to open on
+   */
+  async #openAttack(preselect) {
     if (!this.actor.isOwner) return;
     const panicked = game.settings.get(SETTINGS_NS, "use-panic")
       && this.actor.system.panicked === true;
@@ -5200,7 +5226,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       // already unequips one, and this says it again where the list is made.
       .filter((i) => i.system?.equipped && i.system?.damageFormula && !i.system?.broken)
       .sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0));
-    const answer = await askAttack({ actor: this.actor, weapons, panicked, windowId: this.window?.windowId });
+    const answer = await askAttack({ actor: this.actor, weapons, panicked, windowId: this.window?.windowId, preselect });
     if (!answer) return;                    // dismissed: roll nothing
     const targetIds = answer.targetIds.length ? answer.targetIds.join(";") : null;
     if (answer.weaponId === IMPROVISED_ID) {
@@ -5219,6 +5245,9 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       ui.notifications.warn(game.i18n.localize("CAIRN.Notify.ImprovisedNotYours"));
       return;
     }
+    // A character's Improvised Attack row opens the Attack window on
+    // Improvised (2026-11-20, user ask); other sheets keep their own dialog.
+    if (this.actor.type === "character") return this.#openAttack(IMPROVISED_ID);
 
     const panicked = game.settings.get(SETTINGS_NS, "use-panic")
       && this.actor.system.panicked === true;

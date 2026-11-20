@@ -580,7 +580,9 @@ const lastAttackWeapon = new Map();
 
 /**
  * THE ATTACK WINDOW (user ask 2026-11-19, after Base Knavery's): the rail's
- * burst and page 1's Attack button open it, for EVERY attack. One window asks
+ * burst and page 1's Attack button open it, for EVERY attack, and since
+ * 2026-11-20 a character's inventory rollers open it on their own weapon
+ * (`preselect`). One window asks
  * the three things Cairn's attack needs: who is attacked, with what, and
  * whether the roll is standard, impaired or enhanced.
  *
@@ -615,10 +617,14 @@ const lastAttackWeapon = new Map();
  * @param {Item[]} o.weapons      equipped items with a damage formula, in order
  * @param {Boolean} [o.panicked]
  * @param {String} [o.windowId]
+ * @param {String} [o.preselect]  the weapon to open on (an item id, or
+ *   IMPROVISED_ID): an inventory row's roller names its own (2026-11-20). Used
+ *   only when it is on offer; otherwise the one last attacked with, else the
+ *   first, as the rail's and page 1's Attack open.
  * @return {Promise<null|{weaponId: String, quality: String|null, targetIds: String[],
  *   description: String, formula: String}>} null = dismissed: roll nothing.
  */
-export const askAttack = async ({ actor, weapons, panicked = false, windowId = undefined } = {}) => {
+export const askAttack = async ({ actor, weapons, panicked = false, windowId = undefined, preselect = undefined } = {}) => {
   const L = (k) => game.i18n.localize(k);
   const scene = canvas?.scene ?? null;
   const own = (id) => scene?.tokens?.get(id)?.actorId === actor.id;
@@ -670,8 +676,9 @@ export const askAttack = async ({ actor, weapons, panicked = false, windowId = u
   // With what.
   const all = [...weapons.map((w) => ({ id: w.id, name: w.name, formula: w.system.damageFormula })),
     { id: IMPROVISED_ID, name: L("CAIRN.ImprovisedAttack"), formula: "" }];
+  const offered = (id) => !!id && all.some((w) => w.id === id);
   const last = lastAttackWeapon.get(actor.id);
-  const chosen = all.some((w) => w.id === last) ? last : all[0].id;
+  const chosen = offered(preselect) ? preselect : offered(last) ? last : all[0].id;
   const set = el("fieldset", "cairn-attack-weapons");
   set.append(el("legend", "", L("CAIRN.AttackDialog.Weapon")));
   for (const w of all) {
