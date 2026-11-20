@@ -109,8 +109,9 @@ single time — and the next merge conflicts on exactly it. This is the only `ma
 sync the no-hotfix policy leaves, and it is not optional.
 
 **Merge and release together.** Merging `dev` into `master` and then waiting days to tag
-re-creates the documentation drift this model exists to prevent, because the website
-redeploys from `master` on the merge. Tag straight after the merge.
+re-creates the documentation drift this model exists to prevent, because the repository
+is the system's web page and GitHub shows `master`'s README there as soon as the merge
+lands. Tag straight after the merge.
 
 ## Continuous integration
 

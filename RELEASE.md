@@ -118,8 +118,9 @@ rewritten. Two files with "es" in the name, two different regimes — see
    git checkout dev && git merge master && git push origin dev
    ```
 
-Don't merge and then sit on it. The website redeploys from `master` on the merge
-while users still install the previous tag, so a delay between step 2 and step 3
+Don't merge and then sit on it. The repository is the system's web page (its
+`url`), and GitHub shows `master`'s README there the moment the merge lands, while
+users still install the previous tag — so a delay between step 2 and step 3
 publishes documentation for a version nobody can install yet.
 
 ## Rebuilding / recovering a release
