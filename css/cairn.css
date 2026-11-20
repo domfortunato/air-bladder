@@ -5588,6 +5588,9 @@ header.character-generator.directory-header .header-actions > button:not(.cairn-
    does not grow. */
 .cairn-character-sheet .hp-counter .hp-label-half {
     width: 50%; display: flex; align-items: center; justify-content: center; gap: 6px;
+    /* The WHOLE half wears the label's bar (.resource-counter label), not just
+       the letters: seen in the light theme, where the bar differs from the page. */
+    background-color: var(--ab-bar); color: var(--ab-on-bar);
 }
 .cairn-character-sheet .hp-counter .hp-label-half label { width: auto; }
 .cairn-character-sheet .hp-counter .hp-step {
