@@ -1870,6 +1870,13 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // the narrowing lives on the npc sheet, where the monster role keeps
     // live save dice (2026-09-02 ruling, review #21 finding 10).
     context.saveRollOff = context.generationEnabled;
+    // Each failed-career line hides while EMPTY outside Creation Mode (user
+    // ruling 2026-11-20: two labels with nothing after them); in the mode it
+    // stays, so its dice can fill it. A line with a value always shows.
+    context.showFailedCareerLine = context.showFailedCareer
+      && (!!context.failedCareer || context.generationEnabled);
+    context.showFailedCareerItemLine = context.showFailedCareer
+      && (!!context.failedCareerItem || context.generationEnabled);
     // The pen at the end of the trait sentence, which opens the Traits window
     // (round 4, user ruling 2026-11-19): Creation Mode only, as the bond and
     // question pickers, and only for a viewer who may write the sheet (the

@@ -1879,7 +1879,17 @@
 .cairn-attack-dialog .cairn-attack-weapon input { margin: 0; flex: 0 0 auto; }
 .cairn-attack-dialog .cairn-attack-weapon strong { flex: 1 1 auto; }
 .cairn-attack-dialog .cairn-attack-die { color: var(--ab-muted); font-family: var(--font-mono, monospace); }
-.cairn-attack-dialog .cairn-attack-improvised { margin: 4px 0 0 24px; display: flex; flex-direction: column; gap: 4px; }
+/* The improvised fields: one grid, the labels' column as wide as its longest
+   label, so "What are you attacking with?" stays on one line and both inputs
+   share a left edge (user ask 2026-11-20). The form-groups dissolve into it;
+   anything else (the panic note) spans both columns. */
+.cairn-attack-dialog .cairn-attack-improvised {
+    margin: 4px 0 0 24px; display: grid; grid-template-columns: max-content minmax(0, 1fr);
+    column-gap: 8px; row-gap: 4px; align-items: center;
+}
+.cairn-attack-dialog .cairn-attack-improvised > .form-group { display: contents; }
+.cairn-attack-dialog .cairn-attack-improvised > .form-group > label { white-space: nowrap; }
+.cairn-attack-dialog .cairn-attack-improvised > :not(.form-group) { grid-column: 1 / -1; }
 .cairn-attack-dialog .cairn-attack-quality { margin: 4px 0 0; }
 .cairn-attack-dialog .cairn-attack-panic { margin: 4px 0 0; font-size: var(--font-size-12); color: var(--ab-muted); }
 

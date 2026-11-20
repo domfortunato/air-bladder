@@ -729,7 +729,9 @@ export const askAttack = async ({ actor, weapons, panicked = false, windowId = u
     classes: ["cairn-attack-dialog", "cairn-damage-quality"],
     window: { title: L("CAIRN.Attack") },
     renderOptions: { window: { windowId } },   // see _confirmAction in actor-sheet.js
-    position: { width: 440 },
+    // 480, not 440: the improvised fields' labels sit on one line now (user
+    // ask 2026-11-20), and at 440 the input clipped its own placeholder.
+    position: { width: 480 },
     content,
     render: (_event, dialog) => {
       const root = dialog.element;

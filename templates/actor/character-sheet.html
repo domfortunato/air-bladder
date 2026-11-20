@@ -146,8 +146,9 @@
                         {{#if backgroundDescription}}
                         <div class="background-description">{{{backgroundDescription}}}</div>
                         {{/if}}
-                        {{#if showFailedCareer}}
+                        {{#if (or showFailedCareerLine showFailedCareerItemLine)}}
                         <div class="failed-career-block">
+                            {{#if showFailedCareerLine}}
                             <div class="failed-career-line">
                                 <span class="failed-career-label">{{ localize 'CAIRN.FailedCareerLabel' }}</span>
                                 <span class="failed-career-name">{{failedCareer}}</span>
@@ -156,6 +157,8 @@
                                 <a class="failed-career-pick" data-action="pickFailedCareer" data-tooltip="CAIRN.ChangeFailedCareer" aria-label="{{ localize 'CAIRN.ChangeFailedCareer' }}"><i class="fas fa-list-ul"></i></a>
                                 {{/if}}
                             </div>
+                            {{/if}}
+                            {{#if showFailedCareerItemLine}}
                             <div class="failed-career-item-line">
                                 <span class="failed-career-item-label">{{ localize 'CAIRN.FailedCareerItemLabel' }}</span>
                                 <span class="failed-career-item-name">{{failedCareerItem}}</span>
@@ -163,6 +166,7 @@
                                 <a class="failed-career-item-roll" data-action="rollFailedCareerItem" data-tooltip="CAIRN.RollFailedCareerItem" aria-label="{{ localize 'CAIRN.RollFailedCareerItem' }}"><i class="fas fa-dice-d20"></i></a>
                                 {{/if}}
                             </div>
+                            {{/if}}
                         </div>
                         {{/if}}
                     </div>
