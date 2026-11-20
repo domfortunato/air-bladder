@@ -12,7 +12,7 @@ Some think that GLOG makes magic more powerful and interesting in Cairn. Here is
 
 **Grimoires** — These are special spell books that a PC can make or have made at great expense, which can hold spellscrolls as pages. Unlike spellscrolls, the spell pages in a Grimoire have unlimited uses. 
 
-**Spellscrolls** — There are no "normal" spellbooks in a world with GLOG Magic enabled. All player spellbooks (including those give by background grants or previous sessions) automatically convert to GLOG Spellscrolls that are single use only and require at least one Magic Die to cast.
+**Spellbooks and Spellscrolls** — With GLoG Magic alone, spellbooks stay spellbooks: each takes its spell's GLoG wording and casts straight from the inventory with Magic Dice. Turn on **Use Grimoires** and every spellbook becomes a single-use GLoG Spellscroll instead, and spells are kept in a Grimoire.
 
 
 
@@ -20,17 +20,21 @@ Some think that GLOG makes magic more powerful and interesting in Cairn. Here is
 
 ## Turning it on
 
-**Configure Settings → Air Bladder → GLOG & Other Hacks → Configure Hacks → Use GLOG Magic (converts all spellbooks!)**
+**Configure Settings → Air Bladder → GLoG & Other Hacks → Configure Hacks → Use GLoG Magic**
 
-The exclamation mark is earned. Turning this ON converts the whole world, once, immediately:
+Turning this ON rewrites the whole world, once, immediately:
 
-- **Every canon spellbook anywhere becomes a spellscroll**— in inventories, in world items, on unlinked tokens, in world compendia — becomes a single-use **Spellscroll**
-  carrying the GLOG wording of its spell. A scroll that was already spent
-  stays spent.
-- **New arrivals convert too.** Drag a canon spellbook from any compendium onto a character and it lands as an unspent Spellscroll. There are no spellbooks in a GLOG world — there are only Grimoires and spellscrolls.
-- **Character generation** hands out only GLOG spells, always as scrolls. They are rolled on the shipped **Spells — GLOG** table in **Tables (GLOG)**, and a table of that name in your world is rolled instead — **Create a Custom Spell Table…** on the Rollable Tables sidebar makes that copy, spells included, while the hack is on (see [Generating Characters](generating-characters.md)).
+- Every canon spell anywhere takes its GLoG wording. A spellbook stays a spellbook, and a scroll stays a scroll, spent or not.
+- New arrivals take it too.
+- Generation hands out only GLoG spells, as spellbooks (as scrolls with Grimoires on). They are rolled on the shipped **Spells — GLOG** table in **Tables (GLOG)**, and a table of that name in your world is rolled instead — **Create a Custom Spell Table…** on the Rollable Tables sidebar makes that copy, spells included, while the hack is on (see [Generating Characters](generating-characters.md)).
 
-**IMPORTANT: Turning GLOG magic off in settings will not convert spellscrolls back into normal (non-GLOG) spellbooks and spellscrolls** Treat the switch to GLOG as a campaign decision, not a toggle to flip between sessions.
+**IMPORTANT: Turning GLoG Magic off will not change spells back to their Cairn wording, and turning Grimoires off will not turn spellscrolls back into spellbooks.** Treat each switch as a campaign decision, not a toggle to flip between sessions.
+
+## Grimoires (optional)
+
+**Use Grimoires (converts all spellbooks!)**, just under Use GLoG Magic, is off by default and greyed out while GLoG Magic is off. Turning it on converts the whole world, once: every spellbook becomes a single-use Spellscroll, new arrivals land as scrolls, and Grimoires, Transmute and casting from a Grimoire come into play. Turning it off converts nothing back. A world that used GLoG Magic before this option existed keeps Grimoires on.
+
+The sections below (getting, moving and transmuting into a Grimoire, and casting from one) apply only while Use Grimoires is on.
 
 ## Getting a Grimoire into a character's inventory
 
@@ -85,6 +89,8 @@ its own cast control — the same dice, Fatigue and Mishaps — and the cast
 **spends** the scroll: struck through, kept, never deleted. A spent scroll
 can still be transmuted into a Grimoire, where it comes back as a permanent
 page — that is the 50gp decision the hack leaves on the table.
+
+**From a spellbook (Grimoires off):** each spellbook's row shows **Cast**. The same dice, Fatigue and Mishaps; the book is not used up.
 
 ## Customizing the Mishaps
 

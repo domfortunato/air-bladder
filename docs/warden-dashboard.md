@@ -133,5 +133,5 @@ monsters is the whole point.
   rolled monster carries.
 - [Tokens and Sheets](tokens-and-sheets.md) — which route gives every token its
   own damage.
-- [Keeping Time](keeping-time.md) — watches, the watch clock, and the Vald
+- [Keeping Time](keeping-time.md) — watches, the calendar bar, and the Vald
   calendar.

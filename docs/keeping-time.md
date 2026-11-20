@@ -19,22 +19,25 @@ takes; divide by three and you know how many days.
 
 Weather is rolled **once a day**, not once a watch.
 
-## The watch clock
+## The calendar bar
 
-A small panel sits above the player list, and everyone sees it. It shows the
-current watch and the date underneath, and — once you have called it — today's
-weather. With the Vald calendar switched on it shows the season too.
-
-With the Vald calendar switched on, the panel is also a button: **click it and
-the month calendar opens**. Anyone at the table can do that. It is read-only for
-players, so opening it changes nothing about who moves the clock.
+A bar hangs from the top of the screen, and everyone sees it. It shows the
+current watch and the date, and with the Vald calendar on, the season. Once you
+have called it, today's weather hangs just under it. With the Vald calendar on,
+the date and the season are buttons: click either and the month calendar opens.
 
 You can turn it off in **Configure Settings → Air Bladder → Configure General**,
-under **Show the watch clock**. That is one switch for the whole table, not a
+under **Show the calendar bar**. That is one switch for the whole table, not a
 per-player preference: whether your game tracks watches at all is your call as
-Warden. The clock also carries today's weather, and with the Vald calendar on
+Warden. The bar also carries today's weather, and with the Vald calendar on
 it is how players open the calendar, so switching it off takes both away from
 them. You can still open the calendar from **Calendar** on the Dashboard.
+
+**Tucking it away.** Anyone can tuck the bar for themselves under Configure
+Settings → Air Bladder → **Tuck the calendar bar**. Only a thin edge shows;
+point at it and it slides down, and it tucks itself again when you move away.
+**Y** pulls it down to stay and tucks it again (change the key in Configure
+Controls).
 
 Only you can move the clock. Players can read it and nothing else.
 
@@ -159,12 +162,12 @@ can still reach one. They are simply not on the tab while you are running Vald.
 **Roll Today's Weather** picks the Vald table while the hack is on, and a Cairn
 one while it is off.
 
-### The calendar on the wall
+### The month at a glance
 
-Click the watch clock, or press **Calendar** on the Dashboard, and the month
+Click the date on the calendar bar, or press **Calendar** on the Dashboard, and the month
 opens: twenty-four days in six columns, today circled, and the day you last
-looked at highlighted. Everyone can open it while the watch clock is shown;
-with the clock switched off, only you can, from the Dashboard.
+looked at highlighted. Everyone can open it while the calendar bar is shown;
+with the bar switched off, only you can, from the Dashboard.
 
 - **Each day is tinted with its season**, and the day a season *begins* carries
   that season's mark. Vald's seasons turn over in the middle of a month, so this
