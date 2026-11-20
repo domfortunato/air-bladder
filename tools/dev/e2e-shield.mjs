@@ -595,7 +595,9 @@ try {
       await press(() => !it("Torch")?.system.equipped);
       await settle();
 
-      // 6b (review #35). Each starts stowed, Torch off.
+      // 6b (review #35). Each starts stowed, Torch off. Every write here that
+      // is not a hold carries abNoStatusCard: the stubbed token is no
+      // TokenDocument, and a change-log card asks it for a speaker.
       const handOf = (n) => sheet.element.querySelector(`.cairn-items-list-row[data-item-id="${it(n)?.id}"] [data-action="itemToggleEquipped"]`);
       const T = out.torch2 = {};
       // A light Torch does not know (not in the radius table): held, unlit, no call.
@@ -609,10 +611,10 @@ try {
       handOf("Wraith Lantern")?.click();
       await until(() => !it("Wraith Lantern")?.system.equipped, 3000);
       await settle();
-      await pc.deleteEmbeddedDocuments("Item", [it("Wraith Lantern").id]);
+      await pc.deleteEmbeddedDocuments("Item", [it("Wraith Lantern").id], { abNoStatusCard: true });
       await sleep(300);
       // A torch with no uses left: held, not lit.
-      await it("Torch").update({ "system.uses.value": 0 });
+      await it("Torch").update({ "system.uses.value": 0 }, { abNoStatusCard: true });
       await sleep(300);
       calls = []; state = "off";
       handOf("Torch")?.click();
@@ -622,7 +624,7 @@ try {
       handOf("Torch")?.click();
       await until(() => !it("Torch")?.system.equipped, 3000);
       await settle();
-      await it("Torch").update({ "system.uses.value": 3 });
+      await it("Torch").update({ "system.uses.value": 3 }, { abNoStatusCard: true });
       // Two lights by their row hands: one light is held at once, and the
       // token ends lit with the second.
       await pc.createEmbeddedDocuments("Item", [{ name: "Lantern", type: "item", sort: 800 }], { abNoStatusCard: true });
@@ -647,17 +649,17 @@ try {
       await until(() => it("Torch")?.system.equipped === true, 3000);
       await settle();
       calls = [];
-      await it("Torch").update({ "system.broken": true });
+      await it("Torch").update({ "system.broken": true }, { abNoStatusCard: true });
       await settle();
       T.broken = { calls: calls.map((c) => c[0]), state };
-      await it("Torch").update({ "system.broken": false });
+      await it("Torch").update({ "system.broken": false }, { abNoStatusCard: true });
       await settle();
       calls = []; state = "off";
       handOf("Lantern")?.click();
       await until(() => it("Lantern")?.system.equipped === true, 3000);
       await settle();
       calls = [];
-      await pc.deleteEmbeddedDocuments("Item", [it("Lantern").id]);
+      await pc.deleteEmbeddedDocuments("Item", [it("Lantern").id], { abNoStatusCard: true });
       await settle();
       T.deleted = { calls: calls.map((c) => c[0]), state };
       await sheet.close();
