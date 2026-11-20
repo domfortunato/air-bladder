@@ -27,6 +27,8 @@
  *   8. a REAL Enter (Playwright's keyboard, not requestSubmit(), whose submit
  *      event names no button) in the improvised description rolls the typed
  *      die: implicit submission presses the first submit button on offer.
+ *   9. (2026-11-20, user ask) a Cancel button closes the window and posts
+ *      nothing; it stands last in the footer, so Enter never reaches it.
  *
  * use-panic is shadowed IN-PAGE for leg 7 only (never written), and both it and
  * the panicked flag are put back in its finally. Red-first: before the window the burst
@@ -194,6 +196,23 @@ try {
       await until(() => !dlg.isConnected);
     }
 
+    /* ---- 9. Cancel closes it and posts nothing -------------------------- */
+    dlg = await openWindow();
+    if (dlg) {
+      const before = new Set(game.messages.map((m) => m.id));
+      const cancel = dlg.querySelector('footer button[data-action="cancel"]');
+      out.cancel = { present: !!cancel, last: !!cancel && [...dlg.querySelectorAll("footer button")].at(-1) === cancel };
+      cancel?.click();
+      await until(() => !dlg.isConnected, 3000);
+      await sleep(500);
+      out.cancel.closed = !dlg.isConnected;
+      out.cancel.posted = game.messages.contents.filter((m) => !before.has(m.id) && m.speaker?.actor === pc.id).length;
+      if (!out.cancel.closed) {
+        dlg.querySelector('header [data-action="close"]')?.click();
+        await until(() => !dlg.isConnected);
+      }
+    }
+
     /* ---- 7. panic: only Impaired, and Enter rolls it -------------------- */
     const origGet = game.settings.get;
     game.settings.get = function (ns, key, ...rest) {
@@ -274,7 +293,7 @@ else {
     ? ok("With what: the equipped weapon, then the improvised attack; the unequipped one is not offered")
     : fail(`weapons: ${JSON.stringify(w.weapons)} checked ${w.checked}`);
   // 3
-  JSON.stringify(w.buttons) === JSON.stringify(["standard", "impaired", "enhanced"]) && /1d6/.test(w.standardLabel ?? "") && w.improvisedHidden
+  JSON.stringify(w.buttons) === JSON.stringify(["standard", "impaired", "enhanced", "cancel"]) && /1d6/.test(w.standardLabel ?? "") && w.improvisedHidden
     ? ok(`How, for a weapon: Standard / Impaired / Enhanced, Standard naming its die ("${w.standardLabel}")`)
     : fail(`weapon buttons: ${JSON.stringify(w.buttons)}, standard "${w.standardLabel}", improvised fields hidden ${w.improvisedHidden}`);
   // 4
@@ -284,7 +303,7 @@ else {
     : fail(`weapon card: ${JSON.stringify(c)}`);
   // 5
   const i = r.improvised ?? {}, ic = r.improvisedCard ?? {};
-  JSON.stringify(i.buttons) === JSON.stringify(["roll"]) && i.fields
+  JSON.stringify(i.buttons) === JSON.stringify(["roll", "cancel"]) && i.fields
     ? ok("the improvised choice shows its two fields and Roll Damage alone (the 10-02 ruling)")
     : fail(`improvised window: ${JSON.stringify(i)}`);
   ic.faces === 6 && ic.weapon === "a rock" && ic.unarmed && ic.targets === null
@@ -296,12 +315,17 @@ else {
     : fail(`remembered ${JSON.stringify(r.remembered)}`);
   // 7
   const p = r.panic ?? {}, pc = r.panicCard ?? {};
-  JSON.stringify(p.buttons) === JSON.stringify(["impaired"]) && p.note && p.checked === r.ids.blade
+  JSON.stringify(p.buttons) === JSON.stringify(["impaired", "cancel"]) && p.note && p.checked === r.ids.blade
     ? ok("panicked, a weapon is offered Impaired alone, and the window says why")
     : fail(`panic window: ${JSON.stringify(p)}`);
   pc.faces === 4
     ? ok("...and Impaired rolls the d4")
     : fail(`panic card: ${JSON.stringify(pc)}`);
+  // 9
+  const k = r.cancel ?? {};
+  k.present && k.last && k.closed && k.posted === 0
+    ? ok("Cancel stands last in the footer, closes the window and posts nothing")
+    : fail(`Cancel: ${JSON.stringify(k)}`);
   // 8
   const e = r.enterCard ?? {};
   e.faces === 8 && e.weapon === "a stool"

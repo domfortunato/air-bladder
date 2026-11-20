@@ -58,6 +58,7 @@
     "dev:sheet-rail": "node tools/dev/e2e-sheet-rail.mjs",
     "dev:attack": "node tools/dev/e2e-attack.mjs",
     "dev:shield": "node tools/dev/e2e-shield.mjs",
+    "dev:broken": "node tools/dev/e2e-broken.mjs",
     "dev:ui-parity": "node tools/dev/e2e-ui-parity.mjs",
     "dev:parity": "node tools/dev/e2e-parity.mjs",
     "dev:grant-hint": "node tools/dev/e2e-grant-hint.mjs",

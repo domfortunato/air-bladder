@@ -66,6 +66,10 @@
  *      row with Fatigue's controls; HP's box carries + and − in its "HP"
  *      half, + to the left of the label and − to the right (the user's
  *      order), one point each, off at max / 0 and while overburdened.
+ *  18. (user asks 2026-11-20) the Inventory hint reads "read its description"
+ *      with a hand pointing DOWN; each current ability score has − then +
+ *      under its circle, one point each, off at max / 0; the name is 28px;
+ *      the title bar's toggle reads "CharGen".
  *
  * Red-first: run against the commit before the redesign, every leg but 8 and
  * 10 fails (no rail, no growth page, no growth field).
@@ -539,6 +543,54 @@ try {
       await load?.delete();
       await pc.update({ "system.hp.value": hpWas.value, "system.hp.max": hpWas.max }, { abNoStatusCard: true });
     }
+
+    /* ---- 18. the hint's words and hand, ability ±, the name, CharGen ---- */
+    {
+      const R7 = out.r7 = { wantHint: L("CAIRN.ExpandHint"), wantUp: L("CAIRN.AbilityUp"), lang: game.i18n.lang };
+      await sheet.changeTab("items", "primary");
+      await until(() => (frame.querySelector('.tab[data-tab="items"] .cairn-expand-hint')?.getBoundingClientRect().height ?? 0) > 0, 4000);
+      const hint = frame.querySelector('.tab[data-tab="items"] .cairn-expand-hint');
+      R7.hint = { text: hint?.textContent.trim() ?? null, down: !!hint?.querySelector(".fa-hand-point-down"), up: !!hint?.querySelector(".fa-hand-pointer") };
+      await sheet.changeTab("character", "primary");
+      await sleep(300);
+      const strQ = (s) => frame.querySelector(`.tab[data-tab="character"] .cairn-ability.STR-ability ${s}`);
+      const abWas = { value: pc._source.system.abilities.STR.value, max: pc._source.system.abilities.STR.max };
+      const setStr = async (v) => {
+        await pc.update({ "system.abilities.STR.value": v, "system.abilities.STR.max": 12 }, { abNoStatusCard: true });
+        await until(() => strQ('input[name="system.abilities.STR.value"]')?.value === String(v));
+        await sleep(250);
+      };
+      const st = () => ({ down: strQ('[data-action="abilityDown"]')?.disabled ?? null, up: strQ('[data-action="abilityUp"]')?.disabled ?? null });
+      const pressAb = async (action, want) => {
+        strQ(`[data-action="${action}"]`)?.click();
+        await until(() => pc._source.system.abilities.STR.value === want, 3000);
+        await sleep(250);
+        return pc._source.system.abilities.STR.value;
+      };
+      await setStr(9);
+      const down = strQ('[data-action="abilityDown"]'), up = strQ('[data-action="abilityUp"]');
+      const circle = strQ(".cairn-ability-circle");
+      const bb = (n) => n?.getBoundingClientRect();
+      const cMid = circle ? (bb(circle).left + bb(circle).right) / 2 : null;
+      const pairMid = down && up ? (bb(down).left + bb(up).right) / 2 : null;
+      R7.ab = {
+        order: !!down && !!up && bb(down).right <= bb(up).left,
+        under: !!down && !!circle && bb(down).top >= bb(circle).bottom - 1 && bb(up).top >= bb(circle).bottom - 1,
+        centred: cMid !== null && pairMid !== null && Math.abs(cMid - pairMid) <= 3,
+        tip: up?.dataset.tooltip ?? null,
+        at9: st(),
+      };
+      R7.steps = { up: await pressAb("abilityUp", 10), down: await pressAb("abilityDown", 9) };
+      await setStr(12);
+      R7.at12 = st();
+      await setStr(0);
+      R7.at0 = st();
+      await pc.update({ "system.abilities.STR.value": abWas.value, "system.abilities.STR.max": abWas.max }, { abNoStatusCard: true });
+      const nameIn = frame.querySelector('.tab[data-tab="character"] .name-input') ?? frame.querySelector(".name-input");
+      R7.nameSize = nameIn ? getComputedStyle(nameIn).fontSize : null;
+      const toggle = frame.querySelector('.window-header button[data-action="toggleGeneration"]');
+      R7.toggle = toggle?.textContent.trim() ?? null;
+    }
     await sheet.close();
 
     {
@@ -958,6 +1010,25 @@ else {
   R6.burdened?.up === true && R6.burdened?.down === true && R6.forcedLive && R6.burdenedStored === 4
     ? ok("overburdened, both are off, and a forced + leaves the stored 4 alone")
     : fail(`HP while overburdened: ${JSON.stringify({ burdened: R6.burdened, live: R6.forcedLive, stored: R6.burdenedStored })}`);
+
+  // 18
+  const R7 = r.r7 ?? {};
+  R7.hint?.text === R7.wantHint && R7.hint?.down && !R7.hint?.up && /read its description/.test(R7.wantHint)
+    ? ok(`the hint reads "${R7.hint.text}" with a hand pointing down`)
+    : fail(`hint words / hand: ${JSON.stringify(R7.hint)} (want ${JSON.stringify(R7.wantHint)})`);
+  R7.ab?.order && R7.ab?.under && R7.ab?.centred && R7.ab?.at9?.down === false && R7.ab?.at9?.up === false
+    && R7.steps?.up === 10 && R7.steps?.down === 9
+    ? ok("STR's circle has − then + under it, centred; + steps 9 to 10, − back to 9")
+    : fail(`ability ±: ${JSON.stringify({ ab: R7.ab, steps: R7.steps })}`);
+  R7.at12?.up === true && R7.at12?.down === false && R7.at0?.down === true && R7.at0?.up === false
+    ? ok("+ is off at max and − at 0")
+    : fail(`ability ± bounds: ${JSON.stringify({ at12: R7.at12, at0: R7.at0 })}`);
+  R7.nameSize === "28px"
+    ? ok("the character's name is 28px")
+    : fail(`name size: ${JSON.stringify(R7.nameSize)}`);
+  R7.lang !== "en" || /^CharGen: (On|Off)$/.test(R7.toggle ?? "")
+    ? ok(`the title bar's toggle reads "${R7.toggle}"`)
+    : fail(`toggle label: ${JSON.stringify(R7.toggle)}`);
 
   // 8
   !r.npc.rail && r.npc.strip && !r.npc.railed && r.npc.width === 600
