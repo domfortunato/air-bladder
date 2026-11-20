@@ -4599,6 +4599,14 @@ ol.combat-tracker li.combatant.cairn-drop-below {
     translate: 0 calc(6px - 100%);
 }
 
+/* Today's weather hangs OUTSIDE the bar's box (below), so the translate
+   alone left it on screen under the lip, and a second pull-down handle
+   (review #35). Tucked, it goes with the bar. */
+#ui-top > .cairn-calendar-bar.is-tucked:not(.is-down) .cairn-bar-weather {
+    visibility: hidden;
+    pointer-events: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
     #ui-top > .cairn-calendar-bar {
         transition: none;
@@ -5284,10 +5292,10 @@ header.character-generator.directory-header .header-actions > button:not(.cairn-
 /******************************************************************************
  * The character sheet, after Base Knavery's (2026-11-19, user ask): five      *
  * pages turned from a thumb-tab rail, page 1 a head over abilities + band |   *
- * vitals. Everything here is scoped under .cairn-character-sheet (the frame   *
- * class _initializeApplicationOptions gives a character only), because the    *
- * npc sheet shares .resource-counter, .hp-counter, .tabs and the items list,  *
- * and must not move.                                                          *
+ * vitals. Everything here is scoped under .cairn-character-sheet, the frame  *
+ * class _initializeApplicationOptions gives EVERY actor sheet since           *
+ * 2026-11-20 (the all-sheets plan): a rule here moves the npc, hireling,      *
+ * monster, companion and thing sheets too. Check them all, in both schemes.  *
  ******************************************************************************/
 
 /* ---- Thumb-tab rail (module/actor/tab-rail.js, parts/tab-rail.html) -------
