@@ -30,16 +30,15 @@
  *    switching the role to Monster removes the tab under you — the sheet must
  *    land on a rendered tab, not a blank body.
  *
- * 5. **Tab ORDER (2026-08-01) and the person-role INITIAL (2026-08-21).**
- *    Description still leads the npc sheet's nav and panels, but a fresh
- *    PERSON-role sheet (npc, hireling) and a CONTAINER (2026-08-31) OPEN on
- *    Items — the PC's default until 2026-11-19, asked for — while a monster
- *    still opens on Description. The initial
- *    takes a `tabGroups` override because core seeds the group from static
- *    TABS at construction. The character-sheet leg stops a "reorder both"
- *    regression and doubles as the order-reader's differential witness; since
- *    2026-11-19 the character leads with, and opens on, its own Character
- *    page (the thumb-tab rail), and the leg reads that.
+ * 5. **Tab ORDER and the INITIAL (2026-11-20, every sheet the PC's format).**
+ *    A creature's pages run Character → Items → Description → Notes, a
+ *    thing's Character → Items → Notes, and EVERY fresh sheet opens on page 1
+ *    (the role-aware Items / Description initials of 2026-08-01 to 08-31
+ *    went with the redesign). The initial takes a `tabGroups` override
+ *    because core seeds the group from static TABS at construction. The
+ *    character keeps its own pages (Character, Items, Growth, Notes); the
+ *    control re-imposes the 2026-08-21 opens-on-Items shape in-page and must
+ *    see a fresh npc stand on Items, so the opens-on-page-1 reading can fail.
  *
  * 6. **Both directions, either end — ONE verb, player-usable (2026-08-01).**
  *    A connected actor's tab shows its upward keeper as a line breakable from
@@ -660,21 +659,19 @@ try {
     ? ok("deleting the mount returns it to (0)", `"${tabs.after}"`)
     : bad("deleting the mount returns it to (0)", JSON.stringify(tabs.after));
 
-  /* ---- tab ORDER (2026-08-01): Description leads the npc sheet ---- */
-  // The reorder is the NPC's ALONE — the character-sheet leg below is what
-  // stops a "reorder both" regression, and it doubles as the differential
-  // witness for the order reader: the same reader on the PC sheet must come
-  // back with its own order (Character first since 2026-11-19, when the
-  // character's pages moved onto the thumb-tab rail), so it demonstrably
-  // distinguishes the two orders.
-  console.log("\nDescription leads the npc nav; a fresh person sheet opens on Items");
+  /* ---- tab ORDER (2026-11-20): every sheet opens on page 1 ---- */
+  // Every actor sheet is the character sheet's format since 2026-11-20 (user
+  // ask): page 1 leads and is where a fresh sheet stands. The same reader on
+  // the PC sheet comes back with the PC's own pages (Growth, no
+  // Description), so it demonstrably distinguishes the orders.
+  console.log("\nevery sheet leads with, and opens on, page 1");
   const order = await page.evaluate(async () => {
     const Cls = CONFIG.Actor.documentClass;
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-    // `nav.tabs [data-tab]` reads BOTH navs: the npc sheet's strip of
-    // `<a class="item" data-tab>` and the character's rail of
-    // `<button data-tab>` (nav.tabs.cairn-tab-rail). The rail's Improvised
-    // Attack button carries no data-tab, so it is not counted as a page.
+    // `nav.tabs [data-tab]` reads the rail's `<button data-tab>`
+    // (nav.tabs.cairn-tab-rail), and would read the old strip's
+    // `<a class="item" data-tab>` too. The rail's Attack button carries no
+    // data-tab, so it is not counted as a page.
     const read = (sheet) => ({
       nav: [...sheet.element.querySelectorAll("nav.tabs [data-tab]")].map((a) => a.dataset.tab),
       panels: [...sheet.element.querySelectorAll("section.content > .tab[data-tab]")].map((p) => p.dataset.tab),
@@ -705,20 +702,19 @@ try {
     await mon.sheet.close();
     await box.sheet.close();
 
-    // FAIL-WITNESS (in-page): the pre-fix shape — the group's initial re-tied
-    // to the list head (ids[0], "description") with no role branch, the way
-    // 2026-08-01 built it. A FRESH person npc must then open standing on
-    // Description again, or "opens on Items" is not load-bearing.
+    // FAIL-WITNESS (in-page): the pre-redesign shape — the 2026-08-21
+    // role-aware initial, a person npc standing on Items. A FRESH person npc
+    // must then open on Items, or "opens on page 1" is not load-bearing.
     const proto = Object.values(CONFIG.Actor.sheetClasses.npc)[0].cls.prototype;
     const origCfg = proto._getTabsConfig;
     proto._getTabsConfig = function (group) {
       const config = origCfg.call(this, group);
-      // Both halves of the pre-fix shape: the config initial AND the
-      // constructor seed both followed the list head (the fixed method has
-      // already run by now, so the seed must be re-imposed here).
+      // Both halves of the old shape: the config initial AND the
+      // constructor seed (the fixed method has already run by now, so the
+      // seed must be re-imposed here).
       if (config) {
-        config.initial = "description";
-        this.tabGroups[group] = "description";
+        config.initial = "items";
+        this.tabGroups[group] = "items";
       }
       return config;
     };
@@ -733,41 +729,33 @@ try {
     return { asNpc, asPc, asMonster, asContainer, control };
   });
 
-  // THREE tabs on the npc sheet since 2026-08-02 — the child end's Connections
-  // tab became the header's connection line. The character is down to three as
-  // well since 2026-08-09: the Connections tab is PARKED (internal flag,
-  // default off), so the parked list IS the default this leg reads. The
-  // four-tab restored state is covered by dev:connections' shadow legs.
-  // The character's list grew on 2026-11-19 (the rail): Character, the head
-  // and the stat block, leads and is the page a fresh sheet opens on; Growth
-  // sits after Inventory. Still the parked list — Connections stays out.
-  const NPC_ORDER = ["description", "items", "notes"];
-  const PC_ORDER = ["character", "items", "growth", "notes"];   // no Description page since round 4
-  JSON.stringify(order.asNpc.nav) === JSON.stringify(NPC_ORDER)
-    && JSON.stringify(order.asNpc.panels) === JSON.stringify(NPC_ORDER)
-    ? ok("npc nav AND panels run Description → Items → Notes")
-    : bad("npc nav AND panels run Description → Items → Notes", JSON.stringify({ nav: order.asNpc.nav, panels: order.asNpc.panels }));
-  order.asNpc.active === "items"
-    && JSON.stringify(order.asNpc.activeVisible) === JSON.stringify(["items"])
-    ? ok("a fresh person-npc sheet OPENS on Items (2026-08-21)", "without moving Items in the nav")
-    : bad("a fresh person-npc sheet OPENS on Items (2026-08-21)", JSON.stringify({ active: order.asNpc.active, visible: order.asNpc.activeVisible }));
-  order.asMonster.active === "description"
-    && JSON.stringify(order.asMonster.activeVisible) === JSON.stringify(["description"])
-    ? ok("a fresh monster sheet still opens on Description", "the Items initial is the person roles' and the container's")
-    : bad("a fresh monster sheet still opens on Description", JSON.stringify({ active: order.asMonster.active, visible: order.asMonster.activeVisible }));
-  order.asContainer.active === "items"
-    && JSON.stringify(order.asContainer.activeVisible) === JSON.stringify(["items"])
-    ? ok("a fresh CONTAINER sheet opens on Items (2026-08-31)", "a container is opened for its contents")
-    : bad("a fresh CONTAINER sheet opens on Items (2026-08-31)", JSON.stringify({ active: order.asContainer.active, visible: order.asContainer.activeVisible }));
-  JSON.stringify(order.asPc.nav) === JSON.stringify(PC_ORDER)
-    && JSON.stringify(order.asPc.panels) === JSON.stringify(PC_ORDER)
-    && order.asPc.active === "character"
-    && JSON.stringify(order.asPc.activeVisible) === JSON.stringify(["character"])
-    ? ok("the character sheet leads with, and opens on, Character", "the npc reorder did not spread")
-    : bad("the character sheet leads with, and opens on, Character", JSON.stringify({ nav: order.asPc.nav, panels: order.asPc.panels, active: order.asPc.active, visible: order.asPc.activeVisible }));
-  order.control === "description"
-    ? ok("   control: initial re-tied to the list head reopens on Description", "the opens-on-Items assertion can fail")
-    : bad("   control: initial re-tied to the list head reopens on Description", `active=${order.control} — assertion not load-bearing`);
+  // The npc sheet's pages since 2026-11-20 (the character sheet's format):
+  // page 1, Inventory, Description (a creature only), Notes; no Connections
+  // page (the header's connection line, 2026-08-02). The character's list is
+  // the parked one (Connections off by default; dev:connections covers the
+  // restored state), Growth after Inventory and no Description since round 4.
+  const CREATURE_ORDER = ["character", "items", "description", "notes"];
+  const THING_ORDER = ["character", "items", "notes"];
+  const PC_ORDER = ["character", "items", "growth", "notes"];
+  const leads = (x, want) => JSON.stringify(x.nav) === JSON.stringify(want)
+    && JSON.stringify(x.panels) === JSON.stringify(want)
+    && x.active === "character" && JSON.stringify(x.activeVisible) === JSON.stringify(["character"]);
+  const shape = (x) => JSON.stringify({ nav: x.nav, panels: x.panels, active: x.active, visible: x.activeVisible });
+  leads(order.asNpc, CREATURE_ORDER)
+    ? ok("a person npc: nav AND panels Character → Items → Description → Notes, opens on Character")
+    : bad("a person npc: nav AND panels Character → Items → Description → Notes, opens on Character", shape(order.asNpc));
+  leads(order.asMonster, CREATURE_ORDER)
+    ? ok("a monster: the same pages, opens on Character")
+    : bad("a monster: the same pages, opens on Character", shape(order.asMonster));
+  leads(order.asContainer, THING_ORDER)
+    ? ok("a container: Character → Items → Notes (no Description page), opens on Character")
+    : bad("a container: Character → Items → Notes (no Description page), opens on Character", shape(order.asContainer));
+  leads(order.asPc, PC_ORDER)
+    ? ok("the character sheet leads with, and opens on, Character", "its own pages")
+    : bad("the character sheet leads with, and opens on, Character", shape(order.asPc));
+  order.control === "items"
+    ? ok("   control: the old opens-on-Items initial re-imposed stands on Items", "the opens-on-page-1 assertion can fail")
+    : bad("   control: the old opens-on-Items initial re-imposed stands on Items", `active=${order.control} — assertion not load-bearing`);
 
   /* ---- the header connection line, either end — FLAT since 2026-08-01 ---- */
   // The child end's facts moved from the Connections tab to the header line

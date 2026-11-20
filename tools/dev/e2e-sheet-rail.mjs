@@ -9,7 +9,8 @@
  * from a column of icon buttons hung off the window's edge
  * (templates/parts/tab-rail.html, placed by module/actor/tab-rail.js):
  * Character, Inventory, Growth, Background & Notes (Description until round 4), then the
- * Attack window. The npc sheet keeps its text tab strip. What this holds:
+ * Attack window. Since 2026-11-20 every actor sheet wears the same frame and
+ * rail (leg 21). What this holds:
  *
  *   1. the frame: `cairn-railed` + `cairn-character-sheet`, 480 x 700;
  *   2. the rail: a direct child of .window-content, the five pages in order,
@@ -26,7 +27,7 @@
  *      `dev:sanitize`'s, which writes it as a real player;
  *   7. the rail's burst opens the Attack window (every attack; 2026-11-19 the
  *      user corrected the first cut, which opened the improvised attack only);
- *   8. an npc sheet draws no rail and keeps its strip;
+ *   8. (flipped 2026-11-20) an npc sheet draws the rail, not the strip;
  *   9. a player OBSERVING the character can turn its pages (the rail stays live
  *      on a sheet they cannot edit) and is offered no Attack;
  *  10. a LIMITED viewer's rail is hidden and empty.
@@ -88,6 +89,19 @@
  *      indented on the answers' left rule in both schemes, with no field box,
  *      in the answers' face; switched off it shows the new hint in the notes
  *      editor placeholder's face, in the same indented place.
+ *
+ *  21. (user ask 2026-11-20, "All character sheets should have the same
+ *      format at style as the Player Character Sheet") one actor of EACH
+ *      role, CharGen off, carrying nothing: the frame (rail, no strip,
+ *      cairn-railed + cairn-character-sheet, 480 x 700); the rail's pages
+ *      (a creature character, items, description, notes; a thing
+ *      character, items, notes); page 1's tab named by the role; a fresh
+ *      sheet on page 1; the footer wholly inside the window; the four max
+ *      boxes locked on npc / hireling / monster, open on a companion (no
+ *      CharGen); Hold shield and Hold light drawn and off with the NPC
+ *      wording on a creature, absent on a thing, whose description stands
+ *      on page 1; a thing remembering Description lands on page 1.
+ *      Red-first at 688ced5f on every part but the companion's open boxes.
  *
  * Red-first: run against the commit before the redesign, every leg but 8 and
  * 10 fails (no rail, no growth page, no growth field).
@@ -1133,24 +1147,77 @@ try {
       }
     }
 
-    /* ---- 8. an npc sheet draws no rail --------------------------------- */
-    const npc = await getDocumentClass("Actor").create({
-      name: "ZZ Rail NPC", type: "npc", system: { role: "hireling" },
-      flags: { "air-bladder": { probeFixture: fixture } },
-    }, { abNoStatusCard: true });
-    await npc.sheet.render(true);
-    await until(() => npc.sheet.element?.querySelector?.(".tab"));
-    await sleep(300);
-    const ne = npc.sheet.element;
-    out.npc = { rail: !!ne.querySelector("nav.cairn-tab-rail"), strip: !!ne.querySelector('nav.tabs a[data-tab]'),
-      railed: ne.classList.contains("cairn-railed"), width: npc.sheet.position.width,
-      // Leg 14's other half: a hireling's traits open by default too, and its
-      // pronouns stay on its own sheet (the move is the character sheet's).
-      traitSelects: ne.querySelectorAll('select[name^="system.traits."]').length,
-      pronouns: !!ne.querySelector('.character-traits input[name="system.pronouns"]'),
-      // Leg 16: the Inventory hint is on every sheet with an inventory.
-      hint: ne.querySelector(".cairn-expand-hint")?.textContent.trim() ?? null };
-    await npc.sheet.close();
+    /* ---- 8 + 21. every actor sheet is the character sheet's format ------ */
+    // (user ask 2026-11-20: "All character sheets should have the same format
+    // at style as the Player Character Sheet. This includes Monsters, NPC,
+    // Hirelings, etc."; the rulings of the same day.) One actor of EACH role,
+    // CharGen OFF on all of them, carrying nothing: the frame, the rail's
+    // pages, page 1's tooltip, the opening page, the max lock, the hold
+    // controls and the footer.
+    const ROLE_KEY = { npc: "CAIRN.RoleNpc", hireling: "CAIRN.RoleHireling", monster: "CAIRN.RoleMonster",
+      companion: "CAIRN.RoleCompanion", container: "CAIRN.RoleContainer", transport: "CAIRN.RoleTransport" };
+    out.roles = {};
+    out.npcWords = {
+      shield: L("CAIRN.HoldShieldNoneNpc"), shieldBase: L("CAIRN.HoldShieldNone"),
+      light: L("CAIRN.HoldLightNoneNpc"), lightBase: L("CAIRN.HoldLightNone"),
+    };
+    for (const role of Object.keys(ROLE_KEY)) {
+      const a = await getDocumentClass("Actor").create({
+        name: `ZZ Rail ${role}`, type: "npc", system: { role, generationEnabled: false },
+        flags: { "air-bladder": { probeFixture: fixture } },
+      }, { abNoStatusCard: true });
+      const s = a.sheet;
+      await s.render(true);
+      await until(() => s.element?.querySelector?.(".tab.active"));
+      await sleep(400);
+      const e = s.element;
+      const wc = e.querySelector(":scope > .window-content");
+      const rl = wc?.querySelector(":scope > nav.cairn-tab-rail");
+      const btns = [...(rl?.querySelectorAll('button[data-action="tab"]') ?? [])];
+      const p1 = e.querySelector('.tab[data-group="primary"][data-tab="character"]');
+      const maxes = ["STR", "DEX", "WIL"].map((k) => e.querySelector(`input[name="system.abilities.${k}.max"]`))
+        .concat([e.querySelector('input[name="system.hp.max"]')]);
+      const shield = e.querySelector(".shield-hold");
+      const light = e.querySelector(".light-hold");
+      const foot = e.querySelector(".cairn-character > .cairn-compat-footer");
+      const wb = wc?.getBoundingClientRect(), fb = foot?.getBoundingClientRect();
+      const res = {
+        rail: !!rl, strip: !!e.querySelector("nav.tabs a[data-tab]"),
+        railed: e.classList.contains("cairn-railed"), character: e.classList.contains("cairn-character-sheet"),
+        size: [s.position.width, s.position.height],
+        pages: btns.map((b) => b.dataset.tab),
+        page1Tip: btns.find((b) => b.dataset.tab === "character")?.dataset.tooltipText ?? null,
+        wantTip: L(ROLE_KEY[role]),
+        opensOn: s.tabGroups.primary,
+        activePage: wc?.querySelector('.tab.active[data-group="primary"]')?.dataset.tab ?? null,
+        maxes: maxes.map((m) => (m ? m.disabled : null)),
+        shield: shield ? { disabled: shield.disabled, tip: shield.dataset.tooltip ?? null } : null,
+        light: light ? { disabled: light.disabled, tip: light.dataset.tooltip ?? null } : null,
+        // A thing's description prose stands on page 1 (no Description page).
+        descOnPage1: !!p1?.querySelector('prose-mirror[name="system.description"]'),
+        footInside: !!wb && !!fb && fb.height > 0 && fb.bottom <= wb.bottom + 0.5 && fb.top >= wb.top,
+      };
+      if (role === "hireling") {
+        // Leg 14's other half: a hireling's traits open by default too, and
+        // its pronouns stay on its own sheet, on Description (ruling 2).
+        res.traitSelects = e.querySelectorAll('select[name^="system.traits."]').length;
+        res.pronouns = !!e.querySelector('.character-traits input[name="system.pronouns"]');
+        // Leg 16: the Inventory hint is on every sheet with an inventory.
+        res.hint = e.querySelector(".cairn-expand-hint")?.textContent.trim() ?? null;
+      }
+      if (role === "container") {
+        // The vanished-tab reset, in-page: a thing remembering a Description
+        // page lands on page 1.
+        s.tabGroups.primary = "description";
+        await s.render();
+        await sleep(400);
+        res.reset = { group: s.tabGroups.primary,
+          active: s.element.querySelector('.tab.active[data-group="primary"]')?.dataset.tab ?? null };
+      }
+      out.roles[role] = res;
+      await s.close();
+    }
+    out.npc = out.roles.hireling;
     return out;
   }, FIXTURE);
 
@@ -1496,10 +1563,49 @@ else {
     ? ok("Omen on: the text has no field box and wears the answers' face")
     : fail(`Omen on, box / face: ${JSON.stringify({ light: on.light && { box: on.light.box, font: on.light.font, ans: on.light.ansFont }, dark: on.dark && { box: on.dark.box, font: on.dark.font, ans: on.dark.ansFont } })}`);
 
-  // 8
-  !r.npc.rail && r.npc.strip && !r.npc.railed && r.npc.width === 600
-    ? ok("an npc sheet draws no rail, keeps its tab strip, and opens 600 wide")
-    : fail(`npc: ${JSON.stringify(r.npc)}`);
+  // 8 + 21: every role's sheet in the character sheet's format.
+  const THINGS = ["container", "transport"];
+  const LOCKED = ["npc", "hireling", "monster"];
+  for (const [role, x] of Object.entries(r.roles ?? {})) {
+    const thing = THINGS.includes(role);
+    x.rail && !x.strip && x.railed && x.character && x.size[0] === 480 && x.size[1] === 700
+      ? ok(`${role}: the rail, no strip, cairn-railed + cairn-character-sheet, 480 x 700`)
+      : fail(`${role} frame: ${JSON.stringify({ rail: x.rail, strip: x.strip, railed: x.railed, character: x.character, size: x.size })}`);
+    const wantPages = thing ? ["character", "items", "notes"] : ["character", "items", "description", "notes"];
+    JSON.stringify(x.pages) === JSON.stringify(wantPages)
+      ? ok(`${role}: the rail's pages ${x.pages.join(", ")}`)
+      : fail(`${role} pages: ${JSON.stringify(x.pages)}, want ${JSON.stringify(wantPages)}`);
+    x.page1Tip === x.wantTip
+      ? ok(`${role}: page 1's tab reads "${x.wantTip}"`)
+      : fail(`${role} page 1 tooltip: ${JSON.stringify(x.page1Tip)}, want ${JSON.stringify(x.wantTip)}`);
+    x.opensOn === "character" && x.activePage === "character"
+      ? ok(`${role}: a fresh sheet opens on page 1`)
+      : fail(`${role} opens on: group ${x.opensOn}, active page ${x.activePage}`);
+    x.footInside
+      ? ok(`${role}: page 1 fits and the footer is wholly inside the window`)
+      : fail(`${role}: the footer is not wholly inside the window on page 1`);
+    if (thing) {
+      !x.shield && !x.light && x.maxes.every((m) => m === null) && x.descOnPage1
+        ? ok(`${role}: no stat block and no hold controls; its description stands on page 1`)
+        : fail(`${role} page 1: ${JSON.stringify({ shield: x.shield, light: x.light, maxes: x.maxes, desc: x.descOnPage1 })}`);
+    } else {
+      const wantLocked = LOCKED.includes(role);
+      x.maxes.length === 4 && x.maxes.every((m) => m === wantLocked)
+        ? ok(`${role}: with CharGen off the four max boxes are ${wantLocked ? "locked" : "open (no CharGen)"}`)
+        : fail(`${role} max boxes disabled: ${JSON.stringify(x.maxes)}, want all ${wantLocked}`);
+      const w = r.npcWords;
+      w.shield !== w.shieldBase && w.light !== w.lightBase
+        && x.shield?.disabled && x.shield.tip === w.shield && x.light?.disabled && x.light.tip === w.light
+        ? ok(`${role}: Hold shield and Hold light drawn, off, saying "${w.shield}" / "${w.light}"`)
+        : fail(`${role} hold controls: ${JSON.stringify({ shield: x.shield, light: x.light, want: w })}`);
+    }
+  }
+  Object.keys(r.roles ?? {}).length === 6
+    ? ok("all six roles checked")
+    : fail(`roles checked: ${JSON.stringify(Object.keys(r.roles ?? {}))}`);
+  r.roles?.container?.reset?.group === "character" && r.roles.container.reset.active === "character"
+    ? ok("a thing remembering a Description page lands on page 1")
+    : fail(`thing reset: ${JSON.stringify(r.roles?.container?.reset)}`);
 
   // 9-10
   if (!r.aliceId) fail('no user named "Alice" — run `npm run dev:players` first; the player legs did not run');
