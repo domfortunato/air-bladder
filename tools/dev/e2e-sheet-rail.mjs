@@ -526,6 +526,10 @@ try {
         inBox: within(up, half) && within(down, half),
         // No growth: the label half is no taller than the number half.
         noGrowth: !!half && !!wrap && half.offsetHeight <= wrap.offsetHeight + 1,
+        // The WHOLE half wears the label's bar, not just the letters (seen in
+        // the light theme on CT 123, 2026-11-20; the dark bar hid it).
+        barFilled: !!half && !!label && getComputedStyle(half).backgroundColor === getComputedStyle(label).backgroundColor
+          && getComputedStyle(half).backgroundColor !== "rgba(0, 0, 0, 0)",
       };
       R6.at4 = state();
       R6.steps = { up: await press("hpUp", 5), down1: await press("hpDown", 4), down2: await press("hpDown", 3) };
@@ -1017,7 +1021,7 @@ else {
   // 17
   const R6 = r.r6 ?? {};
   const l6 = R6.layout ?? {};
-  l6.label === R6.wantLabel && l6.sameHalf && l6.order && l6.inBox && l6.noGrowth
+  l6.label === R6.wantLabel && l6.sameHalf && l6.order && l6.inBox && l6.noGrowth && l6.barFilled
     && l6.tips?.up === R6.wantUp && l6.tips?.down === R6.wantDown
     ? ok(`HP's box reads + "${l6.label}" − in its label half, with "${l6.tips.up}" and "${l6.tips.down}", no taller than the numbers`)
     : fail(`HP buttons layout: ${JSON.stringify(l6)}`);
