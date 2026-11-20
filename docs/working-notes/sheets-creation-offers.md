@@ -9,6 +9,19 @@ Moved word for word from CLAUDE.md (2026-11-01); CLAUDE.md points here.
   only while on; Scroll always. `rerenderItemSheets` rides the onChange.
   `spellbookCompact` / `.plain-item` grid variants. Gate `dev:glog-flags`.
 - The GLOG hack is one-way for a campaign.
+- **Grimoires are their own option since 2026-11-20** (`glog-grimoires`, user ask:
+  spellbooks "should instead stay spell books but use the GloG magic dice"). Off by
+  default, greyed under GLOG (the hacks group's `subOptions`, its first live-follow
+  user); every reader asks glog.js `grimoiresEnabled()` (GLOG AND the option). On:
+  the 2026-08 behaviour (books become scrolls; Grimoire Cast, Transmute and the
+  Grimoire box). Off: `glogConversionDiff` swaps WORDING only, a canon book stays a
+  book (create seam and Actor.create payload alike), generation rebuilds the GLOG
+  pack's scroll-form spells as books (`spellbookItem`, gear.js), and a book's row
+  offers Cast (`castSpellbook`, the scroll's `askMagicDice` window, the one
+  `reportCast`, nothing spent). A world that had GLOG on keeps Grimoires
+  (`seedGlogGrimoires`, marker `glog-grimoires-seeded`, before the ready hook's GLOG
+  resume). Gate `dev:glog-books`; the probes that shadow GLOG on shadow Grimoires on
+  with it.
 
 ## The character sheet: a rail and its pages (2026-11-19)
 
@@ -114,6 +127,14 @@ Moved word for word from CLAUDE.md (2026-11-01); CLAUDE.md points here.
   (`migrateShieldFlags`, marker `shield-flag-stamped`). The armor sheet's
   Shield box is its eleventh counter, so armor shares the plain-item grid's
   six counter rows. Gate `dev:shield`.
+- **Shields are Bulky** (hack option `bulky-shields`, 2026-11-20, user ask): any armor
+  ticked Shield costs two slots. Bulky is read through ONE `isBulky(system)`
+  (utils.js) by all three slot formulas (`itemSlotCost`, `slotsNeeded`, the shop's
+  `slotCost`) and every Bulky tag; items carry a derived `system.isBulky` beside the
+  stored `bulky`, never over it (the item sheet submits its spread model). A hacked
+  shield's Bulky box on the armor sheet is ticked and DISABLED with its reason, so
+  it is never submitted. Reloads, like every slot-arithmetic setting. Gate
+  `dev:shield` leg 5.
 - The 2026-11-20 batch (user asks): the title bar's toggle reads "CharGen: On/Off"
   (its tooltips open "Character Creation Mode:", and the guides keep that name);
   the Inventory hint reads "Click an item to read its description." with a hand
