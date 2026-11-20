@@ -98,7 +98,10 @@ try {
       "art-migration-generation", "vald-weather-today", "glog-converted",
       // Internal, and dates from after the namespace move (2026-11-19), so no
       // "cairn.<key>" value exists for SETTING_KEYS to carry: vald-weather-today's case.
-      "welcome-on-start"];
+      "welcome-on-start",
+      // The shield-flag stamp's completion marker (2026-11-20, Hold shield);
+      // postdates the namespace move, as every marker here does.
+      "shield-flag-stamped"];
     out.unlisted = [...game.settings.settings.keys()]
       .filter((k) => k.startsWith(`${mod.SETTINGS_NS}.`))
       .map((k) => k.slice(mod.SETTINGS_NS.length + 1))
