@@ -37,6 +37,12 @@
  *      back and the book's own Cast goes;
  *   7. the seed: GLOG on and no marker sets Grimoires on and the marker; GLOG
  *      off sets only the marker; a marker already set writes nothing;
+ *   7b. (review #35) before the active Warden's first 0.1.27 load seeds it, a
+ *      world with GLoG on reads Grimoires ON on every client (players who
+ *      join first); once seeded, the stored setting rules; GLoG off, never.
+ *   7c. (review #35) turning Grimoires on clears `glog-converted` before it
+ *      forces the sweep, so a sweep cut off by the Save's reload prompt is
+ *      resumed at the next load (GLoG read off: the sweep returns at once).
  *   8. the settings window: "Use Grimoires" sits in GLOG & Other Hacks after
  *      "Use GLOG Magic", greys out live when GLOG is unticked there and comes
  *      back when it is ticked, and its hint names GLOG's label. Nothing saved.
@@ -328,6 +334,44 @@ try {
         out.seed.setLifted = game.settings.set === origSet;
       }
 
+      /* 7b-7c (review #35), reads shadowed and writes captured as in 7 */
+      {
+        const prevGet = game.settings.get;
+        const shadowRead = (vals) => {
+          game.settings.get = function (scope, key, ...rest) {
+            if (rest[0]?.document) return foundry.helpers.ClientSettings.prototype.get.call(this, scope, key, ...rest);
+            if (scope === ns && key in vals) return vals[key];
+            return prevGet.call(this, scope, key, ...rest);
+          };
+        };
+        try {
+          // 7b: before the Warden's first 0.1.27 load seeds it, a world that
+          // already played GLoG reads Grimoires ON on every client.
+          shadowRead({ "enable-glog-magic": true, "glog-grimoires": false, "glog-grimoires-seeded": false });
+          const unseeded = glogMod.grimoiresEnabled();
+          shadowRead({ "enable-glog-magic": true, "glog-grimoires": false, "glog-grimoires-seeded": true });
+          const seededOff = glogMod.grimoiresEnabled();
+          shadowRead({ "enable-glog-magic": false, "glog-grimoires": false, "glog-grimoires-seeded": false });
+          const glogOff = glogMod.grimoiresEnabled();
+          out.unseeded = { unseeded, seededOff, glogOff };
+          // 7c: turning Grimoires on clears glog-converted BEFORE it forces
+          // the sweep, so a sweep a reload cuts off is resumed at the next
+          // load. GLoG read OFF here, so the sweep itself returns at once.
+          shadowRead({ "enable-glog-magic": false });
+          const origSet = game.settings.set;
+          const writes = [];
+          game.settings.set = async function (scope, key, value) { writes.push([key, value]); return value; };
+          try {
+            await game.settings.settings.get(`${ns}.glog-grimoires`)?.onChange?.(true);
+          } finally {
+            game.settings.set = origSet;
+          }
+          out.grimoiresOnWrites = writes.map((w) => w.join("="));
+        } finally {
+          game.settings.get = prevGet;
+        }
+      }
+
       /* 8. the settings window */
       {
         const menu = game.settings.menus.get(`${ns}.hacks`);
@@ -423,6 +467,13 @@ JSON.stringify(sd.glogOff) === JSON.stringify(["glog-grimoires-seeded=true"])
   && JSON.stringify(sd.marked) === "[]"
   ? ok("the seed: GLOG off sets only the marker; a marked world writes nothing")
   : fail(`seed, GLOG off ${JSON.stringify(sd.glogOff)}, marked ${JSON.stringify(sd.marked)}`);
+const us = r.unseeded ?? {};
+us.unseeded === true && us.seededOff === false && us.glogOff === false
+  ? ok("before the seed runs, a world with GLoG on reads Grimoires on; once seeded, the setting rules; GLoG off, never")
+  : fail(`Grimoires before the seed: ${JSON.stringify(us)}`);
+JSON.stringify(r.grimoiresOnWrites) === JSON.stringify(["glog-converted=false"])
+  ? ok("turning Grimoires on clears glog-converted before the forced sweep, so a cut-off sweep resumes")
+  : fail(`Grimoires on, writes: ${JSON.stringify(r.grimoiresOnWrites)}`);
 const mn = r.menu ?? {};
 mn.present && mn.glogPresent && mn.after
   ? ok("\"Use Grimoires\" sits in GLOG & Other Hacks, right after \"Use GLOG Magic\"")
