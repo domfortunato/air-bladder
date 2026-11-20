@@ -83,6 +83,10 @@
     --ab-ok-strong: #1a7a3a;
     --ab-gold: #b8860b;             /* the coins-as-slots row icon */
     --ab-accent: #12a3b4;           /* teal: Die of Fate, fatigue, selection */
+    /* HP's fill (round 5), Base Knavery's bar colours, see-through so the
+       number over it stays legible: teal at full, gold below max. */
+    --ab-hp-fill: rgba(18, 163, 180, 0.45);
+    --ab-hp-fill-low: rgba(184, 134, 11, 0.5);
     --ab-accent-wash: rgba(18, 163, 180, 0.12);   /* fatigue-row tint */
     --ab-ok-wash: rgba(34, 170, 102, 0.18);       /* snapshot chip fill */
 
@@ -197,6 +201,8 @@
     --ab-ok-strong: #4fd08a;
     --ab-gold: #d9a93a;
     --ab-accent: #35c8da;
+    --ab-hp-fill: rgba(53, 200, 218, 0.4);
+    --ab-hp-fill-low: rgba(217, 169, 58, 0.5);
     /* Both washes go up: a 12% tint that reads as a wash on parchment is
        invisible against a near-black backdrop. */
     --ab-accent-wash: rgba(53, 200, 218, 0.18);
@@ -3049,6 +3055,20 @@ ol.combat-tracker li.combatant.cairn-drop-below {
     cursor: grabbing;
 }
 
+/* The Inventory's first line (round 5, user ask 2026-11-20): a click on an
+   item expands its description. "At the top and more visible", so full ink
+   and upright, unlike the muted italic footer hints below; the pointer in
+   the accent teal. */
+.cairn-expand-hint {
+    padding: 2px 4px 6px;
+    font-size: 13px;
+    color: var(--ab-ink);
+}
+.cairn-expand-hint i {
+    margin-right: 4px;
+    color: var(--ab-accent);
+}
+
 /* Footer hint, shown only when drag-to-reorder is enabled. */
 .cairn-reorder-hint {
     display: none;
@@ -5480,6 +5500,45 @@ header.character-generator.directory-header .header-actions > button:not(.cairn-
 }
 .cairn-character-sheet .cairn-left { min-width: 0; display: flex; flex-direction: column; }
 .cairn-character-sheet .cairn-abilities { display: flex; flex-direction: column; gap: 8px; }
+/* The column header over STR (round 5): an ability row's geometry, so each
+   word centres over its box — a 48px circle, then the max's hidden "/" at its
+   13px and a 26px box, with the row's 6px and 1px gaps. */
+.cairn-character-sheet .cairn-abilities-head,
+.cairn-character-sheet .cairn-hp-head {
+    font-family: "Alegreya", Times, "Times New Roman", Georgia, serif;
+    font-weight: bold; font-variant: small-caps; color: var(--ab-muted); line-height: 14px;
+}
+.cairn-character-sheet .cairn-abilities-head { display: flex; align-items: flex-end; gap: 6px; margin-bottom: 2px; font-size: 12px; }
+.cairn-character-sheet .cairn-abilities-head .head-current { flex: 0 0 48px; text-align: center; white-space: nowrap; }
+.cairn-character-sheet .cairn-abilities-head .head-max { flex: 0 0 auto; display: flex; gap: 1px; font-size: 13px; }
+.cairn-character-sheet .cairn-abilities-head .head-slash,
+.cairn-character-sheet .cairn-hp-head .head-slash { visibility: hidden; }
+.cairn-character-sheet .cairn-abilities-head .head-max-word {
+    flex: 0 0 26px; display: flex; justify-content: center; font-size: 12px; white-space: nowrap;
+}
+/* HP's header: the box's 2px frame, its label half empty, its number half
+   split as the inputs split it (each input width 100%, shrunk alike). */
+.cairn-character-sheet .cairn-hp-head {
+    align-self: stretch; display: flex; box-sizing: border-box;
+    border: 0 solid transparent; border-width: 0 2px; margin-bottom: -6px; font-size: 12px;
+}
+.cairn-character-sheet .cairn-hp-head .head-spacer { width: 50%; }
+.cairn-character-sheet .cairn-hp-head .head-numbers { width: 50%; display: flex; }
+.cairn-character-sheet .cairn-hp-head .head-current,
+.cairn-character-sheet .cairn-hp-head .head-max { width: 100%; text-align: center; white-space: nowrap; }
+.cairn-character-sheet .cairn-hp-head .head-slash { margin: auto; font-size: 13px; }
+/* HP's fill (round 5, Base Knavery's bar): behind the numbers, its width the
+   share of max, one colour at full and another below it; a red frame and
+   number at 0. */
+.cairn-character-sheet .hp-counter .resource-input-wrapper { position: relative; overflow: hidden; }
+.cairn-character-sheet .hp-counter .hp-fill {
+    position: absolute; left: 0; top: 0; bottom: 0;
+    background: var(--ab-hp-fill); pointer-events: none;
+}
+.cairn-character-sheet .hp-counter.low .hp-fill { background: var(--ab-hp-fill-low); }
+.cairn-character-sheet .hp-counter .resource-input-wrapper > :not(.hp-fill) { position: relative; }
+.cairn-character-sheet .hp-counter.peril { border-color: var(--ab-peril); }
+.cairn-character-sheet .hp-counter.peril .resource-input-wrapper input[name$=".value"] { color: var(--ab-peril); }
 .cairn-character-sheet .cairn-ability { display: flex; align-items: center; gap: 6px; min-height: 52px; }
 .cairn-character-sheet .cairn-ability-circle {
     flex: 0 0 48px; width: 48px; height: 48px; box-sizing: border-box;

@@ -113,6 +113,24 @@ green on all three builds.** 108 probes now, with `dev:attack` new.
   foe. Fixed in `71d96814` (release targets first); `attack` green there on all three builds
   (`20261119T225840Z`, `20261119T230003Z`, `20261119T230120Z`).
 
+## Character sheet round 4 (2026-11-19/20)
+
+**Round 4 (the Description page retired, the Traits window, sentence case, the labelled Background
+field) at `1e3f2f4e`: 108/108 on 14.370, 14.369 and 14.368** (`20261120T002622Z`,
+`20261120T003313Z`, `20261120T004036Z`).
+
+- **The carried red closed first:** `sheet-layout` failed all six PCs at `6b63dd84` on every build
+  (`div.age-row` 79 in 76 wide); green at `22bdf1a1` (`20261119T235304Z`).
+- **Negative control:** the probes-only commit `587f6e5f`, 14 touched probes on 14.370
+  (`20261120T000359Z`): nine red, each for a round 4 behaviour; the five that only dropped the
+  Description page's assumptions green on both sides.
+- **At `48e118a6`, 102/108 on 14.370** (`20261120T001209Z`): one real red (the generated background's
+  name, a span, cannot wear core's input box: core scopes `--input-*` to input elements) and five
+  probe-side ones (fixtures created with Creation Mode at its schema default, off; a fixture
+  background with no question tables; two stale page lists and a capitals witness). Fixed in
+  `da982d3f`; core greys every `input[readonly]`, so `1e3f2f4e` makes the name read-only only outside
+  Creation Mode.
+
 ## Earlier the same day (2026-11-19)
 
 **The character sheet redesign (a rail, five pages, a Growth page) at `505767a3`: green on all three

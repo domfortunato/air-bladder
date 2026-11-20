@@ -510,7 +510,9 @@ try {
       const bgDesc = bf.querySelector(".tab[data-tab='character'] .background-description");
       R.sentence = {
         first: sent?.matches("p.trait-sentence") ?? false,
-        beforeAbilities: sent?.nextElementSibling?.matches(".cairn-abilities") ?? false,
+        // Before the abilities, with round 5's header row between them.
+        beforeAbilities: !!sent && !!left?.querySelector(":scope > .cairn-abilities")
+          && !!(sent.compareDocumentPosition(left.querySelector(":scope > .cairn-abilities")) & Node.DOCUMENT_POSITION_FOLLOWING),
         text: sent?.textContent.trim() ?? null,
         want: "You have athletic physique, pale skin, and braided hair. Your face is broken, your speech booming. "
           + "You have antique clothing. You are lazy and honest. You are 30 years old.",

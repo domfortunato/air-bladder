@@ -1996,6 +1996,8 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       context.abilityPeril = {};
       context.abilityLow = {};
       context.hpLow = false;
+      context.hpPeril = false;
+      context.hpPercent = 0;
       context.criticalToggle = {};
       context.criticalActive = {};
       context.abilityTips = {};
@@ -2021,6 +2023,15 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     context.abilityLow = {};
     for (const k of ["STR", "DEX", "WIL"]) context.abilityLow[k] = val(k) < max(k) && !context.abilityPeril[k];
     context.hpLow = Number(this.actor.system.hp?.value) < Number(this.actor.system.hp?.max);
+    // The character's HP fill (round 5, Base Knavery's bar): its share of the
+    // box, clamped 0-100 (a max of 0 fills nothing), and the red frame at 0.
+    // The PREPARED value, as hpLow: an encumbered character's HP reads 0.
+    {
+      const hv = Number(this.actor.system.hp?.value);
+      const hm = Number(this.actor.system.hp?.max);
+      context.hpPercent = hm > 0 && Number.isFinite(hv) ? Math.max(0, Math.min(100, Math.round((hv / hm) * 100))) : 0;
+      context.hpPeril = !(hv > 0);
+    }
     // Skull offered when STR is damaged and still alive, or already marked.
     context.criticalToggle = { STR: (val("STR") < max("STR") && val("STR") > 0) || strCritical };
     context.criticalActive = { STR: strCritical };

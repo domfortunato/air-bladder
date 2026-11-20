@@ -1,4 +1,6 @@
 {
+  "CAIRN.AbilityCurrent": "Current",
+  "CAIRN.AbilityMax": "Max",
   "CAIRN.AddBond": "Add a bond",
   "CAIRN.AddFatigue": "Add fatigue",
   "CAIRN.AddItem": "Add Item",
@@ -405,6 +407,7 @@
   "CAIRN.Encounter.RandomNpc": "Random NPC",
   "CAIRN.Encounter.UnknownActor": "creature",
   "CAIRN.EquipmentLimitTip": "Double click to change limit",
+  "CAIRN.ExpandHint": "Click an item to expand its description.",
   "CAIRN.Equipped": "Equipped",
   "CAIRN.Faction": "Faction",
   "CAIRN.FactionDossier.Advantages": "<strong>Advantages:</strong> {value}",

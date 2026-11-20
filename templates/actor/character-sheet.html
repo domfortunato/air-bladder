@@ -186,6 +186,17 @@
                         <p class="trait-sentence trait-sentence-empty">{{ localize 'CAIRN.Traits' }} <a class="trait-edit" data-action="editTraits" data-tooltip="CAIRN.EditTraits" aria-label="{{ localize 'CAIRN.EditTraits' }}"><i class="fa-solid fa-pen" inert></i></a></p>
                         {{/if}}
                         {{/if}}{{/if}}
+                        {{!-- ONE header row over STR naming the columns (round 5, user
+                              ask 2026-11-20, the user's pick over a caption under each
+                              box): "Current" over the circle, "Max" over the max box. It
+                              copies an ability row's geometry (a 48px circle, a hidden "/"
+                              the max's own size, a 26px box), so each word centres over
+                              its box in any language. Visual only: the boxes' own
+                              aria-labels already name them ("Current Strength"). --}}
+                        <div class="cairn-abilities-head" aria-hidden="true">
+                            <span class="head-current" data-head="current">{{ localize 'CAIRN.AbilityCurrent' }}</span>
+                            <span class="head-max"><span class="head-slash">/</span><span class="head-max-word" data-head="max">{{ localize 'CAIRN.AbilityMax' }}</span></span>
+                        </div>
                         <!-- Abilities: the current score in a circle, the max beside it,
                              the save die, and Cairn's own sentence for what it covers -->
                         <div class="cairn-abilities">
@@ -254,12 +265,25 @@
                             {{/if}}
                         </div>
 
-                        <div class="resource-counter hp-counter {{#if hpLow}}low{{/if}}">
+                        {{!-- HP's two numbers carry the abilities' words (round 5), in a
+                              header row copying the box's geometry: the label half empty,
+                              the number half split as the inputs split it. --}}
+                        <div class="cairn-hp-head" aria-hidden="true">
+                            <span class="head-spacer"></span>
+                            <span class="head-numbers"><span class="head-current" data-head="current">{{ localize 'CAIRN.AbilityCurrent' }}</span><span class="head-slash">/</span><span class="head-max" data-head="max">{{ localize 'CAIRN.AbilityMax' }}</span></span>
+                        </div>
+                        {{!-- The number half FILLS in proportion to HP / max (round 5, user
+                              ask: "a color bar like the knave hp", Base Knavery's bar and
+                              colours): one colour at full, another below it (`low`), and a
+                              red frame at 0 (`peril`). hpPercent is clamped 0-100 in
+                              _computeStatContext. --}}
+                        <div class="resource-counter hp-counter {{#if hpLow}}low{{/if}} {{#if hpPeril}}peril{{/if}}">
                             {{!-- hpTip appends "Rolled at creation." while the mode is On;
                                   the boxes say WHICH side is which, formatted per stat
                                   (currentTips/maxTips, _computeStatContext). --}}
                             <label for="{{@root.idp}}-system.hp.value" data-tooltip="{{hpTip}}">{{ localize 'CAIRN.HitProtection' }}</label>
                             <div class="resource-input-wrapper">
+                                <div class="hp-fill" style="width: {{hpPercent}}%"></div>
                                 <input type="number" min="0" max="18" step="1" class="stat-input" name="system.hp.value" id="{{@root.idp}}-system.hp.value"
                                        value="{{system.hp.value}}" data-dtype="Number" data-tooltip="{{currentTips.HP}}" />
                                 <span> / </span>

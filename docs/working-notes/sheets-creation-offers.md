@@ -86,6 +86,15 @@ Moved word for word from CLAUDE.md (2026-11-01); CLAUDE.md points here.
   rules every `notes-item` after the first. The Slots line reads "Inventory
   Slots", or "Slots" where that clips, MEASURED in `#fitSlotsLabel` (render,
   fonts ready, a turn to Character).
+- Fifth round (user asks, 2026-11-20; layout and wording the user's picks):
+  ONE header row over STR, "Current" over the circle and "Max" over the max
+  box (`.cairn-abilities-head`, an ability row's geometry so each word centres
+  over its box); HP's numbers carry the same words (`.cairn-hp-head`); HP's
+  number half FILLS in proportion to HP / max (`.hp-fill`, `hpPercent` and
+  `hpPeril` in `_computeStatContext`), Base Knavery's bar colours as
+  `--ab-hp-fill` / `--ab-hp-fill-low`, a red frame at 0; typing only, no
+  step buttons. Inventory opens on "Click an item to expand its description"
+  (`.cairn-expand-hint`, full ink, every sheet with an inventory).
 - Gate `dev:sheet-rail`.
 
 ## Creation routes
