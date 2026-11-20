@@ -193,6 +193,16 @@ try {
       await page.evaluate(() => game.settings.set("air-bladder", "enable-glog-magic", false));
       note("world arrived converted (setting ON) — flipped OFF for the canon legs; the mid-run flip re-converts and teardown leaves it ON as found");
     }
+    // GRIMOIRES ON for this probe (2026-11-20): every leg here is the
+    // scroll-conversion ruling, which became the "Use Grimoires" option, off by
+    // default. A real write like the flips (withSettings restores it); with
+    // GLOG off at this moment its onChange converts nothing. Guarded so the
+    // probes-only commit, which predates the setting, reds on its legs rather
+    // than on an unregistered key. Grimoires off is dev:glog-books'.
+    await page.evaluate(() => {
+      if (game.settings.settings.has("air-bladder.glog-grimoires")) return game.settings.set("air-bladder", "glog-grimoires", true);
+      return null;
+    });
     pre.canonSize > 0 && pre.glogSize > 0
       ? ok(`packs: canon ${pre.canonSize}, GLOG ${pre.glogSize} (canon non-empty, so GLOG's exclusion of it is a real claim)`)
       : fail(`a spell pack is empty (canon ${pre.canonSize}, GLOG ${pre.glogSize})`);

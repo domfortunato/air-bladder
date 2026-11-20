@@ -138,6 +138,10 @@ await dismissChrome(gm);
  * ESTABLISHES the hack in-page — never writing the world's setting, which is
  * the Warden's (one-way for a campaign). A leg that needs it off (the plant,
  * 10f's control) shadows over this one and restores it.
+ *
+ * GRIMOIRES READ ON WITH IT (2026-11-20): Grimoires became their own GLOG
+ * option, off by default, and every Grimoire gesture here gates on it. The
+ * Grimoires-off mode (books cast from their rows) is dev:glog-books'.
  */
 const glogOn = (page) => page.evaluate(() => {
   const ns = game.system.id;
@@ -147,7 +151,7 @@ const glogOn = (page) => page.evaluate(() => {
     // get(ns, key, {document: true}) and any value handed back makes it CREATE
     // a duplicate. check:probes gates this.
     if (rest[0]?.document) return foundry.helpers.ClientSettings.prototype.get.call(this, scope, key, ...rest);
-    if (scope === ns && key === "enable-glog-magic") return true;
+    if (scope === ns && (key === "enable-glog-magic" || key === "glog-grimoires")) return true;
     return origGet.call(this, scope, key, ...rest);
   };
 });
@@ -1470,7 +1474,7 @@ try {
       // get(ns, key, {document: true}) for the Setting document it updates by id,
       // and any value handed back makes it CREATE a duplicate. check:probes gates this.
       if (rest[0]?.document) return foundry.helpers.ClientSettings.prototype.get.call(this, scope, key, ...rest);
-      if (scope === ns && key === "enable-glog-magic") return true;
+      if (scope === ns && (key === "enable-glog-magic" || key === "glog-grimoires")) return true;
       return origGet.call(this, scope, key, ...rest);
     };
     try {
@@ -1527,7 +1531,7 @@ try {
       // get(ns, key, {document: true}) for the Setting document it updates by id,
       // and any value handed back makes it CREATE a duplicate. check:probes gates this.
       if (rest[0]?.document) return foundry.helpers.ClientSettings.prototype.get.call(this, scope, key, ...rest);
-      if (scope === ns && key === "enable-glog-magic") return true;
+      if (scope === ns && (key === "enable-glog-magic" || key === "glog-grimoires")) return true;
       return origGet.call(this, scope, key, ...rest);
     };
     let i = 0;
@@ -1630,7 +1634,7 @@ try {
       // get(ns, key, {document: true}) for the Setting document it updates by id,
       // and any value handed back makes it CREATE a duplicate. check:probes gates this.
       if (rest[0]?.document) return foundry.helpers.ClientSettings.prototype.get.call(this, scope, key, ...rest);
-      if (scope === ns && key === "enable-glog-magic") return true;
+      if (scope === ns && (key === "enable-glog-magic" || key === "glog-grimoires")) return true;
       // The change log ON, read-shadowed, for the one-card leg (finding 235).
       if (scope === ns && key === "change-log") return true;
       return origGet.call(this, scope, key, ...rest);
@@ -1713,7 +1717,7 @@ try {
     game.settings.get = function (scope, key, ...rest) {
       // A DOCUMENT request is never shadowed (review #27) — see 10f.
       if (rest[0]?.document) return foundry.helpers.ClientSettings.prototype.get.call(this, scope, key, ...rest);
-      if (scope === ns && key === "enable-glog-magic") return true;
+      if (scope === ns && (key === "enable-glog-magic" || key === "glog-grimoires")) return true;
       return origGet.call(this, scope, key, ...rest);
     };
     const origWarn = ui.notifications.warn;

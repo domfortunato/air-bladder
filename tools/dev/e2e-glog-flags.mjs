@@ -78,7 +78,7 @@ try {
       // get(ns, key, {document: true}) and any value handed back makes it
       // CREATE a duplicate. check:probes gates this.
       if (rest[0]?.document) return foundry.helpers.ClientSettings.prototype.get.call(this, scope, key, ...rest);
-      if (scope === ns && key === "enable-glog-magic") return on;
+      if (scope === ns && (key === "enable-glog-magic" || key === "glog-grimoires")) return on;
       return origGet.call(this, scope, key, ...rest);
     };
     const out = {};
@@ -165,7 +165,7 @@ try {
     let on = true;
     game.settings.get = function (scope, key, ...rest) {
       if (rest[0]?.document) return foundry.helpers.ClientSettings.prototype.get.call(this, scope, key, ...rest);
-      if (scope === ns && key === "enable-glog-magic") return on;
+      if (scope === ns && (key === "enable-glog-magic" || key === "glog-grimoires")) return on;
       return origGet.call(this, scope, key, ...rest);
     };
     const wait = (ms) => new Promise((res) => setTimeout(res, ms));
@@ -208,7 +208,7 @@ try {
     let on = false;
     game.settings.get = function (scope, key, ...rest) {
       if (rest[0]?.document) return foundry.helpers.ClientSettings.prototype.get.call(this, scope, key, ...rest);
-      if (scope === ns && key === "enable-glog-magic") return on;
+      if (scope === ns && (key === "enable-glog-magic" || key === "glog-grimoires")) return on;
       return origGet.call(this, scope, key, ...rest);
     };
     const wait = (ms) => new Promise((res) => setTimeout(res, ms));

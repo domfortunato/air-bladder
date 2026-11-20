@@ -168,7 +168,7 @@ try {
     const shadowGlog = (on) => {
       game.settings.get = function (scope, key, ...rest) {
         if (rest[0]?.document) return foundry.helpers.ClientSettings.prototype.get.call(this, scope, key, ...rest);
-        if (scope === game.system.id && key === "enable-glog-magic") return on;
+        if (scope === game.system.id && (key === "enable-glog-magic" || key === "glog-grimoires")) return on;
         return origGet.call(this, scope, key, ...rest);
       };
     };
@@ -253,7 +253,7 @@ try {
     const shadowGlog = (on) => {
       game.settings.get = function (scope, key, ...rest) {
         if (rest[0]?.document) return foundry.helpers.ClientSettings.prototype.get.call(this, scope, key, ...rest);
-        if (scope === game.system.id && key === "enable-glog-magic") return on;
+        if (scope === game.system.id && (key === "enable-glog-magic" || key === "glog-grimoires")) return on;
         return origGet.call(this, scope, key, ...rest);
       };
     };
@@ -409,7 +409,7 @@ try {
     const shadowGlog = (on) => {
       game.settings.get = function (scope, key, ...rest) {
         if (rest[0]?.document) return foundry.helpers.ClientSettings.prototype.get.call(this, scope, key, ...rest);
-        if (scope === game.system.id && key === "enable-glog-magic") return on;
+        if (scope === game.system.id && (key === "enable-glog-magic" || key === "glog-grimoires")) return on;
         return origGet.call(this, scope, key, ...rest);
       };
     };
