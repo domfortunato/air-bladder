@@ -73,7 +73,8 @@ export const lightRadiusText = (name) => {
 };
 
 /** The badge's icons: game-icons.net art the system already ships and credits
- *  (art/game-icons/CREDITS.md). Relative, so a route prefix still resolves. */
+ *  (art/game-icons/CREDITS.md). Package-relative paths: the sheet passes them
+ *  through `foundry.utils.getRoute` before they reach a url() in CSS. */
 const ICON_DIR = "systems/air-bladder/art/game-icons/fire";
 export const LIGHT_ICON_NEUTRAL = `${ICON_DIR}/lantern-flame.svg`;
 

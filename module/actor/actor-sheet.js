@@ -2119,7 +2119,10 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       const held = lights.find((i) => i.system.equipped) ?? null;
       context.lightSwitch = {
         ...holdSwitch(lights),
-        icon: held ? lightIcon(held.name) : LIGHT_ICON_NEUTRAL,
+        // A ROUTE, not a relative path: the template sets it in a custom
+        // property, and a relative url() there resolves against the stylesheet
+        // that uses it (css/), not the page — the icon 404ed on CT 123.
+        icon: foundry.utils.getRoute(held ? lightIcon(held.name) : LIGHT_ICON_NEUTRAL),
         radius: held ? lightRadiusText(held.name) : "",
         tip: !lights.length ? game.i18n.localize("CAIRN.HoldLightNone")
           : held ? game.i18n.format("CAIRN.LightHeldTip", { name: held.name })
