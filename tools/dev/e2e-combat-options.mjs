@@ -1482,6 +1482,10 @@ try {
       // 2d6 does unshielded (the two dice share one cap): 1 + 6 = 7 kept over
       // the d4's 1, the 6 explodes once (chain 1) = 8, one d6 line.
       out.poolSummedSecond = await postPool([ONE, MX, ONE, ONE], "{2d6,1d4}kh");
+      // 13e (user ruling 2026-11-20, review #35): on a TIE the weapon's die is
+      // kept. d6 4 and d4 4: the d6 is kept, 4 is not its maximum, so nothing
+      // explodes and no maneuver line (the d4 kept had exploded and drawn it).
+      out.poolTie = await postPool([0.4, MX, ONE]);
       // 13d (review #35): a hand-written MIXED keep-highest weapon with the
       // shield added stays keep-highest, notation on: each die its own member.
       out.shieldMixed = utils.shieldPoolFormula("d6 + d8");
@@ -2234,6 +2238,9 @@ try {
   r.poolSummedSecond?.kept === 0 && r.poolSummedSecond?.total === 8 && r.poolSummedSecond?.exploded?.length === 1
     ? ok("an additive 2d6 in the pool: a 6 on its SECOND die explodes too (1 + 6 + 1 = 8), one d6 line")
     : fail(`poolSummedSecond: ${JSON.stringify(r.poolSummedSecond)} — want the 2d6 kept, 8, one explosion line`);
+  r.poolTie?.kept === 0 && r.poolTie?.total === 4 && r.poolTie?.line === null && r.poolTie?.exploded?.length === 0
+    ? ok("a tie (d6 4, d4 4) keeps the weapon's die: 4, no explosion, no maneuver line (user ruling)")
+    : fail(`poolTie: ${JSON.stringify(r.poolTie)} — want the d6 kept, 4, no lines`);
   r.shieldMixed === "{d6,d8,1d4}kh" && r.shieldSame === "{2d6k,1d4}kh"
     ? ok(`a mixed keep-highest weapon with the shield stays keep-highest (${r.shieldMixed}); d6 + d6 keeps its keep form (${r.shieldSame})`)
     : fail(`shield pool formulas: mixed ${JSON.stringify(r.shieldMixed)}, same ${JSON.stringify(r.shieldSame)}`);
