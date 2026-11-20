@@ -45,7 +45,7 @@ and a set of feature files that mostly do not know about each other.
 | `module/`, code lines | **~16,600** |
 | Comment and blank share | **~59%** |
 | JavaScript files | 42 (re-counted 2026-11-19, with the welcome window and the character sheet's tab rail) |
-| Handlebars templates | 24 files (re-counted 2026-11-19, with the rail and the Scars partial), ~3,400 lines |
+| Handlebars templates | 30 files (re-counted 2026-11-20, with page 1's four shared partials), ~3,800 lines |
 | Stylesheet | 1 file, ~5,100 lines |
 | Compendium source documents | ~1,140 YAML files across 29 packs |
 | Interface translations | 7 languages, plus 1 content overlay |

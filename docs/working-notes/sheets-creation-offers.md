@@ -29,12 +29,11 @@ Moved word for word from CLAUDE.md (2026-11-01); CLAUDE.md points here.
   thumb-tab rail hung off the frame (`module/actor/tab-rail.js`,
   `templates/parts/tab-rail.html`, a render PART drawn before `form`). Pages
   `character` (initial) · `items` · `growth` · (`containers`) · `notes`
-  (`description` stood after `growth` until round 4); icons and tooltips in `CHARACTER_RAIL`, wording user-approved. The
-  npc sheet keeps its strip and 600 x 750; a branch on actor type here is the
-  design, not a smell. Characters ONLY get the rail part, the
-  `cairn-railed` + `cairn-character-sheet` frame classes, and every new CSS rule
-  is scoped under the latter, because the npc sheet shares `.resource-counter`,
-  `.hp-counter`, `.tabs` and the items list.
+  (`description` stood after `growth` until round 4); icons and tooltips in `CHARACTER_RAIL`, wording user-approved.
+  Every other sheet took the same frame on 2026-11-20 (next section), so the
+  rail part and the `cairn-railed` + `cairn-character-sheet` frame classes are
+  on every actor sheet now, and a rule scoped under `.cairn-character-sheet`
+  reaches the npc sheet too.
 - No gameplay change: every control kept its class, name, id and data-action.
   `#set-equipment-limit` moved from the Items tab label to page 1's Slots line.
   Rail buttons, the rail's Improvised Attack and the character's Die of Fate carry
@@ -207,6 +206,40 @@ Moved word for word from CLAUDE.md (2026-11-01); CLAUDE.md points here.
   `<body>`'s black in light), `dev:attack` leg 10. `dev:combat-options` drives a
   character's Improvised row, so its driver expects the Attack window there and
   reads what is OFFERED (the window hides the quality buttons for Improvised).
+
+## Every actor sheet in the character sheet's format (2026-11-20)
+
+- User ask: "All character sheets should have the same format at style as the
+  Player Character Sheet. This includes Monsters, NPC, Hirelings, etc." Seven
+  rulings the same day, all built: every sheet 480 x 700 with the rail and the
+  footer; a creature (npc, hireling, monster, companion) `character` · `items`
+  · `description` · `notes`; a thing (container, transport) `character` ·
+  `items` · `notes`, its prose on page 1; every sheet OPENS on page 1
+  (`ITEMS_FIRST_ROLES` and the role-aware initial went; `initialTabId` is the
+  list head, `tabIdsOf` picks the list); the max boxes lock while CharGen is off
+  on npc / hireling / monster (`GENERATING_ROLES`), never on a companion;
+  Hold shield and Hold light on every creature, never a thing, in the NPC
+  wording (`CAIRN.HoldShieldNoneNpc` / `HoldLightNoneNpc` through `_wording`);
+  page 1's rail tab is the role's own string (`ROLE_PAGE`, an icon per role),
+  Description and Notes in `NPC_RAIL`.
+- ONE mechanism: page 1's banners, stat block, slot line and footer are
+  partials both templates render (`parts/status-banners.html`,
+  `stat-block.html`, `slots-line.html`, `compat-footer.html`). The stat block's
+  differences are context, not copies: `showTraitSentence` (the character's),
+  `system.showGold` (a companion has no purse), `statMax` (the character's 18
+  cap, absent on an npc), `holdShieldNoneKey`. The values only the character's
+  page 1 read (`maxLocked`, `hpTip`, `goldTip`, `abilityHints`) are built in the
+  npc branch by the character's rules; the rail tooltips are built for every
+  sheet at the end of `_prepareContext`.
+- npc-sheet.html keeps every head control's class, name, id and data-action
+  (Role, Career / Background / Kind, Faction, the connection line, Day Rate),
+  inside `.cairn-identity`; `cairn-npc-sheet` still scopes those head lines. The
+  npc head gained the portrait's list button (the same `editPortrait`). The old
+  grid, HP / Gold foot row and three-row abilities CSS went with their classes.
+- Gates `dev:sheet-rail` legs 8 + 21 (one actor per role), `dev:sheet-layout`
+  (every role's page 1 with the tallest head it can carry, the footer inside
+  the window), `dev:roles` (the page order and the opening page, with an
+  in-page control).
 
 ## Creation routes
 

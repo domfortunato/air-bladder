@@ -18,8 +18,9 @@ Moved word for word from CLAUDE.md (2026-11-01); CLAUDE.md points here.
   relabelled.
 - **`PERSON_ROLES`** answers "is this somebody". Ask for a role by name only where
   hireling and NPC differ: which job field shows, and `showForHire` (box AND rate
-  row, one gate). `ITEMS_FIRST_ROLES` (persons + container) open on Items via
-  `initialTabId`. A role predicate that quietly grows is this codebase's
+  row, one gate). Every sheet opens on page 1 since 2026-11-20 (`initialTabId`;
+  `ITEMS_FIRST_ROLES` went with the move to the character sheet's format, see
+  sheets-creation-offers.md); a thing has no Description page. A role predicate that quietly grows is this codebase's
   thrice-repeated bug — use a named list.
 - Hireling-split traps: `migrateData` must NOT convert stored "hireling"; the
   `migrateHirelingSplit` migration SELECTS and its `hireling-split` marker is the
