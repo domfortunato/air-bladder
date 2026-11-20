@@ -42,7 +42,7 @@ export const SETTING_KEYS = [
   // listed here (review #9); the completion markers (roles-restamped,
   // companion-restamped, hireling-split and its hireling-split-pending,
   // grimoire-keys-stamped, connections-migrated, art-migration-generation,
-  // glog-converted) stay unlisted on purpose.
+  // glog-converted, shield-flag-stamped) stay unlisted on purpose.
   // Every one of them dates
   // from AFTER the namespace move, so there is no "cairn.<key>" value for this
   // list to carry across — listing them would iterate keys that cannot exist.
@@ -403,6 +403,17 @@ export const registerSettings = () => {
     config: false,
     type: Number,
     default: 0,
+  });
+
+  // Completion marker for the shield-flag stamp (2026-11-20): existing copies
+  // of the shipped shields get `system.shield` ONCE. Marker-gated, not
+  // state-gated, so a shield a Warden unticks afterwards stays unticked — a
+  // state test would tick it back on every load. `config: false`: internal.
+  game.settings.register(SETTINGS_NS, "shield-flag-stamped", {
+    scope: "world",
+    config: false,
+    type: Boolean,
+    default: false,
   });
 
   // Completion marker for the Grimoire page-key stamp (issue #17, 2026-08-16):

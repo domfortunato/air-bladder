@@ -1281,11 +1281,15 @@
    the portrait, so the sixth counter row here is what keeps numbers 11 and 12
    out of an implicit row under the tabs — the same measured failure the
    spellbook block above records. */
-.plain-item.item-sheet-grid {
+/* Armor joined it on 2026-11-20, when the Shield box made its counters
+   eleven: the same six counter rows, the tabs at eight. */
+.plain-item.item-sheet-grid,
+.armor.item-sheet-grid {
     grid-template-rows: 46px 36px 36px 36px 36px 36px 36px 1fr;
 }
 
-.plain-item.item-sheet-grid .item-sheet-section-tabs {
+.plain-item.item-sheet-grid .item-sheet-section-tabs,
+.armor.item-sheet-grid .item-sheet-section-tabs {
     grid-row-start: 8;
     grid-row-end: 8;
 }
@@ -5678,6 +5682,24 @@ header.character-generator.directory-header .header-actions > button:not(.cairn-
 }
 .cairn-character-sheet .cairn-shield .armor-input:focus { box-shadow: none; }
 .cairn-character-sheet .cairn-shield .armor-reset { position: absolute; right: -20px; top: 4px; margin: 0; }
+/* "Hold shield" (2026-11-20) left of the Armor box. Three columns, the box in
+   the middle one, so it stays centred over HP with or without the switch. */
+.cairn-character-sheet .cairn-armor-row {
+    align-self: stretch; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; column-gap: 10px;
+}
+.cairn-character-sheet .cairn-armor-row > .cairn-shield { grid-column: 2; }
+.cairn-character-sheet .shield-hold {
+    grid-column: 1; justify-self: end;
+    display: flex; flex-direction: column; align-items: center; gap: 2px;
+    width: auto; height: auto; min-height: 0; padding: 2px 4px; margin: 0;
+    background: none; border: none; box-shadow: none; line-height: 1;
+    font-family: "Alegreya", Times, "Times New Roman", Georgia, serif;
+    font-size: 12px; font-weight: bold; font-variant: small-caps; color: var(--ab-ink);
+    text-align: center; white-space: normal; max-width: 64px; cursor: pointer;
+}
+.cairn-character-sheet .shield-hold i { margin: 0; font-size: 20px; color: var(--ab-muted); }
+.cairn-character-sheet .shield-hold[aria-checked="true"] i { color: var(--ab-accent); }
+.cairn-character-sheet .shield-hold:disabled { cursor: default; opacity: 0.6; }
 .cairn-character-sheet .cairn-vitals .hp-counter { align-self: stretch; }
 .cairn-character-sheet .cairn-slots-line {
     display: flex; justify-content: center; align-items: baseline; gap: 6px; width: 100%;

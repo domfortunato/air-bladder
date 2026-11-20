@@ -25,6 +25,18 @@
                        value="{{system.armor}}" data-dtype="Number" />
             </div>
         </div>
+        {{!-- Shield (2026-11-20, user ask): ticked, the character sheet offers
+              "Hold shield" beside its Armor box, which holds (equips) or slings
+              (unequips) it. The ELEVENTH counter, so armor joins the plain-item
+              grid's sixth counter row in cairn.css: without it this auto-placed
+              into an implicit row under the tabs (count the counters). --}}
+        <div class="resource-counter long-counter">
+            <label class="large-resource-label" for="{{@root.idp}}-system.shield">{{ localize 'CAIRN.Shield' }}</label>
+            <div class="resource-input-wrapper">
+                <input type="checkbox" {{checked system.shield}} name="system.shield" id="{{@root.idp}}-system.shield"
+                       value="{{system.shield}}" data-dtype="Boolean" />
+            </div>
+        </div>
 
         <!-- Damage + Blast (2026-08-30): armor carries the weapon's damage group
              now — Tupshead Crown's horns are the shipped case. Placed as their

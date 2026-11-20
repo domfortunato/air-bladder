@@ -103,6 +103,17 @@ Moved word for word from CLAUDE.md (2026-11-01); CLAUDE.md points here.
   derives HP to 0 (`#hpIsDerived`, the one statement `_processFormData`'s
   strip reads too). Tooltips "Gain 1 HP" / "Lose 1 HP".
 - Gate `dev:sheet-rail`.
+- Hold shield (user ask, 2026-11-20): an armor item ticked **Shield**
+  (`system.shield`, default false; the shipped Shield, Hacked Shield and
+  Steadymade Buckler ticked) gives the character sheet a "Hold shield" switch
+  left of the Armor box (`.cairn-armor-row`, three columns so the box stays
+  centred). Held = equipped, slung = not: the user's ruling, no new rule, so
+  a press is the shield row's hand icon (`#onToggleShield`; off slings every
+  held shield, on holds the first in inventory order). Existing copies are
+  ticked once by exact English name or compendium source
+  (`migrateShieldFlags`, marker `shield-flag-stamped`). The armor sheet's
+  Shield box is its eleventh counter, so armor shares the plain-item grid's
+  six counter rows. Gate `dev:shield`.
 
 ## Creation routes
 

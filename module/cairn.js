@@ -1807,6 +1807,8 @@ Hooks.once("ready", async () => {
 
   await phase("grimoire page keys", migrateGrimoirePages);
 
+  await phase("shield flags", migrateShieldFlags);
+
   await phase("grant notes removal", removeGrantNotes);
 
   await phase("connections flatten + ownership migration", flattenConnections);
@@ -2646,6 +2648,57 @@ const migrateGrimoirePages = async () => {
       + ` the books out one at a time: the last book on the shelf takes what is left.`);
   }
   await game.settings.set(SETTINGS_NS, "grimoire-keys-stamped", true);
+};
+
+/**
+ * Tick `system.shield` on existing copies of the shipped shields (2026-11-20,
+ * the "Hold shield" switch; the user's pick: "matched once by name").
+ *
+ * A copy made before the field existed stores nothing, so it reads false and
+ * the character holding it would get no switch. Two signals mark a copy, and
+ * either is enough: its stored ENGLISH name is exactly one of the three
+ * shipped names (stored names are English; the content overlay is display-
+ * only), or its `_stats.compendiumSource` is one of the three pack documents
+ * — which also catches a copy the Warden has renamed. Exact names, never a
+ * substring: "Shield Spikes" is not a shield. Armor type only, so the GLOG
+ * "Shield" spellbook is never touched.
+ *
+ * World items, every actor's items and unlinked-token deltas, as the grimoire
+ * stamp walks them. Marker-gated (`shield-flag-stamped`), set only after the
+ * writes land, so a shield a Warden unticks afterwards stays unticked.
+ */
+const SHIPPED_SHIELD_NAMES = new Set(["Shield", "Hacked Shield", "Steadymade Buckler"]);
+const SHIPPED_SHIELD_SOURCES = new Set([
+  "Compendium.air-bladder.armor.Item.7r2YpGYPQI2SarO3",
+  "Compendium.air-bladder.background-items.Item.CBziqgsnPhtbysXq",
+  "Compendium.air-bladder.background-items.Item.3QHTT61bXqb2dAeB",
+]);
+const migrateShieldFlags = async () => {
+  if (game.settings.get(SETTINGS_NS, "shield-flag-stamped")) return;
+  let count = 0;
+  const isShippedShield = (i) => i.type === "armor" && i._source.system?.shield !== true
+    && (SHIPPED_SHIELD_NAMES.has(i._source.name) || SHIPPED_SHIELD_SOURCES.has(i._stats?.compendiumSource));
+
+  /** @param {Document|null} parent  the owning Actor, or null for world items */
+  const stamp = async (parent, items) => {
+    const updates = items.filter(isShippedShield).map((i) => ({ _id: i.id, "system.shield": true }));
+    if (!updates.length) return;
+    // abNoStatusCard: a migration must not post a change-log card per shield.
+    if (parent) await parent.updateEmbeddedDocuments("Item", updates, { abNoStatusCard: true });
+    else await getDocumentClass("Item").updateDocuments(updates, { abNoStatusCard: true });
+    count += updates.length;
+  };
+
+  await stamp(null, [...game.items]);
+  for (const actor of game.actors) await stamp(actor, [...actor.items]);
+  for (const scene of game.scenes) {
+    for (const token of scene.tokens) {
+      if (token.actorLink || !token.actor) continue;
+      await stamp(token.actor, [...token.actor.items]);
+    }
+  }
+  if (count) console.log(`Air Bladder | shield flags: ${count} shield(s) ticked`);
+  await game.settings.set(SETTINGS_NS, "shield-flag-stamped", true);
 };
 
 /**

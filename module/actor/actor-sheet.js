@@ -433,6 +433,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       removeFatigue: owned(CairnActorSheet.#onRemoveFatigue),
       hpUp: owned(CairnActorSheet.#onHpStep),
       hpDown: owned(CairnActorSheet.#onHpStep),
+      toggleShield: owned(CairnActorSheet.#onToggleShield),
       rollDamage: CairnActorSheet.#onRollDamage,
       // Connections
       connectionAdd: owned(CairnActorSheet.#onConnectionAdd),
@@ -2003,6 +2004,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       context.hpAtMax = false;
       context.hpAtFloor = false;
       context.hpDerived = false;
+      context.shieldSwitch = null;
       context.criticalToggle = {};
       context.criticalActive = {};
       context.abilityTips = {};
@@ -2043,6 +2045,11 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       context.hpAtFloor = !(sv > 0);
       context.hpDerived = this.#hpIsDerived;
     }
+    // "Hold shield" beside the Armor box (2026-11-20, user ask): only on a
+    // character carrying an armor item ticked Shield; on while ANY is held
+    // (equipped). #onToggleShield is the press.
+    const shields = this.#shieldsCarried();
+    context.shieldSwitch = shields.length ? { held: shields.some((i) => i.system.equipped) } : null;
     // Skull offered when STR is damaged and still alive, or already marked.
     context.criticalToggle = { STR: (val("STR") < max("STR") && val("STR") > 0) || strCritical };
     context.criticalActive = { STR: strCritical };
@@ -4547,6 +4554,38 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     const max = Number(this.actor.system.hp?.max) || 0;
     const next = Math.max(0, Math.min(max, value + (target.dataset.action === "hpUp" ? 1 : -1)));
     if (next !== value) await this.actor.update({ "system.hp.value": next });
+  }
+
+  /**
+   * The armor items ticked Shield that a CHARACTER carries, in inventory order.
+   * Empty for every other actor type: the switch is the character sheet's.
+   * @returns {Item[]}
+   */
+  #shieldsCarried() {
+    if (this.actor.type !== "character") return [];
+    return this.actor.items
+      .filter((i) => i.type === "armor" && i.system?.shield === true)
+      .sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0));
+  }
+
+  /**
+   * "Hold shield" (2026-11-20, user ask: "the toggle should sling or hold the
+   * shield"). Held is EQUIPPED and slung is not — the user's ruling, no new
+   * rule — so a press is the inventory row's hand icon for the shield. While
+   * any shield is held a press slings EVERY held one (the switch reads on for
+   * any of them, so off must mean none); otherwise it holds the first, in
+   * inventory order, that can be equipped. No options, as the hand icon.
+   * @this {CairnActorSheet}
+   */
+  static async #onToggleShield(event) {
+    event.preventDefault();
+    const shields = this.#shieldsCarried();
+    if (!shields.length) return;
+    const held = shields.filter((i) => i.system.equipped);
+    const updates = held.length
+      ? held.map((i) => ({ _id: i.id, "system.equipped": false }))
+      : shields.filter((i) => i.system.isEquipable !== false).slice(0, 1).map((i) => ({ _id: i.id, "system.equipped": true }));
+    if (updates.length) await this.actor.updateEmbeddedDocuments("Item", updates);
   }
 
   /**

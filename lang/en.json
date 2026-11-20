@@ -511,6 +511,7 @@
   "CAIRN.HitProtection": "HP",
   "CAIRN.HitProtectionLong": "Hit Protection",
   "CAIRN.HitProtectionTip": "Hit Protection represents your character's ability to protect themselves.",
+  "CAIRN.HoldShield": "Hold shield",
   "CAIRN.HpDown": "Lose 1 HP",
   "CAIRN.HpUp": "Gain 1 HP",
   "CAIRN.Initiative.ActFirst": "Act first",
@@ -1054,6 +1055,7 @@
       "label": "Keep a weather log"
     }
   },
+  "CAIRN.Shield": "Shield",
   "CAIRN.Slots": "Slots",
   "CAIRN.Source": "Source:",
   "CAIRN.SpellPagePrefix": "Spell — ",

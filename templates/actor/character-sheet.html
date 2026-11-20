@@ -256,6 +256,20 @@
 
                     <!-- Vitals: Armor, HP, Deprived and Panicked, slots, and the buttons -->
                     <div class="cairn-vitals">
+                        {{!-- "Hold shield" (2026-11-20, user ask: "a toggle to the left of
+                              the shield with armor value ... the toggle should sling or hold
+                              the shield"): only while the character carries an armor item
+                              ticked Shield. Held is equipped, slung is not (the user's
+                              ruling): a press is the shield row's hand icon. The creation-
+                              mode toggle's icons, as a switch. A three-column row keeps the
+                              Armor box centred whether the switch is there or not. --}}
+                        <div class="cairn-armor-row">
+                        {{#if shieldSwitch}}
+                        <button type="button" class="shield-hold" data-action="toggleShield" role="switch" aria-checked="{{#if shieldSwitch.held}}true{{else}}false{{/if}}"{{#unless @root.editable}} disabled{{/unless}}>
+                            <i class="fas {{#if shieldSwitch.held}}fa-toggle-on{{else}}fa-toggle-off{{/if}}" inert></i>
+                            <span>{{ localize 'CAIRN.HoldShield' }}</span>
+                        </button>
+                        {{/if}}
                         <div class="cairn-shield armor-counter {{#if system.armorOverridden}}armor-overridden{{/if}}">
                             <label for="{{@root.idp}}-armor" data-tooltip="{{ localize 'CAIRN.ArmorTip' }}">{{ localize 'CAIRN.Armor' }}</label>
                             <input type="number" min="0" max="3" step="1" class="armor-input" id="{{@root.idp}}-armor" value="{{system.armor}}"
@@ -263,6 +277,7 @@
                             {{#if system.armorOverridden}}
                             <a class="armor-reset" data-action="armorReset" title="{{ localize 'CAIRN.ArmorReset' }}"><i class="fas fa-rotate-left"></i></a>
                             {{/if}}
+                        </div>
                         </div>
 
                         {{!-- HP's two numbers carry the abilities' words (round 5), in a

@@ -19,6 +19,7 @@ system:
     max: 0
   quantity: 1
   armor: 1
+  shield: true
 ownership:
   default: 0
 _stats:

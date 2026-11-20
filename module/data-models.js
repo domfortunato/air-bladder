@@ -737,7 +737,17 @@ class WeaponData extends CairnDataModel {
  */
 class ArmorData extends CairnDataModel {
   static defineSchema() {
-    return { ...universal(), ...withDamage(), ...consumable(), ...relicFields(), armor: int(1) };
+    return {
+      ...universal(), ...withDamage(), ...consumable(), ...relicFields(), armor: int(1),
+      // `shield` (2026-11-20, user ask): marks the armor a character can HOLD
+      // or SLING with the character sheet's "Hold shield" switch. Held is
+      // equipped and slung is not; no new rule, only the switch. A flag, not a
+      // name match, by `ranged`'s argument: a name fails on a Warden's homebrew
+      // and on a translated client. DEFAULT FALSE; the shipped Shield, Hacked
+      // Shield and Steadymade Buckler are ticked, and migrateShieldFlags ticks
+      // existing copies ONCE (marker `shield-flag-stamped`).
+      shield: bool(),
+    };
   }
 }
 
