@@ -272,7 +272,10 @@ try {
     // key, never a shared "Configure".
     out.buttonText = buttons.map((b) => b.textContent.trim());
     out.expectedText = mod.SETTING_GROUPS.map((g) => game.i18n.localize(g.button));
-    out.looseRows = [...root.querySelectorAll(`[name^="${NS}."]`)].map((i) => i.name);
+    // The calendar bar's per-person tuck is the one row allowed here (see the
+    // registry walk above).
+    out.looseRows = [...root.querySelectorAll(`[name^="${NS}."]`)].map((i) => i.name)
+      .filter((k) => k !== `${NS}.tuck-calendar-bar`);
     out.indexed = buttons.map((b) => !!b.closest(".form-group")?.querySelector("[data-searchable]"));
     const search = root.querySelector("input[type=search]");
     out.hasSearch = !!search;

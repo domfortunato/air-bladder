@@ -4717,8 +4717,11 @@ ol.combat-tracker li.combatant.cairn-drop-below {
     pointer-events: auto;
 }
 
-.cairn-calendar-bar .cairn-bar-tab + .cairn-bar-tab {
-    border-left: 1px solid rgb(0 0 0 / 25%);
+/* The divider is an inset shadow on the face, not a border: a border on the
+   tab would sit over nothing painted (the face carries the ground), which a
+   contrast audit reads as a rule drawn on the canvas. */
+.cairn-calendar-bar .cairn-bar-tab + .cairn-bar-tab .cairn-bar-face {
+    box-shadow: inset 1px 0 0 rgb(0 0 0 / 25%);
 }
 
 .cairn-calendar-bar .cairn-bar-face {
@@ -4728,7 +4731,11 @@ ol.combat-tracker li.combatant.cairn-drop-below {
     justify-content: center;
     gap: 6px;
     padding: 4px 14px 5px;
-    background: linear-gradient(160deg, var(--ab-tone-from), var(--ab-tone-to));
+    /* A solid ground UNDER the gradient: the gradient's darker end, so text
+       contrast measured against it (dev:theme reads background-color, not
+       images) is the worst case the gradient shows. */
+    background-color: var(--ab-tone-to);
+    background-image: linear-gradient(160deg, var(--ab-tone-from), var(--ab-tone-to));
     color: var(--ab-tone-ink);
     font-size: var(--font-size-16);
     font-weight: 600;
@@ -4773,7 +4780,8 @@ ol.combat-tracker li.combatant.cairn-drop-below {
     max-width: 36em;
     padding: 2px 12px;
     border-radius: 8px;
-    background: linear-gradient(160deg, var(--ab-tone-from), var(--ab-tone-to));
+    background-color: var(--ab-tone-to);
+    background-image: linear-gradient(160deg, var(--ab-tone-from), var(--ab-tone-to));
     color: var(--ab-tone-ink);
     box-shadow: 0 2px 6px rgb(0 0 0 / 35%);
     font-size: var(--font-size-14);

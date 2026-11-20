@@ -369,7 +369,11 @@ try {
     const cfgEl = cfg.element;
     out.settingButtons = [...cfgEl.querySelectorAll(`button[data-action="openSubmenu"][data-key^="${NS}."]`)]
       .map((b) => b.dataset.key.slice(NS.length + 1));
-    out.looseRows = [...cfgEl.querySelectorAll(`[name^="${NS}."]`)].map((i) => i.name.slice(NS.length + 1));
+    // The calendar bar's per-person tuck (2026-11-20) is the ONE air-bladder
+    // row on core's list by design: client scope, and every submenu is
+    // Warden-only. Anything else here has escaped a submenu.
+    out.looseRows = [...cfgEl.querySelectorAll(`[name^="${NS}."]`)].map((i) => i.name.slice(NS.length + 1))
+      .filter((k) => k !== "tuck-calendar-bar");
     out.settingsUnmapped = /Unmapped/i.test(cfgEl.textContent);
     await cfg.close();
 
