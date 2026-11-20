@@ -511,6 +511,8 @@
   "CAIRN.HitProtection": "HP",
   "CAIRN.HitProtectionLong": "Hit Protection",
   "CAIRN.HitProtectionTip": "Hit Protection represents your character's ability to protect themselves.",
+  "CAIRN.HpDown": "Lose 1 HP",
+  "CAIRN.HpUp": "Gain 1 HP",
   "CAIRN.Initiative.ActFirst": "Act first",
   "CAIRN.Initiative.ActLast": "Act last",
   "CAIRN.Initiative.Enemies": "—",

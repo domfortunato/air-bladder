@@ -1,16 +1,18 @@
 {{!-- FIRST, and in full ink (round 5, user ask 2026-11-20: "at the top and
       more visible"): a click on an item's name expands its description. On every
-      sheet that lists an inventory, as the reorder hint at the foot is. --}}
-<div class="cairn-expand-hint"><i class="fa-solid fa-hand-pointer" inert></i> {{ localize 'CAIRN.ExpandHint' }}</div>
-{{#if withFatigue}}
-<div class="cairn-items-list-header">
+      sheet that lists an inventory, as the reorder hint at the foot is. Round 6
+      (user, same day): it shares its row with Fatigue's controls, the hint on the
+      left; a sheet without Fatigue shows it alone. --}}
+<div class="cairn-items-list-header cairn-items-top">
+  <div class="cairn-expand-hint"><i class="fa-solid fa-hand-pointer" inert></i> {{ localize 'CAIRN.ExpandHint' }}</div>
+  {{#if withFatigue}}
   <div class="end">
     <a class="item-control remove-fatigue" data-action="removeFatigue" title="{{ localize 'CAIRN.RemoveFatigue' }}"><i class="fas fa-minus"></i></a>
     {{ localize 'CAIRN.Fatigue' }}
     <a class="item-control add-fatigue" data-action="addFatigue" title="{{ localize 'CAIRN.AddFatigue' }}"><i class="fas fa-plus "></i></a>
   </div>
+  {{/if}}
 </div>
-{{/if}}
 <div class="cairn-items-list-header">
   <div>{{ localize 'CAIRN.Name' }} <i>{{ localize 'CAIRN.BoldMeanEquipped' }}</i></div>
   <span class="items-header-controls">

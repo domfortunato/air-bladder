@@ -431,6 +431,8 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       itemDescription: CairnActorSheet.#onItemDescription,
       addFatigue: owned(CairnActorSheet.#onAddFatigue),
       removeFatigue: owned(CairnActorSheet.#onRemoveFatigue),
+      hpUp: owned(CairnActorSheet.#onHpStep),
+      hpDown: owned(CairnActorSheet.#onHpStep),
       rollDamage: CairnActorSheet.#onRollDamage,
       // Connections
       connectionAdd: owned(CairnActorSheet.#onConnectionAdd),
@@ -1998,6 +2000,9 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       context.hpLow = false;
       context.hpPeril = false;
       context.hpPercent = 0;
+      context.hpAtMax = false;
+      context.hpAtFloor = false;
+      context.hpDerived = false;
       context.criticalToggle = {};
       context.criticalActive = {};
       context.abilityTips = {};
@@ -2031,6 +2036,12 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       const hm = Number(this.actor.system.hp?.max);
       context.hpPercent = hm > 0 && Number.isFinite(hv) ? Math.max(0, Math.min(100, Math.round((hv / hm) * 100))) : 0;
       context.hpPeril = !(hv > 0);
+      // HP's + and − (round 6): off at their bounds, read from the STORED
+      // value the step writes, and both off while HP is derived to 0.
+      const sv = Number(this.actor._source.system?.hp?.value) || 0;
+      context.hpAtMax = !(sv < hm);
+      context.hpAtFloor = !(sv > 0);
+      context.hpDerived = this.#hpIsDerived;
     }
     // Skull offered when STR is damaged and still alive, or already marked.
     context.criticalToggle = { STR: (val("STR") < max("STR") && val("STR") > 0) || strCritical };
@@ -4511,6 +4522,34 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
   }
 
   /**
+   * Whether prepareData DERIVES this actor's HP to 0 right now: encumbrance for
+   * whoever lives by the player rules, panic while the use-panic setting is on.
+   * The one statement of the condition for _processFormData's strip and for
+   * HP's + and − (review #5: two sites disagreeing left HP un-editable).
+   */
+  get #hpIsDerived() {
+    return !!((this.actor.livesByPlayerRules && this.actor.system.encumbered)
+      || (this.actor.system.usePanic && this.actor.system.panicked));
+  }
+
+  /**
+   * HP's + and − (round 6, user ask 2026-11-20): one point, between 0 and max,
+   * stepped from the STORED value. Refused while HP is derived to 0, where a
+   * write would persist the rule's 0 (or a step from it) over the real value;
+   * the buttons are disabled then too. No options, so a press is exactly a
+   * typed number: the same status card and change log.
+   * @this {CairnActorSheet}
+   */
+  static async #onHpStep(event, target) {
+    event.preventDefault();
+    if (this.#hpIsDerived) return;
+    const value = Number(this.actor._source.system?.hp?.value) || 0;
+    const max = Number(this.actor.system.hp?.max) || 0;
+    const next = Math.max(0, Math.min(max, value + (target.dataset.action === "hpUp" ? 1 : -1)));
+    if (next !== value) await this.actor.update({ "system.hp.value": next });
+  }
+
+  /**
    * Roll a weapon's damage, honouring panic (a panicked character rolls d4
    * regardless of the weapon), the impaired/enhanced choice, and any targeted
    * tokens.
@@ -5926,10 +5965,10 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // turn the setting off with someone panicked and prepareData stops
     // deriving the 0, but the strip kept dropping every HP edit — silently
     // un-editable, with the checkbox that clears panic no longer rendered.
-    const derivedZero =
-      (this.actor.livesByPlayerRules && this.actor.system.encumbered)
-      || (this.actor.system.usePanic && this.actor.system.panicked);
-    if (derivedZero) {
+    // The expression lives in #hpIsDerived since round 6, so HP's + and −
+    // (#onHpStep, and their disabled state in _computeStatContext) read the
+    // SAME statement and cannot drift from this strip.
+    if (this.#hpIsDerived) {
       foundry.utils.deleteProperty(data, "system.hp.value");
     }
 

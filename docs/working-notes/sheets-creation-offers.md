@@ -95,6 +95,13 @@ Moved word for word from CLAUDE.md (2026-11-01); CLAUDE.md points here.
   `--ab-hp-fill` / `--ab-hp-fill-low`, a red frame at 0; typing only, no
   step buttons. Inventory opens on "Click an item to expand its description"
   (`.cairn-expand-hint`, full ink, every sheet with an inventory).
+- Sixth round (user asks, 2026-11-20): the hint shares the Inventory's first
+  row with Fatigue's controls (`.cairn-items-top`, hint left, Fatigue right),
+  and HP gets + and − after all, inside the box's "HP" half: + left of the
+  label, − right (the user's order; `hpUp` / `hpDown`, `#onHpStep`). One
+  point from the stored value, 0 to max; both off while encumbrance or panic
+  derives HP to 0 (`#hpIsDerived`, the one statement `_processFormData`'s
+  strip reads too). Tooltips "Gain 1 HP" / "Lose 1 HP".
 - Gate `dev:sheet-rail`.
 
 ## Creation routes

@@ -281,7 +281,17 @@
                             {{!-- hpTip appends "Rolled at creation." while the mode is On;
                                   the boxes say WHICH side is which, formatted per stat
                                   (currentTips/maxTips, _computeStatContext). --}}
-                            <label for="{{@root.idp}}-system.hp.value" data-tooltip="{{hpTip}}">{{ localize 'CAIRN.HitProtection' }}</label>
+                            {{!-- HP's + and − in the "HP" half (round 6, user ask
+                                  2026-11-20, reversing round 5's typing only): + to the
+                                  left of the label and − to the right, the user's order.
+                                  Outside the <label>, which must hold no other control.
+                                  Off at max / 0 and while the rule derives HP to 0
+                                  (hpDerived: encumbrance or panic). --}}
+                            <div class="hp-label-half">
+                                <button type="button" class="hp-step" data-action="hpUp" data-tooltip="CAIRN.HpUp" aria-label="{{ localize 'CAIRN.HpUp' }}"{{#if hpAtMax}} disabled{{else if hpDerived}} disabled{{/if}}><i class="fas fa-plus" inert></i></button>
+                                <label for="{{@root.idp}}-system.hp.value" data-tooltip="{{hpTip}}">{{ localize 'CAIRN.HitProtection' }}</label>
+                                <button type="button" class="hp-step" data-action="hpDown" data-tooltip="CAIRN.HpDown" aria-label="{{ localize 'CAIRN.HpDown' }}"{{#if hpAtFloor}} disabled{{else if hpDerived}} disabled{{/if}}><i class="fas fa-minus" inert></i></button>
+                            </div>
                             <div class="resource-input-wrapper">
                                 <div class="hp-fill" style="width: {{hpPercent}}%"></div>
                                 <input type="number" min="0" max="18" step="1" class="stat-input" name="system.hp.value" id="{{@root.idp}}-system.hp.value"
