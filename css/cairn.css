@@ -5597,6 +5597,9 @@ header.character-generator.directory-header .header-actions > button:not(.cairn-
     --button-size: 20px; flex: 0 0 auto; width: 20px; height: 20px; min-height: 20px;
     padding: 0; margin: 0; line-height: 1;
     display: flex; align-items: center; justify-content: center; font-size: 11px;
+    /* They sit ON the bar, so they wear its ink, not core's button ink: in the
+       light theme that was #111 on black (seen on CT 123, 2026-11-20). */
+    color: var(--ab-on-bar); border-color: var(--ab-on-bar); background: transparent;
 }
 .cairn-character-sheet .hp-counter .hp-step i { margin: 0; }
 .cairn-character-sheet .hp-counter .hp-step:disabled { opacity: 0.35; }
