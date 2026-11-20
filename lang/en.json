@@ -1001,7 +1001,7 @@
     "GroupGenerationHint": "Which content sources are offered, bonds, the Roll buttons, what players may generate or randomize, showing generation rolls in chat, the portrait folder, and the dice for abilities, HP, gold and age.",
     "GroupHacks": "GLOG & Other Hacks",
     "GroupHacksButton": "Configure Hacks",
-    "GroupHacksHint": "Optional rule hacks: GLOG Magic and its Grimoires, the Vald calendar, three optional combat rules, bulky shields, and a Knave-style failed career for Barebones characters.",
+    "GroupHacksHint": "Optional rule hacks: GLOG Magic and its Grimoires, the Vald calendar, three optional combat rules, bulky shields, full hands, shields as d4 weapons, and a Knave-style failed career for Barebones characters.",
     "GroupInventory": "Inventory & Encumbrance",
     "GroupInventoryButton": "Configure Inventory",
     "GroupInventoryHint": "Slot limit, the inventory cap, the marketplace and the coins-per-slot threshold.",

@@ -10,9 +10,10 @@ character is carrying, press it again and the light goes out. Torch knows about
 a dozen game systems out of the box, and Air Bladder is not one of them — so on
 its own it offers an Air Bladder token nothing. This page gives it what it needs.
 
-Air Bladder does not light anything itself, and nothing here changes that. The
-file below only tells Torch which inventory items are lights and how far they
-reach. Whether to run Torch at all is the Warden's call.
+Air Bladder never lights anything on its own. The file below tells Torch which
+inventory items are lights and how far they reach, and the character sheet's
+**Hold light** switch asks Torch to light the one a character holds. Whether to
+run Torch at all is the Warden's call.
 
 ## Install
 
@@ -66,6 +67,19 @@ oil is spent by hand — which is what the rules text asks for anyway.
 Two Torch settings decide who burns anything: **players consume inventory** is
 on by default, **the GM consumes inventory** is off. A Warden's own tokens
 light without spending a use unless you switch the second one on.
+
+## Hold light
+
+A character sheet has a **Hold light** switch under **Hold shield**. Switching
+it on holds the first light in the character's inventory, the same as pressing
+that light's hand. Switching it off puts every held light away.
+
+With Torch active and the character's token on the scene you are viewing,
+holding a light also lights the token, and putting it away puts the light out,
+which spends a use as above. It works one way only: Torch's own button on the
+token HUD does not move the switch. A light Torch doesn't know (a name missing
+from the file) is still held, but it doesn't shine. Without Torch, or with no
+token on the scene, the switch only holds or puts away the item.
 
 ## Names are what match
 
