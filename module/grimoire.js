@@ -24,8 +24,10 @@ import { cleanDescription, concealSecrets, formatCount } from "./utils.js";
 import { SETTINGS_NS } from "./settings.js";
 import { grimoiresEnabled } from "./glog.js";
 
-/** The shipped Mishaps table's stored English name (tables-glog). */
-export const MISHAPS_TABLE_NAME = "GLOG Magic: Mishaps";
+/** The shipped Mishaps table's stored English name (tables-glog). "GLoG"
+ *  since 2026-11-20; a world copy still called "GLOG Magic: Mishaps" is found
+ *  by the same lookup (compendium.js `tableNameKey`). */
+export const MISHAPS_TABLE_NAME = "GLoG Magic: Mishaps";
 
 /**
  * Every Grimoire `actor` holds. A CHARACTER carries at most one — the one-book
@@ -238,7 +240,7 @@ const GLOG_CAST_FLAG = "glogCast";
  * leaving it alone. A character's name never localizes either way.
  */
 const glogCastFlavor = (key, name) =>
-  `<span class="glog-flavor-tag">GLOG</span> — ${game.i18n.format(key, { name: esc(name) })}`;
+  `<span class="glog-flavor-tag">GLoG</span> — ${game.i18n.format(key, { name: esc(name) })}`;
 
 /**
  * The public card's body, from a display-ready name and description. ONE

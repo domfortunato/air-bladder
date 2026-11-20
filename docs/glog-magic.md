@@ -1,12 +1,12 @@
-# How to use GLOG Magic in Air Bladder
+# How to use GLoG Magic in Air Bladder
 
-Air Bladder ships with an optional [GLOG Magic hack](https://cairnrpg.com/hacks/glog-magic/) for Cairn, which is based on Goblin Punch's seminal **Goblin Laws of Magic** and its [2016 blogpost](https://goblinpunch.blogspot.com/2016/05/the-glog.html). To use GLOG Magic with the system, the Game Master must first enable it in the world's game settings.
+Air Bladder ships with an optional [GLoG Magic hack](https://cairnrpg.com/hacks/glog-magic/) for Cairn, which is based on Goblin Punch's seminal **Goblin Laws of Magic** and its [2016 blogpost](https://goblinpunch.blogspot.com/2016/05/the-glog.html). To use GLoG Magic with the system, the Game Master must first enable it in the world's game settings.
 
-Yochai Gal's adaptation of the GLOG Magic rules text — casting, Fatigue,Mishaps, copying and creating Grimoires — ships in Air Bladder as the **GLOG Magic — Player Rules** journal in the **Journals (GLOG)** compendium, with all 100 spells beside it in **GLOG Magic — Spells**.*
+Yochai Gal's adaptation of the GLoG Magic rules text — casting, Fatigue,Mishaps, copying and creating Grimoires — ships in Air Bladder as the **GLoG Magic — Player Rules** journal in the **Journals (GLoG)** compendium, with all 100 spells beside it in **GLoG Magic — Spells**.*
 
 ## Overview
 
-Some think that GLOG makes magic more powerful and interesting in Cairn. Here is an overview of how it works:
+Some think that GLoG makes magic more powerful and interesting in Cairn. Here is an overview of how it works:
 
 **Magic Dice** — are required for each spell, and equal to the number of free item slots that a character has available. Investing more magic dice in your spell casting can increase the power, range and duration of your spell. But each die invested increases risk of fatigue or magical mishap!
 
@@ -26,7 +26,7 @@ Turning this ON rewrites the whole world, once, immediately:
 
 - Every canon spell anywhere takes its GLoG wording. A spellbook stays a spellbook, and a scroll stays a scroll, spent or not.
 - New arrivals take it too.
-- Generation hands out only GLoG spells, as spellbooks (as scrolls with Grimoires on). They are rolled on the shipped **Spells — GLOG** table in **Tables (GLOG)**, and a table of that name in your world is rolled instead — **Create a Custom Spell Table…** on the Rollable Tables sidebar makes that copy, spells included, while the hack is on (see [Generating Characters](generating-characters.md)).
+- Generation hands out only GLoG spells, as spellbooks (as scrolls with Grimoires on). They are rolled on the shipped **Spells — GLoG** table in **Tables (GLoG)**, and a table of that name in your world is rolled instead — **Create a Custom Spell Table…** on the Rollable Tables sidebar makes that copy, spells included, while the hack is on (see [Generating Characters](generating-characters.md)).
 
 **IMPORTANT: Turning GLoG Magic off will not change spells back to their Cairn wording, and turning Grimoires off will not turn spellscrolls back into spellbooks.** Treat each switch as a campaign decision, not a toggle to flip between sessions.
 
@@ -49,7 +49,7 @@ A Grimoire costs 300gp in labor and special inks and is *always found, made or t
 
 A warden can edit a Grimoire's **spellpage capacity** in — `Pages` on the Grimoire's item sheet, 10 by default. Edit the capacity there if your table uses larger or meaner tomes. Each spellpage holds one spell that was formerly a spellscroll.
 
-The **Grimoire** box and its **Pages** field appear only on a Grimoire's sheet, and only while GLOG Magic is switched on — no other item offers to become one. A spellbook's **GLOG** box (marking a spell written in the hack's wording) likewise appears only while the hack is on; its **Scroll** box is Cairn 2e's and is always there.
+The **Grimoire** box and its **Pages** field appear only on a Grimoire's sheet, and only while GLoG Magic is switched on — no other item offers to become one. A spellbook's **GLoG** box (marking a spell written in the hack's wording) likewise appears only while the hack is on; its **Scroll** box is Cairn 2e's and is always there.
 
 ## Moving a Grimoire between sheets
 
@@ -66,7 +66,7 @@ While a character carries a Grimoire that is not yet full, every unbound Spellsc
 - weightless — spellpages do not consume inventory slots
 - grouped and indented under the Grimoire wearing a "page" icon;
 - a scroll's one-use nature is cleared — a spellpage casts forever, even multiple times per day, which is exactly what the 50gp transmute buys (the scroll dialog names the cost: 50 gold and 6 hours of downtime, *deduct those costs manually on the Player's sheets*);
-- **bound is forever. **Typically, unless your table plays differently with GLOG! 
+- **bound is forever. **Typically, unless your table plays differently with GLoG! 
 
 ## Casting
 
@@ -84,7 +84,7 @@ The roll is a real Foundry roll (Dice So Nice animates it), spoken by the charac
   Mishaps table rides the whisper. No doubles, and the whisper says so
   outright.
 
-**From a scroll (GLOG setting on):** an unspent, unbound Spellscroll shows
+**From a scroll (GLoG setting on):** an unspent, unbound Spellscroll shows
 its own cast control — the same dice, Fatigue and Mishaps — and the cast
 **spends** the scroll: struck through, kept, never deleted. A spent scroll
 can still be transmuted into a Grimoire, where it comes back as a permanent
@@ -94,8 +94,8 @@ page — that is the 50gp decision the hack leaves on the table.
 
 ## Customizing the Mishaps
 
-The Mishap draw resolves **world-first**: import **GLOG Magic: Mishaps**
-from the **Tables (GLOG)** compendium into your world and edit your copy —
+The Mishap draw resolves **world-first**: import **GLoG Magic: Mishaps**
+from the **Tables (GLoG)** compendium into your world and edit your copy —
 the cast flow finds the world's table before the shipped one, the same way
 the Faction die works.
 

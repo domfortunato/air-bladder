@@ -735,8 +735,8 @@ try {
     game.i18n.localize("CAIRN.GrimoireNoMishapLine"));
   check(castA.publicFlavor.includes(castFlavorText),
     "public card's flavor identifies the tile as the caster's spell", castA.publicFlavor);
-  check(castA.publicFlavor.includes('class="glog-flavor-tag"') && castA.publicFlavor.includes(">GLOG<"),
-    "and opens with the lit GLOG tag");
+  check(castA.publicFlavor.includes('class="glog-flavor-tag"') && castA.publicFlavor.includes(">GLoG<"),
+    "and opens with the lit GLoG tag");
   check(castA.whisperFlavor.includes(mishapFlavorText)
     && castA.whisperFlavor.includes('class="glog-flavor-tag"'),
     "doubles: the whisper's flavor announces the magical mishap, GLOG-tagged", castA.whisperFlavor);

@@ -51,8 +51,13 @@ export const slugify = (name) =>
  * spaces, trim). The stored en/es values keep their full markup — this only
  * decides when two sources are "the same key", so reflowed whitespace or an
  * importer re-wrap doesn't fork a translation. Never store the normalized form.
+ *
+ * "GLoG" folds to "GLOG" too (2026-11-20): the English moved to the mixed-case
+ * spelling (user ruling), and the translations already made are keyed on the
+ * old one. One key for both keeps every one of them matching, with no edit to
+ * a translator's file. Kept in sync BY HAND with module/i18n-content.js.
  */
-export const normalizeKey = (s) => String(s).replace(/\s+/g, " ").trim();
+export const normalizeKey = (s) => String(s).replace(/\s+/g, " ").trim().replace(/GLoG/g, "GLOG");
 
 /**
  * The source string as the RUNTIME will ask for it.

@@ -92,7 +92,7 @@ for (let i = 0; i < MISHAPS.length; i++) {
   if (MISHAPS[i][0] !== i + 2) throw new Error(`FATAL: mishap ${i} carries sum ${MISHAPS[i][0]}, expected ${i + 2}`);
 }
 
-const TABLE_NAME = "GLOG Magic: Mishaps";
+const TABLE_NAME = "GLoG Magic: Mishaps";
 const tid = idFor("air-bladder-glog-mishaps-table");
 const tableResults = MISHAPS.map(([sum, text]) => {
   const rid = idFor(`air-bladder-glog-mishap:${sum}`);
@@ -181,11 +181,11 @@ const pct = (x) => {
 };
 
 /* ------------------------------------------------------------- names + ids */
-const JOURNAL_NAME = "GLOG Magic — Player Rules";
+const JOURNAL_NAME = "GLoG Magic — Player Rules";
 const jid = idFor("air-bladder-glog-handout");
 const pid = idFor("air-bladder-glog-handout-page");
 const mpid = idFor("air-bladder-glog-handout-mishaps-page");
-const SPELLS_JOURNAL_NAME = "GLOG Magic — Spells";
+const SPELLS_JOURNAL_NAME = "GLoG Magic — Spells";
 const sjid = idFor("air-bladder-glog-spells-journal");
 const spid = idFor("air-bladder-glog-spells-journal-page");
 
@@ -302,7 +302,7 @@ const spellEntries = spells.map(({ name, desc }) => {
   return `<p><strong>${name}.</strong> ${m[1]}</p>`;
 }).join("");
 const SPELLS_PAGE = [
-  p(`The GLOG spell list — the canon hundred re-worded to scale with casting: [dice] is the Magic Dice invested, [sum] their total. How casting works: @UUID[Compendium.air-bladder.journals-glog.JournalEntry.${jid}]{${JOURNAL_NAME}}.`),
+  p(`The GLoG spell list — the canon hundred re-worded to scale with casting: [dice] is the Magic Dice invested, [sum] their total. How casting works: @UUID[Compendium.air-bladder.journals-glog.JournalEntry.${jid}]{${JOURNAL_NAME}}.`),
   spellEntries,
   p("<em>GLOG Spells, cairnrpg.com/hacks/glog-spells/ — CC BY-SA 4.0.</em>"),
 ].join("");

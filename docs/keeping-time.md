@@ -108,7 +108,7 @@ part of the interface.
 ## The Vald calendar
 
 Vald keeps its own year, and it is switched off by default. Turn it on in
-**Configure Settings → Air Bladder → GLOG & Other Hacks**, under **Use the Vald
+**Configure Settings → Air Bladder → GLoG & Other Hacks**, under **Use the Vald
 calendar and seasons**.
 
 With it on, the clock reads a Vald date and the Travel tab grows a **Weather in

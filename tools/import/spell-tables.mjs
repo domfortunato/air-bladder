@@ -81,10 +81,10 @@ const TABLES = [
   },
   {
     seed: "glog",
-    name: "Spells — GLOG",
+    name: "Spells — GLoG",
     outDir: "tables-glog",
     sources: ["spellbooks-glog"],
-    description: "The GLOG spell list as a rollable table — one row per spellscroll in the GLOG Spellscrolls compendium, alphabetical. The pool a character is dealt from while the GLOG Magic hack is on.",
+    description: "The GLoG spell list as a rollable table — one row per spellscroll in the GLoG Spellscrolls compendium, alphabetical. The pool a character is dealt from while the GLoG Magic hack is on.",
   },
 ];
 

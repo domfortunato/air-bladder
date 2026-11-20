@@ -159,4 +159,4 @@ Protection follows the **Hit Protection formula** there, like every other table.
 
 - **Dice Formulas** — what a damage formula can say, including keep-highest
   notation.
-- **GLOG Magic in Foundry** — another optional hack.
+- **GLoG Magic in Foundry** — another optional hack.

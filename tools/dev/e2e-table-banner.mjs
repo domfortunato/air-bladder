@@ -302,7 +302,7 @@ try {
   check(SIDEBAR.tables && pBondsKey.present && pBondsKey.text.includes(SIDEBAR.tables) && !pBondsKey.text.includes("PROBE-DEAD-KEY"),
     `…by the label the tab itself wears ("${SIDEBAR.tables}"), not by SIDEBAR.TabTables: shadowed to a sentinel, the banner does not follow`, pBondsKey.text.slice(-90));
   const pCanon = await bannerOf(page, await packUuid("air-bladder.tables-2e", "Spells — Canon (1d100)"));
-  const pGlog = await bannerOf(page, await packUuid("air-bladder.tables-glog", "Spells — GLOG"));
+  const pGlog = await bannerOf(page, await packUuid("air-bladder.tables-glog", "Spells — GLoG"));
   check(pCanon.role === "template" && pCanon.text.includes(BTN.Spells) && pGlog.role === "template" && pGlog.text.includes(BTN.Spells),
     `both pool tables name the Spell Table button — the pool NOT in force too (hack ${glogOn ? "ON" : "OFF"})`);
   // Two shipped tables are named Scars (review #31). Utils' is what the damage
@@ -346,8 +346,8 @@ try {
   const oc = await order(plainSp);
   check(oc.names.join() === [S3, S1, S2, S4].map((r) => r.name).join() && oc.formula === "1d3",
     "CONTROL: the same rows under PROBE Spells keep the dropped row last, formula untouched", JSON.stringify(oc));
-  const [G1, G2, G3] = byName(await harvest("air-bladder.tables-glog", "Spells — GLOG", 3));
-  const glog = await plant("Spells — GLOG", [at(G2, 1), at(G1, 2)], { formula: "1d2" });
+  const [G1, G2, G3] = byName(await harvest("air-bladder.tables-glog", "Spells — GLoG", 3));
+  const glog = await plant("Spells — GLoG", [at(G2, 1), at(G1, 2)], { formula: "1d2" });
   await drop(glog, at(G3, 3));
   const wantG = [G1, G2, G3].map((r) => r.name).join();
   let og = null;
@@ -428,9 +428,19 @@ try {
   check(rQuirk.role === "generic" && rQuirk.text.includes(NEW_ROW), "Warden: NPC - Quirk → the generic banner", rQuirk.role);
   const rScars = await roleOf("Scars");
   check(rScars.role === "cairn2e", "Scars, shipped in two packs, takes the button's kind and never the generic", rScars.role);
-  const rMishaps = await roleOf("GLOG Magic: Mishaps", { formula: "2d12" });
+  const rMishaps = await roleOf("GLoG Magic: Mishaps", { formula: "2d12" });
   check(rMishaps.role === "generic" && /2d12/.test(rMishaps.text) && rMishaps.text.includes(`${SUMMARY} tab`),
-    "GLOG Magic: Mishaps → generic, its 2d12 lookup named in the tail", rMishaps.role);
+    "GLoG Magic: Mishaps → generic, its 2d12 lookup named in the tail", rMishaps.role);
+  // A world copy made before the hack was spelled "GLoG" (2026-11-20) keeps its
+  // name, and is still the table it was: both spellings are one name
+  // (compendium.js tableNameKey). Red without the fold: no shipped table of
+  // the old name, so no banner, and no Spell Table button behind the copy.
+  const rOldMishaps = await roleOf("GLOG Magic: Mishaps", { formula: "2d12" });
+  check(rOldMishaps.role === "generic",
+    "a copy still named \"GLOG Magic: Mishaps\" (the old spelling) → still the generic banner", rOldMishaps.role);
+  const rOldSpells = await roleOf("Spells — GLOG");
+  check(rOldSpells.role === "spells",
+    "a copy still named \"Spells — GLOG\" → still the Spell Table button's", rOldSpells.role);
   const rNothing = await roleOf("PROBE nothing");
   check(rNothing.hasTable && !rNothing.present, "PROBE nothing → no banner");
 

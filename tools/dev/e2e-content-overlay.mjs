@@ -2171,6 +2171,39 @@ console.log("\nthe Fatigue-on-a-thing refusal names the thing in the display lan
 
 /* -------------------------------------------- */
 
+// "GLoG" (2026-11-20, user ruling): the English moved to the mixed-case
+// spelling, and the translations already made are keyed on "GLOG". The
+// overlay's keying folds the two (normalizeKey), so a translation keyed on the
+// old spelling still answers for the new — with no edit to the translator's
+// file. Red without the fold: the renamed source misses and reads English.
+// Control: a word that is NOT the hack's name does not fold.
+console.log("\nGLoG and GLOG are one key");
+const glogKey = await page.evaluate(async () => {
+  const i18n = await import("/systems/air-bladder/module/i18n-content.js");
+  try {
+    i18n._setOverlay({
+      "table.name": { "GLOG Magic: Mishaps": "ZZ-PERCANCES", "Glog Probe": "ZZ-NO-FOLD" },
+      "journal.name": { "GLOG Magic — Player Rules": "ZZ-REGLAS" },
+    });
+    return {
+      table: i18n.t("table.name", "GLoG Magic: Mishaps"),
+      journal: i18n.t("journal.name", "GLoG Magic — Player Rules"),
+      old: i18n.t("table.name", "GLOG Magic: Mishaps"),
+      control: i18n.t("table.name", "GLOG Probe"),
+    };
+  } finally {
+    i18n._setOverlay(null);
+  }
+});
+glogKey.table === "ZZ-PERCANCES" && glogKey.journal === "ZZ-REGLAS" && glogKey.old === "ZZ-PERCANCES"
+  ? ok("GLoG source, GLOG key: matched", JSON.stringify(glogKey))
+  : fail("GLoG source, GLOG key: matched", JSON.stringify(glogKey));
+glogKey.control === "GLOG Probe"
+  ? ok("control: only GLoG folds", JSON.stringify(glogKey.control))
+  : fail("control: only GLoG folds", JSON.stringify(glogKey.control));
+
+/* -------------------------------------------- */
+
 console.log(`\nconsole errors: ${errors.length}`);
 for (const e of errors.slice(0, 10)) console.log(`  ${e}`);
 if (errors.length) failures++;

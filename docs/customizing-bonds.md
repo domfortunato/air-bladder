@@ -62,7 +62,7 @@ view mode, where nothing can be dropped or added, so the note also tells you to
 press **Edit** at the top of the window first. Add a row and it is
 rolled straight away: the table's die follows its rows, so a twenty-first bond
 makes the formula `1d21` by itself, and deleting the last row shrinks it back.
-Tables rolled with more than one die — the NPC reactions, encounter and GLOG
+Tables rolled with more than one die — the NPC reactions, encounter and GLoG
 mishap tables — are the exception: their note names the dice and asks you to
 set the formula on the **Summary** tab yourself, because a bell curve is not
 something to flatten behind your back. And if two tables in your world share a
@@ -163,7 +163,7 @@ behind it roll yours. Delete it and the shipped table is back.
 | Monsters | the eight `Warden: Monster - …` tables (**Warden — Monsters**) |
 | Barebones character creation | `Barebones: Creation - Weapon`, `- Armor`, `- Additional Gear`, and the three `Barebones: Weapon Tier` tables (**Tables (Barebones)**) — these have a one-button copy of their own, see [Generating Characters](generating-characters.md) |
 | Scars, when damage lands | `Scars` (**Utils**) |
-| A random spellbook or spellscroll a background hands out | `Spells — Canon (1d100)` (**Tables (2e)**), or `Spells — GLOG` (**Tables (GLOG)**) with the GLOG hack on — these have a one-button copy of their own, spellbooks included, see [Generating Characters](generating-characters.md); a world copy re-sorts itself by name when a spellbook is dropped in, so the new spell can be rolled |
+| A random spellbook or spellscroll a background hands out | `Spells — Canon (1d100)` (**Tables (2e)**), or `Spells — GLoG` (**Tables (GLoG)**) with the GLoG hack on — these have a one-button copy of their own, spellbooks included, see [Generating Characters](generating-characters.md); a world copy re-sorts itself by name when a spellbook is dropped in, so the new spell can be rolled |
 | Factions | every table the faction generator rolls (**Warden — NPCs**) |
 | The marketplace | the four `Market: …` tables — see [Customizing the marketplace](customizing-the-marketplace.md) |
 

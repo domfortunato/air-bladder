@@ -109,7 +109,9 @@ Cairn.characterGenerator2e = {
   // theirs with "Create a Custom Spell Table…" (module/take-over.js).
   spells: {
     canon: "air-bladder.tables-2e;Spells — Canon (1d100)",
-    glog: "air-bladder.tables-glog;Spells — GLOG"
+    // "GLoG" since 2026-11-20; a world copy still spelled "GLOG" wins the
+    // same way (compendium.js `tableNameKey`).
+    glog: "air-bladder.tables-glog;Spells — GLoG"
   }
 };
 

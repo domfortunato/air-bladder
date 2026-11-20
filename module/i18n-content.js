@@ -25,7 +25,11 @@
 
 // Kept in sync BY HAND with normalizeKey in tools/i18n/lib.mjs (Node vs browser
 // module boundary — the same reason buildGearItem is duplicated in the importer).
-const normalizeKey = (s) => String(s).replace(/\s+/g, " ").trim();
+// "GLoG" folds to "GLOG" (2026-11-20): the English moved to the mixed-case
+// spelling (user ruling) and the translations already made are keyed on the old
+// one, so both spellings are one key — every translation keeps matching, and no
+// translator's file is touched.
+const normalizeKey = (s) => String(s).replace(/\s+/g, " ").trim().replace(/GLoG/g, "GLOG");
 
 // { [namespace]: { [normalizedEnglish]: spanish } }, or null in an English world /
 // when no overlay ships — in which case every lookup falls back to English.

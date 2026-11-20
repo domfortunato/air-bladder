@@ -188,12 +188,12 @@ Three buttons do the copying, all Wardens only:
 
 - **Create a Custom Spell Table…**, on the **Rollable Tables** sidebar
   tab. It copies the spell table a character is dealt a random spellbook or
-  scroll from — `Spells — Canon (1d100)`, or `Spells — GLOG` while the GLOG
+  scroll from — `Spells — Canon (1d100)`, or `Spells — GLoG` while the GLoG
   Magic hack is on — into a **Custom Spells** folder, along with every spellbook
   it can hand out, and points every row at your copies. The hack swaps the pool
   wholesale and is a one-way campaign decision, so if you copy the canon list
   and switch the hack on later, come back and press the button again for the
-  GLOG list.
+  GLoG list.
 - **Create Custom Barebones Creation Tables…**, on the **Rollable
   Tables** sidebar tab. It copies the six tables a Barebones character is dealt
   from — Weapon, Armor, Additional Gear and the three Weapon Tier tables — into

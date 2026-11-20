@@ -93,7 +93,7 @@
  *
  * Gate: `npm run dev:take-over`.
  */
-import { MARKETPLACE_PACK, compendiumInfoFromString } from "./compendium.js";
+import { MARKETPLACE_PACK, compendiumInfoFromString, findWorldTable, sameTableName } from "./compendium.js";
 import { t } from "./i18n-content.js";
 import { formatCount } from "./utils.js";
 import { SETTINGS_NS } from "./settings.js";
@@ -155,8 +155,9 @@ const onlyPairs = (spec) => spec.only?.map((entry) => {
 /** Does this spec copy a table of this NAME from this PACK? */
 const specCovers = (spec, pack, name) => {
   const pairs = onlyPairs(spec);
-  if (pairs) return pairs.some(([p, n]) => p === pack && n === name);
-  return spec.pack === pack && !!game.packs.get(pack)?.index.some((e) => e.name === name);
+  // sameTableName: a copy still spelled "GLOG" is the spell table's too.
+  if (pairs) return pairs.some(([p, n]) => p === pack && sameTableName(n, name));
+  return spec.pack === pack && !!game.packs.get(pack)?.index.some((e) => sameTableName(e.name, name));
 };
 
 /** Every pack a spec copies tables from — its own, plus any an `only` entry names. */
@@ -296,7 +297,8 @@ export const planTableTakeOver = async (spec) => {
     // `marketTables`, `findDeclaredTable`), so a renamed copy is not the table
     // anything will read, and adopting one through `compendiumSource` would
     // skip creating the one that counts.
-    const existing = game.tables.getName(table.name);
+    // findWorldTable: a copy made while the table was spelled "GLOG" is kept.
+    const existing = findWorldTable(table.name);
     if (existing) {
       const pointingAtPack = existing.results.filter((r) => String(r.documentUuid ?? "").startsWith("Compendium.")).length;
       plan.tables.kept.push({ id: existing.id, name: existing.name, pointingAtPack });

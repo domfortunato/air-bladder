@@ -118,7 +118,7 @@ const ROSTER = [
   // JavaScript functions. The pairing is the one monsters already use:
   // generating-monsters.md ships, monster-generation.md does not.
   ["using-your-own-portraits.md", "Using Your Own Portraits"],
-  ["glog-magic.md", "GLOG Magic in Foundry"],
+  ["glog-magic.md", "GLoG Magic in Foundry"],
   // The optional combat rules (2026-10-02; "Crawler Combat Mode" until 2026-10-03).
   ["optional-combat-rules.md", "Optional Combat Rules"],
   ["supplied-macros.md", "Supplied Macros"],

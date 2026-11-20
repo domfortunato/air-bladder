@@ -38,7 +38,7 @@ export const findCompendiumItem = async (compendiumName, itemName) => {
     console.warn(`findCompendiumItem: Could not find compendium (${compendiumName})`);
     return undefined;
   }
-  const entry = (await compendium.getIndex()).find((e) => e.name === itemName);
+  const entry = findByName(await compendium.getIndex(), itemName);
   if (!entry) {
     console.warn(`findCompendiumItem: Could not find item (${itemName}) in compendium (${compendiumName})`);
     return undefined;
@@ -64,15 +64,45 @@ export const findCompendiumItem = async (compendiumName, itemName) => {
  */
 export const findTableByName = async (name) => {
   const wanted = String(name).trim();
-  const world = game.tables?.find((t) => t.name === wanted);
+  const world = findWorldTable(wanted);
   if (world) return world;
   for (const pack of game.packs) {
     if (pack.metadata.type !== "RollTable") continue;
-    const entry = (await pack.getIndex()).find((e) => e.name === wanted);
+    const entry = findByName(await pack.getIndex(), wanted);
     if (entry) return pack.getDocument(entry._id);
   }
   return null;
 };
+
+/**
+ * A table name's identity for lookups. The hack is spelled "GLoG" in its table
+ * names since 2026-11-20 (user ruling), and a Warden's world copy made before
+ * that is still called "Spells — GLOG" or "GLOG Magic: Mishaps": both
+ * spellings are one name here, so that copy keeps winning, as world-first
+ * promises. Nothing else is folded.
+ * @param {string} name
+ * @returns {string}
+ */
+export const tableNameKey = (name) => String(name ?? "").trim().replace(/GLoG/g, "GLOG");
+
+/** Do two table names name the same table (`tableNameKey`)? */
+export const sameTableName = (a, b) => tableNameKey(a) === tableNameKey(b);
+
+/**
+ * The entry of this name in a list of named things (a collection, an index):
+ * the exact spelling first, then the other spelling of "GLoG" (`tableNameKey`).
+ * @template T
+ * @param {Iterable<T & {name: string}>} list
+ * @param {string} name
+ * @returns {T|undefined}
+ */
+export const findByName = (list, name) => {
+  const all = [...(list ?? [])];
+  return all.find((e) => e.name === name) ?? all.find((e) => sameTableName(e.name, name));
+};
+
+/** The world RollTable of this name (`findByName`), or undefined. */
+export const findWorldTable = (name) => (game.tables ? findByName(game.tables, String(name).trim()) : undefined);
 
 /**
  * A DECLARED table — `"pack;Name"` as `module/config.js` writes them, or a bare
@@ -101,7 +131,7 @@ export const findDeclaredTable = async (decl) => {
   const bare = tableName === undefined;
   const name = (bare ? packName : tableName)?.trim() ?? "";
   if (!name) return undefined;
-  const world = game.tables?.find((t) => t.name === name);
+  const world = findWorldTable(name);
   if (world) return world;
   if (bare) return (await findTableByName(name)) ?? undefined;
   return findCompendiumItem(packName, name);

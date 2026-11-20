@@ -106,6 +106,7 @@
  * Gate: `npm run dev:table-banner`.
  */
 import { kindOfTable } from "./take-over.js";
+import { sameTableName } from "./compendium.js";
 import { marketAisle, TRANSPORTS_CATEGORY, keptAlphabetical, resortTableByName } from "./marketplace.js";
 
 const L = (k) => game.i18n.localize(k);
@@ -167,13 +168,13 @@ const CHECKLIST_TABLES = { "air-bladder.tables-2e": ["Scars"] };
 const SCAR_CARD_PACK = "air-bladder.utils";
 
 /** How many OTHER world tables share this table's name. */
-const duplicatesOf = (table) => game.tables.filter((t) => t.id !== table.id && t.name === table.name).length;
+const duplicatesOf = (table) => game.tables.filter((t) => t.id !== table.id && sameTableName(t.name, table.name)).length;
 
 /** Is a table of this name shipped in ANY of our RollTable packs? The generic
  *  role: every one of them is read world-first by name (the Dashboard, the
  *  generators, the damage flow, the cast flow). */
 const shippedAnywhere = (name) => game.packs.some((p) =>
-  p.metadata.type === "RollTable" && SYSTEM_PACK.test(p.collection) && p.index.some((e) => e.name === name));
+  p.metadata.type === "RollTable" && SYSTEM_PACK.test(p.collection) && p.index.some((e) => sameTableName(e.name, name)));
 
 /**
  * What Air Bladder reads this table for, and the words the banner needs.
