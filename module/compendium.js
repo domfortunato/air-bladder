@@ -91,15 +91,18 @@ export const sameTableName = (a, b) => tableNameKey(a) === tableNameKey(b);
 /**
  * The entry of this name in a list of named things (a collection, an index):
  * the exact spelling first, then the other spelling of "GLoG" (`tableNameKey`).
+ * Through the list's OWN `find` (a Collection's, an Array's), never a spread
+ * copy: that is the one method this lookup always went through, and the
+ * probes hold a Warden's own world tables aside by shadowing exactly it
+ * (tools/dev/lib.mjs `holdAsideWorldTables`). A spread walked round the
+ * shadow and five probes read the held-aside tables (fleet run eea2eef0).
  * @template T
- * @param {Iterable<T & {name: string}>} list
+ * @param {{find: (fn: (e: T) => boolean) => T|undefined}|null|undefined} list
  * @param {string} name
  * @returns {T|undefined}
  */
-export const findByName = (list, name) => {
-  const all = [...(list ?? [])];
-  return all.find((e) => e.name === name) ?? all.find((e) => sameTableName(e.name, name));
-};
+export const findByName = (list, name) =>
+  list?.find((e) => e.name === name) ?? list?.find((e) => sameTableName(e.name, name));
 
 /** The world RollTable of this name (`findByName`), or undefined. */
 export const findWorldTable = (name) => (game.tables ? findByName(game.tables, String(name).trim()) : undefined);

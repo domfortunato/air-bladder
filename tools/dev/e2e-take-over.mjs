@@ -657,9 +657,10 @@ try {
       check(!c.error && WANT_HEADS[kind].every((h) => c.heads.includes(h)),
         `${kind}: the confirm leads with its three bold headers`, c.error ?? JSON.stringify(c.heads));
       if (kind === "spells") {
-        check(/GLOG Magic/.test(c.text) && (glogOn ? !/come back/i.test(c.text) : /come back/i.test(c.text)),
+        // "GLoG" since 2026-11-20 (the user's spelling of the hack's name).
+        check(/GLoG Magic/.test(c.text) && (glogOn ? !/come back/i.test(c.text) : /come back/i.test(c.text)),
           glogOn ? "…spells: it says the hack is on and which list it copies, and does NOT invite switching it off"
-            : "…spells: it warns that switching the hack on later means coming back for the GLOG table");
+            : "…spells: it warns that switching the hack on later means coming back for the GLoG table");
       }
       check(c.buttons?.length === 2 && c.buttons.every((b) => b.type === "button"), `…${kind}: no submit button at all — Enter never copies`, JSON.stringify(c.buttons));
       check(c.buttons?.find((b) => b.action === "cancel")?.focused, `…${kind}: Cancel is the focused button`);
