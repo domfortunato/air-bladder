@@ -355,28 +355,6 @@
     text-shadow: 0 0 12px var(--ab-accent);
 }
 
-.character-sheet-section-abilities {
-    display: grid;
-    row-gap: 2px;
-    grid-template-rows: 36px 36px 36px;
-}
-
-.character-sheet-section-others {
-    display: grid;
-    row-gap: 2px;
-    grid-template-rows: 36px 36px 36px;
-}
-
-.character-sheet-section-tabs {
-    grid-column-start: 1;
-    grid-column-end: 4;
-
-    display: grid;
-    /* First (auto) track is the status-banner wrapper: 0 height while empty,
-       grows to coloured bars when an attribute is critically wounded. */
-    grid-template-rows: auto 36px 1fr;
-}
-
 /******************************************************************************
  * Container sheet grid.                                                      * 
  ******************************************************************************/
@@ -2837,48 +2815,9 @@ textarea.omen-input {
     padding-left: 1.25em;
 }
 
-/* STR-only Critical Damage skull toggle, pinned to the right of the counter
-   (which must be positioned for the absolute skull to anchor to it). */
-.character-sheet-section-abilities .resource-counter {
-    position: relative;
-}
-
-.character-sheet-section-abilities .resource-counter a.critical-toggle {
-    position: absolute;
-    right: 3px;
-    top: 50%;
-    transform: translateY(-50%);
-    width: auto;
-    background: none;
-    color: var(--ab-peril);
-    font-size: 11px;
-    line-height: 1;
-    opacity: 0;
-    cursor: pointer;
-    z-index: 2;
-}
-
-.character-sheet-section-abilities .resource-counter:hover a.critical-toggle {
-    opacity: 0.5;
-}
-
-.character-sheet-section-abilities .resource-counter a.critical-toggle.active {
-    opacity: 1;
-}
-
 /* Below max (but not in peril): the current value shows amber. */
-.hp-counter.low .resource-input-wrapper input[name$=".value"],
-.character-sheet-section-abilities .resource-counter.low .resource-input-wrapper input[name$=".value"] {
+.hp-counter.low .resource-input-wrapper input[name$=".value"] {
     color: var(--ab-amber);
-}
-
-.character-sheet-section-abilities .resource-counter.peril {
-    border-color: var(--ab-peril);
-}
-
-/* Peril's red wins over amber (listed after .low). */
-.character-sheet-section-abilities .resource-counter.peril .resource-input-wrapper input[name$=".value"] {
-    color: var(--ab-peril);
 }
 
 /* Stat inputs (HP + abilities) are numeric; hide the number spinners. */
@@ -3710,19 +3649,16 @@ ol.combat-tracker li.combatant.cairn-drop-below {
    Reinforces the left=current convention; the inputs' title tooltips name each
    explicitly on hover. --ab-faint is deliberately a step short of a mid-grey on
    either scheme -- legible, but clearly subordinate to the current value. */
-.hp-counter .resource-input-wrapper input[name$=".value"],
-.character-sheet-section-abilities .resource-input-wrapper input[name$=".value"] {
+.hp-counter .resource-input-wrapper input[name$=".value"] {
     font-weight: bold;
 }
 
-.hp-counter .resource-input-wrapper input[name$=".max"],
-.character-sheet-section-abilities .resource-input-wrapper input[name$=".max"] {
+.hp-counter .resource-input-wrapper input[name$=".max"] {
     font-size: 12px;
     color: var(--ab-faint);
 }
 
-.hp-counter .resource-input-wrapper span,
-.character-sheet-section-abilities .resource-input-wrapper span {
+.hp-counter .resource-input-wrapper span {
     font-size: 13px;
     color: var(--ab-faint);
 }
