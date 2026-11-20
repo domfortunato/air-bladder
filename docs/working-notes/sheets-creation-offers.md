@@ -135,6 +135,33 @@ Moved word for word from CLAUDE.md (2026-11-01); CLAUDE.md points here.
   shield's Bulky box on the armor sheet is ticked and DISABLED with its reason, so
   it is never submitted. Reloads, like every slot-arithmetic setting. Gate
   `dev:shield` leg 5.
+- **Hold light** (2026-11-20, user ask): `isHoldableLight` (gear.js) = a plain `item`
+  named as a light (`LIGHT_SOURCE_RE`), never its fuel (`LIGHT_FUEL`); `isEquipable`
+  gains it, so a light gets the hand and held = equipped. "Hold light" stands under
+  "Hold shield" in `.hold-switches`; ONE handler `#onToggleHold` (`data-hold`). BOTH
+  switches are ALWAYS drawn: `shieldSwitch` / `lightSwitch` are `{ held, none }`, and
+  `none` disables the switch with `CAIRN.HoldShieldNone` / `HoldLightNone` as its
+  tooltip (a live one has none). `holdLight` (gear.js) is the ONE Torch call, shared by
+  the switch and a light's row hand: Torch active + a token on the viewed scene, else
+  nothing; a throw is swallowed and the hold stands. Torch is NOT installed on CT 123,
+  so only the stubbed probe (`dev:shield` leg 6) has exercised the lighting.
+- **Hands full** (hack `hands-full`) and **Shields are d4 weapons** (hack
+  `shield-weapon`), 2026-11-20, user asks: both read through the sheet's ONE attack
+  gate `#attackWeapon` (`#handsFull` / `#handsBlock`, `attackFormula` / `shieldDamage`
+  in utils.js). The row annotations (`rollBlocked`, a shield's derived `damageFormula`)
+  are on the context COPIES only; `#onRollDamage` refuses a blocked forced click rather
+  than quick-rolling it, and `#openAttack` re-derives "Add the shield". Gate
+  `dev:attack` legs 11-12. Open cosmetic question: the add-shield box sits under the
+  whole list, so under "Improvised Attack".
+- **Traits label + rule; Omen like a Bond** (2026-11-20, user asks): `.traits-label`
+  joins the one label-face rule; the trait sentence wears the notes page's
+  between-items rule under it. `omen-row.html` has a heading row (`.omen-head`) and the
+  text under it; on the character sheet the `<textarea>` keeps its name and the overlay
+  anchor but loses core's box and joins the answers' indented rule; off,
+  `.omen-display` joins the notes placeholder's rule. Gate `dev:sheet-rail` leg 20.
+- **Weapon data** (2026-11-20): the pack Gnarled Staff is not Bulky and existing
+  copies were fixed once (`migrateGnarledStaff`, cairn.js, EXPORTED for the probe;
+  marker `gnarled-staff-unbulked`); the pack Sling is d6, owned copies untouched.
 - The 2026-11-20 batch (user asks): the title bar's toggle reads "CharGen: On/Off"
   (its tooltips open "Character Creation Mode:", and the guides keep that name);
   the Inventory hint reads "Click an item to read its description." with a hand

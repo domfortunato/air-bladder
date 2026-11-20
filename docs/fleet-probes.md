@@ -113,6 +113,18 @@ green on all three builds.** 108 probes now, with `dev:attack` new.
   foe. Fixed in `71d96814` (release targets first); `attack` green there on all three builds
   (`20261119T225840Z`, `20261119T230003Z`, `20261119T230120Z`).
 
+## Traits label, Omen like a Bond, Hold light, the shield hacks, weapon data (2026-11-20)
+
+**At `22b733c5`: 111/111 on 14.370** (`20261120T130100Z`). Day-to-day rule: the newest build only; the
+older two run once a release is decided.
+
+- **Negative control first:** the probes-only commit `af258110` (`20261120T124557Z`) was red on exactly
+  its 29 new checks (attack 8, combat-options 3, sheet-rail 7, shield 11); every unchanged-behaviour guard
+  beside them passed.
+- **Targeted, 18 probes at `22b733c5`:** green (`20261120T125713Z`).
+- Walked on CT 123 as `dev-gamemaster`, light and dark, the hacks READ-SHADOWED in-page (no world write).
+  The Torch module is not installed there, so the lighting is exercised only by `dev:shield`'s stub.
+
 ## Character sheet rounds 5 and 6, Hold shield, Broken (2026-11-20)
 
 **At `e1866dc8`: 110/110 on 14.370 and 14.369, 108/110 on 14.368** (`20261120T020852Z`,
