@@ -531,6 +531,35 @@ try {
         barFilled: !!half && !!label && getComputedStyle(half).backgroundColor === getComputedStyle(label).backgroundColor
           && getComputedStyle(half).backgroundColor !== "rgba(0, 0, 0, 0)",
       };
+      // The + and − glyphs read ON that bar in BOTH schemes (seen on CT 123,
+      // 2026-11-20: in light, core's button ink #111 sat on the black bar).
+      // Schemes switch through core's own configureUI, nothing written (the
+      // dev:theme recipe); the contrast floor is dev:theme's 3.
+      {
+        const rgb = (s) => (s.match(/[\d.]+/g) ?? []).slice(0, 3).map(Number);
+        const lum = ([r, g, b]) => {
+          const c = [r, g, b].map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; });
+          return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+        };
+        const ratio = (a, b) => { const [x, y] = [lum(rgb(a)), lum(rgb(b))].sort((m, n) => n - m); return (x + 0.05) / (y + 0.05); };
+        R6.ink = {};
+        try {
+          for (const scheme of ["light", "dark"]) {
+            const cfg = foundry.utils.deepClone(game.settings.get("core", "uiConfig"));
+            cfg.colorScheme = { applications: scheme, interface: scheme };
+            game.configureUI(cfg);
+            await sleep(200);
+            const barBg = getComputedStyle(half).backgroundColor;
+            R6.ink[scheme] = [up, down].map((b) => {
+              const ink = getComputedStyle(b.querySelector("i")).color;
+              return { ink, barBg, ratio: Math.round(ratio(ink, barBg) * 100) / 100 };
+            });
+          }
+        } finally {
+          game.configureUI(game.settings.get("core", "uiConfig"));
+          await sleep(200);
+        }
+      }
       R6.at4 = state();
       R6.steps = { up: await press("hpUp", 5), down1: await press("hpDown", 4), down2: await press("hpDown", 3) };
       await setHp(6);
@@ -1025,6 +1054,9 @@ else {
     && l6.tips?.up === R6.wantUp && l6.tips?.down === R6.wantDown
     ? ok(`HP's box reads + "${l6.label}" − in its label half, with "${l6.tips.up}" and "${l6.tips.down}", no taller than the numbers`)
     : fail(`HP buttons layout: ${JSON.stringify(l6)}`);
+  ["light", "dark"].every((s) => R6.ink?.[s]?.length === 2 && R6.ink[s].every((x) => x.ratio >= 3))
+    ? ok(`HP's + and − read on the bar in both schemes (light ${R6.ink.light.map((x) => x.ratio).join("/")}, dark ${R6.ink.dark.map((x) => x.ratio).join("/")})`)
+    : fail(`HP buttons' ink on the bar: ${JSON.stringify(R6.ink ?? null)}`);
   R6.at4?.up === false && R6.at4?.down === false && R6.steps?.up === 5 && R6.steps?.down1 === 4 && R6.steps?.down2 === 3
     ? ok("at 4 / 6 + steps to 5, then − twice to 3")
     : fail(`HP steps: ${JSON.stringify({ at4: R6.at4, steps: R6.steps })}`);
