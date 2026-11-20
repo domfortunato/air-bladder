@@ -707,6 +707,18 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
   #genToggleBuilt;
 
   /**
+   * A closed sheet's next render builds a NEW frame, after that render's
+   * context: forget the old frame's answer, so the context reads the role the
+   * new frame will follow (review #35; dev:sheet-rail leg 23 caught a reopened
+   * sheet reading the closed frame's "no switch").
+   * @override
+   */
+  _onClose(options) {
+    super._onClose(options);
+    this.#genToggleBuilt = undefined;
+  }
+
+  /**
    * Roll Character and the Randomization toggle, INLINE in the title bar.
    *
    * These were briefly `window.controls`, which is the tidier declaration — but
