@@ -1277,11 +1277,12 @@ try {
     const twoSixes = await seqRoll("2d6kx", [MAXU, MAXU, 0.5]);
     out.twoSixesLines = linesOf(twoSixes);
 
-    // A KEEP-HIGHEST POOL (the shield added to a weapon, 2026-11-20): only the
-    // KEPT member's explosions earn lines (user ruling 2026-11-20, as the
-    // maneuver line follows the kept die). The d6 goes 6 -> 1 = 7 and loses;
-    // the d4 goes 4 -> 4 -> 1 = 9 and is kept: two d4 lines, no d6 line.
-    // Red before the fix: three lines, the losing d6's included.
+    // A KEEP-HIGHEST POOL whose MEMBERS exploded (a typed `{1d6x,1d4x}kh`; the
+    // shield pool itself keeps first since 2026-11-20, so its loser never
+    // explodes): only the KEPT member's explosions earn lines (user ruling
+    // 2026-11-20, as the maneuver line follows the kept die). The d6 goes
+    // 6 -> 1 = 7 and loses; the d4 goes 4 -> 4 -> 1 = 9 and is kept: two d4
+    // lines, no d6 line. Red before the fix: three lines.
     const poolMsg = await seqRoll("{1d6x,1d4x}kh", [MAXU, LOWU, MAXU, MAXU, LOWU]);
     out.poolTotal = game.messages.get(poolMsg.id)?.rolls?.[0]?.total ?? null;
     out.poolLines = linesOf(poolMsg);
@@ -1424,12 +1425,15 @@ try {
 
     /* ---- 13b. a MIXED pool: the shield added to a weapon (2026-11-20) ------ */
     // "Shields are d4 weapons" adds the shield's d4 to a one-handed weapon as
-    // an explicit keep-highest pool, `{1d6,1d4}kh`. The user's ruling: each die
-    // explodes on its OWN maximum, capped per term, before the highest is
-    // kept; the maneuver line when the KEPT die's first roll was its maximum.
-    // Taught inside the one gate (`combatDamageFormula`), so this leg posts
-    // through the sheet's own `_postWeaponDamage` and reads the card. The pin
-    // is PER ROLL, a sequence consumed in pool order (d6 chain, then d4).
+    // an explicit keep-highest pool, `{1d6,1d4}kh`. Under the exploding option
+    // it KEEPS FIRST, THEN EXPLODES (user ruling 2026-11-20, revising the
+    // morning's explode-each-then-keep): the higher face is kept and only the
+    // kept die explodes, if it rolled its maximum (utils.js
+    // `explodeKeptPoolDie`); the maneuver line when the KEPT die rolled its
+    // maximum. Taught inside the one gate (`combatDamageFormula`), so this leg
+    // posts through the sheet's own `_postWeaponDamage` and reads the card.
+    // The pin is PER ROLL, a sequence consumed in order: the d6, the d4, then
+    // the kept die's chain.
     {
       const MX = 0.0001, ONE = 0.95, MID = 0.5, FIVE = 0.2;   // max · 1 · d6 3 / d4 2 · d6 5
       const pool = "{1d6,1d4}kh";
@@ -1462,12 +1466,17 @@ try {
           formula: msg.rolls[0].formula, total: msg.rolls[0].total,
           kept: (t?.results ?? []).findIndex((x) => x.active),
           line: row?.querySelector(".dmg-maneuver-line")?.textContent?.trim() ?? null,
+          exploded: [...(row?.querySelectorAll(".dmg-exploded") ?? [])].map((e) => e.textContent.trim()),
         };
       };
       // Both options on (as the block above leaves them).
-      out.poolD6Max = await postPool([MX, ONE, ONE]);          // d6 6!1 = 7 kept; d4 1
-      out.poolD4Max = await postPool([ONE, MX, ONE]);          // d6 1; d4 4!1 = 5 kept
+      out.poolD6Max = await postPool([MX, ONE, ONE]);          // d6 6 kept over d4 1; chain 1 = 7
+      out.poolD4Max = await postPool([ONE, MX, ONE]);          // d4 4 kept over d6 1; chain 1 = 5
       out.poolNone = await postPool([MID, MID]);               // d6 3 kept; d4 2
+      // THE RULING'S OWN CASE: d6 5 beats d4 4, so the d6 is kept and nothing
+      // explodes (5 is not its maximum) — total 5, no line. Explode-each-then-
+      // keep would have chained the d4 (4 + 4 = 8) and kept it.
+      out.poolKeepFirst = await postPool([FIVE, MX, MX]);
       // Exploding OFF: a LOSING maximum earns no line (d6 5 kept, d4 4 dropped).
       await game.settings.set(NS, "exploding-damage-dice", false);
       out.poolGate.plain = utils.combatDamageFormula(pool, { pc: true });
@@ -2196,17 +2205,23 @@ try {
 
   // ---- a mixed pool: the shield added (2026-11-20) --------------------------
   const pg = r.poolGate ?? {};
-  pg.both?.formula === "{1d6x2=6,1d4x1=4}kh" && pg.both?.maneuver === true
-    && pg.plain?.formula === "{1d6,1d4}kh" && pg.plain?.maneuver === true
-    ? ok(`the gate explodes each die of a mixed pool on its own maximum, capped per term (${pg.both.formula}), and marks it for the line`)
-    : fail(`mixed pool gate: ${JSON.stringify(pg)} — want {1d6x2=6,1d4x1=4}kh / {1d6,1d4}kh, both marked`);
+  pg.both?.formula === "{1d6,1d4}kh" && pg.both?.maneuver === true && pg.both?.explodeKept === true
+    && pg.plain?.formula === "{1d6,1d4}kh" && pg.plain?.maneuver === true && pg.plain?.explodeKept === false
+    ? ok("the gate rolls a mixed pool unexploded and hands it to the keep-then-explode step (exploding on), marked for the line")
+    : fail(`mixed pool gate: ${JSON.stringify(pg)} — want {1d6,1d4}kh both times, explodeKept only with exploding on, both marked`);
   const lineText = r.maneuverLineText;
   r.poolD6Max?.kept === 0 && r.poolD6Max?.total === 7 && r.poolD6Max?.line === lineText
-    ? ok("a d6 at its max: the d6 chain (7) is kept, and the line is drawn")
+    && r.poolD6Max?.exploded?.length === 1 && /d6/.test(r.poolD6Max.exploded[0])
+    ? ok("a d6 at its max: kept, then it explodes (7), one d6 line, and the maneuver line")
     : fail(`poolD6Max: ${JSON.stringify(r.poolD6Max)}`);
   r.poolD4Max?.kept === 1 && r.poolD4Max?.total === 5 && r.poolD4Max?.line === lineText
-    ? ok("a d4 at its max: the d4 chain (5) is kept, and the line is drawn")
+    && r.poolD4Max?.exploded?.length === 1 && /d4/.test(r.poolD4Max.exploded[0])
+    ? ok("a d4 at its max: kept, then it explodes (5), one d4 line, and the maneuver line")
     : fail(`poolD4Max: ${JSON.stringify(r.poolD4Max)}`);
+  r.poolKeepFirst?.kept === 0 && r.poolKeepFirst?.total === 5 && r.poolKeepFirst?.line === null
+    && r.poolKeepFirst?.exploded?.length === 0
+    ? ok("keep first, then explode: a d6 5 beats a d4 4, the d4 never explodes — 5, no lines")
+    : fail(`poolKeepFirst: ${JSON.stringify(r.poolKeepFirst)} — want the d6 kept, 5, no explosion and no maneuver line`);
   r.poolNone?.kept === 0 && r.poolNone?.total === 3 && r.poolNone?.line === null
     ? ok("neither at its max: the higher kept, no line")
     : fail(`poolNone: ${JSON.stringify(r.poolNone)}`);
