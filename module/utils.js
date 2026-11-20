@@ -531,12 +531,16 @@ export const shieldWeaponHack = () => hackOn("shield-weapon");
  * never written (armor stores no `damageFormula`, and a derived value on the
  * document would be submitted by the item sheet and stored, as the bulky
  * hack's docblock in item.js explains). Read by the Attack window's list, the
- * inventory row's roller and the sheet's one attack gate.
+ * inventory row's roller and the sheet's one attack gate. A PLAYER
+ * CHARACTER's shield only (the plan: "A held shield is a d4 weapon
+ * (characters)"; review #35): a monster's or hireling's shield was offered in
+ * its Attack window with no row roller and no add-shield box.
  * @param {Item} item
  * @return {String|null}
  */
 export const shieldDamage = (item) =>
-  shieldWeaponHack() && item?.type === "armor" && item.system?.shield === true ? SHIELD_FORMULA : null;
+  shieldWeaponHack() && item?.type === "armor" && item.system?.shield === true
+    && item.parent?.type === "character" ? SHIELD_FORMULA : null;
 
 /**
  * What an item attacks with: its own damage formula, else a shield's derived
@@ -940,12 +944,20 @@ export const askAttack = async ({ actor, weapons, panicked = false, windowId = u
         // now presses: the first one on offer.
         const first = root.querySelector('footer button[type="submit"]');
         root.querySelectorAll("footer button").forEach((b) => b.classList.toggle("cairn-quality-default", b === first));
+        // ...and so does the first focus. DialogV2 marks the DEFAULT button
+        // (Standard) autofocus, and ApplicationV2#_postRender focuses it after
+        // this callback (application.mjs:1803, 14.369). Standard hidden at
+        // open (panicked, or opened on Improvised) left the focus nowhere and
+        // Enter pressed nothing (review #35): the mark follows the cue.
+        root.querySelectorAll("footer button").forEach((b) => b.toggleAttribute("autofocus", b === first));
         // "Add the shield (d4)": hidden for the shield itself and Improvised,
         // greyed (and unticked) for a two-handed weapon, with the reason.
         const add = root.querySelector(".cairn-attack-addshield");
         const box = add?.querySelector('input[name="addShield"]');
         if (add && box) {
-          add.hidden = improvised || radio?.dataset.shield === "1";
+          // Panicked, only Impaired is offered, and the shield adds to
+          // Standard alone: no box (review #35).
+          add.hidden = improvised || radio?.dataset.shield === "1" || panicked;
           const two = radio?.dataset.twoHanded === "1";
           box.disabled = two;
           if (two) box.checked = false;
