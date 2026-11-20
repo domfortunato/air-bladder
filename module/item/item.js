@@ -1,6 +1,7 @@
 import { SETTINGS_NS } from "../settings.js";
 import { grantSourceLabel, isBulky } from "../utils.js";
 import { iconForItem, SPELLBOOK_ICON, SPELLSCROLL_ICON } from "../icons.js";
+import { isHoldableLight } from "../gear.js";
 import { glogEnabled, grimoiresEnabled, glogConversionDiff, glogTextCached } from "../glog.js";
 import { repointWholeWrite } from "../art-paths.js";
 
@@ -563,8 +564,10 @@ export class CairnItem extends Item {
     if (this.system.broken !== undefined) {
       this.system.equipped = !!this._source.system?.equipped && !this.system.broken;
     }
+    // A light source is held as a shield is (2026-11-20, user ask: "Hold
+    // light"): held = equipped, so it gets the hand. Its fuel does not.
     this.system.isEquipable =
-      ["weapon", "armor", "spellbook"].includes(this.type) &&
+      (["weapon", "armor", "spellbook"].includes(this.type) || isHoldableLight(this)) &&
       !this.system.scroll &&
       !this.system.bound &&
       !this.system.broken &&

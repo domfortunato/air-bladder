@@ -120,6 +120,51 @@ export const LIGHT_FUEL = new Map([
   ["oil can", "lantern"],
 ]);
 
+/**
+ * A light a character can HOLD (2026-11-20, user ask: "Hold light"): a plain
+ * `item` named as a light source, never its fuel. Held is equipped, as a
+ * shield's is, so a light gets the inventory's hand and the character sheet's
+ * "Hold light" switch. `item` type only: the Candle Helmet is armor and is
+ * worn, not held. By the stored ENGLISH name (the content overlay is
+ * display-only), with LIGHT_SOURCE_RE's known cost (the Candle of Ward).
+ * @param {Item|Object} item
+ * @returns {Boolean}
+ */
+export const isHoldableLight = (item) => item?.type === "item"
+  && LIGHT_SOURCE_RE.test(String(item?.name ?? ""))
+  && !LIGHT_FUEL.has(String(item?.name ?? "").trim().toLowerCase());
+
+/**
+ * Light (or put out) a held light through the Torch module (2026-11-20, user
+ * ask), the ONE call the "Hold light" switch and a light's inventory hand
+ * share. Nothing happens unless Torch is active and the actor has a token on
+ * the viewed scene. Holding selects the light by its stored name
+ * (`game.Torch.selectSource`) and lights it if Torch says it is off; stowing
+ * puts the token's light out (`extinguish`), and Torch's own rule spends a
+ * use of a consumable then (docs/torch-light-sources.json). A light Torch
+ * does not know throws; the throw is swallowed and the hold stands. One-way:
+ * Torch's own HUD button does not move the switch.
+ * @param {Actor} actor
+ * @param {Item} item     the light held, or one of those stowed
+ * @param {Boolean} held
+ */
+export const holdLight = async (actor, item, held) => {
+  if (!game.modules.get("torch")?.active || !game.Torch) return;
+  const token = actor?.getActiveTokens?.(false, true)?.[0];
+  const sceneId = token?.parent?.id;
+  if (!token?.id || !sceneId) return;
+  try {
+    if (held) {
+      await game.Torch.selectSource(sceneId, token.id, item.name);
+      if ((await game.Torch.currentState(sceneId, token.id)) === "off") await game.Torch.toggle(sceneId, token.id);
+    } else {
+      await game.Torch.extinguish(sceneId, token.id);
+    }
+  } catch {
+    // Torch does not know this light (or failed): the hold stands, unlit.
+  }
+};
+
 /** Food, which sits at the very bottom of a granted loadout. */
 export const RATIONS_RE = /\brations?\b/i;
 

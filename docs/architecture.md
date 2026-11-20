@@ -124,9 +124,9 @@ complicated it is. `art-picker.js` sits at tier 8 and is 159 lines of code.
 | **1** | `settings.js`, `data-models.js` |
 | **2** | `utils.js`, `connections.js` |
 | **3** | `combat.js`, `game-time.js`, `glog.js`, `macros.js` |
-| **4** | `calendar-events.js`, `gear.js`, `item/item.js` |
-| **5** | `grimoire.js`, `item-offer.js`, `marketplace.js`, `party-pile.js`, `vald-calendar.js`, `weather-log.js` |
-| **6** | `actor/actor.js`, `watch-clock.js` |
+| **4** | `calendar-events.js`, `gear.js` |
+| **5** | `item/item.js`, `marketplace.js`, `party-pile.js`, `vald-calendar.js`, `weather-log.js` |
+| **6** | `actor/actor.js`, `grimoire.js`, `item-offer.js`, `watch-clock.js` |
 | **7** | `character-generator.js` |
 | **8** | `art-picker.js`, `damage.js`, `encounters.js`, `faction-generator.js`, `kettlewright-import.js`, `monster-generator.js`, `take-over.js` |
 | **9** | `actor/actor-sheet.js`, `item/item-sheet.js`, `table-banner.js`, `warden-damage.js` |

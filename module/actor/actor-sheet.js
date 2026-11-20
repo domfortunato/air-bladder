@@ -2,7 +2,8 @@ import { dieIconOrGeneric } from "../utils.js";
 import { drawBond, bondRecordFrom, withGrantSource, bondEntitlement, bondsEnabled, backgroundDescriptionText, resolveRefs, replaceGrantedContainers, promptBackground, changeBackground, promptFailedCareer, rollFailedCareerName, buildFailedCareerItem, getPortraitManifest, pairedTokenFor, randomPortraitInSameFolder, portraitCategoryFor, regenerateNpc, regenerateHireling, rerollNpcBackground, rerollHirelingCareer, rerollNpcName, rerollNpcFaction, promptHirelingCareer, promptNpcBackground, promptNpcFaction, promptPickOmen, promptPickBond, promptPickQuestionOption, promptPickName, findOmensTable, rollNameFromTable, rollAge, rollTextItems, effectiveAgeFormula, effectivePcAbilityFormula, effectivePcGoldFormula, effectivePcHpFormula, rollPcHitProtection, resolveActorBackground, redealBackgroundGear, redealBarebonesKit, rerollAllBonds, reorderInventory, postGenerationRolls, isHandBuilt, clearHandBuilt, isBackgroundDisabled, equipIfArms, failedCareerActive, FLAG_SCOPE } from "../character-generator.js";
 import { promptMonsterTier, regenerateMonster } from "../monster-generator.js";
 import { openMarketplace, TRANSPORTS_CATEGORY } from "../marketplace.js";
-import { evaluateFormula, cairnSavePasses, cleanDescription, concealSecrets, holdsProse, bindEditorClickAwaySave, formatCount, sourceLabel, askDamageQuality, damageFormulaFor, damageQualityLabel, damageQualityKind, d20CardBody, d20CardFlavor, D20_CARD_ABILITIES, combatOption, combatDamageFormula, askImprovisedAttack, askAttack, IMPROVISED_FORMULA, IMPROVISED_ID, nameEditorToggles } from "../utils.js";
+import { evaluateFormula, cairnSavePasses, cleanDescription, concealSecrets, holdsProse, bindEditorClickAwaySave, formatCount, sourceLabel, askDamageQuality, damageFormulaFor, damageQualityLabel, damageQualityKind, d20CardBody, d20CardFlavor, D20_CARD_ABILITIES, combatOption, combatDamageFormula, askImprovisedAttack, askAttack, IMPROVISED_FORMULA, IMPROVISED_ID, nameEditorToggles,
+  attackFormula, shieldDamage, handsFullHack, shieldWeaponHack, isTwoHanded, shieldPoolFormula } from "../utils.js";
 import { resultText, resultPlainText, compendiumInfoFromString } from "../compendium.js";
 import { SETTINGS_NS } from "../settings.js";
 import { CONTAINER_ART_CHOICES, CONTAINER_CLASSES } from "../icons.js";
@@ -38,7 +39,7 @@ const NPC_TRAIT_LABELS = {
   vice: "CAIRN.Trait.Vice",
 };
 import { atConnectionLimit, maxConnections, connectionsUiEnabled, brokenOwnershipShape, OWNERSHIP_SYNC_FLAG } from "../connections.js";
-import { findMatchingStack, capacityVerdict, landingNeed } from "../gear.js";
+import { findMatchingStack, capacityVerdict, landingNeed, isHoldableLight, holdLight } from "../gear.js";
 import {
   canOfferItem, promptOfferTarget, createItemOffer, offerFromDrop,
   canReceiveOffer, settleOwnOffer,
@@ -435,7 +436,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       removeFatigue: owned(CairnActorSheet.#onRemoveFatigue),
       hpUp: owned(CairnActorSheet.#onHpStep),
       hpDown: owned(CairnActorSheet.#onHpStep),
-      toggleShield: owned(CairnActorSheet.#onToggleShield),
+      toggleHold: owned(CairnActorSheet.#onToggleHold),
       abilityUp: owned(CairnActorSheet.#onAbilityStep),
       abilityDown: owned(CairnActorSheet.#onAbilityStep),
       rollDamage: CairnActorSheet.#onRollDamage,
@@ -1310,6 +1311,22 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
           return i;
         });
       }
+      // THE SHIELD HACKS (2026-11-20), display annotation on the copies; the
+      // gate is #attackWeapon, which the roll handlers re-ask. A held shield
+      // under "Shields are d4 weapons" gets its derived d4 as the row's die
+      // (shieldDamage: never written). Under "Hands full" every other roller
+      // is drawn disabled, with the note as its tooltip (rollBlocked).
+      if (shieldWeaponHack() || handsFullHack()) {
+        context.items = context.items.map((i) => {
+          const doc = this.actor.items.get(i._id);
+          if (!doc) return i;
+          let system = i.system;
+          const d4 = !system.damageFormula && shieldDamage(doc);
+          if (d4) system = { ...system, damageFormula: d4 };
+          if (system.equipped && system.damageFormula && CairnActorSheet.#handsBlock(doc)) system = { ...system, rollBlocked: true };
+          return system === i.system ? i : { ...i, system };
+        });
+      }
     }
 
     // Pages render GROUPED UNDER THEIR OWN BOOK: pull each book's pages out of
@@ -2037,6 +2054,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       context.hpAtFloor = false;
       context.hpDerived = false;
       context.shieldSwitch = null;
+      context.lightSwitch = null;
       context.criticalToggle = {};
       context.criticalActive = {};
       context.abilityTips = {};
@@ -2086,11 +2104,13 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       context.hpAtFloor = !(sv > 0);
       context.hpDerived = this.#hpIsDerived;
     }
-    // "Hold shield" beside the Armor box (2026-11-20, user ask): only on a
-    // character carrying an armor item ticked Shield; on while ANY is held
-    // (equipped). #onToggleShield is the press.
-    const shields = this.#shieldsCarried();
-    context.shieldSwitch = shields.length ? { held: shields.some((i) => i.system.equipped) } : null;
+    // "Hold shield" and "Hold light" beside the Armor box (2026-11-20, user
+    // asks): on while ANY of that kind is held (equipped), and ALWAYS drawn —
+    // greyed with a reason when the character carries none of it.
+    // #onToggleHold is the press for both.
+    const holdSwitch = (items) => ({ held: items.some((i) => i.system.equipped), none: !items.length });
+    context.shieldSwitch = holdSwitch(this.#shieldsCarried());
+    context.lightSwitch = holdSwitch(this.#lightsCarried());
     // Skull offered when STR is damaged and still alive, or already marked.
     context.criticalToggle = { STR: (val("STR") < max("STR") && val("STR") > 0) || strCritical };
     context.criticalActive = { STR: strCritical };
@@ -4376,7 +4396,11 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     event.preventDefault();
     const row = CairnActorSheet.#row(target);
     const item = this.actor.getOwnedItem(row?.dataset.itemId);
-    if (item) await item.update({ "system.equipped": !item.system.equipped });
+    if (!item) return;
+    const held = !item.system.equipped;
+    await item.update({ "system.equipped": held });
+    // A light's hand lights it or puts it out through Torch, as Hold light does.
+    if (isHoldableLight(item)) await holdLight(this.actor, item, held);
   }
 
   /**
@@ -4647,23 +4671,41 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
   }
 
   /**
-   * "Hold shield" (2026-11-20, user ask: "the toggle should sling or hold the
-   * shield"). Held is EQUIPPED and slung is not — the user's ruling, no new
-   * rule — so a press is the inventory row's hand icon for the shield. While
-   * any shield is held a press slings EVERY held one (the switch reads on for
-   * any of them, so off must mean none); otherwise it holds the first, in
-   * inventory order, that can be equipped. No options, as the hand icon.
+   * The light sources a CHARACTER carries (`isHoldableLight`, gear.js), in
+   * inventory order: what "Hold light" holds. Empty for every other actor type.
+   * @returns {Item[]}
+   */
+  #lightsCarried() {
+    if (this.actor.type !== "character") return [];
+    return this.actor.items
+      .filter((i) => isHoldableLight(i) && !i.system?.broken)
+      .sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0));
+  }
+
+  /**
+   * "Hold shield" and "Hold light" (2026-11-20, user asks: "the toggle should
+   * sling or hold the shield", then a light under it). ONE mechanism for both
+   * (`data-hold`: "shield" | "light"). Held is EQUIPPED and slung or stowed is
+   * not — the user's ruling, no new rule — so a press is the inventory row's
+   * hand icon. While any of that kind is held a press puts EVERY held one away
+   * (the switch reads on for any of them, so off must mean none); otherwise it
+   * holds the first, in inventory order, that can be equipped. A light is lit
+   * or put out through Torch (`holdLight`), the call its row's hand makes.
    * @this {CairnActorSheet}
    */
-  static async #onToggleShield(event) {
+  static async #onToggleHold(event, target) {
     event.preventDefault();
-    const shields = this.#shieldsCarried();
-    if (!shields.length) return;
-    const held = shields.filter((i) => i.system.equipped);
+    const light = target?.dataset.hold === "light";
+    const carried = light ? this.#lightsCarried() : this.#shieldsCarried();
+    if (!carried.length) return;
+    const held = carried.filter((i) => i.system.equipped);
+    const first = carried.find((i) => i.system.isEquipable !== false);
     const updates = held.length
       ? held.map((i) => ({ _id: i.id, "system.equipped": false }))
-      : shields.filter((i) => i.system.isEquipable !== false).slice(0, 1).map((i) => ({ _id: i.id, "system.equipped": true }));
-    if (updates.length) await this.actor.updateEmbeddedDocuments("Item", updates);
+      : first ? [{ _id: first.id, "system.equipped": true }] : [];
+    if (!updates.length) return;
+    await this.actor.updateEmbeddedDocuments("Item", updates);
+    if (light) await holdLight(this.actor, held[0] ?? first, !held.length);
   }
 
   /**
@@ -4691,6 +4733,9 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     if (this.actor.type === "character" && this.actor.isOwner) {
       const item = this.actor.items.get(CairnActorSheet.#row(target)?.dataset.itemId);
       if (item && CairnActorSheet.#attackWeapon(item)) return this.#openAttack(item.id);
+      // "Hands full" (2026-11-20): the roller is drawn disabled; a forced
+      // click (a stale sheet) is refused here, not quick-rolled.
+      if (item && CairnActorSheet.#handsBlock(item)) return;
     }
 
     const usePanic = game.settings.get(SETTINGS_NS, "use-panic");
@@ -5224,7 +5269,44 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    * @param {Item} item
    */
   static #attackWeapon(item) {
-    return !!(item.system?.equipped && item.system?.damageFormula && !item.system?.broken);
+    // What it attacks with: its own formula, or a held shield's derived d4
+    // under "Shields are d4 weapons" (2026-11-20; attackFormula, utils.js).
+    if (!(item.system?.equipped && attackFormula(item) && !item.system?.broken)) return false;
+    // "Hands full" (2026-11-20): a character holding a shield AND a light
+    // attacks only with one of those (or improvised).
+    return !CairnActorSheet.#handsBlock(item);
+  }
+
+  /**
+   * Is a character's hands full under the "Hands full" hack (2026-11-20, user
+   * ask)? Holding = EQUIPPED: an armor ticked Shield and a light source
+   * (`isHoldableLight`), neither broken. Characters only.
+   * @param {Actor} actor
+   */
+  static #handsFull(actor) {
+    if (actor?.type !== "character" || !handsFullHack()) return false;
+    const held = actor.items.filter((i) => i.system?.equipped && !i.system?.broken);
+    return held.some((i) => i.type === "armor" && i.system?.shield === true) && held.some((i) => isHoldableLight(i));
+  }
+
+  /**
+   * Does "Hands full" keep this item from attacking? True for anything that
+   * is not the held shield or light, on a character whose hands are full.
+   * @param {Item} item
+   */
+  static #handsBlock(item) {
+    if (!CairnActorSheet.#handsFull(item?.actor)) return false;
+    return !((item.type === "armor" && item.system?.shield === true) || isHoldableLight(item));
+  }
+
+  /**
+   * The shield a character holds under "Shields are d4 weapons", or null: the
+   * first equipped, unbroken armor ticked Shield.
+   * @param {Actor} actor
+   */
+  static #heldShield(actor) {
+    if (actor?.type !== "character" || !shieldWeaponHack()) return null;
+    return actor.items.find((i) => i.type === "armor" && i.system?.shield === true && i.system?.equipped && !i.system?.broken) ?? null;
   }
 
   /**
@@ -5240,7 +5322,11 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     const weapons = this.actor.items
       .filter((i) => CairnActorSheet.#attackWeapon(i))
       .sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0));
-    const answer = await askAttack({ actor: this.actor, weapons, panicked, windowId: this.window?.windowId, preselect });
+    const shield = CairnActorSheet.#heldShield(this.actor);
+    const answer = await askAttack({
+      actor: this.actor, weapons, panicked, windowId: this.window?.windowId, preselect,
+      handsFull: CairnActorSheet.#handsFull(this.actor), shieldId: shield?.id ?? null,
+    });
     if (!answer) return;                    // dismissed: roll nothing
     const targetIds = answer.targetIds.length ? answer.targetIds.join(";") : null;
     if (answer.weaponId === IMPROVISED_ID) {
@@ -5251,7 +5337,15 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // Panic imposes impaired whatever was pressed (ruling 2026-08-07); the
     // window offers only Impaired then, and this is the rule.
     const quality = panicked ? "impaired" : answer.quality;
-    return this._postWeaponDamage({ formula: weapon.system.damageFormula, weapon: weapon.name, quality, panicked, targetIds });
+    // "Add the shield (d4)" (2026-11-20): Standard only (Impaired and Enhanced
+    // replace the dice, so the box changes nothing there), and re-derived
+    // here — a held shield under the hack, a one-handed weapon that is not
+    // the shield itself — whatever the window answered.
+    let formula = attackFormula(weapon);
+    const addShield = answer.addShield && quality === "standard" && shield
+      && weapon.id !== shield.id && !isTwoHanded(weapon);
+    if (addShield) formula = shieldPoolFormula(formula);
+    return this._postWeaponDamage({ formula, weapon: weapon.name, quality, panicked, targetIds });
   }
 
   static async #onImprovisedAttack() {

@@ -25,7 +25,7 @@ system:
   weightless: false
   equipped: true
   bulky: false
-  damageFormula: 1d4
+  damageFormula: 1d6
   criticalDamage: ''
   blast: false
   ranged: true

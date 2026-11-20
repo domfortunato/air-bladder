@@ -1,11 +1,24 @@
 {{!-- The Omen row. ONE COPY, rendered in two places (round 4, 2026-11-19):
       the npc sheet's bio-block and the character's Background & Notes page.
-      Callers gate it on `showOmen`. --}}
+      Callers gate it on `showOmen`. Laid out like a Bond since 2026-11-20
+      (user ask): a heading row (the checkbox and "Omen", then the die and the
+      list), the text under it. --}}
 <div class="omen-row {{#if system.omenEnabled}}omen-enabled{{/if}}">
-    <label class="omen-label">
-        <input type="checkbox" class="omen-enable" id="{{@root.idp}}-omen-enable" {{checked system.omenEnabled}} />
-        {{ localize 'CAIRN.Omen' }}
-    </label>
+    <div class="omen-head">
+        <label class="omen-label">
+            <input type="checkbox" class="omen-enable" id="{{@root.idp}}-omen-enable" {{checked system.omenEnabled}} />
+            {{ localize 'CAIRN.Omen' }}
+        </label>
+        {{#if system.omenEnabled}}{{#if generationEnabled}}
+        {{!-- Die + pick-list button (2026-09-01): roll the (world-first)
+              Omens table, or pick a row off it — a player
+              recreating a book-rolled character needs the row
+              they already rolled. Bare data-tooltip keys, the
+              Age die's ruled look. --}}
+        <a class="omen-roll" data-action="rollOmen" data-tooltip="CAIRN.RollOmen" aria-label="{{ localize 'CAIRN.RollOmen' }}"><i class="fas fa-dice-d20"></i></a>
+        <a class="omen-pick" data-action="pickOmen" data-tooltip="CAIRN.PickOmen" aria-label="{{ localize 'CAIRN.PickOmen' }}"><i class="fas fa-list-ul"></i></a>
+        {{/if}}{{/if}}
+    </div>
     {{#if system.omenEnabled}}
     {{! omenDisplay = t("table.result", system.omen), on BOTH branches.
         The textarea's submit maps back to the stored English via the
@@ -13,15 +26,6 @@
         the source string. }}
     <textarea class="omen-input" name="system.omen" rows="4"
         placeholder="{{ localize 'CAIRN.OmenPlaceholder' }}">{{omenDisplay}}</textarea>
-    {{#if generationEnabled}}
-    {{!-- Die + pick-list button (2026-09-01): roll the (world-first)
-          Omens table, or pick a row off it — a player
-          recreating a book-rolled character needs the row
-          they already rolled. Bare data-tooltip keys, the
-          Age die's ruled look. --}}
-    <a class="omen-roll" data-action="rollOmen" data-tooltip="CAIRN.RollOmen" aria-label="{{ localize 'CAIRN.RollOmen' }}"><i class="fas fa-dice-d20"></i></a>
-    <a class="omen-pick" data-action="pickOmen" data-tooltip="CAIRN.PickOmen" aria-label="{{ localize 'CAIRN.PickOmen' }}"><i class="fas fa-list-ul"></i></a>
-    {{/if}}
     {{else}}
     <span class="omen-display">{{#if system.omen}}{{omenDisplay}}{{else}}{{ localize 'CAIRN.OmenPlaceholder' }}{{/if}}</span>
     {{/if}}

@@ -154,10 +154,19 @@
             click target and one tooltip, never one control per die. A formula
             naming no standard die falls back to the generic d20 every row wore
             before this (damageDiceIcons in utils.js). --}}
+      {{#if item.system.rollBlocked}}
+      {{!-- "Hands full" (2026-11-20): a character holding a shield and a light
+            cannot roll this weapon. Drawn greyed with the reason, no action;
+            a forced click is refused in #onRollDamage. --}}
+      <a class="roll-control roll-blocked" aria-disabled="true" data-tooltip="{{ localize 'CAIRN.HandsFullNote' }}">
+        {{#each (damageDiceIcons item.system.damageFormula)}}<i class="{{this}}"></i>{{/each}}
+      </a>
+      {{else}}
       <a class="roll-control" data-action="rollDamage" data-label="{{item.name}}" data-roll="{{item.system.damageFormula}}"
         title="{{ localize 'CAIRN.RollDamage' }}">
         {{#each (damageDiceIcons item.system.damageFormula)}}<i class="{{this}}"></i>{{/each}}
       </a>
+      {{/if}}
       {{/if}}
       {{/if}}
 

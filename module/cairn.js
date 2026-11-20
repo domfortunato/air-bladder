@@ -1818,6 +1818,8 @@ Hooks.once("ready", async () => {
 
   await phase("shield flags", migrateShieldFlags);
 
+  await phase("gnarled staff unbulked", migrateGnarledStaff);
+
   await phase("grant notes removal", removeGrantNotes);
 
   await phase("connections flatten + ownership migration", flattenConnections);
@@ -2714,6 +2716,48 @@ const migrateShieldFlags = async () => {
 };
 
 /**
+ * Unbulk the Gnarled Staff ONCE (2026-11-20, the weapon data review, user
+ * ask). Foundling grants "a Gnarled Staff (d8)" with no "bulky", but the pack
+ * shipped it Bulky; the pack is corrected, and this fixes the copies already
+ * made from it. migrateShieldFlags' shape: a copy is a WEAPON whose stored
+ * English name is exactly "Gnarled Staff", or whose `_stats.compendiumSource`
+ * is the pack's staff (a renamed copy); world items, every actor's items and
+ * unlinked-token deltas. Marker-gated (`gnarled-staff-unbulked`), set after
+ * the writes land, so a staff a Warden ticks Bulky again stays Bulky.
+ *
+ * EXPORTED for dev:shield, which runs it in-page with its marker shadowed —
+ * never a real marker write. Importing cairn.js from the page returns this
+ * already-loaded module; it does not run it again.
+ */
+const GNARLED_STAFF_SOURCE = "Compendium.air-bladder.background-items.Item.TSn8DasTWv7D9gWy";
+export const migrateGnarledStaff = async () => {
+  if (game.settings.get(SETTINGS_NS, "gnarled-staff-unbulked")) return;
+  let count = 0;
+  const isBulkyStaff = (i) => i.type === "weapon" && i._source.system?.bulky === true
+    && (i._source.name === "Gnarled Staff" || i._stats?.compendiumSource === GNARLED_STAFF_SOURCE);
+
+  /** @param {Document|null} parent  the owning Actor, or null for world items */
+  const unbulk = async (parent, items) => {
+    const updates = items.filter(isBulkyStaff).map((i) => ({ _id: i.id, "system.bulky": false }));
+    if (!updates.length) return;
+    if (parent) await parent.updateEmbeddedDocuments("Item", updates, { abNoStatusCard: true });
+    else await getDocumentClass("Item").updateDocuments(updates, { abNoStatusCard: true });
+    count += updates.length;
+  };
+
+  await unbulk(null, [...game.items]);
+  for (const actor of game.actors) await unbulk(actor, [...actor.items]);
+  for (const scene of game.scenes) {
+    for (const token of scene.tokens) {
+      if (token.actorLink || !token.actor) continue;
+      await unbulk(token.actor, [...token.actor.items]);
+    }
+  }
+  if (count) console.log(`Air Bladder | Gnarled Staff: ${count} copy(ies) no longer Bulky`);
+  await game.settings.set(SETTINGS_NS, "gnarled-staff-unbulked", true);
+};
+
+/**
  * Take the grant bullets back off every character that has them (user ruling
  * 2026-08-16: "I want this gone").
  *
@@ -3479,6 +3523,24 @@ const soleDie = (roll) => {
 };
 
 /**
+ * The die the card judges: the roll's one Die term, or — for a keep-highest
+ * POOL of single dice, the shield added to a weapon (2026-11-20, `judgedPool`
+ * in utils.js) — the KEPT member's one Die, found by walking
+ * `PoolTerm#results` (the active result is the kept roll). The user's ruling:
+ * the maneuver line follows the kept die, so a losing member's maximum earns
+ * nothing. Null for any other shape.
+ */
+const judgedCardDie = (roll) => {
+  const sole = soleDie(roll);
+  if (sole) return sole;
+  const terms = roll?.terms ?? [];
+  const pool = terms.length === 1 ? terms[0] : null;
+  if (!Array.isArray(pool?.rolls) || !Array.isArray(pool?.results)) return null;
+  const kept = pool.results.map((r, i) => (r?.active ? i : -1)).filter((i) => i >= 0);
+  return kept.length === 1 ? soleDie(pool.rolls[kept[0]]) : null;
+};
+
+/**
  * A check on the control that was taken (user ruling 2026-10-02).
  *
  * Both members of a sealed pair go plain and unglowing — the CSS does that from
@@ -3534,7 +3596,7 @@ const nameManeuverAvailable = (message, html) => {
   const row = html.querySelector(".flavor-dice-roll");
   if (!row) return;
   if (row.querySelector(".dmg-maneuver-line")) return;
-  const die = soleDie(message.rolls?.[0]);
+  const die = judgedCardDie(message.rolls?.[0]);
   const faces = Number(die?.faces);
   if (!die || !Number.isFinite(faces) || faces < 1) return;
   if (!(die.results ?? []).some((r) => r?.active && r.result === faces)) return;

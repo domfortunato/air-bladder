@@ -312,6 +312,35 @@ export const judgedDie = (formula) => {
 };
 
 /**
+ * A KEEP-HIGHEST POOL OF JUDGED DICE, `{a,b}kh`, or null (2026-11-20). The
+ * "Shields are d4 weapons" hack adds the shield's d4 to a one-handed weapon as
+ * this explicit pool (`shieldPoolFormula`), never as Cairn's `+`, which a
+ * notation-off world reads as a sum. Its terms may be of MIXED sizes — the
+ * boundary `judgedDie` draws for a `+` pool does not apply, because here
+ * each term is rolled and judged on its own: the user's ruling is that each
+ * die explodes on its OWN maximum, capped per term, before the highest is
+ * kept, and the maneuver line follows the KEPT die (`nameManeuverAvailable`
+ * in cairn.js walks `PoolTerm#results` for it). Every term must be one
+ * `judgedDie` accepts; anything else is null and left as written.
+ *
+ * @param {String} formula
+ * @return {{formula: String, terms: Array<{formula: String, faces: Number, count: Number}>}|null}
+ */
+export const judgedPool = (formula) => {
+  const m = /^\{(.+)\}kh$/i.exec(String(formula ?? "").trim());
+  if (!m) return null;
+  const terms = m[1].split(",").map((t) => judgedDie(t.trim()));
+  if (terms.length < 2 || terms.some((t) => !t)) return null;
+  return { formula: `{${terms.map((t) => t.formula).join(",")}}kh`, terms };
+};
+
+/** The exploding form of one judged die, capped (see explodingDamageFormula). */
+const explodeJudged = (judged) => {
+  const cap = explosionCap(judged.faces);
+  return cap > 0 ? `${judged.formula}x${cap}=${judged.faces}` : judged.formula;
+};
+
+/**
  * The exploding form of a damage formula, or the formula unchanged.
  *
  * MEASURED IN THE SHIPPED CLIENT (2026-10-02), because the whole feature rests
@@ -355,9 +384,12 @@ export const judgedDie = (formula) => {
  */
 export const explodingDamageFormula = (formula) => {
   const judged = judgedDie(formula);
-  if (!judged) return formula;
-  const cap = explosionCap(judged.faces);
-  return cap > 0 ? `${judged.formula}x${cap}=${judged.faces}` : judged.formula;
+  if (judged) return explodeJudged(judged);
+  // A keep-highest pool (the shield added, 2026-11-20): each term explodes on
+  // its own maximum, capped per term, and the highest chain is kept.
+  const pool = judgedPool(formula);
+  if (pool) return `{${pool.terms.map(explodeJudged).join(",")}}kh`;
+  return formula;
 };
 
 /**
@@ -415,12 +447,83 @@ export const explosionCap = (faces) => Math.max(0, Math.floor(Number(faces) / 2)
  */
 export const combatDamageFormula = (base, { pc = false } = {}) => {
   if (!pc) return { formula: base, maneuver: false };
-  const judged = judgedDie(base);
+  // One die (or a same-size `+` pool), else a keep-highest pool of judged
+  // dice — the shield added to a weapon (2026-11-20; see judgedPool).
+  const judged = judgedDie(base) ?? judgedPool(base);
   const maneuver = judged !== null && combatOption("maneuver-on-max-damage");
   const formula = combatOption("exploding-damage-dice") ? explodingDamageFormula(base)
     : maneuver ? judged.formula
     : base;
   return { formula, maneuver };
+};
+
+/* -------------------------------------------- */
+/*  The shield hacks (2026-11-20)               */
+/* -------------------------------------------- */
+
+/** A shield's die under "Shields are d4 weapons". */
+export const SHIELD_FORMULA = "1d4";
+
+/**
+ * Is a world hack setting on? A try/catch for the same reason as
+ * `combatOption`: sheets can prepare before settings are registered.
+ * @param {String} key  "hands-full" | "shield-weapon"
+ */
+const hackOn = (key) => {
+  try {
+    return !!game.settings.get(SETTINGS_NS, key);
+  } catch {
+    return false;
+  }
+};
+
+/** Is "Hands full: a shield and a light" on? */
+export const handsFullHack = () => hackOn("hands-full");
+
+/** Is "Shields are d4 weapons" on? */
+export const shieldWeaponHack = () => hackOn("shield-weapon");
+
+/**
+ * A shield's damage die under "Shields are d4 weapons", or null: DERIVED,
+ * never written (armor stores no `damageFormula`, and a derived value on the
+ * document would be submitted by the item sheet and stored, as the bulky
+ * hack's docblock in item.js explains). Read by the Attack window's list, the
+ * inventory row's roller and the sheet's one attack gate.
+ * @param {Item} item
+ * @return {String|null}
+ */
+export const shieldDamage = (item) =>
+  shieldWeaponHack() && item?.type === "armor" && item.system?.shield === true ? SHIELD_FORMULA : null;
+
+/**
+ * What an item attacks with: its own damage formula, else a shield's derived
+ * d4, else "".
+ * @param {Item} item
+ */
+export const attackFormula = (item) => item?.system?.damageFormula || shieldDamage(item) || "";
+
+/**
+ * Does this weapon need both hands? (2026-11-20, user rulings: Bulky is
+ * two-handed, and ANY bow is too — the Striped Bamboo Bow is not Bulky but
+ * "still requires both hands".) Bulky through the one `isBulky`; a bow by
+ * its stored ENGLISH name (Bow, Crossbow, Longbow, "… Bow"; the content
+ * overlay is display-only).
+ * @param {Item} item
+ */
+export const isTwoHanded = (item) => !!item
+  && (isBulky(item._source?.system ?? item.system) || (item.type === "weapon" && /bow\b/i.test(String(item._source?.name ?? item.name ?? ""))));
+
+/**
+ * A weapon's attack with the shield added: both dice, keep the highest, as
+ * an EXPLICIT pool. A Cairn `+` keep-highest weapon goes in as its keep form
+ * (`2d6k`, judgedDie) so it stays one term; with notation off a `+` weapon
+ * is a sum, and goes in as written.
+ * @param {String} weaponFormula
+ */
+export const shieldPoolFormula = (weaponFormula) => {
+  const f = String(weaponFormula ?? "").trim();
+  const judged = f.includes("+") ? judgedDie(f) : null;
+  return `{${judged ? judged.formula : f},${SHIELD_FORMULA}}kh`;
 };
 
 /**
@@ -624,7 +727,8 @@ const lastAttackWeapon = new Map();
  * @return {Promise<null|{weaponId: String, quality: String|null, targetIds: String[],
  *   description: String, formula: String}>} null = dismissed: roll nothing.
  */
-export const askAttack = async ({ actor, weapons, panicked = false, windowId = undefined, preselect = undefined } = {}) => {
+export const askAttack = async ({ actor, weapons, panicked = false, windowId = undefined, preselect = undefined,
+  handsFull = false, shieldId = null } = {}) => {
   const L = (k) => game.i18n.localize(k);
   const scene = canvas?.scene ?? null;
   const own = (id) => scene?.tokens?.get(id)?.actorId === actor.id;
@@ -674,8 +778,11 @@ export const askAttack = async ({ actor, weapons, panicked = false, windowId = u
   inner.append(who);
 
   // With what.
-  const all = [...weapons.map((w) => ({ id: w.id, name: w.name, formula: w.system.damageFormula })),
-    { id: IMPROVISED_ID, name: L("CAIRN.ImprovisedAttack"), formula: "" }];
+  // A held shield under "Shields are d4 weapons" attacks with its derived d4
+  // (attackFormula); a two-handed weapon cannot take the shield as well.
+  const all = [...weapons.map((w) => ({ id: w.id, name: w.name, formula: attackFormula(w),
+    twoHanded: isTwoHanded(w), shield: !!shieldId && w.id === shieldId })),
+  { id: IMPROVISED_ID, name: L("CAIRN.ImprovisedAttack"), formula: "" }];
   const offered = (id) => !!id && all.some((w) => w.id === id);
   const last = lastAttackWeapon.get(actor.id);
   const chosen = offered(preselect) ? preselect : offered(last) ? last : all[0].id;
@@ -688,10 +795,23 @@ export const askAttack = async ({ actor, weapons, panicked = false, windowId = u
     radio.setAttribute("name", "weapon");
     radio.setAttribute("value", w.id);
     if (w.formula) radio.dataset.formula = w.formula;
+    if (w.twoHanded) radio.dataset.twoHanded = "1";
+    if (w.shield) radio.dataset.shield = "1";
     if (w.id === chosen) radio.setAttribute("checked", "");
     row.append(radio, el("strong", "", w.name));
     if (w.formula) row.append(el("span", "cairn-attack-die", w.formula));
     set.append(row);
+  }
+  // "Add the shield (d4)" (2026-11-20, "Shields are d4 weapons"): under the
+  // list while a shield is held; greyed for a two-handed weapon, hidden while
+  // the shield itself or Improvised is chosen (render's sync).
+  if (shieldId) {
+    const add = el("label", "cairn-attack-addshield");
+    const box = el("input");
+    box.setAttribute("type", "checkbox");
+    box.setAttribute("name", "addShield");
+    add.append(box, el("span", "", L("CAIRN.AttackDialog.AddShield")));
+    set.append(add);
   }
   // The improvised attack's own two fields, shown while it is the choice.
   const impro = el("div", "cairn-attack-improvised");
@@ -713,6 +833,9 @@ export const askAttack = async ({ actor, weapons, panicked = false, windowId = u
   if (panicked) impro.append(el("p", "cairn-improvised-panic", game.i18n.format("CAIRN.Improvised.PanicNote", { formula: IMPROVISED_FORMULA })));
   set.append(impro);
   inner.append(set);
+  // "Hands full" (2026-11-20): why the list is short, as the panic note says
+  // why a weapon is impaired.
+  if (handsFull) inner.append(el("p", "cairn-attack-hands", L("CAIRN.HandsFullNote")));
 
   // How.
   const quality = el("p", "cairn-attack-quality", L("CAIRN.DamageQuality.Prompt"));
@@ -730,6 +853,10 @@ export const askAttack = async ({ actor, weapons, panicked = false, windowId = u
       targetIds: f.target?.value === "current" ? current : (f.target?.value ? [f.target.value] : []),
       description: String(f.description?.value ?? "").trim(),
       formula: String(f.formula?.value ?? "").trim(),
+      // Only a box on offer counts: shown, live and ticked (#openAttack
+      // re-derives the rest).
+      addShield: !!(f.addShield?.checked && !f.addShield.disabled
+        && !button.form.querySelector(".cairn-attack-addshield")?.hidden),
     };
   };
   const answer = await foundry.applications.api.DialogV2.wait({
@@ -764,14 +891,30 @@ export const askAttack = async ({ actor, weapons, panicked = false, windowId = u
         // now presses: the first one on offer.
         const first = root.querySelector('footer button[type="submit"]');
         root.querySelectorAll("footer button").forEach((b) => b.classList.toggle("cairn-quality-default", b === first));
-        // Standard names the chosen weapon's own die, as the quality dialog does.
+        // "Add the shield (d4)": hidden for the shield itself and Improvised,
+        // greyed (and unticked) for a two-handed weapon, with the reason.
+        const add = root.querySelector(".cairn-attack-addshield");
+        const box = add?.querySelector('input[name="addShield"]');
+        if (add && box) {
+          add.hidden = improvised || radio?.dataset.shield === "1";
+          const two = radio?.dataset.twoHanded === "1";
+          box.disabled = two;
+          if (two) box.checked = false;
+          if (two) add.dataset.tooltip = L("CAIRN.AttackDialog.AddShieldTwoHanded");
+          else delete add.dataset.tooltip;
+        }
+        const withShield = !!(add && !add.hidden && box?.checked && !box.disabled);
+        // Standard names the chosen weapon's own die, as the quality dialog
+        // does — both dice while the shield is added.
         const standard = button("standard");
         if (standard && radio?.dataset.formula) {
-          standard.querySelector("span").textContent = game.i18n.format("CAIRN.DamageQuality.Standard", { formula: radio.dataset.formula });
+          const named = withShield ? `${radio.dataset.formula}, ${SHIELD_FORMULA}` : radio.dataset.formula;
+          standard.querySelector("span").textContent = game.i18n.format("CAIRN.DamageQuality.Standard", { formula: named });
           standard.querySelector("i").className = dieIcon(radio.dataset.formula);
         }
       };
       root.querySelectorAll('input[name="weapon"]').forEach((r) => r.addEventListener("change", sync));
+      root.querySelector('input[name="addShield"]')?.addEventListener("change", sync);
       sync();
     },
     buttons: [

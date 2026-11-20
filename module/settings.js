@@ -32,7 +32,7 @@ export const SETTING_KEYS = [
   "weather-log", "use-warden-title", "change-log", "auto-record-scars",
   "enable-glog-magic", "glog-grimoires", "enable-vald-calendar",
   "exploding-damage-dice", "fatigue-for-critical-damage", "maneuver-on-max-damage",
-  "bulky-shields",
+  "bulky-shields", "hands-full", "shield-weapon",
   // Character Generation
   "content-source-2e", "content-source-custom", "content-source-barebones",
   "use-bonds", "barebones-failed-career", "show-generate-header",
@@ -43,7 +43,8 @@ export const SETTING_KEYS = [
   // listed here (review #9); the completion markers (roles-restamped,
   // companion-restamped, hireling-split and its hireling-split-pending,
   // grimoire-keys-stamped, connections-migrated, art-migration-generation,
-  // glog-converted, shield-flag-stamped, glog-grimoires-seeded) stay unlisted
+  // glog-converted, shield-flag-stamped, glog-grimoires-seeded,
+  // gnarled-staff-unbulked) stay unlisted
   // on purpose.
   // Every one of them dates
   // from AFTER the namespace move, so there is no "cairn.<key>" value for this
@@ -264,6 +265,11 @@ export const SETTING_GROUPS = [
       // be bulky"). An inventory rule, but the user called it a hack, and it
       // is one: off by default, never greyed.
       "bulky-shields",
+      // Two more shield hacks (2026-11-20, user asks), beside it: a character
+      // holding a shield and a light attacks only with those or improvised,
+      // and a held shield is a d4 weapon that may be added to a one-handed
+      // attack. Off by default, never greyed.
+      "hands-full", "shield-weapon",
     ],
     // The failed career is meaningless unless Barebones sheets are offered —
     // and that master checkbox lives in the Character Generation menu, not
@@ -431,6 +437,17 @@ export const registerSettings = () => {
   // state-gated, so a shield a Warden unticks afterwards stays unticked — a
   // state test would tick it back on every load. `config: false`: internal.
   game.settings.register(SETTINGS_NS, "shield-flag-stamped", {
+    scope: "world",
+    config: false,
+    type: Boolean,
+    default: false,
+  });
+
+  // Completion marker for the Gnarled Staff unbulking (2026-11-20, the
+  // weapon data review): Foundling's "a Gnarled Staff (d8)" is not Bulky, and
+  // copies made before the pack was corrected are fixed ONCE. Marker-gated,
+  // so a staff a Warden ticks Bulky again afterwards stays Bulky.
+  game.settings.register(SETTINGS_NS, "gnarled-staff-unbulked", {
     scope: "world",
     config: false,
     type: Boolean,
@@ -928,6 +945,34 @@ export const registerSettings = () => {
     type: Boolean,
     default: false,
     requiresReload: true,
+  });
+
+  // Hands full (2026-11-20, user ask): a character holding both a shield and
+  // a light may attack only with the shield, the light or an improvised
+  // attack. Read at render and at roll time through the sheet's one attack
+  // gate (`#attackWeapon`), so no reload: the open sheets re-render.
+  game.settings.register(SETTINGS_NS, "hands-full", {
+    name: "CAIRN.Settings.HandsFull.label",
+    hint: "CAIRN.Settings.HandsFull.hint",
+    scope: "world",
+    config: false,
+    type: Boolean,
+    default: false,
+    onChange: rerenderActorSheets,
+  });
+
+  // Shields are d4 weapons (2026-11-20, user ask): a held shield attacks as a
+  // d4 (DERIVED by `shieldDamage`, utils.js, never written), or is added to a
+  // one-handed weapon's attack as a keep-highest pool. Read at render and at
+  // roll time, so no reload.
+  game.settings.register(SETTINGS_NS, "shield-weapon", {
+    name: "CAIRN.Settings.ShieldWeapon.label",
+    hint: "CAIRN.Settings.ShieldWeapon.hint",
+    scope: "world",
+    config: false,
+    type: Boolean,
+    default: false,
+    onChange: rerenderActorSheets,
   });
 
   // Today's weather, as the Warden called it. INTERNAL — it is a record of

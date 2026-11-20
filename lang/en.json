@@ -23,6 +23,8 @@
   "CAIRN.ArmorTip": "If damage can be mitigated by armor, reduce it by your Armor value. Each piece of equipped armor adds 1 armor point but the maximum value is 3.",
   "CAIRN.AssistantWarden": "Assistant Warden",
   "CAIRN.Attack": "Attack",
+  "CAIRN.AttackDialog.AddShield": "Add the shield (d4)",
+  "CAIRN.AttackDialog.AddShieldTwoHanded": "A two-handed weapon leaves no hand for the shield.",
   "CAIRN.AttackDialog.Current": "Your current targets ({names})",
   "CAIRN.AttackDialog.NoTarget": "No one in particular",
   "CAIRN.AttackDialog.PanicNote": "Panicked — this attack is impaired ({formula}).",
@@ -513,11 +515,15 @@
   "CAIRN.Growth.Intro": "Characters are changed through in-world advancement, gaining new skills and abilities by surviving dangerous events and overcoming obstacles.",
   "CAIRN.Growth.Journal": "Growth",
   "CAIRN.Growth.JournalPlaceholder": "Click here to add new skills and abilities this character has gained.",
+  "CAIRN.HandsFullNote": "Your hands are full: you are holding a shield and a light.",
   "CAIRN.HiredBy": "Hired by: {name}",
   "CAIRN.HitProtection": "HP",
   "CAIRN.HitProtectionLong": "Hit Protection",
   "CAIRN.HitProtectionTip": "Hit Protection represents your character's ability to protect themselves.",
+  "CAIRN.HoldLight": "Hold light",
+  "CAIRN.HoldLightNone": "You have no light to hold.",
   "CAIRN.HoldShield": "Hold shield",
+  "CAIRN.HoldShieldNone": "You have no shield to hold.",
   "CAIRN.HpDown": "Lose 1 HP",
   "CAIRN.HpUp": "Gain 1 HP",
   "CAIRN.Initiative.ActFirst": "Act first",
@@ -760,7 +766,7 @@
   "CAIRN.Offer.StateOpen": "Waiting for an answer from {target}'s player.",
   "CAIRN.Offer.StateOpenWarden": "Waiting for the Warden's answer.",
   "CAIRN.Omen": "Omen",
-  "CAIRN.OmenPlaceholder": "If you are the youngest member of the party, check the Omen box and the roll button to receive an omen.",
+  "CAIRN.OmenPlaceholder": "If you are the youngest member of the party, check the Omen box, turn CharGen On and then click the roll button here to receive an omen.",
   "CAIRN.OmenTableMissing": "The Omens table (air-bladder.tables-2e) could not be found.",
   "CAIRN.OverburdenByGold": "Character may be overburdened by gold",
   "CAIRN.Overburdened": "Overburdened",
@@ -999,6 +1005,10 @@
     "GroupInventory": "Inventory & Encumbrance",
     "GroupInventoryButton": "Configure Inventory",
     "GroupInventoryHint": "Slot limit, the inventory cap, the marketplace and the coins-per-slot threshold.",
+    "HandsFull": {
+      "hint": "A character holding both a shield and a light can attack only with the shield, the light, or an improvised attack. Their other weapons cannot be rolled until a hand is free.",
+      "label": "Hands full: a shield and a light"
+    },
     "MaxEquipSlots": {
       "label": "Maximum inventory slots per character"
     },
@@ -1018,6 +1028,10 @@
     "PcHpFormula": {
       "hint": "The dice a player character's Hit Protection is rolled with. Enter a plain number for a fixed value: 4 gives every character 4. Blank rolls 1d6, the book's roll. NPCs and hirelings are not affected.",
       "label": "Hit Protection formula for player characters"
+    },
+    "ShieldWeapon": {
+      "hint": "A held shield can attack as a d4 weapon, or be added to an attack with a one-handed weapon: roll both dice and keep the highest. It cannot be added to a two-handed (Bulky) weapon.",
+      "label": "Shields are d4 weapons"
     },
     "ShowGenerateHeader": {
       "label": "Show the Roll Character, Roll NPC and Roll Monster buttons in sheet headers"

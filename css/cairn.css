@@ -699,7 +699,10 @@
    (activation swaps the child out for `value`). Gated by
    `npm run dev:notes-editor`: it renders, it goes once there is content, and
    clicking it opens the editor. */
-.cairn prose-mirror .cairn-editor-placeholder {
+.cairn prose-mirror .cairn-editor-placeholder,
+/* ...and the character's Omen hint, switched off (2026-11-20, user ask: the
+   notes editor placeholder's face). */
+.cairn-character-sheet .notes-omen .omen-display {
     opacity: 0.65;
     font-style: italic;
     color: var(--ab-faint);
@@ -1188,6 +1191,10 @@
     width: auto;
     min-width: 18px;
 }
+/* "Hands full" (2026-11-20): a weapon the character cannot roll while holding
+   a shield and a light, greyed; its tooltip says why. */
+.cairn-item-controls a.roll-control.roll-blocked { opacity: 0.4; cursor: default; }
+.cairn-item-controls a.roll-control.roll-blocked:hover { text-shadow: none; }
 
 /* BOTH SPELLINGS, because `fas` and `fa-solid` render the same glyph and a rule
    keyed to one of them silently misses the other. Every icon in these rows was
@@ -1892,6 +1899,13 @@
 .cairn-attack-dialog .cairn-attack-improvised > :not(.form-group) { grid-column: 1 / -1; }
 .cairn-attack-dialog .cairn-attack-quality { margin: 4px 0 0; }
 .cairn-attack-dialog .cairn-attack-panic { margin: 4px 0 0; font-size: var(--font-size-12); color: var(--ab-muted); }
+/* The shield hacks (2026-11-20): "Hands full"'s note, as the panic note, and
+   "Add the shield (d4)" under the weapon list. */
+.cairn-attack-dialog .cairn-attack-hands { margin: 4px 0 0; font-size: var(--font-size-12); color: var(--ab-muted); }
+.cairn-attack-dialog .cairn-attack-addshield { display: flex; align-items: center; gap: 8px; margin: 2px 0 0 24px; cursor: pointer; }
+.cairn-attack-dialog .cairn-attack-addshield[hidden] { display: none; }
+.cairn-attack-dialog .cairn-attack-addshield input { margin: 0; flex: 0 0 auto; }
+.cairn-attack-dialog .cairn-attack-addshield:has(input:disabled) { cursor: default; opacity: 0.55; }
 
 /* THE DROP PICKER -- askWhatToDrop in module/party-pile.js, opened by Take a
    Fatigue Instead. A roster of what the character is carrying, not a form: the
@@ -2300,12 +2314,26 @@
 }
 
 /* Label on the left, control on the right (not stacked). */
-.character-traits .trait-row,
-:is(.character-omen-scar, .notes-omen) .omen-row {
+.character-traits .trait-row {
     display: flex;
     align-items: center;
     gap: 8px;
     margin-bottom: 4px;
+}
+
+/* Omen laid out like a Bond (2026-11-20, user ask): a heading row — the
+   checkbox and label, then the die and the list — and the text under it. */
+:is(.character-omen-scar, .notes-omen) .omen-row {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 2px;
+    margin-bottom: 4px;
+}
+:is(.character-omen-scar, .notes-omen) .omen-head {
+    display: flex;
+    align-items: center;
+    gap: 6px;
 }
 
 /* The grid supplies row spacing; drop the per-row margin inside it. */
@@ -2320,6 +2348,8 @@
     font-weight: bold;
     margin-bottom: 0;
 }
+/* On its heading row the die follows the label, as a Bond's does. */
+:is(.character-omen-scar, .notes-omen) .omen-head .omen-label { min-width: 0; }
 
 /* Pronouns and Age hug their fields instead of reserving the 96px column. */
 .character-traits .pronouns-row .trait-label,
@@ -2342,17 +2372,6 @@
 :is(.character-omen-scar, .notes-omen) .omen-input {
     flex: 1 1 auto;
     min-width: 0;
-}
-
-/* Enabled multi-line omen textarea: top-align the label + dice against its first line. */
-:is(.character-omen-scar, .notes-omen) .omen-row.omen-enabled {
-    align-items: flex-start;
-}
-
-:is(.character-omen-scar, .notes-omen) .omen-row.omen-enabled .omen-label,
-:is(.character-omen-scar, .notes-omen) .omen-row.omen-enabled .omen-roll,
-:is(.character-omen-scar, .notes-omen) .omen-row.omen-enabled .omen-pick {
-    padding-top: 4px;
 }
 
 textarea.omen-input {
@@ -5533,6 +5552,7 @@ header.character-generator.directory-header .header-actions > button:not(.cairn-
    the text under it. Layout stays with each element; the npc bio-block's Omen
    row, the same partial, is not under this sheet class and keeps its look. */
 .cairn-character-sheet .background-line .background-label,
+.cairn-character-sheet .cairn-left > .traits-label,
 .cairn-character-sheet :is(.bond-line, .question-line) > strong,
 .cairn-character-sheet .character-description .character-description-heading,
 .cairn-character-sheet .notes-omen .omen-label {
@@ -5540,10 +5560,24 @@ header.character-generator.directory-header .header-actions > button:not(.cairn-
     font-family: "Alegreya", Times, "Times New Roman", Georgia, serif;
     font-size: 15px; font-weight: bold; font-variant: small-caps; line-height: 18px;
 }
-/* ...and the answers under them indented, on a thin accent rule. */
-.cairn-character-sheet :is(.bond-answer, .question-answer) {
+/* ...and the answers under them indented, on a thin accent rule — Omen's
+   text too, typed or not (2026-11-20, user ask: "like a Bond"). */
+.cairn-character-sheet :is(.bond-answer, .question-answer),
+.cairn-character-sheet .notes-omen :is(.omen-input, .omen-display) {
     margin-left: 4px; padding-left: 10px; border-left: 2px solid var(--ab-accent);
 }
+/* The Omen's field keeps its <textarea> (typing and the overlay's
+   _processFormData anchor unchanged) but loses core's box: no border, ground
+   or shadow but the rule, the answers' face, and as tall as its text. */
+.cairn-character-sheet .notes-omen .omen-input {
+    border-top: none; border-right: none; border-bottom: none; border-radius: 0;
+    background: transparent; box-shadow: none; outline: none;
+    font: inherit; color: inherit;
+    padding-top: 0; padding-bottom: 0; padding-right: 0;
+    min-height: 0; height: auto; resize: none; field-sizing: content;
+}
+.cairn-character-sheet .notes-omen .omen-input:focus-visible { box-shadow: -2px 0 0 var(--ab-accent); }
+.cairn-character-sheet .notes-omen .omen-display { margin-top: 2px; }
 .cairn-character-sheet .background-line .background-field {
     flex: 1 1 auto; min-width: 0; box-sizing: border-box;
     height: 24px !important; line-height: 22px; padding: 0 0.5rem;
@@ -5725,18 +5759,22 @@ header.character-generator.directory-header .header-actions > button:not(.cairn-
 /* The trait sentence, first in the left column: under the full-width rule
    and above STR (round 4, user ask 2026-11-19; under Gold in round 3), in
    the background description's size and face (13px; dev:sheet-rail compares
-   the two), italic as before. Its pen opens the Traits window. */
-.cairn-character-sheet .cairn-left > .trait-sentence { margin: 0 0 8px; font-size: 13px; font-style: italic; line-height: 1.4; }
+   the two), italic as before. Its pen opens the Traits window. Since
+   2026-11-20 (user ask) it stands under a "Traits" label (the label face,
+   above) and over Background & Notes' between-items rule — one --ab-rule
+   line, 10px of space either side of it — before the header. */
+.cairn-character-sheet .cairn-left > .traits-label { margin: 0 0 2px; }
+.cairn-character-sheet .cairn-left > .trait-sentence {
+    margin: 0 0 10px; padding-bottom: 10px; border-bottom: 1px solid var(--ab-rule);
+    font-size: 13px; font-style: italic; line-height: 1.4;
+}
 .cairn-character-sheet .cairn-left > .trait-sentence .trait-edit {
     margin-left: 2px; color: var(--ab-muted); font-style: normal; cursor: pointer; white-space: nowrap;
 }
 .cairn-character-sheet .cairn-left > .trait-sentence .trait-edit:hover,
 .cairn-character-sheet .cairn-left > .trait-sentence .trait-edit:focus-visible { color: var(--ab-ink); }
-/* No traits and no age: the word "Traits" beside the pen, not in italic, as
-   a label rather than a sentence. */
-.cairn-character-sheet .cairn-left > .trait-sentence.trait-sentence-empty {
-    font-style: normal; font-weight: bold; font-variant: small-caps;
-}
+/* No traits and no age: the pen alone under the label. */
+.cairn-character-sheet .cairn-left > .trait-sentence.trait-sentence-empty .trait-edit { margin-left: 0; }
 /* Too much gold: the shared .overburdened-gold paints a COUNTER's frame red
    over a black fill; a band row has neither, so the cue is the red figure. */
 .cairn-character-sheet .cairn-band .band-gold.overburdened-gold { background: none; border: none; }
@@ -5771,8 +5809,12 @@ header.character-generator.directory-header .header-actions > button:not(.cairn-
     align-self: stretch; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; column-gap: 10px;
 }
 .cairn-character-sheet .cairn-armor-row > .cairn-shield { grid-column: 2; }
-.cairn-character-sheet .shield-hold {
+/* "Hold light" directly under "Hold shield" (2026-11-20), one column. */
+.cairn-character-sheet .hold-switches {
     grid-column: 1; justify-self: end;
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+}
+.cairn-character-sheet :is(.shield-hold, .light-hold) {
     display: flex; flex-direction: column; align-items: center; gap: 2px;
     width: auto; height: auto; min-height: 0; padding: 2px 4px; margin: 0;
     background: none; border: none; box-shadow: none; line-height: 1;
@@ -5780,9 +5822,11 @@ header.character-generator.directory-header .header-actions > button:not(.cairn-
     font-size: 12px; font-weight: bold; font-variant: small-caps; color: var(--ab-ink);
     text-align: center; white-space: normal; max-width: 64px; cursor: pointer;
 }
-.cairn-character-sheet .shield-hold i { margin: 0; font-size: 20px; color: var(--ab-muted); }
-.cairn-character-sheet .shield-hold[aria-checked="true"] i { color: var(--ab-accent); }
-.cairn-character-sheet .shield-hold:disabled { cursor: default; opacity: 0.6; }
+.cairn-character-sheet :is(.shield-hold, .light-hold) i { margin: 0; font-size: 20px; color: var(--ab-muted); }
+.cairn-character-sheet :is(.shield-hold, .light-hold)[aria-checked="true"] i { color: var(--ab-accent); }
+/* Greyed, and still hoverable for its tooltip (a disabled button gets
+   pointerenter in Chromium: core's tooltip still finds it). */
+.cairn-character-sheet :is(.shield-hold, .light-hold):disabled { cursor: default; opacity: 0.45; }
 .cairn-character-sheet .cairn-vitals .hp-counter { align-self: stretch; }
 .cairn-character-sheet .cairn-slots-line {
     display: flex; justify-content: center; align-items: baseline; gap: 6px; width: 100%;

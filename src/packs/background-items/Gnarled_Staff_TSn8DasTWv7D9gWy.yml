@@ -14,7 +14,7 @@ system:
     trees. It hums faintly in old forests.
   weightless: false
   equipped: false
-  bulky: true
+  bulky: false
   cost: 0
   quantity: 1
   uses:

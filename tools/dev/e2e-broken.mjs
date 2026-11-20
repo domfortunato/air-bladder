@@ -152,7 +152,8 @@ try {
     out.before = {
       armor: armorShown(), slots: pc.system.slotsUsed,
       mail: rowState("ZZ Mail"), sword: rowState("ZZ Sword"), wand: rowState("ZZ Wand"),
-      shieldSwitch: !!sheet.element.querySelector(".shield-hold"),
+      // A LIVE switch: since 2026-11-20 it is always drawn, greyed with none to hold.
+      shieldSwitch: sheet.element.querySelector(".shield-hold")?.disabled === false,
     };
     // 2
     await breakIt("ZZ Mail");
@@ -168,7 +169,7 @@ try {
     out.forced = item("ZZ Sword")._source.system.equipped;
     // 5
     await breakIt("ZZ Kite");
-    out.kiteSwitch = !!sheet.element.querySelector(".shield-hold");
+    out.kiteSwitch = sheet.element.querySelector(".shield-hold")?.disabled === false;
     // 6
     await sheet.changeTab("character", "primary");
     await sleep(200);
@@ -238,7 +239,7 @@ else {
     ? ok("a forced equip of a broken item is stripped")
     : fail(`forced equip stored ${JSON.stringify(r.forced)}`);
   b.shieldSwitch && r.kiteSwitch === false
-    ? ok("a broken shield gives no Hold shield switch")
+    ? ok("a broken shield leaves the Hold shield switch greyed (nothing to hold)")
     : fail(`shield switch: before ${b.shieldSwitch}, broken ${r.kiteSwitch}`);
   Array.isArray(r.attackWeapons) && !r.attackWeapons.includes(r.swordId) && r.attackWeapons.includes("improvised")
     ? ok("the Attack window does not offer the broken weapon")
