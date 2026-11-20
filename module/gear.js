@@ -142,9 +142,23 @@ export const isHoldableLight = (item) => item?.type === "item"
  * the viewed scene. Holding selects the light by its stored name
  * (`game.Torch.selectSource`) and lights it if Torch says it is off; stowing
  * puts the token's light out (`extinguish`), and Torch's own rule spends a
- * use of a consumable then (docs/torch-light-sources.json). A light Torch
- * does not know throws; the throw is swallowed and the hold stands. One-way:
+ * use of a consumable then (docs/torch-light-sources.json). One-way:
  * Torch's own HUD button does not move the switch.
+ *
+ * Review #35, measured against the guide's promise ("A light Torch doesn't
+ * know ... is still held, but it doesn't shine"):
+ * - a light missing from the radius table (`lightSource`, the same names the
+ *   Torch file carries) is held and NOT selected: Torch does not throw on an
+ *   unknown name, it lit whatever other source the token carried;
+ * - a light with uses whose count is spent is held and not lit: Torch's own
+ *   HUD refuses an exhausted torch, and the switch must not relight it;
+ * - stowing while another usable light is still held puts the old one out
+ *   and lights that one (one light is held at once; legacy data can hold two).
+ * A throw is still swallowed and the hold stands, unlit.
+ *
+ * Called by `registerHeldLightSync` on the client that made the change, for
+ * every route a light enters or leaves the hand (switch, row hand, Broken,
+ * delete, give, drop), never by the sheet directly.
  * @param {Actor} actor
  * @param {Item} item     the light held, or one of those stowed
  * @param {Boolean} held
@@ -154,16 +168,69 @@ export const holdLight = async (actor, item, held) => {
   const token = actor?.getActiveTokens?.(false, true)?.[0];
   const sceneId = token?.parent?.id;
   if (!token?.id || !sceneId) return;
+  const light = async (it) => {
+    if (!shinesInTorch(it)) return;
+    await game.Torch.selectSource(sceneId, token.id, it.name);
+    if ((await game.Torch.currentState(sceneId, token.id)) === "off") await game.Torch.toggle(sceneId, token.id);
+  };
   try {
     if (held) {
-      await game.Torch.selectSource(sceneId, token.id, item.name);
-      if ((await game.Torch.currentState(sceneId, token.id)) === "off") await game.Torch.toggle(sceneId, token.id);
+      await light(item);
     } else {
       await game.Torch.extinguish(sceneId, token.id);
+      const still = actor.items.find((i) => i.id !== item.id && isHeldLight(i));
+      if (still) await light(still);
     }
   } catch {
-    // Torch does not know this light (or failed): the hold stands, unlit.
+    // Torch failed: the hold stands, unlit.
   }
+};
+
+/** Is this item a light held right now (equipped and not broken)? */
+export const isHeldLight = (item) => isHoldableLight(item) && item.system?.equipped === true && !item.system?.broken;
+
+/** Can Torch light it: a name it knows (the radius table it shares), and a
+ *  use left when the light counts them. */
+const shinesInTorch = (item) => {
+  if (!lightSource(item?.name)) return false;
+  const uses = item.system?.uses;
+  return !(Number(uses?.max) > 0 && !(Number(uses?.value) > 0));
+};
+
+/**
+ * Keep Torch in step with whatever a light's HELD state does (review #35):
+ * the switch, a row's hand, Broken (which unequips), a delete, a gift or a
+ * drop to the pile (both delete the giver's copy). Only on the client that
+ * made the change (`userId`), so the call is made once. The held state is
+ * read before the write (`preUpdateItem`) and after it. Calls for one actor
+ * run one after another: a single write can move two lights (a row's hand
+ * puts the other away), and Torch's calls must not interleave.
+ */
+export const registerHeldLightSync = () => {
+  const queues = new Map();
+  const queue = (actor, item, held) => {
+    const key = actor.uuid;
+    const next = (queues.get(key) ?? Promise.resolve()).then(() => holdLight(actor, item, held));
+    queues.set(key, next);
+    next.finally(() => { if (queues.get(key) === next) queues.delete(key); });
+  };
+  Hooks.on("preUpdateItem", (item, _changes, options) => {
+    if (isHoldableLight(item) && item.parent) {
+      options.abHeldLight ??= {};
+      options.abHeldLight[item.id] = isHeldLight(item);
+    }
+  });
+  Hooks.on("updateItem", (item, _changes, options, userId) => {
+    if (userId !== game.user.id || !item.parent || !isHoldableLight(item)) return;
+    const was = options.abHeldLight?.[item.id];
+    const now = isHeldLight(item);
+    if (was === undefined || was === now) return;
+    queue(item.parent, item, now);
+  });
+  Hooks.on("deleteItem", (item, _options, userId) => {
+    if (userId !== game.user.id || !item.parent || !isHeldLight(item)) return;
+    queue(item.parent, item, false);
+  });
 };
 
 /** Food, which sits at the very bottom of a granted loadout. */

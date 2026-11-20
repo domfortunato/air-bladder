@@ -19,7 +19,7 @@ import { Damage, DAMAGE_APPLIED_FLAG, DAMAGE_SOURCE_FLAG, localizeDamageCard } f
 import { registerWardenDamageControl } from "./warden-damage.js";
 import { registerWardenDashboardControl, refreshDashboardTime, localizeDashboardCard } from "./warden-dashboard.js";
 import { handlePileQuery, localizePileCard, PILE_DROP_QUERY, askWhatToDrop, dropItemToPile, partyFolderId, stripPlantedPileFlags, findDroppedPile } from "./party-pile.js";
-import { mustDropForFatigue } from "./gear.js";
+import { mustDropForFatigue, registerHeldLightSync } from "./gear.js";
 import { installWorldCalendar, checkWorldCalendar } from "./game-time.js";
 import { renderWatchClock, refreshWatchClock, pullCalendarBar } from "./watch-clock.js";
 import { refreshValdCalendar } from "./vald-calendar.js";
@@ -2677,9 +2677,13 @@ const migrateGrimoirePages = async () => {
  * substring: "Shield Spikes" is not a shield. Armor type only, so the GLOG
  * "Shield" spellbook is never touched.
  *
- * World items, every actor's items and unlinked-token deltas, as the grimoire
- * stamp walks them. Marker-gated (`shield-flag-stamped`), set only after the
- * writes land, so a shield a Warden unticks afterwards stays unticked.
+ * World items, every actor's items, unlinked-token deltas and WORLD
+ * compendiums (`stampWorldPacks`, review #35: a copy kept in a Warden's own
+ * pack was missed, then the marker closed for good). Marker-gated
+ * (`shield-flag-stamped`), set only after the writes land, so a shield a
+ * Warden unticks afterwards stays unticked.
+ *
+ * EXPORTED for dev:shield, which runs it in-page with its marker shadowed.
  */
 const SHIPPED_SHIELD_NAMES = new Set(["Shield", "Hacked Shield", "Steadymade Buckler"]);
 const SHIPPED_SHIELD_SOURCES = new Set([
@@ -2687,15 +2691,58 @@ const SHIPPED_SHIELD_SOURCES = new Set([
   "Compendium.air-bladder.background-items.Item.CBziqgsnPhtbysXq",
   "Compendium.air-bladder.background-items.Item.3QHTT61bXqb2dAeB",
 ]);
+/**
+ * The world-compendium leg of a one-off item stamp (review #35). `pick` turns
+ * a list of items into the updates they need ([] when none). A WORLD Item
+ * pack's documents are written in one batch; a world Actor pack's actors have
+ * their embedded items written. System packs are left alone: shipped content
+ * is replaced on update and is not the world's to rewrite. A locked pack is
+ * unlocked for the write and locked again; a pack that fails is skipped with
+ * a console warning, so one bad pack does not cost the others theirs.
+ * @param {(items: Item[]) => Object[]} pick
+ * @param {String} label   for the warning
+ * @returns {Promise<Number>} how many items were written
+ */
+const stampWorldPacks = async (pick, label) => {
+  let count = 0;
+  for (const pack of game.packs) {
+    const type = pack.metadata.type;
+    if (pack.metadata.packageType !== "world" || (type !== "Item" && type !== "Actor")) continue;
+    try {
+      const docs = await pack.getDocuments();
+      const writes = type === "Item"
+        ? [{ parent: null, updates: pick(docs) }]
+        : docs.map((a) => ({ parent: a, updates: pick([...a.items]) }));
+      const todo = writes.filter((w) => w.updates.length);
+      if (!todo.length) continue;
+      const wasLocked = pack.locked;
+      if (wasLocked) await pack.configure({ locked: false });
+      try {
+        for (const { parent, updates } of todo) {
+          if (parent) await parent.updateEmbeddedDocuments("Item", updates, { abNoStatusCard: true });
+          else await getDocumentClass("Item").updateDocuments(updates, { pack: pack.collection, abNoStatusCard: true });
+          count += updates.length;
+        }
+      } finally {
+        if (wasLocked) await pack.configure({ locked: true });
+      }
+    } catch (err) {
+      console.warn(`Air Bladder | ${label}: could not stamp world pack "${pack.metadata.label}":`, err);
+    }
+  }
+  return count;
+};
+
 export const migrateShieldFlags = async () => {
   if (game.settings.get(SETTINGS_NS, "shield-flag-stamped")) return;
   let count = 0;
   const isShippedShield = (i) => i.type === "armor" && i._source.system?.shield !== true
     && (SHIPPED_SHIELD_NAMES.has(i._source.name) || SHIPPED_SHIELD_SOURCES.has(i._stats?.compendiumSource));
 
+  const pick = (items) => items.filter(isShippedShield).map((i) => ({ _id: i.id, "system.shield": true }));
   /** @param {Document|null} parent  the owning Actor, or null for world items */
   const stamp = async (parent, items) => {
-    const updates = items.filter(isShippedShield).map((i) => ({ _id: i.id, "system.shield": true }));
+    const updates = pick(items);
     if (!updates.length) return;
     // abNoStatusCard: a migration must not post a change-log card per shield.
     if (parent) await parent.updateEmbeddedDocuments("Item", updates, { abNoStatusCard: true });
@@ -2711,6 +2758,7 @@ export const migrateShieldFlags = async () => {
       await stamp(token.actor, [...token.actor.items]);
     }
   }
+  count += await stampWorldPacks(pick, "shield flags");
   if (count) console.log(`Air Bladder | shield flags: ${count} shield(s) ticked`);
   await game.settings.set(SETTINGS_NS, "shield-flag-stamped", true);
 };
@@ -2721,8 +2769,9 @@ export const migrateShieldFlags = async () => {
  * shipped it Bulky; the pack is corrected, and this fixes the copies already
  * made from it. migrateShieldFlags' shape: a copy is a WEAPON whose stored
  * English name is exactly "Gnarled Staff", or whose `_stats.compendiumSource`
- * is the pack's staff (a renamed copy); world items, every actor's items and
- * unlinked-token deltas. Marker-gated (`gnarled-staff-unbulked`), set after
+ * is the pack's staff (a renamed copy); world items, every actor's items,
+ * unlinked-token deltas and world compendiums (`stampWorldPacks`, review
+ * #35). Marker-gated (`gnarled-staff-unbulked`), set after
  * the writes land, so a staff a Warden ticks Bulky again stays Bulky.
  *
  * EXPORTED for dev:shield, which runs it in-page with its marker shadowed —
@@ -2736,9 +2785,10 @@ export const migrateGnarledStaff = async () => {
   const isBulkyStaff = (i) => i.type === "weapon" && i._source.system?.bulky === true
     && (i._source.name === "Gnarled Staff" || i._stats?.compendiumSource === GNARLED_STAFF_SOURCE);
 
+  const pick = (items) => items.filter(isBulkyStaff).map((i) => ({ _id: i.id, "system.bulky": false }));
   /** @param {Document|null} parent  the owning Actor, or null for world items */
   const unbulk = async (parent, items) => {
-    const updates = items.filter(isBulkyStaff).map((i) => ({ _id: i.id, "system.bulky": false }));
+    const updates = pick(items);
     if (!updates.length) return;
     if (parent) await parent.updateEmbeddedDocuments("Item", updates, { abNoStatusCard: true });
     else await getDocumentClass("Item").updateDocuments(updates, { abNoStatusCard: true });
@@ -2753,6 +2803,7 @@ export const migrateGnarledStaff = async () => {
       await unbulk(token.actor, [...token.actor.items]);
     }
   }
+  count += await stampWorldPacks(pick, "Gnarled Staff");
   if (count) console.log(`Air Bladder | Gnarled Staff: ${count} copy(ies) no longer Bulky`);
   await game.settings.set(SETTINGS_NS, "gnarled-staff-unbulked", true);
 };
@@ -4669,3 +4720,10 @@ const configureHandleBar = () => {
     return "";
   });
 };
+
+/**
+ * Torch follows a light into and out of the hand by every route (review
+ * #35): the switch, a row's hand, Broken, a delete, a gift, a drop to the
+ * pile. gear.js `registerHeldLightSync`.
+ */
+Hooks.once("init", registerHeldLightSync);

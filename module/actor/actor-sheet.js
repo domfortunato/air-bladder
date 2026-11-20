@@ -40,7 +40,7 @@ const NPC_TRAIT_LABELS = {
   vice: "CAIRN.Trait.Vice",
 };
 import { atConnectionLimit, maxConnections, connectionsUiEnabled, brokenOwnershipShape, OWNERSHIP_SYNC_FLAG } from "../connections.js";
-import { findMatchingStack, capacityVerdict, landingNeed, isHoldableLight, holdLight } from "../gear.js";
+import { findMatchingStack, capacityVerdict, landingNeed, isHoldableLight, isHeldLight } from "../gear.js";
 import {
   canOfferItem, promptOfferTarget, createItemOffer, offerFromDrop,
   canReceiveOffer, settleOwnOffer,
@@ -4453,9 +4453,14 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     const item = this.actor.getOwnedItem(row?.dataset.itemId);
     if (!item) return;
     const held = !item.system.equipped;
-    await item.update({ "system.equipped": held });
-    // A light's hand lights it or puts it out through Torch, as Hold light does.
-    if (isHoldableLight(item)) await holdLight(this.actor, item, held);
+    // One light is held at once (as Hold light's own press): holding one by
+    // its hand puts any other held light away in the same write (review
+    // #35). Torch follows through registerHeldLightSync (gear.js), whatever
+    // route moved the light.
+    const others = held && isHoldableLight(item)
+      ? this.actor.items.filter((i) => i.id !== item.id && isHeldLight(i)).map((i) => ({ _id: i.id, "system.equipped": false }))
+      : [];
+    await this.actor.updateEmbeddedDocuments("Item", [...others, { _id: item.id, "system.equipped": held }]);
   }
 
   /**
@@ -4750,7 +4755,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    * hand icon. While any of that kind is held a press puts EVERY held one away
    * (the switch reads on for any of them, so off must mean none); otherwise it
    * holds the first, in inventory order, that can be equipped. A light is lit
-   * or put out through Torch (`holdLight`), the call its row's hand makes.
+   * or put out through Torch by registerHeldLightSync (gear.js), as a row's hand is.
    * @this {CairnActorSheet}
    */
   static async #onToggleHold(event, target) {
@@ -4774,8 +4779,8 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       ? held.map((i) => ({ _id: i.id, "system.equipped": false }))
       : first ? [{ _id: first.id, "system.equipped": true }] : [];
     if (!updates.length) return;
+    // Torch follows through registerHeldLightSync (gear.js, review #35).
     await this.actor.updateEmbeddedDocuments("Item", updates);
-    if (light) await holdLight(this.actor, held[0] ?? first, !held.length);
   }
 
   /**
