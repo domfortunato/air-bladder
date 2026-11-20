@@ -47,6 +47,9 @@
  *      ticked, Standard names both dice and rolls a keep-highest pool (RNG
  *      pinned for that roll: the d4 kept); Impaired ignores it; the hack off
  *      shows no shield entry, box or roller.
+ *  14. (review #35) "Shields are d4 weapons" is a player character's: a
+ *      monster holding a Shield, hack on, is not offered it in its Attack
+ *      window and its row has no d4 roller; its club is still offered.
  *  13. (review #35) with a content overlay planted in-page, the window lists
  *      a weapon by its display name and the damage card names it so, as the
  *      row's roller did through 0.1.26.
@@ -572,6 +575,33 @@ try {
         await sleep(300);
         S.off.kiteRoller = !!ss.element.querySelector(`.cairn-items-list-row[data-item-id="${ids.kite}"] [data-action="rollDamage"]`);
         await ss.close();
+
+        // 14 (review #35): the hack is a player character's. A monster
+        // holding a Shield, hack on, is not offered it in its Attack window
+        // and its row grows no d4 roller; its club still is offered.
+        const mon = await Actor.create({
+          name: "ZZ Attack Shield Monster", type: "npc", system: { role: "monster" }, flags,
+          items: [
+            { name: "ZZ Mon Shield", type: "armor", system: { armor: 1, shield: true, equipped: true } },
+            { name: "ZZ Mon Club", type: "weapon", system: { damageFormula: "1d6", equipped: true } },
+          ],
+        }, { abNoStatusCard: true });
+        const mi = (n) => mon.items.find((i) => i.name === n);
+        hack["shield-weapon"] = true;
+        const ms = await fresh(mon);
+        await ms.changeTab("items", "primary");
+        await sleep(300);
+        out.monsterShield = {
+          ids: { shield: mi("ZZ Mon Shield").id, club: mi("ZZ Mon Club").id },
+          roller: !!ms.element.querySelector(`.cairn-items-list-row[data-item-id="${mi("ZZ Mon Shield").id}"] [data-action="rollDamage"]`),
+        };
+        await ms.changeTab("character", "primary");
+        await sleep(200);
+        d = await openOn(ms);
+        out.monsterShield.listed = d ? listed(d) : null;
+        await closeD(d);
+        hack["shield-weapon"] = false;
+        await ms.close();
       } catch (e) {
         out.hacksError = e.stack ?? e.message;
       } finally {
@@ -739,6 +769,11 @@ else {
   sorted(S.off?.listed ?? []) === sorted([sid.mace, sid.halberd, sid.bow, "improvised"]) && S.off?.box === false && S.off?.kiteRoller === false
     ? ok("the hack off: no shield entry, no box, no shield roller")
     : fail(`shield weapon off: ${JSON.stringify(S.off)}`);
+  // 14
+  const MS = r.monsterShield ?? {};
+  Array.isArray(MS.listed) && !MS.listed.includes(MS.ids?.shield) && MS.listed.includes(MS.ids?.club) && MS.roller === false
+    ? ok("Shields are d4 weapons is a player character's: a monster's held shield is not offered and its row has no d4 roller")
+    : fail(`monster shield: ${JSON.stringify(MS)}`);
   // 8
   const e = r.enterCard ?? {};
   e.faces === 8 && e.weapon === "a stool"

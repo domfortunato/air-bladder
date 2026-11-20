@@ -58,6 +58,11 @@
  *      planted "Gnarled Staff" and a renamed copy of the pack's (by its
  *      compendium source), two slots lighter, and leaves a bulky halberd and a
  *      non-weapon "Gnarled Staff" alone.
+ *   7b. (review #35) both one-off migrations (the staff's and the shield
+ *      flag's) reach WORLD compendiums: in a planted locked Item pack and an
+ *      Actor pack, a bulky "Gnarled Staff" is unbulked and an unticked
+ *      "Shield" / "Hacked Shield" ticked, and the locked pack is locked again.
+ *      Markers shadowed; every other world pack's staffs and shields put back.
  *
  * The re-armed migration walks the whole world, so every armor item's stored
  * `system.shield` is snapshotted first and put back afterwards, with the
@@ -674,6 +679,101 @@ try {
       if (pc) await pc.delete();
       if (loose) await loose.delete();
     }
+
+    // 7b (review #35): WORLD compendiums. A planted Item pack (a bulky
+    // "Gnarled Staff", an unticked "Shield") and Actor pack (an actor holding
+    // an unticked "Hacked Shield" and a bulky staff), one locked; both
+    // migrations run in-page with their markers shadowed. Every OTHER world
+    // pack's staffs and shields are snapshotted and put back.
+    if (typeof mod?.migrateShieldFlags !== "function") {
+      out.packs = { missing: "migrateShieldFlags is not exported" };
+      return out;
+    }
+    const CC = foundry.documents.collections.CompendiumCollection;
+    const KEYS = new Set(["gnarled-staff-unbulked", "shield-flag-stamped"]);
+    const touched = (i) => (i.type === "weapon" && i.name === "Gnarled Staff")
+      || (i.type === "armor" && ["Shield", "Hacked Shield", "Steadymade Buckler"].includes(i.name));
+    const packSnap = [];
+    const packSets = [];
+    let itemPack = null, actorPack = null;
+    try {
+      for (const p of game.packs) {
+        if (p.metadata.packageType !== "world" || !["Item", "Actor"].includes(p.metadata.type)) continue;
+        for (const d of await p.getDocuments()) {
+          const items = p.metadata.type === "Item" ? [d] : [...d.items];
+          for (const i of items.filter(touched)) {
+            packSnap.push({ pack: p.collection, parent: p.metadata.type === "Actor" ? d.id : null, id: i.id,
+              bulky: i._source.system.bulky, shield: i._source.system.shield });
+          }
+        }
+      }
+      itemPack = await CC.createCompendium({ label: "zz-shield-stamp-items", type: "Item" });
+      actorPack = await CC.createCompendium({ label: "zz-shield-stamp-actors", type: "Actor" });
+      const pStaff = { id: foundry.utils.randomID() }, pShield = { id: foundry.utils.randomID() };
+      const pActor = { id: foundry.utils.randomID() };
+      await getDocumentClass("Item").createDocuments([
+        { _id: pStaff.id, name: "Gnarled Staff", type: "weapon", system: { damageFormula: "d8", bulky: true } },
+        { _id: pShield.id, name: "Shield", type: "armor", system: { armor: 1, shield: false } },
+      ], { pack: itemPack.collection, keepId: true });
+      await getDocumentClass("Actor").createDocuments([{
+        _id: pActor.id, name: "ZZ Pack Holder", type: "character",
+        items: [
+          { name: "Hacked Shield", type: "armor", system: { armor: 1, shield: false } },
+          { name: "Gnarled Staff", type: "weapon", system: { damageFormula: "d8", bulky: true } },
+        ],
+      }], { pack: actorPack.collection, keepId: true });
+      await itemPack.configure({ locked: true });
+      game.settings.get = function (scope, key, ...rest) {
+        if (rest[0]?.document) return foundry.helpers.ClientSettings.prototype.get.call(this, scope, key, ...rest);
+        if (scope === ns && KEYS.has(key)) return false;
+        return origGet.call(this, scope, key, ...rest);
+      };
+      game.settings.set = async function (scope, key, value, ...rest) {
+        if (scope === ns && KEYS.has(key)) { packSets.push([key, value]); return value; }
+        return origSet.call(this, scope, key, value, ...rest);
+      };
+      try {
+        await mod.migrateGnarledStaff();
+        await mod.migrateShieldFlags();
+      } finally {
+        game.settings.get = origGet;
+        game.settings.set = origSet;
+      }
+      const ps = await itemPack.getDocument(pStaff.id);
+      const psh = await itemPack.getDocument(pShield.id);
+      const pa = await actorPack.getDocument(pActor.id);
+      out.packs = {
+        staff: ps?._source.system.bulky ?? null,
+        shield: psh?._source.system.shield ?? null,
+        actorShield: pa?.items.find((i) => i.name === "Hacked Shield")?._source.system.shield ?? null,
+        actorStaff: pa?.items.find((i) => i.name === "Gnarled Staff")?._source.system.bulky ?? null,
+        relocked: itemPack.locked,
+        sets: packSets,
+      };
+    } catch (e) {
+      out.packs = { error: e.stack ?? e.message };
+    } finally {
+      game.settings.get = origGet;
+      game.settings.set = origSet;
+      for (const s of packSnap) {
+        const p = game.packs.get(s.pack);
+        if (!p) continue;
+        const wasLocked = p.locked;
+        if (wasLocked) await p.configure({ locked: false });
+        try {
+          const doc = s.parent ? (await p.getDocument(s.parent))?.items.get(s.id) : await p.getDocument(s.id);
+          if (doc && (doc._source.system.bulky !== s.bulky || doc._source.system.shield !== s.shield)) {
+            await doc.update({ "system.bulky": s.bulky, "system.shield": s.shield }, { abNoStatusCard: true });
+          }
+        } finally {
+          if (wasLocked) await p.configure({ locked: true });
+        }
+      }
+      for (const p of [itemPack, actorPack]) {
+        if (!p) continue;
+        try { await p.configure({ locked: false }); await p.deleteCompendium(); } catch (e) { out.packCleanup = e.message; }
+      }
+    }
     return out;
   }, { fixture: FIXTURE });
 
@@ -874,6 +974,11 @@ const ga = gn.after ?? {};
 !gn.missing && JSON.stringify(gn.sets) === "[true]" && gn.markerReal !== undefined
   ? ok("...and it sets its marker once (shadowed: never a real write)")
   : fail(`Gnarled Staff marker: ${JSON.stringify({ sets: gn.sets, real: gn.markerReal, missing: gn.missing, importError: gn.importError })}`);
+// 7b
+const gp = gn.packs ?? {};
+gp.staff === false && gp.shield === true && gp.actorShield === true && gp.actorStaff === false && gp.relocked === true
+  ? ok("both migrations reach WORLD compendiums: a pack's staff unbulked and shield ticked, an Actor pack's too; a locked pack is locked again")
+  : fail(`world-pack stamps: ${JSON.stringify(gp)}`);
 errors.length === 0 ? ok("no console errors") : fail(`console errors: ${errors.join(" | ")}`);
 
 await browser.close();
