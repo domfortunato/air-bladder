@@ -27,6 +27,8 @@ is an independent system with its own `id`, content and history — **not** a gi
   and **nothing drops out**; the minimum stays 14.368. **14.367 is left alone** (the
   user drew the line at 14.368 the same hour). Farm projects: `air-bladder` (newest),
   `air-bladder-14369`, `air-bladder-14368`; a release runs the suite on every one.
+  **Day to day, test on the NEWEST build only** (`air-bladder`) — the older
+  builds run only once a release has been decided (user ruling 2026-11-20).
 - **The minimum is stated in five places** — `README.md` (held to `system.json` by
   `check:readme`), `README.es.md`, `CONTRIBUTING.md`, `docs/testing-dev-branch.md` and
   here (six until the landing page was retired, 2026-11-19). Change the minimum, change
