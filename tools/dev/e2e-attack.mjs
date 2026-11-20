@@ -47,6 +47,11 @@
  *      ticked, Standard names both dice and rolls a keep-highest pool (RNG
  *      pinned for that roll: the d4 kept); Impaired ignores it; the hack off
  *      shows no shield entry, box or roller.
+ *  12b. (review #35) panicked (Impaired only), the add-shield box is not
+ *      offered.
+ *  15. (review #35) panicked, a REAL Enter straight after the window opens
+ *      (no click first) rolls Impaired: Standard is hidden at open, and the
+ *      focus must land on a button that is on offer.
  *  14. (review #35) "Shields are d4 weapons" is a player character's: a
  *      monster holding a Shield, hack on, is not offered it in its Attack
  *      window and its row has no d4 roller; its club is still offered.
@@ -378,7 +383,7 @@ try {
 
     /* ---- 11-12. the two shield hacks, settings shadowed in-page --------- */
     {
-      const hack = { "hands-full": false, "shield-weapon": false, "exploding-damage-dice": false, "maneuver-on-max-damage": false };
+      const hack = { "hands-full": false, "shield-weapon": false, "exploding-damage-dice": false, "maneuver-on-max-damage": false, "use-panic": false };
       const origGet = game.settings.get;
       game.settings.get = function (ns, key, ...rest) {
         if (rest[0]?.document) return foundry.helpers.ClientSettings.prototype.get.call(this, ns, key, ...rest);
@@ -563,6 +568,18 @@ try {
           if (m) await m.setFlag("air-bladder", "probeFixture", fixture);
           S.impaired = { formula: m?.rolls?.[0]?.formula ?? null, dice: m?.rolls?.[0]?.dice?.length ?? null, faces: m?.rolls?.[0]?.dice?.[0]?.faces ?? null };
         }
+        // 12b (review #35): panicked, only Impaired is offered, so the box
+        // that adds the shield to Standard is not offered either.
+        hack["use-panic"] = true;
+        await spc.update({ "system.panicked": true }, { abNoStatusCard: true });
+        ss = await fresh(spc);
+        await ss.changeTab("character", "primary");
+        d = await openOn(ss);
+        await choose(d, ids.mace);
+        S.panicked = boxState(d);
+        await closeD(d);
+        await spc.update({ "system.panicked": false }, { abNoStatusCard: true });
+        hack["use-panic"] = false;
         // The hack off: no shield entry, no box, no shield roller.
         hack["shield-weapon"] = false;
         ss = await fresh(spc);
@@ -642,6 +659,53 @@ try {
       await game.actors.get(pcId)?.sheet?.close();
       return { faces: m?.rolls?.[0]?.dice?.[0]?.faces ?? null, weapon: div.querySelector(".dmg-label")?.dataset.weapon ?? null };
     }, { pcId: r.pcId, fixture: FIXTURE });
+  }
+
+  /* ---- 15. panicked, a real Enter straight after the window opens ----- */
+  // (review #35) Standard is hidden at open, so the window's default focus
+  // had nowhere to land and Enter pressed nothing. use-panic shadowed in
+  // page (never written), put back after; the panicked flag likewise.
+  if (r?.pcId) {
+    r.panicEnter = { opened: await gm.evaluate(async (pcId) => {
+      const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
+      const pc = game.actors.get(pcId);
+      window.__abOrigGet = game.settings.get;
+      const origGet = window.__abOrigGet;
+      game.settings.get = function (ns, key, ...rest) {
+        if (rest[0]?.document) return foundry.helpers.ClientSettings.prototype.get.call(this, ns, key, ...rest);
+        if (ns === "air-bladder" && key === "use-panic") return true;
+        return origGet.call(this, ns, key, ...rest);
+      };
+      await pc.update({ "system.panicked": true }, { abNoStatusCard: true });
+      await pc.sheet.render(true);
+      for (let i = 0; i < 40 && !pc.sheet.element?.querySelector?.('.cairn-vital-buttons [data-action="attack"]'); i++) await sleep(150);
+      await sleep(300);
+      const stale = new Set(document.querySelectorAll(".cairn-attack-dialog"));
+      window.__abAttackBefore = game.messages.map((m) => m.id);
+      pc.sheet.element.querySelector('.cairn-vital-buttons [data-action="attack"]')?.click();
+      let d = null;
+      for (let i = 0; i < 50 && !(d = [...document.querySelectorAll(".cairn-attack-dialog")].find((x) => !stale.has(x))); i++) await sleep(100);
+      await sleep(400);
+      return !!d;
+    }, r.pcId) };
+    if (r.panicEnter.opened) await gm.keyboard.press("Enter");
+    Object.assign(r.panicEnter, await gm.evaluate(async ({ pcId, fixture }) => {
+      const before = new Set(window.__abAttackBefore ?? []);
+      let m = null;
+      for (let i = 0; i < 30 && !(m = game.messages.contents.find((x) => !before.has(x.id) && x.speaker?.actor === pcId)); i++) {
+        await new Promise((res) => setTimeout(res, 100));
+      }
+      if (m) await m.setFlag("air-bladder", "probeFixture", fixture);
+      for (const d of foundry.applications.instances.values()) {
+        if (d.element?.classList?.contains("cairn-attack-dialog")) await d.close();
+      }
+      if (window.__abOrigGet) game.settings.get = window.__abOrigGet;
+      delete window.__abOrigGet;
+      const pc = game.actors.get(pcId);
+      await pc?.update({ "system.panicked": false }, { abNoStatusCard: true });
+      await pc?.sheet?.close();
+      return { posted: !!m, faces: m?.rolls?.[0]?.dice?.[0]?.faces ?? null };
+    }, { pcId: r.pcId, fixture: FIXTURE }));
   }
 } catch (e) {
   fail(`the run threw: ${e.message}`);
@@ -769,6 +833,15 @@ else {
   sorted(S.off?.listed ?? []) === sorted([sid.mace, sid.halberd, sid.bow, "improvised"]) && S.off?.box === false && S.off?.kiteRoller === false
     ? ok("the hack off: no shield entry, no box, no shield roller")
     : fail(`shield weapon off: ${JSON.stringify(S.off)}`);
+  // 12b
+  S.panicked && !S.panicked.shown
+    ? ok("panicked (Impaired only), the add-shield box is not offered")
+    : fail(`add-shield box while panicked: ${JSON.stringify(S.panicked)}`);
+  // 15
+  const pe = r.panicEnter ?? {};
+  pe.opened && pe.posted && pe.faces === 4
+    ? ok("panicked, a real Enter straight after the window opens rolls Impaired (the d4)")
+    : fail(`panicked Enter at open: ${JSON.stringify(pe)}`);
   // 14
   const MS = r.monsterShield ?? {};
   Array.isArray(MS.listed) && !MS.listed.includes(MS.ids?.shield) && MS.listed.includes(MS.ids?.club) && MS.roller === false
