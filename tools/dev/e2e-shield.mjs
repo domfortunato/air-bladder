@@ -397,14 +397,25 @@ try {
         glowsnail: hand("Glowsnail"), sunStick: hand("Sun Stick") };
       // The badge: the light's icon (a CSS mask on .light-icon), its label, and
       // the radius while one is held.
+      // The mask's RESOLVED url, fetched: a relative url() in a custom property
+      // resolves against the stylesheet (css/), and the icon drew nothing on
+      // CT 123 while its name still read right (found walking ee91cef1).
+      const loads = new Map();
+      const loadsOk = async (url) => {
+        if (!url) return false;
+        if (!loads.has(url)) loads.set(url, await fetch(url).then((res) => res.ok).catch(() => false));
+        return loads.get(url);
+      };
       const badge = () => {
         const b = sw();
         const icon = b?.querySelector(".light-icon");
         const cs = icon ? getComputedStyle(icon) : null;
+        const mask = cs?.maskImage || cs?.webkitMaskImage || "";
         return {
+          url: /url\("?([^")]+)"?\)/.exec(mask)?.[1] ?? null,
           label: b?.querySelector(".light-label")?.textContent.trim() ?? null,
           radius: b?.querySelector(".light-radius")?.textContent.trim() ?? null,
-          icon: (cs?.maskImage || cs?.webkitMaskImage || "").match(/game-icons\/fire\/([a-z-]+)\.svg/)?.[1] ?? null,
+          icon: mask.match(/game-icons\/fire\/([a-z-]+)\.svg/)?.[1] ?? null,
           color: cs?.backgroundColor ?? null,
           filter: cs?.filter ?? null,
           checked: b?.getAttribute("aria-checked") ?? null,
@@ -429,6 +440,7 @@ try {
           right: !!a && !!b && b.left >= a.right - 0.5,
           beside: !!a && !!b && b.top < a.bottom && b.bottom > a.top,
         };
+        out.place.loads = await loadsOk(out.place.url);
       }
       // Several lights, none held: a press asks which, listing each with its
       // radius; Cancel holds nothing; the pick is held.
@@ -464,6 +476,7 @@ try {
         await sleep(500);
         out.picker.held = ["Torch", "Lantern", "Glowsnail", "Sun Stick"].filter((n) => it(n)?.system.equipped);
         out.lanternBadge = badge();
+        out.lanternBadge.loads = await loadsOk(out.lanternBadge.url);
       }
       // A second held light; one press puts every one away (no picker).
       await it("Glowsnail").update({ "system.equipped": true });
@@ -492,6 +505,7 @@ try {
       };
       await press(() => it("Torch")?.system.equipped === true);
       out.torchBadge = { ...badge(), picker: !!document.querySelector(".cairn-light-picker") };
+      out.torchBadge.loads = await loadsOk(out.torchBadge.url);
       await press(() => !it("Torch")?.system.equipped);
 
       // Torch, stubbed.
@@ -799,7 +813,7 @@ hs.torch && hs.lantern && hs.glowsnail && hs.sunStick && !hs.oil && !hs.rope
 const lw = lt.want ?? {};
 const lp = lt.place ?? {};
 lp.label === lt.wantLight && lp.disabled === false && lp.checked === "false" && lp.tip === lw.noneHeld
-  && lp.radius === null && lp.icon === "lantern-flame" && lp.right && lp.beside
+  && lp.radius === null && lp.icon === "lantern-flame" && lp.loads && lp.right && lp.beside
   ? ok(`the light badge stands right of the Armor box: a neutral lantern, "${lp.label}", "${lp.tip}", no radius`)
   : fail(`light badge, none held: ${JSON.stringify(lp)} (want label ${JSON.stringify(lt.wantLight)}, tip ${JSON.stringify(lw.noneHeld)})`);
 const pk = lt.picker ?? {};
@@ -812,7 +826,7 @@ JSON.stringify(pk.afterCancel) === "[]" && JSON.stringify(pk.held) === JSON.stri
   ? ok("Cancel holds nothing; picking the Lantern holds the Lantern alone")
   : fail(`picker outcome: cancel ${JSON.stringify(pk.afterCancel)}, pick ${JSON.stringify(pk.held)}`);
 const lb = lt.lanternBadge ?? {};
-lb.checked === "true" && lb.icon === "lantern-flame" && lb.radius === lw.bright && lb.tip === lw.heldLantern
+lb.checked === "true" && lb.icon === "lantern-flame" && lb.loads && lb.radius === lw.bright && lb.tip === lw.heldLantern
   && lb.color !== lp.color && lb.filter && lb.filter !== "none"
   ? ok(`held, the badge glows (${lb.color}, ${lb.filter}) and reads "${lb.radius}", "${lb.tip}"`)
   : fail(`lantern badge: ${JSON.stringify(lb)} (none-held colour ${lp.color})`);
@@ -821,7 +835,7 @@ JSON.stringify(st.held) === "[]" && !st.picker && st.badge?.checked === "false" 
   ? ok("with two held, one press puts both away, with no picker")
   : fail(`stow all: ${JSON.stringify(st)}`);
 const tb = lt.torchBadge ?? {};
-tb.checked === "true" && !tb.picker && tb.icon === "torch" && tb.radius === lw.bright && tb.tip === lw.heldTorch
+tb.checked === "true" && !tb.picker && tb.icon === "torch" && tb.loads && tb.radius === lw.bright && tb.tip === lw.heldTorch
   ? ok("with one light, a press holds it at once: the torch icon, its radius")
   : fail(`single light: ${JSON.stringify(tb)}`);
 const tx = lt.texts ?? {};
