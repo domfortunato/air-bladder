@@ -712,7 +712,8 @@ const r = await page.evaluate(async ({ xssName }) => {
     };
     const bio = { pronouns: "zz/zir", traits: { physique: "ZZ-TRAIT-PHYS", quirk: "ZZ-TRAIT-QUIRK", goal: "ZZ-TRAIT-GOAL" },
       age: "77", scars: ["ZZ-SCAR-ROW"] };
-    const has = (s) => ({ pron: s.includes("zz/zir"), phys: s.includes("ZZ-TRAIT-PHYS"), scar: s.includes("ZZ-SCAR-ROW") });
+    // The trait reads case-blind: the sentence lowercases its values (round 4).
+    const has = (s) => ({ pron: s.includes("zz/zir"), phys: s.toLowerCase().includes("zz-trait-phys"), scar: s.includes("ZZ-SCAR-ROW") });
     const reroled = await Actor.create({ name: "ZZ Print Reroled", type: "npc", system: { role: "npc", ...bio } });
     try {
       out.reroleAsPerson = has(await pageText(reroled));

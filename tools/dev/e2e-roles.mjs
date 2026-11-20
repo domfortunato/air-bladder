@@ -742,7 +742,7 @@ try {
   // and the stat block, leads and is the page a fresh sheet opens on; Growth
   // sits after Inventory. Still the parked list — Connections stays out.
   const NPC_ORDER = ["description", "items", "notes"];
-  const PC_ORDER = ["character", "items", "growth", "description", "notes"];
+  const PC_ORDER = ["character", "items", "growth", "notes"];   // no Description page since round 4
   JSON.stringify(order.asNpc.nav) === JSON.stringify(NPC_ORDER)
     && JSON.stringify(order.asNpc.panels) === JSON.stringify(NPC_ORDER)
     ? ok("npc nav AND panels run Description → Items → Notes")

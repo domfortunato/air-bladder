@@ -5438,8 +5438,9 @@ header.character-generator.directory-header .header-actions > button:not(.cairn-
    (foundry2.css, @layer elements.forms) — the Pronouns input's border,
    ground, radius and ink — at the identity line's 24px, on both branches: the
    hand-made input (whose generic rule strips its box) and the generated
-   background's name, a span the picker fills. dev:sheet-rail compares the two
-   boxes property by property. */
+   background's name, a read-only input the picker fills (an input because core
+   scopes those variables to input elements: a span measured transparent).
+   dev:sheet-rail compares the boxes property by property. */
 .cairn-character-sheet .background-line { align-items: center; }
 .cairn-character-sheet .background-line .background-label {
     flex: 0 0 auto; margin: 0; white-space: nowrap; color: var(--ab-ink);
@@ -5456,9 +5457,16 @@ header.character-generator.directory-header .header-actions > button:not(.cairn-
     font-family: "Alegreya", Times, "Times New Roman", Georgia, serif !important;
     font-size: 15px !important; font-variant: small-caps;
 }
-/* The generated name keeps its ellipsis; in Creation Mode a click picks. */
-.cairn-character-sheet .background-line .background-name.background-field { display: block; }
+/* The generated name keeps its ellipsis; in Creation Mode a click picks, and
+   outside it the read-only field shows no text caret. */
+.cairn-character-sheet .background-line .background-name.background-field { text-overflow: ellipsis; cursor: default; }
 .cairn-character-sheet .background-line .background-name[data-action] { cursor: pointer; }
+/* Barebones' failed-career lines size WITH the Background line, as one block
+   (the 2026-08-08 ruling: they read as one block, so they size as one). The
+   Background line went to the identity labels' 15px in round 4, so on the
+   character sheet they follow it there. */
+.cairn-character-sheet .failed-career-block :is(.failed-career-label, .failed-career-name,
+    .failed-career-item-label, .failed-career-item-name) { font-size: 15px; }
 
 /* ---- Character page: abilities + band | vitals ---------------------------- */
 .cairn-character-sheet .cairn-body {

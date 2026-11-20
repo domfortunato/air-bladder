@@ -164,6 +164,10 @@ try {
           desc: root?.querySelector(".background-description")?.textContent ?? null,
         };
       };
+      // A question to close off: the fixture background lists no question
+      // tables, so the character holds none, and a rule "under the questions"
+      // needs one to stand under.
+      await actor.update({ "system.questions": [{ question: "ZZ What did you swear?", answer: "ZZ To keep the field." }] });
       force(false); await rerender(); out.sheetOff = sheetState();
       force(true); await rerender(); out.sheetOn = sheetState();
 

@@ -107,7 +107,9 @@ try {
     const pc = await getDocumentClass("Actor").create({
       name: "ZZ Rail PC", type: "character",
       // An age and a trait, so the trait sentence has something to say (leg 14).
-      system: { hp: { value: 4, max: 6 }, age: "30", traits: { physique: "Athletic" } },
+      // Creation Mode ON: a new character's schema default is off, and the
+      // pen (leg 15) rides the mode.
+      system: { hp: { value: 4, max: 6 }, age: "30", traits: { physique: "Athletic" }, generationEnabled: true },
       ownership: alice ? { default: 0, [alice.id]: CONST.DOCUMENT_OWNERSHIP_LEVELS.OBSERVER } : { default: 0 },
       flags: { "air-bladder": { probeFixture: fixture } },
     }, { abNoStatusCard: true });
@@ -395,7 +397,7 @@ try {
           background: bgDoc?.name ?? "", backgroundUuid: bgDoc?.uuid ?? "", contentSource: "2e", age: "30",
           traits: { physique: "Athletic", skin: "Pale", hair: "Braided", face: "Broken", speech: "Booming",
             clothing: "Antique", vice: "Lazy", virtue: "Honest" },
-          omenEnabled: true, omen: "ZZ an omen",
+          omenEnabled: true, omen: "ZZ an omen", generationEnabled: true,
           description: "<p>ZZ imported prose</p>",
         },
         flags: { "air-bladder": { probeFixture: fixture } },
@@ -414,7 +416,8 @@ try {
         label: first?.matches("label.background-label") ? first.textContent.trim() : null,
         next: first?.nextElementSibling === name && !!name,
         box: fieldLike(name, bf),
-        text: name?.textContent.trim() ?? null,
+        // A read-only input: its text is its value.
+        text: name?.value?.trim() ?? null,
       };
       // A click on the name opens the picker; its close button changes nothing.
       {

@@ -333,7 +333,8 @@ try {
       return out;
     };
     const pc = await CONFIG.Actor.documentClass.create({
-      name: "PROBE world-tables pc", type: "character", system: { contentSource: "2e" }, flags: { "air-bladder": { [FLAG]: true } },
+      // Creation Mode ON: the Traits window's pen rides it (round 4).
+      name: "PROBE world-tables pc", type: "character", system: { contentSource: "2e", generationEnabled: true }, flags: { "air-bladder": { [FLAG]: true } },
     });
     const pcRows = await read(pc, Object.keys(CONFIG.Cairn.characterGenerator2e.biography.items));
     const npc = await CONFIG.Actor.documentClass.create({
