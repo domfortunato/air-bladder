@@ -834,11 +834,35 @@ try {
           return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
         };
         const ratio = (a, b) => { const [x, y] = [lum(rgb(a)), lum(rgb(b))].sort((m, n) => n - m); return (x + 0.05) / (y + 0.05); };
-        const ground = (n) => {
+        // What is behind an element: the first opaque colour up the chain, or
+        // the first background IMAGE, averaged (dev:theme's method: in light the
+        // sheet is core's parchment, an image, and a colour-only walk falls
+        // through to <body>'s black; measured at 52b50723).
+        const sample = (url) => new Promise((res) => {
+          const img = new Image();
+          img.crossOrigin = "anonymous";
+          img.onload = () => {
+            const cv = document.createElement("canvas");
+            cv.width = Math.min(img.naturalWidth, 64);
+            cv.height = Math.min(img.naturalHeight, 64);
+            const g = cv.getContext("2d", { willReadFrequently: true });
+            g.drawImage(img, 0, 0, cv.width, cv.height);
+            const d = g.getImageData(0, 0, cv.width, cv.height).data;
+            const sum = [0, 0, 0];
+            for (let i = 0; i < d.length; i += 4) { sum[0] += d[i]; sum[1] += d[i + 1]; sum[2] += d[i + 2]; }
+            const n = d.length / 4;
+            res(`rgb(${sum.map((v) => Math.round(v / n)).join(", ")})`);
+          };
+          img.onerror = () => res(null);
+          img.src = url;
+        });
+        const ground = async (n) => {
           for (let e = n; e; e = e.parentElement) {
-            const bg = getComputedStyle(e).backgroundColor;
-            const c = rgb(bg);
-            if (bg && (c.length < 4 || c[3] > 0.5) && bg !== "rgba(0, 0, 0, 0)") return bg;
+            const cs = getComputedStyle(e);
+            const c = rgb(cs.backgroundColor);
+            if (c.length >= 3 && (c.length < 4 || c[3] > 0.5)) return cs.backgroundColor;
+            const m = /url\("?([^")]+)"?\)/.exec(cs.backgroundImage);
+            if (m) return sample(m[1]);
           }
           return null;
         };
@@ -855,17 +879,21 @@ try {
           await until(() => (q(".tab[data-tab='notes'] .bond-line")?.getBoundingClientRect().height ?? 0) > 0, 4000);
           await sleep(200);
           const pairs = [[".bond-line", ".bond-answer"], [".question-line", ".question-answer"]];
-          return pairs.map(([h, a]) => {
+          const res = [];
+          for (const [h, a] of pairs) {
             const head = q(`.tab[data-tab='notes'] ${h}`), ans = q(`.tab[data-tab='notes'] ${a}`);
             const cs = ans ? getComputedStyle(ans) : null;
             const tl = textLeft(ans);
-            return {
+            const under = ans ? await ground(ans.parentElement) : null;
+            res.push({
               which: a,
               indented: !!head && tl !== null && tl >= head.getBoundingClientRect().left + 6,
               rule: cs ? { width: cs.borderLeftWidth, style: cs.borderLeftStyle, color: cs.borderLeftColor } : null,
-              contrast: cs ? Math.round(ratio(cs.borderLeftColor, ground(ans) ?? "rgb(255,255,255)") * 100) / 100 : null,
-            };
-          });
+              ground: under,
+              contrast: cs && under ? Math.round(ratio(cs.borderLeftColor, under) * 100) / 100 : null,
+            });
+          }
+          return res;
         };
 
         // a. the headings take page 1's Background label face.
