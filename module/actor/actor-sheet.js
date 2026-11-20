@@ -2202,6 +2202,18 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
 
     if (!this.isEditable) return;
 
+    // The generated background's name in Creation Mode: core's input box, so
+    // not `readonly` (core greys a read-only input), and so a field that must
+    // refuse typing itself. Unnamed, it never submits; a click runs
+    // pickBackground through its data-action, and Enter or Space does the
+    // same, as on a button (round 4).
+    on('.background-name[data-action="pickBackground"]', "beforeinput", (ev) => ev.preventDefault());
+    on('.background-name[data-action="pickBackground"]', "keydown", (ev) => {
+      if (ev.key !== "Enter" && ev.key !== " ") return;
+      ev.preventDefault();
+      ev.currentTarget.click();
+    });
+
     // Double-click the Items tab label to set this character's equipment limit,
     // when the Warden has enabled per-character limits.
     on("#set-equipment-limit", "dblclick", (ev) => this._onSetEquipmentLimit(ev));

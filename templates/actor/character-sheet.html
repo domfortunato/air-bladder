@@ -107,16 +107,17 @@
                               (round 4, user ask 2026-11-19), in the Pronouns and Age labels'
                               style, so the three read as one set of fields. (The
                               Barebones-only "Background:" span went with it.) A generated
-                              background's name is a READ-ONLY, UNNAMED input the picker fills
-                              (an input, not a span: core scopes its --input-* colours to
-                              input elements, so only an input wears the Pronouns box in both
-                              schemes; unnamed, it never submits). In Creation Mode a click on
-                              it runs pickBackground, the portrait's "one behaviour, two
-                              affordances" precedent; outside the mode it is a read-only field. --}}
+                              background's name is an UNNAMED input the picker fills (an input,
+                              not a span: core scopes its --input-* colours to input elements,
+                              so only an input wears the Pronouns box in both schemes; unnamed,
+                              it never submits). In Creation Mode it is that box, and a click,
+                              Enter or Space runs pickBackground (the portrait's "one behaviour,
+                              two affordances"); typing is refused in _onRender. Outside the
+                              mode it is `readonly`, which core draws as its read-only field. --}}
                         <div class="background-line">
                             <label class="background-label" for="{{@root.idp}}-{{#if hasGeneratedBackground}}background-name{{else}}system.background{{/if}}">{{ localize 'CAIRN.Background' }}</label>
                             {{#if hasGeneratedBackground}}
-                            <input class="background-name background-field" type="text" id="{{@root.idp}}-background-name" value="{{backgroundName}}" readonly{{#if generationEnabled}} data-action="pickBackground"{{/if}} />
+                            <input class="background-name background-field" type="text" id="{{@root.idp}}-background-name" value="{{backgroundName}}"{{#if generationEnabled}} data-action="pickBackground"{{else}} readonly{{/if}} />
                             {{#if generationEnabled}}
                             <a class="background-roll" data-action="rollBackground" data-tooltip="CAIRN.RollBackground" aria-label="{{ localize 'CAIRN.RollBackground' }}"><i class="fas fa-dice-d20"></i></a>
                             <a class="background-pick" data-action="pickBackground" data-tooltip="CAIRN.ChangeBackground" aria-label="{{ localize 'CAIRN.ChangeBackground' }}"><i class="fas fa-list-ul"></i></a>
