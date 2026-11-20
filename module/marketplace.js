@@ -3,7 +3,7 @@ import { Cairn } from "./config.js";
 import { iconForTransport, TRANSPORT_KINDS } from "./icons.js";
 import { atConnectionLimit, maxConnections, connectedOwnershipShape, OWNERSHIP_SYNC_FLAG } from "./connections.js";
 import { actorDisplayName, localizeNameDesc, t } from "./i18n-content.js";
-import { formatCount, concealSecrets } from "./utils.js";
+import { formatCount, concealSecrets, isBulky } from "./utils.js";
 import { capacityVerdict } from "./gear.js";
 import { SETTINGS_NS } from "./settings.js";
 import { THING_ROLES } from "./data-models.js";
@@ -298,8 +298,12 @@ export const getMarketplaceCatalog = async () => {
   return { categories };
 };
 
-/** Slots an item occupies: bulky = 2, weightless/petty = 0, otherwise 1. */
-const slotCost = (system) => (system.bulky ? 2 : system.weightless ? 0 : 1);
+/**
+ * Slots an item occupies: bulky = 2, weightless/petty = 0, otherwise 1. Bulky
+ * through `isBulky`, the one read the slot count and the drop check share, so
+ * the Shields are Bulky hack prices the shop's Shield row the same way.
+ */
+const slotCost = (system) => (isBulky(system) ? 2 : system.weightless ? 0 : 1);
 
 /**
  * Does this row buy a thing that CARRIES, rather than a thing you carry?
@@ -320,7 +324,7 @@ const chips = (item) => {
   // "3 Available uses" when borrowed as a unit noun — wrong in English too.
   if (s.damageFormula) out.push(game.i18n.format("CAIRN.NDamage", { n: s.damageFormula }));
   if (s.armor) out.push(game.i18n.format("CAIRN.NArmor", { n: s.armor }));
-  if (s.bulky) out.push(game.i18n.localize("CAIRN.Bulky"));
+  if (isBulky(s)) out.push(game.i18n.localize("CAIRN.Bulky"));
   if (s.weightless) out.push(game.i18n.localize("CAIRN.Weightless"));
   // formatCount, not format: a single-use item read "1 uses" on every chip.
   if (s.uses?.max) out.push(formatCount("CAIRN.NUses", s.uses.max));

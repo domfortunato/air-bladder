@@ -38,7 +38,7 @@
 import { t, actorDisplayName, itemNamespaces } from "./i18n-content.js";
 import { FATIGUE_NAME } from "./item/item.js";
 import { findMatchingStack, capacityVerdict, slotsNeeded, landingNeed } from "./gear.js";
-import { windowIdOf } from "./utils.js";
+import { windowIdOf, isBulky } from "./utils.js";
 import { PERSON_ROLES } from "./data-models.js";
 
 const SCOPE = "air-bladder";
@@ -414,7 +414,7 @@ export const createItemOffer = async (giver, item, target) => {
     state: "open", settled: false,
     giverActorUuid: giver.uuid, targetActorUuid: target.uuid,
     itemId: item.id, acceptorUserId: null,
-    item: { name: item.name, img: item.img, bulky: !!item.system?.bulky, weightless: !!item.system?.weightless },
+    item: { name: item.name, img: item.img, bulky: isBulky(item.system), weightless: !!item.system?.weightless },
   };
   // TARGET-FREE. This string is STORED on a public message and is the only
   // part a client without the render hook reads. `bindOfferCard` rebuilds the

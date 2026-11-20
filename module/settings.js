@@ -32,6 +32,7 @@ export const SETTING_KEYS = [
   "weather-log", "use-warden-title", "change-log", "auto-record-scars",
   "enable-glog-magic", "enable-vald-calendar",
   "exploding-damage-dice", "fatigue-for-critical-damage", "maneuver-on-max-damage",
+  "bulky-shields",
   // Character Generation
   "content-source-2e", "content-source-custom", "content-source-barebones",
   "use-bonds", "barebones-failed-career", "show-generate-header",
@@ -258,6 +259,10 @@ export const SETTING_GROUPS = [
       // and the user took the master away — each is off by default and none
       // is ever greyed.
       "exploding-damage-dice", "fatigue-for-critical-damage", "maneuver-on-max-damage",
+      // Shields are Bulky (2026-11-20, user ask: "a Hack Option for shields to
+      // be bulky"). An inventory rule, but the user called it a hack, and it
+      // is one: off by default, never greyed.
+      "bulky-shields",
     ],
     // The failed career is meaningless unless Barebones sheets are offered —
     // and that master checkbox lives in the Character Generation menu, not
@@ -840,6 +845,21 @@ export const registerSettings = () => {
     type: Boolean,
     default: false,
     requiresReload: false,
+  });
+
+  // Shields are Bulky (2026-11-20, user ask): any armor ticked Shield costs two
+  // slots, through `isBulky` (utils.js), the one read every slot formula and
+  // Bulky tag shares. RELOADS, like every setting that changes slot arithmetic
+  // (max-equip-slots, character-inventory-limit, use-gold-threshold): a slot
+  // count is PREPARED data, and a re-render alone would keep yesterday's sums.
+  game.settings.register(SETTINGS_NS, "bulky-shields", {
+    name: "CAIRN.Settings.BulkyShields.label",
+    hint: "CAIRN.Settings.BulkyShields.hint",
+    scope: "world",
+    config: false,
+    type: Boolean,
+    default: false,
+    requiresReload: true,
   });
 
   // Today's weather, as the Warden called it. INTERNAL — it is a record of

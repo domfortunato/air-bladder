@@ -3014,7 +3014,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       // whenever the INVENTORY switch is off, and the two switches must not
       // couple (the probe's inv-off leg is the witness).
       if (printGrantTags && it.system.grantLabelRaw && !isPage) notes.push(`[${it.system.grantLabelRaw}]`);
-      if (it.system.bulky) notes.push(`(${L("CAIRN.Bulky")})`);
+      if (it.system.isBulky) notes.push(`(${L("CAIRN.Bulky")})`);
       if ((it.system.quantity ?? 1) > 1) notes.push(`×${it.system.quantity}`);
       // The OWNING actor's namespace, and Fatigue relabelled from the UI key —
       // both matching the sheet (review #12: print hard-coded item.name, so a

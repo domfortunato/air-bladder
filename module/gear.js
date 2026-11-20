@@ -25,6 +25,7 @@ import { warmPackDocuments } from "./compendium.js";
 
 import { iconForItem, SPELLSCROLL_ICON } from "./icons.js";
 import { glogEnabled, GLOG_SPELL_PACKS, GLOG_NAME_ALIASES } from "./glog.js";
+import { isBulky } from "./utils.js";
 
 // Packs searched to resolve a gear name, in precedence order — an earlier pack
 // wins a name collision. Spellbook packs are separate (spell grants route there).
@@ -548,9 +549,13 @@ export const capacityVerdict = (actor, need) => {
  */
 export const mustDropForFatigue = (actor) => actor?.isEncumbered?.() === true;
 
-/** Slots an item wants. Bulky 2, weightless 0, otherwise 1. */
+/**
+ * Slots an item wants. Bulky 2 (`isBulky`, so the Shields are Bulky hack
+ * counts), weightless 0, otherwise 1. Takes the item's `system` (or a gift
+ * snapshot shaped like one).
+ */
 export const slotsNeeded = (itemLike) =>
-  (itemLike?.bulky ? 2 : itemLike?.weightless ? 0 : 1);
+  (isBulky(itemLike) ? 2 : itemLike?.weightless ? 0 : 1);
 
 /**
  * The slots one arriving unit adds to `actor`, on the branch it will take: one

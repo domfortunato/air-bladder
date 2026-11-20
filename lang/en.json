@@ -134,6 +134,7 @@
   "CAIRN.Broken": "Broken",
   "CAIRN.BrowsePortrait": "Browse for another image…",
   "CAIRN.Bulky": "Bulky",
+  "CAIRN.BulkyByShieldHack": "Bulky because 'Shields are Bulky' is on under GLOG & Other Hacks.",
   "CAIRN.Buy": "Buy",
   "CAIRN.Calendar.AddEvent": "Add an event…",
   "CAIRN.Calendar.AddEventHint": "Put something on the calendar. It shows on the day you picked, to everyone who can see it.",
@@ -932,6 +933,10 @@
       "hint": "Give Barebones characters a second background name as flavour — the career that didn't work out — plus one item drawn at random from that career's gear, carried weightless as a keepsake. Only available while 'Offer Cairn Barebones character sheets' is on under Character Generation; the row is greyed out otherwise.",
       "label": "Give Barebones Characters a failed career (like Knave 2e)"
     },
+    "BulkyShields": {
+      "hint": "Any armor ticked Shield takes two inventory slots instead of one, like any Bulky item. Changing this reloads Foundry.",
+      "label": "Shields are Bulky"
+    },
     "ChangeLog": {
       "hint": "Whisper a chat card to the actor's owners, observers and the Warden whenever someone hand-changes stats, gold, traits, Panicked/Deprived, scars or inventory. Rolled generation, damage and other automatic changes are never logged. The shipped 'Toggle Change Log' macro flips this.",
       "label": "Log manual changes to chat"
@@ -983,7 +988,7 @@
     "GroupGenerationHint": "Which content sources are offered, bonds, the Roll buttons, what players may generate or randomize, showing generation rolls in chat, the portrait folder, and the dice for abilities, HP, gold and age.",
     "GroupHacks": "GLOG & Other Hacks",
     "GroupHacksButton": "Configure Hacks",
-    "GroupHacksHint": "Optional rule hacks: GLOG Magic, the Vald calendar, three optional combat rules, and a Knave-style failed career for Barebones characters.",
+    "GroupHacksHint": "Optional rule hacks: GLOG Magic, the Vald calendar, three optional combat rules, bulky shields, and a Knave-style failed career for Barebones characters.",
     "GroupInventory": "Inventory & Encumbrance",
     "GroupInventoryButton": "Configure Inventory",
     "GroupInventoryHint": "Slot limit, the inventory cap, the marketplace and the coins-per-slot threshold.",

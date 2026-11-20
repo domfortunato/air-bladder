@@ -1,5 +1,5 @@
 import { SETTINGS_NS } from "../settings.js";
-import { grantSourceLabel } from "../utils.js";
+import { grantSourceLabel, isBulky } from "../utils.js";
 import { iconForItem, SPELLBOOK_ICON, SPELLSCROLL_ICON } from "../icons.js";
 import { glogEnabled, glogConversionDiff, glogTextCached } from "../glog.js";
 import { repointWholeWrite } from "../art-paths.js";
@@ -569,6 +569,13 @@ export class CairnItem extends Item {
         this.system.uses.value = this.system.uses.max;
     }
     this.system.isFatigue = this.name === FATIGUE_NAME;
+    // Bulky as the slot maths sees it (`isBulky`: the stored box, or a shield
+    // under the Shields are Bulky hack), for the row tag and the printed note.
+    // DERIVED beside the stored `bulky`, never over it: the item sheet spreads
+    // the live model into its form, and a derived `bulky: true` would be
+    // submitted and stored, making the hack permanent on that shield. TOTAL,
+    // like every derived value here.
+    this.system.isBulky = isBulky(this._source.system);
     // WHERE IT WAS PUT DOWN (2026-10-02, user ask): a 25-character note taken at
     // drop time, so the Warden reading the pile can tell the rope left at the
     // bridge from the rope left in the crypt. Stamped as a flag by the drop and

@@ -2,7 +2,7 @@ import { resolveGearItem } from "../gear.js";
 import { previewBackground, duplicateBackgroundToWorld } from "../character-generator.js";
 import { t, itemNamespaces } from "../i18n-content.js";
 import { TRANSPORT_KINDS } from "../icons.js";
-import { bindEditorClickAwaySave, cleanDescription, formatCount, sourceLabel, nameEditorToggles } from "../utils.js";
+import { bindEditorClickAwaySave, cleanDescription, formatCount, sourceLabel, nameEditorToggles, isBulky } from "../utils.js";
 import { pickArt } from "../art-picker.js";
 import { glogEnabled } from "../glog.js";
 
@@ -102,7 +102,7 @@ const gearTags = (s = {}, usesOverride) => {
   // here) for the identical fact.
   if (s.armor) tags.push(game.i18n.format("CAIRN.NArmor", { n: s.armor }));
   if (s.damageFormula) tags.push(game.i18n.format("CAIRN.NDamage", { n: s.damageFormula }));
-  if (s.bulky) tags.push(game.i18n.localize("CAIRN.Bulky"));
+  if (isBulky(s)) tags.push(game.i18n.localize("CAIRN.Bulky"));
   if (s.weightless) tags.push(game.i18n.localize("CAIRN.Weightless"));
   const uses = usesOverride ?? s.uses?.max ?? 0;
   // formatCount, not format: a single-use scroll read "1 uses".
@@ -335,6 +335,10 @@ export class CairnItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     // submitOnChange saved it. DocumentSheetV2 already computes a unique id per
     // window as `rootId`, so this is now an alias rather than a hand-rolled one.
     context.idp = context.rootId;
+    // A shield made Bulky by the Shields are Bulky hack, not by its own box:
+    // the armor sheet shows the box ticked, greyed, with the reason.
+    context.bulkyByHack = this.item.type === "armor" && !this.item._source.system.bulky
+      && isBulky(this.item._source.system);
 
     // GLOG's two flags are HACK controls and show only while the hack is on
     // (user ruling 2026-09-13, after an Air Bladder offered to become a

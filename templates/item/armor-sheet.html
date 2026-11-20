@@ -69,11 +69,13 @@
             </div>
         </div>
 
-        <!-- Bulky -->
-        <div class="resource-counter long-counter">
+        <!-- Bulky. Under the Shields are Bulky hack a shield shows ticked and
+             DISABLED, with its reason: a disabled field is never submitted
+             (core's FormDataExtended skips it), so the hack is never stored. -->
+        <div class="resource-counter long-counter"{{#if bulkyByHack}} data-tooltip="{{ localize 'CAIRN.BulkyByShieldHack' }}"{{/if}}>
             <label class="large-resource-label" for="{{@root.idp}}-system.bulky">{{ localize 'CAIRN.Bulky' }}</label>
             <div class="resource-input-wrapper">
-                <input type="checkbox" {{checked system.bulky}} name="system.bulky" id="{{@root.idp}}-system.bulky"
+                <input type="checkbox" {{checked (or system.bulky bulkyByHack)}} {{disabled bulkyByHack}} name="system.bulky" id="{{@root.idp}}-system.bulky"
                        value="{{system.bulky}}" data-dtype="Boolean" />
             </div>
         </div>

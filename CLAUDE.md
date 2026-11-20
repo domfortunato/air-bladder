@@ -173,7 +173,9 @@ Listed so a review does not re-litigate them. Argue against the reason, not the 
   0 is death.
 - Armor is hard-capped at 3.
 - Slot inventory: bulky = 2, weightless = 0, times quantity (`itemSlotCost`, one copy
-  shared with `calcSlotsUsed`).
+  shared with `calcSlotsUsed`). Three formulas price a slot (`itemSlotCost`,
+  `slotsNeeded`, the shop's `slotCost`); all read bulky through ONE `isBulky`
+  (utils.js), which the "Shields are Bulky" hack rides (`dev:shield` leg 5).
 - **Every Fatigue fills a slot.** Do not rebuild the free-first-Fatigue rule
   (`freeFatigueId`, `fatigueToClear`, `nextFatigueCost`). Gate `dev:enc-damage`.
 - **Rest follows Cairn as written.** HP to MAX, no cost, a Deprived character

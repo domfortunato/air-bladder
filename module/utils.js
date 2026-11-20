@@ -1702,6 +1702,34 @@ export const grantSourceLabel = (source) => {
 };
 
 /**
+ * Is the "Shields are Bulky" hack on? (user ask 2026-11-20.) A try/catch for
+ * the same reason as `combatOption`: slot maths can run before settings are
+ * registered. The setting reloads Foundry on change, so every prepared slot
+ * count is computed under one reading.
+ * @return {Boolean}
+ */
+export const bulkyShields = () => {
+  try {
+    return !!game.settings.get(SETTINGS_NS, "bulky-shields");
+  } catch {
+    return false;
+  }
+};
+
+/**
+ * Whether an item counts as Bulky: its own stored box, or — with the "Shields
+ * are Bulky" hack on — any armor ticked Shield (`system.shield` exists only on
+ * armor, so no type test). THE ONE READ OF BULKY for slot maths and tags: the
+ * three slot formulas (`itemSlotCost` here, `slotsNeeded` in gear.js, the
+ * shop's `slotCost`) and every Bulky tag go through it, so the hack can never
+ * price one place and not another. It never writes the stored field: switch the
+ * hack off and every shield is as it was.
+ * @param {Object} sys  an item's `system`, live or source-shaped
+ * @return {Boolean}
+ */
+export const isBulky = (sys) => !!sys?.bulky || (!!sys?.shield && bulkyShields());
+
+/**
  * What ONE item costs in inventory slots: bulky = 2, petty/weightless = 0,
  * anything else = 1, times its quantity.
  *
@@ -1719,7 +1747,7 @@ export const grantSourceLabel = (source) => {
 export const itemSlotCost = (item) => {
   const sys = item?.system ?? {};
   const qty = sys.quantity;
-  if (sys.bulky ?? false) return qty != undefined ? 2 * qty : 2;
+  if (isBulky(sys)) return qty != undefined ? 2 * qty : 2;
   if (sys.weightless ?? false) return 0;
   return qty != undefined ? qty : 1;
 };
