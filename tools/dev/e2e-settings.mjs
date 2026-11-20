@@ -41,9 +41,18 @@ try {
     const out = {};
     // every registered setting, grouped by namespace
     const ns = {};
+    // The ONE air-bladder row on core's flat list, by design: the calendar
+    // bar's tuck is per PERSON (client scope, 2026-11-20), and every submenu is
+    // Warden-only, so a player could not reach it inside one.
+    const PER_PERSON = ["air-bladder.tuck-calendar-bar"];
+    out.perPerson = PER_PERSON.map((k) => {
+      const cfg = game.settings.settings.get(k);
+      return { key: k, scope: cfg?.scope ?? null, config: cfg?.config ?? null };
+    });
     for (const [key, cfg] of game.settings.settings) {
       const [namespace] = key.split(".");
       if (!cfg.config) continue;
+      if (PER_PERSON.includes(key)) continue;
       (ns[namespace] ??= []).push(key);
     }
     out.namespaces = Object.fromEntries(Object.entries(ns).map(([k, v]) => [k, v.length]));
@@ -104,7 +113,10 @@ try {
       "shield-flag-stamped",
       // The Grimoires seed's completion marker (2026-11-20): a world that
       // already had GLOG on keeps Grimoires, once.
-      "glog-grimoires-seeded"];
+      "glog-grimoires-seeded",
+      // The calendar bar's per-person tuck (2026-11-20): client scope, and it
+      // postdates the namespace move, so no "cairn.<key>" value exists.
+      "tuck-calendar-bar"];
     out.unlisted = [...game.settings.settings.keys()]
       .filter((k) => k.startsWith(`${mod.SETTINGS_NS}.`))
       .map((k) => k.slice(mod.SETTINGS_NS.length + 1))
@@ -163,6 +175,9 @@ try {
     : fail(`${mine} air-bladder setting(s) still render as loose rows on the flat list: ${r.flatVisible.join(", ")}`);
   stale === 0 ? ok(`nothing left under the unmappable "cairn" namespace`)
               : fail(`${stale} setting(s) still under "cairn" — they render as Unmapped`);
+  r.perPerson.every((x) => x.scope === "client" && x.config === true)
+    ? ok(`the one per-person row on core's list is client-scoped: ${r.perPerson.map((x) => x.key).join(", ")}`)
+    : fail(`per-person rows: ${JSON.stringify(r.perPerson)}`);
   !r.unlisted.length
     ? ok("every registered key is in SETTING_KEYS (markers exempt) — the migration carries it")
     : fail(`registered but NOT in SETTING_KEYS (namespace migration would drop them): ${r.unlisted.join(", ")}`);

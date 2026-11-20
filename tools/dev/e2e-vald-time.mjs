@@ -186,38 +186,50 @@ try {
     ? ok("a combat turn and round still advance the world clock by nothing")
     : fail("combat must not move the clock", JSON.stringify({ turn: base.turnTime, round: base.roundTime }));
 
-  /* ---- 4. the clock is in the left column, above the player list ------ */
+  /* ---- 4. the calendar bar hangs from the top of the screen ----------- */
+  // A bar across the top since 2026-11-20 (user ask, "like Mythic Bastionland
+  // displays its calendar"); it was a card above the player list. Prepended
+  // into core's #ui-top, centred in #ui-middle, touching the top edge, and
+  // clear of the scene list and the sidebar.
 
   const clock = await page.evaluate(() => {
     const el = document.getElementById("cairn-watch-clock");
     if (!el) return { present: false };
-    const col = document.getElementById("ui-left-column-1");
-    const players = document.getElementById("players");
-    const r = el.getBoundingClientRect();
+    const top = document.getElementById("ui-top");
+    const middle = document.getElementById("ui-middle")?.getBoundingClientRect();
+    const tabs = el.querySelector(".cairn-bar-tabs")?.getBoundingClientRect();
+    const overlap = (a, b) => !!a && !!b && a.width > 0 && b.width > 0
+      && a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
     return {
       present: true,
-      inColumn: el.parentElement === col,
-      // The clock must come BEFORE the player list, or core's space-between
-      // pushes the list into the middle of the screen.
-      beforePlayers: !!players
-        && !!(el.compareDocumentPosition(players) & Node.DOCUMENT_POSITION_FOLLOWING),
-      onScreen: r.width > 40 && r.height > 10 && r.x >= 0 && r.y >= 0,
-      width: Math.round(r.width),
+      inTop: el.parentElement === top,
+      first: top?.firstElementChild === el,
+      atTop: !!tabs && tabs.top <= 2 && tabs.top >= -2 && tabs.height > 16,
+      centred: !!tabs && !!middle && Math.abs((tabs.left + tabs.right) / 2 - (middle.left + middle.right) / 2) < 2,
+      clearOfNav: !overlap(tabs, document.getElementById("scene-navigation")?.getBoundingClientRect()),
+      clearOfSidebar: !overlap(tabs, document.getElementById("sidebar")?.getBoundingClientRect()),
+      tabs: el.querySelectorAll(".cairn-bar-tab").length,
+      onScreen: !!tabs && tabs.width > 100 && tabs.height > 10 && tabs.x >= 0,
+      width: tabs ? Math.round(tabs.width) : null,
       text: el.innerText.replace(/\s+/g, " ").trim(),
     };
   });
 
-  clock.present && clock.inColumn
-    ? ok("the watch clock lives in #ui-left-column-1", clock.text)
-    : fail("the watch clock lives in #ui-left-column-1", JSON.stringify(clock));
+  clock.present && clock.inTop && clock.first
+    ? ok("the calendar bar hangs in #ui-top, first in it", clock.text)
+    : fail("the calendar bar hangs in #ui-top", JSON.stringify(clock));
 
-  clock.beforePlayers
-    ? ok("...above the player list, so space-between still pins the controls to the top")
-    : fail("the clock sits above the player list", JSON.stringify(clock));
+  clock.atTop && clock.centred && clock.tabs >= 2
+    ? ok("...touching the top edge, centred over the canvas, its tabs side by side", `${clock.tabs} tabs`)
+    : fail("the bar sits at the top centre", JSON.stringify(clock));
+
+  clock.clearOfNav && clock.clearOfSidebar
+    ? ok("...clear of the scene list and the sidebar")
+    : fail("the bar overlaps core's interface", JSON.stringify(clock));
 
   clock.onScreen
     ? ok("...and is actually visible", `${clock.width}px wide`)
-    : fail("the clock is visible", JSON.stringify(clock));
+    : fail("the bar is visible", JSON.stringify(clock));
 
   /* ---- 5. it follows the clock ---------------------------------------- */
 
@@ -251,7 +263,7 @@ try {
   const survived = await page.evaluate(async () => {
     const read = () => {
       const el = document.getElementById("cairn-watch-clock");
-      return el ? { text: el.innerText.replace(/\s+/g, " ").trim(), inColumn: el.parentElement?.id } : null;
+      return el ? { text: el.innerText.replace(/\s+/g, " ").trim(), parent: el.parentElement?.id } : null;
     };
     const before = read();
     await ui.players.render();
@@ -260,10 +272,73 @@ try {
     return { before, after: read() };
   });
 
-  survived.after && survived.after.inColumn === "ui-left-column-1"
+  survived.after && survived.after.parent === "ui-top"
     && survived.after.text === survived.before.text
     ? ok("it survives a re-render of the player list and the scene controls")
     : fail("it survives its neighbours re-rendering", JSON.stringify(survived));
+
+  /* ---- 7. the tuck, per person, and its key ---------------------------- */
+  // The user's pick (2026-11-20): db-mythic's tuck. A CLIENT setting slides
+  // this browser's bar up to a 6px lip; pointing at it pulls it down, leaving
+  // tucks it again after half a second; Y pulls it down to stay and tucks it
+  // again. The setting is this headless browser's own (client scope, written
+  // to its localStorage, never the world) and is put back as found.
+  const tuck = await page.evaluate(async () => {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const el = () => document.getElementById("cairn-watch-clock");
+    const tabs = () => el()?.querySelector(".cairn-bar-tabs")?.getBoundingClientRect();
+    const watchTip = () => el()?.querySelector(".cairn-bar-watch")?.dataset.tooltip ?? null;
+    const cfg = game.settings.settings.get("air-bladder.tuck-calendar-bar");
+    const out = { scope: cfg?.scope ?? null, config: cfg?.config ?? null };
+    if (!cfg) return out;
+    const before = game.settings.get("air-bladder", "tuck-calendar-bar");
+    try {
+      await game.settings.set("air-bladder", "tuck-calendar-bar", true);
+      await sleep(500);
+      out.tucked = { cls: !!el()?.classList.contains("is-tucked"), bottom: Math.round(tabs()?.bottom ?? -99), tip: watchTip() };
+      el().dispatchEvent(new PointerEvent("pointerenter", { pointerType: "mouse" }));
+      await sleep(500);
+      out.pulled = { down: el().classList.contains("is-down"), top: Math.round(tabs()?.top ?? -99), tip: !!watchTip() };
+      el().dispatchEvent(new PointerEvent("pointerleave", { pointerType: "mouse" }));
+      await sleep(1000);
+      out.retucked = { down: el().classList.contains("is-down"), bottom: Math.round(tabs()?.bottom ?? -99) };
+      const key = game.keybindings.actions.get("air-bladder.pullCalendarBar");
+      out.key = { registered: !!key, y: !!key?.editable?.some((b) => b.key === "KeyY") };
+      out.key.first = key?.onDown?.({}) ?? null;
+      await sleep(1000);
+      out.key.downStays = el().classList.contains("is-down");
+      out.key.second = key?.onDown?.({}) ?? null;
+      await sleep(500);
+      out.key.upAgain = !el().classList.contains("is-down");
+    } finally {
+      await game.settings.set("air-bladder", "tuck-calendar-bar", before);
+    }
+    await sleep(500);
+    out.untucked = { cls: !!el()?.classList.contains("is-tucked"), top: Math.round(tabs()?.top ?? -99) };
+    // On a bar that is not tucked the key does nothing and says so.
+    out.keyUntucked = game.keybindings.actions.get("air-bladder.pullCalendarBar")?.onDown?.({}) ?? null;
+    return out;
+  });
+
+  tuck.scope === "client" && tuck.config === true
+    ? ok("the tuck is each person's own setting, on core's list (the submenus are Warden-only)")
+    : fail("the tuck setting's shape", JSON.stringify({ scope: tuck.scope, config: tuck.config }));
+  tuck.tucked?.cls && tuck.tucked.bottom > 0 && tuck.tucked.bottom <= 8 && !tuck.tucked.tip
+    ? ok("tucked, only a lip shows at the top edge, and no tab offers a tooltip", `bottom ${tuck.tucked.bottom}px`)
+    : fail("the tucked bar", JSON.stringify(tuck.tucked));
+  tuck.pulled?.down && tuck.pulled.top >= -1 && tuck.pulled.top <= 2 && tuck.pulled.tip
+    ? ok("pointing at the lip pulls it down, tooltips back")
+    : fail("pulling the bar down", JSON.stringify(tuck.pulled));
+  tuck.retucked && !tuck.retucked.down && tuck.retucked.bottom <= 8
+    ? ok("leaving tucks it again")
+    : fail("re-tucking", JSON.stringify(tuck.retucked));
+  tuck.key?.registered && tuck.key.y && tuck.key.first === true && tuck.key.downStays
+    && tuck.key.second === true && tuck.key.upAgain
+    ? ok("Y pulls it down to stay, and Y tucks it again")
+    : fail("the Y key", JSON.stringify(tuck.key));
+  tuck.untucked && !tuck.untucked.cls && tuck.untucked.top >= -1 && tuck.untucked.top <= 2 && tuck.keyUntucked === false
+    ? ok("the setting put back, the bar shows again, and Y on a shown bar falls through")
+    : fail("after the tuck leg", JSON.stringify({ untucked: tuck.untucked, key: tuck.keyUntucked }));
 
   /* ---- 9-14. the Vald calendar, shadowed in-page ----------------------- */
 
@@ -1405,12 +1480,11 @@ try {
       game.settings.get("air-bladder", "vald-weather-today"));
 
     try {
-      // The clock's FOURTH LINE, absent while nobody has called the weather.
-      // The player list's position is read now and again after, because the
-      // whole reason a fourth line is safe is that the panel takes the
-      // column's slack and grows UPWARD.
-      const playersBefore = await alice.evaluate(() =>
-        Math.round(document.getElementById("players")?.getBoundingClientRect().top ?? -1));
+      // The bar's WEATHER LINE, absent while nobody has called the weather.
+      // The tabs' width is read now and again after, because the line HANGS
+      // UNDER the bar: calling the weather must never widen it or move a tab.
+      const barBefore = await alice.evaluate(() =>
+        Math.round(document.querySelector("#cairn-watch-clock .cairn-bar-tabs")?.getBoundingClientRect().width ?? -1));
       // ESTABLISHED, not assumed: "no weather yet" is world state, and a
       // previous run that left the day's weather set (2026-09-12, "Then hail"
       // from the log legs, surviving the sweep at the end) made this leg red
@@ -1484,14 +1558,14 @@ try {
       });
 
       !lineBefore && /A rain of ash/.test(clockLine.text ?? "")
-        ? ok("...and the clock renders a fourth line carrying it", clockLine.text)
+        ? ok("...and the bar hangs a weather line carrying it", clockLine.text)
         : fail("the clock's weather line", JSON.stringify({ before: lineBefore, after: clockLine }));
 
-      const playersAfter = await alice.evaluate(() =>
-        Math.round(document.getElementById("players")?.getBoundingClientRect().top ?? -1));
-      playersAfter === playersBefore
-        ? ok("...and the player list did not move", `top ${playersAfter}`)
-        : fail("the player list moved", `${playersBefore} -> ${playersAfter}`);
+      const barAfter = await alice.evaluate(() =>
+        Math.round(document.querySelector("#cairn-watch-clock .cairn-bar-tabs")?.getBoundingClientRect().width ?? -1));
+      barAfter === barBefore && barAfter > 0
+        ? ok("...and the bar did not widen", `${barAfter}px`)
+        : fail("the bar changed width", `${barBefore} -> ${barAfter}`);
 
       // WITH THE HACK OFF TOO (review #34 finding 80, user ruling 2026-10-31).
       // Watches and weather are core Cairn; only the calendar is the hack. Yet
