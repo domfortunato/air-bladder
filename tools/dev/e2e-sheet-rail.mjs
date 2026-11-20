@@ -62,6 +62,10 @@
  *      another below it, a red frame at 0); Inventory opens on the hint
  *      "Click an item to expand its description", first, in full ink, on the
  *      npc sheet too.
+ *  17. (the sixth round, user asks 2026-11-20) the Inventory hint shares its
+ *      row with Fatigue's controls; HP's box carries + and − in its "HP"
+ *      half, + to the left of the label and − to the right (the user's
+ *      order), one point each, off at max / 0 and while overburdened.
  *
  * Red-first: run against the commit before the redesign, every leg but 8 and
  * 10 fails (no rail, no growth page, no growth field).
@@ -451,14 +455,81 @@ try {
       const items = frame.querySelector('.tab[data-tab="items"]');
       const hint = items?.querySelector(".cairn-expand-hint");
       const reorder = items?.querySelector(".cairn-reorder-hint");
+      // Round 6: the hint shares the first row with Fatigue's controls, the
+      // hint on the left, Fatigue on the right, centred alike.
+      const topRow = items?.firstElementChild;
+      const fatigue = items?.querySelector(".add-fatigue")?.closest(".end");
+      const hb = hint?.getBoundingClientRect(), fb = fatigue?.getBoundingClientRect();
       R5.hint = {
         text: hint?.textContent.trim() ?? null,
-        first: !!hint && items.firstElementChild === hint,
+        first: !!hint && !!topRow && topRow.contains(hint),
         shown: (hint?.getBoundingClientRect().height ?? 0) > 0,
         ink: hint ? getComputedStyle(hint).color : null,
         mutedColour: reorder ? getComputedStyle(reorder).color : null,
         italic: hint ? getComputedStyle(hint).fontStyle : null,
+        fatigueInRow: !!fatigue && !!topRow && topRow.contains(fatigue),
+        sameLine: !!hb && !!fb && Math.abs((hb.top + hb.bottom) / 2 - (fb.top + fb.bottom) / 2) <= 4,
+        hintLeft: !!hb && !!fb && hb.right <= fb.left,
       };
+    }
+
+    /* ---- 17. round 6: HP's + and − inside the "HP" half -------------- */
+    {
+      const R6 = out.r6 = { wantLabel: L("CAIRN.HitProtection"), wantUp: L("CAIRN.HpUp"), wantDown: L("CAIRN.HpDown") };
+      await sheet.changeTab("character", "primary");
+      await sleep(300);
+      const q = (s) => frame.querySelector(`.tab[data-tab="character"] .cairn-vitals > .hp-counter ${s}`);
+      const hpWas = { value: pc._source.system.hp?.value, max: pc._source.system.hp?.max };
+      const setHp = async (v) => {
+        await pc.update({ "system.hp.value": v, "system.hp.max": 6 }, { abNoStatusCard: true });
+        await until(() => q('input[name="system.hp.value"]')?.value === String(v));
+        await sleep(200);
+      };
+      const state = () => ({ up: q('[data-action="hpUp"]')?.disabled ?? null, down: q('[data-action="hpDown"]')?.disabled ?? null });
+      const press = async (action, want) => {
+        q(`[data-action="${action}"]`)?.click();
+        await until(() => pc._source.system.hp.value === want, 3000);
+        await sleep(200);
+        return pc._source.system.hp.value;
+      };
+      await setHp(4);
+      const up = q('[data-action="hpUp"]'), down = q('[data-action="hpDown"]');
+      const label = q("label");
+      const half = up?.parentElement;
+      const wrap = q(".resource-input-wrapper");
+      const box = (n) => n?.getBoundingClientRect();
+      const within = (n, outer) => { const a = box(n), b = box(outer); return !!a && !!b && a.left >= b.left - 0.5 && a.right <= b.right + 0.5 && a.top >= b.top - 0.5 && a.bottom <= b.bottom + 0.5; };
+      R6.layout = {
+        label: label?.textContent.trim() ?? null,
+        tips: { up: up?.dataset.tooltip ? L(up.dataset.tooltip) : null, down: down?.dataset.tooltip ? L(down.dataset.tooltip) : null },
+        sameHalf: !!half && half === down?.parentElement && half.contains(label) && !half.contains(wrap),
+        order: !!up && !!label && !!down && box(up).right <= box(label).left && box(label).right <= box(down).left,
+        inBox: within(up, half) && within(down, half),
+        // No growth: the label half is no taller than the number half.
+        noGrowth: !!half && !!wrap && half.offsetHeight <= wrap.offsetHeight + 1,
+      };
+      R6.at4 = state();
+      R6.steps = { up: await press("hpUp", 5), down1: await press("hpDown", 4), down2: await press("hpDown", 3) };
+      await setHp(6);
+      R6.at6 = state();
+      R6.capped = await press("hpUp", 7);
+      await setHp(0);
+      R6.at0 = state();
+      R6.floored = await press("hpDown", -1);
+      // Overburdened: HP reads 0 by the rule, so both buttons are off, and
+      // a forced press writes nothing over the stored value.
+      await setHp(4);
+      const [load] = await pc.createEmbeddedDocuments("Item", [{ name: "ZZ Rail HP Load", type: "item", system: { quantity: 40 } }]);
+      await until(() => q('[data-action="hpUp"]')?.disabled === true, 3000);
+      await sleep(200);
+      R6.burdened = state();
+      const forced = q('[data-action="hpUp"]');
+      forced?.removeAttribute("disabled");
+      forced?.click();
+      await sleep(800);
+      R6.burdenedStored = pc._source.system.hp.value;
+      await load?.delete();
+      await pc.update({ "system.hp.value": hpWas.value, "system.hp.max": hpWas.max }, { abNoStatusCard: true });
     }
     await sheet.close();
 
@@ -859,6 +930,26 @@ else {
   r.npc.hint === R5.wantHint
     ? ok("the npc sheet's inventory carries the same hint")
     : fail(`npc inventory hint: ${JSON.stringify(r.npc.hint)}`);
+  i5.fatigueInRow && i5.sameLine && i5.hintLeft
+    ? ok("the hint shares its row with Fatigue's controls, the hint on the left")
+    : fail(`hint and Fatigue row: ${JSON.stringify(i5)}`);
+
+  // 17
+  const R6 = r.r6 ?? {};
+  const l6 = R6.layout ?? {};
+  l6.label === R6.wantLabel && l6.sameHalf && l6.order && l6.inBox && l6.noGrowth
+    && l6.tips?.up === R6.wantUp && l6.tips?.down === R6.wantDown
+    ? ok(`HP's box reads + "${l6.label}" − in its label half, with "${l6.tips.up}" and "${l6.tips.down}", no taller than the numbers`)
+    : fail(`HP buttons layout: ${JSON.stringify(l6)}`);
+  R6.at4?.up === false && R6.at4?.down === false && R6.steps?.up === 5 && R6.steps?.down1 === 4 && R6.steps?.down2 === 3
+    ? ok("at 4 / 6 + steps to 5, then − twice to 3")
+    : fail(`HP steps: ${JSON.stringify({ at4: R6.at4, steps: R6.steps })}`);
+  R6.at6?.up === true && R6.at6?.down === false && R6.capped === 6 && R6.at0?.down === true && R6.at0?.up === false && R6.floored === 0
+    ? ok("+ is off at max and − at 0; neither steps past its bound")
+    : fail(`HP bounds: ${JSON.stringify({ at6: R6.at6, capped: R6.capped, at0: R6.at0, floored: R6.floored })}`);
+  R6.burdened?.up === true && R6.burdened?.down === true && R6.burdenedStored === 4
+    ? ok("overburdened, both are off, and a forced + leaves the stored 4 alone")
+    : fail(`HP while overburdened: ${JSON.stringify({ burdened: R6.burdened, stored: R6.burdenedStored })}`);
 
   // 8
   !r.npc.rail && r.npc.strip && !r.npc.railed && r.npc.width === 600
