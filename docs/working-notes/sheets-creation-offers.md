@@ -10,13 +10,13 @@ Moved word for word from CLAUDE.md (2026-11-01); CLAUDE.md points here.
   `spellbookCompact` / `.plain-item` grid variants. Gate `dev:glog-flags`.
 - The GLOG hack is one-way for a campaign.
 
-## The character sheet: a rail and five pages (2026-11-19)
+## The character sheet: a rail and its pages (2026-11-19)
 
 - Laid out after Base Knavery's (user ask): 480 x 700, pages turned from a
   thumb-tab rail hung off the frame (`module/actor/tab-rail.js`,
   `templates/parts/tab-rail.html`, a render PART drawn before `form`). Pages
-  `character` (initial) · `items` · `growth` · `description` · (`containers`) ·
-  `notes`; icons and tooltips in `CHARACTER_RAIL`, wording user-approved. The
+  `character` (initial) · `items` · `growth` · (`containers`) · `notes`
+  (`description` stood after `growth` until round 4); icons and tooltips in `CHARACTER_RAIL`, wording user-approved. The
   npc sheet keeps its strip and 600 x 750; a branch on actor type here is the
   design, not a smell. Characters ONLY get the rail part, the
   `cairn-railed` + `cairn-character-sheet` frame classes, and every new CSS rule
@@ -58,6 +58,34 @@ Moved word for word from CLAUDE.md (2026-11-01); CLAUDE.md points here.
   The npc sheet is unchanged. Trait pick-lists open by default on EVERY sheet
   (`_traitsCollapsed ?? false`, ruled for all sheets); a probe that clicks the
   toggle must check first, or it closes them.
+- Fourth round (user asks, 2026-11-19). **The Description page is RETIRED**:
+  the sentence went to the top of page 1's left column (above STR, 13px, the
+  background description's size), its pick-lists into the TRAITS WINDOW, Omen
+  (`parts/omen-row.html`, shared with the npc bio-block) and the character's
+  own Description editor onto Background & Notes, in that order before the
+  notes. A remembered `description` tab lands on Character (`_getTabsConfig`'s
+  vanished-tab reset). `bioOnPageOne`, `showNotesDivider` and the character's
+  bio-block include are gone; the npc sheet keeps its Description page, bio-block
+  and +/- toggle.
+- **A character's traits are edited ONLY in Creation Mode, by the Traits
+  window** (user ruling): the pen at the sentence's end (`canEditTraits` =
+  `generationEnabled && isEditable`; with no traits, beside the word "Traits")
+  opens `#onEditTraits`, a modal DialogV2 rendering `parts/trait-grid.html` (one
+  copy, also the npc bio-block's) from `_buildTraitRows`. Its die is the
+  window's own `rollTrait` action: it fills the select and writes nothing. Save
+  writes changed keys, rolled ones with `abNoStatusCard` (F57), hand picks
+  without; × discards. Mode off, or player creation tools off: no pen, traits
+  read-only on the sheet (the bond and question pickers' gate).
+- The sentence is SENTENCE CASE: `_buildTraitSentence` lowercases each value
+  (`toLocaleLowerCase(game.i18n.lang)`, after the overlay) and the English
+  `CAIRN.Bio.*` nouns went lowercase; paper follows (`traitsProse`). Malecho's
+  `es.json` keeps its keys' casing.
+- Background is a LABELLED FIELD on both branches (`.background-label`, then
+  `.background-field`, core's input box from core's variables); a generated
+  name in Creation Mode runs `pickBackground` on a click. Background & Notes
+  rules every `notes-item` after the first. The Slots line reads "Inventory
+  Slots", or "Slots" where that clips, MEASURED in `#fitSlotsLabel` (render,
+  fonts ready, a turn to Character).
 - Gate `dev:sheet-rail`.
 
 ## Creation routes

@@ -81,11 +81,15 @@ const TAB_LABELS = {
  *  (`connectionLine` below) and a tab whose count could only ever read (0) or
  *  (1) went with it. */
 const TAB_IDS = {
-  // The character's five pages, turned from the rail (2026-11-19, laid out
-  // after Base Knavery's): Character first — the head and the stat block —
-  // then Inventory, Growth, Description, the parked Connections, and
-  // Background & Notes. `items`, `description` and `notes` kept their ids.
-  character: ["character", "items", "growth", "description", "containers", "notes"],
+  // The character's pages, turned from the rail (2026-11-19, laid out after
+  // Base Knavery's): Character first — the head and the stat block — then
+  // Inventory, Growth, the parked Connections, and Background & Notes.
+  // `items` and `notes` kept their ids. A Description page stood after
+  // Growth until round 4 (the same day, user ask): its contents moved to
+  // page 1, the Traits window (#onEditTraits) and Background & Notes, and a
+  // sheet still remembering it lands on the initial (_getTabsConfig's
+  // vanished-tab reset).
+  character: ["character", "items", "growth", "containers", "notes"],
   // Description FIRST on the non-player sheet (2026-08-01, asked for): a Warden
   // opens an NPC to remember who they are — statblock, biography —
   // and reaches for the inventory second. The character sheet deliberately
@@ -109,7 +113,6 @@ const CHARACTER_RAIL = {
   character: { label: "CAIRN.Tab.Character", icon: "fa-solid fa-mask" },
   items: { label: "CAIRN.Tab.Inventory", icon: "fa-solid fa-sack" },
   growth: { label: "CAIRN.Tab.Growth", icon: "fa-solid fa-seedling" },
-  description: { label: "CAIRN.Description", icon: "fa-solid fa-feather" },
   containers: { label: "CAIRN.Connections", icon: "fa-solid fa-link" },
   notes: { label: "CAIRN.BackgroundAndNotes", icon: "fa-solid fa-scroll" },
 };
@@ -456,6 +459,11 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       rollOmen: owned(mayRandomize(CairnActorSheet.#onRollOmen)),
       pickOmen: owned(mayRandomize(CairnActorSheet.#onPickOmen)),
       rollTrait: owned(mayRandomize(CairnActorSheet.#onRollTrait)),
+      // The character's Traits window (round 4, 2026-11-19): the pen at the
+      // end of its trait sentence. Creation surface like the dice it holds,
+      // so mayRandomize as well as owned (the bond and question pickers'
+      // gate).
+      editTraits: owned(mayRandomize(CairnActorSheet.#onEditTraits)),
       toggleTraits: CairnActorSheet.#onToggleTraits,
       toggleScars: CairnActorSheet.#onToggleScars,
       // Background / failed career
@@ -563,6 +571,10 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
           "systems/air-bladder/templates/parts/container-list.html",
           "systems/air-bladder/templates/parts/bio-block.html",
           "systems/air-bladder/templates/parts/scar-block.html",
+          // Shared by the npc sheet's bio-block and, since round 4, the
+          // character's Traits window and Background & Notes page.
+          "systems/air-bladder/templates/parts/trait-grid.html",
+          "systems/air-bladder/templates/parts/omen-row.html",
         ],
         // AppV2 restores scroll only for the selectors named here — a part
         // with no `scrollable` is replaced wholesale and every scroll box
@@ -608,6 +620,17 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // panel is active — a blank sheet body with no error.
     if (!ids.includes(this.tabGroups[group])) this.tabGroups[group] = config.initial;
     return config;
+  }
+
+  /**
+   * A turn to the Character page re-fits its slot label (#fitSlotsLabel): a
+   * page that is not standing is display:none and measures nothing, so the
+   * fit made at render is only good for a page that stood then.
+   * @override
+   */
+  changeTab(tab, group, options) {
+    super.changeTab(tab, group, options);
+    if (tab === "character") this.#fitSlotsLabel();
   }
 
   /**
@@ -1577,25 +1600,15 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
   }
 
   /**
-   * The biography block (templates/parts/bio-block.html): trait pick-lists +
-   * the constructed sentence, and the Scars checklist. Extracted from
-   * _prepareCharacterContext when role-npc PEOPLE got the same block
-   * (2026-08-01) — the character path calls it first and keeps everything
-   * background-shaped for itself; the npc path calls it alone, gated on role
-   * npc (context.showBiography).
+   * The trait pick-lists' rows: one per trait the actor's role maps, carrying
+   * its label, its die's glyph and tooltip, and its select's options. ONE
+   * builder for the npc sheet's bio-block and the character's Traits window
+   * (#onEditTraits, round 4), which renders the same partial
+   * (templates/parts/trait-grid.html) from these rows.
+   * @returns {Promise<object[]>}
    * @private
    */
-  async _prepareBiographyContext(context) {
-    // The age die's tooltip names the formula a click will ROLL — the Warden's
-    // age-formula setting, or the config fallback when that is blank or
-    // unusable — through the same helper the die itself reads, so the two
-    // cannot disagree (review #18: a literal "(2d20 + 10)" outlived the
-    // setting by a day). Formatted here rather than with {{localize}} because
-    // the value is per-WORLD, not per-language; `data-tooltip` on the control
-    // (user ruling), so it looks like the Die of Fate's beside it.
-    context.rollAgeTitle = game.i18n.format("CAIRN.RollAgeTitle", {
-      formula: effectiveAgeFormula(CONFIG.Cairn?.characterGenerator2e?.biography?.age).formula,
-    });
+  async _buildTraitRows() {
     // Trait pick-lists: each trait's source table supplies a <select> of options
     // so a player can pick a value (or keep an off-table one). The role's
     // key -> table mapping comes from _traitTableMapping, which the per-trait
@@ -1606,13 +1619,13 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // fed the die and never the dropdown beside it, on the eight 2e traits
     // and the NPC four alike. Same ORDER now (`declaredTableCached`, above): a
     // world table of the declared name is what both offer. The Scars
-    // checklist below stays on the pack on purpose (its namesake in Utils is
-    // the damage card's).
+    // checklist (_prepareBiographyContext) stays on the pack on purpose (its
+    // namesake in Utils is the damage card's).
     const mapping = this._traitTableMapping();
     const tables = {};
     for (const [key, ref] of Object.entries(mapping)) tables[key] = await declaredTableCached(ref);
     const npcTraits = CONFIG.Cairn?.npcGenerator?.traits ?? {};
-    context.traitRows = Object.entries(mapping).map(([key, ref]) => {
+    return Object.entries(mapping).map(([key, ref]) => {
       const [, tableName] = ref.split(";");
       const table = tables[key];
       const value = this.actor.system.traits?.[key] ?? "";
@@ -1652,12 +1665,37 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
         customDisplay: value && !texts.includes(value) ? t("table.result", value) : "",
       };
     });
+  }
+
+  /**
+   * The biography block (templates/parts/bio-block.html): trait pick-lists +
+   * the constructed sentence, and the Scars checklist. Extracted from
+   * _prepareCharacterContext when role-npc PEOPLE got the same block
+   * (2026-08-01) — the character path calls it first and keeps everything
+   * background-shaped for itself; the npc path calls it alone, gated on role
+   * npc (context.showBiography).
+   * @private
+   */
+  async _prepareBiographyContext(context) {
+    // The age die's tooltip names the formula a click will ROLL — the Warden's
+    // age-formula setting, or the config fallback when that is blank or
+    // unusable — through the same helper the die itself reads, so the two
+    // cannot disagree (review #18: a literal "(2d20 + 10)" outlived the
+    // setting by a day). Formatted here rather than with {{localize}} because
+    // the value is per-WORLD, not per-language; `data-tooltip` on the control
+    // (user ruling), so it looks like the Die of Fate's beside it.
+    context.rollAgeTitle = game.i18n.format("CAIRN.RollAgeTitle", {
+      formula: effectiveAgeFormula(CONFIG.Cairn?.characterGenerator2e?.biography?.age).formula,
+    });
+    // Trait pick-lists (_buildTraitRows): one row per trait the role maps,
+    // its die's glyph and tooltip, its select's options. The character's
+    // Traits window builds its rows through the same call (round 4).
+    context.traitRows = await this._buildTraitRows();
 
     // Live constructed trait sentence + collapsible pick-lists (transient
-    // sheet state). OPEN by default on every sheet since 2026-11-19 (user
-    // ruling; they were collapsed behind the sentence): a character's
-    // sentence moved to its Character page, and the pick-lists are what the
-    // Description tab is for.
+    // sheet state, the npc sheet's alone since round 4: a character's
+    // pick-lists are in its Traits window). OPEN by default since 2026-11-19
+    // (user ruling; they were collapsed behind the sentence).
     context.traitSentence = this._buildTraitSentence(this.actor.system.traits, this.actor.system.age);
     context.traitsCollapsed = this._traitsCollapsed ?? false;
 
@@ -1706,17 +1744,15 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
   }
 
   /**
-   * Description tab: the biography block (see _prepareBiographyContext), plus
-   * the 2e background header/description; and the Notes tab's bonds and
-   * questions. Character-only — the npc path shares only the biography part.
+   * The character's biography (see _prepareBiographyContext: Pronouns and Age
+   * under the name, the trait sentence above STR, the rows the Traits window
+   * shows), the 2e background header/description, and Background & Notes'
+   * bonds, questions, Omen and Description. Character-only — the npc path
+   * shares only the biography part.
    * @private
    */
   async _prepareCharacterContext(context) {
     await this._prepareBiographyContext(context);
-    // A character's Pronouns, Age and trait sentence stand on its Character
-    // page, under Gold (user ask 2026-11-19); the bio-block on Description
-    // leaves them out. The npc sheet never sets this, so it keeps them.
-    context.bioOnPageOne = true;
 
     // Background description (from the linked Item) + a friendly source label,
     // shown in the sheet header. "2e" -> "Cairn 2e".
@@ -1762,8 +1798,9 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // render-only like showOmen below, and for the same reasons.
     // FALSE HERE, and not because a character lacks them: a character's Scars
     // are on its Growth page (2026-11-19), which includes scar-block.html
-    // itself. `showScars` is the bio-block's flag, so false keeps them off
-    // Description; the npc sheet's people still show them there.
+    // itself. `showScars` is the bio-block's flag; the character sheet no
+    // longer renders that block (round 4), and the npc sheet's people still
+    // show their Scars in it.
     context.showScars = false;
     context.showAge = traitsVisible();
     context.showTraits = traitsVisible();
@@ -1827,6 +1864,12 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // the narrowing lives on the npc sheet, where the monster role keeps
     // live save dice (2026-09-02 ruling, review #21 finding 10).
     context.saveRollOff = context.generationEnabled;
+    // The pen at the end of the trait sentence, which opens the Traits window
+    // (round 4, user ruling 2026-11-19): Creation Mode only, as the bond and
+    // question pickers, and only for a viewer who may write the sheet (the
+    // action is owned() too: the two-layer rule). With the mode off a
+    // character's traits are read-only on the sheet.
+    context.canEditTraits = context.generationEnabled && this.isEditable;
 
     // While the mode is On, the HP and Gold labels also say where their
     // numbers came from (2026-09-01, user's wording — ONE terse shared key,
@@ -1857,10 +1900,9 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // plus a second for Fieldwarden / Outrider's debt option). A fresh character
     // starts AT its entitlement, so the link is normally hidden.
     context.canAddBond = bondsOn && context.bonds.length < (await this._bondEntitlement(bg));
-    // Divider between the bonds/questions area and the free-form notes editor.
-    // The questions still show with bonds off, so they keep the divider: with
-    // bonds on this is exactly the old `showBonds`.
-    context.showNotesDivider = context.showBonds || context.is2eBackground;
+    // (`showNotesDivider` lived here, the single rule above the notes editor.
+    // Round 4 replaced it with a rule between every item on the page, drawn by
+    // cairn.css off the template's `notes-item` class, so no flag is left.)
     // Questions render from a translated copy (template iterates `questions`, not
     // system.questions): each prompt is a bg.question, each answer a background
     // option description (bg.optionDesc). Misses fall back to English.
@@ -2123,6 +2165,11 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // Hang the character's rail on the side with room for it, once this
     // render is laid out (a no-op on a sheet without one).
     placeRailSoon(this);
+
+    // "Inventory Slots", or "Slots" where that would clip: a read, so above
+    // the isEditable wall. Again once the fonts are in, which can widen it.
+    this.#fitSlotsLabel();
+    document.fonts?.ready.then(() => this.#fitSlotsLabel());
 
     // Drag-to-reorder is always on (its setting retired 2026-08-22), so the
     // sheet always carries the class that gives item rows a grab cursor and
@@ -2474,6 +2521,23 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    * than carried, or the set would grow stale ids for the life of the sheet.
    * @private
    */
+  /**
+   * Page 1's slot line reads "Inventory Slots" where it fits and "Slots" where
+   * the long label would clip (round 4, user ask 2026-11-19). MEASURED, so it
+   * holds in every language and when the equipment-limit gears icon takes
+   * room; the vitals column is a fixed width, so one check per render (and
+   * per turn to the page, and once the fonts have loaded) is enough. A page
+   * that is not standing measures zero and keeps the long label until it is
+   * turned to.
+   */
+  #fitSlotsLabel() {
+    const line = this.element?.querySelector(".cairn-slots-line");
+    const label = line?.querySelector(".slots-label");
+    if (!label?.dataset.long || !label.dataset.short) return;
+    label.textContent = label.dataset.long;
+    if (line.clientWidth && line.scrollWidth > line.clientWidth) label.textContent = label.dataset.short;
+  }
+
   #restoreExpandedRows() {
     if (!this.#expandedRows.size) return;
     for (const id of [...this.#expandedRows]) {
@@ -2720,10 +2784,18 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // hireling still stores a Quirk and a Goal; the sentence named them while
     // no row offered a control to change or clear them.
     const mapped = this._traitTableMapping();
+    // SENTENCE CASE (round 4, user ask 2026-11-19): every trait value is
+    // lowercased, AFTER the content overlay, in the display language's own
+    // rules — "You have athletic physique", not "Athletic Physique". The
+    // clause keys' nouns went lowercase in en.json the same day; a
+    // translation keeps its own casing in its keys, while the values are
+    // lowercased for everyone. The sentence's first letter is the clause's
+    // (or `cap` below), never a value's.
+    const lang = game.i18n.lang;
     const val = (key) => {
       if (!(key in mapped)) return "";
       const raw = String(traits?.[key] ?? "").trim();
-      return raw ? t("table.result", raw) : "";
+      return raw ? t("table.result", raw).toLocaleLowerCase(lang) : "";
     };
     const sep = game.i18n.localize("CAIRN.Bio.ListSep");
     const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
@@ -5196,6 +5268,105 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // the Roll Character checklist writes the same field with the same flag,
     // and the setting's hint promises rolled generation is never logged.
     await this.actor.update({ [`system.traits.${key}`]: rolled }, { abNoStatusCard: true });
+  }
+
+  /**
+   * The character's Traits window (round 4, user ask 2026-11-19): the pen at
+   * the end of the trait sentence opens every trait's picker and die, the
+   * npc sheet's grid (templates/parts/trait-grid.html, one copy) built from
+   * the same rows (_buildTraitRows), and one button, Save, which writes and
+   * closes. The window's close button discards. MODAL, as the Roll Character
+   * checklist: a sheet left clickable under it could re-roll the traits the
+   * window is about to write.
+   *
+   * A DIE IN THE WINDOW WRITES NOTHING: it rolls its row's table through
+   * generation's own path (rollTextItems, the #onRollTrait logic), sets the
+   * window's select (adding the option when the value is off its list) and
+   * marks the key rolled. Save then writes what changed in up to two updates:
+   * the rolled keys with `abNoStatusCard` (review #34 finding 57 — a roll is
+   * never logged), the hand-picked ones without it, logged as the old select
+   * edit was. A hand pick on a rolled row makes it hand-picked again.
+   *
+   * Content: an ELEMENT, so DialogV2 takes our own rendered template without
+   * cleanHTML; its nodes are serialized, so the change listener is wired in
+   * `render` (the documented route). The die is the window's own action
+   * (DialogV2 takes `actions` like any application), so the anchor keeps the
+   * npc sheet's `data-action="rollTrait"`.
+   *
+   * Consequence, stated: with Creation Mode off (or player creation tools
+   * off for a player) there is no pen, so a character's traits cannot be
+   * changed on the sheet — the bond and question pickers' gate.
+   * @this {CairnActorSheet}
+   */
+  static async #onEditTraits(event) {
+    event.preventDefault();
+    const L = (k) => game.i18n.localize(k);
+    const rows = await this._buildTraitRows();
+    if (!rows.length) return;
+    const content = document.createElement("div");
+    content.innerHTML = `<div class="character-traits cairn-trait-editor-grid">${
+      await foundry.applications.handlebars.renderTemplate(
+        "systems/air-bladder/templates/parts/trait-grid.html", { traitRows: rows, generationEnabled: true })}</div>`;
+    const sheet = this;
+    // The declared field; a select is named `${FIELD}.<key>`, as on the npc sheet.
+    const FIELD = "system.traits";
+    const keyOf = (name) => (name?.startsWith(`${FIELD}.`) ? name.slice(FIELD.length + 1) : null);
+    const rolled = new Set();
+    const values = await foundry.applications.api.DialogV2.wait({
+      window: { title: L("CAIRN.Traits"), icon: "fa-solid fa-pen" },
+      classes: ["cairn-trait-editor"],
+      position: { width: 560 },
+      modal: true,
+      content,
+      actions: {
+        /** @this {foundry.applications.api.DialogV2} */
+        async rollTrait(ev, target) {
+          ev.preventDefault();
+          const key = target?.dataset.key;
+          const ref = sheet._traitTableMapping()[key];
+          if (!ref) return;
+          const value = (await rollTextItems({ [key]: ref }))[key];
+          // A missing or exhausted table answers "": keep the select as it is.
+          if (!value) return;
+          const select = [...this.element.querySelectorAll("select")].find((s) => s.name === `${FIELD}.${key}`);
+          if (!select) return;
+          if (![...select.options].some((o) => o.value === value)) {
+            const option = document.createElement("option");
+            option.value = value;
+            option.textContent = t("table.result", value);
+            select.append(option);
+          }
+          select.value = value;
+          rolled.add(key);
+        },
+      },
+      buttons: [{
+        action: "save",
+        label: L("CAIRN.TraitEditor.Save"),
+        icon: "fa-solid fa-check",
+        default: true,
+        callback: (_ev, _button, dialog) => Object.fromEntries(
+          [...dialog.element.querySelectorAll("select")].filter((s) => keyOf(s.name))
+            .map((s) => [keyOf(s.name), s.value])),
+      }],
+      render: (_ev, dialog) => {
+        dialog.element.addEventListener("change", (e) => {
+          const key = keyOf(e.target?.name);
+          if (key) rolled.delete(key);
+        });
+      },
+      renderOptions: { window: { windowId: this.window?.windowId } },   // see _confirmAction
+    });
+    if (!values || typeof values !== "object") return;   // closed: nothing written
+    const current = this.actor.system.traits ?? {};
+    const asRolled = {};
+    const asPicked = {};
+    for (const [key, value] of Object.entries(values)) {
+      if (!(key in this._traitTableMapping()) || (current[key] ?? "") === value) continue;
+      (rolled.has(key) ? asRolled : asPicked)[`${FIELD}.${key}`] = value;
+    }
+    if (Object.keys(asRolled).length) await this.actor.update(asRolled, { abNoStatusCard: true });
+    if (Object.keys(asPicked).length) await this.actor.update(asPicked);
   }
 
   /**

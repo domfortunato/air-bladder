@@ -1,11 +1,14 @@
 {{!-- No <form> here: ApplicationV2 supplies it (DocumentSheetV2 sets tag: "form").
       A nested one is dropped by the parser, taking this element's class with it.
 
-      LAID OUT AFTER BASE KNAVERY'S (2026-11-19, user ask): five pages turned
+      LAID OUT AFTER BASE KNAVERY'S (2026-11-19, user ask): pages turned
       from a thumb-tab rail hung off the window's edge (parts/tab-rail.html, a
       render part of its own; module/actor/tab-rail.js places it). Page 1
-      (Character) carries the head and the stat block; Inventory, Growth,
-      Description and Background & Notes follow. Same fields, same buttons,
+      (Character) carries the head and the stat block; Inventory, Growth and
+      Background & Notes follow (a Description page stood before Notes until
+      round 4, the same day: its Omen and the character's own Description
+      moved to Background & Notes, its pick-lists into the Traits window,
+      #onEditTraits). Same fields, same buttons,
       same rules: every control kept its class, name, id and data-action, so
       the handlers in actor-sheet.js are untouched. The npc sheet keeps its own
       template and today's tab strip. --}}
@@ -17,8 +20,8 @@
           on screen; now the level is a wall on every person-type. Portrait and
           name only (the rail is drawn empty and hidden). A character's
           `system.description` is no longer orphaned (review #34 finding 55: the
-          Kettlewright importer writes it, the paper prints it, and the
-          Description page shows it while it holds prose), but the LIMITED wall
+          Kettlewright importer writes it, the paper prints it, and Background
+          & Notes shows it while it holds prose), but the LIMITED wall
           was never extended to it; that would be a ruling of its own. --}}
     <div class="cairn-limited-sheet">
         <img class="portrait" src="{{actor.img}}" alt="" />
@@ -100,19 +103,25 @@
                             {{/if}}
                         </div>
                         {{/if}}
+                        {{!-- Labelled "Background" and drawn as a FIELD on both branches
+                              (round 4, user ask 2026-11-19), in the Pronouns and Age labels'
+                              style, so the three read as one set of fields. (The
+                              Barebones-only "Background:" span went with it.) A generated
+                              background's name is a field box the picker fills: in Creation
+                              Mode a click on it runs pickBackground, the portrait's "one
+                              behaviour, two affordances" precedent; outside the mode it reads
+                              as a read-only field. --}}
                         <div class="background-line">
+                            <label class="background-label"{{#unless hasGeneratedBackground}} for="{{@root.idp}}-system.background"{{/unless}}>{{ localize 'CAIRN.Background' }}</label>
                             {{#if hasGeneratedBackground}}
-                            {{#if isBarebonesBackground}}
-                            <span class="background-label">{{ localize 'CAIRN.BackgroundLabel' }}</span>
-                            {{/if}}
-                            <span class="background-name">{{backgroundName}}</span>
+                            <span class="background-name background-field"{{#if generationEnabled}} data-action="pickBackground"{{/if}}>{{backgroundName}}</span>
                             {{#if generationEnabled}}
                             <a class="background-roll" data-action="rollBackground" data-tooltip="CAIRN.RollBackground" aria-label="{{ localize 'CAIRN.RollBackground' }}"><i class="fas fa-dice-d20"></i></a>
                             <a class="background-pick" data-action="pickBackground" data-tooltip="CAIRN.ChangeBackground" aria-label="{{ localize 'CAIRN.ChangeBackground' }}"><i class="fas fa-list-ul"></i></a>
                             {{/if}}
                             {{else}}
-                            <input class="background-input" type="text" name="system.background" value="{{system.background}}"
-                                placeholder="{{ localize 'CAIRN.Background' }}" />
+                            <input class="background-input background-field" type="text" name="system.background" id="{{@root.idp}}-system.background"
+                                value="{{system.background}}" placeholder="{{ localize 'CAIRN.Background' }}" />
                             {{! The die and the picker belong on THIS branch too (2026-09-11).
                                 They used to hang off the generated branch alone, so a
                                 character with no background stored had a text box and no way
@@ -158,6 +167,22 @@
 
                 <div class="cairn-body">
                     <div class="cairn-left">
+                        {{!-- The trait sentence, FIRST in the left column: under the
+                              full-width rule and above STR (round 4, user ask 2026-11-19;
+                              it stood under Gold in round 3), under its old gates:
+                              traitRows, then showTraits. In Creation Mode, on a sheet the
+                              viewer may edit, it ends in the pen that opens the Traits
+                              window (#onEditTraits); with no traits and no age the pen
+                              stands beside the word "Traits", so a blank sheet still has
+                              a way in. Outside the mode a character's traits are
+                              read-only here, the bond and question pickers' gate. --}}
+                        {{#if traitRows}}{{#if showTraits}}
+                        {{#if traitSentence}}
+                        <p class="trait-sentence">{{traitSentence}}{{#if canEditTraits}} <a class="trait-edit" data-action="editTraits" data-tooltip="CAIRN.EditTraits" aria-label="{{ localize 'CAIRN.EditTraits' }}"><i class="fa-solid fa-pen" inert></i></a>{{/if}}</p>
+                        {{else if canEditTraits}}
+                        <p class="trait-sentence trait-sentence-empty">{{ localize 'CAIRN.Traits' }} <a class="trait-edit" data-action="editTraits" data-tooltip="CAIRN.EditTraits" aria-label="{{ localize 'CAIRN.EditTraits' }}"><i class="fa-solid fa-pen" inert></i></a></p>
+                        {{/if}}
+                        {{/if}}{{/if}}
                         <!-- Abilities: the current score in a circle, the max beside it,
                              the save die, and Cairn's own sentence for what it covers -->
                         <div class="cairn-abilities">
@@ -203,21 +228,15 @@
                             {{/each}}
                         </div>
 
-                        <!-- The band under the abilities: Gold, then the trait sentence
-                             (Deprived and Panicked moved to the vitals column, above
-                             Slots, 2026-11-19) -->
+                        <!-- The band under the abilities: Gold (Deprived and Panicked
+                             moved to the vitals column, above Slots, and the trait
+                             sentence above STR, 2026-11-19) -->
                         <div class="cairn-band">
                             <div class="band-row band-gold {{#if system.maybeTooMuchGold }}overburdened-gold{{/if}}"
                                 {{#if system.maybeTooMuchGold }} title="{{localize 'CAIRN.OverburdenByGold'}}" {{/if}}>
                                 <label class="band-label" for="{{@root.idp}}-system.gold" data-tooltip="{{goldTip}}">{{ localize 'CAIRN.Gold' }}</label>
                                 <input type="number" class="gold-input" name="system.gold" id="{{@root.idp}}-system.gold" value="{{system.gold}}" data-dtype="Number" />
                             </div>
-                            {{!-- The trait sentence, moved here from the Description page's
-                                  bio-block (user ask 2026-11-19), under its gates there:
-                                  traitRows, then showTraits. --}}
-                            {{#if traitRows}}{{#if showTraits}}{{#if traitSentence}}
-                            <p class="trait-sentence">{{traitSentence}}</p>
-                            {{/if}}{{/if}}{{/if}}
                         </div>
                     </div>
 
@@ -267,11 +286,15 @@
                               per-character limit's double-click came with it (the rail's
                               Inventory tooltip says the count too). A click turns to
                               Inventory (user ask 2026-11-19); #onOpenInventory waits out
-                              a double-click while the limit setting is on. --}}
+                              a double-click while the limit setting is on. The label
+                              reads "Inventory Slots" where it fits and "Slots" where it
+                              would clip (round 4): the swap is MEASURED, in _onRender
+                              and on a page turn (#fitSlotsLabel), so it holds in every
+                              language and beside the gears icon. --}}
                         <div class="cairn-slots-line {{#if system.encumbered}}peril{{/if}}" id="set-equipment-limit" data-action="openInventory"
                             {{#if system.characterEquipmentLimit}}title="{{localize 'CAIRN.EquipmentLimitTip'}}"{{/if}}>
                             {{#if system.characterEquipmentLimit}}<i class="fas fa-gears" inert></i>{{/if}}
-                            <span class="slots-label">{{ localize 'CAIRN.Slots' }}</span>
+                            <span class="slots-label" data-long="{{ localize 'CAIRN.InventorySlots' }}" data-short="{{ localize 'CAIRN.Slots' }}">{{ localize 'CAIRN.InventorySlots' }}</span>
                             <span class="slots-value">{{system.slotsUsed}} / {{slotsMaxLabel}}</span>
                         </div>
 
@@ -325,43 +348,14 @@
                 </div>
             </div>
 
-            <!-- Description -->
-            <div class="tab cairn-page cairn-page-description {{tabs.description.cssClass}}" data-group="primary" data-tab="description">
-                <div class="description">
-                    {{!-- The pronouns/age/traits/omen block lives in a partial — the npc
-                          sheet renders the same one for role-npc people (2026-08-01). A
-                          character's Scars are NOT in it any more: they are on Growth
-                          (showScars false, 2026-11-19). --}}
-                    {{> "systems/air-bladder/templates/parts/bio-block.html"}}
-                    {{!-- The Features list rendered here until 2026-08-09,
-                          behind the show-features-section setting; both went
-                          (user ruling). `system.features` survives on the
-                          document, unrendered. --}}
-                    {{!-- The character's own Description, ONLY while it holds prose
-                          (review #34 finding 55, user ruling 2026-10-31). The always-on
-                          editor went on 2026-07-29 as a second, unlabelled notes box
-                          competing with the real one on the Notes tab, on the belief
-                          that the field was orphaned. It was not: the Kettlewright
-                          importer writes `system.description` and the printed sheet
-                          prints it, so an imported character's text was on paper and
-                          nowhere on screen. So it comes back for the characters that
-                          have some, LABELLED, and a character made in Foundry still sees
-                          no box. `showDescription` is `holdsProse`, the print page's
-                          own test, so an editor its player empties (`<p></p>`) goes
-                          away on the next render and prints no empty heading. The
-                          `npc-description-section` class is borrowed on purpose: it is
-                          in the selector lists that give a toggled editor its field look
-                          and unhovered pencil (cairn.css), and a second copy of those
-                          rules is a second thing to drift. --}}
-                    {{#if showDescription}}
-                    <div class="npc-description-section character-description">
-                        <div class="character-description-heading">{{ localize 'CAIRN.Description' }}</div>
-                        <prose-mirror name="system.description" value="{{system.description}}" toggled collaborate relative
-                            data-document-uuid="{{actor.uuid}}">{{{enrichedDescription}}}</prose-mirror>
-                    </div>
-                    {{/if}}
-                </div>
-            </div>
+            {{!-- The Description page stood here until round 4 (2026-11-19, user
+                  ask): its Pronouns and Age had gone under the name and its
+                  sentence onto page 1 in round 3, and the rest followed — the
+                  pick-lists into the Traits window, Omen and the character's own
+                  Description onto Background & Notes. (The Features list rendered
+                  on it until 2026-08-09, behind the show-features-section setting;
+                  both went, user ruling. `system.features` survives on the
+                  document, unrendered.) --}}
 
             {{#if system.showContainersTab}}
             <div class="tab cairn-page cairn-page-containers {{tabs.containers.cssClass}}" data-group="primary" data-tab="containers">
@@ -375,7 +369,7 @@
                     free-form notes editor. Both are 2e content. }}
                 {{#if showBonds}}
                 {{#each bonds}}
-                <div class="bond-block">
+                <div class="bond-block notes-item">
                     {{!-- Die + pick-list button (2026-09-01): re-roll the bond, or
                           pick one off the resolved Bonds table — a player
                           recreating a book-rolled character needs the row
@@ -396,7 +390,7 @@
                 {{/if}}
                 {{#if is2eBackground}}
                 {{#each questions}}
-                <div class="question-block">
+                <div class="question-block notes-item">
                     {{!-- Die + pick-list button (2026-09-01), like the bond line:
                           re-roll the answer, or choose it off the
                           background's own options. --}}
@@ -419,7 +413,42 @@
                 {{#if backgroundAttribution}}
                 <p class="background-credit">{{backgroundAttribution}}</p>
                 {{/if}}
-                {{#if showNotesDivider}}<hr class="notes-divider" />{{/if}}
+                {{!-- Omen, from the retired Description page (round 4, user ask
+                      2026-11-19), after the bonds, questions and credit and before
+                      the notes. Same partial the npc sheet's bio-block renders. --}}
+                {{#if showOmen}}
+                <div class="notes-item notes-omen">
+                    {{> "systems/air-bladder/templates/parts/omen-row.html"}}
+                </div>
+                {{/if}}
+                {{!-- The character's own Description, ONLY while it holds prose
+                      (review #34 finding 55, user ruling 2026-10-31), moved here from
+                      the Description page in round 4, after Omen (user ruling
+                      2026-11-19). The always-on editor went on 2026-07-29 as a second,
+                      unlabelled notes box competing with the real one below, on the
+                      belief that the field was orphaned. It was not: the Kettlewright
+                      importer writes `system.description` and the printed sheet prints
+                      it, so an imported character's text was on paper and nowhere on
+                      screen. So it shows for the characters that have some, LABELLED,
+                      and a character made in Foundry still sees no box. `showDescription`
+                      is `holdsProse`, the print page's own test, so an editor its player
+                      empties (`<p></p>`) goes away on the next render and prints no empty
+                      heading. The `npc-description-section` class is borrowed on purpose:
+                      it is in the selector lists that give a toggled editor its field look
+                      and unhovered pencil (cairn.css), and a second copy of those rules is
+                      a second thing to drift. --}}
+                {{#if showDescription}}
+                <div class="npc-description-section character-description notes-item">
+                    <div class="character-description-heading">{{ localize 'CAIRN.Description' }}</div>
+                    <prose-mirror name="system.description" value="{{system.description}}" toggled collaborate relative
+                        data-document-uuid="{{actor.uuid}}">{{{enrichedDescription}}}</prose-mirror>
+                </div>
+                {{/if}}
+                {{!-- A RULE BETWEEN EVERY ITEM on this page (round 4, user ask): each
+                      bond, each question, Omen, the Description and the notes carry
+                      `notes-item`, and cairn.css rules every one after the first. The
+                      credit and "Add a bond" are not items: they stay with what they
+                      follow. The single divider above the notes went with it. --}}
                 {{!-- TOGGLED since 2026-08-02, reversing the always-active decision
                       recorded here: the user reads a permanent toolbar over an empty
                       box as clutter. `toggled collaborate` is the MEASURED-SAFE
@@ -432,8 +461,10 @@
                       that container on activation, so a hint anchored to it appears
                       after the click it exists to prompt.
                       Gated by `npm run dev:notes-editor`. --}}
-                <prose-mirror name="system.notes" value="{{system.notes}}" toggled collaborate relative
-                    data-document-uuid="{{actor.uuid}}">{{#if system.notes}}{{{enrichedNotes}}}{{else}}<p class="cairn-editor-placeholder">{{ localize 'CAIRN.NotesPlaceholder' }}</p>{{/if}}</prose-mirror>
+                <div class="notes-item notes-editor">
+                    <prose-mirror name="system.notes" value="{{system.notes}}" toggled collaborate relative
+                        data-document-uuid="{{actor.uuid}}">{{#if system.notes}}{{{enrichedNotes}}}{{else}}<p class="cairn-editor-placeholder">{{ localize 'CAIRN.NotesPlaceholder' }}</p>{{/if}}</prose-mirror>
+                </div>
             </div>
         </section>
 

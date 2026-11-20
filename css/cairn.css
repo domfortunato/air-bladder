@@ -2231,6 +2231,12 @@
     text-align: right;
 }
 
+/* The character's Traits window (round 4): the same grid in a dialog. The
+   `.character-traits` wrapper carries every grid rule above; this only
+   spaces it from the window's edges and footer. */
+.cairn-trait-editor .cairn-trait-editor-grid { padding: 4px 2px 8px; }
+.cairn-trait-editor .cairn-trait-editor-grid .trait-grid { margin-top: 0; }
+
 /* Separate the traits block from the Omen/Scar block below it. */
 .character-omen-scar {
     margin-top: 12px;
@@ -2239,15 +2245,12 @@
 }
 
 /* A character's own Description, shown only while it holds prose (review #34
-   finding 55): the Omen/Scar block's separator, and a bold heading in the
-   traits' weight ABOVE the editor — the editor is a block, not a row control.
-   Field look and pencil come from the `.npc-description-section` selector
-   lists further up; nothing here repeats them. */
-.character-description {
-    margin-top: 12px;
-    padding-top: 12px;
-    border-top: 1px solid var(--ab-rule-strong);
-}
+   finding 55): a bold heading in the traits' weight ABOVE the editor — the
+   editor is a block, not a row control. On Background & Notes since round 4
+   (2026-11-19), where the rule between items is its separator (it drew the
+   Omen/Scar block's own on the Description page). Field look and pencil come
+   from the `.npc-description-section` selector lists further up; nothing here
+   repeats them. */
 .character-description .character-description-heading {
     font-weight: bold;
     margin-bottom: 4px;
@@ -2262,7 +2265,7 @@
 
 /* Label on the left, control on the right (not stacked). */
 .character-traits .trait-row,
-.character-omen-scar .omen-row {
+:is(.character-omen-scar, .notes-omen) .omen-row {
     display: flex;
     align-items: center;
     gap: 8px;
@@ -2275,7 +2278,7 @@
 }
 
 .character-traits .trait-label,
-.character-omen-scar .omen-label {
+:is(.character-omen-scar, .notes-omen) .omen-label {
     flex: 0 0 auto;
     min-width: 96px;
     font-weight: bold;
@@ -2293,26 +2296,26 @@
     width: 56px;
 }
 
-.character-omen-scar .omen-label {
+:is(.character-omen-scar, .notes-omen) .omen-label {
     display: flex;
     align-items: center;
     gap: 4px;
 }
 
 .character-traits .trait-input,
-.character-omen-scar .omen-input {
+:is(.character-omen-scar, .notes-omen) .omen-input {
     flex: 1 1 auto;
     min-width: 0;
 }
 
 /* Enabled multi-line omen textarea: top-align the label + dice against its first line. */
-.character-omen-scar .omen-row.omen-enabled {
+:is(.character-omen-scar, .notes-omen) .omen-row.omen-enabled {
     align-items: flex-start;
 }
 
-.character-omen-scar .omen-row.omen-enabled .omen-label,
-.character-omen-scar .omen-row.omen-enabled .omen-roll,
-.character-omen-scar .omen-row.omen-enabled .omen-pick {
+:is(.character-omen-scar, .notes-omen) .omen-row.omen-enabled .omen-label,
+:is(.character-omen-scar, .notes-omen) .omen-row.omen-enabled .omen-roll,
+:is(.character-omen-scar, .notes-omen) .omen-row.omen-enabled .omen-pick {
     padding-top: 4px;
 }
 
@@ -2321,8 +2324,8 @@ textarea.omen-input {
     font-family: inherit;
 }
 
-.character-omen-scar .omen-roll,
-.character-omen-scar .omen-pick,
+:is(.character-omen-scar, .notes-omen) .omen-roll,
+:is(.character-omen-scar, .notes-omen) .omen-pick,
 .character-traits .age-roll,
 .character-traits .trait-roll {
     flex: 0 0 auto;
@@ -2429,18 +2432,23 @@ textarea.omen-input {
     cursor: pointer;
 }
 
-/* A bare <hr> is drawn from core LITERALS, not from the palette: a #b5b3a4 top
-   and a near-white #f0f0e0 bottom border (foundry2.css:12406, @layer
-   compatibility) plus a cream --hr-gradient background in dark mode. The bottom
-   edge is invisible on parchment and the gradient ignores the scheme entirely,
-   so state the rule once in tokens. @layer system outranks compatibility, so no
-   !important is needed here. */
-.notes-divider {
-    margin: 10px 0;
-    height: 0;
-    border: none;
+/* Background & Notes: a RULE BETWEEN EVERY ITEM (round 4, user ask
+   2026-11-19) — each bond, each question, Omen, the character's Description
+   and the notes editor carry `notes-item`. It replaced the single
+   `hr.notes-divider` above the notes, and keeps its look: one --ab-rule line
+   with 10px either side. The page is a flex column, so margins do not
+   collapse: an item's own bottom margin is dropped, or the gap would double.
+   The credit and "Add a bond" are not items and keep their own spacing. */
+.cairn-page-notes .notes-item {
+    margin: 0;
+}
+.cairn-page-notes .notes-item ~ .notes-item {
+    margin-top: 10px;
+    padding-top: 10px;
     border-top: 1px solid var(--ab-rule);
-    background: none;
+}
+.cairn-page-notes .bond-add {
+    margin: 6px 0 0;
 }
 
 .bond-reroll,
@@ -3710,7 +3718,7 @@ ol.combat-tracker li.combatant.cairn-drop-below {
     padding-top: 12px;
 }
 
-.character-omen-scar .omen-roll.disabled {
+:is(.character-omen-scar, .notes-omen) .omen-roll.disabled {
     opacity: 0.4;
     pointer-events: none;
     cursor: default;
@@ -5375,7 +5383,6 @@ header.character-generator.directory-header .header-actions > button:not(.cairn-
 .cairn-character-sheet .cairn-pages { flex: 1 0 auto; display: flex; flex-direction: column; }
 .cairn-character-sheet .cairn-pages > .tab.active { display: flex; flex-direction: column; flex: 1 0 auto; height: auto; }
 /* The breathing room under the old tab strip is not wanted under a window header. */
-.cairn-character-sheet .cairn-pages .description,
 .cairn-character-sheet .cairn-pages .tab[data-tab="notes"] { padding-top: 0; }
 
 /* ---- Character page: head ------------------------------------------------- */
@@ -5424,6 +5431,34 @@ header.character-generator.directory-header .header-actions > button:not(.cairn-
 .cairn-character-sheet .identity-bio-line .pronouns-row .trait-input { flex: 1 1 auto; width: 0; min-width: 0; }
 .cairn-character-sheet .identity-bio-line .age-row .trait-input { flex: 0 0 48px; width: 48px; text-align: center; }
 .cairn-character-sheet .identity-bio-line .age-roll { flex: 0 0 auto; cursor: pointer; }
+
+/* The Background line: a label in the Pronouns and Age labels' style, then a
+   FIELD (round 4, user ask 2026-11-19), so the three read as one set of
+   fields. The box is core's own text input, stated from core's variables
+   (foundry2.css, @layer elements.forms) — the Pronouns input's border,
+   ground, radius and ink — at the identity line's 24px, on both branches: the
+   hand-made input (whose generic rule strips its box) and the generated
+   background's name, a span the picker fills. dev:sheet-rail compares the two
+   boxes property by property. */
+.cairn-character-sheet .background-line { align-items: center; }
+.cairn-character-sheet .background-line .background-label {
+    flex: 0 0 auto; margin: 0; white-space: nowrap; color: var(--ab-ink);
+    font-family: "Alegreya", Times, "Times New Roman", Georgia, serif;
+    font-size: 15px; font-weight: bold; font-variant: small-caps; line-height: 18px;
+}
+.cairn-character-sheet .background-line .background-field {
+    flex: 1 1 auto; min-width: 0; box-sizing: border-box;
+    height: 24px !important; line-height: 22px; padding: 0 0.5rem;
+    background: var(--input-background-color) !important;
+    border: 1px solid var(--input-border-color) !important;
+    border-radius: 4px; box-shadow: var(--input-box-shadow);
+    color: var(--input-text-color);
+    font-family: "Alegreya", Times, "Times New Roman", Georgia, serif !important;
+    font-size: 15px !important; font-variant: small-caps;
+}
+/* The generated name keeps its ellipsis; in Creation Mode a click picks. */
+.cairn-character-sheet .background-line .background-name.background-field { display: block; }
+.cairn-character-sheet .background-line .background-name[data-action] { cursor: pointer; }
 
 /* ---- Character page: abilities + band | vitals ---------------------------- */
 .cairn-character-sheet .cairn-body {
@@ -5501,8 +5536,21 @@ header.character-generator.directory-header .header-actions > button:not(.cairn-
 .cairn-character-sheet .cairn-band .gold-input { width: 96px; text-align: right; font-size: 16px; }
 .cairn-character-sheet .cairn-band .deprived-check,
 .cairn-character-sheet .cairn-band .panicked-check { margin: 0; }
-/* The trait sentence under Gold (moved from Description, 2026-11-19). */
-.cairn-character-sheet .cairn-band .trait-sentence { margin: 2px 0 0; font-style: italic; line-height: 1.4; }
+/* The trait sentence, first in the left column: under the full-width rule
+   and above STR (round 4, user ask 2026-11-19; under Gold in round 3), in
+   the background description's size and face (13px; dev:sheet-rail compares
+   the two), italic as before. Its pen opens the Traits window. */
+.cairn-character-sheet .cairn-left > .trait-sentence { margin: 0 0 8px; font-size: 13px; font-style: italic; line-height: 1.4; }
+.cairn-character-sheet .cairn-left > .trait-sentence .trait-edit {
+    margin-left: 2px; color: var(--ab-muted); font-style: normal; cursor: pointer; white-space: nowrap;
+}
+.cairn-character-sheet .cairn-left > .trait-sentence .trait-edit:hover,
+.cairn-character-sheet .cairn-left > .trait-sentence .trait-edit:focus-visible { color: var(--ab-ink); }
+/* No traits and no age: the word "Traits" beside the pen, not in italic, as
+   a label rather than a sentence. */
+.cairn-character-sheet .cairn-left > .trait-sentence.trait-sentence-empty {
+    font-style: normal; font-weight: bold; font-variant: small-caps;
+}
 /* Too much gold: the shared .overburdened-gold paints a COUNTER's frame red
    over a black fill; a band row has neither, so the cue is the red figure. */
 .cairn-character-sheet .cairn-band .band-gold.overburdened-gold { background: none; border: none; }

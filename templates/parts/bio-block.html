@@ -1,19 +1,18 @@
 {{!-- The biography block: pronouns + age, the trait sentence and its
       pick-lists, then Omen (showOmen) and Scars (showScars, the
-      scar-block.html partial; a character's are on its Growth page). MOVED verbatim
-      from character-sheet.html (2026-08-01) when role-npc PEOPLE got the same
-      block — the character sheet includes it ungated, the npc sheet behind
-      `{{#if showBiography}}` (BOTH person roles since the 2026-08-20 split:
-      npc and hireling. An NPC's grid is ten rows, a hireling's eight — Quirk
-      and Goal are the NPC's). Context comes from
+      scar-block.html partial). MOVED verbatim from character-sheet.html
+      (2026-08-01) when role-npc PEOPLE got the same block; rendered by the
+      npc sheet behind `{{#if showBiography}}` (BOTH person roles since the
+      2026-08-20 split: npc and hireling. An NPC's grid is ten rows, a
+      hireling's eight — Quirk and Goal are the NPC's). The CHARACTER sheet no
+      longer renders it (round 4, 2026-11-19): its Pronouns and Age stand under
+      the name, its sentence above STR, its pick-lists in the Traits window
+      (trait-grid.html, shared with this block), its Omen on Background & Notes
+      (omen-row.html, shared too) and its Scars on Growth. Context comes from
       `_prepareBiographyContext` plus the flags each caller sets. --}}
                         {{#if traitRows}}
                         <div class="character-traits">
                             <!-- Pronouns + Age at the top, then the constructed sentence. -->
-                            {{!-- bioOnPageOne: a CHARACTER's Pronouns, Age and sentence
-                                  stand on its Character page under Gold since 2026-11-19
-                                  (character-sheet.html); the npc sheet keeps them here. --}}
-                            {{#unless bioOnPageOne}}
                             <div class="bio-top">
                                 <div class="trait-row pronouns-row">
                                     <label class="trait-label">{{ localize 'CAIRN.Pronouns' }}</label>
@@ -33,14 +32,13 @@
                                 </div>
                                 {{/if}}
                             </div>
-                            {{/unless}}
                             {{!-- showTraits (2026-09-07): the Warden's show-traits switch
                                   hides the sentence and the whole pick-list section.
                                   Pronouns above stay — never rolled, never hidden. --}}
                             {{#if showTraits}}
-                            {{#unless bioOnPageOne}}{{#if traitSentence}}
+                            {{#if traitSentence}}
                             <p class="trait-sentence">{{traitSentence}}</p>
-                            {{/if}}{{/unless}}
+                            {{/if}}
                             <!-- Collapsible pick-lists, OPEN by default since 2026-11-19
                                  (traitsCollapsed ?? false); +/- folds them away. -->
                             <div class="trait-picklist-section">
@@ -55,36 +53,7 @@
                                             class="fas {{#if traitsCollapsed}}fa-plus-square{{else}}fa-minus-square{{/if}}"></i></a>
                                 </div>
                                 {{#unless traitsCollapsed}}
-                                <div class="trait-grid">
-                                    {{#each traitRows}}
-                                    <div class="trait-row">
-                                        <label class="trait-label">{{this.label}}</label>
-                                        {{#if @root.generationEnabled}}
-                                        {{!-- Die per trait (2026-09-05, user ask): re-roll just
-                                              this row off its own table. LEFT of the select on
-                                              purpose — the Background line's icons hang off its
-                                              label the same way, and right of the select would
-                                              sit against the NEXT column's label in this
-                                              two-column grid. rollTitle is pre-formatted text
-                                              (it carries the row's label), the rollAgeTitle
-                                              idiom. --}}
-                                        {{!-- The glyph is the die the row's TABLE rolls (2026-10-03):
-                                              d10 on the eight 2e rows, d20 on the NPC four, a Warden's
-                                              own die on a world copy — never a literal. --}}
-                                        <a class="trait-roll" data-action="rollTrait" data-key="{{this.key}}" data-tooltip="{{this.rollTitle}}" aria-label="{{this.rollTitle}}"><i class="{{this.dieIcon}}"></i></a>
-                                        {{/if}}
-                                        <select class="trait-input" name="system.traits.{{this.key}}">
-                                            <option value="" {{#unless this.value}}selected{{/unless}}></option>
-                                            {{#if this.customValue}}
-                                            <option value="{{this.customValue}}" selected>{{this.customDisplay}}</option>
-                                            {{/if}}
-                                            {{#each this.options}}
-                                            <option value="{{this.value}}" {{#if this.selected}}selected{{/if}}>{{this.display}}</option>
-                                            {{/each}}
-                                        </select>
-                                    </div>
-                                    {{/each}}
-                                </div>
+                                {{> "systems/air-bladder/templates/parts/trait-grid.html"}}
                                 {{/unless}}
                             </div>
                             {{/if}}
@@ -93,36 +62,11 @@
                         {{#if (or showOmen showScars)}}
                         <div class="character-omen-scar">
                             {{#if showOmen}}
-                            <div class="omen-row {{#if system.omenEnabled}}omen-enabled{{/if}}">
-                                <label class="omen-label">
-                                    <input type="checkbox" class="omen-enable" id="{{@root.idp}}-omen-enable" {{checked system.omenEnabled}} />
-                                    {{ localize 'CAIRN.Omen' }}
-                                </label>
-                                {{#if system.omenEnabled}}
-                                {{! omenDisplay = t("table.result", system.omen), on BOTH branches.
-                                    The textarea's submit maps back to the stored English via the
-                                    omen anchor in _processFormData — the stored value never leaves
-                                    the source string. }}
-                                <textarea class="omen-input" name="system.omen" rows="4"
-                                    placeholder="{{ localize 'CAIRN.OmenPlaceholder' }}">{{omenDisplay}}</textarea>
-                                {{#if generationEnabled}}
-                                {{!-- Die + pick-list button (2026-09-01): roll the (world-first)
-                                      Omens table, or pick a row off it — a player
-                                      recreating a book-rolled character needs the row
-                                      they already rolled. Bare data-tooltip keys, the
-                                      Age die's ruled look. --}}
-                                <a class="omen-roll" data-action="rollOmen" data-tooltip="CAIRN.RollOmen" aria-label="{{ localize 'CAIRN.RollOmen' }}"><i class="fas fa-dice-d20"></i></a>
-                                <a class="omen-pick" data-action="pickOmen" data-tooltip="CAIRN.PickOmen" aria-label="{{ localize 'CAIRN.PickOmen' }}"><i class="fas fa-list-ul"></i></a>
-                                {{/if}}
-                                {{else}}
-                                <span class="omen-display">{{#if system.omen}}{{omenDisplay}}{{else}}{{ localize 'CAIRN.OmenPlaceholder' }}{{/if}}</span>
-                                {{/if}}
-                            </div>
+                            {{> "systems/air-bladder/templates/parts/omen-row.html"}}
                             {{/if}}
                             {{!-- The Scars checklist lives in its own partial since
-                                  2026-11-19: the character sheet shows it on the
-                                  Growth page instead (showScars false here), the
-                                  npc sheet here, as before. --}}
+                                  2026-11-19: the character sheet shows it on its
+                                  Growth page, the npc sheet here, as before. --}}
                             {{#if showScars}}
                             {{> "systems/air-bladder/templates/parts/scar-block.html"}}
                             {{/if}}
