@@ -93,7 +93,8 @@ with whatever the file says, so it is never invisible.
 ## Make it yours: Character Creation Mode
 
 A generated or imported character arrives quiet — no dice on the sheet. The
-**Character Creation Mode** toggle in the sheet's title bar brings the
+**Character Creation Mode** toggle in the sheet's title bar (it reads
+**CharGen: Off**) brings the
 creation tools back: a die beside each part of the character re-rolls that one thing —
 the name, the portrait, the age, the background (gear and all), the omen, a
 bond, a background question — and a **pick-list button** (the list icon)
@@ -101,8 +102,9 @@ beside the name, background, failed career, omen, bond and question dice —
 and on the portrait — lets you choose instead of roll. The pickers are how you
 recreate a character you rolled with
 the book, paper and dice: pick the rows you already rolled, and the sheet
-grants whatever those rows grant. Traits stay hand-edited pick-lists either
-way. **Roll Character** opens a checklist of everything that can be re-rolled,
+grants whatever those rows grant. Traits have their own window: in Character
+Creation Mode, the pen at the end of the trait sentence opens it, with a die
+and a pick-list for each trait. **Roll Character** opens a checklist of everything that can be re-rolled,
 all checked to begin with: uncheck what you want to keep, and only the rest is
 re-rolled. The name, starting gear and the two Background Questions ride the
 Background line — a new background deals its own, name included — while bonds
