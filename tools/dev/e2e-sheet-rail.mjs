@@ -55,6 +55,13 @@
  *      the character's own Description stand on Background & Notes, with a
  *      rule between every item; the slot line reads "Inventory Slots", or
  *      "Slots" where the long label would clip.
+ *  16. (the fifth round, user asks 2026-11-20) one header row over STR names
+ *      the ability columns "Current" and "Max", each word centred over its
+ *      box; HP's two numbers carry the same words; HP's box fills in
+ *      proportion to HP / max (Base Knavery's bar colours: one colour at full,
+ *      another below it, a red frame at 0); Inventory opens on the hint
+ *      "Click an item to expand its description", first, in full ink, on the
+ *      npc sheet too.
  *
  * Red-first: run against the commit before the redesign, every leg but 8 and
  * 10 fails (no rail, no growth page, no growth field).
@@ -385,6 +392,74 @@ try {
       const blank = left()?.querySelector(":scope > .trait-sentence");
       R.blank = { text: blank?.textContent.trim() ?? null, pen: !!blank?.querySelector(".trait-edit"), want: L("CAIRN.Traits") };
     }
+
+    /* ---- 16. round 5: the Current / Max headers, HP's fill, the
+            Inventory hint ------------------------------------------------ */
+    {
+      const R5 = out.r5 = { wantCurrent: L("CAIRN.AbilityCurrent"), wantMax: L("CAIRN.AbilityMax"), wantHint: L("CAIRN.ExpandHint") };
+      await sheet.changeTab("character", "primary");
+      await sleep(300);
+      const page = frame.querySelector('.tab[data-tab="character"]');
+      const mid = (n) => { const b = n?.getBoundingClientRect(); return b ? (b.left + b.right) / 2 : null; };
+      const inside = (x, n) => { const b = n?.getBoundingClientRect(); return x !== null && !!b && x >= b.left && x <= b.right; };
+      const headOf = (h) => ({
+        current: h?.querySelector('[data-head="current"]')?.textContent.trim() ?? null,
+        max: h?.querySelector('[data-head="max"]')?.textContent.trim() ?? null,
+      });
+      // The ability header: right before the abilities, over STR's boxes.
+      const abHead = page?.querySelector(".cairn-left > .cairn-abilities-head");
+      const str = page?.querySelector(".cairn-ability.STR-ability");
+      R5.abilities = {
+        ...headOf(abHead),
+        beforeAbilities: abHead?.nextElementSibling?.matches(".cairn-abilities") ?? false,
+        overCircle: inside(mid(abHead?.querySelector('[data-head="current"]')), str?.querySelector(".cairn-ability-circle")),
+        overMax: inside(mid(abHead?.querySelector('[data-head="max"]')), str?.querySelector('.cairn-ability-max input')),
+      };
+      // HP's header: right before the HP box, over its two numbers.
+      const hpHead = page?.querySelector(".cairn-vitals > .cairn-hp-head");
+      const hp = page?.querySelector(".cairn-vitals > .hp-counter");
+      R5.hp = {
+        ...headOf(hpHead),
+        beforeBox: hpHead?.nextElementSibling === hp && !!hp,
+        overCurrent: inside(mid(hpHead?.querySelector('[data-head="current"]')), hp?.querySelector('input[name="system.hp.value"]')),
+        overMax: inside(mid(hpHead?.querySelector('[data-head="max"]')), hp?.querySelector('input[name="system.hp.max"]')),
+      };
+      // HP's fill at 4 / 6, 6 / 6 and 0 / 6: its share of the number half,
+      // its colour, and the box's frame.
+      const fillState = () => {
+        const box = frame.querySelector('.tab[data-tab="character"] .cairn-vitals > .hp-counter');
+        const fill = box?.querySelector(".hp-fill");
+        const track = fill?.parentElement;
+        return {
+          share: fill && track?.clientWidth ? Math.round((fill.getBoundingClientRect().width / track.clientWidth) * 100) : null,
+          colour: fill ? getComputedStyle(fill).backgroundColor : null,
+          frame: box ? getComputedStyle(box).borderTopColor : null,
+        };
+      };
+      const setHp = async (v) => {
+        await pc.update({ "system.hp.value": v, "system.hp.max": 6 }, { abNoStatusCard: true });
+        await until(() => frame.querySelector('.tab[data-tab="character"] input[name="system.hp.value"]')?.value === String(v));
+        await sleep(300);
+        return fillState();
+      };
+      const hpWas = { value: pc._source.system.hp?.value, max: pc._source.system.hp?.max };
+      R5.fill = { low: await setHp(4), full: await setHp(6), zero: await setHp(0) };
+      await pc.update({ "system.hp.value": hpWas.value, "system.hp.max": hpWas.max }, { abNoStatusCard: true });
+      // The Inventory hint: first on the page, in full ink.
+      await sheet.changeTab("items", "primary");
+      await sleep(300);
+      const items = frame.querySelector('.tab[data-tab="items"]');
+      const hint = items?.querySelector(".cairn-expand-hint");
+      const reorder = items?.querySelector(".cairn-reorder-hint");
+      R5.hint = {
+        text: hint?.textContent.trim() ?? null,
+        first: !!hint && items.firstElementChild === hint,
+        shown: (hint?.getBoundingClientRect().height ?? 0) > 0,
+        ink: hint ? getComputedStyle(hint).color : null,
+        mutedColour: reorder ? getComputedStyle(reorder).color : null,
+        italic: hint ? getComputedStyle(hint).fontStyle : null,
+      };
+    }
     await sheet.close();
 
     {
@@ -534,7 +609,9 @@ try {
       // Leg 14's other half: a hireling's traits open by default too, and its
       // pronouns stay on its own sheet (the move is the character sheet's).
       traitSelects: ne.querySelectorAll('select[name^="system.traits."]').length,
-      pronouns: !!ne.querySelector('.character-traits input[name="system.pronouns"]') };
+      pronouns: !!ne.querySelector('.character-traits input[name="system.pronouns"]'),
+      // Leg 16: the Inventory hint is on every sheet with an inventory.
+      hint: ne.querySelector(".cairn-expand-hint")?.textContent.trim() ?? null };
     await npc.sheet.close();
     return out;
   }, FIXTURE);
@@ -758,6 +835,28 @@ else {
   sl.short === sl.shortWant && !sl.clips && (sl.text === sl.long || sl.text === sl.shortWant)
     ? ok(`the slot line reads "${sl.text}" and does not clip`)
     : fail(`slot line: ${JSON.stringify(sl)}`);
+
+  // 16
+  const R5 = r.r5 ?? {};
+  const a5 = R5.abilities ?? {}, h5 = R5.hp ?? {}, f5 = R5.fill ?? {}, i5 = R5.hint ?? {};
+  a5.current === R5.wantCurrent && a5.max === R5.wantMax && a5.beforeAbilities && a5.overCircle && a5.overMax
+    ? ok(`one header row over STR reads "${a5.current}" over the circle and "${a5.max}" over the max box`)
+    : fail(`ability header: ${JSON.stringify(a5)}`);
+  h5.current === R5.wantCurrent && h5.max === R5.wantMax && h5.beforeBox && h5.overCurrent && h5.overMax
+    ? ok("HP's two numbers carry the same Current and Max words, each over its own box")
+    : fail(`HP header: ${JSON.stringify(h5)}`);
+  Math.abs((f5.low?.share ?? -99) - 67) <= 2 && Math.abs((f5.full?.share ?? -99) - 100) <= 2 && f5.zero?.share === 0
+    ? ok(`HP's box fills in proportion: 4 / 6 is ${f5.low.share}%, full ${f5.full.share}%, 0 empty`)
+    : fail(`HP fill shares: ${JSON.stringify(f5)}`);
+  f5.low?.colour && f5.full?.colour && f5.low.colour !== f5.full.colour && f5.zero?.frame && f5.zero.frame !== f5.full.frame
+    ? ok(`the fill wears one colour at full (${f5.full.colour}) and another below it (${f5.low.colour}); at 0 the frame turns (${f5.zero.frame})`)
+    : fail(`HP fill colours: ${JSON.stringify(f5)}`);
+  i5.text === R5.wantHint && i5.first && i5.shown && i5.ink && i5.ink !== i5.mutedColour && i5.italic === "normal"
+    ? ok(`Inventory opens on "${i5.text}", first and in full ink`)
+    : fail(`Inventory hint: ${JSON.stringify(i5)} (want ${JSON.stringify(R5.wantHint)})`);
+  r.npc.hint === R5.wantHint
+    ? ok("the npc sheet's inventory carries the same hint")
+    : fail(`npc inventory hint: ${JSON.stringify(r.npc.hint)}`);
 
   // 8
   !r.npc.rail && r.npc.strip && !r.npc.railed && r.npc.width === 600
