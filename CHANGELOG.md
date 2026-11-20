@@ -9,6 +9,20 @@ anything is written. The procedure is in [RELEASE.md](RELEASE.md).
 Releases before 0.1.23 have their notes on the
 [releases page](https://github.com/domfortunato/air-bladder/releases) only.
 
+## 0.1.27
+
+**Requires Foundry VTT 14.368 or higher.**
+
+- A new player character sheet, laid out after Base Knavery's: its pages on a rail at the side, and the Cairn credit under every page
+- An **Attack** button opens one window for every attack: the target, the weapon or an Improvised Attack, and Standard, Impaired or Enhanced
+- HP and each ability have + and − buttons, and HP shows a bar of what is left
+- **Hold shield**: a switch beside Armor holds or slings a shield
+- An item can be marked **Broken**: it keeps its slot but gives no armor, damage, uses or spells while it is broken
+- Traits are picked or rolled in their own window, opened from the trait sentence in Character Creation Mode; the title-bar toggle now reads **CharGen**
+- A **welcome window** greets the Warden: what the system is, where to get Cairn, the guide and the credits. A box in it turns it off
+- A Warden can switch bonds off: **Use bonds** under Character Generation
+- Re-rolling a Barebones character's background or starting gear deals its equipment again
+
 ## 0.1.26
 
 **Requires Foundry VTT 14.368 or higher.**
