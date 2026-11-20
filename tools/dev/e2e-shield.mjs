@@ -35,6 +35,24 @@
  *      the row and the shop say Bulky (2 slots), the body armor beside it is
  *      untouched, the item sheet's Bulky box is ticked, greyed and says why,
  *      and a sheet submit stores nothing (the stored `bulky` stays false).
+ *   6. Hold light (user ask 2026-11-20): a light source (a plain item named as
+ *      one, not its fuel) shows the hand; a "Hold light" switch stands
+ *      directly under "Hold shield"; a press holds the FIRST light in
+ *      inventory order, a second stows every held one. Both switches are
+ *      ALWAYS drawn: with none of their kind they are disabled, off, and say
+ *      why (this REWRITES leg 3's "no switch without a shield"); a live switch
+ *      carries no tooltip. With the Torch module active (game.Torch and the
+ *      module entry STUBBED in-page, recording calls — never a real install)
+ *      and a token on the viewed scene, a hold selects that light and lights
+ *      it, a stow puts it out, and the row's hand takes the very same path;
+ *      no token, Torch inactive, or Torch throwing: no call (or the throw is
+ *      swallowed), the hold stands, no console error.
+ *   7. Weapon data (user ask 2026-11-20): the compendium Gnarled Staff is not
+ *      Bulky and the compendium Sling rolls d6; the one-off migration, run
+ *      IN-PAGE with its marker shadowed (never a real marker write), unbulks a
+ *      planted "Gnarled Staff" and a renamed copy of the pack's (by its
+ *      compendium source), two slots lighter, and leaves a bulky halberd and a
+ *      non-weapon "Gnarled Staff" alone.
  *
  * The re-armed migration walks the whole world, so every armor item's stored
  * `system.shield` is snapshotted first and put back afterwards, with the
@@ -128,7 +146,8 @@ try {
     };
     const L = (k) => game.i18n.localize(k);
     const flags = { "air-bladder": { probeFixture: fixture } };
-    const out = { wantShield: L("CAIRN.Shield"), wantHold: L("CAIRN.HoldShield") };
+    const out = { wantShield: L("CAIRN.Shield"), wantHold: L("CAIRN.HoldShield"),
+      wantShieldNone: L("CAIRN.HoldShieldNone"), wantLightNone: L("CAIRN.HoldLightNone") };
 
     // 1. The armor sheet's Shield box.
     const loose = await getDocumentClass("Item").create({ name: "ZZ Shield Sheet", type: "armor", system: { armor: 1 }, flags });
@@ -175,9 +194,14 @@ try {
       const sw = page?.querySelector(".shield-hold");
       const armorBox = page?.querySelector(".cairn-shield");
       const a = sw?.getBoundingClientRect(), b = armorBox?.getBoundingClientRect();
+      const lw = page?.querySelector(".light-hold");
       return {
         present: !!sw,
         text: sw?.textContent.trim() ?? null,
+        disabled: sw?.disabled ?? null,
+        tip: sw?.dataset.tooltip ?? null,
+        light: { present: !!lw, disabled: lw?.disabled ?? null, checked: lw?.getAttribute("aria-checked") ?? null,
+          off: !!lw?.querySelector(".fa-toggle-off"), tip: lw?.dataset.tooltip ?? null },
         checked: sw?.getAttribute("aria-checked") ?? null,
         on: !!sw?.querySelector(".fa-toggle-on"),
         off: !!sw?.querySelector(".fa-toggle-off"),
@@ -326,6 +350,234 @@ try {
     return out;
   }, { fixture: FIXTURE });
 
+  /* ---- 6: Hold light, and lighting through Torch ------------------------- */
+  // game.Torch, the module entry and the actor's active tokens are STUBBED in
+  // the page and put back in the finally: never a real install, no scene.
+  r.light = await gm.evaluate(async ({ fixture }) => {
+    const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
+    const until = async (fn, ms = 5000) => {
+      const t = Date.now();
+      while (!fn() && Date.now() - t < ms) await sleep(100);
+      return fn();
+    };
+    const L = (k) => game.i18n.localize(k);
+    const flags = { "air-bladder": { probeFixture: fixture } };
+    const out = { wantLight: L("CAIRN.HoldLight") };
+    const realTorch = game.Torch;
+    const hadOwnGet = Object.prototype.hasOwnProperty.call(game.modules, "get");
+    const realGet = game.modules.get;
+    let pc = null;
+    try {
+      pc = await getDocumentClass("Actor").create({
+        name: "ZZ Shield Lights", type: "character", flags,
+        items: [
+          { name: "Torch", type: "item", sort: 100, system: { uses: { value: 3, max: 3 } } },
+          { name: "Lantern", type: "item", sort: 200 },
+          { name: "Oil Can", type: "item", sort: 300 },
+          { name: "ZZ Rope", type: "item", sort: 400 },
+        ],
+      }, { abNoStatusCard: true });
+      const it = (n) => pc.items.find((i) => i.name === n);
+      const sheet = pc.sheet;
+      await sheet.render(true);
+      await until(() => sheet.element?.querySelector?.(".cairn-shield"));
+      await sleep(400);
+      const page = () => sheet.element.querySelector('.tab[data-tab="character"]');
+      const sw = () => page()?.querySelector(".light-hold");
+      const hand = (n) => !!sheet.element.querySelector(`.cairn-items-list-row[data-item-id="${it(n)?.id}"] [data-action="itemToggleEquipped"]`);
+      out.hands = { torch: hand("Torch"), lantern: hand("Lantern"), oil: hand("Oil Can"), rope: hand("ZZ Rope") };
+      {
+        const a = page()?.querySelector(".shield-hold")?.getBoundingClientRect();
+        const b = sw()?.getBoundingClientRect();
+        out.place = {
+          text: sw()?.textContent.trim() ?? null,
+          disabled: sw()?.disabled ?? null,
+          tip: sw()?.dataset.tooltip ?? null,
+          under: !!a && !!b && b.top >= a.bottom - 0.5,
+          column: !!a && !!b && Math.abs((a.left + a.right) / 2 - (b.left + b.right) / 2) <= 4,
+        };
+      }
+      const press = async (test) => {
+        sw()?.click();
+        await until(test, 3000);
+        await sleep(400);
+      };
+      await press(() => it("Torch")?.system.equipped === true);
+      out.held = { torch: it("Torch").system.equipped, lantern: it("Lantern").system.equipped, checked: sw()?.getAttribute("aria-checked") ?? null };
+      await it("Lantern").update({ "system.equipped": true });
+      await sleep(300);
+      await press(() => !it("Torch")?.system.equipped && !it("Lantern")?.system.equipped);
+      out.stowed = { torch: it("Torch").system.equipped, lantern: it("Lantern").system.equipped, checked: sw()?.getAttribute("aria-checked") ?? null };
+
+      // Torch, stubbed.
+      let calls = [];
+      let state = "off";
+      let throwing = false;
+      const rec = (name) => async (...args) => {
+        calls.push([name, ...args]);
+        if (throwing) throw new Error("ZZ torch refuses");
+        if (name === "currentState") return state;
+        if (name === "toggle") { state = state === "on" ? "off" : "on"; return state; }
+        if (name === "extinguish") { state = "off"; return state; }
+        return undefined;
+      };
+      game.Torch = { selectSource: rec("selectSource"), toggle: rec("toggle"), currentState: rec("currentState"), extinguish: rec("extinguish") };
+      let torchActive = true;
+      game.modules.get = function (id, ...rest) {
+        if (id === "torch") return { id: "torch", active: torchActive };
+        return realGet.call(this, id, ...rest);
+      };
+      let tokens = [{ id: "zzTok", parent: { id: "zzScene" } }];
+      pc.getActiveTokens = () => tokens;
+      const settle = async () => { await sleep(600); };
+      const viaSwitch = async () => {
+        calls = [];
+        state = "off";
+        await press(() => it("Torch")?.system.equipped === true);
+        await settle();
+        const on = calls.slice();
+        calls = [];
+        await press(() => !it("Torch")?.system.equipped);
+        await settle();
+        return { on, off: calls.slice() };
+      };
+      const viaHand = async () => {
+        calls = [];
+        state = "off";
+        sheet.element.querySelector(`.cairn-items-list-row[data-item-id="${it("Torch").id}"] [data-action="itemToggleEquipped"]`)?.click();
+        await until(() => it("Torch")?.system.equipped === true, 3000);
+        await settle();
+        const on = calls.slice();
+        calls = [];
+        sheet.element.querySelector(`.cairn-items-list-row[data-item-id="${it("Torch").id}"] [data-action="itemToggleEquipped"]`)?.click();
+        await until(() => !it("Torch")?.system.equipped, 3000);
+        await settle();
+        return { on, off: calls.slice() };
+      };
+      out.torch = { switch: await viaSwitch(), hand: await viaHand() };
+      // Already lit: selected, not toggled off again.
+      calls = [];
+      state = "on";
+      await press(() => it("Torch")?.system.equipped === true);
+      await settle();
+      out.torch.lit = calls.slice();
+      await press(() => !it("Torch")?.system.equipped);
+      await settle();
+      // No token on the viewed scene.
+      tokens = [];
+      calls = [];
+      await press(() => it("Torch")?.system.equipped === true);
+      await settle();
+      out.torch.noToken = { calls: calls.length, held: it("Torch").system.equipped };
+      await press(() => !it("Torch")?.system.equipped);
+      await settle();
+      tokens = [{ id: "zzTok", parent: { id: "zzScene" } }];
+      // Torch inactive.
+      torchActive = false;
+      calls = [];
+      await press(() => it("Torch")?.system.equipped === true);
+      await settle();
+      out.torch.inactive = { calls: calls.length, held: it("Torch").system.equipped };
+      await press(() => !it("Torch")?.system.equipped);
+      await settle();
+      torchActive = true;
+      // Torch throwing: the hold stands.
+      throwing = true;
+      calls = [];
+      await press(() => it("Torch")?.system.equipped === true);
+      await settle();
+      out.torch.throwing = { calls: calls.length, held: it("Torch").system.equipped };
+      throwing = false;
+      await sheet.close();
+    } finally {
+      game.Torch = realTorch;
+      if (hadOwnGet) game.modules.get = realGet; else delete game.modules.get;
+      if (pc) { await pc.sheet?.close(); await pc.delete(); }
+    }
+    return out;
+  }, { fixture: FIXTURE });
+
+  /* ---- 7: weapon data and the Gnarled Staff migration -------------------- */
+  // The migration runs IN-PAGE with its marker read shadowed false and its
+  // write swallowed: never a real marker write. It walks the whole world, so
+  // every OTHER weapon whose bulky it changes is snapshotted and put back.
+  r.gnarled = await gm.evaluate(async ({ fixture }) => {
+    const flags = { "air-bladder": { probeFixture: fixture } };
+    const GNARLED = "Compendium.air-bladder.background-items.Item.TSn8DasTWv7D9gWy";
+    const SLING = "Compendium.air-bladder.weapons.Item.OCOPpIkkvUL5fZKQ";
+    const out = {
+      packStaff: (await fromUuid(GNARLED))?.system?.bulky ?? null,
+      packSling: (await fromUuid(SLING))?.system?.damageFormula ?? null,
+    };
+    let mod = null;
+    try {
+      mod = await import("/systems/air-bladder/module/cairn.js");
+    } catch (e) {
+      out.importError = e.message;
+    }
+    if (typeof mod?.migrateGnarledStaff !== "function") {
+      out.missing = true;
+      return out;
+    }
+    const ns = game.system.id;
+    const KEY = "gnarled-staff-unbulked";
+    const origGet = game.settings.get;
+    const origSet = game.settings.set;
+    const sets = [];
+    // Everything that is NOT this leg's: its bulky, read now, written back after.
+    const others = [];
+    for (const i of game.items) if (i.type === "weapon") others.push({ parent: null, id: i.id, bulky: i._source.system.bulky });
+    for (const a of game.actors) for (const i of a.items) if (i.type === "weapon") others.push({ parent: a.id, id: i.id, bulky: i._source.system.bulky });
+    let pc = null, loose = null;
+    try {
+      pc = await getDocumentClass("Actor").create({
+        name: "ZZ Shield Staffs", type: "character", flags,
+        items: [
+          { name: "Gnarled Staff", type: "weapon", system: { damageFormula: "d8", bulky: true } },
+          { name: "ZZ Old Staff", type: "weapon", system: { damageFormula: "d8", bulky: true }, _stats: { compendiumSource: GNARLED } },
+          { name: "ZZ Halberd", type: "weapon", system: { damageFormula: "d10", bulky: true } },
+          { name: "Gnarled Staff", type: "item", system: { bulky: true } },
+        ],
+      }, { abNoStatusCard: true });
+      loose = await getDocumentClass("Item").create({ name: "Gnarled Staff", type: "weapon", system: { damageFormula: "d8", bulky: true }, flags });
+      const slotsBefore = pc.system.slotsUsed;
+      game.settings.get = function (scope, key, ...rest) {
+        if (rest[0]?.document) return foundry.helpers.ClientSettings.prototype.get.call(this, scope, key, ...rest);
+        if (scope === ns && key === KEY) return false;
+        return origGet.call(this, scope, key, ...rest);
+      };
+      game.settings.set = async function (scope, key, value, ...rest) {
+        if (scope === ns && key === KEY) { sets.push(value); return value; }
+        return origSet.call(this, scope, key, value, ...rest);
+      };
+      try {
+        await mod.migrateGnarledStaff();
+      } finally {
+        game.settings.get = origGet;
+        game.settings.set = origSet;
+      }
+      pc.reset();
+      const w = (n, type = "weapon") => pc.items.find((i) => i.name === n && i.type === type)?._source.system.bulky ?? null;
+      out.after = {
+        staff: w("Gnarled Staff"), renamed: w("ZZ Old Staff"), halberd: w("ZZ Halberd"), notWeapon: w("Gnarled Staff", "item"),
+        loose: game.items.get(loose.id)?._source.system.bulky ?? null,
+        slots: [slotsBefore, pc.system.slotsUsed],
+      };
+      out.sets = sets;
+      out.markerReal = game.settings.get(ns, KEY);
+    } finally {
+      game.settings.get = origGet;
+      game.settings.set = origSet;
+      for (const o of others) {
+        const doc = o.parent ? game.actors.get(o.parent)?.items.get(o.id) : game.items.get(o.id);
+        if (doc && doc._source.system.bulky !== o.bulky) await doc.update({ "system.bulky": o.bulky }, { abNoStatusCard: true });
+      }
+      if (pc) await pc.delete();
+      if (loose) await loose.delete();
+    }
+    return out;
+  }, { fixture: FIXTURE });
+
   /* ---- 4: the migration, through the real ready path -------------------- */
   const seeded = await gm.evaluate(async ({ fixture, SHIPPED }) => {
     const flags = { "air-bladder": { probeFixture: fixture } };
@@ -396,10 +648,16 @@ const sh = u.shipped ?? {};
 sh.shield === true && sh.hacked === true && sh.buckler === true && sh.helmet === false
   ? ok("the shipped Shield, Hacked Shield and Steadymade Buckler are shields; the Helmet is not")
   : fail(`shipped shields: ${JSON.stringify(sh)}`);
-!u.none?.present && !u.helmetOnly?.present
-  ? ok("no switch on a character with no shield, or with only a helmet")
-  : fail(`switch without a shield: ${JSON.stringify({ none: u.none, helmetOnly: u.helmetOnly })}`);
+// Leg 3, rewritten by leg 6: both switches are always drawn.
+const greyed = (x, tip) => !!x && x.present && x.disabled === true && x.checked === "false" && x.off && x.tip === tip;
+greyed(u.none, u.wantShieldNone) && greyed(u.helmetOnly, u.wantShieldNone)
+  && greyed(u.none?.light, u.wantLightNone) && greyed(u.helmetOnly?.light, u.wantLightNone)
+  ? ok(`with no shield (or only a helmet) and no light, both switches are drawn disabled and off, saying "${u.wantShieldNone}" / "${u.wantLightNone}"`)
+  : fail(`switches without a shield or a light: ${JSON.stringify({ none: u.none, helmetOnly: u.helmetOnly, want: [u.wantShieldNone, u.wantLightNone] })}`);
 const sl = u.slung ?? {};
+sl.disabled === false && sl.tip === null
+  ? ok("a live Hold shield switch carries no tooltip")
+  : fail(`live shield switch: disabled ${sl.disabled}, tooltip ${JSON.stringify(sl.tip)}`);
 sl.present && sl.text === u.wantHold && sl.left && sl.beside && sl.checked === "false" && sl.off && !sl.on && sl.armor === "1"
   ? ok(`with a slung shield, "${sl.text}" stands left of the Armor box, off, Armor ${sl.armor}`)
   : fail(`slung: ${JSON.stringify(sl)} (want ${JSON.stringify(u.wantHold)})`);
@@ -445,6 +703,52 @@ bOn.box?.checked && bOn.box?.disabled && bOn.box?.tip === bk.wantTip
 bOn.afterSubmit?.armor === 2 && bOn.afterSubmit?.bulky === false
   ? ok("a sheet submit under the hack never stores Bulky")
   : fail(`stored after a submit: ${JSON.stringify(bOn.afterSubmit)}`);
+// 6
+const lt = r.light ?? {};
+const hs = lt.hands ?? {};
+hs.torch && hs.lantern && !hs.oil && !hs.rope
+  ? ok("a Torch and a Lantern show the hand; the Oil Can (fuel) and a rope do not")
+  : fail(`light hands: ${JSON.stringify(hs)}`);
+const lp = lt.place ?? {};
+lp.text === lt.wantLight && lp.disabled === false && lp.tip === null && lp.under && lp.column
+  ? ok(`"${lp.text}" stands directly under Hold shield, live, with no tooltip`)
+  : fail(`Hold light switch: ${JSON.stringify(lp)} (want ${JSON.stringify(lt.wantLight)})`);
+lt.held?.torch === true && lt.held?.lantern === false && lt.held?.checked === "true"
+  && lt.stowed?.torch === false && lt.stowed?.lantern === false && lt.stowed?.checked === "false"
+  ? ok("a press holds the first light in inventory order; with two held, a press stows both")
+  : fail(`Hold light presses: ${JSON.stringify({ held: lt.held, stowed: lt.stowed })}`);
+const tc = lt.torch ?? {};
+const lightCalls = [["selectSource", "zzScene", "zzTok", "Torch"], ["currentState", "zzScene", "zzTok"], ["toggle", "zzScene", "zzTok"]];
+const outCalls = [["extinguish", "zzScene", "zzTok"]];
+const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+same(tc.switch?.on, lightCalls) && same(tc.switch?.off, outCalls)
+  ? ok("with Torch active and a token, Hold light selects the Torch and lights it; a stow puts it out")
+  : fail(`Torch via the switch: ${JSON.stringify(tc.switch)}`);
+same(tc.hand, tc.switch)
+  ? ok("the row's hand takes the very same path")
+  : fail(`Torch via the hand: ${JSON.stringify(tc.hand)} (switch ${JSON.stringify(tc.switch)})`);
+same(tc.lit, lightCalls.slice(0, 2))
+  ? ok("a light Torch already has lit is selected, not toggled out")
+  : fail(`already lit: ${JSON.stringify(tc.lit)}`);
+tc.noToken?.calls === 0 && tc.noToken?.held && tc.inactive?.calls === 0 && tc.inactive?.held
+  ? ok("no token on the viewed scene, or Torch inactive: no call, and the hold stands")
+  : fail(`no token / inactive: ${JSON.stringify({ noToken: tc.noToken, inactive: tc.inactive })}`);
+tc.throwing?.calls >= 1 && tc.throwing?.held
+  ? ok("Torch throwing: the hold stands (the console-error check below covers the rest)")
+  : fail(`Torch throwing: ${JSON.stringify(tc.throwing)}`);
+// 7
+const gn = r.gnarled ?? {};
+gn.packStaff === false && gn.packSling === "1d6"
+  ? ok("the compendium Gnarled Staff is not Bulky, and the compendium Sling rolls 1d6")
+  : fail(`pack weapons: staff bulky ${gn.packStaff}, sling ${gn.packSling}`);
+const ga = gn.after ?? {};
+!gn.missing && ga.staff === false && ga.renamed === false && ga.loose === false && ga.halberd === true && ga.notWeapon === true
+  && ga.slots?.[1] === ga.slots?.[0] - 2
+  ? ok(`the migration unbulks a Gnarled Staff, a renamed copy and a world one (slots ${ga.slots?.[0]} -> ${ga.slots?.[1]}); a halberd and a non-weapon stay Bulky`)
+  : fail(`Gnarled Staff migration: ${JSON.stringify(gn)}`);
+!gn.missing && JSON.stringify(gn.sets) === "[true]" && gn.markerReal !== undefined
+  ? ok("...and it sets its marker once (shadowed: never a real write)")
+  : fail(`Gnarled Staff marker: ${JSON.stringify({ sets: gn.sets, real: gn.markerReal, missing: gn.missing, importError: gn.importError })}`);
 errors.length === 0 ? ok("no console errors") : fail(`console errors: ${errors.join(" | ")}`);
 
 await browser.close();

@@ -34,6 +34,22 @@
  *      so neither the first nor the remembered one), and the Improvised
  *      Attack row's roller opens it on Improvised; Cancel posts nothing. An
  *      npc's row roller keeps the quick quality dialog.
+ *  11. (2026-11-20, user ask) the "Hands full" hack: a character holding a
+ *      shield and a light is offered only those (when they roll damage) and
+ *      Improvised, with the note; any other weapon's roller is drawn disabled
+ *      with the same sentence, and a forced click on it opens and posts
+ *      nothing; a freed hand brings everything back; the hack off changes
+ *      nothing.
+ *  12. (2026-11-20, user ask) the "Shields are d4 weapons" hack: a held shield
+ *      is offered (and its row rolls) as 1d4; "Add the shield (d4)" shows
+ *      under the list for a one-handed weapon, greyed with its reason for a
+ *      Bulky weapon and for a bow, hidden for the shield and Improvised;
+ *      ticked, Standard names both dice and rolls a keep-highest pool (RNG
+ *      pinned for that roll: the d4 kept); Impaired ignores it; the hack off
+ *      shows no shield entry, box or roller.
+ *
+ * Both hacks, and the two combat options, are shadowed IN-PAGE for legs 11-12
+ * (never written).
  *
  * use-panic is shadowed IN-PAGE for leg 7 only (never written), and both it and
  * the panicked flag are put back in its finally. Red-first: before the window the burst
@@ -330,6 +346,211 @@ try {
       await npc.sheet.close();
     }
 
+    /* ---- 11-12. the two shield hacks, settings shadowed in-page --------- */
+    {
+      const hack = { "hands-full": false, "shield-weapon": false, "exploding-damage-dice": false, "maneuver-on-max-damage": false };
+      const origGet = game.settings.get;
+      game.settings.get = function (ns, key, ...rest) {
+        if (rest[0]?.document) return foundry.helpers.ClientSettings.prototype.get.call(this, ns, key, ...rest);
+        if (ns === "air-bladder" && key in hack) return hack[key];
+        return origGet.call(this, ns, key, ...rest);
+      };
+      const L = (k) => game.i18n.localize(k);
+      const fresh = async (a) => {
+        const s = a.sheet;
+        const was = s.element?.querySelector?.(".tab[data-tab='items']");
+        await s.render(true);
+        await until(() => { const n = s.element?.querySelector?.(".tab[data-tab='items']"); return !!n && n !== was; });
+        await sleep(300);
+        return s;
+      };
+      const openOn = async (s) => {
+        const stale = new Set(document.querySelectorAll(".cairn-attack-dialog"));
+        s.element.querySelector('.cairn-vital-buttons [data-action="attack"]')?.click();
+        let d = null;
+        await until(() => (d = [...document.querySelectorAll(".cairn-attack-dialog")].find((x) => !stale.has(x))));
+        await sleep(200);
+        return d;
+      };
+      const closeD = async (d) => {
+        if (!d) return;
+        d.querySelector('footer button[data-action="cancel"]')?.click();
+        await until(() => !d.isConnected, 3000);
+        await sleep(200);
+      };
+      const listed = (d) => [...(d?.querySelectorAll('input[name="weapon"]') ?? [])].map((i) => i.value).sort();
+      const choose = async (d, id) => {
+        const radio = d?.querySelector(`input[name="weapon"][value="${id}"]`);
+        if (radio) { radio.checked = true; radio.dispatchEvent(new Event("change", { bubbles: true })); }
+        await sleep(150);
+      };
+      const box = (d) => d?.querySelector('input[name="addShield"]');
+      const boxState = (d) => {
+        const b = box(d);
+        const wrap = b?.closest(".cairn-attack-addshield");
+        return {
+          present: !!b,
+          shown: !!wrap && !wrap.hidden && wrap.getBoundingClientRect().height > 0,
+          disabled: b?.disabled ?? null,
+          tip: wrap?.dataset.tooltip ?? null,
+          label: wrap?.textContent.trim() ?? null,
+        };
+      };
+      try {
+        /* 11. Hands full */
+        const hpc = await Actor.create({
+          name: "ZZ Attack Hands", type: "character", flags,
+          items: [
+            { name: "ZZ Buckler", type: "armor", system: { armor: 1, shield: true, equipped: true } },
+            { name: "Torch", type: "item", system: { equipped: true, damageFormula: "1d4" } },
+            { name: "ZZ Sword", type: "weapon", system: { equipped: true, damageFormula: "1d8" } },
+          ],
+        }, { abNoStatusCard: true });
+        const hi = (n) => hpc.items.find((i) => i.name === n);
+        const H = out.hands = { want: L("CAIRN.HandsFullNote"), ids: { torch: hi("Torch").id, sword: hi("ZZ Sword").id, buckler: hi("ZZ Buckler").id } };
+        hack["hands-full"] = true;
+        let hs = await fresh(hpc);
+        let d = await openOn(hs);
+        const note = (x) => { const n = x?.querySelector(".cairn-attack-hands"); return n && !n.hidden ? n.textContent.trim() : null; };
+        H.full = { listed: listed(d), note: note(d) };
+        await closeD(d);
+        await hs.changeTab("items", "primary");
+        await sleep(300);
+        const swordRoller = () => hs.element.querySelector(`.cairn-items-list-row[data-item-id="${H.ids.sword}"] .roll-control`);
+        {
+          const c = swordRoller();
+          H.roller = { present: !!c, action: c?.dataset.action ?? null, disabled: c?.getAttribute("aria-disabled") ?? null, tip: c?.dataset.tooltip ?? null };
+          // A forced click: the roller given back its action and a die, as a
+          // stale sheet would carry it. Nothing may open or post.
+          if (c) {
+            c.dataset.action = "rollDamage";
+            c.dataset.roll = "1d8";
+            c.dataset.label = "ZZ Sword";
+            const stale = new Set(foundry.applications.instances.values());
+            const before = new Set(game.messages.map((m) => m.id));
+            c.click();
+            await sleep(1200);
+            const opened = [...foundry.applications.instances.values()].filter((a) => !stale.has(a) && a.element?.isConnected && a.element.querySelector("footer button"));
+            H.forced = { opened: opened.length, posted: game.messages.contents.filter((m) => !before.has(m.id) && m.speaker?.actor === hpc.id).length };
+            for (const a of opened) await a.close();
+          }
+        }
+        // A hand freed: everything back.
+        await hi("Torch").update({ "system.equipped": false });
+        hs = await fresh(hpc);
+        await hs.changeTab("character", "primary");
+        d = await openOn(hs);
+        H.freed = { listed: listed(d), note: note(d) };
+        await closeD(d);
+        await hs.changeTab("items", "primary");
+        await sleep(300);
+        H.freedRoller = swordRoller()?.dataset.action ?? null;
+        // The hack off, both held: unchanged.
+        await hi("Torch").update({ "system.equipped": true });
+        hack["hands-full"] = false;
+        hs = await fresh(hpc);
+        await hs.changeTab("character", "primary");
+        d = await openOn(hs);
+        H.off = { listed: listed(d), note: note(d) };
+        await closeD(d);
+        await hs.changeTab("items", "primary");
+        await sleep(300);
+        H.offRoller = swordRoller()?.dataset.action ?? null;
+        await hs.close();
+
+        /* 12. Shields are d4 weapons */
+        const spc = await Actor.create({
+          name: "ZZ Attack Shield", type: "character", flags,
+          items: [
+            { name: "ZZ Kite", type: "armor", sort: 100, system: { armor: 1, shield: true, equipped: true } },
+            { name: "ZZ Mace", type: "weapon", sort: 200, system: { equipped: true, damageFormula: "1d6", bulky: false } },
+            { name: "ZZ Halberd", type: "weapon", sort: 300, system: { equipped: true, damageFormula: "1d10", bulky: true } },
+            { name: "ZZ Bamboo Bow", type: "weapon", sort: 400, system: { equipped: true, damageFormula: "1d6", bulky: false } },
+          ],
+        }, { abNoStatusCard: true });
+        const si = (n) => spc.items.find((i) => i.name === n);
+        const ids = { kite: si("ZZ Kite").id, mace: si("ZZ Mace").id, halberd: si("ZZ Halberd").id, bow: si("ZZ Bamboo Bow").id };
+        const S = out.shieldWeapon = { ids, wantBox: L("CAIRN.AttackDialog.AddShield"), wantTip: L("CAIRN.AttackDialog.AddShieldTwoHanded") };
+        hack["shield-weapon"] = true;
+        let ss = await fresh(spc);
+        await ss.changeTab("items", "primary");
+        await sleep(300);
+        S.kiteRoller = ss.element.querySelector(`.cairn-items-list-row[data-item-id="${ids.kite}"] [data-action="rollDamage"]`)?.dataset.roll ?? null;
+        await ss.changeTab("character", "primary");
+        d = await openOn(ss);
+        const kiteRadio = d?.querySelector(`input[name="weapon"][value="${ids.kite}"]`);
+        S.list = { listed: listed(d), kiteFormula: kiteRadio?.dataset.formula ?? null,
+          kiteDie: kiteRadio?.closest("label")?.querySelector(".cairn-attack-die")?.textContent.trim() ?? null };
+        await choose(d, ids.mace);
+        S.mace = boxState(d);
+        await choose(d, ids.halberd);
+        S.halberd = boxState(d);
+        await choose(d, ids.bow);
+        S.bow = boxState(d);
+        await choose(d, ids.kite);
+        S.kite = boxState(d);
+        await choose(d, "improvised");
+        S.improvised = boxState(d);
+        // The mace with the shield added: Standard names both dice and rolls a
+        // keep-highest pool. RNG pinned for THIS roll: the d6 a 1, the d4 a 4.
+        await choose(d, ids.mace);
+        if (box(d)) { box(d).checked = true; box(d).dispatchEvent(new Event("change", { bubbles: true })); }
+        await sleep(150);
+        S.standardLabel = d?.querySelector('footer button[data-action="standard"]')?.textContent.trim() ?? null;
+        {
+          const origRU = CONFIG.Dice.randomUniform;
+          const seq = [0.95, 0.0001];
+          let k = 0;
+          CONFIG.Dice.randomUniform = () => seq[Math.min(k++, seq.length - 1)];
+          try {
+            const before = new Set(game.messages.map((m) => m.id));
+            d?.querySelector('footer button[data-action="standard"]')?.click();
+            let m = null;
+            await until(() => (m = game.messages.contents.find((x) => !before.has(x.id) && x.speaker?.actor === spc.id)));
+            if (m) await m.setFlag("air-bladder", "probeFixture", fixture);
+            const roll = m?.rolls?.[0];
+            const t = roll?.terms?.[0];
+            S.pool = { formula: roll?.formula ?? null, total: roll?.total ?? null, term: t?.constructor?.name ?? null,
+              results: (t?.results ?? []).map((x) => ({ r: x.result, active: x.active })) };
+          } finally {
+            CONFIG.Dice.randomUniform = origRU;
+          }
+        }
+        // Impaired with the box ticked: the box changes nothing.
+        d = await openOn(ss);
+        await choose(d, ids.mace);
+        if (box(d)) { box(d).checked = true; box(d).dispatchEvent(new Event("change", { bubbles: true })); }
+        await sleep(150);
+        {
+          const before = new Set(game.messages.map((m) => m.id));
+          d?.querySelector('footer button[data-action="impaired"]')?.click();
+          let m = null;
+          await until(() => (m = game.messages.contents.find((x) => !before.has(x.id) && x.speaker?.actor === spc.id)));
+          if (m) await m.setFlag("air-bladder", "probeFixture", fixture);
+          S.impaired = { formula: m?.rolls?.[0]?.formula ?? null, dice: m?.rolls?.[0]?.dice?.length ?? null, faces: m?.rolls?.[0]?.dice?.[0]?.faces ?? null };
+        }
+        // The hack off: no shield entry, no box, no shield roller.
+        hack["shield-weapon"] = false;
+        ss = await fresh(spc);
+        await ss.changeTab("character", "primary");
+        d = await openOn(ss);
+        await choose(d, ids.mace);
+        S.off = { listed: listed(d), box: !!box(d) };
+        await closeD(d);
+        await ss.changeTab("items", "primary");
+        await sleep(300);
+        S.off.kiteRoller = !!ss.element.querySelector(`.cairn-items-list-row[data-item-id="${ids.kite}"] [data-action="rollDamage"]`);
+        await ss.close();
+      } catch (e) {
+        out.hacksError = e.stack ?? e.message;
+      } finally {
+        game.settings.get = origGet;
+        for (const dd of foundry.applications.instances.values()) {
+          if (dd.element?.classList?.contains("cairn-attack-dialog")) await dd.close();
+        }
+      }
+    }
+
     /* ---- 8 (set up): the improvised attack, ready for a real Enter ------ */
     dlg = await openWindow();
     if (dlg) {
@@ -431,6 +652,54 @@ else {
   nr.opened && nr.quality && !nr.attack
     ? ok("an npc's row roller keeps its quick damage roll (the quality dialog, not the Attack window)")
     : fail(`npc row roller: ${JSON.stringify(nr)}`);
+  // 11
+  if (r.hacksError) fail(`the shield-hack legs threw: ${r.hacksError}`);
+  const H = r.hands ?? {}, hid = H.ids ?? {};
+  const sorted = (a) => JSON.stringify([...a].sort());
+  sorted(H.full?.listed ?? []) === sorted([hid.torch, "improvised"]) && H.full?.note === H.want
+    ? ok(`Hands full, shield and light held: only the light (it rolls damage) and Improvised are offered, with "${H.want}"`)
+    : fail(`hands full window: ${JSON.stringify(H.full)} (want ${JSON.stringify([hid.torch, "improvised"])}, note ${JSON.stringify(H.want)})`);
+  H.roller?.present && !H.roller.action && H.roller.disabled === "true" && H.roller.tip === H.want
+    ? ok("...another weapon's roller is drawn disabled, saying why")
+    : fail(`hands full roller: ${JSON.stringify(H.roller)}`);
+  H.forced?.opened === 0 && H.forced?.posted === 0
+    ? ok("...and a forced click on it opens nothing and posts nothing")
+    : fail(`hands full forced click: ${JSON.stringify(H.forced)}`);
+  sorted(H.freed?.listed ?? []) === sorted([hid.sword, "improvised"]) && H.freed?.note === null && H.freedRoller === "rollDamage"
+    ? ok("a hand freed (the light stowed): the sword is back, in the window and on its row, no note")
+    : fail(`hands freed: ${JSON.stringify({ freed: H.freed, roller: H.freedRoller })}`);
+  sorted(H.off?.listed ?? []) === sorted([hid.sword, hid.torch, "improvised"]) && H.off?.note === null && H.offRoller === "rollDamage"
+    ? ok("the hack off, both held: every weapon offered, no note, the roller live")
+    : fail(`hands full off: ${JSON.stringify({ off: H.off, roller: H.offRoller })}`);
+  // 12
+  const S = r.shieldWeapon ?? {}, sid = S.ids ?? {};
+  sorted(S.list?.listed ?? []) === sorted([sid.kite, sid.mace, sid.halberd, sid.bow, "improvised"])
+    && S.list?.kiteFormula === "1d4" && S.list?.kiteDie === "1d4" && S.kiteRoller === "1d4"
+    ? ok("Shields are d4 weapons: the held shield is offered as 1d4, and its row rolls 1d4")
+    : fail(`shield weapon list: ${JSON.stringify({ list: S.list, roller: S.kiteRoller })}`);
+  S.mace?.shown && S.mace.disabled === false && S.mace.label === S.wantBox
+    ? ok(`a one-handed weapon offers "${S.mace.label}", live`)
+    : fail(`add-shield box on the mace: ${JSON.stringify(S.mace)} (want ${JSON.stringify(S.wantBox)})`);
+  [S.halberd, S.bow].every((b) => b?.shown && b.disabled === true && b.tip === S.wantTip)
+    ? ok(`a Bulky weapon and a bow grey the box: "${S.wantTip}"`)
+    : fail(`add-shield box on two-handed weapons: ${JSON.stringify({ halberd: S.halberd, bow: S.bow })}`);
+  S.kite && !S.kite.shown && S.improvised && !S.improvised.shown
+    ? ok("the box hides while the shield itself or Improvised is chosen")
+    : fail(`add-shield box hidden: ${JSON.stringify({ kite: S.kite, improvised: S.improvised })}`);
+  /1d6/.test(S.standardLabel ?? "") && /1d4/.test(S.standardLabel ?? "")
+    ? ok(`with the box ticked Standard names both dice ("${S.standardLabel}")`)
+    : fail(`Standard label with the shield added: ${JSON.stringify(S.standardLabel)}`);
+  const pl = S.pool ?? {};
+  pl.term === "PoolTerm" && /kh/.test(pl.formula ?? "") && pl.total === 4
+    && JSON.stringify(pl.results) === JSON.stringify([{ r: 1, active: false }, { r: 4, active: true }])
+    ? ok(`...and rolls a keep-highest pool (${pl.formula}): the d6's 1 dropped, the d4's 4 kept`)
+    : fail(`shield pool roll: ${JSON.stringify(pl)}`);
+  S.impaired?.dice === 1 && S.impaired?.faces === 4 && !/\{/.test(S.impaired?.formula ?? "{")
+    ? ok("Impaired with the box ticked rolls the plain d4")
+    : fail(`impaired with the box: ${JSON.stringify(S.impaired)}`);
+  sorted(S.off?.listed ?? []) === sorted([sid.mace, sid.halberd, sid.bow, "improvised"]) && S.off?.box === false && S.off?.kiteRoller === false
+    ? ok("the hack off: no shield entry, no box, no shield roller")
+    : fail(`shield weapon off: ${JSON.stringify(S.off)}`);
   // 8
   const e = r.enterCard ?? {};
   e.faces === 8 && e.weapon === "a stool"

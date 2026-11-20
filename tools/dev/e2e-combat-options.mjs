@@ -1413,6 +1413,59 @@ try {
       await game.settings.set(NS, "exploding-damage-dice", true);
     }
 
+    /* ---- 13b. a MIXED pool: the shield added to a weapon (2026-11-20) ------ */
+    // "Shields are d4 weapons" adds the shield's d4 to a one-handed weapon as
+    // an explicit keep-highest pool, `{1d6,1d4}kh`. The user's ruling: each die
+    // explodes on its OWN maximum, capped per term, before the highest is
+    // kept; the maneuver line when the KEPT die's first roll was its maximum.
+    // Taught inside the one gate (`combatDamageFormula`), so this leg posts
+    // through the sheet's own `_postWeaponDamage` and reads the card. The pin
+    // is PER ROLL, a sequence consumed in pool order (d6 chain, then d4).
+    {
+      const MX = 0.0001, ONE = 0.95, MID = 0.5, FIVE = 0.2;   // max · 1 · d6 3 / d4 2 · d6 5
+      const pool = "{1d6,1d4}kh";
+      out.poolGate = {
+        both: utils.combatDamageFormula(pool, { pc: true }),
+      };
+      const postPool = async (seq) => {
+        const origRU = CONFIG.Dice.randomUniform;
+        let k = 0;
+        CONFIG.Dice.randomUniform = () => seq[Math.min(k++, seq.length - 1)];
+        const before = new Set(game.messages.contents.map((m) => m.id));
+        try {
+          await pc.sheet._postWeaponDamage({ formula: pool, weapon: "ZZ Mace", quality: "standard", panicked: false, targetIds: null });
+        } catch (e) {
+          return { err: e.message };
+        } finally {
+          CONFIG.Dice.randomUniform = origRU;
+        }
+        let msg = null;
+        for (let i = 0; i < 60 && !msg; i++) {
+          msg = game.messages.contents.find((m) => !before.has(m.id) && m.speaker?.actor === pc.id && m.rolls?.length);
+          if (!msg) await sleep(150);
+        }
+        if (!msg) return { err: "no message" };
+        out.made2.push(msg.id);
+        await sleep(400);
+        const row = document.querySelector(`[data-message-id="${msg.id}"]`);
+        const t = msg.rolls[0].terms[0];
+        return {
+          formula: msg.rolls[0].formula, total: msg.rolls[0].total,
+          kept: (t?.results ?? []).findIndex((x) => x.active),
+          line: row?.querySelector(".dmg-maneuver-line")?.textContent?.trim() ?? null,
+        };
+      };
+      // Both options on (as the block above leaves them).
+      out.poolD6Max = await postPool([MX, ONE, ONE]);          // d6 6!1 = 7 kept; d4 1
+      out.poolD4Max = await postPool([ONE, MX, ONE]);          // d6 1; d4 4!1 = 5 kept
+      out.poolNone = await postPool([MID, MID]);               // d6 3 kept; d4 2
+      // Exploding OFF: a LOSING maximum earns no line (d6 5 kept, d4 4 dropped).
+      await game.settings.set(NS, "exploding-damage-dice", false);
+      out.poolGate.plain = utils.combatDamageFormula(pool, { pc: true });
+      out.poolLosingMax = await postPool([FIVE, MX]);
+      await game.settings.set(NS, "exploding-damage-dice", true);
+    }
+
     /* ---- 14. the Improvised Attack row ------------------------------------- */
     // Driven through the REAL inventory row and the REAL dialog, because the
     // whole point of this control is that it has no item behind it: a probe that
@@ -2128,6 +2181,26 @@ try {
   lineOk(r.mvPlusNoExplode) && /^2d6k(h1)?$/i.test(r.mvPlusNoExplode.formula ?? "")
     ? ok(`...and a d6 + d6 is rolled as ${r.mvPlusNoExplode.formula}, ONE Die term the card can judge — as a PoolTerm the line could never be drawn`)
     : fail(`mvPlusNoExplode: ${JSON.stringify(r.mvPlusNoExplode)} — want 2d6k and the line`);
+
+  // ---- a mixed pool: the shield added (2026-11-20) --------------------------
+  const pg = r.poolGate ?? {};
+  pg.both?.formula === "{1d6x2=6,1d4x1=4}kh" && pg.both?.maneuver === true
+    && pg.plain?.formula === "{1d6,1d4}kh" && pg.plain?.maneuver === true
+    ? ok(`the gate explodes each die of a mixed pool on its own maximum, capped per term (${pg.both.formula}), and marks it for the line`)
+    : fail(`mixed pool gate: ${JSON.stringify(pg)} — want {1d6x2=6,1d4x1=4}kh / {1d6,1d4}kh, both marked`);
+  const lineText = r.maneuverLineText;
+  r.poolD6Max?.kept === 0 && r.poolD6Max?.total === 7 && r.poolD6Max?.line === lineText
+    ? ok("a d6 at its max: the d6 chain (7) is kept, and the line is drawn")
+    : fail(`poolD6Max: ${JSON.stringify(r.poolD6Max)}`);
+  r.poolD4Max?.kept === 1 && r.poolD4Max?.total === 5 && r.poolD4Max?.line === lineText
+    ? ok("a d4 at its max: the d4 chain (5) is kept, and the line is drawn")
+    : fail(`poolD4Max: ${JSON.stringify(r.poolD4Max)}`);
+  r.poolNone?.kept === 0 && r.poolNone?.total === 3 && r.poolNone?.line === null
+    ? ok("neither at its max: the higher kept, no line")
+    : fail(`poolNone: ${JSON.stringify(r.poolNone)}`);
+  r.poolLosingMax?.kept === 0 && r.poolLosingMax?.total === 5 && r.poolLosingMax?.line === null
+    ? ok("exploding off: a d4 at its max that LOSES to the d6 earns no line")
+    : fail(`poolLosingMax: ${JSON.stringify(r.poolLosingMax)}`);
 
   // ---- the Improvised Attack row -------------------------------------------
   const impOk = (r2) => r2 && !r2.err;

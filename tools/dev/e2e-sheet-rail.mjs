@@ -77,6 +77,14 @@
  *      the size of "Current"; with CharGen off the four max boxes are
  *      disabled with the locked tooltip and a submit writes none of them,
  *      and with CharGen on they are live.
+ *  20. (user asks 2026-11-20) the trait sentence stands under a "Traits"
+ *      label in page 1's Background label face, and over a thin rule with
+ *      space before the Current / Max / Saves header; a blank character's pen
+ *      stands alone under the label. Omen is laid out like a Bond: the die and
+ *      the list on the heading row right of its label, the text below it,
+ *      indented on the answers' left rule in both schemes, with no field box,
+ *      in the answers' face; switched off it shows the new hint in the notes
+ *      editor placeholder's face, in the same indented place.
  *
  * Red-first: run against the commit before the redesign, every leg but 8 and
  * 10 fails (no rail, no growth page, no growth field).
@@ -405,7 +413,13 @@ try {
       await until(() => !left()?.querySelector(".trait-sentence")?.textContent.includes("physique"));
       await sleep(200);
       const blank = left()?.querySelector(":scope > .trait-sentence");
-      R.blank = { text: blank?.textContent.trim() ?? null, pen: !!blank?.querySelector(".trait-edit"), want: L("CAIRN.Traits") };
+      // Leg 20: the label says "Traits" now; the sentence slot holds the pen alone.
+      const blankLabel = left()?.firstElementChild?.matches(".traits-label") ? left().firstElementChild : null;
+      R.blank = {
+        label: blankLabel?.textContent.trim() ?? null,
+        labelLeads: !!blankLabel && blankLabel.nextElementSibling === blank,
+        text: blank?.textContent.trim() ?? null, pen: !!blank?.querySelector(".trait-edit"), want: L("CAIRN.Traits"),
+      };
     }
 
     /* ---- 16. round 5: the Current / Max headers, HP's fill, the
@@ -708,10 +722,12 @@ try {
       // b. the sentence: first in the left column, before the abilities,
       // sentence case, in the background description's size and face.
       const left = bf.querySelector(".tab[data-tab='character'] .cairn-left");
-      const sent = left?.firstElementChild;
+      const sent = left?.querySelector(":scope > p.trait-sentence") ?? null;
+      const lead = left?.firstElementChild ?? null;
       const bgDesc = bf.querySelector(".tab[data-tab='character'] .background-description");
       R.sentence = {
-        first: sent?.matches("p.trait-sentence") ?? false,
+        // First in the column, or first after its own label (leg 20).
+        first: !!sent && (lead === sent || (!!lead?.matches(".traits-label") && lead.nextElementSibling === sent)),
         // Before the abilities, with round 5's header row between them.
         beforeAbilities: !!sent && !!left?.querySelector(":scope > .cairn-abilities")
           && !!(sent.compareDocumentPosition(left.querySelector(":scope > .cairn-abilities")) & Node.DOCUMENT_POSITION_FOLLOWING),
@@ -724,6 +740,27 @@ try {
         descFace: bgDesc ? getComputedStyle(bgDesc).fontFamily : null,
         inBand: !!bf.querySelector(".cairn-band .trait-sentence"),
       };
+      // Leg 20: the "Traits" label above the sentence, in the Background
+      // label's face, and a thin rule under the sentence with space before
+      // the Current / Max / Saves header.
+      {
+        const FACE = ["fontFamily", "fontVariantCaps", "fontSize", "fontWeight", "color"];
+        const face = (n) => { const cs = n ? getComputedStyle(n) : null; return Object.fromEntries(FACE.map((k) => [k, cs?.[k] ?? null])); };
+        const label = lead?.matches(".traits-label") ? lead : null;
+        const head = left?.querySelector(":scope > .cairn-abilities-head");
+        const cs = sent ? getComputedStyle(sent) : null;
+        const sb = sent?.getBoundingClientRect(), hb = head?.getBoundingClientRect(), lb = label?.getBoundingClientRect();
+        R.t20 = {
+          label: label?.textContent.trim() ?? null,
+          want: L("CAIRN.Traits"),
+          above: !!lb && !!sb && lb.bottom <= sb.top + 0.5,
+          face: face(label),
+          bgFace: face(bf.querySelector(".tab[data-tab='character'] .background-line .background-label")),
+          rule: cs ? { width: cs.borderBottomWidth, style: cs.borderBottomStyle } : null,
+          // The rule is the sentence's bottom edge; the header starts below it.
+          gap: sb && hb ? Math.round(hb.top - sb.bottom) : null,
+        };
+      }
       // c. the pen and the Traits window.
       let writes = 0;
       const hook = Hooks.on("updateActor", (doc) => { if (doc.id === bpc.id) writes++; });
@@ -916,6 +953,26 @@ try {
         };
         R8.bondText = bondHead?.textContent.trim() ?? null;
 
+        // Leg 20, Omen OFF: the hint, in the notes editor placeholder's face,
+        // in the answers' indented place on their rule.
+        {
+          const disp = q(".tab[data-tab='notes'] .notes-omen .omen-display");
+          const lab = q(".tab[data-tab='notes'] .notes-omen .omen-label");
+          const ph = q(".tab[data-tab='notes'] prose-mirror[name='system.notes'] .cairn-editor-placeholder");
+          const PH = ["fontFamily", "fontSize", "fontStyle", "color", "opacity"];
+          const phFace = (n) => { const cs = n ? getComputedStyle(n) : null; return Object.fromEntries(PH.map((k) => [k, cs?.[k] ?? null])); };
+          const cs = disp ? getComputedStyle(disp) : null;
+          R8.omenOff = {
+            text: disp?.textContent.trim() ?? null,
+            want: L("CAIRN.OmenPlaceholder"),
+            face: phFace(disp),
+            phFace: phFace(ph),
+            rule: cs ? { width: cs.borderLeftWidth, style: cs.borderLeftStyle } : null,
+            indented: !!disp && !!lab && textLeft(disp) !== null && textLeft(disp) >= lab.getBoundingClientRect().left + 6,
+            below: !!disp && !!lab && disp.getBoundingClientRect().top >= lab.getBoundingClientRect().bottom - 0.5,
+          };
+        }
+
         // b. indented answers under a visible rule, in both schemes (core's
         // configureUI, nothing written; the sheet RE-RENDERED after each
         // switch, the leg 17 lesson).
@@ -980,6 +1037,62 @@ try {
         await until(() => { const n = boxes()[0]; return !!n && n !== was; }, 5000);
         await sleep(300);
         R8.on = boxes().map((n) => ({ disabled: n?.disabled ?? null, tip: n?.dataset.tooltip ?? null }));
+
+        // Leg 20, Omen ON (CharGen on, so the die and the list draw): laid
+        // out like a Bond, measured in both schemes.
+        {
+          const wasOmen = q(".tab[data-tab='notes'] .notes-omen .omen-row");
+          await notesPc.update({ "system.omenEnabled": true, "system.omen": "ZZ an omen" }, { abNoStatusCard: true });
+          await until(() => { const n = q(".tab[data-tab='notes'] .notes-omen .omen-row"); return !!n && n !== wasOmen && !!n.querySelector(".omen-input"); }, 5000);
+          const measureOmen = async () => {
+            await ns.changeTab("notes", "primary");
+            await until(() => (q(".tab[data-tab='notes'] .notes-omen .omen-input")?.getBoundingClientRect().height ?? 0) > 0, 4000);
+            await sleep(200);
+            const head = q(".tab[data-tab='notes'] .notes-omen .omen-head");
+            const lab = q(".tab[data-tab='notes'] .notes-omen .omen-label");
+            const die = q(".tab[data-tab='notes'] .notes-omen .omen-roll");
+            const list = q(".tab[data-tab='notes'] .notes-omen .omen-pick");
+            const ta = q(".tab[data-tab='notes'] .notes-omen .omen-input");
+            const ans = q(".tab[data-tab='notes'] .bond-answer");
+            const lb = lab?.getBoundingClientRect(), db = die?.getBoundingClientRect(), pb = list?.getBoundingClientRect();
+            const hb = head?.getBoundingClientRect(), tb = ta?.getBoundingClientRect();
+            const cs = ta ? getComputedStyle(ta) : null;
+            const ANS = ["fontFamily", "fontSize", "fontWeight", "fontStyle"];
+            const pick = (n) => { const c = n ? getComputedStyle(n) : null; return Object.fromEntries(ANS.map((k) => [k, c?.[k] ?? null])); };
+            const under = ta ? await ground(ta.parentElement) : null;
+            const bg = cs ? rgb(cs.backgroundColor) : [];
+            return {
+              inHead: !!head && [lab, die, list].every((n) => !!n && head.contains(n)),
+              dieRight: !!lb && !!db && !!pb && db.left >= lb.right - 0.5 && pb.left >= db.left,
+              sameRow: !!lb && !!db && db.top < lb.bottom && db.bottom > lb.top,
+              below: !!hb && !!tb && tb.top >= hb.bottom - 0.5,
+              indented: !!tb && !!lb && cs && tb.left + parseFloat(cs.borderLeftWidth) + parseFloat(cs.paddingLeft) >= lb.left + 6,
+              rule: cs ? { width: cs.borderLeftWidth, style: cs.borderLeftStyle, color: cs.borderLeftColor } : null,
+              box: cs ? { top: cs.borderTopWidth, right: cs.borderRightWidth, bottom: cs.borderBottomWidth,
+                topStyle: cs.borderTopStyle, rightStyle: cs.borderRightStyle, bottomStyle: cs.borderBottomStyle,
+                clear: bg.length >= 4 ? bg[3] === 0 : bg.length === 0, shadow: cs.boxShadow } : null,
+              font: pick(ta), ansFont: pick(ans),
+              contrast: cs && under ? Math.round(ratio(cs.borderLeftColor, under) * 100) / 100 : null,
+            };
+          };
+          R8.omenOn = {};
+          try {
+            for (const scheme of ["light", "dark"]) {
+              const cfg = foundry.utils.deepClone(game.settings.get("core", "uiConfig"));
+              cfg.colorScheme = { applications: scheme, interface: scheme };
+              game.configureUI(cfg);
+              const was = q(".tab[data-tab='notes'] .notes-omen .omen-input");
+              await ns.render();
+              await until(() => { const n = q(".tab[data-tab='notes'] .notes-omen .omen-input"); return !!n && n !== was; }, 5000);
+              await sleep(200);
+              R8.omenOn[scheme] = await measureOmen();
+            }
+          } finally {
+            game.configureUI(game.settings.get("core", "uiConfig"));
+            await ns.render();
+            await sleep(400);
+          }
+        }
       } finally {
         await ns.close();
         if (bondsWas === false) await game.settings.set("air-bladder", "use-bonds", false);
@@ -1198,9 +1311,18 @@ else {
   R.offSentence && !R.offPen
     ? ok("with Character Creation Mode off the sentence stays and the pen goes")
     : fail(`Creation Mode off: sentence ${R.offSentence}, pen ${R.offPen}`);
-  R.blank?.text === R.blank?.want && R.blank?.pen
-    ? ok(`with no traits and no age the slot reads "${R.blank.text}" with the pen`)
+  R.blank?.label === R.blank?.want && R.blank?.labelLeads && R.blank?.text === "" && R.blank?.pen
+    ? ok(`with no traits and no age the pen stands alone under the "${R.blank.label}" label`)
     : fail(`blank sentence slot: ${JSON.stringify(R.blank)}`);
+  // 20
+  const t20 = R.t20 ?? {};
+  const sameBgFace = !!t20.bgFace?.fontFamily && JSON.stringify(t20.face) === JSON.stringify(t20.bgFace);
+  t20.label === t20.want && t20.above && sameBgFace
+    ? ok(`a "${t20.label}" label stands above the trait sentence, in the Background label's face`)
+    : fail(`Traits label: ${JSON.stringify(t20)}`);
+  t20.rule && parseFloat(t20.rule.width) >= 1 && t20.rule.style !== "none" && (t20.gap ?? -1) >= 4
+    ? ok(`a thin rule (${t20.rule.width} ${t20.rule.style}) under the sentence, ${t20.gap}px before the header`)
+    : fail(`rule under the sentence: ${JSON.stringify({ rule: t20.rule, gap: t20.gap })}`);
   const ed = R.editor ?? {};
   ed.pen && ed.tip === "CAIRN.EditTraits" && ed.dialog && ed.title === ed.wantTitle && ed.selects === 8 && ed.dice === 8 && ed.saveLabel === ed.wantSave
     ? ok(`the pen opens "${ed.title}" with 8 pickers and 8 dice, and one button, "${ed.saveLabel}"`)
@@ -1318,6 +1440,24 @@ else {
   R8.on?.length === 4 && R8.on.every((b) => b.disabled === false && b.tip !== R8.wantLocked) && R8.on[0].tip === R8.wantMaxTip
     ? ok("CharGen on: the max boxes are live, with their own tooltips")
     : fail(`max boxes with CharGen on: ${JSON.stringify(R8.on)}`);
+  // 20 (Omen)
+  const oo = R8.omenOff ?? {};
+  oo.text === oo.want && !!oo.phFace?.fontFamily && JSON.stringify(oo.face) === JSON.stringify(oo.phFace)
+    ? ok("Omen off: the new hint, in the notes editor placeholder's face")
+    : fail(`Omen off, hint: ${JSON.stringify({ text: oo.text, want: oo.want, face: oo.face, phFace: oo.phFace })}`);
+  oo.below && oo.indented && oo.rule && parseFloat(oo.rule.width) >= 1 && oo.rule.style !== "none"
+    ? ok("Omen off: the hint sits under the label, indented on the answers' rule")
+    : fail(`Omen off, place: ${JSON.stringify(oo)}`);
+  const on = R8.omenOn ?? {};
+  const omenOk = (x) => !!x && x.inHead && x.dieRight && x.sameRow && x.below && x.indented
+    && x.rule && parseFloat(x.rule.width) >= 1 && x.rule.style !== "none" && x.contrast >= 1.5;
+  ["light", "dark"].every((s) => omenOk(on[s]))
+    ? ok(`Omen on: die and list on the heading row right of the label, the text below, indented on a visible rule (contrast light ${on.light?.contrast}, dark ${on.dark?.contrast})`)
+    : fail(`Omen on, layout: ${JSON.stringify(on)}`);
+  const unboxed = (b) => !!b && ["top", "right", "bottom"].every((k) => b[k] === "0px" || b[`${k}Style`] === "none") && b.clear && b.shadow === "none";
+  ["light", "dark"].every((s) => unboxed(on[s]?.box) && !!on[s]?.ansFont?.fontFamily && JSON.stringify(on[s].font) === JSON.stringify(on[s].ansFont))
+    ? ok("Omen on: the text has no field box and wears the answers' face")
+    : fail(`Omen on, box / face: ${JSON.stringify({ light: on.light && { box: on.light.box, font: on.light.font, ans: on.light.ansFont }, dark: on.dark && { box: on.dark.box, font: on.dark.font, ans: on.dark.ansFont } })}`);
 
   // 8
   !r.npc.rail && r.npc.strip && !r.npc.railed && r.npc.width === 600

@@ -116,7 +116,10 @@ try {
       "glog-grimoires-seeded",
       // The calendar bar's per-person tuck (2026-11-20): client scope, and it
       // postdates the namespace move, so no "cairn.<key>" value exists.
-      "tuck-calendar-bar"];
+      "tuck-calendar-bar",
+      // The Gnarled Staff unbulking's completion marker (2026-11-20, weapon
+      // data review); postdates the namespace move.
+      "gnarled-staff-unbulked"];
     out.unlisted = [...game.settings.settings.keys()]
       .filter((k) => k.startsWith(`${mod.SETTINGS_NS}.`))
       .map((k) => k.slice(mod.SETTINGS_NS.length + 1))
