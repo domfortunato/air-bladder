@@ -1440,13 +1440,13 @@ try {
       out.poolGate = {
         both: utils.combatDamageFormula(pool, { pc: true }),
       };
-      const postPool = async (seq) => {
+      const postPool = async (seq, formula = pool) => {
         const origRU = CONFIG.Dice.randomUniform;
         let k = 0;
         CONFIG.Dice.randomUniform = () => seq[Math.min(k++, seq.length - 1)];
         const before = new Set(game.messages.contents.map((m) => m.id));
         try {
-          await pc.sheet._postWeaponDamage({ formula: pool, weapon: "ZZ Mace", quality: "standard", panicked: false, targetIds: null });
+          await pc.sheet._postWeaponDamage({ formula, weapon: "ZZ Mace", quality: "standard", panicked: false, targetIds: null });
         } catch (e) {
           return { err: e.message };
         } finally {
@@ -1477,6 +1477,15 @@ try {
       // explodes (5 is not its maximum) — total 5, no line. Explode-each-then-
       // keep would have chained the d4 (4 + 4 = 8) and kept it.
       out.poolKeepFirst = await postPool([FIVE, MX, MX]);
+      // 13c (review #35): a hand-written ADDITIVE weapon in the pool,
+      // `{2d6,1d4}kh`. Its maximum on the SECOND die explodes too, as the same
+      // 2d6 does unshielded (the two dice share one cap): 1 + 6 = 7 kept over
+      // the d4's 1, the 6 explodes once (chain 1) = 8, one d6 line.
+      out.poolSummedSecond = await postPool([ONE, MX, ONE, ONE], "{2d6,1d4}kh");
+      // 13d (review #35): a hand-written MIXED keep-highest weapon with the
+      // shield added stays keep-highest, notation on: each die its own member.
+      out.shieldMixed = utils.shieldPoolFormula("d6 + d8");
+      out.shieldSame = utils.shieldPoolFormula("d6 + d6");
       // Exploding OFF: a LOSING maximum earns no line (d6 5 kept, d4 4 dropped).
       await game.settings.set(NS, "exploding-damage-dice", false);
       out.poolGate.plain = utils.combatDamageFormula(pool, { pc: true });
@@ -2222,6 +2231,12 @@ try {
     && r.poolKeepFirst?.exploded?.length === 0
     ? ok("keep first, then explode: a d6 5 beats a d4 4, the d4 never explodes — 5, no lines")
     : fail(`poolKeepFirst: ${JSON.stringify(r.poolKeepFirst)} — want the d6 kept, 5, no explosion and no maneuver line`);
+  r.poolSummedSecond?.kept === 0 && r.poolSummedSecond?.total === 8 && r.poolSummedSecond?.exploded?.length === 1
+    ? ok("an additive 2d6 in the pool: a 6 on its SECOND die explodes too (1 + 6 + 1 = 8), one d6 line")
+    : fail(`poolSummedSecond: ${JSON.stringify(r.poolSummedSecond)} — want the 2d6 kept, 8, one explosion line`);
+  r.shieldMixed === "{d6,d8,1d4}kh" && r.shieldSame === "{2d6k,1d4}kh"
+    ? ok(`a mixed keep-highest weapon with the shield stays keep-highest (${r.shieldMixed}); d6 + d6 keeps its keep form (${r.shieldSame})`)
+    : fail(`shield pool formulas: mixed ${JSON.stringify(r.shieldMixed)}, same ${JSON.stringify(r.shieldSame)}`);
   r.poolNone?.kept === 0 && r.poolNone?.total === 3 && r.poolNone?.line === null
     ? ok("neither at its max: the higher kept, no line")
     : fail(`poolNone: ${JSON.stringify(r.poolNone)}`);
