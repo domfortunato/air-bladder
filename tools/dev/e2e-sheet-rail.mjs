@@ -70,6 +70,13 @@
  *      with a hand pointing DOWN; each current ability score has − then +
  *      under its circle, one point each, off at max / 0; the name is 28px;
  *      the title bar's toggle reads "CharGen".
+ *  19. (user asks 2026-11-20) on Background & Notes the Bond heading (no
+ *      colon), each question and the Description heading wear page 1's
+ *      Background label face, small caps; each answer is indented under a
+ *      visible left rule in both schemes; "Saves" heads the ability names,
+ *      the size of "Current"; with CharGen off the four max boxes are
+ *      disabled with the locked tooltip and a submit writes none of them,
+ *      and with CharGen on they are live.
  *
  * Red-first: run against the commit before the redesign, every leg but 8 and
  * 10 fails (no rail, no growth page, no growth field).
@@ -79,7 +86,7 @@ import { VIEWPORT, dismissChrome, joinAs, joinAsGM, watchErrors, watchdog } from
 
 const FIXTURE = "sheet-rail";
 const browser = await chromium.launch();
-watchdog(360000, "sheet-rail probe", async () => { try { await browser.close(); } catch { /* gone */ } });
+watchdog(420000, "sheet-rail probe", async () => { try { await browser.close(); } catch { /* gone */ } });
 const gm = await browser.newContext({ viewport: VIEWPORT }).then((c) => c.newPage());
 const errors = watchErrors(gm);
 let failed = false;
@@ -792,6 +799,160 @@ try {
     // posts are this leg's own, removed by id difference.
     for (const m of game.messages.filter((x) => !msgsBefore.has(x.id))) await m.delete();
 
+    /* ---- 19. notes headings, Saves, max scores locked ------------------ */
+    {
+      const R8 = out.r8 = {
+        wantSaves: L("CAIRN.AbilitySaves"), wantLocked: L("CAIRN.MaxLockedTip"), wantBond: L("CAIRN.Bond"),
+        wantMaxTip: game.i18n.format("CAIRN.MaximumOf", { name: L("STR") }),
+      };
+      // Bonds must be on to draw: SET what the leg needs, put back what was read.
+      const bondsWas = game.settings.get("air-bladder", "use-bonds");
+      if (bondsWas === false) await game.settings.set("air-bladder", "use-bonds", true);
+      const notesPc = await getDocumentClass("Actor").create({
+        name: "ZZ Rail Notes PC", type: "character",
+        system: {
+          contentSource: "2e", generationEnabled: false, hp: { value: 4, max: 6 },
+          abilities: { STR: { value: 9, max: 12 }, DEX: { value: 8, max: 10 }, WIL: { value: 7, max: 11 } },
+          bonds: [{ id: "zzrailbond", description: "ZZ a bond's own words" }],
+          questions: [{ question: "ZZ What did you leave behind?", answer: "ZZ an answer long enough to wrap onto a second line of the page" }],
+          description: "<p>ZZ notes prose</p>",
+        },
+        flags: { "air-bladder": { probeFixture: fixture } },
+      }, { abNoStatusCard: true });
+      const ns = notesPc.sheet;
+      try {
+        await ns.render(true);
+        await until(() => ns.element?.querySelector?.(".tab[data-tab='notes'] .bond-line"));
+        await sleep(500);
+        const nf = ns.element;
+        const q = (s) => nf.querySelector(s);
+        const FACE = ["fontFamily", "fontVariantCaps", "fontSize", "fontWeight", "color"];
+        const face = (n) => { const cs = n ? getComputedStyle(n) : null; return Object.fromEntries(FACE.map((k) => [k, cs?.[k] ?? null])); };
+        const rgb = (s) => (s.match(/[\d.]+/g) ?? []).map(Number);
+        const lum = ([r, g, b]) => {
+          const c = [r, g, b].map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; });
+          return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+        };
+        const ratio = (a, b) => { const [x, y] = [lum(rgb(a)), lum(rgb(b))].sort((m, n) => n - m); return (x + 0.05) / (y + 0.05); };
+        const ground = (n) => {
+          for (let e = n; e; e = e.parentElement) {
+            const bg = getComputedStyle(e).backgroundColor;
+            const c = rgb(bg);
+            if (bg && (c.length < 4 || c[3] > 0.5) && bg !== "rgba(0, 0, 0, 0)") return bg;
+          }
+          return null;
+        };
+        // The text's own left edge, so a padding indent counts as one.
+        const textLeft = (n) => {
+          const t = [...(n?.childNodes ?? [])].find((c) => c.nodeType === Node.TEXT_NODE && c.textContent.trim());
+          if (!t) return null;
+          const rg = document.createRange();
+          rg.selectNodeContents(t);
+          return rg.getBoundingClientRect().left;
+        };
+        const measureNotes = async () => {
+          await ns.changeTab("notes", "primary");
+          await until(() => (q(".tab[data-tab='notes'] .bond-line")?.getBoundingClientRect().height ?? 0) > 0, 4000);
+          await sleep(200);
+          const pairs = [[".bond-line", ".bond-answer"], [".question-line", ".question-answer"]];
+          return pairs.map(([h, a]) => {
+            const head = q(`.tab[data-tab='notes'] ${h}`), ans = q(`.tab[data-tab='notes'] ${a}`);
+            const cs = ans ? getComputedStyle(ans) : null;
+            const tl = textLeft(ans);
+            return {
+              which: a,
+              indented: !!head && tl !== null && tl >= head.getBoundingClientRect().left + 6,
+              rule: cs ? { width: cs.borderLeftWidth, style: cs.borderLeftStyle, color: cs.borderLeftColor } : null,
+              contrast: cs ? Math.round(ratio(cs.borderLeftColor, ground(ans) ?? "rgb(255,255,255)") * 100) / 100 : null,
+            };
+          });
+        };
+
+        // a. the headings take page 1's Background label face.
+        await ns.changeTab("character", "primary");
+        await sleep(200);
+        const bgLabel = q(".tab[data-tab='character'] .background-line .background-label");
+        R8.labelFace = face(bgLabel);
+        await ns.changeTab("notes", "primary");
+        await sleep(300);
+        const bondHead = q(".tab[data-tab='notes'] .bond-line strong");
+        R8.faces = {
+          bond: face(bondHead),
+          question: face(q(".tab[data-tab='notes'] .question-line strong")),
+          description: face(q(".tab[data-tab='notes'] .character-description-heading")),
+        };
+        R8.bondText = bondHead?.textContent.trim() ?? null;
+
+        // b. indented answers under a visible rule, in both schemes (core's
+        // configureUI, nothing written; the sheet RE-RENDERED after each
+        // switch, the leg 17 lesson).
+        R8.indent = {};
+        try {
+          for (const scheme of ["light", "dark"]) {
+            const cfg = foundry.utils.deepClone(game.settings.get("core", "uiConfig"));
+            cfg.colorScheme = { applications: scheme, interface: scheme };
+            game.configureUI(cfg);
+            const was = q(".tab[data-tab='notes'] .bond-answer");
+            await ns.render();
+            await until(() => { const n = q(".tab[data-tab='notes'] .bond-answer"); return !!n && n !== was; }, 5000);
+            await sleep(200);
+            R8.indent[scheme] = await measureNotes();
+          }
+        } finally {
+          game.configureUI(game.settings.get("core", "uiConfig"));
+          await ns.render();
+          await sleep(400);
+        }
+
+        // c. "Saves" heads the names column, the size of "Current".
+        await ns.changeTab("character", "primary");
+        await until(() => (q(".tab[data-tab='character'] .cairn-abilities-head")?.getBoundingClientRect().height ?? 0) > 0, 4000);
+        await sleep(200);
+        const saves = q(".tab[data-tab='character'] .cairn-abilities-head .head-saves");
+        const cur = q(".tab[data-tab='character'] .cairn-abilities-head .head-current");
+        const words = q(".tab[data-tab='character'] .cairn-ability.STR-ability .cairn-ability-words");
+        R8.saves = {
+          text: saves?.textContent.trim() ?? null,
+          left: saves ? Math.round(saves.getBoundingClientRect().left) : null,
+          wordsLeft: words ? Math.round(words.getBoundingClientRect().left) : null,
+          size: saves ? getComputedStyle(saves).fontSize : null,
+          curSize: cur ? getComputedStyle(cur).fontSize : null,
+        };
+
+        // d. CharGen off: the four max boxes are disabled with the locked
+        // tooltip, and a submit leaves the maxes as they were. The boxes are
+        // planted with other numbers IN THE PAGE, then a current score is
+        // changed so the form submits: a live box would send its number.
+        const maxSel = ['input[name="system.abilities.STR.max"]', 'input[name="system.abilities.DEX.max"]',
+          'input[name="system.abilities.WIL.max"]', 'input[name="system.hp.max"]'];
+        const boxes = () => maxSel.map((s) => q(`.tab[data-tab='character'] ${s}`));
+        R8.off = boxes().map((n) => ({ disabled: n?.disabled ?? null, tip: n?.dataset.tooltip ?? null }));
+        const maxesWas = { STR: 12, DEX: 10, WIL: 11, HP: 6 };
+        for (const n of boxes()) if (n) n.value = "3";
+        const strIn = q(".tab[data-tab='character'] input[name='system.abilities.STR.value']");
+        if (strIn) { strIn.value = "8"; strIn.dispatchEvent(new Event("change", { bubbles: true })); }
+        await until(() => notesPc._source.system.abilities.STR.value === 8, 3000);
+        await sleep(600);
+        const src = notesPc._source.system;
+        R8.submitted = { strValue: src.abilities.STR.value,
+          maxes: { STR: src.abilities.STR.max, DEX: src.abilities.DEX.max, WIL: src.abilities.WIL.max, HP: src.hp.max } };
+        R8.maxesWas = maxesWas;
+        // Put back whatever a live box may have written, before the next case.
+        await notesPc.update({ "system.abilities.STR.max": 12, "system.abilities.DEX.max": 10, "system.abilities.WIL.max": 11, "system.hp.max": 6 }, { abNoStatusCard: true });
+        await sleep(300);
+
+        // e. CharGen on: live, with the boxes' own tooltips.
+        const was = boxes()[0];
+        await notesPc.update({ "system.generationEnabled": true }, { abNoStatusCard: true });
+        await until(() => { const n = boxes()[0]; return !!n && n !== was; }, 5000);
+        await sleep(300);
+        R8.on = boxes().map((n) => ({ disabled: n?.disabled ?? null, tip: n?.dataset.tooltip ?? null }));
+      } finally {
+        await ns.close();
+        if (bondsWas === false) await game.settings.set("air-bladder", "use-bonds", false);
+      }
+    }
+
     /* ---- 8. an npc sheet draws no rail --------------------------------- */
     const npc = await getDocumentClass("Actor").create({
       name: "ZZ Rail NPC", type: "npc", system: { role: "hireling" },
@@ -1096,6 +1257,33 @@ else {
   R7.lang !== "en" || /^CharGen: (On|Off)$/.test(R7.toggle ?? "")
     ? ok(`the title bar's toggle reads "${R7.toggle}"`)
     : fail(`toggle label: ${JSON.stringify(R7.toggle)}`);
+
+  // 19
+  const R8 = r.r8 ?? {};
+  const sameFace = (f) => !!f && !!R8.labelFace?.fontFamily && JSON.stringify(f) === JSON.stringify(R8.labelFace);
+  R8.labelFace?.fontVariantCaps === "small-caps" && ["bond", "question", "description"].every((k) => sameFace(R8.faces?.[k]))
+    ? ok("the Bond heading, the question and the Description heading wear page 1's Background label face, small caps")
+    : fail(`notes headings' face: ${JSON.stringify({ want: R8.labelFace, got: R8.faces })}`);
+  R8.bondText === R8.wantBond && !/:\s*$/.test(R8.bondText ?? ":")
+    ? ok(`the Bond heading reads "${R8.bondText}", no colon`)
+    : fail(`Bond heading text: ${JSON.stringify(R8.bondText)}`);
+  ["light", "dark"].every((s) => R8.indent?.[s]?.length === 2 && R8.indent[s].every((x) => x.indented
+    && x.rule && parseFloat(x.rule.width) >= 1 && x.rule.style !== "none" && x.contrast >= 1.5))
+    ? ok(`each answer sits indented under a visible left rule in both schemes (contrast light ${R8.indent.light.map((x) => x.contrast).join("/")}, dark ${R8.indent.dark.map((x) => x.contrast).join("/")})`)
+    : fail(`answers' indent / rule: ${JSON.stringify(R8.indent ?? null)}`);
+  const sv = R8.saves ?? {};
+  sv.text === R8.wantSaves && sv.left !== null && sv.wordsLeft !== null && Math.abs(sv.left - sv.wordsLeft) <= 2 && sv.size === sv.curSize
+    ? ok(`"${sv.text}" heads the ability names, the size of "Current"`)
+    : fail(`Saves header: ${JSON.stringify(sv)} (want ${JSON.stringify(R8.wantSaves)})`);
+  R8.off?.length === 4 && R8.off.every((b) => b.disabled === true && b.tip === R8.wantLocked)
+    ? ok(`CharGen off: the four max boxes are disabled, "${R8.wantLocked}"`)
+    : fail(`max boxes with CharGen off: ${JSON.stringify(R8.off)}`);
+  R8.submitted?.strValue === 8 && JSON.stringify(R8.submitted?.maxes) === JSON.stringify(R8.maxesWas)
+    ? ok("...and a submit with other numbers planted in them leaves every max as it was")
+    : fail(`submit with CharGen off: ${JSON.stringify(R8.submitted)} (want maxes ${JSON.stringify(R8.maxesWas)})`);
+  R8.on?.length === 4 && R8.on.every((b) => b.disabled === false && b.tip !== R8.wantLocked) && R8.on[0].tip === R8.wantMaxTip
+    ? ok("CharGen on: the max boxes are live, with their own tooltips")
+    : fail(`max boxes with CharGen on: ${JSON.stringify(R8.on)}`);
 
   // 8
   !r.npc.rail && r.npc.strip && !r.npc.railed && r.npc.width === 600

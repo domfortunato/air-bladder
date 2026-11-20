@@ -29,6 +29,11 @@
  *      die: implicit submission presses the first submit button on offer.
  *   9. (2026-11-20, user ask) a Cancel button closes the window and posts
  *      nothing; it stands last in the footer, so Enter never reaches it.
+ *  10. (2026-11-20, user ask) on a CHARACTER, an inventory row's damage roller
+ *      opens this window with that weapon chosen (a second equipped weapon,
+ *      so neither the first nor the remembered one), and the Improvised
+ *      Attack row's roller opens it on Improvised; Cancel posts nothing. An
+ *      npc's row roller keeps the quick quality dialog.
  *
  * use-panic is shadowed IN-PAGE for leg 7 only (never written), and both it and
  * the panicked flag are put back in its finally. Red-first: before the window the burst
@@ -256,6 +261,75 @@ try {
       await pc.update({ "system.panicked": false }, { abNoStatusCard: true });
     }
 
+    /* ---- 10. the inventory's rollers open the window, preselected ------ */
+    {
+      // A SECOND equipped weapon, so the preselection cannot be the window's
+      // own default (the first) or what it remembers (the Blade, rolled in
+      // leg 7). Found by id difference.
+      const had = new Set(pc.items.map((i) => i.id));
+      await pc.createEmbeddedDocuments("Item", [{ name: "ZZ Spear", type: "item", system: { equipped: true, damageFormula: "1d10" } }]);
+      const spear = pc.items.find((i) => !had.has(i.id));
+      await sheet.changeTab("items", "primary");
+      await until(() => sheet.element.querySelector(`.cairn-items-list-row[data-item-id="${spear.id}"] [data-action="rollDamage"]`));
+      await sleep(300);
+      // Whatever the click opens (the Attack window, or before this change
+      // the quality / improvised dialog): returned, then closed by Cancel.
+      const viaRow = async (selector) => {
+        const stale = new Set(foundry.applications.instances.values());
+        const before = new Set(game.messages.map((m) => m.id));
+        sheet.element.querySelector(selector)?.click();
+        let app = null;
+        await until(() => (app = [...foundry.applications.instances.values()].find((a) => !stale.has(a) && a.element?.isConnected
+          && a.element.querySelector("footer button"))), 4000);
+        await sleep(200);
+        const el = app?.element ?? null;
+        const res = {
+          attack: !!el?.classList.contains("cairn-attack-dialog"),
+          checked: el?.querySelector('input[name="weapon"]:checked')?.value ?? null,
+        };
+        const cancel = el?.querySelector('footer button[data-action="cancel"]');
+        if (cancel) cancel.click(); else await app?.close();
+        await until(() => !el?.isConnected, 3000);
+        await sleep(500);
+        res.posted = game.messages.contents.filter((m) => !before.has(m.id) && m.speaker?.actor === pc.id).length;
+        return res;
+      };
+      out.rowRoller = {
+        spear: spear?.id ?? null,
+        remembered: out.ids.blade,
+        weapon: await viaRow(`.cairn-items-list-row[data-item-id="${spear?.id}"] [data-action="rollDamage"]`),
+        improvised: await viaRow('.tab[data-tab="items"] [data-action="improvisedAttack"]'),
+      };
+      await spear?.delete();
+      await sheet.changeTab("character", "primary");
+      await sleep(300);
+
+      // An npc's row keeps its quick damage roll: the quality dialog, not
+      // the Attack window.
+      const npc = await Actor.create({ name: "ZZ Attack NPC", type: "npc", system: { role: "monster" }, flags }, { abNoStatusCard: true });
+      await npc.createEmbeddedDocuments("Item", [{ name: "ZZ Claw", type: "item", system: { equipped: true, damageFormula: "1d6" } }]);
+      const claw = npc.items.contents[0];
+      await npc.sheet.render(true);
+      await until(() => npc.sheet.element?.querySelector?.(`.cairn-items-list-row[data-item-id="${claw?.id}"] [data-action="rollDamage"]`));
+      await sleep(300);
+      {
+        const stale = new Set(foundry.applications.instances.values());
+        npc.sheet.element.querySelector(`.cairn-items-list-row[data-item-id="${claw?.id}"] [data-action="rollDamage"]`)?.click();
+        let app = null;
+        await until(() => (app = [...foundry.applications.instances.values()].find((a) => !stale.has(a) && a.element?.isConnected
+          && a.element.querySelector("footer button"))), 4000);
+        await sleep(200);
+        out.npcRoller = {
+          opened: !!app,
+          quality: !!app?.element?.classList.contains("cairn-damage-quality"),
+          attack: !!app?.element?.classList.contains("cairn-attack-dialog"),
+        };
+        await app?.close();
+        await sleep(300);
+      }
+      await npc.sheet.close();
+    }
+
     /* ---- 8 (set up): the improvised attack, ready for a real Enter ------ */
     dlg = await openWindow();
     if (dlg) {
@@ -345,6 +419,18 @@ else {
   k.present && k.last && k.closed && k.posted === 0
     ? ok("Cancel stands last in the footer, closes the window and posts nothing")
     : fail(`Cancel: ${JSON.stringify(k)}`);
+  // 10
+  const rr = r.rowRoller ?? {};
+  rr.weapon?.attack && rr.spear && rr.weapon.checked === rr.spear && rr.spear !== rr.remembered && rr.weapon.posted === 0
+    ? ok("a second weapon's row roller opens the Attack window with THAT weapon chosen; Cancel posts nothing")
+    : fail(`weapon row roller: ${JSON.stringify(rr)}`);
+  rr.improvised?.attack && rr.improvised.checked === "improvised" && rr.improvised.posted === 0
+    ? ok("the Improvised Attack row's roller opens the Attack window on Improvised; Cancel posts nothing")
+    : fail(`improvised row roller: ${JSON.stringify(rr.improvised ?? null)}`);
+  const nr = r.npcRoller ?? {};
+  nr.opened && nr.quality && !nr.attack
+    ? ok("an npc's row roller keeps its quick damage roll (the quality dialog, not the Attack window)")
+    : fail(`npc row roller: ${JSON.stringify(nr)}`);
   // 8
   const e = r.enterCard ?? {};
   e.faces === 8 && e.weapon === "a stool"
