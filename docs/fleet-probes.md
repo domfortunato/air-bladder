@@ -94,6 +94,27 @@ in a batch. A red on a different box in each run, with the same message every ti
 baseline world. A red that follows one box's queue points at an earlier probe on that box that leaked
 something.
 
+## Review #35's fixes, on all three builds (2026-11-20, late)
+
+**Every review #35 finding fixed red-first, at `cf98e521`: green on all three builds.** 111 probes.
+
+- **Red legs, each failing as predicted before its fix:** `sheet-rail,attack,broken` at `ee914d7b`
+  (`20261120T194712Z`); `attack,shield` at `1b44c077` (`20261120T195944Z`; `shield` 7b only showed
+  the missing export, so `00f118da` exported `migrateShieldFlags` alone and `037841f5` re-ran it,
+  `20261120T200411Z`, after `20261120T200153Z` threw in the probe's own stub); `attack` at `843c976b`
+  (`20261120T200622Z`); `glog-books` at `6a55bb0d` (`20261120T200818Z`); `combat-options` at
+  `da3d5b8f` and `3bba6e47` (`20261120T200948Z`, `20261120T205324Z`); `vald-time,sheet-rail` at
+  `3f5ff9cb` (`20261120T205110Z`); `hotbar` at `d4ab7078` (`20261120T205655Z`).
+- **14.370:** 111/111 at `e26c8d9d` after the first batch (`20261120T194937Z`); 110/111 at `05d512ee`
+  (`20261120T205916Z`), the red `sheet-rail` leg 23 itself (a reopened sheet read its closed frame's
+  answer, fixed in `cf98e521`); **111/111 at `cf98e521`** (`20261120T210659Z`).
+- **14.369: 110/111** (`20261120T211638Z`): `enc-damage`'s player join, forms `[]` (the GPU family
+  above); **green alone** (`20261120T214750Z`).
+- **14.368: 110/111** (`20261120T214028Z`): `gen-dice`, Dice So Nice never finished animating;
+  `shots/gen-dice/chromium-56.log` says "SharedContextState context lost via Skia OOM" after a
+  failed Vulkan image allocation, the GPU OOM again; **green alone** (`20261120T215142Z`).
+- `11a80801` after the battery is guides and one journal only; the release head re-runs the battery.
+
 ## Where things stand (2026-11-19, evening)
 
 **The sheet's second round (footer under every page, the Slots line and Overburdened banner open
