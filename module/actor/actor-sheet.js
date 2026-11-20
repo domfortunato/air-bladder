@@ -696,6 +696,17 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
   /* -------------------------------------------- */
 
   /**
+   * Did THIS frame build the CharGen switch? Set when the frame is built
+   * (once); undefined before that, at the first render's context, which is
+   * built from the same role the frame then follows. The max lock points at
+   * the switch, so it applies only when the switch is there (review #35: a
+   * companion re-typed to a monster on its open sheet locked its boxes
+   * behind a switch its frame never had).
+   * @type {Boolean|undefined}
+   */
+  #genToggleBuilt;
+
+  /**
    * Roll Character and the Randomization toggle, INLINE in the title bar.
    *
    * These were briefly `window.controls`, which is the tidier declaration — but
@@ -762,7 +773,11 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // this frame did build.
     const rollableRole = !isNpc || GENERATING_ROLES.includes(this.actor.npcRole);
     // Print sits to the RIGHT of Pop Out (user ruling 2026-08-08).
-    if (!(isChar || isNpc) || !rollableRole || !this.actor.isOwner) return [popOut, ...print, ...buttons];
+    if (!(isChar || isNpc) || !rollableRole || !this.actor.isOwner) {
+      this.#genToggleBuilt = false;
+      return [popOut, ...print, ...buttons];
+    }
+    this.#genToggleBuilt = true;
 
     // The toggle is created UNCONDITIONALLY for an owner of a generating type,
     // and only the Roll button rides `show-generate-header`. It used to gate
@@ -1459,7 +1474,8 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       //   while the mode is on;
       // - Cairn's sentence under each save.
       context.maxLocked = GENERATING_ROLES.includes(this.actor.npcRole)
-        && this.actor.system.generationEnabled === false;
+        && this.actor.system.generationEnabled === false
+        && this.#genToggleBuilt !== false;
       const rolledAt = context.generationEnabled
         ? " " + game.i18n.localize("CAIRN.RolledAtCreation")
         : "";
