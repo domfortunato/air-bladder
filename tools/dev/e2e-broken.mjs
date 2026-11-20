@@ -23,7 +23,12 @@
  *      holds the invariant, so every path agrees);
  *   5. a broken shield gives no Hold shield switch;
  *   6. a broken weapon is not offered in the Attack window;
- *   7. unticking makes it equippable again, without re-equipping it.
+ *   7. unticking makes it equippable again, without re-equipping it;
+ *   8. a character CREATED with a broken item stored as equipped (inline
+ *      `items` on the actor create: core runs no item _preCreate there, so
+ *      the stored flag stays true — found walking CT 123, 2026-11-20) still
+ *      reads it unequipped: the row is not bold, a weapon has no damage roll,
+ *      its Armor does not count, and a shield gives no switch.
  *
  * Usage: npm run dev:broken
  */
@@ -179,6 +184,29 @@ try {
     await breakIt("ZZ Sword", false);
     out.unbroken = { equipped: item("ZZ Sword").system.equipped, row: rowState("ZZ Sword") };
     await sheet.close();
+
+    // 8. Inline creation: the stored flag stays equipped; the derived read must not.
+    const pc2 = await getDocumentClass("Actor").create({
+      name: "ZZ Broken Inline", type: "character", system: { hp: { value: 4, max: 6 } }, flags,
+      items: [
+        { name: "ZZ Old Mail", type: "armor", system: { armor: 1, equipped: true, broken: true } },
+        { name: "ZZ Old Axe", type: "weapon", system: { damageFormula: "1d6", equipped: true, broken: true } },
+      ],
+    }, { abNoStatusCard: true });
+    const s2 = pc2.sheet;
+    await s2.render(true);
+    await until(() => s2.element?.querySelector?.(".cairn-shield"));
+    await sleep(400);
+    const row2 = (n) => s2.element.querySelector(`.cairn-items-list-row[data-item-id="${pc2.items.find((i) => i.name === n)?.id}"]`);
+    out.inline = {
+      stored: pc2.items.find((i) => i.name === "ZZ Old Mail")?._source.system.equipped ?? null,
+      read: pc2.items.find((i) => i.name === "ZZ Old Mail")?.system.equipped ?? null,
+      armor: s2.element.querySelector('.tab[data-tab="character"] .armor-input')?.value ?? null,
+      mailBold: !!row2("ZZ Old Mail")?.querySelector(".cairn-item-title :is(b, strong)"),
+      axeBold: !!row2("ZZ Old Axe")?.querySelector(".cairn-item-title :is(b, strong)"),
+      axeRoll: !!row2("ZZ Old Axe")?.querySelector('[data-action="rollDamage"]'),
+    };
+    await s2.close();
     return out;
   }, FIXTURE);
 } catch (e) {
@@ -215,6 +243,10 @@ else {
   Array.isArray(r.attackWeapons) && !r.attackWeapons.includes(r.swordId) && r.attackWeapons.includes("improvised")
     ? ok("the Attack window does not offer the broken weapon")
     : fail(`attack weapons: ${JSON.stringify(r.attackWeapons)} (sword ${r.swordId})`);
+  const n = r.inline ?? {};
+  n.stored === true && n.read === false && n.armor === "0" && !n.mailBold && !n.axeBold && !n.axeRoll
+    ? ok("created with a broken item stored as equipped, it still reads unequipped: not bold, no damage roll, no Armor")
+    : fail(`inline-created broken items: ${JSON.stringify(n)}`);
   const u = r.unbroken ?? {};
   u.equipped === false && u.row?.hand && !u.row?.tag?.length
     ? ok("unticked, it can be equipped again and is not re-equipped")
