@@ -90,7 +90,16 @@ const READ = `(sheet) => {
     deprived:  vis('.deprived-check'),
     restBtn:   vis('#rest-button'),
     dieOfFate: vis('#die-of-fate-button'),
-    improvised:   vis('.improvised-row'),
+    // On the Inventory page: turned to for the read and back (every sheet
+    // opens on page 1 since 2026-11-20; this passed before only because a
+    // person's sheet opened on Items). changeTab is synchronous.
+    improvised: (() => {
+      const was = sheet.tabGroups.primary;
+      sheet.changeTab("items", "primary");
+      const v = vis('.improvised-row');
+      sheet.changeTab(was, "primary");
+      return v;
+    })(),
     gold:      vis('input[name="system.gold"]'),
     roleSelect: vis('.role-select'),
     career:    vis('input[name="system.profession"]'),
@@ -99,7 +108,9 @@ const READ = `(sheet) => {
     kind:      vis('.kind-select'),
     dayRate:   vis('.day-rate-line'),
     itemsTab:  vis('[data-tab="items"]'),
-    connectionsTab: vis('a[data-tab="containers"]'),
+    // The rail's page button (an <a> in the old strip: on the rail that
+    // selector matched nothing and would pass vacuously).
+    connectionsTab: vis('[data-action="tab"][data-tab="containers"]'),
     banners:   [...el.querySelectorAll('.status-banner')].map((b) => b.className),
     visiblePanels: [...el.querySelectorAll('.tab[data-tab]')].filter((p) => {
       const r = p.getBoundingClientRect();
@@ -213,8 +224,8 @@ try {
     ? ok("Rest, Die of Fate and the Improvised Attack row gone", "a crate does not rest, and has no fists")
     : bad("Rest, Die of Fate and the Improvised Attack row gone", JSON.stringify(asThing));
   // THE POSITIVE HALF, and it is what makes the leg above mean anything. Both
-  // snapshots are taken with the Items tab open (a person role and a container
-  // are both in ITEMS_FIRST_ROLES), so "no row" on the crate is the gate and not
+  // snapshots read the row with the Items page turned to (READ turns to it
+  // and back), so "no row" on the crate is the gate and not
   // a tab that happened to be hidden -- which is exactly how this leg could pass
   // for the wrong reason.
   asPerson.improvised && !asThing.improvised
@@ -275,50 +286,40 @@ try {
     ? ok("picking NPC back restores stat block + rate + Gold", "25gp intact, Faction back too")
     : bad("picking NPC back restores stat block + rate + Gold", JSON.stringify({ stored: out.storedOff, goldStored: out.goldStoredBack, ...backAgain }));
 
-  /* ---- the header gap: the vitals pin to the portrait's foot (Round 2) ---- */
-  console.log("\nthe short-stack header leaves no dead band");
+  /* ---- the head gap: the stat block follows the head directly ---- */
+  // Round 2's dead band (the vitals floating above the portrait's foot) was
+  // the old npc grid's; since 2026-11-20 every sheet is the character
+  // sheet's format, page 1 a head over the stat block. The same defect there
+  // is a band between the head and the body, so that is what is measured,
+  // on the monster (the sheet the band was reported on).
+  console.log("\nthe head leaves no dead band above the stat block");
   const gap = await page.evaluate(async () => {
     const Cls = CONFIG.Actor.documentClass;
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-    // Monster: the SHORTEST stack (name, role, faction, vitals — Faction
-    // joined it 2026-08-02) and the sheet the band was reported on.
     const a = await Cls.create({ name: "ZZ Roles Gap", type: "npc", system: { role: "monster" } });
     const sheet = a.sheet;
     await sheet.render(true);
     await sleep(900);
     const el = sheet.element;
-    const vit = el.querySelector(".npc-vitals-line");
-    const abil = el.querySelector(".character-sheet-section-abilities");
-    const port = el.querySelector(".portrait-wrap");
-    if (!vit || !abil || !port) { await sheet.close(); await a.delete(); return { error: "missing nodes" }; }
-    const gapNow = () => Math.round(abil.getBoundingClientRect().top - vit.getBoundingClientRect().bottom);
+    const head = el.querySelector('.tab[data-tab="character"] .cairn-head');
+    const body = el.querySelector('.tab[data-tab="character"] .cairn-body');
+    if (!head || !body) { await sheet.close(); await a.delete(); return { error: "missing nodes" }; }
+    const gapNow = () => Math.round(body.getBoundingClientRect().top - head.getBoundingClientRect().bottom);
     const fixed = gapNow();
-    const flush = Math.round(port.getBoundingClientRect().bottom - vit.getBoundingClientRect().bottom);
-    // NEGATIVE CONTROL: inject a band under the vitals and the measurement
-    // must read it. This REPLACED the original control (restore the pre-fix
-    // margin-top) on 2026-08-02: since Faction joined the header, even the
-    // shortest stack outgrows the portrait column, `margin-top: auto` has no
-    // slack left to distribute, and the old control could no longer move
-    // anything — a control that cannot fire is fake coverage.
-    vit.style.marginBottom = "24px";
+    // NEGATIVE CONTROL: inject a band under the head and the measurement
+    // must read it.
+    head.style.marginBottom = "24px";
     const control = gapNow();
-    vit.style.marginBottom = "";
+    head.style.marginBottom = "";
     await sheet.close();
     await a.delete();
-    return { fixed, control, flush };
+    return { fixed, control };
   });
   if (gap.error) bad("gap leg", gap.error);
   else {
-    gap.fixed <= 8
-      ? ok("HP/Gold sit directly above STR/Armor", `${gap.fixed}px between the rows`)
-      : bad("HP/Gold sit directly above STR/Armor", `${gap.fixed}px of dead band`);
-    // ONE-SIDED since 2026-08-02: the guarded defect is the vitals floating
-    // ABOVE the portrait's foot (the dead band). The stack may now run BELOW
-    // the foot — the Faction row made even the monster's header taller than
-    // the portrait, which is the header growing, not the band returning.
-    gap.flush <= 8
-      ? ok("the vitals reach the portrait's foot", `${gap.flush}px`)
-      : bad("the vitals reach the portrait's foot", `${gap.flush}px of band above the foot`);
+    gap.fixed >= 0 && gap.fixed <= 12
+      ? ok("the stat block sits directly under the head", `${gap.fixed}px between them`)
+      : bad("the stat block sits directly under the head", `${gap.fixed}px between them`);
     gap.control > gap.fixed + 12
       ? ok("   control: an injected band is detected", `${gap.control}px`)
       : bad("   control: an injected band is detected",
@@ -807,7 +808,7 @@ try {
         attach: !!el.querySelector(".connection-attach"),
         add: !!el.querySelector(".connection-add"),
         forHire: !!el.querySelector(".connection-line .for-hire-check"),
-        tab: !!el.querySelector('.tabs .item[data-tab="containers"]'),
+        tab: !!el.querySelector('[data-action="tab"][data-tab="containers"]'),
       };
     };
 

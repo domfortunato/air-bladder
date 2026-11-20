@@ -579,6 +579,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
           // 2026-11-20 (each sheet in the character sheet's format).
           "systems/air-bladder/templates/parts/status-banners.html",
           "systems/air-bladder/templates/parts/stat-block.html",
+          "systems/air-bladder/templates/parts/slots-line.html",
           "systems/air-bladder/templates/parts/compat-footer.html",
         ],
         // AppV2 restores scroll only for the selectors named here — a part
