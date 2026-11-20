@@ -122,6 +122,16 @@ Moved word for word from CLAUDE.md (2026-11-01); CLAUDE.md points here.
   to max, off at the bounds); the name at 28px in the same 46px row; the Attack
   window ends in Cancel. Broken items: `documents-and-roles.md`. Gates
   `dev:sheet-rail` leg 18, `dev:attack` leg 9, `dev:broken`.
+- Same day, two cosmetic calls the user ruled on: each Barebones failed-career
+  line hides while EMPTY outside Creation Mode (`showFailedCareerLine` /
+  `showFailedCareerItemLine`; in the mode it stays for its dice; size unchanged
+  at 15px), gate `dev:barebones` leg 11. The Attack window's improvised fields
+  are one grid (labels' column `max-content`, form-groups `display: contents`)
+  so "What are you attacking with?" stays on one line, and the window is 480
+  wide so the input keeps its placeholder; gate `dev:attack` leg 5. HP's + and −
+  wear `--ab-on-bar` (light theme had #111 on the black bar), gate
+  `dev:sheet-rail` leg 17 — which re-renders after each `configureUI`, because a
+  button already drawn keeps the ink of the scheme it was drawn in.
 
 ## Creation routes
 
