@@ -41,6 +41,11 @@
  * wrong. What is swept is the id DIFFERENCE across the run, and nothing else.
  *
  * The dev world has NO actors; fixtures are created and removed.
+ *
+ * And the ROLL a weapon's button makes (review #35, user ruling 2026-11-20):
+ * on a player character a Broken weapon is refused with "{name} is broken."
+ * and a weapon Hands full blocks with the hack's own sentence; an intact one
+ * with a hand free still rolls.
  */
 import { chromium } from "playwright";
 import { FOUNDRY_URL, VIEWPORT, dismissChrome, joinAs, joinAsGM, watchErrors, watchdog } from "./lib.mjs";
@@ -286,6 +291,78 @@ try {
     macroDrop.slotId === fx.macroId && macroDrop.after === macroDrop.before,
     `slot=${macroDrop.slotId} expected=${fx.macroId} macros ${macroDrop.before} -> ${macroDrop.after} — `
     + "a wrapper here would open the macro's edit sheet instead of running it");
+
+  /* ---- the macro's roll on a character: Broken and Hands full (review #35) */
+  // rollItemMacro is the command a weapon's hotbar button runs. A Broken
+  // weapon is refused with CAIRN.Macro.Broken, a weapon Hands full blocks
+  // with CAIRN.HandsFullNote (the hack shadowed in page, never written); an
+  // intact weapon still rolls. Warnings captured; the quality dialog is
+  // answered by pressing its first button. Fixture actor stamped and deleted.
+  const macroRolls = await page.evaluate(async () => {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const { rollItemMacro } = await import("/systems/air-bladder/module/macros.js");
+    const pc = await getDocumentClass("Actor").create({
+      name: "ZZ Hotbar PC", type: "character", flags: { "air-bladder": { probeFixture: "e2e-hotbar" } },
+      items: [
+        { name: "ZZ Hot Sword", type: "weapon", system: { damageFormula: "1d6", equipped: true } },
+        { name: "ZZ Hot Axe", type: "weapon", system: { damageFormula: "1d8", equipped: true, broken: true } },
+        { name: "ZZ Hot Shield", type: "armor", system: { armor: 1, shield: true, equipped: true } },
+        { name: "Torch", type: "item", system: { equipped: true } },
+      ],
+    }, { abNoStatusCard: true });
+    const id = (n) => pc.items.find((i) => i.name === n).id;
+    const warns = [];
+    const origWarn = ui.notifications.warn;
+    ui.notifications.warn = function (msg, ...rest) { warns.push(String(msg)); return origWarn.call(this, msg, ...rest); };
+    const origGet = game.settings.get;
+    let handsFull = false;
+    game.settings.get = function (scope, key, ...rest) {
+      if (rest[0]?.document) return foundry.helpers.ClientSettings.prototype.get.call(this, scope, key, ...rest);
+      if (scope === "air-bladder" && key === "hands-full") return handsFull;
+      return origGet.call(this, scope, key, ...rest);
+    };
+    const run = async (itemId) => {
+      warns.length = 0;
+      const before = new Set(game.messages.map((m) => m.id));
+      const stale = new Set(foundry.applications.instances.values());
+      const pending = rollItemMacro(pc.id, itemId);
+      for (let i = 0; i < 20; i++) {
+        const d = [...foundry.applications.instances.values()].find((x) => !stale.has(x) && x instanceof foundry.applications.api.DialogV2);
+        if (d) { d.element.querySelector("footer button")?.click(); break; }
+        await sleep(100);
+      }
+      await Promise.race([pending, sleep(3000)]);
+      await sleep(300);
+      const made = game.messages.filter((m) => !before.has(m.id) && m.speaker?.actor === pc.id);
+      for (const m of made) await m.delete();
+      return { posted: made.length, warns: [...warns] };
+    };
+    try {
+      const broken = await run(id("ZZ Hot Axe"));
+      handsFull = true;
+      const blocked = await run(id("ZZ Hot Sword"));
+      handsFull = false;
+      const intact = await run(id("ZZ Hot Sword"));
+      return {
+        broken, blocked, intact,
+        wantBroken: game.i18n.format("CAIRN.Macro.Broken", { name: "ZZ Hot Axe" }),
+        wantHands: game.i18n.localize("CAIRN.HandsFullNote"),
+      };
+    } finally {
+      game.settings.get = origGet;
+      ui.notifications.warn = origWarn;
+      await pc.delete();
+    }
+  });
+  check("the hotbar refuses a Broken weapon, saying so",
+    macroRolls.broken.posted === 0 && macroRolls.broken.warns.includes(macroRolls.wantBroken)
+    && macroRolls.wantBroken !== "CAIRN.Macro.Broken",
+    JSON.stringify({ broken: macroRolls.broken, want: macroRolls.wantBroken }));
+  check("the hotbar refuses a weapon Hands full blocks, with the hack's sentence",
+    macroRolls.blocked.posted === 0 && macroRolls.blocked.warns.includes(macroRolls.wantHands),
+    JSON.stringify({ blocked: macroRolls.blocked, want: macroRolls.wantHands }));
+  check("...and still rolls an intact weapon with a hand free",
+    macroRolls.intact.posted === 1 && macroRolls.intact.warns.length === 0, JSON.stringify(macroRolls.intact));
 
 } catch (e) {
   check("the probe ran to the end", false, e.message);
