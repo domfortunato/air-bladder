@@ -47,7 +47,7 @@ import {
 } from "../item-offer.js";
 import { actorDisplayName, localizeNameDesc, sourceOf, t, itemNamespaces } from "../i18n-content.js";
 import { dropItemToPile, isDroppedPile, buildWhereField, cleanDropNote, pileDisplayName } from "../party-pile.js";
-import { FATIGUE_NAME } from "../item/item.js";
+import { FATIGUE_NAME, confirmBroken } from "../item/item.js";
 import { castFromGrimoire, castScroll, castSpellbook, grimoiresOn, pagesOfGrimoire, ensureGrimoireKey,
   groupPagesUnderBooks } from "../grimoire.js";
 import { grimoiresEnabled } from "../glog.js";
@@ -1544,11 +1544,13 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     context.holdShieldNoneKey = this._wording("CAIRN.HoldShieldNone");
     // game-icons art the system ships and credits (art/game-icons/CREDITS.md),
     // drawn as CSS masks so they take the sheet's colours (2026-11-20, user
-    // picks): the heater shield on the Hold shield badge, the broken shield on
-    // every inventory row's Broken toggle. ROUTES, as the light badge's icon
-    // is: a relative url() in a custom property resolves against the
-    // stylesheet, and that icon 404ed on CT 123.
-    context.shieldIcon = foundry.utils.getRoute("systems/air-bladder/art/game-icons/shields/shield.svg");
+    // picks): on the Hold shield badge Shield Disabled while slung and Shield
+    // Bash in hand (2026-11-21; the heater shield for a day before), the
+    // broken shield on every inventory row's Broken toggle. ROUTES, as the
+    // light badge's icon is: a relative url() in a custom property resolves
+    // against the stylesheet, and that icon 404ed on CT 123.
+    context.shieldIcon = foundry.utils.getRoute("systems/air-bladder/art/game-icons/shields/shield-disabled.svg");
+    context.shieldHeldIcon = foundry.utils.getRoute("systems/air-bladder/art/game-icons/shields/shield-bash.svg");
     context.brokenIcon = foundry.utils.getRoute("systems/air-bladder/art/game-icons/shields/broken-shield.svg");
     // The stat inputs' max attribute: a character's 18 cap, none on an npc
     // (the statCap in _onRender, review #34 finding 52).
@@ -4506,7 +4508,9 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    * `system.broken`, nothing else: CairnItem._preUpdate strips the equip of a
    * broken item, and the Torch sync and stacking follow from the item. Re-
    * derived here, not trusted from the row: only a type that carries `broken`,
-   * never a Fatigue (canBreak). owned(), as Delete is.
+   * never a Fatigue (canBreak). owned(), as Delete is. Since 2026-11-21 (user
+   * ask) it asks first (`confirmBroken`, item.js, the item sheet's box too),
+   * and the write lands on the change log (actor.js) with its own line.
    * @this {CairnActorSheet}
    */
   static async #onItemToggleBroken(event, target) {
@@ -4514,7 +4518,12 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     const row = CairnActorSheet.#row(target);
     const item = this.actor.getOwnedItem(row?.dataset.itemId);
     if (!item?.system?.canBreak) return;
-    await item.update({ "system.broken": !item.system.broken });
+    const to = !item.system.broken;
+    if (!(await confirmBroken(item, { windowId: this.window?.windowId }))) return;
+    // Re-read after the dialog: the item may have gone, or been flipped
+    // elsewhere while the question stood; write the state that was asked.
+    if (!item.parent?.items.get(item.id) || !!item.system.broken === to) return;
+    await item.update({ "system.broken": to });
   }
 
   /**

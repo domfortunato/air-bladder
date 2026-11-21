@@ -4,6 +4,7 @@ import { iconForItem, SPELLBOOK_ICON, SPELLSCROLL_ICON } from "../icons.js";
 import { isHoldableLight } from "../gear.js";
 import { glogEnabled, grimoiresEnabled, glogConversionDiff, glogTextCached } from "../glog.js";
 import { repointWholeWrite } from "../art-paths.js";
+import { t, itemNamespaces } from "../i18n-content.js";
 
 /**
  * The stored name of a Fatigue item. ENGLISH, always — Foundry's language setting
@@ -32,6 +33,34 @@ export const FATIGUE_NAME = "Fatigue";
  * unnamed create would otherwise produce a scroll called "Spellbook".
  */
 export const SPELLSCROLL_NAME = "Spellscroll";
+
+/**
+ * The yes/no in front of every break and repair (2026-11-21, user ask:
+ * "Breaking and unbreaking an item should be Gated by a yes/no dialogue
+ * box"). ONE helper for both routes, the inventory row's toggle and the item
+ * sheet's Broken box. `_confirmAction`'s shape (actor-sheet.js): the caller's
+ * own window (a popped-out sheet's dialog must open there — review #33),
+ * modal, `.cairn-confirm`, closing it answers No. Breaking shows the rule
+ * line (the user's own words of 2026-11-20); both ask about the name the row
+ * shows (the content overlay's, escaped: core renders the content as HTML).
+ * @param {CairnItem} item
+ * @param {object} [options]
+ * @param {number} [options.windowId]  the launching sheet's window
+ * @returns {Promise<boolean>} true on Yes
+ */
+export const confirmBroken = (item, { windowId } = {}) => {
+  const L = (k) => game.i18n.localize(k);
+  const breaking = !item.system?.broken;
+  const name = foundry.utils.escapeHTML(t(itemNamespaces(item.parent).nameNs, item.name));
+  const question = game.i18n.format(breaking ? "CAIRN.ItemBrokenConfirm" : "CAIRN.ItemRepairedConfirm", { name });
+  return foundry.applications.api.DialogV2.confirm({
+    window: { title: L(breaking ? "CAIRN.ItemMarkBroken" : "CAIRN.ItemMarkRepaired") },
+    renderOptions: { window: { windowId } },
+    content: `<div class="cairn-confirm">${breaking ? L("CAIRN.ItemBrokenTip") : ""}<p class="cairn-confirm-q">${question}</p></div>`,
+    rejectClose: false,
+    modal: true,
+  });
+};
 
 /**
  * Every spellscroll is petty and single-use — the Warden's rule, and the one thing

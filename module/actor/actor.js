@@ -175,8 +175,10 @@ export const postStatusCard = async (actor, kind, token = actor?.token ?? null) 
  * Panicked/Deprived and scars — plus inventory, which is the
  * descendant-document seams below, not a field: add/remove, and since review
  * #13 (#21, user ruling — "when torches and rations are marked down a tick"
- * belongs on the ledger) quantity changes and uses ticks too. Equipped,
- * renames and description edits stay OFF by the same ruling. Rest and Restore need no
+ * belongs on the ledger) quantity changes and uses ticks too. Equipped and
+ * renames joined on 2026-11-21 with every other item action (AUDIT_ITEM_FLAGS,
+ * user ask, reversing that ruling's exclusion); a reorder and a description
+ * edit stay off (the user's pick). Rest and Restore need no
  * entry of their own: both are plain updates of HP/ability values, so they
  * surface as those lines — and since 2026-08-08 the two sheet buttons also
  * NAME themselves on the card, via the whitelisted `abChangeLogAction`
@@ -245,6 +247,76 @@ const AUDIT_ARRAYS = ["system.scars"];
 const AUDIT_ACTIONS = new Set(["CAIRN.Rest", "CAIRN.RestoreAbilities"]);
 
 /**
+ * The item booleans the ledger records (2026-11-21, user ask: "All actions on
+ * inventory items, including breaking and unbreaking them, should show in the
+ * chat log" — the user's pick, everything but a drag-reorder (`sort`) and a
+ * description save). This REVERSES review #13's ruling that kept equipped and
+ * renames off the ledger. Each flag's on / off line; `label` is set for the
+ * three that read "{label} marked / cleared: {name}". Also the whitelist the
+ * reader checks `f` against (flag data is player-authorable).
+ */
+const AUDIT_ITEM_FLAGS = {
+  broken: { on: "CAIRN.ChangeLog.Broken", off: "CAIRN.ChangeLog.Repaired" },
+  equipped: { on: "CAIRN.ChangeLog.Equipped", off: "CAIRN.ChangeLog.Unequipped" },
+  // A book bound into the Grimoire (Transmute); there is no way back.
+  bound: { on: "CAIRN.ChangeLog.Transmuted", off: null },
+  bulky: { label: "CAIRN.Bulky" },
+  weightless: { label: "CAIRN.Weightless" },
+  shield: { label: "CAIRN.Shield" },
+};
+
+/**
+ * The OLD side of an item write, for the ledger: the audited fields the diff
+ * `flat` touches, read from the item's SOURCE (the ledger records what was
+ * written; prepareData clamps derived uses and derives `equipped`). Null when
+ * the write touches none. ONE function for both seams that see item writes —
+ * `_preUpdateDescendantDocuments` and a parent update's `changed.items`
+ * (CairnActor._preUpdate) — so the two cannot audit different fields.
+ */
+const itemAuditOf = (item, flat) => {
+  const src = item.toObject();
+  const a = {};
+  if ("system.quantity" in flat) a.quantity = src.system.quantity ?? 1;
+  if ("system.uses.value" in flat) a.uses = src.system.uses?.value ?? 0;
+  if ("name" in flat) a.name = src.name;
+  for (const f of Object.keys(AUDIT_ITEM_FLAGS)) {
+    if (`system.${f}` in flat) a[f] = !!src.system?.[f];
+  }
+  return foundry.utils.isEmpty(a) ? null : a;
+};
+
+/**
+ * The ledger lines for one item write: `before` (itemAuditOf) against the
+ * item's source now. Breaking an item strips its equip in the SAME write
+ * (CairnItem._preUpdate), and the broken line says so: no separate
+ * "Unequipped" line then.
+ */
+const itemAuditEntries = (d, before, monster) => {
+  const src = d.toObject();
+  const out = [];
+  if (before.name !== undefined && src.name !== before.name) {
+    out.push({ k: "rename", monster, from: before.name, to: src.name });
+  }
+  if (before.quantity !== undefined) {
+    const now = src.system.quantity ?? 1;
+    if (now !== before.quantity) out.push({ k: "qty", name: d.name, monster, from: before.quantity, to: now });
+  }
+  if (before.uses !== undefined) {
+    const now = src.system.uses?.value ?? 0;
+    if (now !== before.uses) out.push({ k: "uses", name: d.name, monster, from: before.uses, to: now });
+  }
+  const brokeNow = before.broken === false && !!src.system?.broken;
+  for (const f of Object.keys(AUDIT_ITEM_FLAGS)) {
+    if (before[f] === undefined) continue;
+    const now = !!src.system?.[f];
+    if (now === before[f]) continue;
+    if (f === "equipped" && brokeNow && !now) continue;
+    out.push({ k: "itemFlag", f, on: now, name: d.name, monster });
+  }
+  return out;
+};
+
+/**
  * THE LEDGER CARD IS REBUILT PER VIEWER (review #30). It is whispered to the
  * actor's owners AND every Warden, so it has as many readers as the table has
  * languages — and it stored the acting client's rendering, so a Spanish
@@ -258,7 +330,7 @@ const AUDIT_ACTIONS = new Set(["CAIRN.Rest", "CAIRN.RestoreAbilities"]);
  * Every field is coerced or whitelisted on the way back out — a message's
  * flags are player-authorable and never server-sanitized (review #24's
  * class): a `p` must be a key of AUDIT_LABELS / AUDIT_BOOLEANS, a `k` one of
- * the seven kinds, numbers pass a finite gate, names are strings run through
+ * the nine kinds (an itemFlag's `f` a key of AUDIT_ITEM_FLAGS), numbers pass a finite gate, names are strings run through
  * the overlay, and the whole line is escaped at assembly exactly as before.
  */
 const CHANGE_LOG_FLAG = "changeLog";
@@ -307,6 +379,19 @@ const changeLogLine = (e) => {
       if (!name) return null;
       return game.i18n.format("CAIRN.ChangeLog.Uses",
         { name: t(ns, name), from: changeLogValue(Number(e.from)), to: changeLogValue(Number(e.to)) });
+    case "rename":
+      if (typeof e.from !== "string" || typeof e.to !== "string") return null;
+      return game.i18n.format("CAIRN.ChangeLog.Renamed", { from: t(ns, e.from), to: t(ns, e.to) });
+    case "itemFlag": {
+      if (!name || typeof e.f !== "string" || !Object.hasOwn(AUDIT_ITEM_FLAGS, e.f)) return null;
+      const spec = AUDIT_ITEM_FLAGS[e.f];
+      if (spec.label) {
+        return game.i18n.format(e.on === true ? "CAIRN.ChangeLog.ItemMarked" : "CAIRN.ChangeLog.ItemCleared",
+          { label: game.i18n.localize(spec.label), name: t(ns, name) });
+      }
+      const key = e.on === true ? spec.on : spec.off;
+      return key ? game.i18n.format(key, { name: t(ns, name) }) : null;
+    }
     default:
       return null;
   }
@@ -1969,19 +2054,14 @@ export class CairnActor extends Actor {
     // (The ration-eating Rest was its first caller and is gone since
     // 2026-11-06; the seam is kept for any parent write that carries items.)
     // The item-side stash cannot see such a diff, so the actor side takes the
-    // same two audited fields here, in the same shape.
+    // same audited fields here, through the same itemAuditOf.
     if (Array.isArray(changed.items)) {
       const itemAudit = {};
       for (const change of changed.items) {
         const item = change?._id ? this.items.get(change._id) : null;
         if (!item) continue;
-        const flat = foundry.utils.flattenObject(change);
-        if (!("system.quantity" in flat) && !("system.uses.value" in flat)) continue;
-        const isrc = item.toObject();
-        const a = {};
-        if ("system.quantity" in flat) a.quantity = isrc.system.quantity ?? 1;
-        if ("system.uses.value" in flat) a.uses = isrc.system.uses?.value ?? 0;
-        itemAudit[change._id] = a;
+        const a = itemAuditOf(item, foundry.utils.flattenObject(change));
+        if (a) itemAudit[change._id] = a;
       }
       if (!foundry.utils.isEmpty(itemAudit)) stash.itemAudit = itemAudit;
     }
@@ -2163,23 +2243,14 @@ export class CairnActor extends Actor {
       }
       for (const s of old) entries.push({ k: "scar", added: false, name: s });
     }
-    // Item diffs carried by THIS parent update (see _preUpdate): the same two
-    // audited fields the item-side half logs, from the same kind of stash, so
-    // the item's lines sit on the parent write's own card.
+    // Item diffs carried by THIS parent update (see _preUpdate): the same
+    // audited fields the item-side half logs, through the same
+    // itemAuditEntries, so the item's lines sit on the parent write's own card.
     if (itemAudit) {
       const monster = this.npcRole === "monster";
       for (const [id, b] of Object.entries(itemAudit)) {
         const d = this.items.get(id);
-        if (!d) continue;
-        const isrc = d.toObject();
-        if (b.quantity !== undefined) {
-          const now = isrc.system.quantity ?? 1;
-          if (now !== b.quantity) entries.push({ k: "qty", name: d.name, monster, from: b.quantity, to: now });
-        }
-        if (b.uses !== undefined) {
-          const now = isrc.system.uses?.value ?? 0;
-          if (now !== b.uses) entries.push({ k: "uses", name: d.name, monster, from: b.uses, to: now });
-        }
+        if (d) entries.push(...itemAuditEntries(d, b, monster));
       }
     }
     if (entries.length) {
@@ -2221,10 +2292,14 @@ export class CairnActor extends Actor {
   /**
    * The manual-change log, inventory-UPDATE half: quantity changes and uses
    * ticks (review #13 #21, user ruling — a torch marked down a tick belongs on
-   * the ledger like a torch dropped). ONLY those two: equipped, renames and
-   * description edits stay off by the same ruling. Quantity rides the shared
-   * Field line with the item's overlay name as the label; uses get their own
-   * whole-line key. Old values come from the per-id stash
+   * the ledger like a torch dropped), and since 2026-11-21 every other action
+   * on an item (user ask, REVERSING review #13's exclusion of equipped and
+   * renames): Mark broken / repaired, equip / unequip (the hand, Hold shield,
+   * Hold light), a rename, the Bulky / Weightless / Shield boxes, a book bound
+   * into the Grimoire (AUDIT_ITEM_FLAGS). NOT a reorder (`sort`) or a
+   * description save — the user's two exclusions. Quantity rides the shared
+   * Field line with the item's overlay name as the label; the rest have their
+   * own keys. Old values come from the per-id stash
    * _preUpdateDescendantDocuments wrote — by the time this runs the document
    * already holds the new state. Same gates as the add/remove half.
    */
@@ -2237,16 +2312,7 @@ export class CairnActor extends Actor {
     const entries = [];
     for (const d of documents) {
       const before = options.airBladder?.[d.id]?.itemAudit;
-      if (!before) continue;
-      const src = d.toObject();
-      if (before.quantity !== undefined) {
-        const now = src.system.quantity ?? 1;
-        if (now !== before.quantity) entries.push({ k: "qty", name: d.name, monster, from: before.quantity, to: now });
-      }
-      if (before.uses !== undefined) {
-        const now = src.system.uses?.value ?? 0;
-        if (now !== before.uses) entries.push({ k: "uses", name: d.name, monster, from: before.uses, to: now });
-      }
+      if (before) entries.push(...itemAuditEntries(d, before, monster));
     }
     if (entries.length) this.#postChangeLogCard(entries, userId);
   }
@@ -2287,12 +2353,8 @@ export class CairnActor extends Actor {
     for (const change of changes) {
       const item = this.items.get(change._id);
       if (!item) continue;
-      const flat = foundry.utils.flattenObject(change);
-      if (!("system.quantity" in flat) && !("system.uses.value" in flat)) continue;
-      const src = item.toObject();
-      const audit = {};
-      if ("system.quantity" in flat) audit.quantity = src.system.quantity ?? 1;
-      if ("system.uses.value" in flat) audit.uses = src.system.uses?.value ?? 0;
+      const audit = itemAuditOf(item, foundry.utils.flattenObject(change));
+      if (!audit) continue;
       ((options.airBladder ??= {})[change._id] ??= {}).itemAudit = audit;
     }
   }

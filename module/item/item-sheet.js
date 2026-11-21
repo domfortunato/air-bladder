@@ -5,6 +5,7 @@ import { TRANSPORT_KINDS } from "../icons.js";
 import { bindEditorClickAwaySave, cleanDescription, formatCount, sourceLabel, nameEditorToggles, isBulky } from "../utils.js";
 import { pickArt } from "../art-picker.js";
 import { glogEnabled, grimoiresEnabled } from "../glog.js";
+import { confirmBroken } from "./item.js";
 
 const { HandlebarsApplicationMixin } = foundry.applications.api;
 const { ItemSheetV2 } = foundry.applications.sheets;
@@ -657,6 +658,20 @@ export class CairnItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     };
     exclusive("bulky", "weightless");
     exclusive("weightless", "bulky");
+
+    // The Broken box asks first (2026-11-21, user ask: "Breaking and
+    // unbreaking an item should be Gated by a yes/no dialogue box"), the
+    // inventory row's helper. Caught in the target phase and stopped there,
+    // before the change bubbles to the form and submitOnChange stores it; the
+    // box is put back at once, so a submit from another field while the
+    // question stands carries the STORED value. Yes writes; No leaves it.
+    el.querySelector("[name='system.broken']")?.addEventListener("change", async (e) => {
+      e.stopPropagation();
+      const box = e.target;
+      box.checked = !!this.item.system.broken;
+      if (!(await confirmBroken(this.item, { windowId: this.window?.windowId }))) return;
+      await this.item.update({ "system.broken": !this.item.system.broken });
+    });
 
     if (this.item.type === "background") this._activateBackgroundListeners(el);
   }

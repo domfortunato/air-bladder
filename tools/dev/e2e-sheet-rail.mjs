@@ -127,8 +127,9 @@
  *      npc, a hireling, a monster and a companion the Armor box is the shield
  *      outline (54 x 60, its asymmetric radius, the STR circle's border width,
  *      style and colour) holding the number alone at 20px; "Armor" stands
- *      outside it, below, level with the badges' labels and in their face; a
- *      badge either side; light and dark.
+ *      outside it, right below, in the badges' label face (not level with
+ *      them: the user's pick, page 1 has 8px to spare); a badge either side;
+ *      light and dark.
  *
  * Red-first: run against the commit before the redesign, every leg but 8 and
  * 10 fails (no rail, no growth page, no growth field).
@@ -1659,17 +1660,19 @@ else {
 
     // 25 (2026-11-21): the Armor box is the shield outline (54 x 60, its
     // asymmetric radius, the ability circles' border), the number alone
-    // inside at the circles' 20px, "Armor" OUTSIDE it, below, level with the
-    // badges' labels and in their face.
+    // inside at the circles' 20px, "Armor" OUTSIDE it, right below, in the
+    // badges' label face. NOT level with the badges' labels (user pick
+    // 2026-11-21): a 60px shield with level labels overran page 1's 8px of
+    // slack at 480 x 700, measured on CT 123.
     const round = (a) => !!a && JSON.stringify(a.size) === "[54,60]"
       && JSON.stringify(a.radius) === JSON.stringify(["50% 12%", "50% 88%"])
       && JSON.stringify(a.border) === JSON.stringify(a.circle) && a.numberSize === "20px"
-      && a.label === P.want?.armor && a.labelOutside && a.labelBelow && a.labelLevel
+      && a.label === P.want?.armor && a.labelOutside && a.labelBelow
       && JSON.stringify(a.labelFace) === JSON.stringify(a.badgeFace) && !!a.badgeFace?.fontFamily
       && a.value && a.shieldBadge && a.lightBadge;
     const sheets = { character: P.pc?.armor, npc: P.npc?.armor, hireling: P.hireling?.armor, monster: P.monster?.armor, companion: P.companion?.armor };
     Object.values(sheets).every(round)
-      ? ok(`the Armor box is the shield outline with the number alone inside; "${P.want?.armor}" stands below it, level with the badges' labels, on every creature`)
+      ? ok(`the Armor box is the shield outline with the number alone inside; "${P.want?.armor}" stands below it in the badges' face, on every creature`)
       : fail(`Armor box: ${JSON.stringify(Object.fromEntries(Object.entries(sheets).filter(([, a]) => !round(a))))}`);
     const st = P.npc?.styles ?? {};
     ["light", "dark"].every((s) => round(st[s]?.pcArmor) && round(st[s]?.npcArmor))

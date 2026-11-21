@@ -131,23 +131,31 @@
                               and says why. The shield's switch carries no tooltip while
                               live. --}}
                         {{!-- A BADGE like Hold light's since 2026-11-20 (user ask: "Hold
-                              shield looks and labels like Hold light"): game-icons'
-                              heater shield as a mask, muted when slung, the accent
-                              with a glow when held; "Hold shield" off, "Shield in
-                              hand" on. --}}
+                              shield looks and labels like Hold light"): a game-icons
+                              mask, muted when slung, the accent with a glow when held.
+                              Since 2026-11-21 (user asks) Shield Disabled while slung
+                              and Shield Bash in hand, and the off label a question:
+                              "Hold shield?" off, "Shield in hand" on. --}}
                         {{#if shieldSwitch}}
                         <button type="button" class="shield-hold" data-action="toggleHold" data-hold="shield" role="switch" aria-checked="{{#if shieldSwitch.held}}true{{else}}false{{/if}}"{{#if shieldSwitch.none}} data-tooltip="{{ localize holdShieldNoneKey }}"{{/if}}{{#if (or shieldSwitch.none (not @root.editable))}} disabled{{/if}}>
-                            <span class="shield-icon" style="--shield-icon: url('{{shieldIcon}}')" inert></span>
-                            <span class="shield-label">{{#if shieldSwitch.held}}{{ localize 'CAIRN.ShieldInHand' }}{{else}}{{ localize 'CAIRN.HoldShield' }}{{/if}}</span>
+                            <span class="shield-icon" style="--shield-icon: url('{{#if shieldSwitch.held}}{{shieldHeldIcon}}{{else}}{{shieldIcon}}{{/if}}')" inert></span>
+                            <span class="shield-label">{{#if shieldSwitch.held}}{{ localize 'CAIRN.ShieldInHand' }}{{else}}{{ localize 'CAIRN.HoldShieldAsk' }}{{/if}}</span>
                         </button>
                         {{/if}}
+                        {{!-- The Armor box: the shield outline, the number alone inside,
+                              "Armor" OUTSIDE it, right below (2026-11-21, user asks: the
+                              label inside was "CRAMPED"; "the circle shape ... can go back
+                              to being an outline of a shield"). Not level with the badges'
+                              labels (user pick): page 1 has 8px to spare at 480 x 700. --}}
+                        <div class="cairn-armor-box">
                         <div class="cairn-shield armor-counter {{#if system.armorOverridden}}armor-overridden{{/if}}">
-                            <label for="{{@root.idp}}-armor" data-tooltip="{{ localize 'CAIRN.ArmorTip' }}">{{ localize 'CAIRN.Armor' }}</label>
                             <input type="number" min="0" max="3" step="1" class="armor-input" id="{{@root.idp}}-armor" value="{{system.armor}}"
                                 title="{{#if system.armorOverridden}}{{ localize 'CAIRN.ArmorOverrideActive' }}{{else}}{{ localize 'CAIRN.ArmorAuto' }}{{/if}}" />
                             {{#if system.armorOverridden}}
                             <a class="armor-reset" data-action="armorReset" title="{{ localize 'CAIRN.ArmorReset' }}"><i class="fas fa-rotate-left"></i></a>
                             {{/if}}
+                        </div>
+                        <label class="armor-label" for="{{@root.idp}}-armor" data-tooltip="{{ localize 'CAIRN.ArmorTip' }}">{{ localize 'CAIRN.Armor' }}</label>
                         </div>
                         {{!-- The light BADGE right of the Armor box (2026-11-20, user picks):
                               it IS the Hold light control. The held light's icon (game-icons,
@@ -157,8 +165,9 @@
                         {{#if lightSwitch}}
                         <button type="button" class="light-hold" data-action="toggleHold" data-hold="light" role="switch" aria-checked="{{#if lightSwitch.held}}true{{else}}false{{/if}}" data-tooltip="{{lightSwitch.tip}}"{{#if (or lightSwitch.none (not @root.editable))}} disabled{{/if}}>
                             <span class="light-icon" style="--light-icon: url('{{lightSwitch.icon}}')" inert></span>
-                            {{!-- "Light in hand" while one is held (2026-11-20, user ask). --}}
-                            <span class="light-label">{{#if lightSwitch.held}}{{ localize 'CAIRN.LightInHand' }}{{else}}{{ localize 'CAIRN.HoldLight' }}{{/if}}</span>
+                            {{!-- "Light in hand" while one is held (2026-11-20, user ask);
+                                  "Hold light?" otherwise (2026-11-21). --}}
+                            <span class="light-label">{{#if lightSwitch.held}}{{ localize 'CAIRN.LightInHand' }}{{else}}{{ localize 'CAIRN.HoldLightAsk' }}{{/if}}</span>
                             {{#if lightSwitch.radius}}<span class="light-radius">{{lightSwitch.radius}}</span>{{/if}}
                         </button>
                         {{/if}}

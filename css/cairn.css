@@ -5655,37 +5655,43 @@ header.character-generator.directory-header .header-actions > button:not(.cairn-
 
 /* Vitals: the Armor shield, HP, the slot count and the buttons. */
 .cairn-character-sheet .cairn-vitals { display: flex; flex-direction: column; align-items: center; gap: 8px; }
-/* The Armor box: a CIRCLE the ability circles' size and border since
-   2026-11-20 (user ask: "a ROUND outline matching the ability circles,
-   labelled Armor"; a 54 x 60 shield outline before). The label and the number
-   stack inside it, so both are kept small enough to fit the 44px within. */
+/* The Armor box (2026-11-21, user asks): the SHIELD OUTLINE again (54 x 60,
+   the ability circles' 2px line; a 48px circle for one day, its label inside
+   "CRAMPED"), the number alone inside at the circles' 20px, and "Armor"
+   OUTSIDE it, right below, in the badges' label face (.cairn-armor-box stacks
+   the two). Shield + label is about 77px, inside the row's 82 (the held
+   light's badge): page 1 has 8px to spare at 480 x 700, so the label is not
+   lifted level with the badges' (user pick). */
+.cairn-character-sheet .cairn-armor-box {
+    display: flex; flex-direction: column; align-items: center; gap: 2px;
+}
 .cairn-character-sheet .cairn-shield {
-    position: relative; width: 48px; height: 48px; box-sizing: border-box;
+    position: relative; width: 54px; height: 60px; box-sizing: border-box;
     border: 2px solid var(--ab-line);
-    border-radius: 50%;
+    border-radius: 50% 50% 50% 50% / 12% 12% 88% 88%;
     display: flex; flex-direction: column; align-items: center; justify-content: center;
 }
-.cairn-character-sheet .cairn-shield label {
+.cairn-character-sheet .cairn-armor-box > .armor-label {
     font-family: "Alegreya", Times, "Times New Roman", Georgia, serif;
     /* line-height above the size: Alegreya's glyphs run taller than their
        size, and a line box of exactly the size clips them (dev:sheet-layout,
        2026-11-19). */
-    font-size: 11px; font-weight: bold; font-variant: small-caps; line-height: 13px; margin: 0;
+    font-size: 12px; font-weight: bold; font-variant: small-caps; line-height: 15px; margin: 0;
 }
 .cairn-character-sheet .cairn-shield .armor-input {
-    width: 36px; height: 22px !important; padding: 0;
+    width: 40px; height: 26px !important; padding: 0;
     background: none !important; border: none !important;
     text-align: center; font-size: 20px; font-weight: bold;
 }
 .cairn-character-sheet .cairn-shield .armor-input:focus { box-shadow: none; }
-/* On the circle's lower right, clear of the light badge beside it. */
+/* Inside the shield's lower edge, clear of the light badge beside it. */
 .cairn-character-sheet .cairn-shield .armor-reset { position: absolute; right: -6px; bottom: -4px; margin: 0; font-size: 11px; }
 /* The Armor row (2026-11-20): Hold shield | the Armor box | the light badge.
    Three columns, the box in the middle one, so it stays centred over HP. */
 .cairn-character-sheet .cairn-armor-row {
     align-self: stretch; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; column-gap: 4px;
 }
-.cairn-character-sheet .cairn-armor-row > .cairn-shield { grid-column: 2; }
+.cairn-character-sheet .cairn-armor-row > .cairn-armor-box { grid-column: 2; }
 .cairn-character-sheet .cairn-armor-row > .shield-hold { grid-column: 1; justify-self: end; }
 .cairn-character-sheet .cairn-armor-row > .light-hold { grid-column: 3; justify-self: start; }
 .cairn-character-sheet :is(.shield-hold, .light-hold) {

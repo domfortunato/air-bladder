@@ -253,7 +253,7 @@ try {
       // clientHeight, so this only ever flags a line that is really hidden.
       const clippedLabels = [];
       for (const l of page1.querySelectorAll(".resource-counter > label, .resource-counter > a, "
-        + ".cairn-vital-buttons > button, .cairn-shield > label, .cairn-band .band-label, .cairn-states .band-label, .identity-bio-line label, "
+        + ".cairn-vital-buttons > button, .cairn-armor-box > .armor-label, .cairn-band .band-label, .cairn-states .band-label, .identity-bio-line label, "
         + ".cairn-ability-name-line > a.resource-roll")) {
         if (l.getBoundingClientRect().width < 2) continue;
         if (l.scrollHeight > l.clientHeight + 1) {
