@@ -350,8 +350,10 @@ try {
       want: {
         none: L("CAIRN.NoBook"), noneTip: L("CAIRN.EquipBookNone"),
         off: L("CAIRN.EquipBook"), on: L("CAIRN.BookEquipped"),
-        offScroll: L("CAIRN.EquipScroll"), onScroll: L("CAIRN.ScrollEquipped"),
-        onGrimoire: L("CAIRN.GrimoireEquipped"),
+        // One wording for every kind since 2026-11-21 (user: "yes" to "Equip Spell" /
+        // "Spell equipped" / "No Spell" for a scroll and the Grimoire too).
+        offScroll: L("CAIRN.EquipBook"), onScroll: L("CAIRN.BookEquipped"),
+        onGrimoire: L("CAIRN.BookEquipped"),
         tipScroll: game.i18n.format("CAIRN.BookEquippedTip", { name: "ZZ Book Scroll" }),
         prompt: L("CAIRN.EquipPick.Prompt"),
       },
