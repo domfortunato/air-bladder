@@ -132,9 +132,12 @@ const ROLE_PAGE = {
 
 /** Every actor sheet's size (2026-11-19 for the character, user: Base
  *  Knavery's narrow sheet, as wide as page 1's abilities and vitals; every
- *  other sheet since 2026-11-20). */
+ *  other sheet since 2026-11-20). 770 tall since 2026-11-21 (700 before):
+ *  the three Equip badges got a row of their own under the Armor box, and
+ *  page 1 measured 724 in a 662 content box (dev:sheet-rail, dev:sheet-layout);
+ *  62px more plus the 8 of slack page 1 had. */
 const CHARACTER_SHEET_WIDTH = 480;
-const CHARACTER_SHEET_HEIGHT = 700;
+const CHARACTER_SHEET_HEIGHT = 770;
 
 /** The page a FRESH sheet opens on: page 1, for everyone (user ruling
  *  2026-11-20). The role-aware initial of 2026-08-21 (persons and, from

@@ -1521,8 +1521,9 @@ try {
 if (!r) fail("the in-page run returned nothing");
 else {
   // 1
-  r.frame.railed && r.frame.character && r.frame.width === 480 && r.frame.height === 700
-    ? ok("a character's frame wears cairn-railed + cairn-character-sheet and opens 480 x 700")
+  // 480 x 770 since 2026-11-21 (the Equip badges' row; 700 before).
+  r.frame.railed && r.frame.character && r.frame.width === 480 && r.frame.height === 770
+    ? ok("a character's frame wears cairn-railed + cairn-character-sheet and opens 480 x 770")
     : fail(`frame: ${JSON.stringify(r.frame)}`);
 
   // 2
@@ -1728,8 +1729,8 @@ else {
     ? ok(`a "${t20.label}" label runs in at the start of the trait sentence, in the Background label's face`)
     : fail(`Traits label: ${JSON.stringify(t20)}`);
   const fit = t20.fit ?? {};
-  fit.size?.[0] === 480 && fit.size?.[1] === 700 && fit.scroll && fit.scroll[0] <= fit.scroll[1] + 1 && fit.footInside
-    ? ok(`at 480 x 700, with the longest sentence, a shield and a light, page 1 fits and the footer is wholly visible (${fit.scroll[0]} in ${fit.scroll[1]})`)
+  fit.size?.[0] === 480 && fit.size?.[1] === 770 && fit.scroll && fit.scroll[0] <= fit.scroll[1] + 1 && fit.footInside
+    ? ok(`at 480 x 770, with the longest sentence, a shield and a light, page 1 fits and the footer is wholly visible (${fit.scroll[0]} in ${fit.scroll[1]})`)
     : fail(`page 1 at the default size: ${JSON.stringify(fit)}`);
   t20.rule && parseFloat(t20.rule.width) >= 1 && t20.rule.style !== "none" && (t20.gap ?? -1) >= 4
     ? ok(`a thin rule (${t20.rule.width} ${t20.rule.style}) under the sentence, ${t20.gap}px before the header`)
@@ -1875,8 +1876,8 @@ else {
   const LOCKED = ["npc", "hireling", "monster"];
   for (const [role, x] of Object.entries(r.roles ?? {})) {
     const thing = THINGS.includes(role);
-    x.rail && !x.strip && x.railed && x.character && x.size[0] === 480 && x.size[1] === 700
-      ? ok(`${role}: the rail, no strip, cairn-railed + cairn-character-sheet, 480 x 700`)
+    x.rail && !x.strip && x.railed && x.character && x.size[0] === 480 && x.size[1] === 770
+      ? ok(`${role}: the rail, no strip, cairn-railed + cairn-character-sheet, 480 x 770`)
       : fail(`${role} frame: ${JSON.stringify({ rail: x.rail, strip: x.strip, railed: x.railed, character: x.character, size: x.size })}`);
     const wantPages = thing ? ["character", "items", "notes"] : ["character", "items", "description", "notes"];
     JSON.stringify(x.pages) === JSON.stringify(wantPages)

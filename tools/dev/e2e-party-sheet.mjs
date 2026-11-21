@@ -261,6 +261,13 @@ try {
     const card = () => game.messages.contents.find((m) => !before.has(m.id) && (m.content ?? "").includes("cairn-light-card"));
     const t0 = Date.now();
     while (Date.now() - t0 < 5000 && (torch()?.system.equipped || !card())) await new Promise((r) => setTimeout(r, 100));
+    // Let the table's own redraw land (the cell loses its button) before the
+    // layout leg measures it: a queued render mid-measure detached the scroll
+    // box once (box=0, 20261121T172526Z).
+    const lit = () => document.querySelector(`#cairn-party-sheet tr[data-actor-id="${a}"] [data-col="light"] button[data-action="putOutLight"]`);
+    const t1 = Date.now();
+    while (Date.now() - t1 < 5000 && lit()) await new Promise((r) => setTimeout(r, 100));
+    await new Promise((r) => setTimeout(r, 600));
     const m = card();
     const want = game.i18n.format("CAIRN.LightCard.WardenOut", { actor: "ZZ Party A", light: "Torch" });
     const out = { equipped: torch()?.system.equipped ?? null, text: m ? new DOMParser().parseFromString(m.content, "text/html").body.textContent.trim() : null,
