@@ -25,23 +25,29 @@ Two properties make this safe to hand around:
 
 ## Where the languages actually stand
 
-Measured by this gate (`npm run i18n:check --lang <code>`), against 593 English
-keys (re-measured 2026-08-07, on `dev`). "Translated" means present *and*
+Measured by this gate (`node tools/i18n/check.mjs --lang <code>`), against 1,380
+English keys (re-measured 2026-11-21, on `dev`). "Translated" means present *and*
 different from the English. Every percentage here falls whenever the English
 grows, without a single translation being lost — the denominator moves, and it
-has moved twice (348 → 542 → 593). **Re-measure before quoting a number to a
-contributor**: this table read 542 keys and `es` at 96% while the real figures
-were 593 and 88%, which is the difference between "nearly done" and "sixty
-strings outstanding".
+has moved three times (348 → 542 → 593 → 1,380). **Re-measure before quoting a
+number to a contributor**: this table read 542 keys and `es` at 96% while the real
+figures were 593 and 88%, which is the difference between "nearly done" and "sixty
+strings outstanding". Then it read 593 and 88% for three months while the English
+more than doubled.
 
 | Locale | Translated | Content overlay | Note |
 |---|---|---|---|
-| `es` Spanish | 521 (88%) | ✅ the only one | actively maintained |
-| `pl` Polish | 88 (15%) | — | inherited from the original Cairn system |
-| `de` German | 52 (9%) | — | inherited |
-| `da` Danish | 51 (9%) | — | inherited |
-| `pt-BR` Portuguese | 51 (9%) | — | inherited |
-| `fr` French | 48 (8%) | — | inherited |
+| `es` Spanish | 1,157 (84%) | ✅ the only one | actively maintained |
+| `pl` Polish | 71 (5%) | — | inherited from the original Cairn system |
+| `de` German | 50 (4%) | — | inherited |
+| `da` Danish | 49 (4%) | — | inherited |
+| `pt-BR` Portuguese | 49 (4%) | — | inherited |
+| `fr` French | 46 (3%) | — | inherited |
+
+The inherited counts went DOWN as well as the percentages (Polish 88 → 71).
+Which keys left wasn't traced; the gate counts a key only while English still
+has it. The gate's other Spanish lines the same day: 198 missing, 17 drifted,
+13 stale.
 
 The outstanding Spanish work is itemised in
 [translation-handoff.md](translation-handoff.md), which separates keys that are
@@ -68,11 +74,12 @@ and says so, with the similarity score, so the answer is an edit rather than a
 retranslation.
 
 **Spanish is the translation; the other five are fragments.** They came from the
-1e system and never grew as this fork added ~250 keys, so a German session is
-mostly English. That is not a bug — English fallback is per string and by design —
+1e system and never grew as this fork added about a thousand keys, so a German
+session is almost all English. That is not a bug — English fallback is per string and by design —
 but do not describe those languages as supported.
 
-**All six locales pass `i18n:check` as of 2026-08-06.** The five inherited
+**All six locales pass `i18n:check` as of 2026-08-06** (and still do, re-run
+2026-11-21). The five inherited
 files had failed identically — `CAIRN.CharacterRegeneratorConfirm` dropped the
 `<p>` tags its English carries. When this file first noted that, only `fr`
 failed; the English key gained its tags later, switching the same latent

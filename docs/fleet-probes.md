@@ -1,7 +1,7 @@
 # Running the probes on the fleet
 
 The probe fleet runs this repo's whole e2e suite on the homelab cluster, eleven probes at a time:
-108 probes in about seven minutes, against an hour or more one by one on CT 123. This page covers
+113 probes in about seven minutes, against an hour or more one by one on CT 123. This page covers
 starting a run from here, reading what it found, and where the suite stands.
 
 The fleet's machinery (the probe boxes, their baseline world, the runner) belongs to the ops repo,
@@ -26,7 +26,8 @@ a probe, the dev world or the system is this repo's to fix.
 - **A run** rolls every box back to its `pristine` snapshot and deploys the ref under test into the box's
   system folder. It then runs several probes per box in turn, **with no reset between them**.
 - **Which probes run:** every `dev:` script in `package.json` whose command runs a `tools/dev/e2e-*.mjs`
-  file, so a new probe joins the fleet just by being declared there. That is 107 of the 111 `dev:` scripts:
+  file, so a new probe joins the fleet just by being declared there. That is 113 of the 117 `dev:` scripts
+  (counted 2026-11-21, with `dev:party-sheet` and `dev:light-uses` the newest):
   the ops registry leaves out `dev:upgrade`, and `dev:smoke`, `dev:actors` and `dev:players`
   are not probes.
 - **`pristine` holds a copy of CT 123's dev world as it stood on 2026-10-21**, launched once at 14.369 on
@@ -93,6 +94,31 @@ GM client in the world is the two-brokers confound, and it leaves the failure it
 in a batch. A red on a different box in each run, with the same message every time, points at the
 baseline world. A red that follows one box's queue points at an earlier probe on that box that leaked
 something.
+
+## The Equip round and review #36 (2026-11-21)
+
+**113 probes now, with `dev:party-sheet` and `dev:light-uses` new. Newest build only (14.370), the
+day-to-day rule; no release is decided, so the older two haven't run.** The whole suite was GREEN,
+113/113, at `c1d3b279` (`20261121T185459Z`), and the eight probes the badge and "Equip Spell"
+changes touch were GREEN at `fcef9509` (`20261121T211316Z`).
+
+- **The Equip round, red first:** the probes-only commit `6999915d` was red on exactly its new checks
+  (`20261121T171832Z`). At `9dd53c42` `sheet-rail` and `sheet-layout` measured page 1 at 724 in a 662
+  content box (`20261121T172526Z`), which is why every sheet is 770 tall since `b2fb1d8c`. The same
+  commit fixed a race of the new `party-sheet` leg's own making: the put-out leg's redraw landed while
+  the layout leg was measuring.
+- **Review #36, red first:** the legs in `016088fc` were red on 14.370, every red check one of the new
+  legs (`20261121T183537Z`).
+- **The whole suite at the fixes, `5d4bfe63`: 109/113** (`20261121T184355Z`), all four reds the
+  probes', UNDERSTOOD and fixed in `c1d3b279`. Three were toast recorders in `broken`,
+  `content-overlay` and `marketplace`: toasts now reach core as a key with `{format}`, and the
+  recorders pushed the key raw. The fourth was `hotbar`, which counted the whispered change-log card
+  for the item its own leg had just deleted (the known change-log pollution class).
+- **`sheet-rail` leg 25 at `76e4f5f6`: red on every creature in both schemes** (`20261121T210922Z`).
+  The change moved "Armor" to the right of a smaller shield and the leg still wanted it below a
+  54 x 60 one. `25d8261f` rewrote the leg. `dev:shield`'s half went in probe-first as `f14ee1ff`,
+  red on exactly its new checks (`20261121T210642Z`); that commit carries the message of the one
+  before it by mistake, and `76e4f5f6`'s message says so.
 
 ## Review #35's fixes, on all three builds (2026-11-20, late)
 

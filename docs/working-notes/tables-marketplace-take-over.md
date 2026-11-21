@@ -41,7 +41,7 @@ Moved word for word from CLAUDE.md (2026-11-01); CLAUDE.md points here.
     refused in confirm and result. Names come from documents (`namesFor`).
   - `resolveBarebonesResult` asks `!doc.pack` first so a world row wins.
   - Spell door replaced "Reseed a Spell Table" — **do not bring Reseed back**.
-    Spec read at click time (GLOG swaps the pool). "Consistent with X" means X's
+    Spec read at click time (GLoG swaps the pool). "Consistent with X" means X's
     mechanism.
   - Door CSS scoped to `.cairn-take-over`; Actor Directory buttons
     `min-width: fit-content` (labels wrap, never clip).

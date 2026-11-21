@@ -42,7 +42,7 @@ Eight sets ship. None is machine-generated.
 | Set | Path | Files | Artist | Licence | Human authorship |
 |---|---|--:|---|---|---|
 | Character portraits and tokens | `art/jon-aspeheim/` | 160 | Jon Aspeheim | CC BY 4.0 | **Stated by the artist** |
-| Character and creature galleries | `art/lydia-comer/portraits*`, `tokens*` | 106 | Lydia Comer | CC BY-NC-SA 4.0 | **Stated by the artist** |
+| Character and creature galleries | `art/lydia-comer/portraits*`, `tokens*`, `welcome/` | 108 | Lydia Comer | CC BY-NC-SA 4.0 | **Stated by the artist** |
 | The Air Bladder logo | `art/lydia-comer/Airbladder0*.webp` | 3 | Lydia Comer | All rights reserved | Same artist, same commission |
 | Token drawings | `art/tlomdev/` | 368 | tlomdev | CC BY-SA 4.0 | Assessed, not stated — see below |
 | Picker icon gallery | `art/game-icons/` | 2,275 | 22 named game-icons.net contributors | CC BY 3.0 | Assessed, not stated — see below |
@@ -117,7 +117,7 @@ ship it). Its text was the list at cairnrpg.com/resources/more-spellbooks/, 216
 spells name for name and in order, CC BY-SA 4.0 as stated on that page, which
 Yochai Gal had added to his own Foundry system in December 2021. It was never
 this project's authoring; it was dropped because none of its spells carry the
-GLOG wording the hack needs and the maintainer ruled that including it had been
+GLoG wording the hack needs and the maintainer ruled that including it had been
 a mistake. The one spell of ours it held, the class backgrounds' Shield, moved
 to `background-items` under the same id. A world that imported spells from it
 keeps them; only the compendium is gone.

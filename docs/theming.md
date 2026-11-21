@@ -67,7 +67,9 @@ The dark block is scoped deliberately:
 :is(.cairn, .application, .chat-message).theme-dark { … }
 ```
 
-Two things about that selector are load-bearing while the migration is half done:
+Two things about that selector were load-bearing while the migration was half done. The
+port is finished (no AppV1 sheet is left in `module/`), and the selector is still written
+this way:
 
 - **It is not on `<body>`.** Custom properties inherit. An AppV1 window force-tags *itself*
   `theme-light` while still living inside a dark `<body>`, so tokens set on body would leak
@@ -127,12 +129,15 @@ says the word. Re-add it from this note if a sheet ever wants a heading again.
 
 ## How this is kept honest
 
-`npm run dev:theme` renders a generated character and an item sheet, in both schemes, on
-every tab, and measures each text and border colour against its actual backdrop.
+`npm run dev:theme` renders four sheets (a generated character, an npc, a weapon and a
+background), in both schemes, on every tab, and measures each text and border colour
+against its actual backdrop. It also measures the calendar bar (below).
 
 - **Light is the baseline.** Only a finding that appears in dark and *not* in light fails
   the run — otherwise Foundry's own chrome (a 1.24:1 button border on parchment) would make
   green unreachable, and none of that is ours to fix.
+- Every sheet here is ApplicationV2 now, so the next point is history the probe still
+  carries: its AppV1 branch is in `tools/dev/e2e-theme.mjs` and has nothing left to run on.
 - For a sheet still on AppV1 it **simulates** the post-port state, because tagging an AppV1
   window `theme-dark` does not preview anything: its chrome keeps parchment regardless, and
   only the variables flip. The simulation drops the forced `theme-light`, paints on the
@@ -142,7 +147,8 @@ every tab, and measures each text and border colour against its actual backdrop.
 - Confirmed to fail with the fix removed (disabling the dark block: 30 regressions on the
   character sheet, 4 on the item sheet), per the house rule in `release-testing.md`.
 
-`-- --shots` writes `theme-{actor,item}-{light,dark}.png` to `tools/dev/out/`. Numbers
+`-- --shots` writes `theme-{character,npc,weapon,background}-{light,dark}.png` to
+`tools/dev/out/`. Numbers
 catch regressions; look at the screenshots when judging whether something merely *passes*
 also looks right.
 

@@ -30,8 +30,8 @@ git grep -n "_prepareContext" -- module/
 `system.json` names exactly one JavaScript file, `module/cairn.js`. Everything
 that runs in the browser is reachable from that file's imports; nothing else in
 the repository executes at all. It imports 32 of the system's 44 JavaScript
-files, registers the document classes, sheets and settings, subscribes 26
-Foundry hooks and one socket channel, and then gets out of the way.
+files, registers the document classes, sheets and settings, subscribes to 26
+named Foundry hooks and one socket channel, and then gets out of the way.
 Play happens inside two document classes, two sheet classes, a combat tracker,
 and a set of feature files that mostly do not know about each other.
 
@@ -41,17 +41,18 @@ and a set of feature files that mostly do not know about each other.
 
 | | |
 |---|---|
-| `module/`, physical lines | **~40,200** |
-| `module/`, code lines | **~16,600** |
-| Comment and blank share | **~59%** |
-| JavaScript files | 44 (re-counted 2026-11-21, with the Party sheet) |
-| Handlebars templates | 32 files (re-counted 2026-11-21, with the Party sheet), ~3,900 lines |
-| Stylesheet | 1 file, ~5,100 lines |
+| `module/`, physical lines | **~45,000** |
+| `module/`, code lines | **~18,900** |
+| Comment and blank share | **~58%** |
+| JavaScript files | 44 |
+| Handlebars templates | 32 files, ~3,900 lines |
+| Stylesheet | 1 file, ~6,000 lines |
 | Compendium source documents | ~1,140 YAML files across 29 packs |
 | Interface translations | 7 languages, plus 1 content overlay |
-| Development tooling | ~81,500 lines, none of it shipped to a browser |
+| Development tooling | ~91,900 lines of `.mjs`, none of it shipped to a browser |
 
-Rounded on purpose, every row measured 2026-11-01 (review #34). An exact line
+Rounded on purpose, every row measured 2026-11-21, after the Equip round and
+review #36 (the time before was 2026-11-01, review #34). An exact line
 count in prose drifts with every commit, and this table did, the day after it
 was written (review #27) — and again when one row was re-measured and the rest
 kept the old date (review #34 finding 261). A **code line** is a line carrying
@@ -60,7 +61,7 @@ at least one token outside a comment, by a JavaScript tokenizer (acorn), so a
 
 **Do not size a job here with `wc -l`.** More than half of `module/` is prose.
 `connections.js` is 278 physical lines of which 74 are code; `compendium.js` is
-305 of which 83; `art-picker.js` is 611 of which 309. The ratio is not uniform,
+338 of which 88; `art-picker.js` is 611 of which 309. The ratio is not uniform,
 either, so scaling a page count by half is also wrong.
 
 The code figure counts non-blank lines outside comments, with quotes and
@@ -114,18 +115,18 @@ Two traps recorded in the code and worth carrying into any new work:
 
 ## The import graph, in tiers
 
-Sorting the 39 files by the longest chain of internal imports beneath each one
+Sorting the 44 files by the longest chain of internal imports beneath each one
 gives this. Tier says **how much has to exist before a file can load** — not how
-complicated it is. `art-picker.js` sits at tier 8 and is 159 lines of code.
+complicated it is. `art-picker.js` sits at tier 8 and is 309 lines of code.
 
 | Tier | Files |
 |---|---|
-| **0** — no internal imports at all | `actor/tab-rail.js`, `art-paths.js`, `compendium.js`, `config.js`, `i18n-content.js`, `icons.js`, `light-sources.js`, `settings-menus.js` |
+| **0** — no internal imports at all | `actor/tab-rail.js`, `art-paths.js`, `compendium.js`, `config.js`, `i18n-content.js`, `icons.js`, `light-sources.js`, `settings-menus.js`, `welcome-data.js` |
 | **1** | `settings.js`, `data-models.js` |
-| **2** | `utils.js`, `connections.js` |
-| **3** | `combat.js`, `game-time.js`, `glog.js`, `macros.js` |
+| **2** | `utils.js`, `connections.js`, `welcome.js` |
+| **3** | `combat.js`, `game-time.js`, `glog.js` |
 | **4** | `calendar-events.js`, `gear.js` |
-| **5** | `item/item.js`, `marketplace.js`, `party-pile.js`, `vald-calendar.js`, `weather-log.js` |
+| **5** | `item/item.js`, `macros.js`, `marketplace.js`, `party-pile.js`, `vald-calendar.js`, `weather-log.js` |
 | **6** | `actor/actor.js`, `grimoire.js`, `item-offer.js`, `party-sheet.js`, `watch-clock.js` |
 | **7** | `character-generator.js` |
 | **8** | `art-picker.js`, `damage.js`, `encounters.js`, `faction-generator.js`, `kettlewright-import.js`, `monster-generator.js`, `take-over.js` |
@@ -145,17 +146,18 @@ learning:
 
 | Imported by | File | What it is |
 |---|---|---|
-| 22 | `i18n-content.js` | the content-translation overlay; every displayed name goes through it |
-| 18 | `utils.js` | dice formulas, damage helpers, drag-and-drop plumbing |
-| 17 | `settings.js` | every behavioural switch |
-| 12 | `compendium.js` | every lookup into a compendium pack |
+| 24 | `i18n-content.js` | the content-translation overlay; every displayed name goes through it |
+| 19 | `settings.js` | every behavioural switch |
+| 19 | `utils.js` | dice formulas, damage helpers, drag-and-drop plumbing, the Attack window and the "which one?" picker |
+| 13 | `compendium.js` | every lookup into a compendium pack |
 | 10 | `character-generator.js` | generation, and the helpers other features borrow from it |
+| 10 | `gear.js` | gear resolution, loadout order, capacity verdicts, and what's in hand: held lights and books, Hands full, lighting and its chat card |
 | 8 | `icons.js` | the class-art table |
+| 8 | `item/item.js` | the Item document class |
 | 7 | `config.js` | `CONFIG.Cairn`: the declared tables and dice tiers |
-| 7 | `gear.js` | gear resolution, loadout order and capacity verdicts |
-| 6 | `data-models.js` | the schemas, and the named role lists (`NPC_ROLES` and its three subsets) |
+| 7 | `data-models.js` | the schemas, and the named role lists (`NPC_ROLES` and its three subsets) |
+| 7 | `glog.js` | the GLoG hack's two switches (`glogEnabled`, `grimoiresEnabled`) and its conversion |
 | 6 | `game-time.js` | watches and the calendar |
-| 6 | `item/item.js` | the Item document class |
 
 Two files are imported by nothing: `cairn.js`, because it is the entry point,
 and `weather-log.js`, which `cairn.js` reaches through a dynamic `import()` so
@@ -167,14 +169,16 @@ that a player's client never fetches it.
 
 Six things carry roughly half the logic, and nothing routes around them.
 
-1. **`module/cairn.js` — the boot and the switchboard.** Registration, 34
-   subscriptions to 26 hooks, the socket handler, and the world migrations.
+1. **`module/cairn.js` — the boot and the switchboard.** Registration, 38
+   hook subscriptions (36 of them name 26 hooks between them; the other two
+   sit in loops over a list of hook names), the socket handler, and the world
+   migrations.
    It is the third-largest file in the system, and it is really
    four unrelated jobs sharing an address.
 
-2. **`module/settings.js` — the switches.** 56 setting registrations, grouped
+2. **`module/settings.js` — the switches.** 57 setting registrations, grouped
    into four submenus by one declaration (`SETTING_GROUPS`) that both the
-   registration code and the tests read. Seventeen files import it. If a
+   registration code and the tests read. Nineteen files import it. If a
    behaviour has an "unless the Warden turned it off" clause, it is here.
 
 3. **`module/data-models.js` — what a document *is*.** Nine schema classes over
@@ -188,14 +192,15 @@ Six things carry roughly half the logic, and nothing routes around them.
    where Foundry's document model has to be understood properly rather than
    worked around.
 
-5. **`module/actor/actor-sheet.js` — the character sheet.** 2,491 code lines,
-   about 15% of all the logic in the system, in one class. It is the largest
-   single thing to learn and the one most changes touch.
+5. **`module/actor/actor-sheet.js` — the actor sheet.** 2,923 code lines,
+   about 15% of all the logic in the system, in one class, and since
+   2026-11-20 the one sheet every actor type and role opens in. It is the
+   largest single thing to learn and the one most changes touch.
 
 6. **`module/i18n-content.js` and `module/compendium.js` — content in and out.**
    Every compendium lookup goes through one; every user-visible *content* name
    goes through the other. Between them they are imported by more files than
-   anything else, and both are small. `compendium.js` is 83 lines of code with
+   anything else, and both are small. `compendium.js` is 88 lines of code with
    no classes, no interface and no state, which makes it the best first real
    file in the repository.
 
@@ -219,8 +224,11 @@ Four more are shared by a few features rather than the system:
 is a leaf of `settings.js` rather than of the system, and `welcome-data.js` a
 leaf of `welcome.js` (it has no Foundry in it, so `tools/build-readme.mjs`
 reads it too: README.md's top and bottom are the welcome window's words). `party-pile.js` is NOT a
-leaf: the Actor class and its sheet import it as well as the boot file, because
+leaf: the Actor class, its sheet and the Party sheet import it as well as the boot file, because
 the pile's identity test (`isDroppedPile`) and the drop sit under every actor.
+`light-sources.js` isn't one either: it has no imports of its own, and `gear.js`,
+`utils.js`, the actor sheet and the Party sheet all read the light table and the
+badge icons from it.
 `marketplace.js` and `take-over.js` left this list on 2026-09-15, when
 `table-banner.js` began importing both: the aisle helper, the alphabetical
 predicate and the re-sort from the first, the button-to-table lookup from the
@@ -238,7 +246,7 @@ estimating the blast radius of any change.
 Several of the biggest files are repetitive rather than complex, and reading
 them line by line wastes days.
 
-- **`settings.js`** is 45 near-identical registration calls. Read two of them
+- **`settings.js`** is 57 near-identical registration calls. Read two of them
   and you have read the file; the interesting part is `SETTING_GROUPS` at the
   top and the menu registration at the bottom.
 - **`data-models.js`** is nine schemas assembled from the same handful of field
@@ -246,10 +254,11 @@ them line by line wastes days.
 - **`config.js` and `icons.js`** are lookup tables with no logic at all.
 - **Declarative blocks inside otherwise-logical files** should be skimmed, not
   studied: `PANELS` in `warden-dashboard.js` is a 147-line table declaring
-  most of the dashboard's 45 buttons, and `VALD_CALENDAR_CONFIG` in
+  47 of the dashboard's buttons (39 table draws, four combined draws and
+  four Create buttons), and `VALD_CALENDAR_CONFIG` in
   `game-time.js` is a calendar written out as data.
 
-The inverse also holds. `item-offer.js` is only 519 code lines and is one of
+The inverse also holds. `item-offer.js` is only 565 code lines and is one of
 the hardest things here.
 
 ---
@@ -257,13 +266,13 @@ the hardest things here.
 ## The five places where "explain it" is a real test
 
 1. **`_prepareContext` in `actor/actor-sheet.js`** — the sheet's whole context
-   object, over 400 lines, re-run on *every* committed keystroke because
+   object, about 550 lines, re-run on *every* committed keystroke because
    `submitOnChange` is on. That is why the pack-document cache exists near the
    top of the same file: without it, every keystroke would re-read compendium
    packs.
 
-2. **`#fillPrintPage` in `actor/actor-sheet.js`** — about 350 lines that open a
-   browser window and write a whole document into it. Self-contained, and
+2. **`#fillPrintPage` in `actor/actor-sheet.js`** — about 365 lines that write
+   a whole document into a browser window its caller opened. Self-contained, and
    unlike anything else in the system.
 
 3. **The socket handler and the migrations in `cairn.js`** — one 429-line
@@ -309,16 +318,16 @@ Worth knowing before anyone counts lines and draws a conclusion.
 - **`art/` and `icons/`** are images: roughly 2,900 gallery images plus 25
   interface icons. Provenance for every set is in
   [`provenance.md`](provenance.md).
-- **`tools/`** never reaches a browser. It holds 105 browser probes, 26
-  importer scripts, and the offline gates and translation tooling — around
-  81,500 lines, twice the system itself. [`release-testing.md`](release-testing.md) lists what
+- **`tools/`** never reaches a browser. It holds 114 browser probes
+  (`tools/dev/e2e-*.mjs`), 26 importer scripts, and the offline gates and
+  translation tooling — around 91,900 lines, twice the system itself. [`release-testing.md`](release-testing.md) lists what
   each probe covers.
 
 ---
 
 ## How to read this repository's comments
 
-Fifty-seven per cent of `module/` is prose, and it is not written in the usual
+Fifty-eight per cent of `module/` is prose, and it is not written in the usual
 way. It is a running argument the project has had with itself, with dates, and
 much of it is **history rather than specification**: "this was true for a day
 and was reversed", "this comment claimed the opposite of the line beneath it for
@@ -362,8 +371,8 @@ because they are the highest consequence per line.
 
 One thing worth reading early for its own sake: the two guard wrappers near the
 top of `actor-sheet.js`, `mayRandomize` and `owned`. Each takes a function and
-returns a wrapped one, and between them they are applied about seventy-five
-times in the file, forty-nine of those in a single action table just below.
+returns a wrapped one, and between them they are applied seventy-nine times,
+every one of them in the single action table just below.
 They are ordinary functions rather than arrow functions, deliberately, because
 the wrapped call needs Foundry's `this`. That one pattern explains a large
 amount of the file.

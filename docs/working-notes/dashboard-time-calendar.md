@@ -10,6 +10,54 @@ Moved word for word from CLAUDE.md (2026-11-01); CLAUDE.md points here.
   (`localizeDashboardCard`). Showing a table: bare uuid over the socket, `senderId`
   guard, public card. AppV2 id: override `_initializeApplicationOptions`, not
   `get id()`. One root element per part. Gate `dev:warden-dashboard`.
+- Review #36 on the Dashboard: the BODY redraws when a world table is made,
+  renamed or deleted (`refreshDashboardTables`, three named hooks), so Your
+  Tables never offers a button for a table that's gone. That's safe only
+  because the body now carries the visibility dropdown across its own render
+  (`_preSyncPartState` / `_syncPartState`; core restores no field values, and
+  the template stamps the default, so a redraw used to put the Warden back on
+  Private under them). The time band still redraws alone. A batch Add to scene
+  creates numbered tokens ONE AT A TIME (encounters.js): core's `appendNumber`
+  reads the tokens already on the scene, so a batch gave six "Goblin (1)".
+- **The Party sheet** (`module/party-sheet.js`, 2026-11-21, user ask): the
+  Warden's table of the party, one row each, in marching order. Its own window
+  (user ruling), opened from a Token-controls tool and from the Dashboard's
+  footer beside Warden's Damage; Warden only (the tool is hidden and
+  `openPartySheet` refuses a player).
+  - **The Party folder is the roster** (`partyMembers`): every character filed
+    there, plus every npc and hireling filed there (`PERSON_ROLES`, user ask the
+    same day). A monster, a companion or a thing there isn't a member, and the
+    Dropped Item Pile is filtered by `isDroppedPile`.
+  - It computes NO rule of its own. Every cell reads what the sheet derives
+    (`slotsUsed`, `slotsMax`, `armor`, `encumbered`, the DERIVED HP) or what
+    gear.js classifies (`isHoldableLight`, `isHeldLight`, `RATIONS_RE`). If a
+    cell looks wrong, the sheet is wrong too.
+  - Rations count USES left, not items (user ruling), a stack's unopened units
+    included, as `CairnItem#spendUse` spends them (review #36). The player is
+    the user assigned the character, else the players given Owner BY NAME; the
+    `default` level is never read.
+  - Colour does the warning, and the rule lives once, in `rowFor` (user
+    rulings): red for HP at 0, an ability below its max, no slot left, no
+    rations; amber for HP below max and one slot left; teal for a shield or a
+    light IN HAND and for any Fatigue. A shield or light carried but not in
+    hand shows its symbol uncoloured. Conditions are boxed letters, D P E.
+  - A lit light's cell is a button: the Warden's click unequips every lit light
+    that actor holds (`_onPutOutLight`). It's the Equip light badge's own
+    write, so `registerHeldLightSync` posts the public card (the Warden's own
+    line when a player owns the character) and Torch follows.
+  - Marching order is the world setting `party-marching-order` (internal): ids,
+    leader first, written whole on each drop. A stale id is skipped and pruned
+    by the next write; anyone the order hasn't seen comes after it by name. Its
+    `onChange` fires `cairnMarchingOrderChanged`, so a second Warden's table
+    follows.
+  - The notes line is the actor flag `wardenNote`, capped at 200. HIDDEN, NOT
+    SECRET: a flag rides the actor, so the player who owns it can read it in
+    the console. The user chose that.
+  - An open table redraws on actor, item, user and order changes, debounced
+    (`queueRender`), and waits for a focused notes line to blur first. The
+    focusout listener is bound in `_onFirstRender`, once: the frame survives a
+    re-render.
+  - Gate `dev:party-sheet`.
 - **Watches are core Cairn 2e and never gated; the Vald calendar is a hack**
   (`enable-vald-calendar`, `requiresReload`, converts nothing). Read the live
   `game.time.calendar`, never our literal. `ValdCalendar` overrides
@@ -35,7 +83,18 @@ Moved word for word from CLAUDE.md (2026-11-01); CLAUDE.md points here.
 - Date guards: Set the Date shows a live preview in DAYS (`describeDateAt`,
   `describeShift`, `componentsForDate`); calendar's Set-to-this-day confirms with
   Cancel default; `#selectionInView` is the one selection derivation. Number fields
-  drop focus on wheel.
+  drop focus on wheel. Set the Date's month list FOLLOWS THE YEAR FIELD (review
+  #36): Reclamation is offered only for a typed year that has it, and the month
+  the Warden picked is kept apart from what the list can show, so it comes back
+  when the finished year offers it again.
+- A leap week that interrupts a season doesn't restart it (review #36):
+  Reclamation is a season entry of its own inside Harvest, so the day after it
+  was marked "Harvest season begins". A day that follows a leap-only month is
+  compared with the last day BEFORE that month (`seasonBegins`, game-time.js).
+- A tooltip that shows the Warden's typing (the bar's weather, date and season
+  lines, a calendar day's festival names) is TEXT, `data-tooltip-text` (review
+  #36), never `data-tooltip`, which core renders as HTML. A tooltip that's only
+  one of our own keys keeps `data-tooltip`.
 - `module/vald-calendar.js` (Vald only). **Festival text is CC BY-SA content and
   ships as a JournalEntry from `tools/import/vald.mjs`, not in `lang/`** — ask the
   licence question of any new content before choosing where it lives. Importer
@@ -47,7 +106,9 @@ Moved word for word from CLAUDE.md (2026-11-01); CLAUDE.md points here.
   fall back to document ownership). Demotion of the writing GM is NOT covered (stated). Never by
   a stored id (settings read-after-write is not guaranteed). Log written by the
   ACTIVE GM from `cairnWeatherChanged`, in the writer's language. "Hidden" journals
-  are concealment, not secrets. Refresh on `updateJournalEntry`.
+  are concealment, not secrets. Refresh on `updateJournalEntry`. The log appends
+  with a FUNCTION replacer (review #36): a replacement string is a pattern, and
+  weather holding `$&` was rewritten on its way in.
 - Buttons that re-render need stable ids for focus restore; `_whileDisabled` checks
   `isConnected` then id, and reads `this.element`'s own document (Pop Out windows).
   **Any bare `document.` in a detachable AppV2 is a bug.**

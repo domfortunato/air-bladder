@@ -3,13 +3,26 @@
 Moved word for word from CLAUDE.md (2026-11-01); CLAUDE.md points here.
 
 - **Four `registerMenu` submenus** (`module/settings-menus.js`), every setting
-  `config: false`. `SETTING_GROUPS` in `settings.js` is the one declaration;
-  `INTERNAL_SETTING_KEYS` the only exemption. Values switched ON are written before
+  `config: false` but one: `tuck-calendar-bar` (2026-11-20) is client scope and
+  `config: true`, the one air-bladder row on core's flat list, because the
+  submenus are Warden-only and a player couldn't reach a per-person row inside
+  one. `SETTING_GROUPS` in `settings.js` is the one declaration;
+  `INTERNAL_SETTING_KEYS` the only exemption (it holds records as well as
+  switches: `vald-weather-today`, `party-marching-order`). Values switched ON are written before
   OFF; each app has its own Reset Defaults. Search via `[data-searchable]` stamping.
   `hint` is optional. Update counts in the same commit as any settings change.
 - **`registerSettings()` runs on `init`, before i18n** — `choices` labels must be
   bare keys (tier labels carry dice as literals, gated by `dev:pc-dice`).
-- `subOptions` is a list (`[spec].flat()`).
+- `subOptions` is a list (`[spec].flat()`). The hacks group has two:
+  `barebones-failed-career` under `content-source-barebones` (a master in
+  another submenu, so the row greys off the master's STORED value), and
+  `glog-grimoires` under `enable-glog-magic` (the same submenu, so it follows
+  the box live).
+- The hacks group since 2026-11-20: `glog-grimoires`, `bulky-shields`,
+  `hands-full`, `shield-weapon` beside the GLoG and Vald switches,
+  `barebones-failed-career` and the three optional combat rules. A setting that
+  changes slot arithmetic reloads. `use-bonds` (2026-11-06) is in Character
+  Generation; `sheets-creation-offers.md` and CLAUDE.md say what each one does.
 - PC dice: `pc-ability-dice`, `pc-gold-dice` (tiers in `Cairn.pcDiceTiers`: Default
   3d6, Adventurer 4d6kh3, Crawler 2d6 + 3; `pcTierFormula` falls back),
   `pc-hp-formula`, `age-formula` (default RAW `2d20 + 10`; no clamp). **Count the

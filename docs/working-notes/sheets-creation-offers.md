@@ -2,30 +2,31 @@
 
 Moved word for word from CLAUDE.md (2026-11-01); CLAUDE.md points here.
 
-## Item sheets, GLOG
+## Item sheets, GLoG
 
-- GLOG sheet flags render only while `enable-glog-magic` is on: `showGrimoire` =
-  hack on AND already a Grimoire (no item offers to become one). Spellbook GLOG box
+- GLoG sheet flags render only while `enable-glog-magic` is on: `showGrimoire` =
+  hack on AND already a Grimoire (no item offers to become one). Spellbook GLoG box
   only while on; Scroll always. `rerenderItemSheets` rides the onChange.
   `spellbookCompact` / `.plain-item` grid variants. Gate `dev:glog-flags`.
-- The GLOG hack is one-way for a campaign.
+- The GLoG hack is one-way for a campaign.
 - **Grimoires are their own option since 2026-11-20** (`glog-grimoires`, user ask:
   spellbooks "should instead stay spell books but use the GloG magic dice"). Off by
-  default, greyed under GLOG (the hacks group's `subOptions`, its first live-follow
-  user); every reader asks glog.js `grimoiresEnabled()` (GLOG AND the option). On:
+  default, greyed under GLoG (the hacks group's `subOptions`, its first live-follow
+  user); every reader asks glog.js `grimoiresEnabled()` (GLoG AND the option). On:
   the 2026-08 behaviour (books become scrolls; Grimoire Cast, Transmute and the
   Grimoire box). Off: `glogConversionDiff` swaps WORDING only, a canon book stays a
-  book (create seam and Actor.create payload alike), generation rebuilds the GLOG
+  book (create seam and Actor.create payload alike), generation rebuilds the GLoG
   pack's scroll-form spells as books (`spellbookItem`, gear.js), and a book's row
   offers Cast (`castSpellbook`, the scroll's `askMagicDice` window, the one
-  `reportCast`, nothing spent). A world that had GLOG on keeps Grimoires
-  (`seedGlogGrimoires`, marker `glog-grimoires-seeded`, before the ready hook's GLOG
-  resume). Gate `dev:glog-books`; the probes that shadow GLOG on shadow Grimoires on
+  `reportCast`, nothing spent). A world that had GLoG on keeps Grimoires
+  (`seedGlogGrimoires`, marker `glog-grimoires-seeded`, before the ready hook's GLoG
+  resume). Gate `dev:glog-books`; the probes that shadow GLoG on shadow Grimoires on
   with it.
 
 ## The character sheet: a rail and its pages (2026-11-19)
 
-- Laid out after Base Knavery's (user ask): 480 x 700, pages turned from a
+- Laid out after Base Knavery's (user ask): 480 x 700 (770 tall since
+  2026-11-21, `CHARACTER_SHEET_HEIGHT`: the Equip badges' row), pages turned from a
   thumb-tab rail hung off the frame (`module/actor/tab-rail.js`,
   `templates/parts/tab-rail.html`, a render PART drawn before `form`). Pages
   `character` (initial) · `items` · `growth` · (`containers`) · `notes`
@@ -67,9 +68,10 @@ Moved word for word from CLAUDE.md (2026-11-01); CLAUDE.md points here.
 - Third round (user asks, 2026-11-19): a character's Pronouns and Age stand
   under the name (`.identity-bio-line`, a row of the identity grid) and its trait
   sentence under Gold; `bioOnPageOne` keeps them off the Description bio-block.
-  The npc sheet is unchanged. Trait pick-lists open by default on EVERY sheet
-  (`_traitsCollapsed ?? false`, ruled for all sheets); a probe that clicks the
-  toggle must check first, or it closes them.
+  The npc sheet is unchanged. Trait pick-lists opened by default on EVERY sheet
+  (`_traitsCollapsed ?? false`, ruled for all sheets); the toggle and the flag
+  are gone since the Traits window took the pick-lists (round 4, and a
+  person's page 1 on 2026-11-20, below).
 - Fourth round (user asks, 2026-11-19). **The Description page is RETIRED**:
   the sentence went to the top of page 1's left column (above STR, 13px, the
   background description's size), its pick-lists into the TRAITS WINDOW, Omen
@@ -123,9 +125,10 @@ Moved word for word from CLAUDE.md (2026-11-01); CLAUDE.md points here.
 - Hold shield (user ask, 2026-11-20): an armor item ticked **Shield**
   (`system.shield`, default false; the shipped Shield, Hacked Shield and
   Steadymade Buckler ticked) gives the character sheet a "Hold shield" switch
-  left of the Armor box (`.cairn-armor-row`, three columns so the box stays
-  centred). Held = equipped, slung = not: the user's ruling, no new rule, so
-  a press is the shield row's hand icon (`#onToggleShield`; off slings every
+  left of the Armor box (the Equip shield badge under it since 2026-11-21,
+  see the Equip round). Held = equipped, slung = not: the user's ruling, no new rule, so
+  a press is the shield row's hand icon (`#onToggleHold` with `data-hold="shield"`,
+  which took over from the first day's `#onToggleShield`; off slings every
   held shield, on holds the first in inventory order). Existing copies are
   ticked once by exact English name or compendium source
   (`migrateShieldFlags`, marker `shield-flag-stamped`). The armor sheet's
@@ -142,12 +145,15 @@ Moved word for word from CLAUDE.md (2026-11-01); CLAUDE.md points here.
 - **Hold light** (2026-11-20, user asks): `isHoldableLight` (gear.js) = a plain `item`
   whose name passes `isLightName` (the keyword rule OR a name in `LIGHT_SOURCES`, so the
   Glowsnail and Sun Stick count), never its fuel; `isEquipable` gains it, so a light gets
-  the hand and held = equipped. The Armor row is Hold shield | Armor (a 48px circle since 2026-11-20) | the
+  the hand and held = equipped. The Armor row was Hold shield | Armor (a 48px circle since 2026-11-20) | the
   light BADGE, and the badge IS the Hold light control (the 172px column cannot hold two
-  switches, the shield and a badge with text: user pick). ONE handler `#onToggleHold`
-  (`data-hold`); several lights and none held asks which (`askWhichLight`, utils.js).
-  Both controls are ALWAYS drawn; `none` disables with `CAIRN.HoldShieldNone` /
-  `HoldLightNone`. The badge's icon (`lightIcon`, light-sources.js: torch / lantern-flame
+  switches, the shield and a badge with text: user pick; the layout is the Equip round's
+  now). ONE handler `#onToggleHold`
+  (`data-hold`); several lights and none held asks which (`askWhichHeld`, utils.js, which
+  was `askWhichLight` until the book badge needed it too).
+  Every badge is ALWAYS drawn; `none` disables with `CAIRN.EquipShieldNone` /
+  `EquipLightNone` / `EquipBookNone` (the keys said `Hold…None` until the Equip round).
+  The badge's icon (`lightIcon`, light-sources.js: torch / lantern-flame
   / candle-flame) is a LUMINANCE mask (game-icons are a white glyph on a black square),
   muted, accent + glow when held; its url goes through `foundry.utils.getRoute` — a
   relative url() in a custom property resolves against the STYLESHEET and 404ed. Radius
@@ -159,7 +165,8 @@ Moved word for word from CLAUDE.md (2026-11-01); CLAUDE.md points here.
   whenever a light's HELD state (`isHeldLight`: equipped, not broken) moves, by any route
   (switch, row hand, Broken, delete, gift, drop), queued per actor. It selects only a light
   in `LIGHT_SOURCES` (Torch does not throw on an unknown name; it lit another source) and
-  never lights one whose counted uses are spent; a stow with another light still held
+  never lights one whose counted uses are spent (since 2026-11-21 a spent light can't be
+  equipped at all: `lightingRefusal`, below); a stow with another light still held
   lights that one. A row's hand holds one light at once, like the switch. Hold shield and
   Hold light work on EVERY creature (`#shieldsCarried` / `#lightsCarried` gate on
   `isThing`, the all-sheets plan's ruling 6). Torch is
@@ -225,7 +232,8 @@ Moved word for word from CLAUDE.md (2026-11-01); CLAUDE.md points here.
 
 - User ask: "All character sheets should have the same format at style as the
   Player Character Sheet. This includes Monsters, NPC, Hirelings, etc." Seven
-  rulings the same day, all built: every sheet 480 x 700 with the rail and the
+  rulings the same day, all built: every sheet 480 x 700 (770 tall since
+  2026-11-21) with the rail and the
   footer; a creature (npc, hireling, monster, companion) `character` · `items`
   · `description` · `notes`; a thing (container, transport) `character` ·
   `items` · `notes`, its prose on page 1; every sheet OPENS on page 1
@@ -233,7 +241,8 @@ Moved word for word from CLAUDE.md (2026-11-01); CLAUDE.md points here.
   list head, `tabIdsOf` picks the list); the max boxes lock while CharGen is off
   on npc / hireling / monster (`GENERATING_ROLES`), never on a companion;
   Hold shield and Hold light on every creature, never a thing, in the NPC
-  wording (`CAIRN.HoldShieldNoneNpc` / `HoldLightNoneNpc` through `_wording`);
+  wording (`CAIRN.EquipShieldNoneNpc` / `EquipLightNoneNpc` / `EquipBookNoneNpc`
+  through `_wording`; `Hold…NoneNpc` until the Equip round);
   page 1's rail tab is the role's own string (`ROLE_PAGE`, an icon per role),
   Description and Notes in `NPC_RAIL`.
 - ONE mechanism: page 1's banners, stat block, slot line and footer are
@@ -268,19 +277,22 @@ Moved word for word from CLAUDE.md (2026-11-01); CLAUDE.md points here.
   `toggleTraits` / `traitsCollapsed` and the die-less grid are gone. No name
   pick-list: `#onPickName` refuses npc and hireling by design. Gate
   `dev:sheet-rail` leg 24.
-- **The Armor row redone** (2026-11-20 and 21, user asks): the Armor box is the
+- **The Armor row redone** (2026-11-20 and 21, user asks; the Equip round
+  below changed the layout, the icons and every string again the same day, so
+  read this one as history): the Armor box became the
   54 x 60 shield outline (`.cairn-shield`, class kept; a 48px circle for one
-  day, its label inside "CRAMPED") holding the number alone, and "Armor" sits
+  day, its label inside "CRAMPED") holding the number alone, and "Armor" sat
   OUTSIDE it, right below (`.cairn-armor-box > .armor-label`), in the badges'
-  label face. Not level with the badges' labels: page 1 has 8px to spare at
-  480 x 700 (measured, CT 123) and the row is 82px, set by a held light's badge
-  (user pick). Hold shield is a badge like Hold light's (`.shield-icon`, one
-  mask rule for both badges): game-icons Shield Disabled while slung
-  (`shieldIcon`), Shield Bash in hand (`shieldHeldIcon`); off labels are
-  questions, "Hold shield?" / "Hold light?" (`CAIRN.HoldShieldAsk` /
-  `HoldLightAsk`; `CAIRN.HoldLight` stays the light picker's title and
-  button), on "Shield in hand" / "Light in hand". Icon routes are built for
-  every sheet beside `holdShieldNoneKey`. Gates `dev:sheet-rail` leg 25,
+  label face. Not level with the badges' labels: page 1 had 8px to spare at
+  480 x 700 (measured, CT 123) and the row was 82px, set by a held light's badge
+  (user pick). Hold shield became a badge like Hold light's (`.shield-icon`, one
+  mask rule for the badges): game-icons Shield Disabled while slung, Shield
+  Bash in hand; off labels were
+  questions, "Hold shield?" / "Hold light?", on "Shield in hand" / "Light in
+  hand". The `shieldIcon` / `shieldHeldIcon` helpers and the `CAIRN.Hold…Ask`
+  and `CAIRN.HoldLight` keys of that day are gone. Icon routes are built for
+  every sheet beside `holdShieldNoneKey` (in `_computeStatContext` now). Gates
+  `dev:sheet-rail` leg 25,
   `dev:shield` legs 3 and 6, `dev:sheet-layout`.
 - **The Equip round** (2026-11-21, user asks; supersedes the Hold wording
   above). The word is "Equip". The Armor box sits on a row of its own and the
@@ -294,13 +306,21 @@ Moved word for word from CLAUDE.md (2026-11-01); CLAUDE.md points here.
   light's (`lightIcon`), the neutral lantern with none ("No Light"); the book
   badge counts `isHoldableBook` (gear.js: spellbook or scroll not bound, or
   the Grimoire), one at a time like a light, picker `askWhichHeld` (utils.js,
-  the light picker generalised, prompt "Which one?"), labels by `bookKind`.
+  the light picker generalised, prompt "Which one?"), labels by `bookKind`
+  and icons by `bookIcon` (both light-sources.js). A spellbook's off label
+  reads "Equip Spell" (`CAIRN.EquipBook`, user, 2026-11-21, from "Equip
+  spellbook"); it's the book picker's title and button too. Its on, none,
+  scroll and Grimoire labels stay as they were until the user says.
   No switch glyph: one (`.badge-switch`, fa-toggle-on/off) sat under each live
   label for a few hours, and the user took it out the same day ("Just
   'Equip...' should be enough"). At the same time "Armor" moved to the RIGHT
   of the shield outline, which shrank to 44 x 49, the label up to 15px
   (`.cairn-armor-box` is a row now). `dev:shield` leg 3 wants no glyph and
-  reads the label's box against the shield's. Scrolls and the Grimoire became equippable (`isEquipable`, item.js;
+  reads the label's box against the shield's; `dev:sheet-rail` leg 25 wants
+  the 44 x 49 outline, the number at 18px and the label to its right, in the
+  badges' face a size up. Every sheet is 770 tall for the badges' row
+  (`CHARACTER_SHEET_HEIGHT`; page 1 measured 724 in a 662 content box at 700).
+  Scrolls and the Grimoire became equippable (`isEquipable`, item.js;
   `SCROLL_PINNED` no longer pins `equipped`). The labels were ALREADY in full
   ink (measured, `dev:shield` red run 2026-11-21): what read as faint was the
   question mark. Gates `dev:shield` legs 3, 6, 8, `dev:sheet-rail` leg 22,
@@ -326,6 +346,11 @@ Moved word for word from CLAUDE.md (2026-11-01); CLAUDE.md points here.
 - The Inventory hint's icon is a lightbulb (2026-11-21, user ask), and the
   row's broken-shield icon is centred on the 26px line (it sat 5.25px high;
   `dev:broken` leg 17).
+- Review #36, the sheets' share that isn't above: every `enrichHTML` on the
+  actor and item sheets passes `secrets: isOwner`, core's rule for its own
+  sheets, so a secret block shows only to an owner; a save rolled from a world
+  actor's sheet speaks as that actor; a locked or observer item sheet refuses
+  `editImage`.
 
 ## Creation routes
 
@@ -348,6 +373,22 @@ Moved word for word from CLAUDE.md (2026-11-01); CLAUDE.md points here.
   always read; later items append via `CairnItem.#appendSort`; bound grimoire pages
   stay at 0. Light sources by regex, fuel by exact map. Mundane grants tagged
   `background-mundane`; `BG_GRANT_SOURCES` is the pair sweeps ask for.
+- **A batch create comes back in the order the server finished each document,
+  never the order it was sent** (review #36): nothing may index into the
+  result. `grantContainers` (character-generator.js) lets a spec carry its own
+  `_id`, which the made actor keeps (`keepId`), and Kettlewright's pets are
+  paired with their items by that id; pairing by position handed one pet's
+  items to another. `check:probes` refuses a probe that reads a batch create by
+  position.
+- A spec that states its own `role` is held to it all the way down
+  (`grantContainers`, review #36): a Kettlewright pet is a companion whatever
+  the player called it, so "Cart Horse" gets a companion's Kind and art, never
+  the cart's.
+- The background picker writes each description into its panel AFTER the
+  dialog has rendered, so DialogV2's cleaning never sees it:
+  `cleanDescription` runs last, and the answer is looked up in the list the
+  dialog was built from, never by resolving whatever uuid the form held
+  (review #36).
 
 ## Item offers (`module/item-offer.js`)
 

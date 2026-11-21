@@ -67,7 +67,8 @@ Moved word for word from CLAUDE.md (2026-11-01); CLAUDE.md points here.
   everything mechanical: `CairnItem` unequips a broken item and strips an equip while it stays
   broken (`_preCreate` / `_preUpdate`, both reading the STORED flag from `_source`: `system.equipped` is
   derived false while broken; a repair of an item stored broken + equipped lands unequipped
-  unless the write itself equips, review #36), so no Armor, no damage roll, no Hold shield and no
+  unless the write itself equips, review #36), so no Armor, no damage roll, no Equip shield (a
+  broken light or book isn't in hand either: `isHeldLight`, `isHeldBook`) and no
   Attack-window entry; `isEquipable` and `hasPlusMinus` go false, so the hand and the uses /
   charges controls go (the pips stay); Cast and Transmute go, and their handlers refuse too.
   The slot stays: `itemSlotCost` never reads it. Marked on the item sheet, in the name
@@ -84,8 +85,20 @@ Moved word for word from CLAUDE.md (2026-11-01); CLAUDE.md points here.
   inventory items, including breaking and unbreaking them, should show in the chat log";
   the user's pick, all but a drag-reorder and a description save). REVERSES review #13's
   exclusion of equipped and renames. `AUDIT_ITEM_FLAGS` (actor.js): broken, equipped
-  (the hand, Hold shield, Hold light), bound (Transmute), bulky, weightless, shield; plus
+  (the hand and the three Equip badges: shield, light, book), bound (Transmute), bulky,
+  weightless (the Petty box), shield; plus
   `rename` lines. ONE `itemAuditOf` / `itemAuditEntries` pair serves both item seams
   (`_preUpdateDescendantDocuments` and a parent update's `changed.items`). Breaking an
   equipped item posts the broken line alone (the forced unequip folded in). Machinery
-  writes stay silent through `abNoStatusCard` as before. Gate `dev:changelog`.
+  writes stay silent through `abNoStatusCard` as before (the use a light spends when it's
+  lit is one: `lightIt` in gear.js, whose own card says it). Gate `dev:changelog`.
+- **What can be equipped** (`system.isEquipable`, derived in item.js): a weapon, an
+  armor, a spellbook or scroll, a light (`isHoldableLight`) and, since 2026-11-21, the
+  Grimoire. Never a bound Grimoire page, a broken item, or anything on a thing. One
+  light and one book in hand at a time; the badges and the lighting rules are in
+  `sheets-creation-offers.md`.
+- **The Token HUD's HP bar** writes through `CairnActor#modifyTokenAttribute`, which
+  drops the entry while the rules hold HP at 0 (`hpZeroedByRule`, review #36); see
+  `damage-attacks-dice.md`.
+- The two ready sweeps that walk tokens read `token._source.delta` (review #36), so
+  an idle unlinked token's synthetic actor is never built just to be looked at.

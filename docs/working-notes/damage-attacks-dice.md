@@ -7,6 +7,23 @@ Moved word for word from CLAUDE.md (2026-11-01); CLAUDE.md points here.
   labels). The flow records the CHECKLIST row for the damage value and selects by
   range itself (no `draw()`/`roll()`); the tick handler keeps stored strings no box
   owns. The take-over door copies UTILS' Scars (`CAIRN_2E_TABLES`).
+- **HP the rules zero is never written** (the ruling is in CLAUDE.md, Rules
+  encoded). The test is ONE getter, `CairnActor#hpZeroedByRule` (the HP everyone
+  sees is 0 and the stored one isn't), read by both writers that work from the
+  prepared value: `Damage.applyToTarget`, which sends the hit to STR and leaves
+  stored HP alone, and `CairnActor#modifyTokenAttribute` (review #36), which
+  drops a Token HUD bar entry for HP, relative or typed, while the 0 is the
+  rule's. Before that override "-2" on the bar stored 0 over the real value. The
+  sheet's own strip is `#hpIsDerived` in `_processFormData`.
+- Damage to an ability (`Damage.applyToTarget`'s `pool` branch, the Warden's
+  hazards) floors the rolled amount at 0: the Warden's formula may subtract
+  ("1d4-2"), and a negative roll used to raise the score (review #36).
+- **A weapon's hotbar macro has two forms** (`createCairnMacro` /
+  `rollItemMacro`, macros.js): a world actor's id and the item's id, or, for an
+  unlinked token's sheet, the item's uuid alone (review #36). A synthetic actor
+  keeps its base actor's id and isn't in `game.actors`, so the two-id form
+  rolled the world actor's copy. A uuid whose scene or token is gone reads as
+  "no longer exists", never a throw.
 - **Improvised Attack** — permanent row atop the inventory, NOT an item document
   (so unremovable and slotless by construction). Gate `canImprovise` =
   `isOwner && !isThing` (one predicate; not `owned()`). Context flags must exist
