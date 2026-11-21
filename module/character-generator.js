@@ -1330,8 +1330,12 @@ const classifyRef = async (ref) => {
  * Two halves, no actor created and nothing persisted:
  *  - a STATIC lint (deterministic): every starting-gear ref and every table-option
  *    item classified snapshot/rolled/name/missing/empty, plus discovery checks
- *    (source must be "2e", an archetype, at least one example name). This is the
- *    pre-share, is-it-self-contained linter (docs/custom-backgrounds-plan.md §7/§9).
+ *    (source must be "2e", at least one example name). This is the pre-share,
+ *    is-it-self-contained linter (docs/custom-backgrounds-plan.md §7/§9). There is
+ *    no archetype check (user ruling 2026-11-21): a background of your own lists
+ *    under "Custom 2e Backgrounds" whatever its archetype (getBackgroundsByArchetype
+ *    groups by provenance), so a warning sent the Warden to a field that does
+ *    nothing.
  *  - a SAMPLING run (n iterations of the REAL applyChoiceTables): which of each
  *    table's six options fired and the choice-gold spread, so a Warden sees the
  *    shape of what they built.
@@ -1344,7 +1348,6 @@ export const previewBackground = async (bg, n = 10) => {
   const sys = bg.system ?? {};
 
   if (sys.source !== "2e") problems.push({ level: "warn", msg: game.i18n.localize("CAIRN.BgAuthor.LintSource") });
-  if (!sys.archetype) problems.push({ level: "warn", msg: game.i18n.localize("CAIRN.BgAuthor.LintArchetype") });
   if (!(sys.names ?? []).some((s) => String(s).trim())) problems.push({ level: "warn", msg: game.i18n.localize("CAIRN.BgAuthor.LintNames") });
 
   // Every name this lint resolves, in one request per pack first (review #34
