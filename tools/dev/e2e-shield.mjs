@@ -73,6 +73,18 @@
  * (Skoll) while slung and Shield Bash (Delapouite) in hand, and the off
  * labels are questions: "Hold shield?" / "Hold light?".
  *
+ * Since 2026-11-21 (user asks, the Equip round): the word is "Equip". Off
+ * reads "Equip shield" / "Equip light" under game-icons' Shield (Sbed) or the
+ * first carried light's own icon; on reads "Shield equipped" / "Light
+ * equipped"; with none carried the badge is greyed and reads "No Shield" /
+ * "No Light" (the slashed shield, the neutral lantern). Every label is in full
+ * ink with an on/off switch glyph under it, and the three badges stand in a
+ * row UNDER the Armor box (shield | light | book). Lighting spends a use, so
+ * the Torch here has 20, and a spent one is now REFUSED (6b). Leg 8 is the
+ * book badge: a spellbook, a scroll or the Grimoire, one equipped at a time,
+ * a picker when several are carried, "No Spellbook" with none; a scroll and
+ * the Grimoire get the row's hand and a bound page does not.
+ *
  * The re-armed migration walks the whole world, so every armor item's stored
  * `system.shield` is snapshotted first and put back afterwards, with the
  * marker.
@@ -165,8 +177,9 @@ try {
     };
     const L = (k) => game.i18n.localize(k);
     const flags = { "air-bladder": { probeFixture: fixture } };
-    const out = { wantShield: L("CAIRN.Shield"), wantHold: L("CAIRN.HoldShieldAsk"), wantInHand: L("CAIRN.ShieldInHand"),
-      wantShieldNone: L("CAIRN.HoldShieldNone"), wantLightNone: L("CAIRN.HoldLightNone") };
+    const out = { wantShield: L("CAIRN.Shield"), wantHold: L("CAIRN.EquipShield"), wantInHand: L("CAIRN.ShieldEquipped"),
+      wantNoShield: L("CAIRN.NoShield"), wantNoLight: L("CAIRN.NoLight"),
+      wantShieldNone: L("CAIRN.EquipShieldNone"), wantLightNone: L("CAIRN.EquipLightNone") };
 
     // 1. The armor sheet's Shield box.
     const loose = await getDocumentClass("Item").create({ name: "ZZ Shield Sheet", type: "armor", system: { armor: 1 }, flags });
@@ -224,13 +237,31 @@ try {
       const armorBox = page?.querySelector(".cairn-shield");
       const a = sw?.getBoundingClientRect(), b = armorBox?.getBoundingClientRect();
       const lw = page?.querySelector(".light-hold");
+      const lb = lw?.getBoundingClientRect();
       const icon = sw?.querySelector(".shield-icon");
+      const lIcon = lw?.querySelector(".light-icon");
+      const lcs = lIcon ? getComputedStyle(lIcon) : null;
+      const lMask = lcs?.maskImage || lcs?.webkitMaskImage || "";
+      // Full ink: the label's colour is the sheet's --ab-ink, read off a
+      // scratch span inside the badge (never a hard-coded colour).
+      const inkOf = (el) => {
+        if (!el) return null;
+        const probe = document.createElement("span");
+        probe.style.color = "var(--ab-ink)";
+        el.append(probe);
+        const c = getComputedStyle(probe).color;
+        probe.remove();
+        return c;
+      };
+      const lab = sw?.querySelector(".shield-label");
       const cs = icon ? getComputedStyle(icon) : null;
       const mask = cs?.maskImage || cs?.webkitMaskImage || "";
       const url = /url\("?([^")]+)"?\)/.exec(mask)?.[1] ?? null;
       return {
         present: !!sw,
-        label: sw?.querySelector(".shield-label")?.textContent.trim() ?? null,
+        label: lab?.textContent.trim() ?? null,
+        labelInk: !!lab && getComputedStyle(lab).color === inkOf(sw),
+        glyph: sw?.querySelector(".badge-switch i.fa-toggle-on") ? "on" : sw?.querySelector(".badge-switch i.fa-toggle-off") ? "off" : null,
         icon: /game-icons\/shields\/([a-z-]+)\.svg/.exec(url ?? "")?.[1] ?? null,
         loads: await shieldLoadsOk(url),
         color: cs?.backgroundColor ?? null,
@@ -238,11 +269,13 @@ try {
         disabled: sw?.disabled ?? null,
         tip: sw?.dataset.tooltip ?? null,
         light: { present: !!lw, disabled: lw?.disabled ?? null, checked: lw?.getAttribute("aria-checked") ?? null,
-          tip: lw?.dataset.tooltip ?? null },
+          tip: lw?.dataset.tooltip ?? null, label: lw?.querySelector(".light-label")?.textContent.trim() ?? null,
+          icon: /game-icons\/fire\/([a-z-]+)\.svg/.exec(lMask)?.[1] ?? null },
         checked: sw?.getAttribute("aria-checked") ?? null,
-        left: !!a && !!b && a.right <= b.left + 0.5,
-        // Beside it, not above or below: the two overlap vertically.
-        beside: !!a && !!b && a.top < b.bottom && a.bottom > b.top,
+        // The badge row stands UNDER the Armor box (2026-11-21): the shield's
+        // badge below it, and left of the light's on the same row.
+        below: !!a && !!b && a.top >= b.bottom - 0.5,
+        leftOfLight: !!a && !!lb && a.right <= lb.left + 0.5 && a.top < lb.bottom && a.bottom > lb.top,
         armor: page?.querySelector(".armor-input")?.value ?? null,
       };
     };
@@ -292,6 +325,135 @@ try {
     }
     return out;
   }, { fixture: FIXTURE, SHIPPED });
+
+  /* ---- 8: the book badge (2026-11-21) ------------------------------------- */
+  r.book = await gm.evaluate(async ({ fixture }) => {
+    const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
+    const until = async (fn, ms = 5000) => {
+      const t = Date.now();
+      while (!fn() && Date.now() - t < ms) await sleep(100);
+      return fn();
+    };
+    const L = (k) => game.i18n.localize(k);
+    const flags = { "air-bladder": { probeFixture: fixture } };
+    const out = {
+      want: {
+        none: L("CAIRN.NoBook"), noneTip: L("CAIRN.EquipBookNone"),
+        off: L("CAIRN.EquipBook"), on: L("CAIRN.BookEquipped"),
+        offScroll: L("CAIRN.EquipScroll"), onScroll: L("CAIRN.ScrollEquipped"),
+        onGrimoire: L("CAIRN.GrimoireEquipped"),
+        tipScroll: game.i18n.format("CAIRN.BookEquippedTip", { name: "ZZ Book Scroll" }),
+        prompt: L("CAIRN.EquipPick.Prompt"),
+      },
+    };
+    const mk = async (name, items) => {
+      const pc = await getDocumentClass("Actor").create({ name, type: "character", flags, items }, { abNoStatusCard: true });
+      const sheet = pc.sheet;
+      await sheet.render(true);
+      await until(() => sheet.element?.querySelector?.(".cairn-shield"));
+      await sleep(400);
+      return { pc, sheet };
+    };
+    const badge = (sheet) => {
+      const b = sheet.element.querySelector('.tab[data-tab="character"] .book-hold');
+      const icon = b?.querySelector(".book-icon");
+      const cs = icon ? getComputedStyle(icon) : null;
+      const mask = cs?.maskImage || cs?.webkitMaskImage || "";
+      const lb = sheet.element.querySelector('.tab[data-tab="character"] .light-hold')?.getBoundingClientRect();
+      const bb = b?.getBoundingClientRect();
+      return {
+        present: !!b, disabled: b?.disabled ?? null, checked: b?.getAttribute("aria-checked") ?? null,
+        label: b?.querySelector(".book-label")?.textContent.trim() ?? null,
+        tip: b?.dataset.tooltip ?? null,
+        icon: /game-icons\/book\/([a-z-]+)\.svg/.exec(mask)?.[1] ?? null,
+        url: /url\("?([^")]+)"?\)/.exec(mask)?.[1] ?? null,
+        glyph: b?.querySelector(".badge-switch i.fa-toggle-on") ? "on" : b?.querySelector(".badge-switch i.fa-toggle-off") ? "off" : null,
+        rightOfLight: !!lb && !!bb && bb.left >= lb.right - 0.5 && bb.top < lb.bottom && bb.bottom > lb.top,
+      };
+    };
+    const loads = async (url) => !!url && (await fetch(url).then((res) => res.ok).catch(() => false));
+    const press = (sheet) => sheet.element.querySelector('.tab[data-tab="character"] .book-hold')?.click();
+    const hand = (sheet, pc, n) => sheet.element.querySelector(
+      `.cairn-items-list-row[data-item-id="${pc.items.find((i) => i.name === n)?.id}"] [data-action="itemToggleEquipped"]`);
+    {
+      const { pc, sheet } = await mk("ZZ Book None", []);
+      out.none = badge(sheet);
+      out.none.loads = await loads(out.none.url);
+      await sheet.close();
+      await pc.delete();
+    }
+    {
+      const { pc, sheet } = await mk("ZZ Book One", [{ name: "ZZ Book Sleep", type: "spellbook", sort: 100 }]);
+      const book = () => pc.items.find((i) => i.name === "ZZ Book Sleep");
+      out.one = { off: badge(sheet) };
+      press(sheet);
+      await until(() => book()?.system.equipped === true, 3000);
+      await sleep(400);
+      out.one.on = { ...badge(sheet), equipped: book()?.system.equipped ?? null,
+        picker: !!document.querySelector(".cairn-book-picker") };
+      out.one.on.loads = await loads(out.one.on.url);
+      press(sheet);
+      await until(() => !book()?.system.equipped, 3000);
+      await sleep(400);
+      out.one.after = { ...badge(sheet), equipped: book()?.system.equipped ?? null };
+      await sheet.close();
+      await pc.delete();
+    }
+    {
+      const { pc, sheet } = await mk("ZZ Book Three", [
+        { name: "ZZ Book Scroll", type: "spellbook", sort: 100, system: { scroll: true, weightless: true, uses: { value: 1, max: 1 } } },
+        { name: "ZZ Book Sleep", type: "spellbook", sort: 200 },
+        { name: "ZZ Book Grimoire", type: "item", sort: 300, system: { grimoire: true, bulky: true } },
+        { name: "ZZ Book Page", type: "spellbook", sort: 400, system: { bound: true, weightless: true } },
+      ]);
+      const it = (n) => pc.items.find((i) => i.name === n);
+      const equipped = () => ["ZZ Book Scroll", "ZZ Book Sleep", "ZZ Book Grimoire", "ZZ Book Page"].filter((n) => it(n)?.system.equipped);
+      out.three = {
+        hands: { scroll: !!hand(sheet, pc, "ZZ Book Scroll"), book: !!hand(sheet, pc, "ZZ Book Sleep"),
+          grimoire: !!hand(sheet, pc, "ZZ Book Grimoire"), page: !!hand(sheet, pc, "ZZ Book Page") },
+        off: badge(sheet),
+      };
+      const openPicker = async () => {
+        const stale = new Set(document.querySelectorAll(".cairn-book-picker"));
+        press(sheet);
+        let d = null;
+        await until(() => (d = [...document.querySelectorAll(".cairn-book-picker")].find((x) => !stale.has(x))), 3000);
+        await sleep(200);
+        return d;
+      };
+      let d = await openPicker();
+      out.three.picker = {
+        opened: !!d,
+        prompt: d?.querySelector(".cairn-light-prompt")?.textContent.trim() ?? null,
+        ids: [...(d?.querySelectorAll('input[name="book"]') ?? [])].map((i) => i.value),
+        order: [it("ZZ Book Scroll").id, it("ZZ Book Sleep").id, it("ZZ Book Grimoire").id],
+      };
+      d?.querySelector('footer button[data-action="cancel"]')?.click();
+      await until(() => !d?.isConnected, 3000);
+      await sleep(300);
+      out.three.afterCancel = equipped();
+      d = await openPicker();
+      const pick = d?.querySelector(`input[name="book"][value="${it("ZZ Book Scroll").id}"]`);
+      if (pick) { pick.checked = true; pick.dispatchEvent(new Event("change", { bubbles: true })); }
+      d?.querySelector('footer button[data-action="hold"]')?.click();
+      await until(() => it("ZZ Book Scroll")?.system.equipped === true, 3000);
+      await sleep(500);
+      out.three.scroll = { ...badge(sheet), equipped: equipped() };
+      // The Grimoire's row hand: it is equipped, and the scroll put away.
+      hand(sheet, pc, "ZZ Book Grimoire")?.click();
+      await until(() => it("ZZ Book Grimoire")?.system.equipped === true, 3000);
+      await sleep(500);
+      out.three.grimoire = { ...badge(sheet), equipped: equipped() };
+      // One press puts it away, no picker.
+      press(sheet);
+      await until(() => equipped().length === 0, 3000);
+      await sleep(400);
+      out.three.stowed = { equipped: equipped(), picker: !!document.querySelector(".cairn-book-picker") };
+      await sheet.close();
+      await pc.delete();
+    }
+    return out;
+  }, { fixture: FIXTURE });
 
   /* ---- 5: the Bulky Shields hack ----------------------------------------- */
   // The setting is READ-SHADOWED in-page, both ways, never written: it is the
@@ -397,7 +559,7 @@ try {
     };
     const L = (k) => game.i18n.localize(k);
     const flags = { "air-bladder": { probeFixture: fixture } };
-    const out = { wantLight: L("CAIRN.HoldLightAsk"), wantLightOn: L("CAIRN.LightInHand") };
+    const out = { wantLight: L("CAIRN.EquipLight"), wantLightOn: L("CAIRN.LightEquipped") };
     const realTorch = game.Torch;
     const hadOwnGet = Object.prototype.hasOwnProperty.call(game.modules, "get");
     const realGet = game.modules.get;
@@ -406,7 +568,7 @@ try {
       pc = await getDocumentClass("Actor").create({
         name: "ZZ Shield Lights", type: "character", flags,
         items: [
-          { name: "Torch", type: "item", sort: 100, system: { uses: { value: 3, max: 3 } } },
+          { name: "Torch", type: "item", sort: 100, system: { uses: { value: 20, max: 20 } } },
           { name: "Lantern", type: "item", sort: 200 },
           { name: "Oil Can", type: "item", sort: 300 },
           { name: "ZZ Rope", type: "item", sort: 400 },
@@ -444,6 +606,7 @@ try {
         return {
           url: /url\("?([^")]+)"?\)/.exec(mask)?.[1] ?? null,
           label: b?.querySelector(".light-label")?.textContent.trim() ?? null,
+          glyph: b?.querySelector(".badge-switch i.fa-toggle-on") ? "on" : b?.querySelector(".badge-switch i.fa-toggle-off") ? "off" : null,
           radius: b?.querySelector(".light-radius")?.textContent.trim() ?? null,
           icon: mask.match(/game-icons\/fire\/([a-z-]+)\.svg/)?.[1] ?? null,
           color: cs?.backgroundColor ?? null,
@@ -456,19 +619,20 @@ try {
       const heldTip = (name) => game.i18n.format("CAIRN.LightHeldTip", { name });
       out.want = {
         noneHeld: L("CAIRN.LightNoneHeld"),
-        prompt: L("CAIRN.HoldLightPick.Prompt"),
+        prompt: L("CAIRN.EquipPick.Prompt"),
         heldLantern: heldTip("Lantern"), heldTorch: heldTip("Torch"), heldGlowsnail: heldTip("Glowsnail"),
       };
       out.want.bright = game.i18n.format("CAIRN.LightRadius", { bright: 20, dim: 40 });
       out.want.dimOnly = game.i18n.format("CAIRN.LightRadiusDim", { dim: 10 });
       {
-        // Right of the Armor box, level with it: the icon IS the Hold light control.
+        // Under the Armor box, right of the shield's badge (2026-11-21).
         const a = page()?.querySelector(".cairn-shield")?.getBoundingClientRect();
         const b = sw()?.getBoundingClientRect();
+        const sb = page()?.querySelector(".shield-hold")?.getBoundingClientRect();
         out.place = {
           ...badge(),
-          right: !!a && !!b && b.left >= a.right - 0.5,
-          beside: !!a && !!b && b.top < a.bottom && b.bottom > a.top,
+          right: !!sb && !!b && b.left >= sb.right - 0.5,
+          beside: !!a && !!b && b.top >= a.bottom - 0.5,
         };
         out.place.loads = await loadsOk(out.place.url);
       }
@@ -534,7 +698,8 @@ try {
         await sleep(400);
       };
       await press(() => it("Torch")?.system.equipped === true);
-      out.torchBadge = { ...badge(), picker: !!document.querySelector(".cairn-light-picker") };
+      out.torchBadge = { ...badge(), picker: !!document.querySelector(".cairn-light-picker"),
+        uses: it("Torch")?.system.uses.value ?? null };
       out.torchBadge.loads = await loadsOk(out.torchBadge.url);
       await press(() => !it("Torch")?.system.equipped);
 
@@ -644,7 +809,7 @@ try {
       await settle();
       await pc.deleteEmbeddedDocuments("Item", [it("Wraith Lantern").id], { abNoStatusCard: true });
       await sleep(300);
-      // A torch with no uses left: held, not lit.
+      // A torch with no uses left: REFUSED (2026-11-21), never held.
       await it("Torch").update({ "system.uses.value": 0 }, { abNoStatusCard: true });
       await sleep(300);
       calls = []; state = "off";
@@ -652,10 +817,12 @@ try {
       await until(() => it("Torch")?.system.equipped === true, 3000);
       await settle();
       T.exhausted = { held: it("Torch")?.system.equipped === true, calls: calls.map((c) => c[0]), state };
-      handOf("Torch")?.click();
-      await until(() => !it("Torch")?.system.equipped, 3000);
-      await settle();
-      await it("Torch").update({ "system.uses.value": 3 }, { abNoStatusCard: true });
+      if (it("Torch")?.system.equipped) {
+        handOf("Torch")?.click();
+        await until(() => !it("Torch")?.system.equipped, 3000);
+        await settle();
+      }
+      await it("Torch").update({ "system.uses.value": 20 }, { abNoStatusCard: true });
       // Two lights by their row hands: one light is held at once, and the
       // token ends lit with the second.
       await pc.createEmbeddedDocuments("Item", [{ name: "Lantern", type: "item", sort: 800 }], { abNoStatusCard: true });
@@ -949,29 +1116,31 @@ sh.shield === true && sh.hacked === true && sh.buckler === true && sh.helmet ===
   ? ok("the shipped Shield, Hacked Shield and Steadymade Buckler are shields; the Helmet is not")
   : fail(`shipped shields: ${JSON.stringify(sh)}`);
 // Leg 3, rewritten by leg 6: both switches are always drawn.
-// Both are badges since 2026-11-20: off reads "Hold shield", no toggle glyph.
-const greyed = (x, tip) => !!x && x.present && x.disabled === true && x.checked === "false" && x.label === u.wantHold && x.tip === tip;
-// The light control is the badge since 2026-11-20 (no toggle glyph).
-const greyedLight = (x, tip) => !!x && x.present && x.disabled === true && x.checked === "false" && x.tip === tip;
+// Since 2026-11-21 with none carried: greyed, "No Shield" under the slashed
+// shield, "No Light" under the neutral lantern.
+const greyed = (x, tip) => !!x && x.present && x.disabled === true && x.checked === "false" && x.label === u.wantNoShield
+  && u.wantNoShield !== "CAIRN.NoShield" && x.icon === "shield-disabled" && x.tip === tip;
+const greyedLight = (x, tip) => !!x && x.present && x.disabled === true && x.checked === "false" && x.tip === tip
+  && x.label === u.wantNoLight && u.wantNoLight !== "CAIRN.NoLight" && x.icon === "lantern-flame";
 greyed(u.none, u.wantShieldNone) && greyed(u.helmetOnly, u.wantShieldNone)
   && greyedLight(u.none?.light, u.wantLightNone) && greyedLight(u.helmetOnly?.light, u.wantLightNone)
-  ? ok(`with no shield (or only a helmet) and no light, both switches are drawn disabled and off, saying "${u.wantShieldNone}" / "${u.wantLightNone}"`)
+  ? ok(`with no shield (or only a helmet) and no light, both badges are greyed: "${u.wantNoShield}" (slashed shield) and "${u.wantNoLight}", saying "${u.wantShieldNone}" / "${u.wantLightNone}"`)
   : fail(`switches without a shield or a light: ${JSON.stringify({ none: u.none, helmetOnly: u.helmetOnly, want: [u.wantShieldNone, u.wantLightNone] })}`);
 const sl = u.slung ?? {};
 sl.disabled === false && sl.tip === null
   ? ok("a live Hold shield switch carries no tooltip")
   : fail(`live shield switch: disabled ${sl.disabled}, tooltip ${JSON.stringify(sl.tip)}`);
-sl.present && sl.label === u.wantHold && u.wantHold !== "CAIRN.HoldShieldAsk" && sl.icon === "shield-disabled" && sl.loads && sl.left && sl.beside && sl.checked === "false"
-  && sl.filter === "none" && sl.armor === "1"
-  ? ok(`with a slung shield, the heater-shield badge "${sl.label}" stands left of the Armor box, off and unlit, Armor ${sl.armor}`)
-  : fail(`slung: ${JSON.stringify(sl)} (want ${JSON.stringify(u.wantHold)}, game-icons shields/shield-disabled.svg)`);
+sl.present && sl.label === u.wantHold && u.wantHold !== "CAIRN.EquipShield" && sl.icon === "shield" && sl.loads && sl.below && sl.leftOfLight
+  && sl.checked === "false" && sl.glyph === "off" && sl.labelInk && sl.filter === "none" && sl.armor === "1"
+  ? ok(`with a slung shield, the Shield badge "${sl.label}" stands under the Armor box, left of the light's, off (switch off, full ink), Armor ${sl.armor}`)
+  : fail(`slung: ${JSON.stringify(sl)} (want ${JSON.stringify(u.wantHold)}, game-icons shields/shield.svg, under the Armor box)`);
 const he = u.held ?? {};
-he.equipped === true && he.checked === "true" && he.label === u.wantInHand && u.wantInHand !== "CAIRN.ShieldInHand"
+he.equipped === true && he.checked === "true" && he.label === u.wantInHand && u.wantInHand !== "CAIRN.ShieldEquipped" && he.glyph === "on" && he.labelInk
   && he.icon === "shield-bash" && he.loads && he.color !== sl.color && he.filter && he.filter !== "none" && he.armor === "2"
   ? ok(`a press holds it: equipped, "${he.label}", glowing (${he.color}), Armor ${he.armor}`)
   : fail(`held: ${JSON.stringify(he)} (want ${JSON.stringify(u.wantInHand)}, slung colour ${sl.color})`);
 const rs = u.reslung ?? {};
-rs.equipped === false && rs.checked === "false" && rs.label === u.wantHold && rs.filter === "none" && rs.armor === "1"
+rs.equipped === false && rs.checked === "false" && rs.label === u.wantHold && rs.icon === "shield" && rs.glyph === "off" && rs.filter === "none" && rs.armor === "1"
   ? ok("a second press slings it again: not equipped, off, Armor back to 1")
   : fail(`re-slung: ${JSON.stringify(rs)}`);
 const tw = u.two ?? {};
@@ -1016,9 +1185,9 @@ hs.torch && hs.lantern && hs.glowsnail && hs.sunStick && !hs.oil && !hs.rope
   : fail(`light hands: ${JSON.stringify(hs)}`);
 const lw = lt.want ?? {};
 const lp = lt.place ?? {};
-lp.label === lt.wantLight && lt.wantLight !== "CAIRN.HoldLightAsk" && lp.disabled === false && lp.checked === "false" && lp.tip === lw.noneHeld
-  && lp.radius === null && lp.icon === "lantern-flame" && lp.loads && lp.right && lp.beside
-  ? ok(`the light badge stands right of the Armor box: a neutral lantern, "${lp.label}", "${lp.tip}", no radius`)
+lp.label === lt.wantLight && lt.wantLight !== "CAIRN.EquipLight" && lp.disabled === false && lp.checked === "false" && lp.tip === lw.noneHeld
+  && lp.radius === null && lp.icon === "torch" && lp.loads && lp.right && lp.beside && lp.glyph === "off"
+  ? ok(`the light badge stands under the Armor box, right of the shield's: the first light's own icon (a torch, unlit), "${lp.label}", "${lp.tip}", no radius`)
   : fail(`light badge, none held: ${JSON.stringify(lp)} (want label ${JSON.stringify(lt.wantLight)}, tip ${JSON.stringify(lw.noneHeld)})`);
 const pk = lt.picker ?? {};
 pk.opened && pk.prompt === lw.prompt && JSON.stringify(pk.ids) === JSON.stringify(pk.order)
@@ -1032,7 +1201,7 @@ JSON.stringify(pk.afterCancel) === "[]" && JSON.stringify(pk.held) === JSON.stri
 const lb = lt.lanternBadge ?? {};
 lb.checked === "true" && lb.icon === "lantern-flame" && lb.loads && lb.radius === lw.bright && lb.tip === lw.heldLantern
   && lb.color !== lp.color && lb.filter && lb.filter !== "none"
-  && lb.label === lt.wantLightOn && lt.wantLightOn !== "CAIRN.LightInHand"
+  && lb.label === lt.wantLightOn && lt.wantLightOn !== "CAIRN.LightEquipped" && lb.glyph === "on"
   ? ok(`held, the badge glows (${lb.color}, ${lb.filter}), says "${lb.label}" and reads "${lb.radius}", "${lb.tip}"`)
   : fail(`lantern badge: ${JSON.stringify(lb)} (none-held colour ${lp.color}, want label ${JSON.stringify(lt.wantLightOn)})`);
 const st = lt.stowed ?? {};
@@ -1042,8 +1211,8 @@ JSON.stringify(st.held) === "[]" && !st.picker && st.badge?.checked === "false" 
   : fail(`stow all: ${JSON.stringify(st)}`);
 const tb = lt.torchBadge ?? {};
 tb.checked === "true" && !tb.picker && tb.icon === "torch" && tb.loads && tb.radius === lw.bright && tb.tip === lw.heldTorch
-  && tb.label === lt.wantLightOn
-  ? ok("with one light, a press holds it at once: the torch icon, its radius, \"Light in hand\"")
+  && tb.label === lt.wantLightOn && tb.uses === 19
+  ? ok(`with one light, a press equips it at once: the torch icon, its radius, "${tb.label}", and one use spent (20 -> ${tb.uses})`)
   : fail(`single light: ${JSON.stringify(tb)}`);
 const tx = lt.texts ?? {};
 tx.darkness === tx.wantDark && tx.none === "" && tx.alias === lw.bright
@@ -1073,8 +1242,8 @@ const T2 = lt.torch2 ?? {};
 T2.unknown?.held && !T2.unknown.calls.includes("selectSource") && !T2.unknown.calls.includes("toggle")
   ? ok("a light Torch does not know is held but not lit: no select, no toggle")
   : fail(`unknown light: ${JSON.stringify(T2.unknown)}`);
-T2.exhausted?.held && !T2.exhausted.calls.includes("toggle") && T2.exhausted.state === "off"
-  ? ok("a torch with no uses left is held but not lit")
+T2.exhausted && !T2.exhausted.held && T2.exhausted.calls.length === 0 && T2.exhausted.state === "off"
+  ? ok("a torch with no uses left is refused: not equipped, no Torch call")
   : fail(`exhausted torch: ${JSON.stringify(T2.exhausted)}`);
 T2.second && !T2.second.torch && T2.second.lantern && T2.second.lastSelect === "Lantern" && T2.second.state === "on"
   ? ok("a second light's hand puts the first away: one light held, the token lit with the second")
@@ -1085,6 +1254,42 @@ T2.broken?.calls.includes("extinguish") && T2.broken.state === "off"
 T2.deleted?.calls.includes("extinguish") && T2.deleted.state === "off"
   ? ok("a held, lit light deleted from the sheet is put out")
   : fail(`deleted held light: ${JSON.stringify(T2.deleted)}`);
+// 8
+const bo = r.book ?? {};
+const bw = bo.want ?? {};
+const bn = bo.none ?? {};
+bn.present && bn.disabled === true && bn.checked === "false" && bn.label === bw.none && bw.none !== "CAIRN.NoBook"
+  && bn.tip === bw.noneTip && bn.icon === "spell-book" && bn.loads && bn.rightOfLight
+  ? ok(`with no book, the book badge stands right of the light's, greyed: "${bn.label}", "${bn.tip}"`)
+  : fail(`book badge, none: ${JSON.stringify(bn)} (want ${JSON.stringify([bw.none, bw.noneTip])})`);
+const b1 = bo.one ?? {};
+b1.off?.label === bw.off && b1.off?.glyph === "off" && b1.off?.disabled === false && b1.off?.icon === "spell-book"
+  && b1.on?.equipped === true && !b1.on.picker && b1.on.checked === "true" && b1.on.label === bw.on && b1.on.glyph === "on" && b1.on.loads
+  && b1.after?.equipped === false && b1.after.label === bw.off
+  ? ok(`one spellbook: "${bw.off}", a press equips it at once ("${bw.on}"), a second puts it away`)
+  : fail(`one book: ${JSON.stringify(b1)} (want ${JSON.stringify([bw.off, bw.on])})`);
+const b3 = bo.three ?? {};
+b3.hands?.scroll && b3.hands.book && b3.hands.grimoire && !b3.hands.page
+  ? ok("a scroll, a spellbook and the Grimoire show the row's hand; a bound page does not")
+  : fail(`book hands: ${JSON.stringify(b3.hands)}`);
+b3.off?.label === bw.offScroll && b3.off?.icon === "tied-scroll"
+  ? ok(`with a scroll first in the inventory, the badge reads "${b3.off.label}" under the scroll`)
+  : fail(`book badge, scroll first: ${JSON.stringify(b3.off)} (want ${JSON.stringify(bw.offScroll)})`);
+b3.picker?.opened && b3.picker.prompt === bw.prompt && JSON.stringify(b3.picker.ids) === JSON.stringify(b3.picker.order)
+  && JSON.stringify(b3.afterCancel) === "[]"
+  ? ok(`several books, none equipped: a press asks "${b3.picker.prompt}", listing all three (never the bound page); Cancel equips nothing`)
+  : fail(`book picker: ${JSON.stringify({ picker: b3.picker, afterCancel: b3.afterCancel })}`);
+JSON.stringify(b3.scroll?.equipped) === JSON.stringify(["ZZ Book Scroll"]) && b3.scroll.label === bw.onScroll
+  && b3.scroll.tip === bw.tipScroll && b3.scroll.icon === "tied-scroll"
+  ? ok(`picking the scroll equips it alone: "${b3.scroll.label}", "${b3.scroll.tip}"`)
+  : fail(`scroll picked: ${JSON.stringify(b3.scroll)} (want ${JSON.stringify([bw.onScroll, bw.tipScroll])})`);
+JSON.stringify(b3.grimoire?.equipped) === JSON.stringify(["ZZ Book Grimoire"]) && b3.grimoire.label === bw.onGrimoire
+  && b3.grimoire.icon === "book-aura"
+  ? ok(`the Grimoire's row hand equips it and puts the scroll away: "${b3.grimoire.label}"`)
+  : fail(`grimoire by its hand: ${JSON.stringify(b3.grimoire)}`);
+JSON.stringify(b3.stowed?.equipped) === "[]" && !b3.stowed.picker
+  ? ok("one press puts the equipped book away, with no picker")
+  : fail(`book stowed: ${JSON.stringify(b3.stowed)}`);
 // 7
 const gn = r.gnarled ?? {};
 gn.packStaff === false && gn.packSling === "1d6"

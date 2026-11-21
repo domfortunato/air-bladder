@@ -59,6 +59,9 @@
  *      nothing; Yes marks it; the repair asks "Mark {name} repaired?";
  *  16. the item sheet's Broken box asks the same: No leaves it unticked and
  *      stores nothing, Yes stores it.
+ *  17. (2026-11-21, user: the broken shield "riding the top of the line") the
+ *      row's broken-shield icon is centred on the same line as the trash can
+ *      beside it: their vertical centres within 1px.
  *
  * Usage: npm run dev:broken
  */
@@ -373,6 +376,12 @@ try {
           return {
             present: !!c,
             leftOfTrash: !!c && c.nextElementSibling?.dataset.action === "itemDelete",
+            // 17: level with the trash glyph beside it (centres, in px).
+            centreOff: (() => {
+              const t = c?.nextElementSibling?.querySelector("i")?.getBoundingClientRect();
+              const b = icon?.getBoundingClientRect();
+              return t && b && t.height && b.height ? Math.abs((t.top + t.height / 2) - (b.top + b.height / 2)) : null;
+            })(),
             title: c?.getAttribute("title") ?? null,
             pressed: c?.getAttribute("aria-pressed") ?? null,
             icon: /game-icons\/shields\/([a-z-]+)\.svg/.exec(url ?? "")?.[1] ?? null,
@@ -576,6 +585,10 @@ else {
     intact(k.blade) && intact(k.rope)
       ? ok(`${kind}: every row carries "${rw.mark}" directly left of the trash, game-icons' broken shield`)
       : fail(`${kind} row control: ${JSON.stringify({ blade: k.blade, rope: k.rope, want: rw.mark })}`);
+    // 17
+    k.blade?.centreOff !== null && k.blade?.centreOff <= 1 && k.rope?.centreOff !== null && k.rope?.centreOff <= 1
+      ? ok(`${kind}: the broken-shield icon sits level with the trash can (off by ${k.blade.centreOff.toFixed(1)}px)`)
+      : fail(`${kind}: the broken-shield icon is off the trash can's line: ${JSON.stringify({ blade: k.blade?.centreOff, rope: k.rope?.centreOff })}`);
     if (kind !== "container") {
       k.fatigue === false
         ? ok(`${kind}: a Fatigue row has no Broken control`)

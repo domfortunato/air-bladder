@@ -8,8 +8,9 @@
  * no render check can see.
  *
  * Asserts:
- *   1. ticking Scroll pins petty + one use, drops `equipped`, swaps the art, and
- *      makes the item un-equippable; unticking restores the book,
+ *   1. ticking Scroll pins petty + one use and swaps the art, and the scroll
+ *      STAYS equipped and equippable (2026-11-21, user ruling: a scroll can be
+ *      equipped, for the book badge); unticking restores the book,
  *   2. the invariant survives a hostile write (weightless false, 5 uses) — while a
  *      SPENT scroll stays spent, which is the one value the pin must not touch,
  *   3. a generated scroll is that same shape: type "spellbook", flagged, stored
@@ -168,11 +169,11 @@ const flag = await page.evaluate(async () => {
 eq("a plain spellbook is not petty and has no uses",
   { weightless: flag.book.weightless, uses: flag.book.uses }, { weightless: false, uses: { value: 0, max: 0 } });
 ok(`a book is equippable (${flag.book.isEquipable}) and shows the ${flag.book.glyph} glyph`);
-eq("ticking Scroll pins petty + one use and un-equips",
+eq("ticking Scroll pins petty + one use and keeps it equipped",
   { weightless: flag.scroll.weightless, uses: flag.scroll.uses, equipped: flag.scroll.equipped },
-  { weightless: true, uses: { value: 1, max: 1 }, equipped: false });
+  { weightless: true, uses: { value: 1, max: 1 }, equipped: true });
 flag.scroll.img === SCROLL_ICON ? ok("art swapped to the scroll") : fail(`art is "${flag.scroll.img}", want ${SCROLL_ICON}`);
-flag.scroll.isEquipable === false ? ok("a scroll is not equippable") : fail("a scroll reports isEquipable true");
+flag.scroll.isEquipable === true ? ok("a scroll is equippable (2026-11-21)") : fail("a scroll reports isEquipable false");
 flag.scroll.glyph === "scroll" ? ok("inventory glyph is fa-scroll") : fail(`glyph is "${flag.scroll.glyph}", want "scroll"`);
 eq("the invariant survives a hostile write",
   { weightless: flag.attacked.weightless, max: flag.attacked.uses.max }, { weightless: true, max: 1 });

@@ -18,6 +18,12 @@
  *   5. A character outside the Party folder is not listed.
  *   6. The Dashboard's footer button opens it, and the Token control exists.
  *   7. As Alice (a player), `openPartySheet()` refuses and no window opens.
+ *   8. (2026-11-21, user asks) An NPC and a hireling filed in the Party folder
+ *      get rows; a monster filed there does not. The light cell draws the
+ *      light's own icon (a torch for A's Torch, a lantern for B's Lantern),
+ *      and the Warden's click on a lit light puts it out: unequipped, and a
+ *      public chat card reads "The Warden puts out ZZ Party A's Torch."
+ *      (selected by its own class and by message id difference).
  *
  * Fixtures are stamped `probeFixture` and swept from the catch; the
  * marching-order setting is READ first and restored, and SET to [] for the run
@@ -119,13 +125,17 @@ try {
     // C carries no shield and no light (round 3): both cells must be EMPTY.
     const c = await Cls.create({ name: "ZZ Party C", type: "character", folder, flags }, { abNoStatusCard: true });
     const outside = await Cls.create({ name: "ZZ Party Outside", type: "character", flags }, { abNoStatusCard: true });
+    // Leg 8: persons in the Party folder are members; a monster is not.
+    const pNpc = await Cls.create({ name: "ZZ Party Npc", type: "npc", folder, flags, system: { role: "npc" } }, { abNoStatusCard: true });
+    const pHire = await Cls.create({ name: "ZZ Party Hired", type: "hireling", folder, flags }, { abNoStatusCard: true });
+    const pMon = await Cls.create({ name: "ZZ Party Monster", type: "npc", folder, flags, system: { role: "monster" } }, { abNoStatusCard: true });
     const kid = (name, type, system) => Cls.create({ name, type, flags, system: { ...system, connectedTo: a.uuid } });
     await kid("ZZ Party Hireling", "hireling", {});
     await kid("ZZ Party Companion", "npc", { role: "companion" });
     await kid("ZZ Party Sack", "npc", { role: "container", containerClass: "sack", hp: { value: 0, max: 0 } });
     await kid("ZZ Party Cart", "npc", { role: "transport", containerClass: "cart", hp: { value: 0, max: 0 } });
     return {
-      a: a.id, b: b.id, c: c.id, outside: outside.id, madeFolder: !hadFolder, savedOrder, alice: alice?.name ?? null,
+      a: a.id, b: b.id, c: c.id, outside: outside.id, npc: pNpc.id, hired: pHire.id, monster: pMon.id, madeFolder: !hadFolder, savedOrder, alice: alice?.name ?? null,
       want: {
         slots: `${a.system.slotsUsed}/${a.system.slotsMax}`, armor: String(a.system.armor),
         slotsB: `${b.system.slotsUsed}/${b.system.slotsMax}`,
@@ -152,7 +162,14 @@ try {
       conditions: [...tr.querySelectorAll('[data-col="conditions"] [data-condition]')].map((e) => e.dataset.condition),
       letters: [...tr.querySelectorAll('[data-col="conditions"] [data-condition]')].map((e) => e.textContent.trim()).join(""),
       tones: Object.fromEntries([...tr.querySelectorAll("[data-col]")].map((td) => [td.dataset.col, td.dataset.tone ?? ""])),
-      icons: { shield: !!tr.querySelector('[data-col="shield"] i'), light: !!tr.querySelector('[data-col="light"] i') },
+      icons: { shield: !!tr.querySelector('[data-col="shield"] i'), light: !!tr.querySelector('[data-col="light"] .cairn-party-light-icon') },
+      lightIcon: (() => {
+        const el = tr.querySelector('[data-col="light"] .cairn-party-light-icon');
+        const cs = el ? getComputedStyle(el) : null;
+        const mask = cs?.maskImage || cs?.webkitMaskImage || "";
+        return /game-icons\/fire\/([a-z-]+)\.svg/.exec(mask)?.[1] ?? "";
+      })(),
+      putOut: !!tr.querySelector('[data-col="light"] button[data-action="putOutLight"]'),
       boxed: { fatigue: !!tr.querySelector('[data-col="fatigue"] .cairn-party-box'), rations: !!tr.querySelector('[data-col="rations"] .cairn-party-box') },
       note: tr.querySelector('[data-col="notes"] input')?.value ?? null,
     }));
@@ -223,7 +240,36 @@ try {
     const ia = rows.indexOf(rowA);
     const ib = rows.indexOf(rowB);
     check(ia < ib, "with no stored order, A sorts before B by name", `A=${ia} B=${ib}`);
+    // 8 (2026-11-21).
+    check(rows.some((r) => r.id === setup.npc) && rows.some((r) => r.id === setup.hired),
+      "an NPC and a hireling in the Party folder are listed", `${rows.length} rows`);
+    check(!rows.some((r) => r.id === setup.monster), "a monster in the Party folder is not listed");
+    check(rowA.lightIcon === "torch" && rowB.lightIcon === "lantern-flame",
+      "the light cell draws the light's own icon: a torch for A, a lantern for B",
+      JSON.stringify({ a: rowA.lightIcon, b: rowB.lightIcon }));
+    check(rowA.putOut && !rowB.putOut, "a lit light is a button; an unlit one is not",
+      JSON.stringify({ a: rowA.putOut, b: rowB.putOut }));
   }
+
+  /* --- 8. the Warden puts a light out -------------------------------------- */
+  const putOut = await gm.evaluate(async (a) => {
+    const before = new Set(game.messages.contents.map((m) => m.id));
+    const btn = document.querySelector(`#cairn-party-sheet tr[data-actor-id="${a}"] [data-col="light"] button[data-action="putOutLight"]`);
+    if (!btn) return { error: "no put-out button" };
+    btn.click();
+    const torch = () => game.actors.get(a).items.find((i) => i.name === "Torch");
+    const card = () => game.messages.contents.find((m) => !before.has(m.id) && (m.content ?? "").includes("cairn-light-card"));
+    const t0 = Date.now();
+    while (Date.now() - t0 < 5000 && (torch()?.system.equipped || !card())) await new Promise((r) => setTimeout(r, 100));
+    const m = card();
+    const want = game.i18n.format("CAIRN.LightCard.WardenOut", { actor: "ZZ Party A", light: "Torch" });
+    const out = { equipped: torch()?.system.equipped ?? null, text: m ? new DOMParser().parseFromString(m.content, "text/html").body.textContent.trim() : null,
+      want, public: m ? !(m.whisper?.length) : null };
+    if (m) await m.delete();
+    return out;
+  }, setup.a);
+  check(putOut.equipped === false && putOut.text === putOut.want && putOut.want !== "CAIRN.LightCard.WardenOut" && putOut.public,
+    "the Warden's click puts the light out and tells everyone", putOut.error ?? JSON.stringify(putOut));
 
   /* --- 1b. layout ---------------------------------------------------------- */
   // Both found by walking the window on CT 123, not by a probe (2026-11-21):

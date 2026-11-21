@@ -626,16 +626,16 @@ const run = async () => {
       });
 
       since = await messageIds(gm);
-      await leg("Hold shield and Hold light → 'Equipped' lines", async () => {
+      await leg("Equip shield and Equip light → 'Equipped' lines", async () => {
         await pressBadge(alice, created.witness, ".shield-hold");
         let logs = await logsSince(gm, since);
         let w = await want(gm, "CAIRN.ChangeLog.Equipped", { name: "Probe Buckler" });
-        assert(logs.length === 1 && logs[0].content.includes(w), `Hold shield: ${logs.length} card(s), want "${w}": "${lineOf(logs)}"`);
+        assert(logs.length === 1 && logs[0].content.includes(w), `Equip shield: ${logs.length} card(s), want "${w}": "${lineOf(logs)}"`);
         since = await messageIds(gm);
         await pressBadge(alice, created.witness, ".light-hold");
         logs = await logsSince(gm, since);
         w = await want(gm, "CAIRN.ChangeLog.Equipped", { name: "Torch" });
-        assert(logs.length === 1 && logs[0].content.includes(w), `Hold light: ${logs.length} card(s), want "${w}": "${lineOf(logs)}"`);
+        assert(logs.length === 1 && logs[0].content.includes(w), `Equip light: ${logs.length} card(s), want "${w}": "${lineOf(logs)}"`);
       });
 
       since = await messageIds(gm);

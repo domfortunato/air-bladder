@@ -688,7 +688,10 @@ try {
         await until(() => (frame.querySelector('.tab[data-tab="items"] .cairn-expand-hint')?.getBoundingClientRect().height ?? 0) > 0, 4000);
       }
       const hint = frame.querySelector('.tab[data-tab="items"] .cairn-expand-hint');
-      R7.hint = { text: hint?.textContent.trim() ?? null, down: !!hint?.querySelector(".fa-hand-point-down"), up: !!hint?.querySelector(".fa-hand-pointer") };
+      // The hint's icon is a lightbulb since 2026-11-21 (user ask: a better icon
+      // than the pointing finger); no hand of either kind.
+      R7.hint = { text: hint?.textContent.trim() ?? null, bulb: !!hint?.querySelector(".fa-lightbulb"),
+        hand: !!hint?.querySelector(".fa-hand-point-down, .fa-hand-pointer") };
       await sheet.changeTab("character", "primary");
       await sleep(300);
       const strQ = (s) => frame.querySelector(`.tab[data-tab="character"] .cairn-ability.STR-ability ${s}`);
@@ -1186,8 +1189,10 @@ try {
       companion: "CAIRN.RoleCompanion", container: "CAIRN.RoleContainer", transport: "CAIRN.RoleTransport" };
     out.roles = {};
     out.npcWords = {
-      shield: L("CAIRN.HoldShieldNoneNpc"), shieldBase: L("CAIRN.HoldShieldNone"),
-      light: L("CAIRN.HoldLightNoneNpc"), lightBase: L("CAIRN.HoldLightNone"),
+      shield: L("CAIRN.EquipShieldNoneNpc"), shieldBase: L("CAIRN.EquipShieldNone"),
+      light: L("CAIRN.EquipLightNoneNpc"), lightBase: L("CAIRN.EquipLightNone"),
+      // The book badge (2026-11-21, user ask): the third Equip badge.
+      book: L("CAIRN.EquipBookNoneNpc"), bookBase: L("CAIRN.EquipBookNone"),
     };
     for (const role of Object.keys(ROLE_KEY)) {
       const a = await getDocumentClass("Actor").create({
@@ -1207,6 +1212,7 @@ try {
         .concat([e.querySelector('input[name="system.hp.max"]')]);
       const shield = e.querySelector(".shield-hold");
       const light = e.querySelector(".light-hold");
+      const book = e.querySelector(".book-hold");
       const foot = e.querySelector(".cairn-character > .cairn-compat-footer");
       const wb = wc?.getBoundingClientRect(), fb = foot?.getBoundingClientRect();
       const res = {
@@ -1221,6 +1227,7 @@ try {
         maxes: maxes.map((m) => (m ? m.disabled : null)),
         shield: shield ? { disabled: shield.disabled, tip: shield.dataset.tooltip ?? null } : null,
         light: light ? { disabled: light.disabled, tip: light.dataset.tooltip ?? null } : null,
+        book: book ? { disabled: book.disabled, tip: book.dataset.tooltip ?? null } : null,
         // A thing's description prose stands on page 1 (no Description page).
         descOnPage1: !!p1?.querySelector('prose-mirror[name="system.description"]'),
         footInside: !!wb && !!fb && fb.height > 0 && fb.bottom <= wb.bottom + 0.5 && fb.top >= wb.top,
@@ -1248,15 +1255,18 @@ try {
       await a.createEmbeddedDocuments("Item", [
         { name: "ZZ Rail Shield", type: "armor", system: { shield: true, armor: 1, equipped: false } },
         { name: "Torch", type: "item", system: { equipped: false } },
+        { name: "ZZ Rail Book", type: "spellbook", system: { equipped: false } },
       ], { abNoStatusCard: true });
       await s.render(true);
       await until(() => s.element?.querySelector?.(".tab.active"));
       await sleep(400);
       const sh2 = s.element.querySelector(".shield-hold");
       const li2 = s.element.querySelector(".light-hold");
+      const bk2 = s.element.querySelector(".book-hold");
       res.carrying = {
         shield: sh2 ? { disabled: sh2.disabled, tip: sh2.dataset.tooltip ?? null } : null,
         light: li2 ? { disabled: li2.disabled, tip: li2.dataset.tooltip ?? null } : null,
+        book: bk2 ? { disabled: bk2.disabled, tip: bk2.dataset.tooltip ?? null } : null,
       };
       if (sh2 && !sh2.disabled) {
         sh2.click();
@@ -1798,8 +1808,8 @@ else {
 
   // 18
   const R7 = r.r7 ?? {};
-  R7.hint?.text === R7.wantHint && R7.hint?.down && !R7.hint?.up && /read its description/.test(R7.wantHint)
-    ? ok(`the hint reads "${R7.hint.text}" with a hand pointing down`)
+  R7.hint?.text === R7.wantHint && R7.hint?.bulb && !R7.hint?.hand && /read its description/.test(R7.wantHint)
+    ? ok(`the hint reads "${R7.hint.text}" with a lightbulb`)
     : fail(`hint words / hand: ${JSON.stringify(R7.hint)} (want ${JSON.stringify(R7.wantHint)})`);
   R7.ab?.order && R7.ab?.under && R7.ab?.centred && R7.ab?.at9?.down === false && R7.ab?.at9?.up === false
     && R7.steps?.up === 10 && R7.steps?.down === 9
@@ -1882,30 +1892,31 @@ else {
       ? ok(`${role}: page 1 fits and the footer is wholly inside the window`)
       : fail(`${role}: the footer is not wholly inside the window on page 1`);
     if (thing) {
-      !x.shield && !x.light && x.maxes.every((m) => m === null) && x.descOnPage1
-        ? ok(`${role}: no stat block and no hold controls; its description stands on page 1`)
-        : fail(`${role} page 1: ${JSON.stringify({ shield: x.shield, light: x.light, maxes: x.maxes, desc: x.descOnPage1 })}`);
-      // 22: a thing carrying a shield and a torch still draws neither.
-      !x.carrying?.shield && !x.carrying?.light
-        ? ok(`${role}: carrying a shield and a torch, still no hold controls`)
+      !x.shield && !x.light && !x.book && x.maxes.every((m) => m === null) && x.descOnPage1
+        ? ok(`${role}: no stat block and no Equip badges; its description stands on page 1`)
+        : fail(`${role} page 1: ${JSON.stringify({ shield: x.shield, light: x.light, book: x.book, maxes: x.maxes, desc: x.descOnPage1 })}`);
+      // 22: a thing carrying a shield, a torch and a book still draws none.
+      !x.carrying?.shield && !x.carrying?.light && !x.carrying?.book
+        ? ok(`${role}: carrying a shield, a torch and a book, still no Equip badges`)
         : fail(`${role} carrying: ${JSON.stringify(x.carrying)}`);
     } else {
       // 22: carrying a slung shield and an unlit torch, both controls are
       // live with no "none" tooltip, and a press holds the shield.
       const c = x.carrying ?? {};
       c.shield && !c.shield.disabled && c.shield.tip === null && c.light && !c.light.disabled
-        && c.light.tip !== r.npcWords.light && c.held
-        ? ok(`${role}: carrying a shield and a torch, both controls live; a press holds the shield`)
-        : fail(`${role} carrying a shield and a torch: ${JSON.stringify(c)}`);
+        && c.light.tip !== r.npcWords.light && c.book && !c.book.disabled && c.book.tip !== r.npcWords.book && c.held
+        ? ok(`${role}: carrying a shield, a torch and a book, all three badges live; a press equips the shield`)
+        : fail(`${role} carrying a shield, a torch and a book: ${JSON.stringify(c)}`);
       const wantLocked = LOCKED.includes(role);
       x.maxes.length === 4 && x.maxes.every((m) => m === wantLocked)
         ? ok(`${role}: with CharGen off the four max boxes are ${wantLocked ? "locked" : "open (no CharGen)"}`)
         : fail(`${role} max boxes disabled: ${JSON.stringify(x.maxes)}, want all ${wantLocked}`);
       const w = r.npcWords;
-      w.shield !== w.shieldBase && w.light !== w.lightBase
+      w.shield !== w.shieldBase && w.light !== w.lightBase && w.book !== w.bookBase
         && x.shield?.disabled && x.shield.tip === w.shield && x.light?.disabled && x.light.tip === w.light
-        ? ok(`${role}: Hold shield and Hold light drawn, off, saying "${w.shield}" / "${w.light}"`)
-        : fail(`${role} hold controls: ${JSON.stringify({ shield: x.shield, light: x.light, want: w })}`);
+        && x.book?.disabled && x.book.tip === w.book
+        ? ok(`${role}: the three Equip badges drawn, off, saying "${w.shield}" / "${w.light}" / "${w.book}"`)
+        : fail(`${role} Equip badges: ${JSON.stringify({ shield: x.shield, light: x.light, book: x.book, want: w })}`);
     }
   }
   Object.keys(r.roles ?? {}).length === 6
