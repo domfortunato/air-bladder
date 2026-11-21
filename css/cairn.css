@@ -4506,18 +4506,24 @@ ol.combat-tracker li.combatant.cairn-drop-below {
     font-weight: bold;
 }
 
-/* One letter in a square box: D, P, E. */
-.cairn-party-sheet .cairn-party-condition {
+/* One letter or number in a square box: the D P E conditions, and a whole
+   number on alert (Fatigue, no rations; round 3). The outline is
+   `currentColor`, so a box takes its cell's tone — teal Fatigue, red rations
+   — and a condition takes the peril red it sets for itself. */
+.cairn-party-sheet :is(.cairn-party-condition, .cairn-party-box) {
     display: inline-block;
     min-width: 1.5em;
-    margin-right: 3px;
     padding: 0 2px;
-    border: 1px solid var(--ab-peril);
+    border: 1px solid currentColor;
     border-radius: 2px;
-    color: var(--ab-peril);
     font-weight: bold;
     line-height: 1.4;
     text-align: center;
+}
+
+.cairn-party-sheet .cairn-party-condition {
+    margin-right: 3px;
+    color: var(--ab-peril);
 }
 
 /* The TEXT columns wrap; the numbers never do. A party's backgrounds and

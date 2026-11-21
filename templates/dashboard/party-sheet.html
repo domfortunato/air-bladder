@@ -53,15 +53,15 @@
                             <td class="cairn-party-num" data-col="armor">{{row.armor}}</td>
                             <td class="cairn-party-num" data-col="gold">{{row.gold}}</td>
                             <td class="cairn-party-num cairn-party-tone-{{row.slots.tone}}" data-col="slots" data-tone="{{row.slots.tone}}">{{row.slots.used}}/{{row.slots.max}}</td>
-                            <td class="cairn-party-num cairn-party-tone-{{row.fatigueTone}} {{#unless row.fatigue}}cairn-party-none{{/unless}}" data-col="fatigue" data-tone="{{row.fatigueTone}}">{{row.fatigue}}</td>
-                            {{!-- Symbols, not words (user ruling 2026-11-21): teal in hand, amber carried but not in hand, blank with none. --}}
+                            <td class="cairn-party-num cairn-party-tone-{{row.fatigueTone}} {{#unless row.fatigue}}cairn-party-none{{/unless}}" data-col="fatigue" data-tone="{{row.fatigueTone}}">{{#if row.fatigueTone}}<span class="cairn-party-box">{{row.fatigue}}</span>{{else}}{{row.fatigue}}{{/if}}</td>
+                            {{!-- Symbols, not words (user rulings 2026-11-21): teal in hand, uncoloured carried but not in hand, empty with none. --}}
                             <td class="cairn-party-num cairn-party-tone-{{row.shieldTone}}" data-col="shield" data-state="{{row.shield}}" data-tone="{{row.shieldTone}}">
                                 {{#if row.shield}}<i class="fa-solid fa-shield-halved" data-tooltip="{{row.shieldLabel}}" aria-label="{{row.shieldLabel}}"></i>{{/if}}
                             </td>
                             <td class="cairn-party-num cairn-party-tone-{{row.lightTone}}" data-col="light" data-held="{{row.held}}" data-count="{{row.lights}}" data-tone="{{row.lightTone}}">
-                                {{#if row.lightTone}}<i class="fa-solid fa-fire" data-tooltip="{{row.lightTip}}" aria-label="{{row.lightTip}}"></i>{{/if}}
+                                {{#if row.lights}}<i class="fa-solid fa-fire" data-tooltip="{{row.lightTip}}" aria-label="{{row.lightTip}}"></i>{{/if}}
                             </td>
-                            <td class="cairn-party-num {{#if row.noRations}}cairn-party-none{{/if}}" data-col="rations">{{row.rations}}</td>
+                            <td class="cairn-party-num cairn-party-tone-{{row.rationsTone}}" data-col="rations" data-tone="{{row.rationsTone}}">{{#if row.rationsTone}}<span class="cairn-party-box">{{row.rations}}</span>{{else}}{{row.rations}}{{/if}}</td>
                             {{#each row.connections as |c|}}
                                 <td class="cairn-party-num {{#if c.none}}cairn-party-none{{/if}}" data-col="{{c.col}}">{{c.count}}</td>
                             {{/each}}

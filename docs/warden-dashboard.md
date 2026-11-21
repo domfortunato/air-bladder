@@ -136,9 +136,10 @@ many hirelings, companions, containers and transports are connected to them,
 and whether they are encumbered or Deprived. Click a name to open that
 character's sheet.
 
-Colour does the warning: amber for HP below max, a slung shield, a light carried
-but not in hand, or one slot left; red for HP at 0, an ability below max, or no
-slot left; teal for what is in hand and for Fatigue. Conditions show as D
+Colour does the warning: amber for HP below max or one slot left; red for HP at
+0, an ability below max, no slot left, or no rations; teal for a shield or a
+light in hand. A shield or light carried but not in hand shows its symbol
+uncoloured. Fatigue and an empty rations count are boxed. Conditions show as D
 (Deprived), P (Panicked) and E (Encumbered).
 
 The rows are in marching order. Drag a row onto another to move it there; the

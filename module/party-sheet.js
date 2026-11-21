@@ -153,9 +153,14 @@ const rowFor = (actor, index) => {
    * COLOUR DOES THE WARNING (user rulings 2026-11-21). Each cell gets a tone
    * the template maps to a class, so the rule lives here, once:
    *   alert  (red)   HP at 0; an ability below its max; no slot left
-   *   warn   (amber) HP below max; exactly one slot left; a shield slung;
-   *                  a light carried with none in hand
-   *   accent (teal)  a shield or a light in hand; any Fatigue
+   *   alert  (red)   also NO RATIONS left (round 3), boxed
+   *   warn   (amber) HP below max; exactly one slot left
+   *   accent (teal)  a shield or a light IN HAND; any Fatigue, boxed
+   * COLOUR MEANS IN HAND for the shield and the light (round 3, user,
+   * 2026-11-21): amber on a light carried but not held read as a warning. A
+   * carried one shows its symbol uncoloured; none at all leaves the cell
+   * empty. The template shows the symbol off `shield` / `lights`, never off
+   * the tone.
    * HP is the DERIVED value, so a Panicked or encumbered character reads a red
    * 0 — the number the rules use at the table, not the stored one.
    */
@@ -169,7 +174,7 @@ const rowFor = (actor, index) => {
   const slotsMax = sys.slotsMax ?? 0;
   const slotsTone = sys.encumbered ? "alert" : slotsMax - slotsUsed === 1 ? "warn" : "";
   const lightCount = lights.reduce((n, i) => n + qty(i), 0);
-  const lightTone = held ? "accent" : lightCount ? "warn" : "";
+  const lightTone = held ? "accent" : "";
   const lightTip = held
     ? game.i18n.format("CAIRN.PartySheet.LightHeld", { name: t(nameNs, held.name), count: lightCount })
     : lightCount ? game.i18n.format("CAIRN.PartySheet.LightCarried", { count: lightCount }) : "";
@@ -188,11 +193,11 @@ const rowFor = (actor, index) => {
     gold: sys.gold ?? 0,
     slots: { used: slotsUsed, max: slotsMax, tone: slotsTone },
     fatigue, fatigueTone: fatigue > 0 ? "accent" : "",
-    shield, shieldTone: shield === "held" ? "accent" : shield ? "warn" : "",
+    shield, shieldTone: shield === "held" ? "accent" : "",
     shieldLabel: shield ? game.i18n.localize(`CAIRN.PartySheet.Shield${shield === "held" ? "Held" : "Slung"}`) : "",
     held: held?.name ?? "",
     lights: lightCount, lightTone, lightTip,
-    rations, noRations: rations === 0,
+    rations, rationsTone: rations === 0 ? "alert" : "",
     connections,
     conditions,
     note: String(actor.getFlag(SETTINGS_NS, WARDEN_NOTE_FLAG) ?? ""),
