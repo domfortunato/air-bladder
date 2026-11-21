@@ -46,6 +46,13 @@
  *   8. the settings window: "Use Grimoires" sits in GLOG & Other Hacks after
  *      "Use GLOG Magic", greys out live when GLOG is unticked there and comes
  *      back when it is ticked, and its hint names GLOG's label. Nothing saved.
+ *   9. both hands (2026-11-21, user ruling): an unequipped spellbook's and
+ *      scroll's Cast are greyed with "Equip it first to cast." and a cast is
+ *      refused with no dice window; equipping the book by its row's hand puts
+ *      away the shield and the torch, and it casts; equipping the shield puts
+ *      the book away; a book and a shield both equipped (planted in-page,
+ *      never written) refuse the cast; the scroll likewise; the Grimoire
+ *      casts only once it's equipped.
  *
  * Usage: npm run dev:glog-books
  */
@@ -76,7 +83,7 @@ const cleanup = async (msgsAtStart) => {
       if (msgsAtStart) {
         const before = new Set(msgsAtStart);
         const mine = game.messages.filter((m) => !before.has(m.id)
-          && (m.getFlag("air-bladder", "glogCast") || m.content?.includes("grimoire-cast-whisper")));
+          && (m.getFlag("air-bladder", "glogCast") || m.getFlag("air-bladder", "lightCard") || m.content?.includes("grimoire-cast-whisper")));
         for (const m of mine) await m.delete();
       }
     }, { fixture: FIXTURE, msgsAtStart });
@@ -189,6 +196,9 @@ try {
 
       /* 5. the book's row */
       mode(true, false);
+      // Casting needs the book EQUIPPED since 2026-11-21 (leg 9 is that rule);
+      // this leg is the cast itself, so it holds the book first.
+      await bookArrived.update({ "system.equipped": true });
       const sheet = pc.sheet;
       await sheet.render(true);
       await until(() => sheet.element?.querySelector?.(`[data-item-id="${bookArrived.id}"]`));
@@ -298,6 +308,115 @@ try {
       }
       mode(true, true);
       out.grimOn = await look();
+
+      /* 9. both hands (2026-11-21, user ruling): "spell book must be grasped
+         with both hands. A spell cannot be cast ... if the player has a shield
+         or light equipped", and "Scrolls must be equipped as well". A
+         spellbook, scroll or the Grimoire casts only while EQUIPPED; equipping
+         one puts away the shield and light, equipping either of those puts
+         the book away; a cast with a shield or light equipped is refused. */
+      {
+        const recorded = [];
+        const origWarn = ui.notifications.warn;
+        ui.notifications.warn = (m, o) => {
+          recorded.push({ key: String(m), text: o?.format ? game.i18n.format(String(m), o.format) : game.i18n.localize(String(m)) });
+          return null;
+        };
+        // A cast either refuses at once or opens its dice window; the window,
+        // if any, is cancelled.
+        const tryCast = async (fn) => {
+          recorded.length = 0;
+          const before = new Set(foundry.applications.instances.keys());
+          const raced = await Promise.race([fn(), sleep(1500).then(() => "DIALOG OPENED")]);
+          const dlg = [...foundry.applications.instances.values()]
+            .find((x) => !before.has(x.id) && x.constructor.name === "DialogV2");
+          if (dlg) {
+            dlg.element?.querySelector('[data-action="cancel"]')?.click();
+            await sleep(300);
+            if (dlg.rendered) await dlg.close();
+          }
+          return { result: raced === "DIALOG OPENED" ? raced : raced ?? null, dialog: !!dlg,
+            warned: recorded.map((w) => w.key), text: recorded.map((w) => w.text) };
+        };
+        try {
+          mode(true, false);
+          const pc9 = await getDocumentClass("Actor").create({
+            name: "ZZ Books Hands", type: "character", flags, system: { hp: { value: 4, max: 6 } },
+          }, { abNoStatusCard: true });
+          const made = await pc9.createEmbeddedDocuments("Item", [
+            { name: "ZZ Hands Book", type: "spellbook", system: { description: "<p>Light.</p>" } },
+            { name: "ZZ Hands Scroll", type: "spellbook", system: { description: "<p>Light.</p>", scroll: true } },
+            { name: "ZZ Hands Shield", type: "armor", system: { armor: 1, shield: true, equipped: true } },
+            { name: "Torch", type: "item", system: { uses: { value: 20, max: 20 }, equipped: true } },
+          ]);
+          const [book9, scroll9, shield9, torch9] = made.map((i) => i.id);
+          const it = (id) => pc9.items.get(id);
+          const eq = () => ({ book: !!it(book9)?.system.equipped, scroll: !!it(scroll9)?.system.equipped,
+            shield: !!it(shield9)?.system.equipped, light: !!it(torch9)?.system.equipped });
+          const s9 = pc9.sheet;
+          const open9 = async () => {
+            await s9.render(true);
+            await until(() => s9.element?.querySelector?.(`[data-item-id="${book9}"]`));
+            await sleep(400);
+          };
+          const row9 = (id) => s9.element.querySelector(`.cairn-items-list-row[data-item-id="${id}"]`);
+          const castCtl = (id, cls) => {
+            const c = row9(id)?.querySelector(cls);
+            return c ? { blocked: c.classList.contains("cast-blocked") && c.getAttribute("aria-disabled") === "true",
+              tip: c.dataset.tooltip ?? null } : null;
+          };
+          const hand = async (id, want) => {
+            await open9();
+            row9(id)?.querySelector('[data-action="itemToggleEquipped"]')?.click();
+            await until(() => want(eq()), 4000);
+            await sleep(400);
+          };
+          out.hands = { wantTip: L("CAIRN.CastEquipFirst") };
+          await open9();
+          // a) nothing of it equipped: Cast greyed, and refused.
+          out.hands.unequipped = {
+            state: eq(),
+            bookCtl: castCtl(book9, ".spellbook-cast"), scrollCtl: castCtl(scroll9, ".scroll-cast"),
+            book: await tryCast(() => grim.castSpellbook(pc9, it(book9))),
+            scroll: await tryCast(() => grim.castScroll(pc9, it(scroll9))),
+          };
+          // b) the book's hand: it's held, the shield and the light are put away.
+          await hand(book9, (e) => e.book && !e.shield && !e.light);
+          out.hands.bookHeld = { state: eq(), bookCtl: castCtl(book9, ".spellbook-cast"),
+            cast: await tryCast(() => grim.castSpellbook(pc9, it(book9))) };
+          // c) the shield's hand: the book is put away.
+          await hand(shield9, (e) => e.shield && !e.book);
+          out.hands.shieldHeld = { state: eq() };
+          // d) planted IN-PAGE (never written): book AND shield equipped, as a
+          //    character saved before this rule could be. The cast refuses.
+          it(book9).updateSource({ "system.equipped": true });
+          try {
+            out.hands.both = { state: eq(), cast: await tryCast(() => grim.castSpellbook(pc9, it(book9))) };
+          } finally {
+            it(book9).updateSource({ "system.equipped": false });
+          }
+          // e) the scroll's hand: the shield is put away, the scroll casts.
+          await hand(scroll9, (e) => e.scroll && !e.shield);
+          out.hands.scrollHeld = { state: eq(), cast: await tryCast(() => grim.castScroll(pc9, it(scroll9))) };
+          await s9.close();
+          // f) the Grimoire, with Grimoires on: refused until it's equipped.
+          mode(true, true);
+          const [g9] = await pc9.createEmbeddedDocuments("Item", [
+            { name: "ZZ Hands Grimoire", type: "item", system: { grimoire: true, grimoirePages: 3, bulky: true } },
+          ]);
+          const key9 = await grim.ensureGrimoireKey(g9);
+          await pc9.createEmbeddedDocuments("Item", [
+            { name: "ZZ Hands Page", type: "spellbook", system: { bound: true, boundTo: key9, description: "<p>Light.</p>" } },
+          ]);
+          out.hands.grimoireOff = await tryCast(() => grim.castFromGrimoire(pc9));
+          await it(g9.id).update({ "system.equipped": true });
+          await sleep(300);
+          out.hands.grimoireOn = { state: eq(), equipped: !!it(g9.id)?.system.equipped,
+            cast: await tryCast(() => grim.castFromGrimoire(pc9)) };
+        } finally {
+          ui.notifications.warn = origWarn;
+        }
+      }
 
       /* 7. the seed, writes captured */
       {
@@ -459,6 +578,36 @@ const gn = r.grimOn ?? {};
 gn.transmute && gn.grimoireBox && !gn.bookCast
   ? ok("Grimoires on: Transmute and the Grimoire box are back, the book's own Cast is gone")
   : fail(`Grimoires on with a Grimoire: ${JSON.stringify(gn)}`);
+{
+  const h = r.hands ?? {};
+  const refused = (c, key) => !!c && c.result === null && !c.dialog && c.warned.includes(key);
+  const opened = (c) => !!c && c.dialog && !c.warned.length;
+  const u = h.unequipped ?? {};
+  const greyed = (c) => !!c?.blocked && c.tip === h.wantTip && h.wantTip !== "CAIRN.CastEquipFirst";
+  greyed(u.bookCtl) && greyed(u.scrollCtl)
+    ? ok(`9: an unequipped spellbook's and scroll's Cast are greyed, "${h.wantTip}"`)
+    : fail(`9: unequipped Cast controls: ${JSON.stringify({ book: u.bookCtl, scroll: u.scrollCtl, want: h.wantTip })}`);
+  refused(u.book, "CAIRN.Notify.CastNotEquipped") && u.book.text.some((s) => s.includes("ZZ Hands Book"))
+    && refused(u.scroll, "CAIRN.Notify.CastNotEquipped")
+    ? ok(`9: casting from an unequipped spellbook or scroll is refused, no dice window ("${u.book.text[0]}")`)
+    : fail(`9: unequipped casts: ${JSON.stringify({ book: u.book, scroll: u.scroll })}`);
+  const bh = h.bookHeld ?? {};
+  bh.state?.book && !bh.state.shield && !bh.state.light && bh.bookCtl && !bh.bookCtl.blocked && opened(bh.cast)
+    ? ok("9: equipping the book puts away the shield and the torch; its Cast is live and opens the dice window")
+    : fail(`9: book equipped: ${JSON.stringify(bh)}`);
+  h.shieldHeld?.state?.shield && !h.shieldHeld.state.book
+    ? ok("9: equipping the shield puts the book away")
+    : fail(`9: shield equipped: ${JSON.stringify(h.shieldHeld)}`);
+  h.both?.state?.book && h.both.state.shield && refused(h.both.cast, "CAIRN.Notify.CastHandsBusy")
+    ? ok("9: a book and a shield both equipped (planted in-page): the cast is refused, casting takes both hands")
+    : fail(`9: book and shield both equipped: ${JSON.stringify(h.both)}`);
+  h.scrollHeld?.state?.scroll && !h.scrollHeld.state.shield && opened(h.scrollHeld.cast)
+    ? ok("9: equipping the scroll puts the shield away, and it casts")
+    : fail(`9: scroll equipped: ${JSON.stringify(h.scrollHeld)}`);
+  refused(h.grimoireOff, "CAIRN.Notify.CastNotEquipped") && h.grimoireOn?.equipped && opened(h.grimoireOn.cast)
+    ? ok("9: the Grimoire casts only once it's equipped")
+    : fail(`9: Grimoire: ${JSON.stringify({ off: h.grimoireOff, on: h.grimoireOn })}`);
+}
 const sd = r.seed ?? {};
 JSON.stringify(sd.glogOn) === JSON.stringify(["glog-grimoires-seeded=true", "glog-grimoires=true"])
   ? ok("the seed: a world with GLOG on and no marker gets Grimoires on, and the marker")

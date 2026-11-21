@@ -206,7 +206,7 @@ try {
     try {
       await caster.createEmbeddedDocuments("Item", [
         { name: "ZZ Grim Tome", type: "item",
-          system: { grimoire: true, grimoirePages: 3, bulky: true } },
+          system: { grimoire: true, grimoirePages: 3, bulky: true, equipped: true } },
         { name: "ZZ Spell Alpha", type: "spellbook",
           system: { description: "<p>[1] A candle-flame. [2] A roaring blast dealing [sum*10] damage.</p>" } },
         { name: "ZZ Spell Beta", type: "spellbook",
@@ -1415,7 +1415,7 @@ try {
       name: "ZZ Grim Scrollcaster", type: "character" });
     await c.createEmbeddedDocuments("Item", [
       { name: "ZZ Scroll Solo", type: "spellbook",
-        system: { description: "<p>A bolt leaps [sum*10] feet.</p>", scroll: true } },
+        system: { description: "<p>A bolt leaps [sum*10] feet.</p>", scroll: true, equipped: true } },
       { name: "ZZ Scroll Used", type: "spellbook",
         system: { description: "<p>Ash.</p>", scroll: true, uses: { value: 0, max: 1 } } },
     ]);
@@ -1624,7 +1624,7 @@ try {
     const before = new Set(a.items.map((x) => x.id));
     await a.createEmbeddedDocuments("Item", [
       { name: "ZZ Scroll Pair", type: "spellbook",
-        system: { description: "<p>Light.</p>", scroll: true, quantity: 2 } },
+        system: { description: "<p>Light.</p>", scroll: true, quantity: 2, equipped: true } },
     ]);
     const pair = a.items.find((x) => !before.has(x.id));
     const origGet = game.settings.get;
@@ -1709,7 +1709,7 @@ try {
     const a = game.actors.get(id);
     const before = new Set(a.items.map((x) => x.id));
     await a.createEmbeddedDocuments("Item", [
-      { name: "ZZ Scroll Twice", type: "spellbook", system: { description: "<p>Light.</p>", scroll: true } },
+      { name: "ZZ Scroll Twice", type: "spellbook", system: { description: "<p>Light.</p>", scroll: true, equipped: true } },
     ]);
     const once = a.items.find((x) => !before.has(x.id));
     const origGet = game.settings.get;

@@ -327,7 +327,7 @@ try {
         const pc4 = await getDocumentClass("Actor").create({
           name: "ZZ Broken Grimoire", type: "character", flags,
           items: [
-            { name: "ZZ Grim", type: "item", system: { grimoire: true, grimoirePages: 3, grimoireKey: "zzbroken" } },
+            { name: "ZZ Grim", type: "item", system: { grimoire: true, grimoirePages: 3, grimoireKey: "zzbroken", equipped: true } },
             { name: "ZZ Page A", type: "spellbook", system: { bound: true, boundTo: "zzbroken" } },
             { name: "ZZ Page B", type: "spellbook", system: { bound: true, boundTo: "zzbroken", broken: true } },
             { name: "ZZ Loose", type: "spellbook", system: {} },
