@@ -18,8 +18,10 @@ import { t } from "./i18n-content.js";
  * Kettlewright's `Character.toJSON()` emits a flat object (abilities as
  * strength/dexterity/willpower with paired _max, hp/hp_max, gold, deprived,
  * panicked, armor, a `background` NAME string, free-text description/traits/notes/
- * bonds/scars/omens, image_url, a flat `items[]` and a `containers[]`). There is no
- * import route in Kettlewright, so one-way is the only direction that ever existed.
+ * bonds/scars/omens, image_url, a flat `items[]` and a `containers[]`). Since
+ * 2026-09-22 the background's questions and answers ride their own numbered
+ * `background_tableN_question` / `_answer` keys and `notes` is left empty; older
+ * exports wrote both into `notes` (readTablePairs, parseQuestionAnswers).
  *
  * Deliberately does NOT route through character-generator's characterToActorData:
  * that helper force-resets omen/scars/critical, which would wipe the very fields we
@@ -230,6 +232,75 @@ export const parseQuestionAnswers = (notes, questions) => {
   // Whatever precedes the first question is the player's own note; keep it.
   return { answers, leftover: text.slice(0, hits[0].start).trim(), found: hits.length };
 };
+
+/** `background_table<N>_question` / `_answer`, the keys the current export writes. */
+const TABLE_PAIR_KEY = /^background_table(\d{1,2})_(question|answer)$/;
+
+/**
+ * The background's questions and answers as Kettlewright has written them since
+ * 2026-09-22: numbered pairs, `background_table1_question` /
+ * `background_table1_answer` and so on (char_utils.py), with `notes` left empty
+ * for the player's own writing. An import that read only `notes` landed every
+ * new character with no answers at all and nothing re-rollable.
+ *
+ * Read by key pattern rather than as a fixed 1 and 2, so a background that
+ * grows a third table is not silently cut short.
+ *
+ * @param {Object} json
+ * @returns {{n: Number, question: String, answer: String}[]}  in N order;
+ *          a pair with neither half filled is dropped
+ */
+export const readTablePairs = (json) => {
+  const byN = new Map();
+  for (const [key, value] of Object.entries(json ?? {})) {
+    const m = TABLE_PAIR_KEY.exec(key);
+    if (!m) continue;
+    const n = Number(m[1]);
+    const pair = byN.get(n) ?? { n, question: "", answer: "" };
+    pair[m[2]] = String(value ?? "").trim();
+    byN.set(n, pair);
+  }
+  return [...byN.values()].filter((p) => p.question || p.answer).sort((a, b) => a.n - b.n);
+};
+
+/**
+ * Place each exported pair on the matched background's question it answers.
+ *
+ * By the question's text first, with the same spacing tolerance
+ * parseQuestionAnswers gives a notes blob (the two copies of the game text
+ * drift: "you ?" against "you?"). Failing that, by its number, table N on
+ * question N-1: Kettlewright writes the pairs in table order, and its export
+ * passes question and answer through its translation step, so a creator
+ * working in Spanish exports a question no English text can match while the
+ * number still holds. A pair that fits neither way is returned unplaced, for
+ * Notes, so nothing the player chose is dropped.
+ *
+ * @param {{n: Number, question: String, answer: String}[]} pairs
+ * @param {String[]} questions  the background's prompts, in table order
+ * @returns {{ answers: String[], found: Number, unplaced: Object[] }}
+ */
+export const placeTablePairs = (pairs, questions) => {
+  const key = (s) => norm(s).replace(/\s+(?=[?.!,;:])/g, "");
+  const answers = questions.map(() => "");
+  const claimed = questions.map(() => false);
+  const unplaced = [];
+  for (const p of pairs) {
+    // A question with no answer chose nothing; there is nothing to keep.
+    if (!p.answer) continue;
+    let i = p.question ? questions.findIndex((q, j) => !claimed[j] && key(q) === key(p.question)) : -1;
+    if (i < 0 && p.n - 1 < questions.length && !claimed[p.n - 1]) i = p.n - 1;
+    if (i < 0) {
+      unplaced.push(p);
+      continue;
+    }
+    answers[i] = p.answer;
+    claimed[i] = true;
+  }
+  return { answers, found: claimed.filter(Boolean).length, unplaced };
+};
+
+/** Pairs written back into Notes the way older exports carried them: question, then answer. */
+const pairsAsNotes = (pairs) => pairs.map((p) => [p.question, p.answer].filter(Boolean).join("\n")).join("\n\n");
 
 /* -------------------------------------------------------------------------- */
 /*  Traits: one English sentence -> eight typed slots + age                     */
@@ -444,12 +515,29 @@ export const kettlewrightToActorData = async (json, { labels = null } = {}) => {
   const omens = String(json.omens ?? "");
   let notes = String(json.notes ?? "");
 
-  // Background questions: recoverable only because the background matched — an
-  // unmatched background means we don't know what the questions were, so the blob
-  // stays in Notes untouched.
+  // Background questions. A current export carries them as numbered pairs
+  // (readTablePairs) and leaves `notes` to the player; an older one wrote both
+  // into `notes`, which is then split. Either way they become structured only
+  // because the background matched — an unmatched background means we don't
+  // know what the questions were, so the pairs are written into Notes as an
+  // older export carried them, and an old blob stays there untouched.
   let questions = [];
-  if (bgQuestions.length && notes.trim()) {
-    const qa = parseQuestionAnswers(notes, bgQuestions);
+  // Only an answered pair counts: a Barebones export writes the keys empty,
+  // and a question nobody answered must not read as an answer lost to Notes.
+  const pairs = readTablePairs(json).filter((p) => p.answer);
+  const withNotes = (extra) => [notes.trim(), pairsAsNotes(extra)].filter(Boolean).join("\n\n");
+  let qa = null;
+  if (bgQuestions.length && pairs.length) {
+    const placed = placeTablePairs(pairs, bgQuestions);
+    qa = { answers: placed.answers, found: placed.found };
+    if (placed.unplaced.length) notes = withNotes(placed.unplaced);
+  } else if (pairs.length) {
+    notes = withNotes(pairs);
+  } else if (bgQuestions.length && notes.trim()) {
+    qa = parseQuestionAnswers(notes, bgQuestions);
+    if (qa.found) notes = qa.leftover;
+  }
+  if (qa) {
     // The attempt is recorded whenever there was text to search, found or not:
     // the summary line branches on completeness, and a zero-match run must say
     // so rather than stay silent (user ruling 2026-09-03). Empty notes stay
@@ -462,7 +550,6 @@ export const kettlewrightToActorData = async (json, { labels = null } = {}) => {
       // came over as a total), and inventing a figure here would make a re-roll
       // deduct coins the character may never have been given.
       questions = bgQuestions.map((q, i) => ({ question: q, answer: qa.answers[i], gold: 0 }));
-      notes = qa.leftover;
 
       // A Kettlewright answer is the option's own description verbatim, so it can
       // be traced back to the option — and therefore to the items that option
@@ -822,7 +909,14 @@ export const sanitizeKettlewrightExport = (json) => {
   if (items.length > 500 || containers.length > 100) return null;
   const str = (v, cap) => (typeof v === "string" || typeof v === "number" ? String(v) : "").slice(0, cap);
   const maybeNum = (v) => (v == null || !Number.isFinite(Number(v)) ? undefined : Number(v));
+  // The background's numbered question/answer pairs (readTablePairs). Only
+  // keys of that exact shape pass, two digits at most, so this cannot carry
+  // anything else toward Actor.create.
+  const tablePairs = Object.fromEntries(
+    Object.keys(json).filter((k) => TABLE_PAIR_KEY.test(k)).map((k) => [k, str(json[k], 10_000)]),
+  );
   return {
+    ...tablePairs,
     name: str(json.name, 120),
     background: str(json.background, 200),
     custom_background: str(json.custom_background, 200),
