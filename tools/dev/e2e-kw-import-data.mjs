@@ -287,6 +287,24 @@ const petLegs = await page.evaluate(async ({ am, ev }) => {
   out.ferret = await read(ferret);
   out.ferretRelay = await read(KW.sanitizeKettlewrightExport(ferret));
 
+  // The summary dialog's own words for those reports (approved 2026-11-21).
+  // Rendered against an unsaved stand-in, read, closed; nothing is stored.
+  const summaryText = async (json, extra = {}) => {
+    const { data, report } = await KW.kettlewrightToActorData(json);
+    Object.assign(report, extra);
+    const stand = new Actor.implementation({ name: data.name, type: "character" });
+    const was = new Set(foundry.applications.instances.keys());
+    await KW.showImportSummary(stand, report);
+    const app = [...foundry.applications.instances.values()].find((a) => !was.has(a.id));
+    const text = app?.element?.textContent?.replace(/\s+/g, " ").trim() ?? "";
+    await app?.close();
+    return text;
+  };
+  out.amSummary = await summaryText(am);
+  out.evSummary = await summaryText(ev);
+  out.roomySummary = await summaryText(roomy);
+  out.limitSummary = await summaryText(ev, { pets: [{ name: "Carrion Cat", as: "limit" }] });
+
   // CREATE: Evander's import mints him AND a Carrion Cat companion connected
   // to him. Everything that appears is deleted by id difference.
   const before = new Set(game.actors.map((a) => a.id));
@@ -402,6 +420,11 @@ const checks = [
     && petLegs.created?.connected === true && petLegs.created?.role === "companion"
     && petLegs.created?.description === catNotes && petLegs.created?.catItemOnPc === false],
   ["create: cleanup removed exactly the character and the companion", eq([...petLegs.cleaned].sort(), ["Carrion Cat", evander.name].sort())],
+  ["summary: the linked portrait is said", petLegs.amSummary.includes("The uploaded portrait is loaded from kettlewright.com. Save a copy and set it from the sheet to keep it.")],
+  ["summary: a held pet says nothing", !/Pet: Alchemical Tattoo/.test(petLegs.amSummary)],
+  ["summary: a companion pet is said", petLegs.evSummary.includes("Pet: Carrion Cat came in as a companion connected to this character.")],
+  ["summary: an item pet is said", petLegs.roomySummary.includes("Pet: Carrion Cat came in as an item.")],
+  ["summary: a pet turned away is said", petLegs.limitSummary.includes("Pet: Carrion Cat wasn't imported — this character is at the connection limit.")],
 ];
 
 console.log(`\n${FOUNDRY_URL}\n`);
