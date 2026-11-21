@@ -32,7 +32,7 @@ import { injectEncounterButton, localizeEncounterQty, resolveTable } from "./enc
 import { bindGrimoireFatigueButton, localizeGlogCastCard } from "./grimoire.js";
 import { nameableTokens, DAMAGE_QUALITY_KEYS, localizeD20Card, localizeRollFlavor, damageDiceIcons, windowIdOf, relayedLabel, labelIconControl } from "./utils.js";
 import { movedArt, movedFields, registerArtArrival } from "./art-paths.js";
-import { openWelcome, welcomeDue, maybeOpenWelcome } from "./welcome.js";
+import { openWelcome, welcomeDue, maybeOpenWelcome, guidePack, openGuide } from "./welcome.js";
 
 /**
  * The Fatigue instead of Critical Damage option: the save card's choice, once
@@ -3423,7 +3423,9 @@ Hooks.once("ready", () => stripPlantedPileFlags());
 Hooks.once("ready", () => maybeOpenWelcome());
 
 // The Settings sidebar: a button that opens the welcome window, for anyone,
-// under the system's own heading below Foundry's game details (as Base Knavery).
+// under the system's own heading below Foundry's game details (as Base Knavery),
+// and directly under it System Docs, which opens the guides (user, 2026-11-21):
+// the same words and the same opener as the window's own guide button.
 Hooks.on("renderSettings", (_app, html) => {
   html.querySelector(".air-bladder-sidebar-tools")?.remove();
   const info = html.querySelector("section.info");
@@ -3439,6 +3441,14 @@ Hooks.on("renderSettings", (_app, html) => {
   button.innerHTML = `<i class="fa-solid fa-dungeon" inert></i> ${game.i18n.localize("CAIRN.Welcome.Sidebar")}`;
   button.addEventListener("click", () => openWelcome());
   section.append(heading, button);
+  if (guidePack()) {
+    const docs = document.createElement("button");
+    docs.type = "button";
+    docs.dataset.abDocs = "";
+    docs.innerHTML = `<i class="fa-solid fa-book-atlas" inert></i> ${game.i18n.localize("CAIRN.Welcome.OpenGuide")}`;
+    docs.addEventListener("click", () => openGuide());
+    section.append(docs);
+  }
   info.after(section);
 });
 

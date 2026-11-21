@@ -51,6 +51,14 @@ const visiblePack = (name) => {
   return pack?.visible ? pack : null;
 };
 
+/**
+ * The System Docs compendium (the guides), for whoever may see it, or null.
+ * Shared by the window's guide button and the Settings sidebar's System Docs
+ * button, which carry the same words (`CAIRN.Welcome.OpenGuide`).
+ */
+export const guidePack = () => visiblePack("journals-docs");
+export const openGuide = () => guidePack()?.render({ force: true });
+
 export class WelcomeWindow extends HandlebarsApplicationMixin(ApplicationV2) {
   static DEFAULT_OPTIONS = {
     id: WELCOME_ID,
@@ -59,7 +67,7 @@ export class WelcomeWindow extends HandlebarsApplicationMixin(ApplicationV2) {
     // Wide, in two columns, as Base Knavery's.
     position: { width: 800, height: "auto" },
     actions: {
-      openGuide: () => visiblePack("journals-docs")?.render({ force: true }),
+      openGuide: () => openGuide(),
       openRulebook: () => visiblePack("journals-2e")?.render({ force: true }),
     },
   };
@@ -97,7 +105,7 @@ export class WelcomeWindow extends HandlebarsApplicationMixin(ApplicationV2) {
         by: a.byKey ? L(a.byKey) : a.by,
         license: a.licenseKey ? L(a.licenseKey) : a.license,
       })),
-      canOpenGuide: !!visiblePack("journals-docs"),
+      canOpenGuide: !!guidePack(),
       canOpenRulebook: !!visiblePack("journals-2e"),
       // The box writes a world setting, so only a GM who may write one sees it.
       isGM: game.user.isGM && game.user.can("SETTINGS_MODIFY"),

@@ -18,7 +18,7 @@
  *     by theme; both opaque and at their own aspect;
  *   - "This world offers …" follows the three background switches;
  *   - the footer box writes the setting both ways;
- *   - Open the guide and Open the rulebook open the System Docs and Cairn 2e Rules
+ *   - System Docs and Open the rulebook open the System Docs and Cairn 2e Rules
  *     compendiums;
  *   - the Settings sidebar button opens it; the System Docs button directly
  *     under it opens the System Docs compendium and carries the window's own
@@ -224,7 +224,7 @@ try {
       const guideLabel = el.querySelector('[data-action="openGuide"]')?.textContent.trim() ?? null;
       return { guide, rules, guideLabel };
     }, ID);
-    check("Open the guide opens the System Docs compendium", opens.guide);
+    check("the window's System Docs button opens the System Docs compendium", opens.guide);
     check("Open the rulebook opens the Cairn 2e Rules compendium", opens.rules);
 
     /* ---- the Settings sidebar button --------------------------------------- */
@@ -240,7 +240,7 @@ try {
       // The System Docs button: the very next sibling, the window's own label,
       // and it opens the pack.
       const docs = document.querySelector("#settings [data-ab-docs]");
-      const docsNext = !!btn && btn.nextElementSibling === docs;
+      const docsNext = !!btn && !!docs && btn.nextElementSibling === docs;
       const docsLabel = docs?.textContent.trim() ?? null;
       const pack = game.packs.get("air-bladder.journals-docs");
       for (const a of pack.apps) await a.close({ animate: false });
