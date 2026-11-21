@@ -68,7 +68,7 @@ You can still transmute a spent scroll, and its page casts like any other.
 
 ## Equipping a spellbook, scroll or Grimoire
 
-A spellbook, a scroll or a Grimoire can be equipped, one at a time, with the hand on its inventory row or the **Equip spellbook** badge under Armor on the sheet's first page. The badge's label names what you've got, like **Equip scroll** or **Grimoire equipped**. You don't need to equip something to cast from it. A Grimoire's pages can't be equipped on their own.
+A spellbook, a scroll or a Grimoire can be equipped, one at a time, with the hand on its inventory row or the **Equip Spell** badge under Armor on the sheet's first page. The badge's label names what you've got, like **Equip scroll** or **Grimoire equipped**. You don't need to equip something to cast from it. A Grimoire's pages can't be equipped on their own.
 
 ## Casting
 

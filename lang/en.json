@@ -263,7 +263,7 @@
   "CAIRN.Crawler.ChoiceAlreadyMade": "This card's choice has already been made.",
   "CAIRN.Crawler.FatigueButtonTip": "Take Critical Damage, or take a Fatigue instead. If you are already overburdened, you are asked to drop something first.",
   "CAIRN.Crawler.NoWardenForChoice": "No Warden is connected, so your choice cannot be recorded right now.",
-  "CAIRN.EquipBook": "Equip spellbook",
+  "CAIRN.EquipBook": "Equip Spell",
   "CAIRN.EquipBookNone": "You don't have a spellbook to equip.",
   "CAIRN.EquipBookNoneNpc": "They don't have a spellbook to equip.",
   "CAIRN.EquipGrimoire": "Equip Grimoire",

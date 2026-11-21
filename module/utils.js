@@ -1055,7 +1055,7 @@ export const askAttack = async ({ actor, weapons, panicked = false, windowId = u
  * when the creature carries more than one of that kind and has none equipped.
  * Each is listed in inventory order, a light with its radius
  * (lightRadiusText), the first chosen; the badge's own words ("Equip light",
- * "Equip spellbook") equip the choice, Cancel (or closing) equips nothing.
+ * "Equip Spell") equip the choice, Cancel (or closing) equips nothing.
  * One prompt for both, "Which one?" (my call, told). Names go in as
  * textContent: DialogV2 takes content's innerHTML verbatim (see askAttack).
  * @param {Item[]} items   in inventory order, at least two

@@ -73,7 +73,7 @@ the card asks who.
 ## Equipping a shield, a light or a spellbook
 
 Under the Armor box on the first page of a character's or creature's sheet are
-three badges: **Equip shield**, **Equip light** and **Equip spellbook**. Press
+three badges: **Equip shield**, **Equip light** and **Equip Spell**. Press
 one to equip that thing, and press it again to put it away. It does the same as
 the hand on that item's row in the inventory. While something's equipped, its
 badge glows, the switch under the label turns on, and the label changes to
