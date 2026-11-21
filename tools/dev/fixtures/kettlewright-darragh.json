@@ -1,0 +1,145 @@
+{
+    "armor": 1,
+    "background": "Kettlewright",
+    "background_table1_answer": "You offer protection as a service, quietly watching for threats as money exchanges hands. You start with +d4 HP, and carry a Long Sword (d10, bulky) and a Gambeson (+1 Armor).",
+    "background_table1_question": "What is your trade?",
+    "background_table2_answer": "Tinker's Paste: Seals shut any fist-sized opening. 3 uses.",
+    "background_table2_question": "What never fails to get you out of trouble?",
+    "bonds": "You once freed a Naiad from a choked stream. In return, it gave you some Silver Moss (petty). Swallow it near water and the creature will come, once, to repay its debt.",
+    "containers": [
+        {
+            "id": 0,
+            "name": "Main",
+            "slots": 10
+        }
+    ],
+    "custom_background": "",
+    "custom_image": false,
+    "custom_name": "",
+    "dead": false,
+    "deprived": false,
+    "description": "You are known by the smell of molten metal and the jingle of tin. You are no mere merchant but an artisan of fire and metal.",
+    "dexterity": 16,
+    "dexterity_max": 16,
+    "edition": "2e",
+    "gold": 14,
+    "hp": 6,
+    "hp_max": 6,
+    "image_url": "portrait57.webp",
+    "items": [
+        {
+            "armor_active": false,
+            "description": "You once freed a Naiad from a choked stream. In return, it gave you some Silver Moss (petty). Swallow it near water and the creature will come, once, to repay its debt.",
+            "id": "02a7047df7d94d48bfd9fc828829a1d5",
+            "location": 0,
+            "name": "Silver Moss",
+            "tags": [
+                "petty"
+            ]
+        },
+        {
+            "armor_active": false,
+            "description": "",
+            "id": "354d829322674417a613bfdfd59a2fbe",
+            "location": 0,
+            "name": "Long Sword",
+            "tags": [
+                "d10",
+                "bulky"
+            ]
+        },
+        {
+            "description": "",
+            "id": "d078a6fce4a942e7810cd382d01963b7",
+            "location": 0,
+            "name": "Gambeson",
+            "tags": [
+                "1 Armor",
+                "bonus defense"
+            ]
+        },
+        {
+            "armor_active": false,
+            "description": "Seals shut any fist-sized opening.",
+            "id": "5662db587a604f7dbb23a161e8e833e0",
+            "location": 0,
+            "max_uses": 3,
+            "name": "Tinker's Paste",
+            "tags": [
+                "uses"
+            ],
+            "uses": 3
+        },
+        {
+            "armor_active": false,
+            "description": "-",
+            "id": "38ec2d020415400da9ac82d85f432f45",
+            "location": 0,
+            "max_uses": 3,
+            "name": "Rations",
+            "tags": [
+                "uses"
+            ],
+            "uses": 3
+        },
+        {
+            "armor_active": false,
+            "description": "-",
+            "id": "e8c40b6c44584b5ea8d406510455c484",
+            "location": 0,
+            "max_uses": 3,
+            "name": "Torch",
+            "tags": [
+                "uses"
+            ],
+            "uses": 3
+        },
+        {
+            "armor_active": false,
+            "description": "",
+            "id": "0f86552a91154f0b8d503e891aee4a2d",
+            "location": 0,
+            "name": "Pincers",
+            "tags": []
+        },
+        {
+            "armor_active": false,
+            "description": "",
+            "id": "74e7e27196cd46a2ab2c19f14e1dbb9b",
+            "location": 0,
+            "name": "Roll of Tin",
+            "tags": []
+        },
+        {
+            "armor_active": false,
+            "description": "",
+            "id": "ca75e2b83cd14b21a7255065f7fdc5d5",
+            "location": 0,
+            "name": "Gloves",
+            "tags": [
+                "petty"
+            ]
+        },
+        {
+            "armor_active": false,
+            "description": "",
+            "id": "6cf0452e6f914899acd33f27417724ba",
+            "location": 0,
+            "name": "Hammer",
+            "tags": [
+                "d6"
+            ]
+        }
+    ],
+    "name": "Darragh",
+    "notes": "",
+    "omens": "Border towns have become riotous in recent weeks, after multiple claims of a red-robed figure appearing in their children's dreams, uttering the same warning: A fire is coming, and it will consume them all.",
+    "panicked": null,
+    "pets": [],
+    "scars": "",
+    "strength": 13,
+    "strength_max": 13,
+    "traits": "You have a Athletic Physique, Scarred Skin, and Filthy Hair. Your Face is Sunken, your Speech Cryptic. You have Rancid Clothing. You are Gregarious and Vain. You are 23 years old.",
+    "willpower": 13,
+    "willpower_max": 13
+}
