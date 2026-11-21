@@ -95,6 +95,22 @@ in a batch. A red on a different box in each run, with the same message every ti
 baseline world. A red that follows one box's queue points at an earlier probe on that box that leaked
 something.
 
+## One Warden's Dashboard and the page tabs' side (2026-11-21, late)
+
+**Still 113 probes. Newest build only (14.370). The whole suite was GREEN, 113/113, at `c7668e31`
+(`20261121T234452Z`).**
+
+- **Red first:** the probes-only commit `d30f1abf` was red on 6 of its 8 probes (`20261121T233113Z`):
+  `party-sheet`, `warden-dashboard`, `hazard`, `sheet-rail`, `settings` and `theme`. The two that
+  passed, `header-buttons` and `ui-parity`, only lost a leg or widened a filter, so they can't red
+  without the change.
+- **The whole suite at the change, `35703f7d`: 110/113** (`20261121T233336Z`). All three reds were the
+  Tables page's roots now wearing `.tab`. `.cairn .tab { height: 100% }` stretched the clock band to
+  626px of a 642px window (`vald-time`, and `warden-dashboard`'s Tables leg). Core's
+  `.tab[data-tab] > nav.tabs` made the table tabs' border invisible in dark (`theme`, 1.00:1). Both
+  fixed in `c7668e31`, and the seven probes they touch were GREEN there (`20261121T234222Z`) before
+  the whole suite.
+
 ## The Equip round and review #36 (2026-11-21)
 
 **113 probes now, with `dev:party-sheet` and `dev:light-uses` new. Newest build only (14.370), the
