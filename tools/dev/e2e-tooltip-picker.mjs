@@ -580,7 +580,9 @@ try {
       await nSheet.changeTab("character", "primary");
       await wait(300);
       out.hintsOn.traits = nq('.cairn-left > .trait-sentence [data-action="editTraits"]')?.dataset.tooltip ?? "";
-      await npc.update({ "system.generationEnabled": false });
+      // A trait, so there is a sentence to stay: with none and the mode Off
+      // nothing is drawn, a character's rule too.
+      await npc.update({ "system.generationEnabled": false, "system.traits.physique": "Athletic" });
       await wait(800);
       out.hintsOff.traits = !!nq('[data-action="editTraits"]');
       out.traitDiceOff = {

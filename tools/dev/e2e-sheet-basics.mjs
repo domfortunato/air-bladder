@@ -100,22 +100,23 @@ await read(actorId, "system.pronouns") === "they/them"
 /* -------------------------------------------------------------- select ---- */
 // The character sheet's form holds no <select> since round 4 (2026-11-19): its
 // trait pick-lists moved into the Traits window, which writes on Save, not on
-// change. A hireling's sheet still carries them in its form, through the same
-// submitOnChange and FormDataExtended path, so the <select> leg reads one
-// there: a throwaway hireling, made and deleted here.
+// change, and a person npc's followed on 2026-11-20. The npc sheet's Role is a
+// form-bound <select> on the same submitOnChange and FormDataExtended path, so
+// the <select> leg reads that: a throwaway npc re-roled to a hireling, made
+// and deleted here.
 const traitPicked = await page.evaluate(async () => {
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-  const h = await Actor.create({ name: "ZZ Sheet Basics Hireling", type: "npc", system: { role: "hireling" } });
+  const h = await Actor.create({ name: "ZZ Sheet Basics NPC", type: "npc", system: { role: "npc" } });
   try {
     await h.sheet.render(true);
-    const q = () => h.sheet.element?.querySelector?.('select[name^="system.traits."]');
+    const q = () => h.sheet.element?.querySelector?.('select[name="system.role"]');
     for (let i = 0; i < 40 && !q(); i++) await sleep(150);
     // v14 hides <select> behind a custom element, so Playwright's selectOption
     // sees an invisible node and times out. Set .value and dispatch a bubbling
     // change instead — the same workaround as `joinAs` in lib.mjs.
     const s = q();
     if (!s) return null;
-    const opt = Array.from(s.options).find((o) => o.value);
+    const opt = Array.from(s.options).find((o) => o.value === "hireling");
     if (!opt) return null;
     s.value = opt.value;
     s.dispatchEvent(new Event("change", { bubbles: true }));
@@ -127,10 +128,10 @@ const traitPicked = await page.evaluate(async () => {
   }
 });
 if (!traitPicked) {
-  fail("select persisted", "no trait <select> on the hireling's sheet");
+  fail("select persisted", "no Role <select> (or no hireling option) on the npc's sheet");
 } else {
   traitPicked.stored === traitPicked.value
-    ? ok("select persisted", `${traitPicked.name} = "${traitPicked.stored}" (a hireling's)`)
+    ? ok("select persisted", `${traitPicked.name} = "${traitPicked.stored}" (an npc's Role)`)
     : fail("select persisted", `expected "${traitPicked.value}", stored "${traitPicked.stored}"`);
 }
 
