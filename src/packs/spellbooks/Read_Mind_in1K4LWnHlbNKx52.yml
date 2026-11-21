@@ -20,7 +20,7 @@ ownership:
 system:
   description: <p>You can hear the surface thoughts of nearby creatures.</p>
   weightless: false
-  equipped: true
+  equipped: false
   bulky: false
   quantity: 1
 folder: null

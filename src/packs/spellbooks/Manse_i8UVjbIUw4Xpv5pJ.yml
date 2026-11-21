@@ -22,7 +22,7 @@ system:
     <p>A sturdy, furnished cottage appears for 12 hours. You can permit and
     forbid entry to it at will.</p>
   weightless: false
-  equipped: true
+  equipped: false
   bulky: false
   quantity: 1
 folder: null

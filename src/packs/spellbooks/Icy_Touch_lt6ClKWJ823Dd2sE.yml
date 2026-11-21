@@ -22,7 +22,7 @@ system:
     <p>A thick ice layer spreads across a touched surface, up to 10ft in
     radius.</p>
   weightless: false
-  equipped: true
+  equipped: false
   bulky: false
   quantity: 1
 folder: null

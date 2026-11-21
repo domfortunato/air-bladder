@@ -20,7 +20,7 @@ ownership:
 system:
   description: <p>A nearby creature becomes terrified of an object of your choice.</p>
   weightless: false
-  equipped: true
+  equipped: false
   bulky: false
   quantity: 1
 folder: null

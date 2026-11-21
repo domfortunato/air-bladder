@@ -20,7 +20,7 @@ ownership:
 system:
   description: <p>A silent, immobile, room-sized illusion of your choice appears.</p>
   weightless: false
-  equipped: true
+  equipped: false
   bulky: false
   quantity: 1
 folder: null

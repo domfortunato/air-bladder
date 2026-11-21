@@ -22,7 +22,7 @@ system:
     <p>Two creatures can hear each other's thoughts, no matter how far apart
     they move.</p>
   weightless: false
-  equipped: true
+  equipped: false
   bulky: false
   quantity: 1
 folder: null

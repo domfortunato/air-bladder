@@ -842,8 +842,9 @@ const placePets = async (json, data, report) => {
 };
 
 /**
- * A Kettlewright pet as a grantContainers spec: always a companion (its name
- * must not be read as a vehicle), its notes as the description, and its stat
+ * A Kettlewright pet as a grantContainers spec: always a companion (a stated
+ * role decides its Kind and art there too, so "Cart Horse" is not read as a
+ * cart), its notes as the description, and its stat
  * block where Kettlewright recorded one — a pet a background gave it carries
  * every stat null, and those leave the schema's defaults.
  * @param {Object} pet
@@ -883,6 +884,11 @@ const petSpec = (pet, name) => {
  * pet is connected, owned and clamped to the connection limit exactly as one
  * is. Then each pet's own items onto it. A pet the limit turned away is
  * recorded on the report by name, for the summary.
+ *
+ * Each spec is given an id the made actor keeps, and every pairing below is
+ * by that id (review #36 S13): a batch create comes back in the order the
+ * server finished each document, so pairing by position handed one pet's
+ * items to another.
  * @param {CairnActor} actor
  * @param {Object[]} specs
  * @param {Object} report
@@ -890,20 +896,24 @@ const petSpec = (pet, name) => {
  */
 const mintPets = async (actor, specs, report) => {
   if (!actor || !specs.length) return [];
-  const made = await grantContainers(actor, specs.map((spec) => {
+  const ids = specs.map(() => foundry.utils.randomID());
+  const made = await grantContainers(actor, specs.map((spec, i) => {
     const { items, ...rest } = spec;
     void items;
-    return rest;
+    return { ...rest, _id: ids[i] };
   }));
-  // grantContainers keeps the head of the list when it clamps.
-  const turnedAway = specs.slice(made.length).map((s) => s.name);
+  const byId = new Map(made.map((npc) => [npc.id, npc]));
+  // Whichever specs have no actor, whether the limit clamped them or a
+  // create was refused.
+  const turnedAway = specs.filter((_, i) => !byId.has(ids[i])).map((s) => s.name);
   if (turnedAway.length) {
     report.petsTurnedAway = turnedAway;
     for (const entry of report.pets ?? []) if (turnedAway.includes(entry.name) && entry.as === "companion") entry.as = "limit";
   }
-  for (const [i, npc] of made.entries()) {
-    const kwItems = specs[i].items ?? [];
-    if (!kwItems.length) continue;
+  for (const [i, spec] of specs.entries()) {
+    const npc = byId.get(ids[i]);
+    const kwItems = spec.items ?? [];
+    if (!npc || !kwItems.length) continue;
     const built = [];
     for (const kw of kwItems) if (kw?.name && kw?.carrying == null) built.push((await importItem(kw)).item);
     if (built.length) await npc.createEmbeddedDocuments("Item", built);
@@ -1318,8 +1328,9 @@ export const importKettlewrightCharacter = async () => {
       // escapes each format value and skips cleanHTML for a known key, where
       // a pre-formatted message is cleaned WHOLE — an angle bracket in the
       // value (an error message, a hand-edited name) silently truncates the
-      // toast (notifications.mjs:108-122). Same rule at every toast that
-      // interpolates a value this file or the broker shows.
+      // toast (core's `Notifications#notify`). Same rule at EVERY toast that
+      // interpolates a value, system-wide (review #36); `check:probes`
+      // refuses a `game.i18n.format` handed to `ui.notifications`.
       ui.notifications.error("CAIRN.KWImport.CreateFailed", { format: { reason: e.message }, permanent: true });
       return null;
     }

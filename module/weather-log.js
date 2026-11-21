@@ -199,10 +199,12 @@ const writeWeatherLine = async () => {
 
   // Insert before the list's close, so the newest line is at the bottom where
   // a log is read from. A page a Warden has rewritten without a list still
-  // takes the line rather than losing it.
+  // takes the line rather than losing it. A FUNCTION replacer, because a
+  // replacement STRING is a pattern: the Warden's weather or an event's name
+  // holding `$$` or `$&` was rewritten on its way in (review #36).
   const had = String(page.text?.content ?? "");
   const content = had.includes("</ul>")
-    ? had.replace(/<\/ul>(?![\s\S]*<\/ul>)/, `${li}</ul>`)
+    ? had.replace(/<\/ul>(?![\s\S]*<\/ul>)/, () => `${li}</ul>`)
     : `${had}<ul>${li}</ul>`;
   await page.update({ "text.content": content });
   return entry;

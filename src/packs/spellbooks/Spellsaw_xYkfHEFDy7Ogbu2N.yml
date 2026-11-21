@@ -22,7 +22,7 @@ system:
     <p>A whirling blade flies from your chest, clearing any plant material in
     its way. It is otherwise harmless.</p>
   weightless: false
-  equipped: true
+  equipped: false
   bulky: false
   quantity: 1
 folder: null

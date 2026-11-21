@@ -19,8 +19,8 @@ import { Damage, DAMAGE_APPLIED_FLAG, DAMAGE_SOURCE_FLAG, localizeDamageCard } f
 import { registerWardenDamageControl } from "./warden-damage.js";
 import { registerWardenDashboardControl, refreshDashboardTime, localizeDashboardCard } from "./warden-dashboard.js";
 import { registerPartySheet } from "./party-sheet.js";
-import { handlePileQuery, localizePileCard, PILE_DROP_QUERY, askWhatToDrop, dropItemToPile, partyFolderId, stripPlantedPileFlags, findDroppedPile } from "./party-pile.js";
-import { mustDropForFatigue, registerHeldLightSync } from "./gear.js";
+import { handlePileQuery, localizePileCard, PILE_DROP_QUERY, askWhatToDrop, dropItemToPile, partyFolderId, stripPlantedPileFlags, findDroppedPile, mayQueryWarden, sayCannotQueryWarden } from "./party-pile.js";
+import { mustDropForFatigue, registerHeldLightSync, localizeLightCard } from "./gear.js";
 import { installWorldCalendar, checkWorldCalendar } from "./game-time.js";
 import { renderWatchClock, refreshWatchClock, pullCalendarBar } from "./watch-clock.js";
 import { refreshValdCalendar } from "./vald-calendar.js";
@@ -248,19 +248,9 @@ Hooks.once("ready", () => {
   // fire-and-forget, because nothing may wait on a warm-up.
   if (game.user.isGM) setTimeout(() => { prewarmGenerationPacks(); }, 3000);
   Hooks.on("hotbarDrop", (bar, data, slot) => {
-    // A LOCKED bar must not be written to. ON 14.365-14.367 this hook is the
-    // only thing standing in front of that: core tests the hook's return value
-    // BEFORE its own lock check (`Hotbar#_onDrop`) and `User#assignHotbarMacro`
-    // never consults `locked` at all. The 14.368 client moved the lock AHEAD of
-    // the hook, so on the verified build this line is never reached for a
-    // locked bar — and stays, because the minimum is still 14.365 (review #34
-    // finding 14). Read there, `return false` here does not mean "I will
-    // handle it", it means "skip the only enforcement there is", and a Warden
-    // who locked their bar watched a dragged weapon land on it anyway. Handing
-    // the drop BACK to core is the fix rather than refusing here, because core's
-    // very next line is the lock: one owner for the rule. It looked fine because
-    // dragging an existing MACRO is refused by a different check entirely.
-    if (bar?.locked) return true;
+    // A locked bar never reaches this hook: core tests the lock and returns
+    // before it calls `hotbarDrop` (`Hotbar#_onDrop`) on every supported build,
+    // so the lock is core's rule alone and nothing here repeats it.
     // Let Foundry place an existing Macro normally; only Items (and other
     // documents) get a Cairn hotbar wrapper. Without this, dragging a Macro made
     // a wrapper that opened the macro's own edit sheet instead of running it.
@@ -1171,7 +1161,7 @@ async function handleGrantActors(msg, senderId) {
     })));
   } catch (err) {
     console.error(`Air Bladder | grant request from ${user.name} for ${owner.name} failed:`, err);
-    ui.notifications.error(game.i18n.format("CAIRN.Notify.GrantFailedFor", { player: user.name }));
+    ui.notifications.error("CAIRN.Notify.GrantFailedFor", { format: { player: user.name } });
   }
 }
 
@@ -1376,7 +1366,7 @@ Hooks.once("init", () => {
       // past the hidden button must be refused HERE, on the answering GM
       // client — the one place a player's request cannot script around.
       if (!game.settings.get(SETTINGS_NS, "allow-player-generate")) {
-        ui.notifications.info(game.i18n.format("CAIRN.Notify.PcGenRefusedFor", { player: user.name }));
+        ui.notifications.info("CAIRN.Notify.PcGenRefusedFor", { format: { player: user.name } });
         game.socket.emit(`system.${game.system.id}`, {
           action: "pcGenerated", userId: senderId, uuid: null, refused: true,
         });
@@ -1466,15 +1456,15 @@ Hooks.once("init", () => {
         // the Warden had cancelled it and the Warden was told nothing. It is
         // answered as the throw below is, on both screens.
         if (!actor) {
-          ui.notifications.error(game.i18n.format("CAIRN.Notify.PcGenFailedFor", { player: user.name }));
+          ui.notifications.error("CAIRN.Notify.PcGenFailedFor", { format: { player: user.name } });
           game.socket.emit(`system.${game.system.id}`, {
             action: "pcGenerated", userId: senderId, uuid: null, failed: true,
           });
           return;
         }
-        ui.notifications.info(game.i18n.format("CAIRN.Notify.PcGeneratedFor", {
+        ui.notifications.info("CAIRN.Notify.PcGeneratedFor", { format: {
           name: actor.name, player: user.name,
-        }));
+        } });
         game.socket.emit(`system.${game.system.id}`, {
           // WHETHER A CARD WAS POSTED travels BACK (review #26; review #34
           // finding 220), or the asking client polls ten times at 150ms for a
@@ -1488,7 +1478,7 @@ Hooks.once("init", () => {
         });
       } catch (err) {
         console.error(`Air Bladder | generatePC failed for ${user.name}:`, err);
-        ui.notifications.error(game.i18n.format("CAIRN.Notify.PcGenFailedFor", { player: user.name }));
+        ui.notifications.error("CAIRN.Notify.PcGenFailedFor", { format: { player: user.name } });
         // `failed`: the player is told to ask again.
         game.socket.emit(`system.${game.system.id}`, {
           action: "pcGenerated", userId: senderId, uuid: null, failed: true,
@@ -1707,7 +1697,7 @@ Hooks.once("init", () => {
       // the inner catch was built to prevent (review #17).
       const player = game.users.get(senderId)?.name ?? senderId;
       console.error(`Air Bladder | grant request from ${player} failed:`, err);
-      ui.notifications.error(game.i18n.format("CAIRN.Notify.GrantFailedFor", { player }));
+      ui.notifications.error("CAIRN.Notify.GrantFailedFor", { format: { player } });
     } finally {
       grantActorsInFlight.delete(senderId);
     }
@@ -2276,9 +2266,21 @@ const migrateScrollsToSpellbooks = async () => {
   // world actor's inventory says nothing about it. Writing through the synthetic
   // `token.actor` updates that delta. Linked tokens are skipped — they ARE the
   // world actor already handled above, and converting twice would duplicate.
+  //
+  // SELECTED ON RAW SOURCE, before `token.actor` is read (review #36). This
+  // sweep has no marker and runs on every Warden load, and `TokenDocument#actor`
+  // BUILDS an unlinked token's ActorDelta and synthetic Actor the first time it
+  // is read — core leaves them unbuilt until something needs them. Reading it
+  // for every token cost a large world one Actor construction per unlinked
+  // token per login. Nothing is lost by looking at the delta alone: a scroll
+  // the token merely inherits was converted on its base actor one line up, so
+  // only a scroll the delta itself holds is left, and a delta's item entry is
+  // a whole item record — `isLegacyScroll` reads just its `type` and `name`.
   for (const scene of game.scenes) {
     for (const token of scene.tokens) {
-      if (token.actorLink || !token.actor) continue;
+      if (token.actorLink) continue;
+      if (!(token._source.delta?.items ?? []).some(isLegacyScroll)) continue;
+      if (!token.actor) continue;
       await convert(token.actor, [...token.actor.items]);
     }
   }
@@ -2933,12 +2935,20 @@ const removeGrantNotes = async () => {
   let tokenActors = 0;
   for (const scene of game.scenes) {
     for (const token of scene.tokens) {
-      if (token.actorLink || !token.actor) continue;
+      if (token.actorLink) continue;
       // Only a delta carrying its OWN notes needs this. A token that inherits
       // them is already covered by the batch below, and writing it here would
       // MINT an override that did not exist — pinning that token's notes away
       // from the actor they still follow, to say a thing the base actor is
       // about to say anyway.
+      //
+      // Asked of the token's RAW source first, before `token.actor` or
+      // `token.delta` is read (review #36): either read BUILDS the token's
+      // ActorDelta and synthetic Actor, which core leaves unbuilt until needed,
+      // and this pass has no marker — it was building one per unlinked token in
+      // the world on every Warden load to throw nearly all of them away here.
+      if (token._source.delta?.system?.notes === undefined) continue;
+      if (!token.actor) continue;
       if (token.delta?._source?.system?.notes === undefined) continue;
       const r = grantNoteRemoval(token.actor);
       if (!r) continue;
@@ -4163,6 +4173,9 @@ Hooks.on("renderChatMessageHTML", (message, html, data) => {
   // The change-log ledger (module/actor/actor.js): whispered to owners AND
   // Wardens, so it has readers in every language at the table (review #30).
   localizeChangeLogCard(message, html);
+  // The light card (module/gear.js): the same class, the sentence rebuilt
+  // from a kind and the stored English names (review #36).
+  localizeLightCard(message, html);
 
   // The initiative save's total, coloured by outcome (module/combat.js).
   markInitiativeOutcome(message, html);
@@ -4284,9 +4297,10 @@ Hooks.on("renderChatMessageHTML", (message, html, data) => {
       // the roll, the choice pair's order — and like the pair, a Warden who
       // answers "already spent" stops it (review #34 finding 214: the answer
       // used to be thrown away). Where it cannot be recorded (no Warden
-      // connected for an owner who is not the card's author, or a query that
-      // never answered) the save still rolls, as it always did, sealed only on
-      // this screen.
+      // connected for an owner who is not the card's author, a query that
+      // never answered, or a presser whose role has lost the Query Users
+      // permission — `mayQueryWarden`, asked rather than left to throw) the
+      // save still rolls, as it always did, sealed only on this screen.
       if (btn && message.getFlag(FLAG_SCOPE, STR_SAVE_FLAG)) {
         btn.setAttribute("disabled", "disabled");
       } else if (btn) {
@@ -4296,7 +4310,7 @@ Hooks.on("renderChatMessageHTML", (message, html, data) => {
           try {
             if (message.isAuthor || game.user.isGM) {
               await message.setFlag(FLAG_SCOPE, STR_SAVE_FLAG, true);
-            } else if (game.users.activeGM) {
+            } else if (game.users.activeGM && mayQueryWarden()) {
               let answer = null;
               try {
                 answer = await game.users.activeGM.query(CHOICE_QUERY,
@@ -4379,10 +4393,11 @@ Hooks.on("renderChatMessageHTML", (message, html, data) => {
     /** Say why a choice was not recorded — the real reason (review #34 finding
      *  166). It used to say "no Warden is connected" for every refusal, the
      *  Warden's own earlier answer to the card included. */
-    const refusedBecause = (reason) => ui.notifications.warn(game.i18n.localize(
-      reason === "answered" ? "CAIRN.Crawler.ChoiceAlreadyMade"
-        : reason === "dropFailed" ? "CAIRN.Pile.DropRefused"
-          : "CAIRN.Crawler.NoWardenForChoice"));
+    const refusedBecause = (reason) => (reason === "noPermission" ? sayCannotQueryWarden()
+      : ui.notifications.warn(game.i18n.localize(
+        reason === "answered" ? "CAIRN.Crawler.ChoiceAlreadyMade"
+          : reason === "dropFailed" ? "CAIRN.Pile.DropRefused"
+            : "CAIRN.Crawler.NoWardenForChoice")));
     /**
      * Record the choice on the message: directly where this user may write it,
      * through the Warden's client otherwise — with the Fatigue bargain's
@@ -4397,6 +4412,12 @@ Hooks.on("renderChatMessageHTML", (message, html, data) => {
         return true;
       }
       const gm = game.users.activeGM;
+      // A Warden is here but this user may not ask them (review #36): the query
+      // would throw, and the fallback below would say no Warden is connected.
+      if (gm && !mayQueryWarden()) {
+        refusedBecause("noPermission");
+        return false;
+      }
       let answer = null;
       if (gm) {
         try {

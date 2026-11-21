@@ -20,7 +20,7 @@ ownership:
 system:
   description: <p>You can climb surfaces like a spider.</p>
   weightless: false
-  equipped: true
+  equipped: false
   bulky: false
   quantity: 1
 folder: null

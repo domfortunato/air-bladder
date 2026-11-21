@@ -22,7 +22,7 @@ system:
     <p>A skeleton rises from the ground to serve you. They are incredibly stupid
     and can only obey simple orders.</p>
   weightless: false
-  equipped: true
+  equipped: false
   bulky: false
   quantity: 1
 folder: null

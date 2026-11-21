@@ -65,7 +65,9 @@ Moved word for word from CLAUDE.md (2026-11-01); CLAUDE.md points here.
 - **Broken items** (2026-11-20, user ask: "still takes up a slot but doesn't provide any
   benefit"). `system.broken` on every item type (`universal()`). The user's ruling is
   everything mechanical: `CairnItem` unequips a broken item and strips an equip while it stays
-  broken (`_preCreate` / `_preUpdate`), so no Armor, no damage roll, no Hold shield and no
+  broken (`_preCreate` / `_preUpdate`, both reading the STORED flag from `_source`: `system.equipped` is
+  derived false while broken; a repair of an item stored broken + equipped lands unequipped
+  unless the write itself equips, review #36), so no Armor, no damage roll, no Hold shield and no
   Attack-window entry; `isEquipable` and `hasPlusMinus` go false, so the hand and the uses /
   charges controls go (the pips stay); Cast and Transmute go, and their handlers refuse too.
   The slot stays: `itemSlotCost` never reads it. Marked on the item sheet, in the name
@@ -76,7 +78,8 @@ Moved word for word from CLAUDE.md (2026-11-01); CLAUDE.md points here.
   and repair asks first, on the row AND the item sheet's box: ONE `confirmBroken`
   (item.js), `_confirmAction`'s shape; the sheet's box is caught in the target phase so
   `submitOnChange` never stores it. Gate `dev:broken` (legs 12-14 the row, 15-16 the
-  yes/no).
+  yes/no, 18-19 the stored flag,
+  20 the box writes what it asked).
 - **Every item action is on the change log** (2026-11-21, user ask: "All actions on
   inventory items, including breaking and unbreaking them, should show in the chat log";
   the user's pick, all but a drag-reorder and a description save). REVERSES review #13's

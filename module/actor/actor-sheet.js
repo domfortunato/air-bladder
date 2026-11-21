@@ -40,13 +40,13 @@ const NPC_TRAIT_LABELS = {
   vice: "CAIRN.Trait.Vice",
 };
 import { atConnectionLimit, maxConnections, connectionsUiEnabled, brokenOwnershipShape, OWNERSHIP_SYNC_FLAG } from "../connections.js";
-import { findMatchingStack, capacityVerdict, landingNeed, isHoldableLight, isHeldLight, isHoldableBook, isHeldBook, handsFull, handsBlock } from "../gear.js";
+import { findMatchingStack, capacityVerdict, landingNeed, isHoldableLight, isHeldLight, isHoldableBook, isHeldBook, handsFull, handsBlock, lightingRefusal } from "../gear.js";
 import {
   canOfferItem, promptOfferTarget, createItemOffer, offerFromDrop,
   canReceiveOffer, settleOwnOffer,
 } from "../item-offer.js";
 import { actorDisplayName, localizeNameDesc, sourceOf, t, itemNamespaces } from "../i18n-content.js";
-import { dropItemToPile, isDroppedPile, buildWhereField, cleanDropNote, pileDisplayName } from "../party-pile.js";
+import { dropItemToPile, isDroppedPile, buildWhereField, cleanDropNote, pileDisplayName, mayQueryWarden } from "../party-pile.js";
 import { FATIGUE_NAME, confirmBroken } from "../item/item.js";
 import { castFromGrimoire, castScroll, castSpellbook, grimoiresOn, pagesOfGrimoire, ensureGrimoireKey,
   groupPagesUnderBooks } from "../grimoire.js";
@@ -302,6 +302,29 @@ const mayRandomize = (fn) => function (event, target) {
 };
 
 /**
+ * Who a roll from this sheet speaks for: the actor whose sheet it is (review
+ * #36 S27). For a world actor, core's `ChatMessage.getSpeaker({ actor })`
+ * names one of its tokens on the viewed scene, the controlled one or else the
+ * first, UNLINKED ones included (`getActiveTokens`). An unlinked token's actor
+ * is its own synthetic one, so a monster's world sheet spoke as an arbitrary
+ * token of it, and the save card's Mark Critical Damage (cairn.js
+ * `speakerActor` trusts a named token) marked that token and left the sheet
+ * that rolled unmarked. A linked token IS the actor, and a token's own sheet
+ * names its own token: both keep core's answer. Dropping the token leaves the
+ * speaker core builds for an actor with nothing placed; the alias is already
+ * the actor's name.
+ * @param {Actor} actor
+ * @returns {Object} ChatSpeakerData
+ */
+const sheetSpeaker = (actor) => {
+  const speaker = ChatMessage.getSpeaker({ actor });
+  if (actor.isToken || !speaker.token) return speaker;
+  const token = game.scenes.get(speaker.scene)?.tokens.get(speaker.token);
+  if (token && !token.isLinked) speaker.token = null;
+  return speaker;
+};
+
+/**
  * Wrap a bond handler so it does nothing while the Warden has bonds off
  * (`use-bonds`, 2026-11-06). The Bonds block is not rendered then, so this is
  * the enforcement behind a hidden control — a sheet already open when the
@@ -347,9 +370,8 @@ const owned = (fn) => function (event, target) {
     // character gate, so a PC's player-authored name still comes through
     // untouched. `pack.title` needs nothing — core localizes a pack LABEL per
     // viewer already (compendium-collection.mjs:46).
-    ui.notifications.warn(pack?.locked
-      ? game.i18n.format("CAIRN.Notify.PackLocked", { pack: pack.title ?? pack.collection })
-      : game.i18n.format("CAIRN.Notify.NotEditable", { name: actorDisplayName(this.document) }));
+    if (pack?.locked) ui.notifications.warn("CAIRN.Notify.PackLocked", { format: { pack: pack.title ?? pack.collection } });
+    else ui.notifications.warn("CAIRN.Notify.NotEditable", { format: { name: actorDisplayName(this.document) } });
     return undefined;
   }
   return fn.call(this, event, target);
@@ -698,6 +720,29 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    * the application's job rather than a gap to work around.
    */
   #expandedRows = new Set();
+
+  /* -------------------------------------------- */
+
+  /**
+   * The step presses of this sheet, one after another (review #36 S3). A
+   * client's `_source` and prepared data move only when the server answers an
+   * update (client-backend.mjs `_updateDocuments`: the pre-flight is a dry
+   * run), so two quick presses of − each read the same number and sent the
+   * same write, and one was lost without a word. `#queueStep` runs each
+   * press's read-compute-write after the one before it has landed. A step
+   * that throws doesn't stop the queue.
+   * @type {Promise}
+   */
+  #steps = Promise.resolve();
+
+  /**
+   * @param {Function} fn  one press: reads, computes and awaits its write
+   * @returns {Promise} settles as `fn` does
+   */
+  #queueStep(fn) {
+    const run = () => fn.call(this);
+    return (this.#steps = this.#steps.then(run, run));
+  }
 
   /* -------------------------------------------- */
 
@@ -1398,17 +1443,23 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       // system.description — an injected data-action/name/on* would otherwise
       // ride the enriched output into the viewer's sheet. Enricher output
       // (content-link/inline-roll) carries no data-action, so the strip is safe.
+      //
+      // `secrets: isOwner` is core's rule for its own sheets (base-sheet.mjs):
+      // enrichHTML removes every unrevealed Secret block unless told otherwise,
+      // so without it an owner's own Secret block vanished from the display
+      // half and showed only while the editor was open (review #36 S2). Every
+      // enrich on this sheet passes it; the print helper deliberately doesn't.
       context.enrichedDescription =
         cleanDescription(await foundry.applications.ux.TextEditor.implementation.enrichHTML(
           t("monster.desc", this.actor.system.description),
-          { relativeTo: this.actor },
+          { relativeTo: this.actor, secrets: this.actor.isOwner },
         ));
       // Enriched but NOT translated: notes are the Warden's own prose, and no
       // content namespace files them.
       context.enrichedNotes =
         cleanDescription(await foundry.applications.ux.TextEditor.implementation.enrichHTML(
           this.actor.system.notes,
-          { relativeTo: this.actor },
+          { relativeTo: this.actor, secrets: this.actor.isOwner },
         ));
       // The Notes empty-state hint lives in the display half now — a ::before
       // anchored to .editor-container is no use, because a toggled editor only
@@ -1889,7 +1940,8 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     const bg = bgUuid ? await fromUuid(bgUuid) : null;
     context.backgroundDescription = bg?.system?.description
       ? cleanDescription(await foundry.applications.ux.TextEditor.implementation.enrichHTML(
-          backgroundDescriptionText(bg), { relativeTo: this.actor }))
+          // The text is the background item's, so its owner test, not the actor's.
+          backgroundDescriptionText(bg), { relativeTo: this.actor, secrets: !!bg.isOwner }))
       : "";
     // The background's credit line, shown in Background & Notes. Same field the
     // printed footer uses, off the SAME `bg` already resolved above — no second
@@ -2057,7 +2109,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     context.enrichedNotes =
       cleanDescription(await foundry.applications.ux.TextEditor.implementation.enrichHTML(
         this.actor.system.notes,
-        { relativeTo: this.actor },
+        { relativeTo: this.actor, secrets: this.actor.isOwner },
       ));
     // The Growth page's journal (2026-11-19): the player's own record of how
     // the character has changed, the Notes editor's twin — toggled, so this
@@ -2066,7 +2118,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     context.enrichedGrowth =
       cleanDescription(await foundry.applications.ux.TextEditor.implementation.enrichHTML(
         this.actor.system.growth,
-        { relativeTo: this.actor },
+        { relativeTo: this.actor, secrets: this.actor.isOwner },
       ));
     // Page 1's ability rows carry Cairn's own sentence for each save under the
     // die, in every mode: Creation Mode swaps the die's tooltip
@@ -2088,7 +2140,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     context.enrichedDescription = context.showDescription
       ? cleanDescription(await foundry.applications.ux.TextEditor.implementation.enrichHTML(
         this.actor.system.description,
-        { relativeTo: this.actor },
+        { relativeTo: this.actor, secrets: this.actor.isOwner },
       ))
       : "";
 
@@ -2863,10 +2915,10 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       // labels, and a translator reading en.json alone could only guess that from
       // `{background}` / `{character}`, which read like a background and a
       // character name.
-      ui.notifications.warn(game.i18n.format("CAIRN.Notify.BackgroundWrongSource", {
+      ui.notifications.warn("CAIRN.Notify.BackgroundWrongSource", { format: {
         backgroundEdition: sourceLabel(bgSource),
         characterEdition: sourceLabel(mySource),
-      }));
+      } });
       return null;
     }
     // The picker's own refusal (review #34 finding 51): the drop is the same
@@ -2886,7 +2938,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // so a stand-in copy of a switched-off background is refused with it. 2e
     // only: Barebones has no eye. Core escapes the format argument.
     if (bgSource === "2e" && isBackgroundDisabled(bg)) {
-      ui.notifications.warn(game.i18n.format("CAIRN.Notify.BackgroundSwitchedOff", { name: t("bg.name", bg.name) }));
+      ui.notifications.warn("CAIRN.Notify.BackgroundSwitchedOff", { format: { name: t("bg.name", bg.name) } });
       return null;
     }
     // Through the content overlay, like every other background-name surface: the
@@ -3139,6 +3191,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // sink the live sheet guards (see cleanDescription in utils.js). The print
     // window is the viewer's own browser: an injected on*/data-action in a
     // player-owned description would otherwise execute there.
+    // No `secrets` here, on purpose: paper doesn't carry a Secret block.
     const enrich = async (html) => (html
       ? cleanDescription(await foundry.applications.ux.TextEditor.implementation.enrichHTML(html, { relativeTo: actor }))
       : "");
@@ -4487,11 +4540,13 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // was thrown away, so a drop the Warden's client refused, failed or never
     // answered closed the dialog and left the item where it was with no word.
     // Not when no Warden is connected — `dropItemToPile` has said that already
-    // (CAIRN.Pile.NoWarden) — and not when the item is gone anyway, which the
-    // sentence would misreport.
-    if (!dropped && (game.user.isGM || game.users.activeGM) && this.actor.items.has(item.id)) {
-      ui.notifications.warn(game.i18n.format("CAIRN.Pile.DropFailed",
-        { name: t(this._itemNamespaces().nameNs, item.name) }));
+    // (CAIRN.Pile.NoWarden), nor when this user may not ask the Warden, which it
+    // has said too (CAIRN.Pile.CannotAskWarden) — and not when the item is gone
+    // anyway, which the sentence would misreport.
+    if (!dropped && (game.user.isGM || (game.users.activeGM && mayQueryWarden()))
+        && this.actor.items.has(item.id)) {
+      ui.notifications.warn("CAIRN.Pile.DropFailed",
+        { format: { name: t(this._itemNamespaces().nameNs, item.name) } });
     }
   }
 
@@ -4530,6 +4585,18 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     const item = this.actor.getOwnedItem(row?.dataset.itemId);
     if (!item) return;
     const held = !item.system.equipped;
+    // A light that can't be lit (spent, or the Lantern with no fuel) is
+    // refused HERE, before anything is written (review #36). The item hook
+    // (registerHeldLightSync) refuses it too, but core drops only the refused
+    // item from a batch: the stow below still landed, so the light already
+    // burning went out and nothing was lit.
+    if (held && isHoldableLight(item) && !item.system.broken) {
+      const why = lightingRefusal(item);
+      if (why) {
+        ui.notifications.warn(why.key, { format: why.format });
+        return;
+      }
+    }
     // One light is held at once (as Hold light's own press): holding one by
     // its hand puts any other held light away in the same write (review
     // #35). Torch follows through registerHeldLightSync (gear.js), whatever
@@ -4592,8 +4659,8 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     if (!grimoire || grimoire.system.broken) return;
     const pageCount = pagesOfGrimoire(this.actor, grimoire).length;
     if (pageCount >= (grimoire.system.grimoirePages ?? 0)) {
-      ui.notifications.warn(game.i18n.format("CAIRN.Notify.GrimoireFull",
-        { name: t("item.name", grimoire.name) }));
+      ui.notifications.warn("CAIRN.Notify.GrimoireFull",
+        { format: { name: t("item.name", grimoire.name) } });
       return;
     }
     // Names go into dialog HTML and are user-authored text.
@@ -4686,28 +4753,38 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     if (item) await castSpellbook(this.actor, item, { windowId: this.window?.windowId });
   }
 
-  /** Not exactly quantity, this is about uses. @this {CairnActorSheet} */
+  /**
+   * Not exactly quantity, this is about uses. The row's id is read at the
+   * press (the re-render replaces the row); the item, its Broken state and
+   * its count are read in the queue, after the press before it has landed
+   * (`#queueStep`).
+   * @this {CairnActorSheet}
+   */
   static async #onItemAddUse(event, target) {
     event.preventDefault();
-    const row = CairnActorSheet.#row(target);
-    const item = this.actor.getOwnedItem(row?.dataset.itemId);
-    // Broken: its uses / charges cannot be spent or restored (2026-11-20).
-    if (!item || item.system.broken) return;
-    await item.update({
-      "system.uses.value": Math.min(item.system.uses.value + 1, item.system.uses.max),
+    const itemId = CairnActorSheet.#row(target)?.dataset.itemId;
+    await this.#queueStep(async () => {
+      const item = this.actor.getOwnedItem(itemId);
+      // Broken: its uses / charges cannot be spent or restored (2026-11-20).
+      if (!item || item.system.broken) return;
+      await item.update({
+        "system.uses.value": Math.min(item.system.uses.value + 1, item.system.uses.max),
+      });
     });
   }
 
-  /** @this {CairnActorSheet} */
+  /** Queued as `#onItemAddUse` is. @this {CairnActorSheet} */
   static async #onItemRemoveUse(event, target) {
     event.preventDefault();
-    const row = CairnActorSheet.#row(target);
-    const item = this.actor.getOwnedItem(row?.dataset.itemId);
-    if (!item || item.system.broken) return;
-    // ONE write whether or not the tick rolls a unit over (review #13 #20),
-    // and ONE copy of the arithmetic, `CairnItem#spendUse`, which returns the
-    // diff; here it is simply written.
-    await item.update(item.spendUse());
+    const itemId = CairnActorSheet.#row(target)?.dataset.itemId;
+    await this.#queueStep(async () => {
+      const item = this.actor.getOwnedItem(itemId);
+      if (!item || item.system.broken) return;
+      // ONE write whether or not the tick rolls a unit over (review #13 #20),
+      // and ONE copy of the arithmetic, `CairnItem#spendUse`, which returns the
+      // diff; here it is simply written.
+      await item.update(item.spendUse());
+    });
   }
 
   /**
@@ -4744,9 +4821,9 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     if (this.actor.isThing) {
       // A refusal is a naming surface (review #16; review #34 finding 186):
       // the thing's sheet and title read the overlay, so the refusal does too.
-      ui.notifications.warn(game.i18n.format("CAIRN.Notify.NoFatigueOnThing", {
+      ui.notifications.warn("CAIRN.Notify.NoFatigueOnThing", { format: {
         name: actorDisplayName(this.actor),
-      }));
+      } });
       return;
     }
     await this.actor.createOwnedItem(
@@ -4758,9 +4835,9 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // way the inventory rows do. Its words say HP stays 0, so only where the
     // rule zeroes it (review #34 finding 129).
     if (this.actor.livesByPlayerRules && this.actor.isEncumbered()) {
-      ui.notifications.warn(game.i18n.format("CAIRN.Notify.Overloaded", {
+      ui.notifications.warn("CAIRN.Notify.Overloaded", { format: {
         name: game.i18n.localize("CAIRN.Fatigue"),
-      }));
+      } });
     }
   }
 
@@ -4793,33 +4870,43 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    * stepped from the STORED value. Refused while HP is derived to 0, where a
    * write would persist the rule's 0 (or a step from it) over the real value;
    * the buttons are disabled then too. No options, so a press is exactly a
-   * typed number: the same status card and change log.
+   * typed number: the same status card and change log. Presses are queued
+   * (`#queueStep`): each reads the stored value, and judges the refusal, once
+   * the press before it has landed, so three quick presses are three points.
    * @this {CairnActorSheet}
    */
   static async #onHpStep(event, target) {
     event.preventDefault();
-    if (this.#hpIsDerived) return;
-    const value = Number(this.actor._source.system?.hp?.value) || 0;
-    const max = Number(this.actor.system.hp?.max) || 0;
-    const next = Math.max(0, Math.min(max, value + (target.dataset.action === "hpUp" ? 1 : -1)));
-    if (next !== value) await this.actor.update({ "system.hp.value": next });
+    // Read at the press: the re-render replaces the button.
+    const by = target.dataset.action === "hpUp" ? 1 : -1;
+    await this.#queueStep(async () => {
+      if (this.#hpIsDerived) return;
+      const value = Number(this.actor._source.system?.hp?.value) || 0;
+      const max = Number(this.actor.system.hp?.max) || 0;
+      const next = Math.max(0, Math.min(max, value + by));
+      if (next !== value) await this.actor.update({ "system.hp.value": next });
+    });
   }
 
   /**
    * A current ability score's − and + (2026-11-20, user ask, under the
    * circle): one point from the STORED value, between 0 and max. No options,
    * so a press is a typed number — the same status card and change log, and
-   * STR 0 reaches death by the paths a typed 0 does.
+   * STR 0 reaches death by the paths a typed 0 does. Queued as HP's are
+   * (`#queueStep`).
    * @this {CairnActorSheet}
    */
   static async #onAbilityStep(event, target) {
     event.preventDefault();
     const key = target.dataset.key;
     if (!["STR", "DEX", "WIL"].includes(key)) return;
-    const value = Number(this.actor._source.system?.abilities?.[key]?.value) || 0;
-    const max = Number(this.actor.system.abilities?.[key]?.max) || 0;
-    const next = Math.max(0, Math.min(max, value + (target.dataset.action === "abilityUp" ? 1 : -1)));
-    if (next !== value) await this.actor.update({ [`system.abilities.${key}.value`]: next });
+    const by = target.dataset.action === "abilityUp" ? 1 : -1;
+    await this.#queueStep(async () => {
+      const value = Number(this.actor._source.system?.abilities?.[key]?.value) || 0;
+      const max = Number(this.actor.system.abilities?.[key]?.max) || 0;
+      const next = Math.max(0, Math.min(max, value + by));
+      if (next !== value) await this.actor.update({ [`system.abilities.${key}.value`]: next });
+    });
   }
 
   /**
@@ -5016,7 +5103,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
         maneuver: mayManeuver,
       }
     );
-    roll.toMessage({ speaker: ChatMessage.getSpeaker({ actor: this.actor }), flavor });
+    roll.toMessage({ speaker: sheetSpeaker(this.actor), flavor });
   }
 
   /* -------------------------------------------- */
@@ -5052,16 +5139,16 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     if (!this.actor.canKeepConnected) {
       // Display name, not stored: the toast must agree with the sheet title it
       // answers (the marketplace's rule for the same two keys — review #9).
-      ui.notifications.warn(game.i18n.format("CAIRN.Notify.NoNesting", { name: actorDisplayName(this.actor) }));
+      ui.notifications.warn("CAIRN.Notify.NoNesting", { format: { name: actorDisplayName(this.actor) } });
       return;
     }
     // Refuse at the ceiling BEFORE the picker, not after a choice: the dialog's
     // whole contract is that everything it offers can actually be connected.
     if (atConnectionLimit(this.actor)) {
-      ui.notifications.warn(game.i18n.format("CAIRN.Notify.ConnectionLimit", {
+      ui.notifications.warn("CAIRN.Notify.ConnectionLimit", { format: {
         name: actorDisplayName(this.actor),
         max: maxConnections(),
-      }));
+      } });
       return;
     }
     const candidates = game.actors
@@ -5134,7 +5221,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // and unlike a filter that quietly returns an empty list, this says why.
     // It covers the monster and unlinked-token cases in the same breath.
     if (!child.canBeConnected) {
-      ui.notifications.warn(game.i18n.format("CAIRN.Notify.CannotConnect", { name: actorDisplayName(child) }));
+      ui.notifications.warn("CAIRN.Notify.CannotConnect", { format: { name: actorDisplayName(child) } });
       return;
     }
     const keepers = game.actors
@@ -5318,7 +5405,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       ? d20CardFlavor(card.kind, card.ability)
       : (dataset.label ? game.i18n.format("CAIRN.RollingWhat", { what: dataset.label }) : "");
     const messageData = {
-      speaker: ChatMessage.getSpeaker({ actor: this.actor }),
+      speaker: sheetSpeaker(this.actor),
       flavor,
       content: d20CardBody(card),
     };
@@ -5391,7 +5478,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // player's Die of Fate read "Dado del destino" in every English log
     // (review #29). The flag carries a KIND and no text.
     roll.toMessage({
-      speaker: ChatMessage.getSpeaker({ actor: this.actor }),
+      speaker: sheetSpeaker(this.actor),
       flavor: game.i18n.localize("CAIRN.DieOfFate"),
       flags: { [FLAG_SCOPE]: { rollFlavor: "dieOfFate" } },
     });
@@ -5592,7 +5679,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     const base = panicked ? IMPROVISED_FORMULA : typed;
     if (!base || base.includes("@") || !Roll.validate(base)) {
       ui.notifications.warn(
-        game.i18n.format("CAIRN.Notify.WardenDamageBadFormula", { formula: base || "" }));
+        "CAIRN.Notify.WardenDamageBadFormula", { format: { formula: base || "" } });
       return;
     }
 
@@ -5653,7 +5740,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
         maneuver: mayManeuver,
       }
     );
-    roll.toMessage({ speaker: ChatMessage.getSpeaker({ actor: this.actor }), flavor });
+    roll.toMessage({ speaker: sheetSpeaker(this.actor), flavor });
   }
 
   /**
@@ -6636,9 +6723,9 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // language change, and `system.isFatigue` is derived from the same test.
     if (this.actor.isThing && originalItem.name === FATIGUE_NAME) {
       // Named as the sheet it was dropped on names it (review #34 finding 186).
-      ui.notifications.warn(game.i18n.format("CAIRN.Notify.NoFatigueOnThing", {
+      ui.notifications.warn("CAIRN.Notify.NoFatigueOnThing", { format: {
         name: actorDisplayName(this.actor),
-      }));
+      } });
       return null;
     }
 
@@ -6652,7 +6739,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
         ui.notifications.warn(
           // The ITEM being refused, named as the row the player just dragged
           // it from names it: its own owner's namespaces.
-          game.i18n.format("CAIRN.Notify.ContainerFull", { name: t(itemNamespaces(originalItem.parent).nameNs, originalItem.name) })
+          "CAIRN.Notify.ContainerFull", { format: { name: t(itemNamespaces(originalItem.parent).nameNs, originalItem.name) } }
         );
         return null;
       }
@@ -6715,9 +6802,16 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       if (originalActor && originalActor !== this.actor && created.getFlag(FLAG_SCOPE, "grantSource")) {
         patch[`flags.${FLAG_SCOPE}.grantSource`] = new foundry.data.operators.ForcedDeletion();
       }
-      // abNoStatusCard: this pin is drop machinery normalizing the fresh copy
-      // (a cross-actor transfer moves ONE unit whatever the source stack held),
-      // and the create above already posted the ledger's "Item added" line —
+      // abNoStatusCard: this pin is drop machinery normalizing the fresh copy.
+      // A DROP LANDS ONE UNIT, whatever the source stack held and WHATEVER THE
+      // SOURCE IS: another actor's stack (the decrement below takes one off
+      // it), or a world or compendium item, which is a copy. That is the unit
+      // the stack-join branch above adds (+1 for any source) and the unit
+      // `landingNeed` prices for the capacity check, so keeping a copy's stack
+      // here alone would land slots nobody priced (review #36 S5; a copy
+      // keeping its stack is an open question for the maintainer, and would
+      // need all three changed together). Unlike core, whose drop keeps it.
+      // The create above already posted the ledger's "Item added" line —
       // without the flag the update half would follow it with a "3 → 1"
       // quantity line recording a change nobody made.
       await created.update(patch, { abNoStatusCard: true });

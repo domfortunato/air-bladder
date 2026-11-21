@@ -1501,6 +1501,39 @@ export class CairnActor extends Actor {
   }
 
   /**
+   * Is the Hit Protection everyone sees a 0 the RULES put there — the load or
+   * the panic in `_prepareCharacterData` — over a stored value that isn't 0?
+   * While it is, stored HP must not be written: whatever is written is worked
+   * out from the derived 0, and the real value is gone when the load or the
+   * panic lifts (review #1, review #34 finding 46).
+   *
+   * ONE statement, read by both writers that work from the prepared value:
+   * `Damage.applyToTarget` and `modifyTokenAttribute` below (review #36). The
+   * stored value is read off the source, which for an unlinked token's
+   * synthetic actor is the token's own.
+   * @returns {boolean}
+   */
+  get hpZeroedByRule() {
+    return this.system.hp?.value === 0 && (this._source.system?.hp?.value ?? 0) !== 0;
+  }
+
+  /**
+   * The Token HUD's bar inputs write through here, and core works the new
+   * value out from the PREPARED one (`Actor#modifyTokenAttribute`). Bar 2 is
+   * Hit Protection (`secondaryTokenAttribute` in system.json), so on an
+   * overloaded or panicked actor "-2" was 0 - 2, clamped to 0 and stored over
+   * the real value, and "+2" stored 2 over it (review #36). While the 0 is the
+   * rule's, an HP entry — relative or absolute — is dropped without a write,
+   * exactly as the sheet's `_processFormData` drops its HP input. It is a raw
+   * edit, not a hit, so nothing is sent on to STR. Everything else is core's.
+   * @override
+   */
+  async modifyTokenAttribute(attribute, value, isDelta = false, isBar = true) {
+    if (attribute === "hp" && isBar && this.hpZeroedByRule) return this;
+    return super.modifyTokenAttribute(attribute, value, isDelta, isBar);
+  }
+
+  /**
    * May this actor KEEP connections? ONLY A CHARACTER (2026-08-01). The graph is
    * FLAT: every edge runs from a PC to something the PC has, and nothing else
    * keeps anything.
@@ -1621,11 +1654,11 @@ export class CairnActor extends Actor {
       // Display names in every refusal (review #9): the toast must agree with
       // the sheet titles around it. actorDisplayName gates by type, so a PC's
       // player-authored name passes through untouched.
-      ui.notifications.warn(game.i18n.format("CAIRN.Notify.NoNesting", { name: actorDisplayName(this) }));
+      ui.notifications.warn("CAIRN.Notify.NoNesting", { format: { name: actorDisplayName(this) } });
       return false;
     }
     if (!target.canBeConnected) {
-      ui.notifications.warn(game.i18n.format("CAIRN.Notify.CannotConnect", { name: actorDisplayName(target) }));
+      ui.notifications.warn("CAIRN.Notify.CannotConnect", { format: { name: actorDisplayName(target) } });
       return false;
     }
     // The pair rule that used to sit here — "an NPC never keeps a PC" — is
@@ -1648,19 +1681,19 @@ export class CairnActor extends Actor {
     // The ceiling. Stated here as well as in the pickers because this is the
     // method a DROP goes through, and a drop never saw a filtered list.
     if (atConnectionLimit(this)) {
-      ui.notifications.warn(game.i18n.format("CAIRN.Notify.ConnectionLimit", {
+      ui.notifications.warn("CAIRN.Notify.ConnectionLimit", { format: {
         name: actorDisplayName(this),
         max: maxConnections(),
-      }));
+      } });
       return false;
     }
     if (this.wouldCreateConnectionCycle(target)) {
-      ui.notifications.warn(game.i18n.format("CAIRN.Notify.ConnectionCycle", { name: actorDisplayName(target) }));
+      ui.notifications.warn("CAIRN.Notify.ConnectionCycle", { format: { name: actorDisplayName(target) } });
       return false;
     }
     if (!target.canUserModify(game.user, "update")) {
       ui.notifications.warn(
-        game.i18n.format("CAIRN.Notify.ContainerNoPermission", { name: actorDisplayName(target) })
+        "CAIRN.Notify.ContainerNoPermission", { format: { name: actorDisplayName(target) } }
       );
       return false;
     }

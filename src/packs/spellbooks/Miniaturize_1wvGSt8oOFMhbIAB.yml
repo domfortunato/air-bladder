@@ -20,7 +20,7 @@ ownership:
 system:
   description: <p>A creature you touch is shrunk down to the size of a mouse.</p>
   weightless: false
-  equipped: true
+  equipped: false
   bulky: false
   quantity: 1
 folder: null

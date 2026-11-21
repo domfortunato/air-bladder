@@ -22,7 +22,7 @@ system:
     <p>A creature develops a deep hatred of another creature or group and wishes
     to destroy them.</p>
   weightless: false
-  equipped: true
+  equipped: false
   bulky: false
   quantity: 1
 folder: null

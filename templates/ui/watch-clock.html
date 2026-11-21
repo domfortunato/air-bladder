@@ -18,13 +18,15 @@
   too.
 
   Tooltips are written to `data-bar-tooltip` and copied to core's
-  `data-tooltip` by the bar itself, which withholds them while the bar is
+  `data-tooltip-text` by the bar itself, which withholds them while the bar is
   tucked behind its lip. The WATCH tab's is the whole time in one sentence.
+  The TEXT form, never `data-tooltip`: core renders that one as HTML, and the
+  weather is whatever the Warden typed (review #36).
 --}}
 <div class="cairn-bar" aria-label="{{tooltip}}">
     <div class="cairn-bar-tabs">
         <div class="cairn-bar-tab cairn-bar-watch tone-{{watchTone}}"
-             data-bar-tooltip="{{tooltip}}" data-tooltip="{{tooltip}}" data-tooltip-direction="DOWN">
+             data-bar-tooltip="{{tooltip}}" data-tooltip-text="{{tooltip}}" data-tooltip-direction="DOWN">
             <span class="cairn-bar-face">
                 <i class="fa-solid {{watchIcon}}" aria-hidden="true"></i>
                 <span class="cairn-watch-line cairn-watch-watch">{{watchLine}}</span>
@@ -32,7 +34,7 @@
         </div>
         {{#if calendar}}
         <button type="button" class="cairn-bar-tab cairn-bar-date cairn-watch-inner tone-parchment" data-action="openCalendar"
-                data-bar-tooltip="{{dateLong}}" data-tooltip="{{dateLong}}" data-tooltip-direction="DOWN"
+                data-bar-tooltip="{{dateLong}}" data-tooltip-text="{{dateLong}}" data-tooltip-direction="DOWN"
                 aria-label="{{localize 'CAIRN.Calendar.Open'}}">
             <span class="cairn-bar-face">
                 <i class="fa-solid fa-calendar-days" aria-hidden="true"></i>
@@ -41,7 +43,7 @@
         </button>
         {{else}}
         <div class="cairn-bar-tab cairn-bar-date cairn-watch-inner tone-parchment"
-             data-bar-tooltip="{{dateLong}}" data-tooltip="{{dateLong}}" data-tooltip-direction="DOWN">
+             data-bar-tooltip="{{dateLong}}" data-tooltip-text="{{dateLong}}" data-tooltip-direction="DOWN">
             <span class="cairn-bar-face">
                 <i class="fa-solid fa-calendar-days" aria-hidden="true"></i>
                 <span class="cairn-watch-line cairn-watch-date">{{dateLine}}</span>
@@ -51,7 +53,7 @@
         {{#if seasonLine}}
         {{#if calendar}}
         <button type="button" class="cairn-bar-tab cairn-bar-season tone-{{seasonTone}}" data-action="openCalendar"
-                data-bar-tooltip="{{seasonLine}}" data-tooltip="{{seasonLine}}" data-tooltip-direction="DOWN"
+                data-bar-tooltip="{{seasonLine}}" data-tooltip-text="{{seasonLine}}" data-tooltip-direction="DOWN"
                 aria-label="{{localize 'CAIRN.Calendar.Open'}}">
             <span class="cairn-bar-face">
                 {{#if seasonIcon}}<i class="fa-solid {{seasonIcon}}" aria-hidden="true"></i>{{/if}}
@@ -60,7 +62,7 @@
         </button>
         {{else}}
         <div class="cairn-bar-tab cairn-bar-season tone-{{seasonTone}}"
-             data-bar-tooltip="{{seasonLine}}" data-tooltip="{{seasonLine}}" data-tooltip-direction="DOWN">
+             data-bar-tooltip="{{seasonLine}}" data-tooltip-text="{{seasonLine}}" data-tooltip-direction="DOWN">
             <span class="cairn-bar-face">
                 {{#if seasonIcon}}<i class="fa-solid {{seasonIcon}}" aria-hidden="true"></i>{{/if}}
                 <span class="cairn-watch-line cairn-watch-season">{{seasonLine}}</span>
@@ -73,7 +75,7 @@
           watches and weather are core Cairn; only the calendar is the hack. --}}
     {{#if weather}}
     <div class="cairn-bar-weather cairn-watch-line cairn-watch-weather tone-parchment"
-         data-bar-tooltip="{{weather}}" data-tooltip="{{weather}}" data-tooltip-direction="DOWN">
+         data-bar-tooltip="{{weather}}" data-tooltip-text="{{weather}}" data-tooltip-direction="DOWN">
         <i class="fa-solid fa-cloud-sun" aria-hidden="true"></i>
         <span>{{weather}}</span>
     </div>

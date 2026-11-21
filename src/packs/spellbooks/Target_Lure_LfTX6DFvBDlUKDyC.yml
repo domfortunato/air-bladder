@@ -20,7 +20,7 @@ ownership:
 system:
   description: <p>An object you touch becomes the target of any nearby spell.</p>
   weightless: false
-  equipped: true
+  equipped: false
   bulky: false
   quantity: 1
 folder: null

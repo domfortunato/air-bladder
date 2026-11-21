@@ -22,7 +22,7 @@ system:
     <p>Two objects are strongly magnetically repelled from each other if they
     come within 10 feet.</p>
   weightless: false
-  equipped: true
+  equipped: false
   bulky: false
   quantity: 1
 folder: null

@@ -20,7 +20,7 @@ ownership:
 system:
   description: <p>All nearby magical effects have their effectiveness halved.</p>
   weightless: false
-  equipped: true
+  equipped: false
   bulky: false
   quantity: 1
 folder: null

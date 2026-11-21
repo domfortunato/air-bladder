@@ -58,8 +58,11 @@
                                         data-dtype="Number" data-tooltip="{{ lookup ../currentTips key }}" aria-label="{{ lookup ../currentTips key }}" />
                                 </div>
                                 <div class="ability-steps">
-                                    <button type="button" class="ability-step" data-action="abilityDown" data-key="{{key}}" data-tooltip="{{ localize 'CAIRN.AbilityDown' ability=(localize key) }}" aria-label="{{ localize 'CAIRN.AbilityDown' ability=(localize key) }}"{{#if (lookup ../abilityAtFloor key)}} disabled{{else}}{{#unless @root.editable}} disabled{{/unless}}{{/if}}><i class="fas fa-minus" inert></i></button>
-                                    <button type="button" class="ability-step" data-action="abilityUp" data-key="{{key}}" data-tooltip="{{ localize 'CAIRN.AbilityUp' ability=(localize key) }}" aria-label="{{ localize 'CAIRN.AbilityUp' ability=(localize key) }}"{{#if (lookup ../abilityAtMax key)}} disabled{{else}}{{#unless @root.editable}} disabled{{/unless}}{{/if}}><i class="fas fa-plus" inert></i></button>
+                                    {{!-- id for core's focus restore, as on the Deprived box
+                                          below: a press re-renders the part, and a button with
+                                          no id loses focus to <body> (review #36 S4). --}}
+                                    <button type="button" class="ability-step" id="{{@root.idp}}-{{key}}-down" data-action="abilityDown" data-key="{{key}}" data-tooltip="{{ localize 'CAIRN.AbilityDown' ability=(localize key) }}" aria-label="{{ localize 'CAIRN.AbilityDown' ability=(localize key) }}"{{#if (lookup ../abilityAtFloor key)}} disabled{{else}}{{#unless @root.editable}} disabled{{/unless}}{{/if}}><i class="fas fa-minus" inert></i></button>
+                                    <button type="button" class="ability-step" id="{{@root.idp}}-{{key}}-up" data-action="abilityUp" data-key="{{key}}" data-tooltip="{{ localize 'CAIRN.AbilityUp' ability=(localize key) }}" aria-label="{{ localize 'CAIRN.AbilityUp' ability=(localize key) }}"{{#if (lookup ../abilityAtMax key)}} disabled{{else}}{{#unless @root.editable}} disabled{{/unless}}{{/if}}><i class="fas fa-plus" inert></i></button>
                                 </div>
                                 </div>
                                 {{!-- The max is LOCKED while CharGen is off (2026-11-20, user
@@ -147,7 +150,7 @@
                         <div class="cairn-badge-row">
                             {{!-- The shield: Shield (Sbed) slung, Shield Bash equipped, the
                                   slashed shield with none. No tooltip while live. --}}
-                            <button type="button" class="shield-hold cairn-equip-badge" data-action="toggleHold" data-hold="shield" role="switch" aria-checked="{{#if shieldSwitch.held}}true{{else}}false{{/if}}"{{#if shieldSwitch.none}} data-tooltip="{{ localize holdShieldNoneKey }}"{{/if}}{{#if (or shieldSwitch.none (not @root.editable))}} disabled{{/if}}>
+                            <button type="button" class="shield-hold cairn-equip-badge" id="{{@root.idp}}-hold-shield" data-action="toggleHold" data-hold="shield" role="switch" aria-checked="{{#if shieldSwitch.held}}true{{else}}false{{/if}}"{{#if shieldSwitch.none}} data-tooltip="{{ localize holdShieldNoneKey }}"{{/if}}{{#if (or shieldSwitch.none (not @root.editable))}} disabled{{/if}}>
                                 <span class="shield-icon" style="--shield-icon: url('{{shieldSwitch.icon}}')" inert></span>
                                 <span class="shield-label">{{shieldSwitch.label}}</span>
                                 {{#unless shieldSwitch.none}}<span class="badge-switch" inert><i class="fa-solid {{#if shieldSwitch.held}}fa-toggle-on{{else}}fa-toggle-off{{/if}}"></i></span>{{/unless}}
@@ -156,7 +159,7 @@
                                   the switch; otherwise the first carried light's own icon (a
                                   torch shows a torch). Several and none equipped: a press asks
                                   which (askWhichHeld). --}}
-                            <button type="button" class="light-hold cairn-equip-badge" data-action="toggleHold" data-hold="light" role="switch" aria-checked="{{#if lightSwitch.held}}true{{else}}false{{/if}}" data-tooltip="{{lightSwitch.tip}}"{{#if (or lightSwitch.none (not @root.editable))}} disabled{{/if}}>
+                            <button type="button" class="light-hold cairn-equip-badge" id="{{@root.idp}}-hold-light" data-action="toggleHold" data-hold="light" role="switch" aria-checked="{{#if lightSwitch.held}}true{{else}}false{{/if}}" data-tooltip="{{lightSwitch.tip}}"{{#if (or lightSwitch.none (not @root.editable))}} disabled{{/if}}>
                                 <span class="light-icon" style="--light-icon: url('{{lightSwitch.icon}}')" inert></span>
                                 <span class="light-label">{{lightSwitch.label}}</span>
                                 {{#unless lightSwitch.none}}<span class="badge-switch" inert><i class="fa-solid {{#if lightSwitch.held}}fa-toggle-on{{else}}fa-toggle-off{{/if}}"></i></span>{{/unless}}
@@ -164,7 +167,7 @@
                             </button>
                             {{!-- The book: a spellbook, a scroll or the Grimoire, one at a time;
                                   the label names the kind ("Equip scroll", "Grimoire equipped"). --}}
-                            <button type="button" class="book-hold cairn-equip-badge" data-action="toggleHold" data-hold="book" role="switch" aria-checked="{{#if bookSwitch.held}}true{{else}}false{{/if}}"{{#if bookSwitch.tip}} data-tooltip="{{bookSwitch.tip}}"{{/if}}{{#if (or bookSwitch.none (not @root.editable))}} disabled{{/if}}>
+                            <button type="button" class="book-hold cairn-equip-badge" id="{{@root.idp}}-hold-book" data-action="toggleHold" data-hold="book" role="switch" aria-checked="{{#if bookSwitch.held}}true{{else}}false{{/if}}"{{#if bookSwitch.tip}} data-tooltip="{{bookSwitch.tip}}"{{/if}}{{#if (or bookSwitch.none (not @root.editable))}} disabled{{/if}}>
                                 <span class="book-icon" style="--book-icon: url('{{bookSwitch.icon}}')" inert></span>
                                 <span class="book-label">{{bookSwitch.label}}</span>
                                 {{#unless bookSwitch.none}}<span class="badge-switch" inert><i class="fa-solid {{#if bookSwitch.held}}fa-toggle-on{{else}}fa-toggle-off{{/if}}"></i></span>{{/unless}}
@@ -195,9 +198,9 @@
                                   Off at max / 0 and while the rule derives HP to 0
                                   (hpDerived: encumbrance or panic). --}}
                             <div class="hp-label-half">
-                                <button type="button" class="hp-step" data-action="hpUp" data-tooltip="CAIRN.HpUp" aria-label="{{ localize 'CAIRN.HpUp' }}"{{#if hpAtMax}} disabled{{else if hpDerived}} disabled{{/if}}><i class="fas fa-plus" inert></i></button>
+                                <button type="button" class="hp-step" id="{{@root.idp}}-hp-up" data-action="hpUp" data-tooltip="CAIRN.HpUp" aria-label="{{ localize 'CAIRN.HpUp' }}"{{#if hpAtMax}} disabled{{else if hpDerived}} disabled{{/if}}><i class="fas fa-plus" inert></i></button>
                                 <label for="{{@root.idp}}-system.hp.value" data-tooltip="{{hpTip}}">{{ localize 'CAIRN.HitProtection' }}</label>
-                                <button type="button" class="hp-step" data-action="hpDown" data-tooltip="CAIRN.HpDown" aria-label="{{ localize 'CAIRN.HpDown' }}"{{#if hpAtFloor}} disabled{{else if hpDerived}} disabled{{/if}}><i class="fas fa-minus" inert></i></button>
+                                <button type="button" class="hp-step" id="{{@root.idp}}-hp-down" data-action="hpDown" data-tooltip="CAIRN.HpDown" aria-label="{{ localize 'CAIRN.HpDown' }}"{{#if hpAtFloor}} disabled{{else if hpDerived}} disabled{{/if}}><i class="fas fa-minus" inert></i></button>
                             </div>
                             <div class="resource-input-wrapper">
                                 <div class="hp-fill" style="width: {{hpPercent}}%"></div>

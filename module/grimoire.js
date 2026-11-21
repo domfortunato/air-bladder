@@ -429,13 +429,13 @@ export const castFromGrimoire = async (actor, { windowId } = {}) => {
     // Through the overlay, like the page names in the picker below — this
     // refusal and that list name the same book. The two dice refusals under it
     // name the CASTER and stay raw: a character's name is never localized.
-    ui.notifications.warn(game.i18n.format("CAIRN.Notify.GrimoireNoPages",
-      { name: t("item.name", book.name) }));
+    ui.notifications.warn("CAIRN.Notify.GrimoireNoPages",
+      { format: { name: t("item.name", book.name) } });
     return null;
   }
   const maxDice = magicDice(actor);
   if (maxDice < 1) {
-    ui.notifications.warn(game.i18n.format("CAIRN.Notify.GrimoireNoDice", { name: actor.name }));
+    ui.notifications.warn("CAIRN.Notify.GrimoireNoDice", { format: { name: actor.name } });
     return null;
   }
 
@@ -519,7 +519,7 @@ export const castScroll = async (actor, scroll, { windowId } = {}) => {
   }
   const maxDice = magicDice(actor);
   if (maxDice < 1) {
-    ui.notifications.warn(game.i18n.format("CAIRN.Notify.GrimoireNoDice", { name: actor.name }));
+    ui.notifications.warn("CAIRN.Notify.GrimoireNoDice", { format: { name: actor.name } });
     return null;
   }
 
@@ -609,7 +609,7 @@ export const castSpellbook = async (actor, book, { windowId } = {}) => {
   if (book?.type !== "spellbook" || book.system.scroll || book.system.bound || book.system.broken) return null;
   const maxDice = magicDice(actor);
   if (maxDice < 1) {
-    ui.notifications.warn(game.i18n.format("CAIRN.Notify.GrimoireNoDice", { name: actor.name }));
+    ui.notifications.warn("CAIRN.Notify.GrimoireNoDice", { format: { name: actor.name } });
     return null;
   }
   const picked = await askMagicDice(book, maxDice, windowId);

@@ -60,7 +60,7 @@
                             </td>
                             <td class="cairn-party-num cairn-party-tone-{{row.lightTone}}" data-col="light" data-held="{{row.held}}" data-count="{{row.lights}}" data-tone="{{row.lightTone}}">
                                 {{!-- The light's own icon (2026-11-21); lit, it is a button: the Warden's click puts it out. --}}
-                                {{#if row.held}}<button type="button" class="cairn-party-light" data-action="putOutLight" data-tooltip="{{row.lightTip}}" aria-label="{{row.lightTip}}"><span class="cairn-party-light-icon" style="--light-icon: url('{{row.lightIcon}}')" inert></span></button>{{else if row.lights}}<span class="cairn-party-light" data-tooltip="{{row.lightTip}}" aria-label="{{row.lightTip}}"><span class="cairn-party-light-icon" style="--light-icon: url('{{row.lightIcon}}')" inert></span></span>{{/if}}
+                                {{#if row.held}}<button type="button" class="cairn-party-light" data-action="putOutLight" data-tooltip="{{row.lightTip}}" aria-label="{{row.lightLabel}}"><span class="cairn-party-light-icon" style="--light-icon: url('{{row.lightIcon}}')" inert></span></button>{{else if row.lights}}<span class="cairn-party-light" data-tooltip="{{row.lightTip}}" aria-label="{{row.lightLabel}}"><span class="cairn-party-light-icon" style="--light-icon: url('{{row.lightIcon}}')" inert></span></span>{{/if}}
                             </td>
                             <td class="cairn-party-num cairn-party-tone-{{row.rationsTone}}" data-col="rations" data-tone="{{row.rationsTone}}">{{#if row.rationsTone}}<span class="cairn-party-box">{{row.rations}}</span>{{else}}{{row.rations}}{{/if}}</td>
                             {{#each row.connections as |c|}}

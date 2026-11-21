@@ -905,7 +905,7 @@ export const openTakeOver = async (name) => {
       kind.backgrounds ? planBackgroundsTakeOver() : null,
     ]);
     if (!tablePlan.ok && !bgPlan?.ok) {
-      ui.notifications.warn(game.i18n.format("CAIRN.TakeOver.PackMissing", { pack: tablePlan.pack }));
+      ui.notifications.warn("CAIRN.TakeOver.PackMissing", { format: { pack: tablePlan.pack } });
       return null;
     }
 

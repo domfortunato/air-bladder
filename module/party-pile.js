@@ -61,13 +61,31 @@ const PILE_FLAG = "droppedItemPile";
 export const PILE_DROP_FLAG = "pileDrop";
 /**
  * The query a player's client sends the active Warden to drop on their behalf
- * (`CONFIG.queries`, core's request-and-REPLY channel: `User#query`, which
- * players hold `QUERY_USER` for by default — common/constants.mjs). A socket
+ * (`CONFIG.queries`, core's request-and-REPLY channel: `User#query`). A socket
  * emit carried this until review #33; it had no reply, so `dropItemToPile`
  * answered an optimistic `true` and the Fatigue bargain was paid whether or
  * not the drop happened.
+ *
+ * IT DEPENDS ON A PERMISSION THE WARDEN CAN TAKE AWAY. `User#query` throws
+ * without `QUERY_USER` (client/documents/user.mjs), which players hold by
+ * default (common/constants.mjs `defaultRole: PLAYER`) and Configure
+ * Permissions can untick for Player and Trusted. A socket emit needed no
+ * permission; this does, so every asker tests `mayQueryWarden` first.
  */
 export const PILE_DROP_QUERY = "air-bladder.pileDrop";
+
+/**
+ * May this user send the Warden's client a query at all? Asked before every
+ * `User#query` this system makes on a player's behalf (`dropItemToPile`, and
+ * the chat cards' choice and STR-save records in cairn.js), because the throw
+ * is otherwise indistinguishable from a Warden who never answered (review #36).
+ * @return {Boolean}
+ */
+export const mayQueryWarden = () => game.user.hasPermission("QUERY_USER");
+
+/** Say that the request could not be sent, and name the permission. */
+export const sayCannotQueryWarden = () =>
+  ui.notifications.warn(game.i18n.localize("CAIRN.Pile.CannotAskWarden"));
 
 /**
  * How long a "where did you drop it" note may be (user ask: limit 25
@@ -462,6 +480,13 @@ export const dropItemToPile = async (actor, itemId, { announce = false, place = 
   const gm = game.users.activeGM;
   if (!gm) {
     ui.notifications.warn(game.i18n.localize("CAIRN.Pile.NoWarden"));
+    return false;
+  }
+  // Not allowed to ask, and SAID for the same reason (review #36): the query
+  // below would throw, and the catch would report it as a drop that "did not
+  // go through" with nothing naming the permission.
+  if (!mayQueryWarden()) {
+    sayCannotQueryWarden();
     return false;
   }
   // A REAL ANSWER (review #33). This was a socket emit that returned `true`

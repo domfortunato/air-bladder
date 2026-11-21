@@ -218,7 +218,7 @@ export const openWardenDamage = async ({ windowId } = {}) => {
   // answer rather than a workaround. This comment used to claim the opposite.
   if (!formula || formula.includes("@") || !Roll.validate(formula)) {
     ui.notifications.warn(
-      game.i18n.format("CAIRN.Notify.WardenDamageBadFormula", { formula: formula || "" }));
+      "CAIRN.Notify.WardenDamageBadFormula", { format: { formula: formula || "" } });
     return null;
   }
 

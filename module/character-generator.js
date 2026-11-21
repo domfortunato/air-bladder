@@ -1,13 +1,13 @@
 import { CairnActor } from "./actor/actor.js";
 import { rollTablePlainText, resultPlainText, findTableByName, findDeclaredTable, warmPackDocuments } from "./compendium.js";
 import { Cairn } from "./config.js";
-import { evaluateFormula, formatCount, concealSecrets } from "./utils.js";
+import { evaluateFormula, formatCount, concealSecrets, cleanDescription } from "./utils.js";
 import {
   resolveGearItem, warmGearItems, itemDataFromDocument, GEAR_ALIASES, spellScrollItem, spellbookItem,
   orderGrantedItems, isLightGear, RATIONS_RE,
   CANONICAL_GEAR_PACKS, SPELL_PACKS,
 } from "./gear.js";
-import { containerClass, iconForTransport } from "./icons.js";
+import { containerClass, containerClassRole, iconForTransport } from "./icons.js";
 import { connectionHeadroom, maxConnections, connectedOwnershipShape, brokenOwnershipShape, keepOthersOwners,
   ownersGivenBy, OWNERSHIP_SYNC_FLAG } from "./connections.js";
 import { SETTINGS_NS } from "./settings.js";
@@ -756,7 +756,7 @@ export const rollGold = async (formula) => evaluateFormula(formula);
 export const rollAge = async (fallback) => {
   const { formula, configured, usable } = effectiveAgeFormula(fallback);
   if (!usable && configured) {
-    ui.notifications.warn(game.i18n.format("CAIRN.Notify.BadAgeFormula", { formula: configured }));
+    ui.notifications.warn("CAIRN.Notify.BadAgeFormula", { format: { formula: configured } });
   }
   return (await evaluateFormula(formula)).total;
 };
@@ -876,7 +876,7 @@ export const effectivePcGoldFormula = () => pcTierFormula("pc-gold-dice");
 export const rollPcHitProtection = async () => {
   const { formula, configured, usable } = effectivePcHpFormula();
   if (!usable && configured) {
-    ui.notifications.warn(game.i18n.format("CAIRN.Notify.BadPcHpFormula", { formula: configured }));
+    ui.notifications.warn("CAIRN.Notify.BadPcHpFormula", { format: { formula: configured } });
   }
   return rollHitProtection(formula);
 };
@@ -1500,7 +1500,10 @@ const containerKindFor = (name) => (/\b(wagon|cart|sled|sledge)\b/i.test(name) ?
  * Each container is flagged with the question that granted it, so a re-roll or a
  * regenerate can delete exactly those and leave bought/manual containers alone.
  * @param {CairnActor} actor
- * @param {Object[]} specs  {name, slots, grantSource, load?, carried_by?}
+ * @param {Object[]} specs  {name, slots, grantSource, load?, carried_by?}; a spec
+ *   may carry its own `_id`, which the made actor then keeps, so a caller can
+ *   find each one by id. The return is in the order the server finished each
+ *   document, never the order of `specs`: nothing may index into it.
  * @returns {Promise<CairnActor[]>}  the containers created
  */
 export const grantContainers = async (actor, specs) => {
@@ -1521,15 +1524,15 @@ export const grantContainers = async (actor, specs) => {
   // can only console.warn on a client the player is not looking at.
   const headroom = connectionHeadroom(actor);
   if (headroom <= 0) {
-    ui.notifications.warn(game.i18n.format("CAIRN.Notify.ConnectionLimit", { name: actor.name, max: maxConnections() }));
+    ui.notifications.warn("CAIRN.Notify.ConnectionLimit", { format: { name: actor.name, max: maxConnections() } });
     return [];
   }
   if (specs.length > headroom) {
-    ui.notifications.warn(game.i18n.format("CAIRN.Notify.ConnectionLimitPartial", {
+    ui.notifications.warn("CAIRN.Notify.ConnectionLimitPartial", { format: {
       name: actor.name,
       max: maxConnections(),
       count: specs.length - headroom,
-    }));
+    } });
     specs = specs.slice(0, headroom);
   }
   // The Mounts & Transports ACTOR pack, not the legacy transport Item pack. The
@@ -1561,13 +1564,37 @@ export const grantContainers = async (actor, specs) => {
     const pool = customPoolFor("companion");
     return pool.length ? pool[Math.floor(Math.random() * pool.length)] : null;
   };
+  // A spec that states its own `role` (a Kettlewright pet is a companion
+  // whatever the player called it) is held to it all the way down (review #36
+  // S14). Only `role` used to honour it, so a pet named "Cart Horse" was a
+  // companion stored with the cart's Kind and wearing the cart's icon, and
+  // "Chestnut" the chest's:
+  //   - a pack document of the same name is taken only when its role agrees;
+  //   - the kind comes from the role, not the name, so the `companion/` art
+  //     folder is reached for every stated companion;
+  //   - the Kind read off the name is kept only when its own role is the
+  //     stated one (the rule CairnActor#_preCreate holds a hand-made actor
+  //     to). Otherwise the pet takes what a name with no keyword at all
+  //     takes, the kind's own default (a companion's is the horse); and if
+  //     even that disagrees the Kind is left blank.
+  // The icon is the decided Kind's, never a second reading of the name.
+  const KIND_OF_ROLE = { companion: "mount", transport: "vehicle", container: "worn" };
   const resolve = (spec) => {
-    const doc = docs.find((d) => d.name.toLowerCase() === String(spec.name).toLowerCase());
-    const kind = doc ? (doc.system.role === "companion" ? "mount" : "vehicle") : containerKindFor(spec.name);
+    const named = docs.find((d) => d.name.toLowerCase() === String(spec.name).toLowerCase());
+    const doc = named && (!spec.role || named.system.role === spec.role) ? named : undefined;
+    const kind = doc ? (doc.system.role === "companion" ? "mount" : "vehicle")
+      : (KIND_OF_ROLE[spec.role] ?? containerKindFor(spec.name));
+    let cls = doc?.system.containerClass || containerClass(spec.name, kind);
+    if (!doc && spec.role && containerClassRole(cls) !== spec.role) {
+      cls = containerClass("", kind);
+      if (containerClassRole(cls) !== spec.role) cls = "";
+    }
+    // Null when a stated role left the Kind blank: the payload then carries no
+    // art, and CairnActor#_preCreate and Foundry's default decide it.
     const art = doc?.img
       ?? (kind === "mount" ? companionArt() : null)
-      ?? iconForTransport(spec.name, kind);
-    return { doc, kind, art };
+      ?? (cls ? iconForTransport(spec.name, kind, cls) : null);
+    return { doc, kind, art, cls };
   };
 
   /* A granted beast or vehicle is ALWAYS an Actor now.
@@ -1591,23 +1618,24 @@ export const grantContainers = async (actor, specs) => {
   // A spec may also carry its own `role`, `img`, `description`, `hp`,
   // `abilities` and `armorOverride`, each winning over the pack document and
   // the inference: the Kettlewright importer hands over a pet that way
-  // (2026-11-20), a creature whose stat block travelled with it and whose
-  // name must not be read as a vehicle ("Cart Horse").
+  // (2026-11-20), a creature whose stat block travelled with it. A stated
+  // role also decides the Kind and the art, in `resolve` above: the name
+  // "Cart Horse" makes neither a vehicle nor a cart.
   const entries = specs.map((spec) => {
-    const { doc, kind, art } = resolve(spec);
+    const { doc, kind, art, cls } = resolve(spec);
     return {
-      spec, doc, kind, art: spec.img || art,
-      cls: doc?.system.containerClass || containerClass(spec.name, kind),
+      spec, doc, kind, art: spec.img || art, cls,
       role: spec.role ?? doc?.system.role
         ?? ({ mount: "companion", vehicle: "transport", worn: "container", pile: "container" }[kind] ?? "companion"),
     };
   });
   const payloads = entries.map(({ spec, doc, art, cls, role }) => {
     return {
+      // The caller's own id (mintPets), kept by `keepId` below.
+      ...(spec._id ? { _id: spec._id } : {}),
       type: "npc",
       name: spec.name,
-      img: art,
-      prototypeToken: { texture: { src: art } },
+      ...(art ? { img: art, prototypeToken: { texture: { src: art } } } : {}),
       system: {
         connectedTo: actor.uuid,
         slots: spec.slots ?? doc?.system.slots ?? 0,
@@ -1655,7 +1683,11 @@ export const grantContainers = async (actor, specs) => {
   // create+update loop that dies midway leaves the first mule connected and
   // owned while the cart never comes into being — a partially-granted
   // background with nothing naming the missing half.
-  const made = (await CairnActor.createDocuments(payloads)).filter(Boolean);
+  // `keepId` only so a payload that brought its own `_id` keeps it; the rest
+  // are given theirs by the server as ever. The result is in the order the
+  // server finished each document, not the order of `payloads` (review #36
+  // S13), and everything below reads it as a set.
+  const made = (await CairnActor.createDocuments(payloads, { keepId: payloads.some((p) => p._id) })).filter(Boolean);
   if (!made.length) return made;
   // The CONNECTED ownership shape, not the old wholesale copy — same change
   // as the till's (marketplace.js). GM-only for the same reason as ever:
@@ -3358,7 +3390,12 @@ export const promptBackground = async (source, currentUuid = null, { windowId } 
       // Secret blocks off for a viewer who does not own the background (review
       // #34 finding 126) — a player choosing, from a Warden's world pack.
       // backgroundDescriptionText: the second-bond sentence goes while bonds are off.
-      descs[bg.uuid] = concealSecrets(backgroundDescriptionText(bg), bg.isOwner);
+      // Cleaned LAST (review #36 S34): this string is written into the panel
+      // after the dialog has rendered, so DialogV2's own cleaning never sees
+      // it, and the panel sits inside the dialog's form. A stored
+      // `<input type="radio" name="bg" checked>` took the check from the row
+      // that was clicked; cleanDescription strips `name` and `data-action`.
+      descs[bg.uuid] = cleanDescription(concealSecrets(backgroundDescriptionText(bg), bg.isOwner));
       // A disabled row cannot be checked — including the pre-check on the
       // character's current background, which Random takes instead (above).
       const isOff = off.has(bg.id);
@@ -3449,9 +3486,16 @@ export const promptBackground = async (source, currentUuid = null, { windowId } 
         if (r.checked) update(r.value);
       });
     });
-  }).then(async (choice) => {
+  }).then((choice) => {
     if (!choice) return false;
-    return { bg: choice === BG_RANDOM ? null : await fromUuid(choice) };
+    if (choice === BG_RANDOM) return { bg: null };
+    // Answered from the list the dialog was built from, never by resolving
+    // whatever uuid the form held (review #36 S34): a value that is on no
+    // row, or on a row a Warden has switched off (read again now, because an
+    // eye may have been pressed since the dialog opened), chooses nothing.
+    const offNow = source === "2e" ? disabledBackgroundIds() : off;
+    const picked = all.find((b) => b.uuid === choice && !offNow.has(b.id));
+    return picked ? { bg: picked } : false;
   });
 };
 

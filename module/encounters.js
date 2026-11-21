@@ -361,6 +361,15 @@ const spawnTokens = async (actor, count, start) => {
   const scene = canvas.scene;
   const gs = scene.grid.size;
   const c = canvas.stage.pivot;
+  // NUMBERED TOKENS ARE CREATED ONE AT A TIME (review #36). Core's appendNumber
+  // picks the lowest number not in use among the actor's tokens ALREADY ON THE
+  // SCENE (`Actor#getTokenDocument`), and a token document it returns is not on
+  // the scene until it is created. Built as one batch, every token of a row saw
+  // the same scene and took the same number: six "Goblin (1)". Core tests the
+  // PROTOTYPE's own actorLink before numbering, so that is the one read here,
+  // not the actorLink:false forced below.
+  const proto = actor.prototypeToken;
+  const numbered = count > 1 && !!proto?.appendNumber && !proto.actorLink;
   const docs = [];
   for (let i = 0; i < count; i++) {
     const [dx, dy] = clusterOffset(start + i);
@@ -370,8 +379,8 @@ const spawnTokens = async (actor, count, start) => {
     // prependAdjective — which a raw toObject() ships literally (a broken
     // wildcard src, an unnumbered name). It also stamps actorId and merges this
     // data LAST, so the forced NEUTRAL disposition and actorLink:false still win.
-    // Latent only because no shipped monster sets those prototype flags; live
-    // the moment a Warden does.
+    // No shipped monster sets those prototype flags; a Warden may. The scene is
+    // passed as the parent because that is whose tokens the numbering reads.
     //
     // ON THE LEVEL BEING VIEWED (review #34 finding 89). With no `level`, the
     // token schema files it on the scene's INITIAL level, so on a multi-level
@@ -386,12 +395,13 @@ const spawnTokens = async (actor, count, start) => {
       ...(Number.isFinite(level?.elevation?.base) ? { elevation: level.elevation.base } : {}),
       actorLink: false,
       disposition: CONST.TOKEN_DISPOSITIONS.NEUTRAL,
-    });
-    docs.push(tokenDoc.toObject());
+    }, { parent: scene });
+    if (numbered) await scene.createEmbeddedDocuments("Token", [tokenDoc.toObject()]);
+    else docs.push(tokenDoc.toObject());
   }
-  // Batched create; the result is ID-ordered, never input-ordered, so nothing
-  // downstream may index into it.
-  await scene.createEmbeddedDocuments("Token", docs);
+  // Batched create for everything unnumbered; the result is ID-ordered, never
+  // input-ordered, so nothing downstream may index into it.
+  if (docs.length) await scene.createEmbeddedDocuments("Token", docs);
   return count;
 };
 
@@ -469,7 +479,7 @@ export const spawnEncounterFromMessage = async (message) => {
       } else {
         const actor = await resolveWorldActor(spec.uuid);
         if (!actor) {
-          ui.notifications.warn(game.i18n.format("CAIRN.Notify.EncounterActorMissing", { uuid: spec.uuid }));
+          ui.notifications.warn("CAIRN.Notify.EncounterActorMissing", { format: { uuid: spec.uuid } });
           continue;
         }
         placed += await spawnTokens(actor, count, placed);
@@ -483,9 +493,9 @@ export const spawnEncounterFromMessage = async (message) => {
     if (placedNames.length) {
       // Localized join, same reason as specList above: this list is dropped
       // into a translated sentence, so its separator has to be translated too.
-      ui.notifications.info(game.i18n.format("CAIRN.Notify.EncounterPlaced", {
+      ui.notifications.info("CAIRN.Notify.EncounterPlaced", { format: {
         what: game.i18n.getListFormatter().format(placedNames), scene: canvas.scene.name,
-      }));
+      } });
     }
     return placed;
   } catch (err) {

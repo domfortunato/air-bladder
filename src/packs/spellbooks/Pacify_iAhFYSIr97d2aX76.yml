@@ -20,7 +20,7 @@ ownership:
 system:
   description: <p>A creature near you has an aversion to violence.</p>
   weightless: false
-  equipped: true
+  equipped: false
   bulky: false
   quantity: 1
 folder: null

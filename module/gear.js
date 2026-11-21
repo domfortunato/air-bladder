@@ -25,8 +25,9 @@ import { warmPackDocuments } from "./compendium.js";
 
 import { iconForItem, SPELLSCROLL_ICON, SPELLBOOK_ICON } from "./icons.js";
 import { glogEnabled, grimoiresEnabled, GLOG_PACK, GLOG_SPELL_PACKS, GLOG_NAME_ALIASES } from "./glog.js";
-import { isBulky, handsFullHack } from "./utils.js";
+import { isBulky, handsFullHack, concealmentWhisper } from "./utils.js";
 import { lightSource, lightSourceKey } from "./light-sources.js";
+import { t, speakerDisplayName, MONSTER_ITEM_NAMESPACES, ITEM_NAMESPACES } from "./i18n-content.js";
 
 // Packs searched to resolve a gear name, in precedence order — an earlier pack
 // wins a name collision. Spellbook packs are separate (spell grants route there).
@@ -231,9 +232,13 @@ export const isHeldBook = (item) => isHoldableBook(item) && item.system?.equippe
 /**
  * Does an item have a use to spend? An item that doesn't count uses (max 0)
  * is never used up: a Lantern, a homebrew lamp, an Oil Can nobody numbered.
+ * A STACK standing at 0 with another unit to hand has one too (review #36):
+ * `CairnItem#spendUse` opens the next unit, as the row's minus does.
  * @param {Item} item
  */
-const hasUseLeft = (item) => !(Number(item?.system?.uses?.max) > 0) || Number(item?.system?.uses?.value) > 0;
+const hasUseLeft = (item) => !(Number(item?.system?.uses?.max) > 0)
+  || Number(item?.system?.uses?.value) > 0
+  || Number(item?.system?.quantity) > 1;
 
 /** Does the item count its uses at all? */
 const countsUses = (item) => Number(item?.system?.uses?.max) > 0;
@@ -260,60 +265,153 @@ const needsFuel = (item) => lightSourceKey(item?.name) === "Lantern";
 
 /**
  * Why this light can't be lit right now, as a warning to show, or null when
- * it can: a light whose uses are spent, or the Lantern with no fuel.
+ * it can: a light whose uses are spent, or the Lantern with no fuel. It comes
+ * back as a KEY and its values, shown with
+ * `ui.notifications.warn(why.key, { format: why.format })`, never as a
+ * finished sentence: core escapes each value and leaves a known key alone,
+ * where a sentence handed over already formatted is cleaned WHOLE as HTML and
+ * a name with an angle bracket in it cuts the toast short (review #36). The
+ * `preUpdateItem` hook (`registerHeldLightSync`) enforces it for every route;
+ * a caller that sends the light in ONE write with something else asks first
+ * (the row's hand, `#onItemToggleEquipped`: review #36).
  * @param {Item} item
- * @returns {String|null}
+ * @returns {{key: String, format: Object}|null}
  */
-const lightingRefusal = (item) => {
+export const lightingRefusal = (item) => {
   const npc = item.parent?.type !== "character";
   const name = item.name;
-  if (!hasUseLeft(item)) return game.i18n.format(npc ? "CAIRN.LightUsedUpNpc" : "CAIRN.LightUsedUp", { name });
+  if (!hasUseLeft(item)) return { key: npc ? "CAIRN.LightUsedUpNpc" : "CAIRN.LightUsedUp", format: { name } };
   if (needsFuel(item) && !lanternFuel(item.parent)) {
-    return game.i18n.format(npc ? "CAIRN.LanternNoFuelNpc" : "CAIRN.LanternNoFuel", { name });
+    return { key: npc ? "CAIRN.LanternNoFuelNpc" : "CAIRN.LanternNoFuel", format: { name } };
   }
   return null;
 };
 
 /**
- * Post the public light card (2026-11-21, user pick: a notice to everyone
- * when a light is lit and when it goes out). Its own container class,
- * `cairn-light-card`, so a probe can pick it out of a busy chat log.
- * @param {Actor} actor
- * @param {String} text  already formatted, names escaped
+ * The light card's kinds: which sentence each one is, and what it needs. A
+ * kind that counts picks its singular key from `n` when it is worded.
  */
-const postLightCard = (actor, text) => ChatMessage.create({
-  speaker: ChatMessage.getSpeaker({ actor }),
-  content: `<div class="cairn-light-card"><p>${text}</p></div>`,
-});
+const LIGHT_CARD_KINDS = {
+  lit: { key: () => "CAIRN.LightCard.Lit" },
+  litUses: { key: (n) => (n === 1 ? "CAIRN.LightCard.LitUse" : "CAIRN.LightCard.LitUses"), counts: true },
+  litFuel: { key: (n) => (n === 1 ? "CAIRN.LightCard.LitFuelOne" : "CAIRN.LightCard.LitFuel"), counts: true, fuel: true },
+  litFuelFree: { key: () => "CAIRN.LightCard.LitFuelFree", fuel: true },
+  out: { key: () => "CAIRN.LightCard.Out" },
+  wardenOut: { key: () => "CAIRN.LightCard.WardenOut" },
+};
+
+/**
+ * The card's sentence, as plain text, from the record its flag carries: the
+ * ONE wording both the stored body and the per-viewer rebuild go through.
+ * Null for a record that isn't one: the kind is looked up with hasOwn (a
+ * crafted "constructor" finds no kind), the names must be strings and a
+ * counting kind's `n` a finite number.
+ * @param {Object} data          { k, actor, light, fuel, n, m }
+ * @param {String} [actorName]   the actor as this viewer names it
+ * @returns {String|null}
+ */
+const lightCardText = (data, actorName = data?.actor) => {
+  if (!data || typeof data !== "object" || typeof data.k !== "string" || !Object.hasOwn(LIGHT_CARD_KINDS, data.k)) return null;
+  const kind = LIGHT_CARD_KINDS[data.k];
+  if (typeof actorName !== "string" || typeof data.light !== "string") return null;
+  if (kind.fuel && typeof data.fuel !== "string") return null;
+  const n = Number(data.n);
+  if (kind.counts && (typeof data.n !== "number" || !Number.isFinite(n))) return null;
+  // A light's name as its inventory row shows it: a monster's items are read
+  // under its own namespaces first (`itemNamespaces`).
+  const ns = (data.m === true ? MONSTER_ITEM_NAMESPACES : ITEM_NAMESPACES).nameNs;
+  return game.i18n.format(kind.key(n), {
+    actor: actorName,
+    light: t(ns, data.light),
+    fuel: kind.fuel ? t(ns, data.fuel) : "",
+    n: kind.counts ? n : "",
+  });
+};
+
+/**
+ * Rebuild a light card's sentence in THIS viewer's language and names
+ * (renderChatMessageHTML; review #36). The stored body is the acting client's
+ * and stays as the fallback: a card from before the flag, or one whose record
+ * doesn't hold up, keeps it. The light and the fuel read through the content
+ * overlay, as their inventory rows do; the actor as the card's header names
+ * it (`speakerDisplayName`: a player's character is never localized).
+ * `textContent`, never innerHTML: every name in it is authored text.
+ * @param {ChatMessage} message
+ * @param {HTMLElement} html
+ * @returns {boolean} whether the sentence was rebuilt
+ */
+export const localizeLightCard = (message, html) => {
+  // Hidden stays hidden: the rule every rebuild in this hook follows.
+  if (!message?.isContentVisible) return false;
+  const data = message?.getFlag?.("air-bladder", "lightCard");
+  if (!data || typeof data !== "object" || typeof data.actor !== "string") return false;
+  const p = html.querySelector(".cairn-light-card > p");
+  if (!p) return false;
+  const text = lightCardText(data, speakerDisplayName(message, data.actor));
+  if (text === null) return false;
+  p.textContent = text;
+  return true;
+};
+
+/**
+ * Post the light card (2026-11-21, user pick: a notice to everyone when a
+ * light is lit and when it goes out). Its own container class,
+ * `cairn-light-card`, so a probe can pick it out of a busy chat log.
+ *
+ * The body is this client's sentence; the flag carries the KIND and the
+ * stored English names, and `localizeLightCard` rebuilds the sentence for
+ * each viewer (review #36).
+ *
+ * PUBLIC UNLESS THE TOKEN IS CONCEALED (review #36): a hidden or secret
+ * token's creature lighting a lantern isn't table news, so the card goes to
+ * whoever may name the token (`concealmentWhisper`, as the status card). The
+ * token is a synthetic actor's own, or for a linked actor the one on the
+ * scene this client is viewing, the same token `holdLight` lights. With no
+ * token there the card stays public.
+ * @param {Actor} actor
+ * @param {Object} record  { k, light, fuel, n }: the kind and English names
+ */
+const postLightCard = (actor, record) => {
+  const data = { ...record, actor: actor.name };
+  if (actor.npcRole === "monster") data.m = true;
+  const text = lightCardText(data);
+  if (text === null) return null;
+  const messageData = {
+    speaker: ChatMessage.getSpeaker({ actor }),
+    content: `<div class="cairn-light-card"><p>${foundry.utils.escapeHTML(text)}</p></div>`,
+    flags: { "air-bladder": { lightCard: data } },
+  };
+  const whisper = concealmentWhisper(actor.token ?? actor.getActiveTokens?.(false, true)?.[0] ?? null);
+  if (whisper) messageData.whisper = whisper;
+  return ChatMessage.create(messageData);
+};
 
 /**
  * Light it: spend the light's own use, or the Lantern's fuel, then tell the
- * table. The spend is a write of its own with `abNoStatusCard`, so the change
- * log doesn't repeat what the card says.
+ * table. The spend is `CairnItem#spendUse`, the row's minus control's own
+ * arithmetic (review #36), so a stack rolls over to its next unit; the card's
+ * count is the open unit's, as the row shows it. It is a write of its own
+ * with `abNoStatusCard`, so the change log doesn't repeat what the card says.
  * @param {Item} item
  * @param {Object} options  the update's options (abNoStatusCard: no card)
  */
 const lightIt = async (item, options) => {
   const actor = item.parent;
-  const esc = foundry.utils.escapeHTML;
-  const names = { actor: esc(actor.name), light: esc(item.name) };
-  let text;
+  const spend = async (it) => {
+    const diff = it.spendUse();
+    await it.update(diff, { abNoStatusCard: true });
+    return diff["system.uses.value"];
+  };
+  let record;
   if (needsFuel(item)) {
     const fuel = lanternFuel(actor);
-    if (fuel && countsUses(fuel)) {
-      const n = Math.max(0, Number(fuel.system.uses.value) - 1);
-      await fuel.update({ "system.uses.value": n }, { abNoStatusCard: true });
-      text = game.i18n.format(n === 1 ? "CAIRN.LightCard.LitFuelOne" : "CAIRN.LightCard.LitFuel", { ...names, fuel: esc(fuel.name), n });
-    } else if (fuel) {
-      text = game.i18n.format("CAIRN.LightCard.LitFuelFree", { ...names, fuel: esc(fuel.name) });
-    }
+    if (fuel && countsUses(fuel)) record = { k: "litFuel", light: item.name, fuel: fuel.name, n: await spend(fuel) };
+    else if (fuel) record = { k: "litFuelFree", light: item.name, fuel: fuel.name };
   } else if (countsUses(item)) {
-    const n = Math.max(0, Number(item.system.uses.value) - 1);
-    await item.update({ "system.uses.value": n }, { abNoStatusCard: true });
-    text = game.i18n.format(n === 1 ? "CAIRN.LightCard.LitUse" : "CAIRN.LightCard.LitUses", { ...names, n });
+    record = { k: "litUses", light: item.name, n: await spend(item) };
   }
-  text ??= game.i18n.format("CAIRN.LightCard.Lit", names);
-  if (!options?.abNoStatusCard) await postLightCard(actor, text);
+  record ??= { k: "lit", light: item.name };
+  if (!options?.abNoStatusCard) await postLightCard(actor, record);
 };
 
 /**
@@ -327,10 +425,8 @@ const lightIt = async (item, options) => {
 const putItOut = async (item, options) => {
   if (options?.abNoStatusCard) return;
   const actor = item.parent;
-  const esc = foundry.utils.escapeHTML;
-  const names = { actor: esc(actor.name), light: esc(item.name) };
-  const key = game.user.isGM && actor.hasPlayerOwner ? "CAIRN.LightCard.WardenOut" : "CAIRN.LightCard.Out";
-  await postLightCard(actor, game.i18n.format(key, names));
+  const k = game.user.isGM && actor.hasPlayerOwner ? "wardenOut" : "out";
+  await postLightCard(actor, { k, light: item.name });
 };
 
 /** Can Torch light it: a name it knows (the radius table it shares). A spent
@@ -358,15 +454,18 @@ export const registerHeldLightSync = () => {
     if (isHoldableLight(item) && item.parent) {
       // Lighting it (2026-11-21): a spent light, or the Lantern with no fuel,
       // is refused here, on the client making the change, whatever route
-      // asked (the badge, a row's hand, the Warden). The rest of that write
-      // goes through.
+      // asked (the badge, a row's hand, the Warden). Core refuses THIS item
+      // only and writes the rest of the batch, so a caller that stows the
+      // burning light in the same write asks `lightingRefusal` first, as the
+      // row's hand does (review #36): otherwise the stow lands and nothing
+      // is lit.
       const lighting = !isHeldLight(item)
         && foundry.utils.getProperty(changes, "system.equipped") === true
         && !(foundry.utils.getProperty(changes, "system.broken") ?? item.system?.broken);
       if (lighting) {
         const why = lightingRefusal(item);
         if (why) {
-          ui.notifications.warn(why);
+          ui.notifications.warn(why.key, { format: why.format });
           return false;
         }
       }

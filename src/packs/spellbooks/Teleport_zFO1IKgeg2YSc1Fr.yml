@@ -22,7 +22,7 @@ system:
     <p>An object or person you can see is transported from one place to another
     in a 50ft radius.</p>
   weightless: false
-  equipped: true
+  equipped: false
   bulky: false
   quantity: 1
 folder: null

@@ -26,6 +26,8 @@ Moved word for word from CLAUDE.md (2026-11-01); CLAUDE.md points here.
 - **The move runs on the active GM** via `User#query`
   (`CONFIG.queries["air-bladder.pileDrop"]`); trust only the server-authenticated
   user; GM checks the sender owns the source. No GM → refuse and say so.
+  `User#query` throws without `QUERY_USER`, which a Warden can untick for players:
+  ask `mayQueryWarden` first and name the permission (`CAIRN.Pile.CannotAskWarden`).
 - **Claim id is a fresh `randomID` per gesture** (`claimId`), never the item's id.
   Pile first, then delete from the sheet. A sibling-session `false` → check whether
   `claimId` landed.

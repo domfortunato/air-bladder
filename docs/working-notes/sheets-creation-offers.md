@@ -114,6 +114,11 @@ Moved word for word from CLAUDE.md (2026-11-01); CLAUDE.md points here.
   point from the stored value, 0 to max; both off while encumbrance or panic
   derives HP to 0 (`#hpIsDerived`, the one statement `_processFormData`'s
   strip reads too). Tooltips "Gain 1 HP" / "Lose 1 HP".
+- Step presses are queued per sheet (`#queueStep`, review #36 S3): HP's and
+  the abilities' + and −, and a row's use + and −. The stored value only moves
+  when the server answers, so two quick presses used to send the same write
+  and one was lost. Each of those buttons also carries a per-window id, or
+  core's focus restore drops focus to the body on every press (S4).
 - Gate `dev:sheet-rail`.
 - Hold shield (user ask, 2026-11-20): an armor item ticked **Shield**
   (`system.shield`, default false; the shipped Shield, Hacked Shield and
@@ -306,6 +311,14 @@ Moved word for word from CLAUDE.md (2026-11-01); CLAUDE.md points here.
   card. "The Lantern" is `lightSourceKey` === "Lantern", never the Wisp
   Lantern. The Torch file marks nothing consumable, so Torch never spends a
   second use. Gate `dev:light-uses`.
+  Review #36: the spend is `CairnItem#spendUse` (a stack rolls over, and
+  `hasUseLeft` counts a stack at 0 with a unit to spare); the card carries
+  `flags.air-bladder.lightCard` (kind + English names) and
+  `localizeLightCard` rebuilds its sentence per viewer; it is whispered when
+  the token is concealed (`concealmentWhisper`: a synthetic actor's token,
+  or a linked actor's token on the viewed scene); and the row's hand asks
+  `lightingRefusal` BEFORE its batch, because core drops only the refused
+  item and the stow of the burning light would still land.
 - The Inventory hint's icon is a lightbulb (2026-11-21, user ask), and the
   row's broken-shield icon is centred on the 26px line (it sat 5.25px high;
   `dev:broken` leg 17).
@@ -342,3 +355,8 @@ Moved word for word from CLAUDE.md (2026-11-01); CLAUDE.md points here.
   nobody ELSE could answer (`answerersFor`, which folds `ownership.default`).
   Unlinked tokens can give; missing giver reads `CAIRN.Offer.HiddenGiver`, never
   `speaker.alias`. Picker's checked radio follows its filter.
+- One row may sit on several open cards. Each accept holds a unit of the row for
+  its hand-off (`holdGiverUnit`, in memory, taken before the first await); an
+  accept the stock can't cover is answered `busy`. `removeGiverHalf` runs one at a
+  time per row and `settled` is written only when a unit came off. Not closed: a
+  Warden's local fast path racing a player's accept through the giver.

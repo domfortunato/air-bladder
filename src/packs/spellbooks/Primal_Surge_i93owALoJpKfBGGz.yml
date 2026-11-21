@@ -20,7 +20,7 @@ ownership:
 system:
   description: <p>An creature rapidly evolves into a future version of its species.</p>
   weightless: false
-  equipped: true
+  equipped: false
   bulky: false
   quantity: 1
 folder: null

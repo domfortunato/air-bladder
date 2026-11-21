@@ -22,7 +22,7 @@ system:
     <p>A character’s appearance and voice becomes identical to those of a
     character you touch.</p>
   weightless: false
-  equipped: true
+  equipped: false
   bulky: false
   quantity: 1
 folder: null

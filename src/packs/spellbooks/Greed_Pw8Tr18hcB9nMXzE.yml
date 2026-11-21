@@ -22,7 +22,7 @@ system:
     <p>A creature develops an overwhelming urge to possess a visible item of
     your choice.</p>
   weightless: false
-  equipped: true
+  equipped: false
   bulky: false
   quantity: 1
 folder: null

@@ -22,7 +22,7 @@ system:
     <p>A silver circle 50ft across appears on the ground. Choose one species
     that cannot cross it.</p>
   weightless: false
-  equipped: true
+  equipped: false
   bulky: false
   quantity: 1
 folder: null

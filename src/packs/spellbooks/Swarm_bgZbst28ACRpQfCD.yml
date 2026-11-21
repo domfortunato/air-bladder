@@ -22,7 +22,7 @@ system:
     <p>You become a swarm of crows, rats, or piranhas. You can only be harmed by
     blast attacks.</p>
   weightless: false
-  equipped: true
+  equipped: false
   bulky: false
   quantity: 1
 folder: null

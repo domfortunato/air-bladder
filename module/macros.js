@@ -45,7 +45,16 @@ export const createCairnMacro = async (data, slot) => {
     return ui.notifications.warn(game.i18n.localize("CAIRN.Macro.WeaponsOnly"));
   }
 
-  const command = `game.cairn.rollItemMacro("${actor.id}", "${item.id}");`;
+  // AN UNLINKED TOKEN'S WEAPON IS KEYED BY ITS UUID (review #36). A synthetic
+  // actor keeps its BASE actor's id and isn't in game.actors, so the two-id
+  // command rolled the world actor's copy — the token's own damage die and its
+  // Panicked box ignored — or said the item was gone when the weapon was the
+  // token's alone. The uuid runs through the scene and the token, and
+  // rollItemMacro resolves it. A world actor keeps the two-id form, so macros
+  // already on a bar are still found and reused below.
+  const command = actor.isToken
+    ? `game.cairn.rollItemMacro("${item.uuid}");`
+    : `game.cairn.rollItemMacro("${actor.id}", "${item.id}");`;
   // ONLY A MACRO THIS USER AUTHORED is reused (review #34 finding 154, a
   // security fix). Every world macro reaches every client, a macro's author may
   // rewrite its command, and assignHotbarMacro checks nothing — so matching on
@@ -72,21 +81,53 @@ export const createCairnMacro = async (data, slot) => {
 };
 
 /**
- * @param {string} actorId
- * @param {string} itemId
+ * A document by uuid, or null — a uuid whose scene or token is gone must read
+ * as "no longer exists", never as a throw out of a hotbar click.
+ * @param {string} uuid
+ * @return {Promise.<Document|null>}
+ */
+const resolveUuid = async (uuid) => {
+  try {
+    return (await fromUuid(uuid)) ?? null;
+  } catch {
+    return null;
+  }
+};
+
+/**
+ * The roll a weapon's hotbar button makes. Two forms, as `createCairnMacro`
+ * writes them: a world actor's id and the item's id, or — with no second
+ * argument — the uuid of an unlinked token's item, whose actor is the token's
+ * synthetic one and can't be found by id.
+ * @param {string} actorId  the world actor's id, or the item's uuid
+ * @param {string} [itemId] the item's id; absent for the uuid form
  * @return {Promise.<void>}
  */
 export const rollItemMacro = async (actorId, itemId) => {
-  const actor = game.actors.get(actorId);
+  let actor;
+  let item;
+  if (itemId === undefined) {
+    const uuid = String(actorId ?? "");
+    const found = await resolveUuid(uuid);
+    item = found instanceof Item ? found : null;
+    // The item gone but its token still there says so by name, as the two-id
+    // form does; the owner's uuid is the item's without its last segment.
+    const cut = uuid.lastIndexOf(".Item.");
+    actor = item?.actor ?? (cut > 0 ? await resolveUuid(uuid.slice(0, cut)) : null);
+    // Never a compendium copy — the gate createCairnMacro keeps.
+    if (!(actor instanceof Actor) || actor.pack) actor = null;
+  } else {
+    actor = game.actors.get(actorId);
+    item = actor?.items.get(itemId);
+  }
   if (!actor) {
     return ui.notifications.warn(game.i18n.localize("CAIRN.Macro.NoActor"));
   }
-  const item = actor.items.get(itemId);
   if (!item) {
     // The actor's DISPLAY name, the same gate the sheet header uses (a PC's
     // name stays, a creature's translates) — nine lines above a weapon name
     // that was already routed (review #19).
-    return ui.notifications.warn(game.i18n.format("CAIRN.Macro.NoItem", { name: actorDisplayName(actor) }));
+    return ui.notifications.warn("CAIRN.Macro.NoItem", { format: { name: actorDisplayName(actor) } });
   }
 
   // Show the weapon's name through the content overlay, exactly as the sheet's
@@ -100,7 +141,7 @@ export const rollItemMacro = async (actorId, itemId) => {
   // ruling 2026-11-20): a Broken weapon gives no benefit, and "Hands full"
   // leaves only the held shield and light to attack with. Refused, saying why.
   if (actor.type === "character" && item.system?.broken) {
-    return ui.notifications.warn(game.i18n.format("CAIRN.Macro.Broken", { name: weaponName }));
+    return ui.notifications.warn("CAIRN.Macro.Broken", { format: { name: weaponName } });
   }
   if (handsBlock(item)) return ui.notifications.warn(game.i18n.localize("CAIRN.HandsFullNote"));
 

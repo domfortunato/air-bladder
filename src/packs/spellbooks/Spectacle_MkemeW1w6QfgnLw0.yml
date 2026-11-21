@@ -23,7 +23,7 @@ system:
     your control. It may be up to the size of a palace and has full motion and
     sound.</p>
   weightless: false
-  equipped: true
+  equipped: false
   bulky: false
   quantity: 1
 folder: null

@@ -22,7 +22,7 @@ system:
     <p>An object of any size is pulled directly towards you or pushed directly
     away from you with the strength of one man.</p>
   weightless: false
-  equipped: true
+  equipped: false
   bulky: false
   quantity: 1
 folder: null

@@ -22,7 +22,7 @@ system:
     <p>Choose one kind of object (key, gold, arrow, jug, etc.). You can sense
     the nearest example.</p>
   weightless: false
-  equipped: true
+  equipped: false
   bulky: false
   quantity: 1
 folder: null

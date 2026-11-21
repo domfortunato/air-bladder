@@ -164,15 +164,22 @@ const mayTuck = () => {
  * Give the tabs their tooltips, or take them away behind the lip: core places
  * a tooltip once, where the tab stood as it was hovered, so a tab sliding down
  * would leave its tooltip floating at the lip (db-mythic's rule). The words
- * live in `data-bar-tooltip`; `data-tooltip` is what core reads.
+ * live in `data-bar-tooltip`; `data-tooltip-text` is what core reads.
+ *
+ * THE TEXT FORM, NOT `data-tooltip` (review #36): core sets `data-tooltip-text`
+ * with textContent and renders a plain `data-tooltip` as cleaned HTML
+ * (`TooltipManager#activate`). The weather is whatever the Warden typed, so
+ * "Storm <heavy>" lost its bracketed half in every player's tooltip. A
+ * `data-tooltip` left on a tab by an older render is taken off here too.
  */
 const syncTooltips = () => {
   const el = barElement();
   if (!el) return;
   const hide = lipOnly(el);
   for (const tab of el.querySelectorAll("[data-bar-tooltip]")) {
-    if (hide) delete tab.dataset.tooltip;
-    else tab.dataset.tooltip = tab.dataset.barTooltip;
+    delete tab.dataset.tooltip;
+    if (hide) delete tab.dataset.tooltipText;
+    else tab.dataset.tooltipText = tab.dataset.barTooltip;
   }
 };
 

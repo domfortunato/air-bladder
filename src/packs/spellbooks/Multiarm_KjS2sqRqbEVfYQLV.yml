@@ -20,7 +20,7 @@ ownership:
 system:
   description: <p>You gain an extra arm.</p>
   weightless: false
-  equipped: true
+  equipped: false
   bulky: false
   quantity: 1
 folder: null

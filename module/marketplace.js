@@ -380,7 +380,7 @@ const acquire = async (actor, data, pay) => {
   // what gets created); only the messages translate.
   const shown = t("item.name", data.name);
   if (pay && (actor.system.gold ?? 0) < cost) {
-    ui.notifications.warn(game.i18n.format("CAIRN.Notify.NotEnoughGold", { name: shown, cost }));
+    ui.notifications.warn("CAIRN.Notify.NotEnoughGold", { format: { name: shown, cost } });
     return false;
   }
   // A THING is strict (refuses anything that won't fit, never holds equipped
@@ -396,7 +396,7 @@ const acquire = async (actor, data, pay) => {
   if (!actor.livesByPlayerRules) {
     const need = slotCost(data.system);
     if (capacityVerdict(actor, need) === "full") {
-      ui.notifications.warn(game.i18n.format("CAIRN.Notify.ContainerFull", { name: shown }));
+      ui.notifications.warn("CAIRN.Notify.ContainerFull", { format: { name: shown } });
       return false;
     }
     if (actor.isThing) data.system.equipped = false;
@@ -426,15 +426,15 @@ const acquire = async (actor, data, pay) => {
   if (!created) return false;
   if (pay) {
     await actor.update({ "system.gold": (actor.system.gold ?? 0) - cost }, { abNoStatusCard: true });
-    ui.notifications.info(game.i18n.format("CAIRN.Notify.Bought", { name: shown, cost }));
+    ui.notifications.info("CAIRN.Notify.Bought", { format: { name: shown, cost } });
   } else {
-    ui.notifications.info(game.i18n.format("CAIRN.Notify.Took", { name: shown }));
+    ui.notifications.info("CAIRN.Notify.Took", { format: { name: shown } });
   }
   // "HP 0 until you free a slot" is true only where the rule zeroes HP: a
   // companion or monster filled to capacity keeps its HP (review #34 finding
   // 129). `livesByPlayerRules`, the test the HP write itself asks.
   if (actor.livesByPlayerRules && actor.isEncumbered()) {
-    ui.notifications.warn(game.i18n.format("CAIRN.Notify.Overloaded", { name: shown }));
+    ui.notifications.warn("CAIRN.Notify.Overloaded", { format: { name: shown } });
   }
   return true;
 };
@@ -468,7 +468,7 @@ export const acquireTransport = async (actor, doc, pay) => {
   // build). Messages only; the payload keeps the English name.
   const shown = t("monster.name", doc.name);
   if (pay && (actor.system.gold ?? 0) < cost) {
-    ui.notifications.warn(game.i18n.format("CAIRN.Notify.NotEnoughGold", { name: shown, cost }));
+    ui.notifications.warn("CAIRN.Notify.NotEnoughGold", { format: { name: shown, cost } });
     return false;
   }
   // A container cannot itself keep a container — no nesting. Not a type test
@@ -481,7 +481,7 @@ export const acquireTransport = async (actor, doc, pay) => {
     // unlinked TOKEN, and a token can be a player character, whose name is
     // NEVER localized (the 2026-08-04 gate). One helper holds that gate so no
     // call site re-decides it; it is what actor.js uses for this same message.
-    ui.notifications.warn(game.i18n.format("CAIRN.Notify.NoNesting", { name: actorDisplayName(actor) }));
+    ui.notifications.warn("CAIRN.Notify.NoNesting", { format: { name: actorDisplayName(actor) } });
     return false;
   }
   // The connection ceiling, refused at the till like the two walls above it —
@@ -495,7 +495,7 @@ export const acquireTransport = async (actor, doc, pay) => {
     // guard and false of this one: a PC named Horse or Mule was renamed to
     // whatever the Spanish pack calls the creature, in a toast addressed to
     // their own player. Review #16.
-    ui.notifications.warn(game.i18n.format("CAIRN.Notify.ConnectionLimit", { name: actorDisplayName(actor), max: maxConnections() }));
+    ui.notifications.warn("CAIRN.Notify.ConnectionLimit", { format: { name: actorDisplayName(actor), max: maxConnections() } });
     return false;
   }
   // Give it a real portrait AND a matching map token; fall back to the class icon
@@ -595,9 +595,9 @@ export const acquireTransport = async (actor, doc, pay) => {
     // deduction is the ONLY trace a bought mule leaves in the change log.
     // Flagging it would make transports the one purchase the ledger never sees.
     await actor.update({ "system.gold": (actor.system.gold ?? 0) - cost });
-    ui.notifications.info(game.i18n.format("CAIRN.Notify.Bought", { name: shown, cost }));
+    ui.notifications.info("CAIRN.Notify.Bought", { format: { name: shown, cost } });
   } else {
-    ui.notifications.info(game.i18n.format("CAIRN.Notify.Took", { name: shown }));
+    ui.notifications.info("CAIRN.Notify.Took", { format: { name: shown } });
   }
   return true;
 };

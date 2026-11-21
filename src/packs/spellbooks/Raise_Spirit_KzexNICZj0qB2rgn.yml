@@ -20,7 +20,7 @@ ownership:
 system:
   description: <p>The spirit of a dead body manifests and will answer 1 question.</p>
   weightless: false
-  equipped: true
+  equipped: false
   bulky: false
   quantity: 1
 folder: null

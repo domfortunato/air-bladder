@@ -20,7 +20,7 @@ ownership:
 system:
   description: <p>Inanimate items sort themselves according to categories you set.</p>
   weightless: false
-  equipped: true
+  equipped: false
   bulky: false
   quantity: 1
 folder: null

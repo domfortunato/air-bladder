@@ -20,7 +20,7 @@ ownership:
 system:
   description: <p>Every surface in a 30ft radius becomes frictionless and slippery.</p>
   weightless: false
-  equipped: true
+  equipped: false
   bulky: false
   quantity: 1
 folder: null

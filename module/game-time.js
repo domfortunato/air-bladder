@@ -669,9 +669,10 @@ export const WEATHER_MAX = 160;
  *
  * Stored against the ABSOLUTE day number rather than a date, which is what
  * makes yesterday's weather go stale by itself: nothing has to clear it, and
- * no hook has to notice midnight. Setting the clock back to a day whose
- * weather was called does NOT bring it back, and that is the honest reading —
- * the Warden rolled the weather once, for the day the table was living in.
+ * no hook has to notice midnight. There is ONE record, and moving the clock
+ * does not touch it: setting the clock back to the day the weather was called
+ * for shows it again, unless the weather was called or cleared on another day
+ * in between, which overwrites the record (`dev:vald-time` reads it back).
  */
 export const todayWeather = () => {
   try {
@@ -884,6 +885,14 @@ export const reclamationDayName = (index) =>
  * makes Vald's mid-month boundaries visible at all. It is read by comparing
  * against the PREVIOUS day rather than against the config's `dayStart`, so it
  * stays right under a calendar whose seasons we have never seen.
+ *
+ * A LEAP WEEK THAT INTERRUPTS A SEASON DOES NOT RESTART IT (review #36). Vald's
+ * Reclamation week is encoded as a season entry of its own and falls inside
+ * Harvest, so the day after it — Mourning 1 — differed from the day before and
+ * was marked "Harvest season begins", 72 days after Harvest began. A day that
+ * follows a leap-only month (no days of its own, only leap days) is compared
+ * with the last day BEFORE that month. The leap month's own first day is not
+ * stepped back, so Recognize keeps its mark.
  */
 export const buildMonth = ({ year, month }) => {
   const cal = calendar();
@@ -894,13 +903,23 @@ export const buildMonth = ({ year, month }) => {
   const perDay = secondsPerDay();
   const todayTime = game.time.worldTime;
   const todayIndex = Math.floor(todayTime / perDay);
+  // A month that exists only in a leap year: no days of its own, some leap days.
+  const leapOnly = (m) => !!m && (m.days ?? 0) === 0 && (m.leapDays ?? 0) > 0;
 
   const days = [];
   for (let d = 1; d <= length; d++) {
     const time = cal.componentsToTime({ year: internalYear, day: dayOfYear(month, d, leap) });
     const components = cal.timeToComponents(time);
     const season = cal.seasons?.values?.[components.season];
-    const before = cal.timeToComponents(time - perDay);
+    // Step back over a leap-only month unless this cell is in one: the season
+    // it interrupted is resumed afterwards, not begun. Bounded by the days such
+    // a month can hold, so a calendar we have never seen cannot spin here.
+    let before = cal.timeToComponents(time - perDay);
+    if (!leapOnly(entry)) {
+      for (let back = 2; back <= 32 && leapOnly(cal.months?.values?.[before.month]); back++) {
+        before = cal.timeToComponents(time - back * perDay);
+      }
+    }
     days.push({
       dayOfMonth: d,
       time,

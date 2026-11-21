@@ -406,7 +406,10 @@ export class CairnItem extends Item {
     }
 
     // A broken item arrives unequipped (the invariant _preUpdate holds on edit).
-    if (this.system?.broken && this.system.equipped) {
+    // Read from _source: prepareData has already run on this pending document
+    // and derives `system.equipped` false for a broken item, so the derived
+    // value never showed the stored flag this is here to clear (review #36).
+    if (this._source.system?.broken && this._source.system?.equipped) {
       this.updateSource({ system: { equipped: false } });
     }
 
@@ -473,9 +476,18 @@ export class CairnItem extends Item {
     // pin's way, so every path agrees — the sheet's box, the row's hand, Hold
     // shield, a drop, a macro: marking an item broken unequips it, and an
     // equip while it stays broken is stripped (the rest of the edit lands).
+    // The STORED flag is read from _source: `system.equipped` is derived
+    // false for a broken item (prepareData), so it hid a broken item stored
+    // as equipped — the one an actor created with its items inline holds,
+    // since no item _preCreate runs there (review #36). Any write to such an
+    // item clears the flag; and when that write is the REPAIR, it lands
+    // unequipped too unless it asks to equip itself — nobody pressed the
+    // hand, so no Armor counts and no light is lit by a repair alone.
     {
-      const willBeBroken = changed.system?.broken !== undefined ? !!changed.system.broken : !!this.system?.broken;
-      if (willBeBroken && (this.system?.equipped || changed.system?.equipped)) {
+      const storedEquipped = !!this._source.system?.equipped;
+      const willBeBroken = changed.system?.broken !== undefined ? !!changed.system.broken : !!this._source.system?.broken;
+      const staleOnRepair = !!this._source.system?.broken && storedEquipped && changed.system?.equipped === undefined;
+      if ((willBeBroken && (storedEquipped || changed.system?.equipped)) || staleOnRepair) {
         foundry.utils.setProperty(changed, "system.equipped", false);
       }
     }

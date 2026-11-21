@@ -20,7 +20,7 @@ ownership:
 system:
   description: <p>A pit 10ft wide and 10ft deep opens in the ground.</p>
   weightless: false
-  equipped: true
+  equipped: false
   bulky: false
   quantity: 1
 folder: null

@@ -398,9 +398,12 @@ export class CairnItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     // an injected data-action/name/on* would otherwise ride the enriched output
     // into the viewer's sheet. Baked into the local enrich so no field skips it;
     // enricher output (content-link/inline-roll) carries no data-action, safe.
+    // `secrets: isOwner` is core's rule for its own sheets (base-sheet.mjs):
+    // without it an owner's Secret block showed only while the editor was open
+    // (review #36 S2).
     const enrich = async (html) =>
       cleanDescription(await foundry.applications.ux.TextEditor.implementation.enrichHTML(
-        html ?? "", { relativeTo: this.item }));
+        html ?? "", { relativeTo: this.item, secrets: this.item.isOwner }));
     context.enrichedDescription = await enrich(descSrc);
     context.enrichedCriticalDamage = await enrich(this.item.system.criticalDamage);
     // Recharge rides the overlay like the description above (issue #22 put it
@@ -665,12 +668,23 @@ export class CairnItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     // before the change bubbles to the form and submitOnChange stores it; the
     // box is put back at once, so a submit from another field while the
     // question stands carries the STORED value. Yes writes; No leaves it.
+    // What Yes writes is the state that was ASKED about, fixed before the
+    // dialog as the row's `#onItemToggleBroken` does (review #36): the item
+    // may be flipped from elsewhere, or deleted, while the question stands,
+    // and re-reading it afterwards repaired an item the dialog said to break.
+    // An item sheet's item lives in three places — on an actor, in a
+    // compendium, in the world — so "still there" is asked of each.
     el.querySelector("[name='system.broken']")?.addEventListener("change", async (e) => {
       e.stopPropagation();
       const box = e.target;
-      box.checked = !!this.item.system.broken;
-      if (!(await confirmBroken(this.item, { windowId: this.window?.windowId }))) return;
-      await this.item.update({ "system.broken": !this.item.system.broken });
+      const item = this.item;
+      const to = !item.system.broken;
+      box.checked = !to;
+      if (!(await confirmBroken(item, { windowId: this.window?.windowId }))) return;
+      const alive = item.parent ? !!item.parent.items.get(item.id)
+        : (item.pack ? true : !!game.items.get(item.id));
+      if (!alive || !!item.system.broken === to) return;
+      await item.update({ "system.broken": to });
     });
 
     if (this.item.type === "background") this._activateBackgroundListeners(el);
@@ -807,10 +821,23 @@ export class CairnItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
    * Items carry no token, so this writes `img` alone — the actor pickers pair a
    * token with it, and copying that here would put a texture on a document that
    * has nowhere to keep one.
+   *
+   * Refused up front on a sheet that cannot be edited, saying why, as the
+   * actor sheet's `owned()` does (review #36): ApplicationV2 fires an action
+   * whether or not the sheet is editable, and the portrait is an `<img>`, which
+   * core's disabling of form controls never touches. Without this a locked
+   * compendium's item opened the whole gallery and the pick could only fail.
+   * The item is named as its sheet names it (`nameDisplay`).
    * @this {CairnItemSheet}
    */
   static async #onEditImage(event) {
     event.preventDefault();
+    if (!this.isEditable) {
+      const pack = this.item.pack ? game.packs.get(this.item.pack) : null;
+      if (pack?.locked) ui.notifications.warn("CAIRN.Notify.PackLocked", { format: { pack: pack.title ?? pack.collection } });
+      else ui.notifications.warn("CAIRN.Notify.NotEditable", { format: { name: t(this.#nameNs, this.item.name) } });
+      return;
+    }
     await pickArt({
       windowId: this.window?.windowId,   // the sheet's own window (review #34 finding 161)
       current: this.item.img,
@@ -832,7 +859,7 @@ export class CairnItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     event.preventDefault();
     const copy = await duplicateBackgroundToWorld(this.item);
     if (!copy) return;
-    ui.notifications.info(game.i18n.format("CAIRN.BgAuthor.Duplicated", { name: t("bg.name", copy.name) }));
+    ui.notifications.info("CAIRN.BgAuthor.Duplicated", { format: { name: t("bg.name", copy.name) } });
     copy.sheet.render(true);
   }
 

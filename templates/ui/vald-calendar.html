@@ -55,7 +55,7 @@
             <button type="button" data-action="pickDay" data-day="{{this.dayOfMonth}}"
                     id="cairn-vald-calendar-day-{{this.dayOfMonth}}"
                     class="cairn-calendar-day {{this.seasonClass}}{{#if this.isToday}} is-today{{/if}}{{#if this.selected}} is-selected{{/if}}{{#if this.festivals}} has-festival{{/if}}"
-                    data-tooltip="{{this.weekdayName}}{{#if this.festivalNames}} — {{this.festivalNames}}{{/if}}">
+                    data-tooltip-text="{{this.weekdayName}}{{#if this.festivalNames}} — {{this.festivalNames}}{{/if}}">
                 <span class="cairn-calendar-number">{{#if this.reclamationName}}{{this.reclamationName}}{{else}}{{this.dayOfMonth}}{{/if}}</span>
                 {{#if this.seasonBegins}}
                     <i class="fa-solid {{this.seasonIcon}} cairn-calendar-season-mark"

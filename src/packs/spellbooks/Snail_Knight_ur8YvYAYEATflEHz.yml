@@ -23,7 +23,7 @@ system:
     into view. He is able to answer most questions related to quests and
     chivalry, and may aid you if he finds you worthy.</p>
   weightless: false
-  equipped: true
+  equipped: false
   bulky: false
   quantity: 1
 folder: null

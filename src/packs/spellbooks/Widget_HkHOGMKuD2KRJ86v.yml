@@ -22,7 +22,7 @@ system:
     <p>A primitive version of a drawn tool or item appears before you, and
     disappears after a short time.</p>
   weightless: false
-  equipped: true
+  equipped: false
   bulky: false
   quantity: 1
 folder: null

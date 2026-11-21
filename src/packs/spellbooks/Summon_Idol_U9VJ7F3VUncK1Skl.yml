@@ -20,7 +20,7 @@ ownership:
 system:
   description: <p>A carved stone statue the size of a mule rises from the ground.</p>
   weightless: false
-  equipped: true
+  equipped: false
   bulky: false
   quantity: 1
 folder: null

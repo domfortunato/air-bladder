@@ -22,7 +22,7 @@ system:
     <p>Once per second you may summon or banish a 3-foot-wide cube of earth. New
     cubes must be affixed to the earth or to other cubes.</p>
   weightless: false
-  equipped: true
+  equipped: false
   bulky: false
   quantity: 1
 folder: null

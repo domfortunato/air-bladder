@@ -22,7 +22,7 @@ system:
     <p>Two objects within 10ft of each other cannot be moved more than 10ft
     apart.</p>
   weightless: false
-  equipped: true
+  equipped: false
   bulky: false
   quantity: 1
 folder: null

@@ -27,7 +27,7 @@ items:
       weightless: false
       equipped: true
       bulky: false
-      damageFormula: d6k
+      damageFormula: 2d6k
       criticalDamage: ''
       blast: false
       uses:

@@ -375,7 +375,7 @@ const GENERATORS = {
 const postTableDraw = async (name, messageMode) => {
   const table = await findTableByName(name);
   if (!table) {
-    ui.notifications.warn(game.i18n.format("CAIRN.Notify.DashboardNoTable", { name }));
+    ui.notifications.warn("CAIRN.Notify.DashboardNoTable", { format: { name } });
     return null;
   }
   const drawn = await table.draw({ displayChat: false });
@@ -860,7 +860,7 @@ export const openShownTable = async (uuid) => {
 const showTableToPlayers = async (name) => {
   const table = await findTableByName(name);
   if (!table) {
-    ui.notifications.warn(game.i18n.format("CAIRN.Notify.DashboardNoTable", { name }));
+    ui.notifications.warn("CAIRN.Notify.DashboardNoTable", { format: { name } });
     return null;
   }
   // No `recipients`, so this BROADCASTS — and a socket emit never comes back
@@ -883,7 +883,7 @@ const showTableToPlayers = async (name) => {
     // stood, not from the table as it is when someone scrolls back.
     flags: { [SCOPE]: { [SHOWN_CARD_FLAG]: table.uuid, [SHOWN_RECORD_FLAG]: shown } },
   });
-  ui.notifications.info(game.i18n.format("CAIRN.Notify.DashboardShown", { name: labelForTable(table.name) }));
+  ui.notifications.info("CAIRN.Notify.DashboardShown", { format: { name: labelForTable(table.name) } });
   return card;
 };
 
@@ -899,7 +899,11 @@ const showTableToPlayers = async (name) => {
  * The month list is built from the LIVE calendar, so this dialog is right
  * under Foundry's own calendar and under Vald's without knowing which it has —
  * and `monthChoices` drops any month of zero days, which is how Vald's
- * Reclamation is offered in a leap year and hidden in every other one.
+ * Reclamation is offered in a leap year and hidden in every other one. The
+ * list FOLLOWS THE YEAR FIELD (review #36): built once for today's year, it
+ * offered Reclamation for a typed year that has none — and day 2 of it ran
+ * into the next year's Mourning — and never offered it for a Reclamation
+ * year typed from an ordinary one.
  *
  * WATCHES, NOT HOURS. Cairn has no unit finer than a watch, so offering a
  * Warden minutes would be inventing precision the rules do not have.
@@ -917,10 +921,15 @@ const promptSetDate = async ({ windowId } = {}) => {
   const now = game.time.components ?? {};
   const cal = game.time.calendar;
   const year = (now.year ?? 0) + (cal.years?.yearZero ?? 0);
-  const months = monthChoices(year);
   const watchNow = Math.min(2, Math.max(0, Math.floor((now.hour ?? 0) / (cal.days.hoursPerDay / 3))));
   const esc = foundry.utils.escapeHTML;
   const L = (k) => esc(game.i18n.localize(k));
+  // ONE builder for the month options, used for the first paint and for every
+  // rebuild when the Year field changes, so the two cannot drift. `data-days`
+  // is that year's length of the month, which `readDate` clamps the day to.
+  const monthOptions = (forYear, selected) => monthChoices(forYear)
+    .map((m) => `<option value="${m.index}" data-days="${m.days}"${m.index === selected ? " selected" : ""}>${esc(m.label)}</option>`)
+    .join("");
 
   // A BARE <div> WITH NO ATTRIBUTES. DialogV2's constructor throws
   // "config.content element must have no attributes" (dialog.mjs:189) — one
@@ -939,8 +948,7 @@ const promptSetDate = async ({ windowId } = {}) => {
     <div class="form-group">
       <label for="ab-date-month">${L("CAIRN.Time.Field.Month")}</label>
       <select id="ab-date-month" name="month">
-        ${months.map((m) => `<option value="${m.index}" data-days="${m.days}"
-          ${m.index === now.month ? "selected" : ""}>${esc(m.label)}</option>`).join("")}
+        ${monthOptions(year, now.month)}
       </select>
     </div>
     <div class="form-group">
@@ -998,7 +1006,28 @@ const promptSetDate = async ({ windowId } = {}) => {
     render: (event, dialog) => {
       const root = dialog.element;
       const preview = root.querySelector("#ab-date-preview");
+      const yearEl = root.querySelector("[name=year]");
+      const monthEl = root.querySelector("[name=month]");
+      // The month the WARDEN picked, kept apart from what the list can show:
+      // a year typed digit by digit passes through years with no Reclamation,
+      // and the choice comes back when the finished year offers it again.
+      let wanted = Number(monthEl.value) || 0;
+      let builtFor = Math.round(year);
+      monthEl.addEventListener("change", () => { wanted = Number(monthEl.value) || 0; });
+      const rebuildMonths = () => {
+        const typed = Number(yearEl.value);
+        // An empty or half-deleted field keeps the list it has.
+        if (yearEl.value === "" || !Number.isFinite(typed) || Math.round(typed) === builtFor) return;
+        const offered = monthChoices(typed);
+        if (!offered.length) return;
+        const selected = offered.some((m) => m.index === wanted) ? wanted : offered[0].index;
+        monthEl.innerHTML = monthOptions(typed, selected);
+        builtFor = Math.round(typed);
+      };
       const update = () => {
+        // BEFORE the read: the day is clamped to the selected option's
+        // `data-days`, which has to be the typed year's.
+        rebuildMonths();
         const date = readDate(root);
         if (!Number.isFinite(date.year)) { preview.textContent = ""; return; }
         const time = timeForDate(date);
@@ -1074,12 +1103,15 @@ class WardenDashboard extends foundry.applications.api.HandlebarsApplicationMixi
   /**
    * TWO PARTS, so the time band can re-render on its own.
    *
-   * That is not an optimisation. `_syncPartState` restores no field VALUES, so
-   * a whole-window render on every world-time change would reset the Warden's
-   * visibility dropdown to Public underneath them — the same fact `_messageMode`
-   * exists for. `refreshDashboardTime` renders `parts: ["time"]` only, and the
-   * probe asserts the dropdown survives a time advance so nobody can simplify
-   * it back.
+   * That is not an optimisation. Core's `_syncPartState` restores no field
+   * VALUES, so a whole-window render on every world-time change redrew the
+   * body under the Warden and reset their visibility dropdown to its default.
+   * `refreshDashboardTime` renders `parts: ["time"]` only, and the probe
+   * asserts the dropdown survives a time advance so nobody can simplify it
+   * back. Since review #36 the body carries the dropdown across its own
+   * renders too (`_preSyncPartState` / `_syncPartState` below); the time band
+   * still redraws alone, because that is the cheaper render and it leaves
+   * the body's buttons and scroll untouched.
    *
    * THE TRAP THIS CREATES, and it is the family `dev:sheet-layout` exists for:
    * `css/cairn.css` restores `.cairn.sheet .window-content > * { flex: 1 }`,
@@ -1215,12 +1247,38 @@ class WardenDashboard extends foundry.applications.api.HandlebarsApplicationMixi
 
   /**
    * The visibility the Warden picked, read from the DOM at CLICK time rather
-   * than held in a field. `_syncPartState` restores no field VALUES across a
-   * re-render, so a stored copy and the visible control would disagree the
-   * first time this window re-rendered under the Warden.
+   * than held in a field: the control is the one copy, so a stored one can
+   * never disagree with what the Warden sees. Core's `_syncPartState` restores
+   * no field VALUES across a re-render, which is why the two overrides below
+   * carry this one across a redraw of the body.
    */
   get _messageMode() {
     return this.element?.querySelector("[name=messageMode]")?.value ?? undefined;
+  }
+
+  /**
+   * Carry the visibility dropdown across a render of the body (review #36).
+   * The template stamps `selected` on the default, so without this every body
+   * render — the Token-controls tool clicked again to bring the window
+   * forward, a table created or renamed — put the Warden's choice back to
+   * Private underneath them, and the next rolls were whispered. A FIRST
+   * render has no prior element, core calls neither hook, and the window
+   * opens on `DEFAULT_MESSAGE_MODE`.
+   * @override
+   */
+  _preSyncPartState(partId, newElement, priorElement, state) {
+    super._preSyncPartState(partId, newElement, priorElement, state);
+    if (partId === "body") state.messageMode = priorElement.querySelector("[name=messageMode]")?.value;
+  }
+
+  /** @override */
+  _syncPartState(partId, newElement, priorElement, state) {
+    super._syncPartState(partId, newElement, priorElement, state);
+    if (partId !== "body") return;
+    const select = newElement.querySelector("[name=messageMode]");
+    // Only a mode this build still offers: an unknown value would leave the
+    // select showing nothing.
+    if (select && state.messageMode && (state.messageMode in CONFIG.ChatMessage.modes)) select.value = state.messageMode;
   }
 
   /**
@@ -1462,13 +1520,28 @@ export const openWardenDashboard = async () => {
  * window follows a clock moved from anywhere — their own buttons, a macro, or
  * a second GM's client.
  *
- * `parts: ["time"]` IS LOAD-BEARING. A bare `render()` would re-render the
- * body too, and `_syncPartState` restores no field values, so the visibility
- * dropdown would silently snap back to Public every time the clock moved. See
- * `_messageMode`, which exists for the same fact.
+ * `parts: ["time"]` STAYS. A bare `render()` would redraw the body too, on
+ * every tick of the clock, for nothing: the buttons under the Warden's pointer
+ * replaced each time. It used to cost the visibility dropdown as well — core's
+ * `_syncPartState` restores no field values — until the body learned to carry
+ * it (`WardenDashboard#_syncPartState`).
  */
 export const refreshDashboardTime = () => {
   if (dashboard?.rendered) dashboard.render({ parts: ["time"] });
+};
+
+/**
+ * Redraw the body, so Your Tables follows the world's tables (review #36).
+ *
+ * The list is read off `game.tables` when the body renders and nothing else
+ * redrew it: a table made, renamed or deleted with the window open left a
+ * stale button, and a renamed or deleted table's button answered only with
+ * the "no table" warning. Safe because the body carries the visibility
+ * dropdown across its own render. `dashboard` is null on a player's client,
+ * so the hooks firing everywhere costs nothing.
+ */
+export const refreshDashboardTables = () => {
+  if (dashboard?.rendered) dashboard.render({ parts: ["body"] });
 };
 
 /**
@@ -1478,8 +1551,20 @@ export const refreshDashboardTime = () => {
  * RECORD keyed by name, so pushing onto it fails silently; and `visible` is
  * evaluated ONCE, when the palette first renders, which is correct for a GM
  * check and is why the open function enforces on its own.
+ *
+ * It also registers the three world-table hooks that keep Your Tables current
+ * (`refreshDashboardTables`). A compendium table never appears on that tab,
+ * and of a table's own fields only its NAME is drawn there.
+ * NAMED, so a probe can switch each off by name for a red-first leg.
  */
 export const registerWardenDashboardControl = () => {
+  const worldTable = (doc) => !doc?.pack;
+  Hooks.on("createRollTable", function abDashboardTablesOnCreate(doc) { if (worldTable(doc)) refreshDashboardTables(); });
+  Hooks.on("deleteRollTable", function abDashboardTablesOnDelete(doc) { if (worldTable(doc)) refreshDashboardTables(); });
+  Hooks.on("updateRollTable", function abDashboardTablesOnRename(doc, changes) {
+    if (worldTable(doc) && ("name" in (changes ?? {}))) refreshDashboardTables();
+  });
+
   Hooks.on("getSceneControlButtons", (controls) => {
     const tools = controls?.tokens?.tools;
     if (!tools) return;   // core renamed or removed the control set

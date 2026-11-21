@@ -22,7 +22,7 @@ system:
     <p>Letters appear over the object you touch, spelling out the name of the
     object's owners, if there are any.</p>
   weightless: false
-  equipped: true
+  equipped: false
   bulky: false
   quantity: 1
 folder: null

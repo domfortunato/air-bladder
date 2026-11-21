@@ -20,7 +20,7 @@ ownership:
 system:
   description: <p>You completely control what a creature sees.</p>
   weightless: false
-  equipped: true
+  equipped: false
   bulky: false
   quantity: 1
 folder: null

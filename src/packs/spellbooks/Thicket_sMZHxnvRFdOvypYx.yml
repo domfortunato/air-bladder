@@ -22,7 +22,7 @@ system:
     <p>A thicket of trees and dense brush up to 50ft wide suddenly sprouts
     up.</p>
   weightless: false
-  equipped: true
+  equipped: false
   bulky: false
   quantity: 1
 folder: null

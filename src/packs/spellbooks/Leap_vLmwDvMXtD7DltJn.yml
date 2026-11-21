@@ -20,7 +20,7 @@ ownership:
 system:
   description: <p>You jump up to 10ft high, once.</p>
   weightless: false
-  equipped: true
+  equipped: false
   bulky: false
   quantity: 1
 folder: null

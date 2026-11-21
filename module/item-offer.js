@@ -25,6 +25,16 @@
  * plus the per-message in-flight set is what closes the double-accept race:
  * the second accept finds the state already moved and is answered "answered".
  *
+ * ONE ITEM MAY BE ON SEVERAL CARDS, and the per-message set says nothing
+ * about that (review #36). The giver's unit leaves only when the hand-off
+ * ends, so each accept also HOLDS a unit of the row for as long as its
+ * hand-off runs (`holdGiverUnit`), and an accept the stock cannot cover is
+ * answered "busy"; the decrements themselves run one at a time per row
+ * (`removeGiverHalf`). Both are this client's memory, so they bind the
+ * giver's client and a Warden's fast path separately: a Warden answering one
+ * card locally while a player answers its twin through the giver is not
+ * closed, and is where `settled: false` below earns its keep.
+ *
  * ACCEPTOR CREATES FIRST, GIVER DELETES ON CONFIRMATION — the drop handler's
  * paid lesson (a refused create must never cost the source its item), applied
  * across two clients: it picks the auditable duplication window over the loss
@@ -67,6 +77,38 @@ const pendingAccepts = new Map();
  *  write), and the acceptor's refusal handler clears the pending entry the
  *  release then needs — the probe's double-accept leg caught exactly this. */
 const offersInFlight = new Map();
+
+/** Units of a giver's row this client is mid-hand-off on, across EVERY card
+ *  naming it: `giverActorUuid:itemId` → the message ids being served. An
+ *  accept is served only while the row's quantity exceeds the size of its set
+ *  (`holdGiverUnit`, taken before the first await). In memory on purpose: a
+ *  card wedged at accepted + `settled: false` by an acceptor who never
+ *  answered would otherwise hold its unit for good, and a reload lets it go. */
+const giverHolds = new Map();
+
+const holdKey = (offer) => `${offer?.giverActorUuid ?? ""}:${offer?.itemId ?? ""}`;
+
+/** Hold one unit of the offered row for this card, if the stock covers it
+ *  beside the hand-offs already running. Synchronous: check and claim are one
+ *  step, so two accepts in one tick cannot both pass.
+ *  @param {ChatMessage} message  @param {Object} offer  @param {CairnItem} item
+ *  @returns {Boolean}  false when every unit is already spoken for */
+const holdGiverUnit = (message, offer, item) => {
+  const key = holdKey(offer);
+  const held = giverHolds.get(key) ?? new Set();
+  if (held.has(message.id)) return true;
+  if ((item.system.quantity ?? 1) <= held.size) return false;
+  giverHolds.set(key, held.add(message.id));
+  return true;
+};
+
+/** Let a card's hold go — when its hand-off settles, fails or never starts. */
+const releaseGiverUnit = (message, offer) => {
+  const key = holdKey(offer);
+  const held = giverHolds.get(key);
+  if (!held?.delete(message.id)) return;
+  if (!held.size) giverHolds.delete(key);
+};
 
 /* -------------------------------------------- */
 /*  Eligibility and payload                     */
@@ -809,22 +851,48 @@ const deliverNow = async (target, rawData, consent) => {
   return created ?? null;
 };
 
-/** Take one unit off the giver's half — the drop handler's decrement rule. */
-const removeGiverHalf = async (giver, itemId) => {
+/** Take one unit off the giver's half — the drop handler's decrement rule.
+ *
+ *  ONE AT A TIME PER ROW on this client (review #36), as deliverItem is per
+ *  target: the decrement reads the quantity and writes it back, and two
+ *  hand-offs of one stack ending inside a single round trip both read the
+ *  same number and took one unit between them.
+ *  @returns {Promise<Boolean>}  whether a unit came off. `false` means the
+ *    row was already gone: the caller leaves the card at `settled: false`,
+ *    the trace this file's header promises. */
+const removeGiverHalf = (giver, itemId) => {
+  const key = `${giver?.uuid ?? ""}:${itemId}`;
+  const run = (removalChains.get(key) ?? Promise.resolve()).then(() => removeNow(giver, itemId));
+  removalChains.set(key, run.catch(() => null));
+  return run;
+};
+
+/** Giver-side decrements running on this client, chained per row — see removeGiverHalf. */
+const removalChains = new Map();
+
+/** removeGiverHalf's decrement, once it is this row's turn. */
+const removeNow = async (giver, itemId) => {
   const item = giver?.items.get(itemId);
-  if (!item) return;
+  if (!item) return false;
   const q = (item.system.quantity ?? 1) - 1;
   if (q > 0) await item.update({ "system.quantity": q });
   else await giver.deleteEmbeddedDocuments("Item", [item.id]);
+  return true;
 };
+
+/** The delivery landed and the giver's row had no unit left to take: say so
+ *  where a Warden looking into a duplicate will read it. The card stays at
+ *  accepted + `settled: false`. */
+const warnUnsettled = (message, names) =>
+  console.warn(`Air Bladder | offer ${message.id}: ${names.item} was delivered, but the giver's row was already gone — left unsettled`);
 
 /** The GM / same-user fast-path: the whole hand-off on one client.
  *  @param {ChatMessage} message  @param {Object} consent  see deliverItem */
 const runLocalTransfer = async (message, consent) => {
   if (offersInFlight.has(message.id)) return;
   offersInFlight.set(message.id, game.user.id);
+  const offer = message.getFlag(SCOPE, FLAG);
   try {
-    const offer = message.getFlag(SCOPE, FLAG);
     if (offer?.state !== "open") return;
     // The enforcement, beside the affordance in bindOfferCard (`authorGives`).
     if (!authorGives(message, offer)) return;
@@ -837,6 +905,12 @@ const runLocalTransfer = async (message, consent) => {
       ui.notifications.warn("CAIRN.Notify.OfferLapsed", { format: { item: names.item, giver: names.giver } });
       return;
     }
+    // Another card's hand-off already has the last unit (review #36). Still
+    // before the first await, as the per-message claim above is.
+    if (!holdGiverUnit(message, offer, item)) {
+      ui.notifications.warn(REFUSAL_TOASTS.busy, { format: names });
+      return;
+    }
     await message.setFlag(SCOPE, FLAG, { state: "accepted", acceptorUserId: game.user.id });
     const created = await deliverItem(target, buildOfferItemData(item), consent);
     if (!created) {
@@ -844,10 +918,11 @@ const runLocalTransfer = async (message, consent) => {
       ui.notifications.warn("CAIRN.Notify.OfferFailed", { localize: true });
       return;
     }
-    await removeGiverHalf(giver, offer.itemId);
-    await message.setFlag(SCOPE, FLAG, { settled: true });
+    if (await removeGiverHalf(giver, offer.itemId)) await message.setFlag(SCOPE, FLAG, { settled: true });
+    else warnUnsettled(message, names);
     ui.notifications.info("CAIRN.Notify.OfferTaken", { format: { item: names.item, target: names.target } });
   } finally {
+    releaseGiverUnit(message, offer);
     offersInFlight.delete(message.id);
   }
 };
@@ -901,6 +976,9 @@ export const handleOfferSocket = async (msg, senderId) => {
       return;
     }
     offersInFlight.set(message.id, senderId);
+    // Held from here until this card's offerDone or offerFail (below), or
+    // until this branch fails to release it at all.
+    let released = false;
     try {
       const giver = foundry.utils.fromUuidSync(offer.giverActorUuid);
       const item = giver?.items.get(offer.itemId);
@@ -908,9 +986,19 @@ export const handleOfferSocket = async (msg, senderId) => {
         await message.setFlag(SCOPE, FLAG, { state: "lapsed" });
         return answer("offerRefused", msg.messageId, { reason: "lapsed" }, senderId);
       }
+      // The row is there, but every unit of it is mid-hand-off on ANOTHER
+      // card (review #36): the stock is only decremented when a hand-off
+      // ends, so this check passed for a second card of a quantity-1 row and
+      // one Rope became two. Still before the first await. The card stays
+      // open; if the other hand-off fails, accepting again works.
+      if (!holdGiverUnit(message, offer, item)) {
+        return answer("offerRefused", msg.messageId, { reason: "busy" }, senderId);
+      }
       await message.setFlag(SCOPE, FLAG, { state: "accepted", acceptorUserId: senderId });
       answer("offerRelease", msg.messageId, { itemData: buildOfferItemData(item) }, senderId);
+      released = true;
     } finally {
+      if (!released) releaseGiverUnit(message, offer);
       offersInFlight.delete(message.id);
     }
     return;
@@ -956,12 +1044,23 @@ export const handleOfferSocket = async (msg, senderId) => {
     if (offer?.state !== "accepted" || offer.settled || senderId !== offer.acceptorUserId) return;
     const names = offerNames(message, offer);
     if (msg.action === "offerFail") {
-      await message.setFlag(SCOPE, FLAG, { state: "open", acceptorUserId: null });
+      try {
+        await message.setFlag(SCOPE, FLAG, { state: "open", acceptorUserId: null });
+      } finally {
+        releaseGiverUnit(message, offer);
+      }
       ui.notifications.warn("CAIRN.Notify.OfferFailed", { localize: true });
       return;
     }
-    await removeGiverHalf(foundry.utils.fromUuidSync(offer.giverActorUuid), offer.itemId);
-    await message.setFlag(SCOPE, FLAG, { settled: true });
+    // The hold is let go only once the unit is off the row, so the next
+    // accept of this row counts stock that is true.
+    try {
+      if (await removeGiverHalf(foundry.utils.fromUuidSync(offer.giverActorUuid), offer.itemId)) {
+        await message.setFlag(SCOPE, FLAG, { settled: true });
+      } else warnUnsettled(message, names);
+    } finally {
+      releaseGiverUnit(message, offer);
+    }
     ui.notifications.info("CAIRN.Notify.OfferAccepted", { format: { target: names.target, item: names.item } });
     return;
   }

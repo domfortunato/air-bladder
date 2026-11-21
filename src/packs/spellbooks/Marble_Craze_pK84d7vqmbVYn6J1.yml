@@ -20,7 +20,7 @@ ownership:
 system:
   description: <p>Your pockets are full of marbles, and will refill every 30 seconds.</p>
   weightless: false
-  equipped: true
+  equipped: false
   bulky: false
   quantity: 1
 folder: null

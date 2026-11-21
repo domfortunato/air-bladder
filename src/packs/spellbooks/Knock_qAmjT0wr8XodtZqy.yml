@@ -20,7 +20,7 @@ ownership:
 system:
   description: <p>A nearby mundane or magical lock unlocks – loudly.</p>
   weightless: false
-  equipped: true
+  equipped: false
   bulky: false
   quantity: 1
 folder: null

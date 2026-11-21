@@ -93,7 +93,8 @@ carry one, the badge is greyed out and reads **No Shield**, **No Light** or
 and with none left you can't light it. A Lantern burns one use of an **Oil Can**
 you're carrying, or of a **Candle** if you don't have oil, and it won't light
 without either. Lights that don't count uses, like the Glowsnail, light for
-free. Everyone sees a chat message when a light is lit and when it goes out.
+free. Everyone sees a chat message when a light is lit and when it goes out, unless
+it's on a hidden token: then only the Warden does.
 
 ## Handing something to a monster
 

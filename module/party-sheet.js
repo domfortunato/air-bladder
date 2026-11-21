@@ -129,11 +129,21 @@ const rowFor = (actor, index) => {
   const held = lights.find((i) => isHeldLight(i)) ?? null;
 
   // Uses left, not items carried (user ruling 2026-11-21): a fresh Rations is
-  // three meals, and three meals is what the Warden is asking about. A
+  // three meals, and three meals is what the Warden is asking about. A STACK
+  // counts its unopened units too, read as `CairnItem#spendUse` spends it:
+  // the quantity is one open unit, at its uses, plus full ones behind it
+  // (review #36: two Rations at 3/3 read 3, and two at 0/3 a red 0). A
   // Rations with no uses track counts by its quantity instead.
   const rations = items
     .filter((i) => i.type === "item" && RATIONS_RE.test(i.name))
-    .reduce((n, i) => n + (Number(i.system?.uses?.max) > 0 ? Math.max(0, Number(i.system.uses.value) || 0) : qty(i)), 0);
+    .reduce((n, i) => {
+      const max = Math.max(0, Number(i.system?.uses?.max) || 0);
+      const q = qty(i);
+      if (max <= 0) return n + q;
+      if (q <= 0) return n;
+      const value = Math.min(max, Math.max(0, Number(i.system.uses.value) || 0));
+      return n + ((q - 1) * max) + value;
+    }, 0);
 
   // Held is EQUIPPED, as the sheet's Hold-shield switch reads it; a broken
   // shield is not a shield anyone is carrying for its protection.
@@ -184,9 +194,14 @@ const rowFor = (actor, index) => {
   const lightCount = lights.reduce((n, i) => n + qty(i), 0);
   const lightTone = held ? "accent" : "";
   // The tooltip is rendered as HTML by core: the name is user text, escaped.
-  const lightTip = held
-    ? `${game.i18n.format("CAIRN.PartySheet.LightHeld", { name: foundry.utils.escapeHTML(t(nameNs, held.name)), count: lightCount })} ${game.i18n.localize("CAIRN.PartySheet.LightPutOut")}`
+  // The aria-label is plain text, so it takes the same words with the name
+  // RAW: the escaped one read out "Miner&#x27;s Lantern" (review #36).
+  const lightWords = (name) => held
+    ? `${game.i18n.format("CAIRN.PartySheet.LightHeld", { name, count: lightCount })} ${game.i18n.localize("CAIRN.PartySheet.LightPutOut")}`
     : lightCount ? game.i18n.format("CAIRN.PartySheet.LightCarried", { count: lightCount }) : "";
+  const heldName = held ? t(nameNs, held.name) : "";
+  const lightTip = lightWords(foundry.utils.escapeHTML(heldName));
+  const lightLabel = lightWords(heldName);
   // The light's own icon (2026-11-21, user ask: it matches the light): the
   // lit one's, else the first carried. A ROUTE, as the character sheet's
   // badge: a relative url() in a custom property resolves against the
@@ -211,7 +226,7 @@ const rowFor = (actor, index) => {
     shield, shieldTone: shield === "held" ? "accent" : "",
     shieldLabel: shield ? game.i18n.localize(`CAIRN.PartySheet.Shield${shield === "held" ? "Held" : "Slung"}`) : "",
     held: held?.name ?? "",
-    lights: lightCount, lightTone, lightTip, lightIcon: lightIconUrl,
+    lights: lightCount, lightTone, lightTip, lightLabel, lightIcon: lightIconUrl,
     rations, rationsTone: rations === 0 ? "alert" : "",
     connections,
     conditions,
@@ -269,6 +284,20 @@ class PartySheet extends foundry.applications.api.HandlebarsApplicationMixin(
     return context;
   }
 
+  /**
+   * Frame-level listeners, bound once. The frame survives a re-render, so
+   * binding this in `_onRender` stacked one more copy on every redraw of a
+   * window that redraws on every party write (review #36). A close discards
+   * the frame, and the next open is a first render again.
+   * @override
+   */
+  async _onFirstRender(context, options) {
+    await super._onFirstRender(context, options);
+    this.element.addEventListener("focusout", () => {
+      if (this.#renderOnBlur) this.queueRender();
+    });
+  }
+
   /** @override */
   async _onRender(context, options) {
     await super._onRender(context, options);
@@ -293,9 +322,6 @@ class PartySheet extends foundry.applications.api.HandlebarsApplicationMixin(
       // selecting text, so the input opts out of the row's draggability.
       input.addEventListener("dragstart", (event) => event.stopPropagation());
     }
-    root.addEventListener("focusout", () => {
-      if (this.#renderOnBlur) this.queueRender();
-    });
   }
 
   /**

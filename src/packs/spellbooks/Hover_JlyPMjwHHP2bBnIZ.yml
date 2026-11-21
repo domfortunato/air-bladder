@@ -22,7 +22,7 @@ system:
     <p>An object hovers, frictionless, 2ft above the ground. It can hold up to
     one humanoid.</p>
   weightless: false
-  equipped: true
+  equipped: false
   bulky: false
   quantity: 1
 folder: null

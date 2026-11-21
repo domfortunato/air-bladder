@@ -20,7 +20,7 @@ ownership:
 system:
   description: <p>A creature you can see falls into a light sleep.</p>
   weightless: false
-  equipped: true
+  equipped: false
   bulky: false
   quantity: 1
 folder: null

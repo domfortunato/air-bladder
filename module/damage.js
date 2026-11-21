@@ -211,7 +211,7 @@ export class Damage {
         // whether the click failed or the hit did.
         if (missed) {
             ui.notifications.warn(
-                game.i18n.format("CAIRN.Notify.DamageTargetsGone", { count: missed })
+                "CAIRN.Notify.DamageTargetsGone", { format: { count: missed } }
             );
         }
         return applied;
@@ -236,6 +236,10 @@ export class Damage {
 
         // A HAZARD aimed at an ability: no armour, no Hit Protection, no
         // overflow. It is subtracted straight off the ability and floored at 0.
+        // The AMOUNT is floored at 0 as well, as _calculateHpAndStr floors the
+        // HP path's: the Warden's formula may subtract ("1d4-2"), and a negative
+        // roll took a negative off the ability — raising it, past its max
+        // (review #36). It does nothing now, and the card reads Damage 0.
         //
         // abNoStatusCard for the same reason the HP path passes it: this write is
         // what paralyses (or kills) the target, so CairnActor's hook would post
@@ -243,12 +247,12 @@ export class Damage {
         // card that explains it. _showDetails posts it, in order.
         if (pool !== "hp") {
             const abl = Number(token.actor.system.abilities?.[pool]?.value ?? 0);
-            let newAbl = abl - damage;
-            if (newAbl < 0) newAbl = 0;
+            const dmg = Math.max(0, damage);
+            const newAbl = Math.max(0, abl - dmg);
             await token.actor.update(
                 { [`system.abilities.${pool}.value`]: newAbl },
                 { abNoStatusCard: true });
-            return { token, pool, dmg: damage, damage, abl, newAbl };
+            return { token, pool, dmg, damage, abl, newAbl };
         }
 
         const armor = token.actor.system.armor;
@@ -265,10 +269,10 @@ export class Damage {
         // absorbed the whole hit. While the rule zeroes HP, HP is NOT WRITTEN at
         // all, so the stored value comes back intact when the load or the panic
         // lifts. Armor and STR are safe to read derived; only HP is overwritten
-        // during data prep.
-        const storedHp = token.actor.toObject().system.hp.value;
+        // during data prep. The test is CairnActor's `hpZeroedByRule`, the one
+        // statement the Token HUD's bar write reads too.
         const hp = token.actor.system.hp.value;
-        const zeroedByRule = hp === 0 && storedHp !== 0;
+        const zeroedByRule = token.actor.hpZeroedByRule;
         const str = token.actor.system.abilities.STR.value;
 
         let { dmg, newHp, newStr } = this._calculateHpAndStr(damage, armor, hp, str);
