@@ -125,11 +125,10 @@
  *  25. (rewritten 2026-11-21, user asks: the label "CRAMPED", "the circle
  *      shape ... can go back to being an outline of a shield") on a PC, an
  *      npc, a hireling, a monster and a companion the Armor box is the shield
- *      outline (54 x 60, its asymmetric radius, the STR circle's border width,
- *      style and colour) holding the number alone at 20px; "Armor" stands
- *      outside it, right below, in the badges' label face (not level with
- *      them: the user's pick, page 1 has 8px to spare); a badge either side;
- *      light and dark.
+ *      outline (44 x 49 since the same day's second ask, its asymmetric
+ *      radius, the STR circle's border width, style and colour) holding the
+ *      number alone at 18px; "Armor" stands outside it, to its RIGHT, in the
+ *      badges' label face a size up (15px); light and dark.
  *  26. (review #36 S3) HP −, an ability's − and a row's use −, each pressed
  *      twice in one tick, take two off: presses are queued, so the second
  *      reads the number after the first has landed.
@@ -1410,6 +1409,7 @@ try {
         labelOutside: !!label && !!box && !box.contains(label),
         labelBelow: !!l && !!b && l.top >= b.bottom - 0.5 && l.left < b.right && l.right > b.left,
         labelLevel: !!l && !!bl && Math.abs(l.top - bl.top) <= 2,
+        labelRight: !!l && !!b && l.left >= b.right - 0.5 && l.top < b.bottom && l.bottom > b.top,
         labelFace: face(label), badgeFace: face(badgeLabel),
         numberSize: input ? getComputedStyle(input).fontSize : null,
         value: !!input,
@@ -1760,21 +1760,21 @@ else {
         : fail(`${key} page 1: ${JSON.stringify(x)}`);
     }
 
-    // 25 (2026-11-21): the Armor box is the shield outline (54 x 60, its
-    // asymmetric radius, the ability circles' border), the number alone
-    // inside at the circles' 20px, "Armor" OUTSIDE it, right below, in the
-    // badges' label face. NOT level with the badges' labels (user pick
-    // 2026-11-21): a 60px shield with level labels overran page 1's 8px of
-    // slack at 480 x 700, measured on CT 123.
-    const round = (a) => !!a && JSON.stringify(a.size) === "[54,60]"
+    // 25 (2026-11-21): the Armor box is the shield outline (its asymmetric
+    // radius, the ability circles' border), the number alone inside, "Armor"
+    // OUTSIDE it. Later the same day (user asks) "Armor" moved to the RIGHT of
+    // a smaller shield, 44 x 49 with the number at 18px, and a size up from
+    // the badges' label face: same family, weight and small caps, 15px.
+    const sameFace = (x, y) => !!x?.fontFamily && ["fontFamily", "fontWeight", "fontVariantCaps"].every((k) => x[k] === y?.[k]);
+    const round = (a) => !!a && JSON.stringify(a.size) === "[44,49]"
       && JSON.stringify(a.radius) === JSON.stringify(["50% 12%", "50% 88%"])
-      && JSON.stringify(a.border) === JSON.stringify(a.circle) && a.numberSize === "20px"
-      && a.label === P.want?.armor && a.labelOutside && a.labelBelow
-      && JSON.stringify(a.labelFace) === JSON.stringify(a.badgeFace) && !!a.badgeFace?.fontFamily
+      && JSON.stringify(a.border) === JSON.stringify(a.circle) && a.numberSize === "18px"
+      && a.label === P.want?.armor && a.labelOutside && a.labelRight && !a.labelBelow
+      && sameFace(a.labelFace, a.badgeFace) && a.labelFace.fontSize === "15px" && a.badgeFace.fontSize === "12px"
       && a.value && a.shieldBadge && a.lightBadge;
     const sheets = { character: P.pc?.armor, npc: P.npc?.armor, hireling: P.hireling?.armor, monster: P.monster?.armor, companion: P.companion?.armor };
     Object.values(sheets).every(round)
-      ? ok(`the Armor box is the shield outline with the number alone inside; "${P.want?.armor}" stands below it in the badges' face, on every creature`)
+      ? ok(`the Armor box is the shield outline with the number alone inside; "${P.want?.armor}" stands to its right, a size up from the badges' face, on every creature`)
       : fail(`Armor box: ${JSON.stringify(Object.fromEntries(Object.entries(sheets).filter(([, a]) => !round(a))))}`);
     const st = P.npc?.styles ?? {};
     ["light", "dark"].every((s) => round(st[s]?.pcArmor) && round(st[s]?.npcArmor))
