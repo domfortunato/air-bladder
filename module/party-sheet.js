@@ -188,8 +188,11 @@ class PartySheet extends foundry.applications.api.HandlebarsApplicationMixin(
       resizable: true,
     },
     // WIDE: the table has twenty-two columns, and a narrowed window scrolls
-    // the table sideways inside itself rather than wrapping cells.
-    position: { width: 1180, height: 460 },
+    // the table sideways inside itself rather than wrapping cells. 1300, not
+    // the 1180 it shipped with: measured on CT 123 the columns' own minimums
+    // come to ~1240px, and at 1180 the notes column opened clipped behind a
+    // sideways scrollbar (`dev:party-sheet` measures it).
+    position: { width: 1300, height: 460 },
     actions: {
       openSheet: PartySheet._onOpenSheet,
     },

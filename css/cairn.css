@@ -4424,6 +4424,11 @@ ol.combat-tracker li.combatant.cairn-drop-below {
 .cairn-party-sheet .cairn-party-table {
     width: 100%;
     margin: 0;
+    /* LOAD-BEARING. Core gives every <table> `overflow: hidden`, which makes
+       the TABLE the sticky header's scroll container — so the header scrolled
+       away with the rows while computing `position: sticky` (measured on
+       CT 123). Visible hands stickiness back to `.cairn-party-scroll`. */
+    overflow: visible;
     border-collapse: collapse;
     color: var(--ab-ink);
     font-size: var(--font-size-13, 13px);
