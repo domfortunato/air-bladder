@@ -22,6 +22,7 @@ Releases before 0.1.23 have their notes on the
 - A **welcome window** greets the Warden: what the system is, where to get Cairn, the guide and the credits. A box in it turns it off
 - A Warden can switch bonds off: **Use bonds** under Character Generation
 - Re-rolling a Barebones character's background or starting gear deals its equipment again
+- A **Party sheet** for the Warden: the whole party, NPCs and hirelings included, in one table, in a marching order you drag to set, with a line of notes only you see
 
 ## 0.1.26
 
