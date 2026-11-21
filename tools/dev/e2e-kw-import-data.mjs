@@ -245,9 +245,88 @@ const more = await page.evaluate(async ({ dj, ev }) => {
   return out;
 }, { dj: darragh, ev: evander });
 
+// --- Uploaded portraits and pets (plan items 4 and 5) ----------------------
+// Ambrose is a real 2e export from the user, 2026-11-20 (Mountebank): an
+// uploaded portrait, and a pet that is also an item he holds. Evander's pet
+// does not fit his inventory. One leg CREATES documents, so its cleanup runs
+// from a finally, by id difference, and reports what it removed.
+const ambrose = JSON.parse(fs.readFileSync(path.join(ROOT, "tools", "dev", "fixtures", "kettlewright-ambrose.json"), "utf8"));
+const petLegs = await page.evaluate(async ({ am, ev }) => {
+  const KW = game.cairn.kettlewrightImport;
+  const out = {};
+  const count = (data, name) => data.items.filter((i) => i.name === name).length;
+  const read = async (json) => {
+    const r = await KW.kettlewrightToActorData(json);
+    return {
+      img: r.data.img ?? null,
+      linked: r.report.portraitLinked ?? null,
+      dropped: r.report.portrait ?? null,
+      pets: r.report.pets ?? null,
+      specs: (r.pets ?? []).map((s) => ({ name: s.name, role: s.role, description: s.description, hp: s.hp ?? null, abilities: s.abilities ?? null })),
+      tattoo: count(r.data, "Alchemical Tattoo"),
+      cat: count(r.data, "Carrion Cat"),
+      catSource: r.data.items.find((i) => i.name === "Carrion Cat")?.flags?.["air-bladder"]?.grantSource ?? null,
+    };
+  };
+  out.amDirect = await read(am);
+  out.amRelay = await read(KW.sanitizeKettlewrightExport(am));
+  out.evDirect = await read(ev);
+  out.evRelay = await read(KW.sanitizeKettlewrightExport(ev));
+  // Without his Chainmail (bulky) Evander has room, so the cat is an item.
+  const roomy = { ...ev, items: ev.items.filter((i) => i.name !== "Chainmail") };
+  out.evRoomy = await read(roomy);
+  // A pet no pack carries, with stats: a companion carrying them.
+  const ferret = {
+    ...ev,
+    pets: [{
+      name: "ZZ Probe Ferret", role: "Ferret", notes: "Bites ankles.", attack: "",
+      hp: 2, hp_max: 3, strength: 4, strength_max: 5, dexterity: 14, dexterity_max: 15,
+      willpower: 6, willpower_max: 7, armor: 0, gold: 0, image_url: "", custom_image: false, items: [], containers: [],
+    }],
+  };
+  out.ferret = await read(ferret);
+  out.ferretRelay = await read(KW.sanitizeKettlewrightExport(ferret));
+
+  // CREATE: Evander's import mints him AND a Carrion Cat companion connected
+  // to him. Everything that appears is deleted by id difference.
+  const before = new Set(game.actors.map((a) => a.id));
+  try {
+    const { actor } = await KW.performKettlewrightImport(ev);
+    // The companion lands after the character; poll briefly for it.
+    let cat = null;
+    for (let i = 0; i < 40 && !cat; i++) {
+      cat = game.actors.find((a) => !before.has(a.id) && a.type === "npc" && a.name === "Carrion Cat") ?? null;
+      if (!cat) await new Promise((r) => setTimeout(r, 100));
+    }
+    out.created = {
+      actor: !!actor,
+      cat: !!cat,
+      connected: cat?.system?.connectedTo === actor?.uuid,
+      role: cat?.system?.role ?? null,
+      description: cat?.system?.description ?? null,
+      catItemOnPc: actor ? actor.items.some((i) => i.name === "Carrion Cat") : null,
+    };
+  } finally {
+    const made = game.actors.filter((a) => !before.has(a.id));
+    out.cleaned = made.map((a) => a.name);
+    if (made.length) await Actor.implementation.deleteDocuments(made.map((a) => a.id));
+  }
+  return out;
+}, { am: ambrose, ev: evander });
+
 await browser.close();
 
 const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+const AMBROSE_URL = `https://kettlewright.com${ambrose.image_url}`;
+const catNotes = evander.pets[0].notes;
+const amOk = (r) => r && r.img === AMBROSE_URL && r.linked === AMBROSE_URL && r.dropped === null
+  && r.tattoo === 1 && r.specs.length === 0 && eq(r.pets, [{ name: "Alchemical Tattoo", as: "held" }]);
+const evOkPet = (r) => r && r.cat === 0 && r.specs.length === 1 && r.specs[0].name === "Carrion Cat"
+  && r.specs[0].role === "companion" && r.specs[0].description === catNotes
+  && eq(r.pets, [{ name: "Carrion Cat", as: "companion" }]);
+const ferretOk = (r) => r && r.specs.length === 1 && r.specs[0].name === "ZZ Probe Ferret"
+  && eq(r.specs[0].hp, { value: 2, max: 3 }) && r.specs[0].abilities?.STR?.value === 4 && r.specs[0].abilities?.DEX?.max === 15
+  && eq(r.pets, [{ name: "ZZ Probe Ferret", as: "companion" }]);
 const bondsOk = (r) => r && r.count === 2 && r.texts[0] === darragh.bonds && r.texts[1] === more.secondText
   && r.moss === `bond:${r.ids[0]}` && r.second === `bond:${r.ids[1]}`;
 const evKit = ["Rations", "Torch", "Chainmail", "Sword", "Air Bladder"];
@@ -310,6 +389,19 @@ const checks = [
   ["2e: the background's starting gear re-tags, an answer's item keeps its question",
     ["Pincers", "Roll of Tin", "Gloves", "Hammer"].every((n) => /^background/.test(more.darraghGear[n] ?? ""))
     && more.darraghGear["Long Sword"] === "question:0"],
+  ["uploaded portrait: linked from kettlewright.com, and the summary is told", amOk(petLegs.amDirect)],
+  ["uploaded portrait + held pet: the player relay too", amOk(petLegs.amRelay)],
+  ["a pet that is an item he holds adds nothing (Alchemical Tattoo)", petLegs.amDirect.tattoo === 1 && petLegs.amDirect.specs.length === 0],
+  ["a pet item that does not fit becomes a companion (Evander's Carrion Cat)", evOkPet(petLegs.evDirect)],
+  ["... the player relay too", evOkPet(petLegs.evRelay)],
+  ["a pet item that fits becomes an item, not a companion", petLegs.evRoomy.cat === 1 && petLegs.evRoomy.specs.length === 0
+    && petLegs.evRoomy.catSource === "imported" && eq(petLegs.evRoomy.pets, [{ name: "Carrion Cat", as: "item" }])],
+  ["a pet no pack carries becomes a companion with its stats", ferretOk(petLegs.ferret)],
+  ["... the player relay keeps the stats", ferretOk(petLegs.ferretRelay)],
+  ["create: the companion is minted and connected to the character", petLegs.created?.actor === true && petLegs.created?.cat === true
+    && petLegs.created?.connected === true && petLegs.created?.role === "companion"
+    && petLegs.created?.description === catNotes && petLegs.created?.catItemOnPc === false],
+  ["create: cleanup removed exactly the character and the companion", eq([...petLegs.cleaned].sort(), ["Carrion Cat", evander.name].sort())],
 ];
 
 console.log(`\n${FOUNDRY_URL}\n`);
@@ -321,6 +413,7 @@ for (const [label, pass] of checks) {
 console.log("\n", JSON.stringify(result, null, 2));
 console.log("\n", JSON.stringify(pairs, null, 2));
 console.log("\n", JSON.stringify(more, null, 2));
+console.log("\n", JSON.stringify(petLegs, null, 2));
 if (errors.length) { ok = false; console.log("\nConsole errors:\n" + errors.join("\n")); }
 console.log(ok ? "\nprobe passed\n" : "\nprobe FAILED\n");
 process.exit(ok ? 0 : 1);
