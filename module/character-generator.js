@@ -1585,12 +1585,17 @@ export const grantContainers = async (actor, specs) => {
   /* Resolved once per spec: what this thing IS (role + Kind) and, where the
    * granting option said nothing itself, the stock description off its pack
    * document. */
+  // A spec may also carry its own `role`, `img`, `description`, `hp`,
+  // `abilities` and `armorOverride`, each winning over the pack document and
+  // the inference: the Kettlewright importer hands over a pet that way
+  // (2026-11-20), a creature whose stat block travelled with it and whose
+  // name must not be read as a vehicle ("Cart Horse").
   const entries = specs.map((spec) => {
     const { doc, kind, art } = resolve(spec);
     return {
-      spec, doc, kind, art,
+      spec, doc, kind, art: spec.img || art,
       cls: doc?.system.containerClass || containerClass(spec.name, kind),
-      role: doc?.system.role
+      role: spec.role ?? doc?.system.role
         ?? ({ mount: "companion", vehicle: "transport", worn: "container", pile: "container" }[kind] ?? "companion"),
     };
   });
@@ -1603,7 +1608,7 @@ export const grantContainers = async (actor, specs) => {
       system: {
         connectedTo: actor.uuid,
         slots: spec.slots ?? doc?.system.slots ?? 0,
-        description: doc?.system.description ?? "",
+        description: spec.description ?? doc?.system.description ?? "",
         // The Actor document records its class; a one-off beast with no document
         // infers it from the name the way the sheet does. Leaving it blank would
         // have shipped a horse whose art and one-word label were both decided by
@@ -1625,6 +1630,9 @@ export const grantContainers = async (actor, specs) => {
         // reference: a DataModel getter hands back the LIVE object, and a
         // shared reference here poisons the pack document.
         ...(doc ? { abilities: doc.system.toObject().abilities } : {}),
+        ...(spec.hp ? { hp: spec.hp } : {}),
+        ...(spec.abilities ? { abilities: spec.abilities } : {}),
+        ...(spec.armorOverride != null ? { armorOverride: spec.armorOverride } : {}),
       },
       flags: {
         [FLAG_SCOPE]: { grantSource: spec.grantSource ?? "background" },

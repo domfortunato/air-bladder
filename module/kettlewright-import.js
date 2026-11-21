@@ -1,6 +1,6 @@
 import { resolveGearItem, buildGearItem, warmGearItems } from "./gear.js";
 import { resultText } from "./compendium.js";
-import { getBackgroundsFor, withGrantSource, randomPortraitPair, kettlewrightPortraitPath, backgroundGearSource, BAREBONES_KIT_SOURCE, FLAG_SCOPE } from "./character-generator.js";
+import { getBackgroundsFor, withGrantSource, randomPortraitPair, kettlewrightPortraitPath, backgroundGearSource, grantContainers, BAREBONES_KIT_SOURCE, FLAG_SCOPE } from "./character-generator.js";
 import { CairnActor } from "./actor/actor.js";
 import { FATIGUE_NAME } from "./item/item.js";
 import { Cairn } from "./config.js";
@@ -30,6 +30,25 @@ import { t } from "./i18n-content.js";
 
 /** Escape text for HTML built by hand (the summary dialog). */
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+/** Where Kettlewright serves a portrait a player UPLOADED. */
+const KETTLEWRIGHT_ORIGIN = "https://kettlewright.com";
+
+/**
+ * The usable URL of a custom portrait, or null. An absolute URL the player
+ * typed rides as it is; an upload exports as the site-relative
+ * `/portraits/<sha>.webp` and is resolved against kettlewright.com, which
+ * serves it without a login. Anything else site-relative names nothing here.
+ * @param {{custom_image?: Boolean, image_url?: String}} who  a character or a pet
+ * @returns {String|null}
+ */
+const customPortraitUrl = (who) => {
+  const ref = String(who?.image_url ?? "");
+  if (!who?.custom_image) return null;
+  if (isAbsoluteUrl(ref)) return ref;
+  if (/^\/portraits\/[\w.-]+$/.test(ref)) return `${KETTLEWRIGHT_ORIGIN}${ref}`;
+  return null;
+};
 
 /** A finite Number, or the fallback. */
 const num = (v, d = 0) => (Number.isFinite(Number(v)) ? Number(v) : d);
@@ -733,9 +752,15 @@ export const kettlewrightToActorData = async (json, { labels = null } = {}) => {
   const stock = !json.custom_image && /^portrait\d+\.webp$/.test(imageRef)
     ? await kettlewrightPortraitPath(imageRef)
     : null;
-  const customUrl = json.custom_image && isAbsoluteUrl(imageRef) ? imageRef : null;
-  if (customUrl && !CairnActor.schema.getField("img").validate(customUrl)) data.img = customUrl;
-  else if (stock) {
+  const customUrl = customPortraitUrl(json);
+  if (customUrl && !CairnActor.schema.getField("img").validate(customUrl)) {
+    data.img = customUrl;
+    // An UPLOAD lives on kettlewright.com and is shown from there (user ruling
+    // 2026-11-20): it serves publicly but sends no Access-Control-Allow-Origin,
+    // so this browser could not have saved a copy. The summary says so, and
+    // how to keep it.
+    if (customUrl !== imageRef) report.portraitLinked = customUrl;
+  } else if (stock) {
     data.img = stock;
     data.prototypeToken.texture = { src: stock };
   } else {
@@ -748,7 +773,133 @@ export const kettlewrightToActorData = async (json, { labels = null } = {}) => {
     }
   }
 
-  return { data, report };
+  const pets = await placePets(json, data, report);
+  return { data, report, pets };
+};
+
+/**
+ * Where each of the character's Kettlewright pets lands (user rulings
+ * 2026-11-20). Kettlewright makes a pet of things Air Bladder ships as ITEMS —
+ * a background option's Alchemical Tattoo or Carrion Cat — so:
+ *
+ *  1. a pet the character already holds as an item adds nothing ("held");
+ *  2. a pet whose name resolves to one of our items becomes that item
+ *     ("item") — but only if it FITS: a pet takes no slot in Kettlewright,
+ *     and a bulky cat on a character at 9 of 10 would leave them encumbered
+ *     here, which is HP 0 (Cairn);
+ *  3. anything else, or one that did not fit, becomes a companion NPC
+ *     ("companion") connected to the character — returned as a spec for
+ *     grantContainers, minted once the character exists.
+ *
+ * "Fits" is asked of a real, unsaved Actor built from the create data, so it
+ * is the sheet's own slot rule (calcSlotsUsed, coins included), never a copy.
+ * A pet's own `containers` are not read: containers are out of this import's
+ * scope (user, 2026-11-20). Mutates `data.items` and `report.pets`.
+ *
+ * @param {Object} json    the export
+ * @param {Object} data    the character's create payload
+ * @param {Object} report  the import report
+ * @returns {Promise<Object[]>}  companion specs, in the export's order
+ */
+const placePets = async (json, data, report) => {
+  const specs = [];
+  const list = Array.isArray(json.pets) ? json.pets : [];
+  if (!list.length) return specs;
+  report.pets = [];
+  const fits = (items) => !new CairnActor({ ...data, items }).system.encumbered;
+  for (const pet of list) {
+    const name = String(pet?.name ?? "").trim();
+    if (!name) continue;
+    if (data.items.some((i) => norm(i.name) === norm(name))) {
+      report.pets.push({ name, as: "held" });
+      continue;
+    }
+    const item = await resolveGearItem(name);
+    if (item) {
+      const notes = String(pet.notes ?? "").trim();
+      if (notes && !String(item.system?.description ?? "").trim()) item.system.description = notes;
+      const candidate = withGrantSource(item, "imported");
+      candidate.sort = (data.items.length + 1) * CONST.SORT_INTEGER_DENSITY;
+      if (fits([...data.items, candidate])) {
+        data.items.push(candidate);
+        report.pets.push({ name, as: "item" });
+        continue;
+      }
+    }
+    specs.push(petSpec(pet, name));
+    report.pets.push({ name, as: "companion" });
+  }
+  return specs;
+};
+
+/**
+ * A Kettlewright pet as a grantContainers spec: always a companion (its name
+ * must not be read as a vehicle), its notes as the description, and its stat
+ * block where Kettlewright recorded one — a pet a background gave it carries
+ * every stat null, and those leave the schema's defaults.
+ * @param {Object} pet
+ * @param {String} name
+ * @returns {Object}
+ */
+const petSpec = (pet, name) => {
+  const has = (v) => v != null && Number.isFinite(Number(v));
+  const pair = (value, max) => (has(value) || has(max)
+    ? { value: num(value, num(max)), max: num(max, num(value)) } : null);
+  const hp = pair(pet.hp, pet.hp_max);
+  const abilities = {};
+  for (const [key, field] of [["STR", "strength"], ["DEX", "dexterity"], ["WIL", "willpower"]]) {
+    const p = pair(pet[field], pet[`${field}_max`]);
+    if (p) abilities[key] = p;
+  }
+  const img = customPortraitUrl(pet);
+  return {
+    name,
+    slots: 0,
+    role: "companion",
+    grantSource: "imported",
+    // The attack is Kettlewright's own text ("d6 bite"), kept as prose the
+    // way the shipped companions keep theirs; nothing here automates it.
+    description: [pet.notes, pet.attack].map((x) => String(x ?? "").trim()).filter(Boolean).join("\n\n"),
+    ...(hp ? { hp } : {}),
+    ...(Object.keys(abilities).length ? { abilities } : {}),
+    ...(num(pet.armor) > 0 ? { armorOverride: Math.min(3, num(pet.armor)) } : {}),
+    ...(img && !CairnActor.schema.getField("img").validate(img) ? { img } : {}),
+    items: Array.isArray(pet.items) ? pet.items : [],
+  };
+};
+
+/**
+ * Mint the character's companion pets (placePets) once the character exists,
+ * through grantContainers — the path a background-granted beast takes, so a
+ * pet is connected, owned and clamped to the connection limit exactly as one
+ * is. Then each pet's own items onto it. A pet the limit turned away is
+ * recorded on the report by name, for the summary.
+ * @param {CairnActor} actor
+ * @param {Object[]} specs
+ * @param {Object} report
+ * @returns {Promise<CairnActor[]>}
+ */
+const mintPets = async (actor, specs, report) => {
+  if (!actor || !specs.length) return [];
+  const made = await grantContainers(actor, specs.map((spec) => {
+    const { items, ...rest } = spec;
+    void items;
+    return rest;
+  }));
+  // grantContainers keeps the head of the list when it clamps.
+  const turnedAway = specs.slice(made.length).map((s) => s.name);
+  if (turnedAway.length) {
+    report.petsTurnedAway = turnedAway;
+    for (const entry of report.pets ?? []) if (turnedAway.includes(entry.name) && entry.as === "companion") entry.as = "limit";
+  }
+  for (const [i, npc] of made.entries()) {
+    const kwItems = specs[i].items ?? [];
+    if (!kwItems.length) continue;
+    const built = [];
+    for (const kw of kwItems) if (kw?.name && kw?.carrying == null) built.push((await importItem(kw)).item);
+    if (built.length) await npc.createEmbeddedDocuments("Item", built);
+  }
+  return made;
 };
 
 /**
@@ -980,6 +1131,33 @@ export const sanitizeKettlewrightExport = (json) => {
   const tablePairs = Object.fromEntries(
     Object.keys(json).filter((k) => TABLE_PAIR_KEY.test(k)).map((k) => [k, str(json[k], 10_000)]),
   );
+  const item = (it) => ({
+    name: str(it?.name, 200),
+    tags: (Array.isArray(it?.tags) ? it.tags : []).slice(0, 40).map((tag) => str(tag, 100)),
+    description: str(it?.description, 5000),
+    uses: maybeNum(it?.uses),
+    max_uses: maybeNum(it?.max_uses),
+    charges: maybeNum(it?.charges),
+    max_charges: maybeNum(it?.max_charges),
+    // Presence is the signal the skip-check reads (`carrying != null`).
+    ...(it?.carrying != null ? { carrying: true } : {}),
+  });
+  // Pets ride with the character (placePets). A handful at most; each is
+  // minted as an Actor on the Warden's client, so the count is capped hard.
+  const pets = (Array.isArray(json.pets) ? json.pets : []).slice(0, 20).map((p) => ({
+    name: str(p?.name, 100),
+    role: str(p?.role, 100),
+    notes: str(p?.notes, 10_000),
+    attack: str(p?.attack, 200),
+    hp: maybeNum(p?.hp), hp_max: maybeNum(p?.hp_max),
+    strength: maybeNum(p?.strength), strength_max: maybeNum(p?.strength_max),
+    dexterity: maybeNum(p?.dexterity), dexterity_max: maybeNum(p?.dexterity_max),
+    willpower: maybeNum(p?.willpower), willpower_max: maybeNum(p?.willpower_max),
+    armor: maybeNum(p?.armor),
+    image_url: str(p?.image_url, 2000),
+    custom_image: !!p?.custom_image,
+    items: (Array.isArray(p?.items) ? p.items : []).slice(0, 100).map(item),
+  }));
   return {
     ...tablePairs,
     name: str(json.name, 120),
@@ -987,17 +1165,8 @@ export const sanitizeKettlewrightExport = (json) => {
     edition: json.edition === "barebones" ? "barebones" : json.edition === "2e" ? "2e" : undefined,
     background: str(json.background, 200),
     custom_background: str(json.custom_background, 200),
-    items: items.map((it) => ({
-      name: str(it?.name, 200),
-      tags: (Array.isArray(it?.tags) ? it.tags : []).slice(0, 40).map((tag) => str(tag, 100)),
-      description: str(it?.description, 5000),
-      uses: maybeNum(it?.uses),
-      max_uses: maybeNum(it?.max_uses),
-      charges: maybeNum(it?.charges),
-      max_charges: maybeNum(it?.max_charges),
-      // Presence is the signal the skip-check reads (`carrying != null`).
-      ...(it?.carrying != null ? { carrying: true } : {}),
-    })),
+    items: items.map(item),
+    pets,
     containers: containers.map((c) => ({ id: maybeNum(c?.id) ?? 0, name: str(c?.name, 200) })),
     description: str(json.description, 50_000),
     notes: str(json.notes, 50_000),
@@ -1054,7 +1223,7 @@ export const sanitizeKettlewrightExport = (json) => {
  * @returns {Promise<{actor: CairnActor|null, report: Object}>}
  */
 export const performKettlewrightImport = async (json, { ownership = null, labels = null } = {}) => {
-  const { data, report } = await kettlewrightToActorData(json, { labels });
+  const { data, report, pets } = await kettlewrightToActorData(json, { labels });
   if (ownership) data.ownership = ownership;
   // THE PARTY FOLDER (review #34 finding 174), where Create PC beside this
   // button files a new character — `createActorInteractive` on the direct
@@ -1065,6 +1234,10 @@ export const performKettlewrightImport = async (json, { ownership = null, labels
   const { partyFolderId } = await import("./party-pile.js");
   data.folder = await partyFolderId();
   const actor = await CairnActor.create(data);
+  // After the character, because a companion is connected TO it. On the
+  // relay this runs on the Warden's client, so the companions are minted
+  // there too, owned like the character the player now holds.
+  await mintPets(actor, pets ?? [], report);
   return { actor: actor ?? null, report };
 };
 
