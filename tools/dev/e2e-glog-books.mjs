@@ -373,6 +373,16 @@ try {
           };
           out.hands = { wantTip: L("CAIRN.CastEquipFirst") };
           await open9();
+          // What the casts read at this moment, for a red that needs reading.
+          const snap = (i) => (i ? { type: i.type, scroll: !!i.system.scroll, bound: !!i.system.bound,
+            broken: !!i.system.broken, uses: i.system.uses ?? null, equipped: !!i.system.equipped } : null);
+          out.hands.diag = {
+            glog: game.settings.get(ns, "enable-glog-magic"),
+            grimoires: glogMod.grimoiresEnabled(),
+            seeded: game.settings.get(ns, "glog-grimoires-seeded"),
+            shadowed: game.settings.get !== origGet,
+            book: snap(it(book9)), scroll: snap(it(scroll9)),
+          };
           // a) nothing of it equipped: Cast greyed, and refused.
           out.hands.unequipped = {
             state: eq(),
@@ -586,7 +596,7 @@ gn.transmute && gn.grimoireBox && !gn.bookCast
   const greyed = (c) => !!c?.blocked && c.tip === h.wantTip && h.wantTip !== "CAIRN.CastEquipFirst";
   greyed(u.bookCtl) && greyed(u.scrollCtl)
     ? ok(`9: an unequipped spellbook's and scroll's Cast are greyed, "${h.wantTip}"`)
-    : fail(`9: unequipped Cast controls: ${JSON.stringify({ book: u.bookCtl, scroll: u.scrollCtl, want: h.wantTip })}`);
+    : fail(`9: unequipped Cast controls: ${JSON.stringify({ book: u.bookCtl, scroll: u.scrollCtl, want: h.wantTip, diag: h.diag })}`);
   refused(u.book, "CAIRN.Notify.CastNotEquipped") && u.book.text.some((s) => s.includes("ZZ Hands Book"))
     && refused(u.scroll, "CAIRN.Notify.CastNotEquipped")
     ? ok(`9: casting from an unequipped spellbook or scroll is refused, no dice window ("${u.book.text[0]}")`)
