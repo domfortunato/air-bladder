@@ -1,86 +1,76 @@
 # Generating monsters
 
-One click rolls a complete monster — a real Actor with a statblock, an
-equipped attack, armor, a five-line description and a portrait — following
-the Cairn 2e Warden's Guide procedure for **Creating Monsters**. You pick how
-dangerous it is; the tables do the rest.
+**Create Monster** rolls a complete monster: abilities, HP, an attack, sometimes
+armor, a description and a portrait. It follows the **Creating Monsters**
+procedure in the Cairn 2e Warden's Guide. You choose how dangerous it is.
 
-You need to be the Warden (GM). Players never see the button.
+Only the Warden sees the button.
 
-*This page is about using the generator. Every number behind it — the tier
-stats, the ability weights, the design reasoning — is recorded in
+*The numbers behind the generator are recorded in
 [monster-generation.md](monster-generation.md).*
 
 ---
 
 ## Where the button is
 
-**Actors tab → the button row at the top → Create Monster** (the dragon
-icon).
+**Actors tab → the button row at the top → Create Monster** (the dragon icon).
+The same button is on the **Monsters** tab of the Warden's Dashboard, under
+**Create**.
 
-Clicking it opens one window: a **How dangerous is it?** dropdown with four
-choices, and the **Use random generation.** tick-box every creation button
-carries (clear it for an empty monster sheet, and the tier greys out, since a
-tier chooses nothing on an empty sheet):
+It opens a window with a **How dangerous is it?** list and a **Use random
+generation.** tick-box. Clear the box for an empty Monster sheet; the list
+greys out, since an empty sheet has no tier.
 
 | Tier | HP | Attack die | Armor |
 |---|---|---|---|
-| **Standard** | 3 | d6 | rarely |
-| **Hardier** | 6 | d8 | sometimes |
-| **Serious** | 10 | d10 | usually |
-| **Random** (the default) | — | — | weighted 3 : 2 : 1, so mooks are common and bosses are rare |
+| **Standard** | 3 | d6 | 1 time in 4 |
+| **Hardier** | 6 | d8 | 1 time in 2 |
+| **Serious** | 10 | d10 | 3 times in 4 |
+| **Random** (the default) | — | — | picks Standard, Hardier or Serious, weighted 3 : 2 : 1 |
 
-Dismissing the dialog with **✕** or **Cancel** creates nothing — a monster
-only ever arrives from an explicit **Create**.
+**Cancel** or **✕** creates nothing.
 
 ## What you get
 
-- **Abilities on the SRD's ladder** — 3 (deficient), 6 (weak), 10 (average),
-  14 (noteworthy), 18 (legendary) — never 3d6. STR shifts upward with the
-  tier; DEX stays in the middle band, because speed is texture, not what
-  makes a monster deadly.
-- **One equipped attack**, its damage die set by the tier. Its name is the
-  rolled attack verb plus `*` — *Bites\**, *Constricts\** — the same marker
-  the shipped monsters use for an attack whose special effect lives in the
-  description.
-- **Armor as an equipped item** when the tier grants it, so the Armor score
-  derives exactly as it does for the 205 shipped monsters. It is named for
-  the rolled feature when the feature *is* the armor — Carapace, Shell,
-  Scales — and "Tough Hide" otherwise.
-- **A five-line description**: the appearance, a **Quirk**, a **Weakness**,
-  an **Ability**, and a **Critical Damage** effect. All of it is prose, none
-  of it is automated — the rules stay in your hands, as everywhere in this
-  system.
-- **A draft name** composed from the appearance rolls — *Hulking Tentacled
-  Creature*. The SRD's final step ("Thunder Snail") is creative
-  interpretation no table can roll; the composed name keeps every monster
-  distinguishable in the directory until inspiration strikes. Rename freely.
-- **A portrait** drawn from the creature categories of the Game-Icons
-  gallery, with the token wearing the same image — hostile and unlinked,
-  like the shipped monsters. Unlinked is what lets you place the same monster
-  a dozen times and damage each one separately; see
+- **Abilities** from the SRD's ladder: 3 (deficient), 6 (weak), 10 (average),
+  14 (noteworthy) or 18 (legendary). STR runs higher at higher tiers. DEX is
+  always 6, 10 or 14.
+- **One equipped attack** with the tier's damage die. Its name is the rolled
+  attack type plus `*` (*Bites\**, *Constricts\**), the marker the shipped
+  monsters use for an attack whose special effect is in the description.
+- **Armor as an equipped item**, when the tier grants it, worth 1 to 3. It is
+  named for the rolled feature when that feature is Carapace, Shell or Scales,
+  and "Tough Hide" otherwise.
+- **A five-line description**: the appearance, a **Quirk**, a **Weakness**, an
+  **Ability** and a **Critical Damage** effect. All of it is prose for you to
+  apply; none of it is automated.
+- **A draft name** built from the appearance rolls, such as *Hulking Tentacled
+  Creature*. Rename it when you know what it is.
+- **A portrait** from the creature categories of the Game-Icons gallery, or
+  from your own monster art if you keep any (see
+  [Using Your Own Portraits](using-your-own-portraits.md)). The token wears the
+  same image. It is hostile and unlinked, like the shipped monsters, so you can
+  place the same monster many times and damage each one separately; see
   [Tokens and Sheets](tokens-and-sheets.md).
 
 ## Re-rolling a monster
 
-Every monster sheet has a **Roll Monster** button in its title bar (the same
-dragon). If you don't see it, flip **Character Creation Mode** on with the
-toggle beside it.
+With Character Creation Mode on, a monster sheet has a **Roll Monster** button
+in its title bar. A generated monster starts with the mode off: press the
+**CharGen: Off** toggle in the title bar to turn it on.
 
-Clicking Roll Monster opens the same tier picker with different wording —
-and here **the picker is also the confirmation**: it tells you the
-abilities, HP, attack, armor and description will be re-rolled and that the
-**name, portrait and token stay**. Dismissing it touches nothing. There is
-no second "are you sure" — the button press in the picker is the yes, and it
-cannot be undone.
+Roll Monster asks **Roll this monster again?** and offers the four tiers as
+buttons. Pressing one is the confirmation, and it cannot be undone. Everything
+the monster is carrying is deleted, and its abilities, HP, attack, armor and
+description are re-rolled. Its name, portrait and token stay. Closing the
+window changes nothing.
 
-That keep-the-name rule is what makes re-rolling useful mid-campaign: you
-can promote a Standard nuisance the party ignored into a Serious threat
-without it changing face.
+Because the name and portrait stay, you can turn a Standard monster the party
+ignored into a Serious one without changing what it looks like.
 
 ## The eight tables behind it
 
-All of them ship as RollTables in the **Warden — Monsters** compendium:
+They are RollTables in the **Warden — Monsters** compendium:
 
 - `Warden: Monster - Appearance (Physique)`
 - `Warden: Monster - Appearance (Feature)`
@@ -91,20 +81,17 @@ All of them ship as RollTables in the **Warden — Monsters** compendium:
 - `Warden: Monster - Ability (Power)`
 - `Warden: Monster - Ability (Target)`
 
-The text is the SRD's Creating Monsters content (Warden's Guide, CC BY-SA
-4.0, by Yochai Gal). The generator *rolls* these tables rather than
-*drawing* from them, so it never marks your table rows as drawn.
+The text is the SRD's Creating Monsters content (Warden's Guide, CC BY-SA 4.0,
+by Yochai Gal). The generator never marks a table's rows as drawn.
 
-**Every one of these tables can be overridden**, just as the
-[faction generator](generating-factions.md)'s can. Make a RollTable in your own
-world with exactly a shipped table's name — `Warden: Monster - Trait (Quirk)`,
-say — and it wins over the shipped copy, so your version survives a system
-update. Edits made inside the shipped compendium do not: an update replaces it.
+**You can replace any of them**, as with the
+[faction generator](generating-factions.md)'s tables. Make a RollTable in your
+world with exactly a shipped table's name and the generator rolls yours. Your
+table survives a system update. Edits made inside the shipped compendium do
+not: an update replaces it.
 
 ## Monsters play by the same rules
 
-Generated or shipped, a monster takes damage exactly like everyone else —
-by design, the damage flow has no actor-type exceptions. Overflow past HP
-dents STR and forces a STR save, damage landing exactly on 0 HP rolls a
-Scar, and the armor cap of 3 holds. A monster that survives an encounter
-carries its scars into the next one.
+A monster takes damage as every other creature does. Damage past HP comes off
+STR and calls for a STR save. Damage that lands exactly on 0 HP rolls a Scar.
+Armor is capped at 3.

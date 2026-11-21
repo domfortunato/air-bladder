@@ -1,35 +1,30 @@
 # Dice Formulas
 
-Air Bladder reads dice formulas in a few places a Warden can edit — a
-weapon's damage, a monster's attack, the **Damage** field on the Warden's
-Damage tool, and two settings under Character Generation: the **Age
-formula** and the **Hit Protection formula for player characters**. This
-page is what those formulas can say. It also explains the notation on the
-**Ability dice** and **Gold dice** menus, which offer a fixed set of
-formulas rather than a box to type in.
+Air Bladder reads dice formulas in a few places you can edit: a weapon's
+damage, a monster's attack, the **Damage** field on the Warden's Damage tool,
+and two settings under Character Generation, the **Age formula for generated
+characters** and the **Hit Protection formula for player characters**. This
+page covers what those formulas can say. It also explains the notation on the
+**Ability dice for player characters** and **Gold dice for player characters**
+menus, which offer a fixed set of formulas.
 
-**Every field that takes dice also takes a plain number.** Put `4` in the
-Hit Protection formula and every character has 4 Hit Protection; put `3` in
-the Warden's Damage field and it deals 3. A fixed amount is simply a
-formula with no dice in it, so there is nothing special to turn on.
+**Every field that takes dice also takes a plain number.** Put `4` in the Hit
+Protection formula and every character has 4 Hit Protection. Put `3` in the
+Warden's Damage field and it deals 3.
 
 ## The basics
 
-A die is `NdX`: `1d20` rolls one twenty-sider, `2d6` rolls two six-siders
-and adds them. Plain numbers add on: `2d20 + 10` rolls two d20s, adds them
-together, then adds 10 — ages 12 to 50, the book's roll and the Age
-formula's default. Any number of faces works: `1d31 + 19` is a real roll,
-ages 20 to 50 with every age equally likely.
-
-A formula can also be just a number: `30` means every roll comes out 30.
+A die is `NdX`: `1d20` rolls one twenty-sider, `2d6` rolls two six-siders and
+adds them. Plain numbers add on: `2d20 + 10` rolls two d20s, adds them, then
+adds 10 — ages 12 to 50, the book's roll and the Age formula's default. Any
+number of faces works: `1d31 + 19` gives ages 20 to 50 with every age equally
+likely.
 
 ## Cairn's plus sign
 
-Cairn's rules write "roll two dice and keep the highest" as `d8 + d8`, so
-with **Use Cairn dice notation: 'd6+d6' as keep highest** on (the default),
-the system reads `+`
-the way the book does — and what is on each side decides which meaning
-applies:
+Cairn's rules write "roll two dice and keep the highest" as `d8 + d8`. With
+**Use Cairn dice notation: 'd6+d6' as keep highest** on (the default), the
+system reads `+` the way the book does:
 
 | You write | It means | Result |
 |---|---|---|
@@ -37,8 +32,8 @@ applies:
 | `d8 + d8` | roll two d8, keep the highest | 1–8 |
 | `2d20 + 10` | roll, add, plus 10 | 12–50 |
 
-Only the die-plus-die form keeps the highest. With the notation setting
-off, `+` always adds and `d8 + d8` is simply 2–16.
+Only the die-plus-die form keeps the highest. With the setting off, `+` always
+adds and `d8 + d8` is 2–16.
 
 ## Keeping the best of several dice
 
@@ -51,19 +46,18 @@ many dice to keep:
 | `2d20kh1` | roll two d20, keep the higher | 1–20 |
 | `3d6kl2` | roll three d6, keep the lowest two | 2–12 (**k**eep **l**owest) |
 
-This is Foundry's own notation rather than Cairn's, so it works whether the
-Cairn notation setting is on or off. It is what the **Adventurer** option on
-the Ability dice and Gold dice menus rolls: `4d6kh3` covers the same 3–18
-range as the book's `3d6`, but weights it heavily towards the top.
+This is Foundry's own notation, so it works whether the Cairn notation setting
+is on or off. The **Adventurer** option on the Ability dice and Gold dice menus
+rolls `4d6kh3`: the same 3–18 range as the book's `3d6`, weighted towards the
+top.
 
-Mind the difference from Cairn's plus form above. `d8 + d8` keeps **one** die
-of two, so it stays within one die's range, 1–8. `4d6kh3` keeps **three**
-dice and adds them, so its range is three dice wide.
+`d8 + d8` keeps **one** die of two, so it stays within one die's range, 1–8.
+`4d6kh3` keeps **three** dice and adds them.
 
 ## Exploding dice
 
 `x` after a die rolls it again whenever it comes up its highest face, and adds
-the result — for as long as it keeps rolling the highest:
+the result, for as long as it keeps rolling the highest:
 
 | You write | It means | Result |
 |---|---|---|
@@ -71,46 +65,33 @@ the result — for as long as it keeps rolling the highest:
 | `2d6kx` | roll two d6, keep the higher, and explode **that one** | 1–5, or 6 plus another roll |
 | `1d6x2=6` | roll a d6; on a 6, roll and add again, **at most twice** | 1–5, or 6 plus up to two more |
 
-Order matters, and `2d6kx` is deliberate: `k` keeps the higher die first, so
-only the kept die explodes. Two sixes are one six. Written the other way round,
-`2d6xk` explodes both dice and then compares them, which can never exceed 6 —
-not what you want.
+Order matters. In `2d6kx`, `k` keeps the higher die first, so only the kept die
+explodes, and two sixes count as one. Written the other way round, `2d6xk`
+explodes both dice and then compares them, which can never exceed 6.
 
 **The Exploding damage dice option applies this for you**, to player
-characters' damage rolls only, so you do not normally type it — see
-**Optional Combat Rules**. It writes the capped form — `1d6x2=6`, `2d6kx2=6`,
-`1d4x1=4` — so a die explodes at most half its faces less one times: the
-number after `x` is the cap and the number after `=` is the face that
-explodes. Write `x2` on its own and Foundry reads it as "explode on a 2", so
-keep the `=` if you type a cap yourself. One limit goes with it: a keep-highest roll of
-**different** dice, `d6 + d8`, is left alone, because keeping the highest and
-then exploding it cannot be written for mixed dice. Every other die from a d4
-up explodes — a d4 weapon and an Impaired roll's d4 included; a d2 or d3 never
-does. A pair written
-with a plus sign, `d6 + d6`, explodes only while **Use Cairn dice notation:
-'d6+d6' as keep highest** is on; with it off, the pair is plain addition and
-rolls as written.
-
-With **Maneuver on max damage** also on, nothing about the roll changes: the die
-still explodes when it is rolled, and the card adds a line saying a maneuver is
-possible as well.
+characters' damage rolls only — see
+[Optional Combat Rules](optional-combat-rules.md). It writes the capped form:
+`1d6x2=6`, `2d6kx2=6`, `1d4x1=4`. The number after `x` is the cap and the number
+after `=` is the face that explodes. Foundry reads `x2` on its own as "explode
+on a 2", so keep the `=` if you type a cap yourself.
 
 ## Minimums and maximums
 
-Braces compare two rolls and keep one, which is how a formula says "but
-never below" or "but never above":
+Braces compare two rolls and keep one. This is how a formula says "never below"
+or "never above":
 
 | You write | It means |
 |---|---|
 | `{2d20 + 10, 21}kh` | roll 2d20 + 10, but never below 21 (**k**eep **h**ighest) |
 | `{2d20 + 10, 40}kl` | roll 2d20 + 10, but never above 40 (**k**eep **l**owest) |
 
-These work whether the Cairn notation setting is on or off — the brace
-form belongs to Foundry itself.
+The brace form is Foundry's own, so it works whether the Cairn notation setting
+is on or off.
 
-Prefer shaping the dice over capping them where you can: a cap piles
-results onto the boundary (capping `2d20 + 10` at 30 makes more than half
-of all rolls exactly 30), while dice sized to the range spread across it.
+Where you can, shape the dice instead of capping them. A cap piles results onto
+the boundary: capping `2d20 + 10` at 30 makes more than half of all rolls
+exactly 30. Dice sized to the range spread across it.
 
 ## Age formula recipes
 
@@ -122,15 +103,14 @@ of all rolls exactly 30), while dice sized to the range spread across it.
 | Ages 20–50, all equally likely | `1d31 + 19` |
 | Everyone arrives the same age | `30` |
 
-## When a formula does not parse
+## When a formula cannot be read
 
-A formula the dice reader cannot understand is not rolled: the default is
-used instead and a warning names the text that was rejected, so a typo
-never silently changes what the setting does. A **blank** field just means
-"use the default", with no warning.
+A formula the system cannot read in the Age or Hit Protection setting is not
+rolled. The default is rolled instead, and a warning names the text that was
+rejected. A **blank** field means "use the default", with no warning.
 
-The age box on a character's sheet stays free text either way — a typed
-age is never checked against any formula.
+The age box on a character's sheet stays free text. A typed age is never checked
+against any formula.
 
-Foundry's own dice reference covers the full notation, modifiers and all:
+Foundry's own dice reference covers the full notation:
 [foundryvtt.com/article/dice](https://foundryvtt.com/article/dice/).

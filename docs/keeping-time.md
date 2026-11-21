@@ -1,124 +1,107 @@
 # Keeping Time
 
-Cairn counts a journey in **watches**. This system now keeps track of them for
-you, shows the current watch to everyone at the table, and — if you are running
-Vald — puts a date on it.
+Cairn counts a journey in **watches**. The system tracks them, shows the current
+watch to everyone at the table, and puts a Vald date on it if you are running
+Vald.
 
 ---
 
 ## Watches
 
-A day is three watches, called **morning**, **afternoon** and **night**. Each is
-eight hours. Every character chooses one Wilderness Action per watch, and the
-last watch of the day is usually spent making camp.
+A day is three watches of eight hours: **morning**, **afternoon** and **night**.
+Every character chooses one Wilderness Action per watch, and the last watch of
+the day is usually spent making camp.
 
-This is why the travel tables are priced the way they are. A trail costs
-**+1 Watch**, wilderness **+2 Watches**, mountains another **+2**, and bad
-weather can add one more. Add them up and you know how many watches the journey
-takes; divide by three and you know how many days.
+The travel tables count in watches. A trail costs **+1 Watch**, wilderness
+**+2 Watches**, mountains another **+2**, and bad weather can add one more. Add
+them up for the length of the journey in watches; divide by three for days.
 
-Weather is rolled **once a day**, not once a watch.
+Weather is rolled once a day.
 
 ## The calendar bar
 
-A bar hangs from the top of the screen, and everyone sees it. It shows the
-current watch and the date, and with the Vald calendar on, the season. Once you
-have called it, today's weather hangs just under it. With the Vald calendar on,
-the date and the season are buttons: click either and the month calendar opens.
+A bar across the top of the screen shows everyone the current watch and the
+date, and with the Vald calendar on, the season. Once you have rolled or set
+it, today's weather hangs under the bar. With the Vald calendar on, the date and
+the season are buttons that open the month.
 
-You can turn it off in **Configure Settings → Air Bladder → Configure General**,
-under **Show the calendar bar**. That is one switch for the whole table, not a
-per-player preference: whether your game tracks watches at all is your call as
-Warden. The bar also carries today's weather, and with the Vald calendar on
-it is how players open the calendar, so switching it off takes both away from
-them. You can still open the calendar from **Calendar** on the Dashboard.
+Only you can move the clock. Players can read it.
 
-**Tucking it away.** Anyone can tuck the bar for themselves under Configure
-Settings → Air Bladder → **Tuck the calendar bar**. Only a thin edge shows;
-point at it and it slides down, and it tucks itself again when you move away.
-**Y** pulls it down to stay and tucks it again (change the key in Configure
-Controls).
+**Turning it off.** **Configure Settings → Air Bladder → Configure General
+Settings → Show the calendar bar**. This is one switch for the whole table.
+Without the bar, players lose today's weather and their way to open the Vald
+calendar. You can still open the calendar from **Calendar** on the Dashboard.
 
-Only you can move the clock. Players can read it and nothing else.
+**Tucking it away.** Anyone can tuck the bar on their own screen: Configure
+Settings → Air Bladder → **Tuck the calendar bar**. Only a thin edge shows.
+Point at it and it slides down; move away and it tucks again. **Y** pulls it
+down to stay, and tucks it again. You can change the key in Configure Controls.
 
 ## Moving the clock
 
-The controls are at the top of the **Warden's Dashboard** — the clipboard in the
-Token controls, down the left of the map.
+The controls are at the top of the [Warden's Dashboard](warden-dashboard.md),
+the clipboard in the Token controls down the left of the map.
 
 | Button | What it does |
 |---|---|
 | **Back a Watch** | Takes back eight hours, for when a watch was counted twice |
 | **Advance a Watch** | Moves everyone on by one watch |
 | **Advance a Day** | Three watches at once |
-| **To Next Morning** | Skips whatever is left of today and lands at the start of the next morning |
-| **Set the Date…** | Type a year, month, day and watch. A line under the fields shows the date you are about to set and how many days away it is, so a year off by one is visible before you press Set |
+| **To Next Morning** | Skips whatever is left of today and lands at the start of the next morning watch |
+| **Set the Date…** | Type a year, month, day and watch. A line under the fields shows the date you are about to set and how many days away it is |
 
-**There is no "Make Camp" button, on purpose.** Making camp is a Wilderness
-Action your players choose, with consequences they carry. This system does not
-apply rules on a player's behalf, so the Warden moves the calendar and the party
-decides whether they camped. **To Next Morning** is the same jump without the
-claim.
+There is no Make Camp button. Making camp is a Wilderness Action the players
+choose, and the system does not apply rules on a player's behalf. You move the
+clock; the party decides whether they camped.
 
-Nothing is posted to chat when the clock moves. It does not need to be — the
-clock is already on everyone's screen.
+Nothing is posted to chat when the clock moves.
 
 ## Roll Today's Weather
 
-Under the clock is a **Roll Today's Weather** button. It rolls the weather table
-for the season the world is actually in, so you stop having to remember which
-season that is.
+**Roll Today's Weather**, under the clock on the Dashboard, rolls the weather
+table for the current season.
 
-It does two things the other table buttons do not, and both are deliberate.
-**The card goes out to everyone**, whatever the visibility dropdown says —
-weather the party is standing in is not a secret. And **the result becomes
-today's weather**: it appears on everybody's clock (and, with the Vald calendar
-on, on the calendar), and it clears itself when the day turns over. If you want a private look at a season's
-weather, roll that season's own table on the Travel tab instead; that one sets
-nothing.
+It differs from the other table buttons in two ways. The card goes to everyone,
+whatever **Who sees the result** says. And the result becomes today's weather:
+it shows under the calendar bar, and on the Vald calendar when that is on, and
+it clears when the day turns over. For a private look at a season's weather,
+roll that season's table on the Travel tab, which sets nothing.
 
-Beside it is **Set the Weather…**, because a d6 of seasonal weather has no row
-for a curse, a spell, or the thing in the valley. Type whatever the sky is
-doing. The season's own six rows are offered as suggestions, so the ordinary
-case is still one keystroke and a pick. **Leave the field empty and the weather
-clears**, which is how you undo a mistake. Nothing is posted to
-chat: the clock carries it to everyone already, and the Vald calendar too when
-it is on. With the clock switched off, players see it only if you **Keep a
-weather log**.
+**Set the Weather…** beside it is for weather no table has a row for. Type
+what the sky is doing, or pick one of the season's own rows from the
+suggestions. Leave the field empty to clear the weather. Nothing is posted to
+chat. With the calendar bar off, players see the weather only if you keep a
+weather log.
 
 ## Keeping a weather log
 
-**Configure Settings → Air Bladder → General → Keep a weather log**, off by
-default. Switch it on and every time the weather is rolled or set, a line goes
-into a journal called **The Weather Log**: the date, the watch, the season,
-anything the calendar marks on that day, and the weather itself. One page per
-month.
+**Configure Settings → Air Bladder → Configure General Settings → Keep a
+weather log**, off by default. With it on, every time the weather is rolled or
+set, a line goes into a journal called **The Weather Log**: the date, the
+watch, the season, anything the calendar marks on that day, and the weather.
+One page per month.
 
-Everyone at the table can read it, which is most of the reason to keep one — a
-party can look back at what the weather did on the road. It is an ordinary
-journal, so you can edit a line you did not mean to write, and deleting the
-journal starts a fresh one the next time the weather is called.
+Everyone at the table can read it. It is an ordinary journal, so you can edit a
+line, and if you delete the journal a new one starts the next time the weather
+is rolled or set.
 
-One thing to know: a line is written in the language of whoever's client wrote
-it, and it stays in that language. It is a record of what happened rather than
-part of the interface.
+A line is written in the language of the Warden who was running the game at the
+time, and it stays in that language.
 
 ---
 
 ## The Vald calendar
 
-Vald keeps its own year, and it is switched off by default. Turn it on in
-**Configure Settings → Air Bladder → GLoG & Other Hacks**, under **Use the Vald
-calendar and seasons**.
+Vald keeps its own year. It is off by default. Turn it on in **Configure
+Settings → Air Bladder → Configure Hacks → Use the Vald calendar and seasons**.
 
-With it on, the clock reads a Vald date and the Travel tab grows a **Weather in
+With it on, the clock reads a Vald date and the Travel tab shows a **Weather in
 Vald** group.
 
 ### The year
 
-Twelve months of twenty-four days, so 288 days in a year. Six days in a week, so
-four weeks in a month — and because twenty-four divides by six, **every month
-begins on Market Day**.
+Twelve months of twenty-four days make 288 days in a year. A week is six days,
+so a month is four weeks and every month begins on Market Day.
 
 **Days of the week:** Market, Garden, Song, Tithe, Bathing, Resting.
 
@@ -131,105 +114,91 @@ Mourning, **Dry** on the 4th of Sunrise, **Wet** on the 4th of Flood, and
 
 Every tenth year adds **Reclamation**, a six-day week belonging to no month:
 Recognize, Remember, Reward, Rejoice, Relinquish, Renew. A new world starts on
-the 1st of Mourning, 7728, and 7728 is itself a Reclamation year.
+the 1st of Mourning, 7728, and 7728 is a Reclamation year.
 
 ### Two places the Warden's Guide disagrees with itself
 
-Worth knowing before you notice them and report them as bugs here. Both are in
-the published text, and this system follows the dated entries rather than
-correcting the prose.
+Both are in the published text. This system follows the dated entries and does
+not correct the prose.
 
 - The Guide says each season lasts seventy-two days. Its own "season begins"
   dates make Dead and Dry seventy-two, but **Wet sixty-nine and Harvest
   seventy-five**.
-- It puts *Lift the Veil*, "the end of the Dead season", on the 9th of Veil —
+- It puts *Lift the Veil*, "the end of the Dead season", on the 9th of Veil,
   **nineteen days before** Dry begins.
 
 ### Vald weather
 
-Four tables, one per season, on the Travel tab under **Weather in Vald**. They
-describe the day: *Light snow*, *Thunderstorms*, *Warm and breezy*.
+Four tables, one per season, sit on the Travel tab under **Weather in Vald**.
+They describe the day: *Light snow*, *Thunderstorms*, *Warm and breezy*.
 
-**With the hack on, Cairn's own weather buttons stand down** — the four seasons
-and Weather Difficulty both. Two sets of weather on one tab means rolling both
-and getting answers that disagree about the same day. Vald's are what a Vald
-table wants.
+With the Vald calendar on, Cairn's own weather buttons leave the Travel tab:
+the four seasons and Weather Difficulty. Cairn's five tables are still in the
+compendium if you want a severity roll.
 
-Cairn's five tables still ship and are still in the compendium browser, so a
-Warden who wants a severity roll — Nice, Fair, Unpleasant, Inclement, Extreme —
-can still reach one. They are simply not on the tab while you are running Vald.
-
-**Roll Today's Weather** picks the Vald table while the hack is on, and a Cairn
-one while it is off.
+**Roll Today's Weather** picks the Vald table while the Vald calendar is on,
+and a Cairn one while it is off.
 
 ### The month at a glance
 
-Click the date on the calendar bar, or press **Calendar** on the Dashboard, and the month
-opens: twenty-four days in six columns, today circled, and the day you last
-looked at highlighted. Everyone can open it while the calendar bar is shown;
-with the bar switched off, only you can, from the Dashboard.
+Click the date on the calendar bar, or press **Calendar** on the Dashboard, and
+the month opens: twenty-four days in six columns, with today circled and the
+day you last clicked highlighted. Everyone can open it while the calendar bar
+is shown. With the bar off, only you can, from the Dashboard.
 
-- **Each day is tinted with its season**, and the day a season *begins* carries
-  that season's mark. Vald's seasons turn over in the middle of a month, so this
-  is the only place you can see where the boundary actually falls.
-- **The days with something on them carry a dot.** Click one and its festival is
-  spelled out underneath, in the Warden's Guide's own words. The Splash Festival
-  and the Storm Dance run for three and five days, and every day of the run is
-  marked.
+- **Each day is tinted with its season**, and the day a season begins carries
+  that season's mark. Vald's seasons change in the middle of a month.
+- **Days with something on them carry a dot.** Click one and its festival is
+  given underneath, in the Warden's Guide's words. The Splash Festival and the
+  Storm Dance run for three and five days, and every day of the run is marked.
 - **Reclamation**, in a year that has one, is a row of six cells named Recognize
-  through Renew. It belongs to no month, so it sits on its own.
-- Today's weather shows beside the season, for today only. The pencil beside it
-  is yours.
-- **Set the world to this day** is at the foot of the panel and only you see it.
-  Clicking a day never moves the clock — it only opens it — so you can read
-  ahead without touching anything. The button asks before it moves anything,
-  naming the day and how many days away it is, so a stray click on a month
-  you were only reading never moves the table. The watch stays where it was: fixing the date
-  at dusk means the same dusk on another day, not dawn.
+  through Renew, set apart from the months.
+- **Today's weather** shows beside the season, for today only. Only you see the
+  pencil beside it, which sets the weather.
+- **Set the world to this day** is at the foot of the panel, and only you see
+  it. Clicking a day opens it and never moves the clock. The button asks first,
+  naming the day and how many days away it is. The watch stays as it is.
 
-The 24 festivals ship in the **Vald** compendium as their own journal entry,
-*Festivals of Vald*, so you can read them straight through, edit them, or hand
-them to your players outside the calendar.
+The 24 festivals also ship in the **Vald** compendium as a journal entry,
+*Festivals of Vald*, which you can read, edit or hand to your players.
 
 ### Putting your own days on it
 
 **Add an event…** sits beside Set the world to this day, and only you see it.
-Pick a day, say what happens, and it goes on the calendar beside the festivals.
+Pick a day and say what happens.
 
 - **Which watch** it happens in, or all day.
-- **How many days** it runs, if it is more than one.
-- **Every year** makes it a standing fixture. Leave it unticked and it belongs
-  to the year you put it in.
-- **The party can see it** decides which of two journals it lands in: *The
+- **How many days** it runs.
+- **Every year** makes it recur. Unticked, it belongs to the year you put it
+  in.
+- **The party can see it** decides which of two journals it goes in: *The
   Warden's Calendar*, which everyone can read, or *The Warden's Calendar
-  (hidden)*, which they cannot.
+  (hidden)*, which players cannot.
 
-Your events show with a coloured dot and a rule down the side, so they read
-apart from the Guide's own festivals. Each is an ordinary journal page — **Edit**
-opens it, so you can write as much as you like — and **Remove** deletes it.
+Your events show with a coloured dot and a rule down the side, apart from the
+Guide's festivals. Each is an ordinary journal page: **Edit** opens it, and
+**Remove** deletes it.
 
-**A word on "hidden".** It keeps an event off the party's calendar and out of
-their journal sidebar, which is what you want for the thing arriving on the
-fourteenth. It is not encryption: Foundry still sends the journal to their
-browser, so a player who went looking with developer tools could read it. If
-something must not be readable at all, keep it outside the world.
+A hidden event stays off the party's calendar and out of their journal sidebar.
+It is not secure against a determined player, because Foundry still sends the
+journal to their browser. Keep anything that must not be readable outside the
+world.
 
 ### Switching it on and off
 
-The world clock is a count of seconds and nothing more. Switching the Vald
-calendar on does not convert it — it simply **reads that number differently**,
-so the date on screen will jump the first time. Nothing is lost, and switching
-back restores exactly the reading you had before.
+Switching the Vald calendar on converts nothing. The same moment is read as a
+different date, so the date on screen jumps the first time. Switching it off
+restores the reading you had before.
 
-So: turn it on, then use **Set the Date…** once to put the party where you want
+After turning it on, use **Set the Date…** once to put the party where you want
 them.
 
 Foundry reloads when you change this setting, so everyone at the table changes
-over at the same moment.
+over together.
 
 ## Related
 
-- [The Warden's Dashboard](warden-dashboard.md) — where the clock controls live,
-  and every other table on a button.
+- [The Warden's Dashboard](warden-dashboard.md) — the clock controls, and every
+  other table on a button.
 - [Encounter Tables](encounter-tables.md) — what a travel watch turns up.
 - [Dice Formulas](dice-formulas.md) — the notation used elsewhere in this system.

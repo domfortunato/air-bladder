@@ -1,115 +1,97 @@
 # Customizing the marketplace
 
-The **Marketplace** is the shop a character opens from the **Inventory** page of their
-sheet. It arrives with four aisles — Weapons, Armor, Gear, and Transports &
-Containers — and every row in it points at a real item somewhere in your world.
-Nothing in the shop is a price list: the price, the description, the tags and
-the slot cost a shopper sees are read off the item itself, every time the shop
-opens.
+The **Marketplace** is the shop a character opens from the **Inventory** page of
+their sheet. It ships with four aisles: Weapons, Armor, Gear, and Transports &
+Containers. Every row in it names an item, and the price, description, tags and
+slot cost a shopper sees are read from that item each time the shop opens.
 
-This page is about setting your own prices and stocking your own goods.
+This page covers setting your own prices and stocking your own goods. You need
+to be the Warden.
 
-You need to be the Warden (GM).
+## How the shop works
 
----
-
-## Where a price comes from
-
-Each aisle is a **rollable table**, and each of its rows names one item. When a
-shopper opens the shop, every row is looked up fresh. So an item's own fields
-are the shop:
+Each aisle is a **rollable table**, and each row names one item:
 
 - **Cost** is the price.
-- **Bulky** and **Petty** are the slots it takes — bulky costs two, petty or
-  weightless costs none, anything else costs one.
+- **Bulky** and **Petty** set the slots it takes: Bulky takes two, Petty takes
+  none, anything else takes one.
 - The description is what a shopper reads when they click the name.
 
-Nothing is cached. Change an item and the next person to open the shop sees the
-change, with no reload.
+Change an item and the next person to open the shop sees the change, with no
+reload.
 
----
+A shopper can **Buy** an item, paying its cost in gold, or **Take** it for free.
+A character with no free slot is refused anything but a Petty item or a
+transport. Buying a mount, cart or pack creates a new actor, which Foundry lets
+only the Warden do by default.
+
+To close the shop to players, turn off **Let players buy and take from the
+marketplace** under **Configure Inventory**, or run the shipped **Toggle Player
+Marketplace** macro. The Warden can always shop.
 
 ## Do not edit the shipped compendiums
 
-Foundry will let you unlock **Marketplace**, or **Market Goods**, and edit them
-in place. It also warns you, in the dialog that unlocking raises, that your
-changes may be lost — and here they certainly will be. A system compendium is
-overwritten wholesale when Air Bladder updates: the old copy is deleted before
-the new one is written, and everything you typed into it goes with it.
+Foundry lets you unlock **Marketplace** or **Market Goods** and edit them in
+place. Those edits are lost: a system compendium is replaced whole every time
+Air Bladder updates.
 
-Your world is never touched by an update. So the durable way to change the shop
-is to keep your version of it in your world, which is what the rest of this page
-describes.
-
-Think of the shipped compendiums as **templates**: the starting point you copy
-and make your own, never the place you edit.
-
----
+An update never touches your world. Keep your version of the shop there, and
+treat the shipped compendiums as templates to copy.
 
 ## Copy it into your world
 
-The one-button way. Open the **Rollable Tables** sidebar tab and press
-**Create a Custom Marketplace…** (Wardens only). It explains what it is
-for and how many documents it is about to copy; press **Copy** and you get:
+Open the **Rollable Tables** sidebar tab and press **Create a Custom
+Marketplace…** (Wardens only). A window explains what it will copy. Press
+**Copy** and you get:
 
 - the four **Market:** tables in your Rollable Tables, in a **Custom
   Marketplace** folder;
 - every item they sell in your Items sidebar, in a **Custom Marketplace** folder
-  with a subfolder per source compendium — Armor, Gear, Market Goods, Tools,
-  Trinkets, Weapons — and every mount and cart in a **Custom Marketplace**
-  folder of its own in your Actors sidebar;
-- every row already pointing at your copy.
+  with a subfolder per source compendium (Armor, Gear, Market Goods, Tools,
+  Trinkets, Weapons);
+- every mount and cart in a **Custom Marketplace** folder in your Actors
+  sidebar;
+- every row of the copied tables pointing at your copy.
 
-A window then says what landed, with a button for each new folder that takes you
-straight to it: **Show the Custom Marketplace folder in Rollable Tables**, **Show
-the Custom Marketplace folder in Items** and **Show the Custom Marketplace folder
-in Actors**.
+A window then says what was copied, with a button for each new folder: **Show
+the Custom Marketplace folder in Rollable Tables**, **Show the Custom Marketplace
+folder in Items** and **Show the Custom Marketplace folder in Actors**.
 
-From then on the shop reads your tables and your items. Change a price, delete a
-row, drag something in — it all sticks, through every update.
+From then on the shop reads your tables and your items, and your changes
+survive every update.
 
-Three things worth knowing:
-
-- **Running it again never overwrites.** Anything already in your world is kept
-  as it is; only what is missing is added, and the window afterwards says how
-  many of each.
+- **Running it again never overwrites.** Anything already in your world is
+  kept. Only what is missing is added, and the window says how many of each.
 - **A table you imported by hand earlier is kept too.** It is found by name, so
-  a `Market: Gear` you already had stays yours — but its rows still point at the
+  a `Market: Gear` you already had stays yours. Its rows still point at the
   shipped items, and the window says so. Delete it and run again to have it
   rebuilt pointing at your copies.
 - **Items you imported earlier are used, not duplicated.** A copy made with
-  Foundry's own Import, with or without *Keep Document IDs*, is recognised and
-  the rows point at it — at whatever price you gave it.
+  Foundry's own Import is recognised, and the rows point at it at whatever price
+  you gave it.
 
-One side effect, the same as after a hand import: a mount copied this way is
-also what an encounter table places for a row that points at the shipped one,
-because Foundry treats a world copy as the import of its source.
-
----
+A mount copied this way is also what an encounter table places for a row that
+points at the shipped one, because Foundry treats a world copy as the import of
+its source.
 
 ## Replacing an aisle by hand
 
 1. Open the **Compendium** sidebar tab → **Marketplace** → right-click
    **Market: Gear** → **Import**.
-2. The copy lands in your **Rollable Tables** sidebar under the same name. That
-   name is the whole mechanism — keep it.
-3. A table opens in view mode, where nothing can be dropped or added, so press
-   **Edit** at the top of the window first. Then edit it freely. Delete rows you
-   do not stock, and drag in items you do — from the Items sidebar or a
+2. The copy lands in your **Rollable Tables** sidebar under the same name. Keep
+   that name: it is how the shop finds your table.
+3. Open the table and press **Edit** at the top of the window. Delete rows you
+   do not stock, and drag in items you do, from the Items sidebar or a
    compendium, anywhere onto the table's window.
 
-Open any `Market:` table in your world and a note at the top says which aisle
-it stocks and how to add or remove a row; open the shipped one in the
-compendium and the note says it is a template and names the button. The note
-follows the name: rename a table away from `Market:` and it disappears,
-because the shop has stopped reading it. If two tables in your world share a
-name, both say so: Air Bladder cannot tell which one to read, so rename or
-delete one of them.
+A note at the top of any `Market:` table in your world says which aisle it
+stocks and how to add or remove a row. On a shipped table the note says it is a
+template and names the button. Rename a table away from `Market:` and the note
+disappears, because the shop has stopped reading it. If two tables in your world
+share a name, both say so. Rename or delete one of them.
 
-Your table keeps itself in alphabetical order: drop an item in and every row
-is re-numbered by name, so the newcomer lands where it belongs rather than at
-the bottom, and the shop shows the aisle in the same order. The spell table
-does the same; every other table keeps the order you give it.
+Your table stays in alphabetical order: drop an item in and the rows are
+re-numbered by name. The shop shows the aisle in the same order.
 
 The four names, spelled exactly:
 
@@ -118,73 +100,53 @@ The four names, spelled exactly:
 - `Market: Gear`
 - `Market: Transports & Containers`
 
-A world table **replaces** its aisle rather than adding to it. That is what lets
-you take something off the shelves — and it is why importing the shipped table
-first is the easy way to begin, since you start with all of its rows in front of
-you.
-
-Delete your table and the shipped aisle comes straight back. There is nothing
-else to configure, and no setting to find.
-
----
+A world table **replaces** its aisle. Importing the shipped table first gives
+you all of its rows to start from. Delete your table and the shipped aisle comes
+back.
 
 ## An aisle of your own
 
 Make a rollable table whose name begins with `Market: ` and it becomes a new
-aisle — `Market: Poisons`, `Market: Black Market`, whatever your table needs.
-It appears after the four shipped ones, for everybody.
+aisle, such as `Market: Poisons`. It appears after the four shipped ones, for
+everybody.
 
----
+## Your own prices
 
-## Your own prices, kept
-
-A price lives on the item, and the shipped items are in shipped compendiums, so
-re-pricing one in place has the same fate as everything else in there. After
-**Create a Custom Marketplace…** every row already points at your copy, so a price is
-one edit: open the item in the **Custom Marketplace** folder of your Items
-sidebar, under the name of the compendium it came from (a Dagger under Weapons;
-a mount or a cart is in the folder of the same name under Actors), set its
-**Cost**, done.
+A price lives on the item. After **Create a Custom Marketplace…** every row
+points at your copy, so open the item in the **Custom Marketplace** folder of
+your Items sidebar (a mount or a cart is in the folder of the same name under
+Actors) and set its **Cost**.
 
 By hand, one item at a time:
 
-1. Find the item in its compendium — **Market Goods**, **Gear**,
-   **Tools**, **Trinkets**, **Weapons**, **Armor**, or **Companions & Transports**
-   for a mount or a cart.
+1. Find the item in its compendium: **Market Goods**, **Gear**, **Tools**,
+   **Trinkets**, **Weapons**, **Armor**, or **Companions & Transports** for a
+   mount or a cart.
 2. Right-click it → **Import**. It lands in your **Items** sidebar (a mount or a
    cart lands in **Actors**).
 3. Set its **Cost** there.
 4. Drag your copy into your market table, and delete the row pointing at the
    shipped one.
 
-Items you write yourself work exactly the same way: give one a Cost, drag it
-into an aisle, and it is on the shelves.
-
----
+Items you write yourself work the same way: give one a Cost and drag it into an
+aisle.
 
 ## What a row can point at
 
-An **item** of any kind, and an **NPC actor** for a mount, a wagon or a pack
-animal — those carry a stat block and their own capacity, so they cannot be
-plain items. Anything else dragged into a market table is ignored by the shop.
+A row can point at an **item** of any kind, or at an **NPC actor** for a mount,
+a wagon or a pack animal. The shop ignores anything else in a market table.
 
-**Which aisle a thing is in is decided by the table it sits in**, not by what
-kind of thing it is. A sword filed under Gear is sold from the Gear aisle.
+**The table a thing sits in decides its aisle.** A sword in `Market: Gear` is
+sold from the Gear aisle.
 
-One exception is worth knowing: a character's **Containers** tab offers the
-Transports & Containers aisle and only that one. A mule filed under Gear can
-still be bought from the main shop, but it will not appear on that tab, so put
-carriers where they belong.
-
----
+Keep mounts, carts and packs in `Market: Transports & Containers`. Only a
+player character's sheet is shown that aisle. The shop on any other sheet
+leaves it out.
 
 ## What your players see
 
-The shop is read fresh every time it opens, on whoever's screen it opens. Your
-players get your prices and your stock the next time they open it — there is
-nothing to hand out, and nobody needs to reload.
+Your players get your prices and your stock the next time they open the shop.
+Nobody needs to reload.
 
----
-
-The same trick — a world table beating a shipped one by name — is how bonds and
-omens are customized. See [Customizing bonds](customizing-bonds.md).
+Bonds and omens are customized the same way, with a world table of the same
+name. See [Customizing bonds](customizing-bonds.md).

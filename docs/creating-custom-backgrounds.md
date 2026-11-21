@@ -1,91 +1,83 @@
 # Creating a custom 2e background
 
-A **custom background** is a Cairn 2e background you write yourself: a tagline and
-description, example names, starting gear, and two d6 question tables. Air Bladder
-treats it exactly like a shipped one — it appears in the character-creation picker,
-grants its gear, and rolls its questions.
+A **custom background** is a Cairn 2e background you write yourself: a
+description, example names, starting gear, and two d6 question tables. It works
+as a shipped one does. It appears in the background picker, grants its gear and
+rolls its questions.
 
-This page is about **authoring** one. Once you have it working, see
-[Sharing & moving custom backgrounds](sharing-custom-backgrounds.md) for getting it
-to another world or another Warden.
+This page covers writing one. To move one to another world or another Warden,
+see [Sharing & moving custom backgrounds](sharing-custom-backgrounds.md).
 
-You need to be the Warden (GM). Everything here happens in a world.
+You need to be the Warden, in a world.
 
 ---
 
-## The fastest start: duplicate a shipped background
+## Start by duplicating a shipped background
 
-Writing one from a blank sheet means filling twelve question-table options before
-you can see anything work. Copying a real background gives you a complete, correct
-example to edit down.
+A copy of a shipped background is a complete example to edit.
 
 1. Open the **Compendium** sidebar tab → **Air Bladder - Backgrounds** →
-   **Backgrounds (2e)** → click any background (say *Fieldwarden*).
-2. Switch to the **Details** tab and click **Duplicate into Custom 2e Backgrounds**.
+   **Backgrounds (2e)** and click a background.
+2. Open its **Details** tab and click **Duplicate into Custom 2e Backgrounds**.
 
-The button is on **Details**, not Description, and a shipped background opens on
-Description — so if you cannot see it, you are on the wrong tab. You do **not** need
-to import the background into your world first; the button works directly on a
-locked compendium entry.
+A shipped background opens on its Description tab, where a note points you to
+Details. You do not need to import the background first; the button works on
+the locked compendium entry.
 
-That does two things: it creates a world compendium called **Custom 2e Backgrounds**
-the first time you use it, and it puts an editable copy inside, named
-*Fieldwarden (Copy)*.
-
-Open that copy and you have the authoring sheet. Rename it, then work through the
-fields below, replacing the borrowed content as you go.
+The first time you use it, the button creates a world compendium called
+**Custom 2e Backgrounds**. It puts an editable copy there, named after the
+original with *(Copy)* added, and opens it. Rename the copy and replace its
+content using the fields described under [The sheet](#the-sheet).
 
 ## Taking over every shipped background at once
 
-If what you want is to edit the shipped backgrounds themselves — a different
-gear list for the Fieldwarden, a question rewritten — open the **Rollable Tables** or **Compendium**
-sidebar tab and press **Create Custom 2e Backgrounds and Tables…** (Wardens only). It copies all 27 shipped 2e backgrounds, the Player's
-Guide twenty and the seven in **Backgrounds (Custom)**, into your **Custom 2e
-Backgrounds** compendium under their own names, no "(Copy)" suffix, and switches
-custom backgrounds on.
+To edit the shipped backgrounds themselves, open the **Rollable Tables** or
+**Compendium** sidebar tab and press **Create Custom 2e Backgrounds and
+Tables…** (Wardens only). A window explains what will be copied; press **Copy**.
 
-Think of the shipped compendiums as **templates**: the starting point you copy
-and make your own, never the place you edit.
+It copies all 27 shipped 2e backgrounds into your **Custom 2e Backgrounds**
+compendium under their own names, with no *(Copy)* added, and switches custom
+backgrounds on. The 27 are the Player's Guide's twenty and the seven in
+**Backgrounds (Custom)**.
 
-Each copy **stands in** for the shipped one: the picker and the generators use
-your copy and never the original, in the same archetype group it always had.
-Delete a copy and the shipped one is back. To take one out of play without
-deleting anything, use the eye toggle in the background pick-list — a
-background you switched off before copying stays off afterwards, copy included — see
+Treat the shipped compendiums as templates: copy from them, and edit the copy.
+
+Each copy **stands in** for the shipped background. The picker and the
+generators use your copy, in the group the original had. Delete a copy and the
+shipped one is back. To take a background out of play without deleting it, use
+the eye toggle in the background picker; a background you switched off before
+copying stays off. See
 [Taking a background out of play](generating-characters.md#taking-a-background-out-of-play)
 in Generating Characters.
 
-The same button also copies the **eleven tables a 2e character rolls on** —
-Bonds, Omens, Scars (the one in Utils, which a damage roll deals a scar from),
-and the eight trait tables (Physique, Skin, Hair, Face, Speech, Clothing, Vice,
-Virtue) — into a **Custom 2e Character Creation** folder in your Rollable
-Tables, where the same rule applies: a world table with a shipped table's name
-is rolled instead of it, and the trait pick-lists on the character sheet offer
-your rows too. See [Customizing Bonds](customizing-bonds.md).
+The same button copies the **eleven tables a 2e character rolls on** into a
+**Custom 2e Character Creation** folder in your Rollable Tables: Bonds, Omens,
+Scars (the one in **Utils**, which deals a scar when damage calls for one), and
+the eight trait tables (Physique, Skin, Hair, Face, Speech, Clothing, Vice,
+Virtue). A table in your world with a shipped table's name is rolled instead of
+the shipped one, and the trait lists on the character sheet offer your rows.
+See [Customizing Bonds](customizing-bonds.md).
 
-A window afterwards says what landed, with buttons that take you there and say
-where that is: **Open Custom 2e Backgrounds on the Compendium tab** and
-**Show the Custom 2e Character Creation folder in Rollable Tables** — the
-backgrounds are in a world compendium on the Compendium tab, outside the Air
-Bladder folders, which is not where most people look first.
+A window then lists what was copied, with two buttons: **Open Custom 2e
+Backgrounds on the Compendium tab** and **Show the Custom 2e Character Creation
+folder in Rollable Tables**. The backgrounds compendium sits on the Compendium
+tab, outside the Air Bladder folders.
 
-Running it again never overwrites: a copy you have edited is kept, only what is
-missing is added, and a locked Custom 2e Backgrounds compendium is refused rather
-than unlocked behind your back.
+Running it again never overwrites. A copy you have edited is kept, and only
+what is missing is added. If your Custom 2e Backgrounds compendium is locked,
+the backgrounds are not copied; unlock it and run it again.
 
-## Starting from nothing instead
+## Starting from nothing
 
-There is no separate "new background" button. Duplicating is the intended path, but
-the Background item type is public, so you can start from an empty one:
+There is no "new background" button, but you can start from an empty Item:
 
 1. Open the **Items** sidebar tab and click **Create Item**.
 2. Name it and set **Type** to **Background**.
 3. Fill in the fields described below.
-4. On the **Details** tab, click **Duplicate into Custom 2e Backgrounds** to file it in
-   the world compendium — created for you if it does not exist yet.
+4. On the **Details** tab, click **Duplicate into Custom 2e Backgrounds**.
 
-Step 4 is not optional. A background sitting loose in the Items sidebar is not a
-content source and will never appear in the picker.
+Step 4 is required. A background in the Items sidebar never appears in the
+picker; only one in a compendium does.
 
 ---
 
@@ -93,202 +85,182 @@ content source and will never appear in the picker.
 
 The background sheet has two tabs.
 
-**Description** is the prose a player reads in the picker and at the top of their
-character sheet. The **first sentence** is used on its own as the tagline in the
-picker's list, so lead with something that reads well truncated.
+**Description** is the prose a player reads in the picker and on their
+character sheet. The picker's list shows its **first sentence** beside the
+background's name, so write that sentence to stand alone. To edit the text,
+hover over the box and press the edit button in its top-right corner.
 
-It is a rich-text field, and its edit button only appears when you hover over the
-top-right corner of the box — so an empty Description can look like a static panel
-rather than something you can type in.
-
-**Details** is the authoring form. It has a toolbar with **Test ×10** and
-**Duplicate into Custom 2e Backgrounds**, then six sections.
+**Details** is the form. At the top are **Test ×10** and **Duplicate into
+Custom 2e Backgrounds**, then the sections below.
 
 ### Source and Archetype
 
-**Source** is fixed at *Cairn 2e* and is not editable — a custom background is a 2e
-background by definition.
+**Source** always reads *Cairn 2e* and cannot be changed.
 
-**Archetype** is a dropdown (Wizard / Fighter / Thief, or blank). It decides which
-group the background sits under in the picker. It is *only* used there — it never
-appears on a character sheet — but leaving it blank means the background sits
-ungrouped, which looks like a mistake to a player.
+**Archetype** (Wizard, Fighter, Thief, or blank) is the picker group of a copy
+that stands in for one of the Player's Guide twenty. A background of your own
+is listed under **Custom 2e Backgrounds** in the picker whatever its archetype.
+Test ×10 still notes a blank one. The archetype never appears on a character
+sheet.
 
 ### Credit line
 
-Who wrote this background, and under what licence. One line — a title, a name,
-a licence. It is the only field here that leaves your world: whatever you type
+Who wrote this background, and under what licence, on one line. What you type
 prints in the footer of every character sheet built on this background, beside
-Cairn's own credit.
+Cairn's own credit. The box suggests the form:
+
+    Title — Author · CC BY-SA 4.0
 
 **Leave it empty for your own unshared work.** Cairn's credit prints on every
-sheet regardless, because the page reproduces Cairn's rules whether a background
-is involved or not. An empty field simply prints nothing extra. Fill it in when
-you are handing the background to someone else, so your name travels with it:
-
-    Bramblewick — A. Warden · CC BY-SA 4.0
+sheet regardless. Fill it in when you hand the background to someone else.
 
 **If you duplicated someone else's background, their credit is already in the
-box.** Duplicate a Cleric and you get *Backgrounds for Cairn — Gordon McCormick,
-after BECMI D&D by Frank Mentzer · CC BY-SA 4.0*, because that is whose writing
-you are starting from. Keep it while any of their words remain — that is what
-CC BY-SA asks of you, and adding your own name beside theirs is the usual way to
-put it. Once you have rewritten the thing entirely and none of their text is
-left, the box is yours to empty and replace.
+box.** A duplicated Cleric carries *Backgrounds for Cairn — Gordon McCormick,
+after BECMI D&D by Frank Mentzer · CC BY-SA 4.0*. Keep it while any of their
+writing remains, as CC BY-SA requires; you can add your own name beside theirs.
+Once none of their text is left, replace it with your own.
 
-Air Bladder never guesses at this. It reads the box and prints it, so nothing
-puts a name on your writing that you did not put there yourself.
+Air Bladder prints what is in the box and nothing else.
 
 ### Bonds
 
-Two fields most backgrounds never touch. **Grants two bonds** makes characters
-from this background roll on the bonds table twice instead of once. **Bonds
-table** names a RollTable of your own to draw this background's bonds from,
-instead of the default every other background uses. Both — and how bonds
-resolve in general — are covered in [Customizing bonds](customizing-bonds.md).
+**Grants two bonds** makes characters from this background roll on the bonds
+table twice. **Bonds table** names a RollTable of your own for this
+background's bonds. Most backgrounds leave both alone. See
+[Customizing bonds](customizing-bonds.md).
 
 ### Example Names
 
-A list of names offered when a character rolls this background. **Add a name**
-appends a row; the ✕ removes one.
+Names offered when a character rolls this background. **Add a name** adds a
+row; the ✕ removes one.
 
-If you leave this empty, generation falls back to the background's own name, so a
-Smuggler character will be called "Smuggler". Ten or so names is the shipped norm.
+With no names, a generated character is named after the background itself.
 
 ### Starting Gear
 
-The items a character gets for free. Two ways to add one, and the difference
-matters:
+The items every character of this background starts with. There are two ways
+to add one:
 
-- **Drag an item in** (from a compendium or the Items sidebar) — this stores a
-  **frozen copy** of the item, marked with a 📷 camera badge.
-- **Add gear by name** and type a name — this stores a *reference* that is looked up
+- **Drag an item in** from a compendium or the Items sidebar. The background
+  keeps its own copy of the item, marked with a camera badge.
+- **Add gear by name** and type a name. The item is looked up by that name
   when a character is generated.
 
-Each row also has a **uses** box, for things like a torch with 3 uses, and shows the
-item's tags (Armor, Damage, bulky, petty) once it resolves.
+Each row has a **uses** box and shows the item's armor, damage, bulky or
+petty tag and its uses once the name matches an item.
 
-> **Why the freeze:** a snapshot travels. Someone who installs your background does
-> not need your custom items — the copy is inside the background itself. The price is
-> that later edits to the original item do **not** propagate. Use a name reference
-> for ordinary gear every Air Bladder install already ships (Rations, Torch, Rope);
-> drag in anything you made yourself.
+A dragged-in copy travels with the background, so someone you share it with
+does not need your custom items. Later edits to the original item do not reach
+the copy. Use a name for gear every Air Bladder install ships, and drag in
+anything you made yourself.
 
 ### Question Tables (2 × d6)
 
-Two tables, six options each. This shape is fixed — you cannot add a third table or
-a seventh option, because generation rolls a d6 on each.
+Two tables of six options each. The number of tables and options is fixed.
 
-Each table has a **question** ("What happened at your final performance?"), and each
-option has:
+Each table has a **question**. Each option has:
 
-- a **description**, written as prose — what happened, and what it grants
-- **bonus gold**, a number
-- an **items** drop zone, where dropped items are frozen the same way starting gear is
+- a **description** in prose: what happened, and what it grants;
+- **Bonus gold**, a number;
+- a box to drag items into. They are kept as copies, as dragged starting gear
+  is.
 
-At generation, **one option per table is rolled** and its prose, gold, and items go
-to the character. Both tables always fire, so a character gets two answers.
+At generation, one option is rolled on each table, and its prose, gold and
+items go to the character.
 
-Empty options still count. A blank sixth option means a one-in-six chance of getting
-nothing, and the linter will say so.
+An empty option can still be rolled, and grants nothing. Test ×10 reports each
+one.
 
 ---
 
-## Test ×10 before you trust it
+## Test ×10
 
-**Test ×10** dry-runs the background ten times without creating anything. It is the
-only way to see what you actually built, and it doubles as a linter.
+**Test ×10** rolls the background ten times without creating a character and
+shows a report.
 
-It reports two things.
-
-**Problems**, if any:
+**Problems** come first, if there are any:
 
 | What it says | What it means |
 | --- | --- |
-| *Source is not "Cairn 2e"* | It will not appear in the 2e picker at all. |
-| *No archetype set* | It works, but sits ungrouped in the picker. |
-| *No example names* | Characters will be named after the background. |
-| *A starting-gear row has no name* | An empty row that grants nothing. |
-| *Starting gear "X" resolves to nothing — it will silently vanish* | **The important one.** A name reference matching no item. Drag the real item in so it snapshots, or fix the spelling. |
-| *(empty option — a d6 can still roll this)* | A blank question-table option. |
+| *Source is not "Cairn 2e", so this won't appear in the 2e picker.* | The background will not be offered. |
+| *No archetype set — it won't be grouped in the picker.* | See [Source and Archetype](#source-and-archetype). |
+| *No example names — generation falls back to the background's own name.* | Characters will be named after the background. |
+| *A starting-gear row has no name.* | An empty row that grants nothing. |
+| *Starting gear "X" resolves to nothing — it will silently vanish. Drag the item in to snapshot it, or fix the name.* | The name matches no item, so characters will not get it. Fix the spelling or drag the item in. |
+| *Table 1, option 2: "X" resolves to nothing — it will silently vanish. …* | The same, for an item on a question option. |
+| *Table 1, option 6 is empty — a d6 can still roll it, granting nothing.* | An option with no prose, gold or items. |
 
-**A sampling run:** which of each table's six options came up across the ten rolls,
-and the bonus-gold spread (average, min, max). This is how you notice that one
-option grants 300 gold and the rest grant 10.
+With no problems, the report reads *Looks self-contained — every grant
+resolves.*
 
-*Looks self-contained — every grant resolves* is the all-clear.
+Below that, the report lists the starting gear, how many of the ten rolls
+landed on each option of each table, and the bonus gold across the ten rolls
+(average and range). One option granting far more gold than the rest shows up
+here.
 
 ---
 
 ## Making it appear in the picker
 
-A finished background is still invisible until you switch the source on:
+Custom backgrounds are offered only while this setting is on:
 
-**Game Settings → Configure Settings → Air Bladder → Character Generation → Configure Character Generation → "Offer custom Cairn 2e backgrounds"**
+**Game Settings → Configure Settings → Air Bladder → Character Generation →
+Configure Character Generation → Offer custom Cairn 2e backgrounds**
 
-With it on, your custom backgrounds join the picker's **Custom** section. A copy
-made by **Create Custom 2e Backgrounds and Tables…** is the one exception: it keeps
-the shipped background's place in its archetype group, because it stands in for
-it.
+With it on, your backgrounds are listed under **Custom 2e Backgrounds** at the
+end of the picker. A copy made by **Create Custom 2e Backgrounds and Tables…**
+keeps the place its shipped original had, because it stands in for it.
 
-That section is not only yours. The same setting also admits the seven class
-backgrounds Air Bladder ships in **Backgrounds (Custom)** — Fighter, Cleric,
-Magic-User, Thief, Dwarf, Elf, Halfling, from Gordon McCormick's *Backgrounds for
-Cairn*. "Custom" here means *not published in the Cairn 2e Player's Guide*, whoever
-wrote it, so third-party sets and your own arrive through the same switch.
+The same setting also offers the seven class backgrounds in **Backgrounds
+(Custom)**: Fighter, Cleric, Magic-User, Thief, Dwarf, Elf and Halfling, from
+Gordon McCormick's *Backgrounds for Cairn*. "Custom" here means any background
+not published in the Cairn 2e Player's Guide, whoever wrote it.
 
-So turning off *Offer canon Cairn 2e backgrounds* does **not** leave players rolling
-only what you wrote — the shipped class backgrounds are still in the pool. For a pool
-that is genuinely yours alone, switch those seven off individually with the **eye
-toggle** on each picker row, which is per-background and remembered by the world
-(see [Taking a background out of play](generating-characters.md#taking-a-background-out-of-play)
+Turning off **Offer canon Cairn 2e backgrounds** still leaves those seven
+on offer beside yours. To offer only your own, also switch the seven off one
+by one with the **eye toggle** on each picker row (see
+[Taking a background out of play](generating-characters.md#taking-a-background-out-of-play)
 in Generating Characters).
 
-Three things make a finished background invisible, and none of them produce an
-error, so check them in this order if yours does not show up:
+If a finished background does not show up, check three things. None of them
+raises an error.
 
-1. that setting is off
-2. its **Source** is not *Cairn 2e*
-3. it is not in a **world or module** compendium (a background sitting loose in the
-   Items sidebar is not a content source)
+1. The setting above is off.
+2. Its **Source** is not *Cairn 2e*.
+3. It is in the Items sidebar. It must be in a compendium that belongs to the
+   world or to a module.
 
 ---
 
 ## Where it lives
 
-Custom backgrounds you write live in a world compendium called **Custom 2e Backgrounds**,
-created the first time you duplicate into it. Being a world compendium, it is editable
-and belongs to that world only — which is why sharing needs its own steps. A world
-that created its compendium before the name changed keeps the name it had, and every
-message that names the compendium uses whichever name your world has.
+Your backgrounds live in a world compendium called **Custom 2e Backgrounds**,
+created the first time you duplicate into it. It is editable and belongs to
+that world only, which is why sharing has its own steps. A world that created
+the compendium under an earlier name keeps that name, and Air Bladder's
+messages use whichever name your world has.
 
-### Two packs with nearly the same name, and only one is yours
-
-This trips people up, so it is worth being exact:
+### Two compendiums with similar names
 
 | | **Backgrounds (Custom)** | **Custom 2e Backgrounds** |
 | --- | --- | --- |
-| Comes from | the system, shipped in every install | your world, created on first duplicate |
-| Where it appears | inside the *Air Bladder - Backgrounds* folder | outside that folder, on its own |
-| Editable | no — replaced on every system update | yes |
+| Comes from | Air Bladder, in every install | your world, created on first duplicate |
+| Where it appears | inside the *Air Bladder - Backgrounds* folder | outside that folder |
+| Editable | no; replaced on every system update | yes |
 | Holds | seven third-party class backgrounds | what you write |
 
-**Never author into *Backgrounds (Custom)*.** It is a system pack, and a system pack is
-overwritten wholesale when Air Bladder updates — work put there is gone at the next
-release, with no warning and no recovery. If you want to change one of the seven, open
-it and use **Duplicate into Custom 2e Backgrounds**, which copies it somewhere that
-survives — or press **Create Custom 2e Backgrounds and Tables…** on the Rollable Tables or Compendium
-sidebar, which copies all seven, and the twenty, in one go.
+**Never write into *Backgrounds (Custom)*.** A system update replaces it, and
+work put there is lost without warning. To change one of the seven, open it and
+use **Duplicate into Custom 2e Backgrounds**, or copy all 27 with **Create
+Custom 2e Backgrounds and Tables…**.
 
-**Your own pack sits outside the *Air Bladder - Backgrounds* folder**, and that is not
-a mistake to fix. That folder groups the four packs the *system* ships — Backgrounds
-(2e), Backgrounds (Barebones), Backgrounds (Custom) and Background Items — and Foundry
-only lets a system file its own packs there. Your Custom 2e Backgrounds compendium belongs
-to the world, so it appears on its own. You can drag it into any folder you make
-yourself; nothing in Air Bladder reads the folder, only the compendium.
+**Your compendium sits outside the *Air Bladder - Backgrounds* folder.** That
+folder holds the four compendiums Air Bladder ships: Backgrounds (2e),
+Backgrounds (Barebones), Backgrounds (Custom) and Background Items. Yours
+belongs to the world. You can drag it into a folder of your own; Air Bladder
+finds it wherever it is.
 
-Backgrounds delivered inside a **module** are read-only. To change one, open it and
-use **Duplicate into Custom 2e Backgrounds**, which copies it into your own editable
-pack.
+Backgrounds delivered in a **module** cannot be edited. To change one, open it
+and use **Duplicate into Custom 2e Backgrounds**.
 
 See [Sharing & moving custom backgrounds](sharing-custom-backgrounds.md).

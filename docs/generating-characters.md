@@ -1,157 +1,223 @@
 # Generating Characters
 
-Cairn characters are not built — they are dealt. Air Bladder gives you three
-ways to get one, and one loop for making the result yours. There is deliberately
-no step-by-step "character builder": the dice hand you a person, and the choices
-come after.
+A Cairn character is rolled first and chosen afterwards. Air Bladder has three
+ways to get one — roll it, open an empty sheet, or import it from Kettlewright —
+and one set of tools on the sheet for changing the result. There is no
+step-by-step character builder.
 
 ## Create PC
 
-The **Create PC** button sits above the Actors sidebar. Clicking it asks one
-question, then rolls everything a Cairn 2e character starts with — abilities,
-Hit Protection, a background with its gear and questions, traits, age, and a
-bond — and opens the finished sheet. With Barebones offered alongside Cairn 2e,
-the same window asks which to deal from; custom 2e backgrounds join the 2e pool
-rather than adding a choice.
+**Create PC** is in the button row at the top of the Actors sidebar. It asks one
+question, then rolls a whole character: a name, a portrait, abilities, Hit
+Protection, gold, a background with its gear and questions, traits and an age.
+A Cairn 2e character is also dealt a bond. The finished sheet opens, and the
+character is filed in the **Party** folder.
+
+If you offer both Cairn 2e and Barebones, the same window asks which edition
+the character is. Custom 2e backgrounds join the 2e pool; they do not add a
+choice. The three switches — **Offer canon Cairn 2e backgrounds**, **Offer
+Cairn Barebones character sheets** and **Offer custom Cairn 2e backgrounds** —
+are under **Game Settings → Air Bladder → Configure Character Generation**.
+The edition decides only how a character is made. Both play by the same rules.
+
+Two more settings in that window:
+
+- **Show character generation dice rolls in chat** posts HP, STR, DEX, WIL and
+  Gold as one chat message whenever a character is generated or re-rolled.
+- **Show the Roll Character, Roll NPC and Roll Monster buttons in sheet
+  headers** hides those three buttons when it is off.
 
 ## Start from an empty sheet
 
-That question is a tick-box reading **Use random generation.** Leave it ticked
-and you get what you always got. Clear it and you get a character with nothing
-rolled: no background, no gear, no bonds, no traits, no age. Abilities start at
-10 and Hit Protection at 3, and you type over them.
+The question Create PC asks is a tick-box, **Use random generation.** Clear it
+and you get a character with nothing rolled: no background, gear, bond, traits
+or age. Abilities start at 10 and Hit Protection at 3. Type over them.
 
-The same box sits on **Create NPC**, **Create Hireling** and **Create
-Monster**, so any of the four can arrive empty — and on **Create Faction**,
-where clearing it lets you pick each part of the faction from its table
-instead (see [Generating factions](generating-factions.md)).
+The same box is on **Create NPC**, **Create Hireling** and **Create Monster**.
+On **Create Faction**, clearing it lets you pick each part of the faction from
+its table (see [Generating factions](generating-factions.md)).
 
-Players see the box only where they could use it. An empty sheet is filled in
-with the pick-list buttons, and those belong to Character Creation Mode — which
-the Warden's **Toggle Player Creation Tools** switch can take away. With that
-switch off, a player's dialog just confirms, because an empty sheet they cannot
-fill in is no use to them.
+An empty sheet is for a table that rolls on paper. Roll the character with the
+book and your own dice, then copy it in: type the numbers, and use the
+**pick-list buttons** for anything that comes off a table. An empty sheet opens
+with **Character Creation Mode** on, so those buttons are already showing. Turn
+the mode off when you are done.
 
-**This is not a character builder, and it is not the way to make a character.**
-It is for the table that rolls on paper. Deal your character with the book and
-your own dice, then open an empty sheet and put it in: type the numbers, and use
-the **pick-list buttons** for anything that comes off a table. An empty sheet
-arrives with **Character Creation Mode** already on so those buttons are there
-waiting; turn it off when you are finished and the sheet goes quiet.
+**An empty sheet is never handed anything.** Picking a background, a bond, a
+background question's answer or a failed career records the choice and grants
+no gear and no coins. Type the inventory in yourself.
 
-**An empty sheet is never handed anything.** Choosing a background, a bond, an
-answer to a background question or a failed career records what you chose and
-nothing more — no gear, no coins. You already know what your character is
-carrying, so the sheet does not guess and then leave you deleting a pack's worth
-of things you never asked for. Type your inventory in.
+The same holds for an empty NPC, hireling or monster. Giving an empty hireling
+a career, or an empty NPC a background, records the choice and hands over none
+of its gear. A career also leaves the numbers you typed alone.
 
-**The same is true of an empty NPC, hireling or monster.** Giving an empty
-hireling a career, or an empty NPC a background, records the choice and hands
-over none of the gear that normally comes with it. A career also leaves the
-statblock alone, so the numbers you typed off your paper sheet stay where you
-put them.
+This lasts for the life of the sheet. To have the dice furnish the character
+after all, press **Roll Character** and leave **Background** or **Starting
+gear** ticked. From then on the sheet behaves like a generated one, and a
+background picked later brings its gear. On an NPC, hireling or monster,
+**Roll NPC** or **Roll Monster** in the title bar does the same.
 
-That holds for as long as the sheet lives, not just while it is empty. If you
-change your mind and want the dice to furnish the character after all, use
-**Roll Character** with **Background** ticked: that deals a whole character, and
-from then on the sheet behaves like any other — pick a background later and it
-brings its gear. Ticking **Starting gear** on its own does the same. On an NPC,
-hireling or monster, the **Roll** button in the sheet's title bar is the way
-back.
-
-If you want a character and you do not have one already, roll it. That is the
-game.
+A player sees the tick-box only on Create PC, and only while **Let players use
+Character Creation tools on their sheets** is on, because an empty sheet can
+only be filled in with those tools. With it off, the player's window only
+confirms.
 
 ## Import from Kettlewright
 
-**Import from Kettlewright** sits beside it. Pick a character's `.json` export
-from [Kettlewright](https://kettlewright.com/), the official Cairn app, and it
-becomes a new character actor here: stats, gold and inventory as exported, a
-stock Kettlewright portrait mapped to the same face, questions and bonds
-matched back to their tables so they stay re-rollable. A Barebones character
-comes in as Barebones. A portrait the player uploaded to Kettlewright is shown
-from kettlewright.com. A pet comes in as an item if it is one here and there is
-room for it, and otherwise as a companion connected to the character. Items and bonds that
-match nothing are still imported — built from their tags or kept as text — and
-a summary dialog lists everything worth reviewing. A background this world
-doesn't have doesn't stop the import either: the character still arrives with
-the background kept as plain text, and the summary warns that its questions'
-answers and bond can't be re-rolled or picked from a table.
+**Import from Kettlewright** is in the same button row. Choose a character's
+`.json` export from [Kettlewright](https://kettlewright.com/), the official
+Cairn app, and it becomes a new character here.
+
+- Abilities, HP, gold and inventory arrive as exported.
+- A stock Kettlewright portrait is matched to the same face. A portrait the
+  player uploaded is shown from kettlewright.com; save a copy and set it from
+  the sheet to keep it.
+- Background questions and bonds are matched to their tables, so they can
+  still be re-rolled or picked.
+- A Barebones character arrives as Barebones.
+- A pet becomes an item if Air Bladder has it as an item and the character has
+  room. Otherwise it becomes a companion connected to the character.
+- Kettlewright containers other than the main inventory are not rebuilt. Their
+  contents go onto the character.
+- An item or bond that matches nothing is still imported, built from its tags
+  or kept as text.
+- A background this world does not have does not stop the import. It is kept
+  as plain text, and its questions' answers and bond cannot be re-rolled or
+  picked from a table.
+
+A summary window lists everything worth checking. Always look over the
+inventory afterwards.
 
 ## Players can do both
 
-Both buttons appear for players while the Warden's switch is on — the setting
-reads **"Allow players to create new player characters through random
-generation or .json import"**, and the shipped **Toggle Player Character
-Creation** macro flips it mid-session. A player who imports their own
-Kettlewright character gets the same options dialog and the same review
-summary the Warden would; if their account cannot create actors, the Warden's
-client quietly does it for them and hands them the finished sheet, stamped as
-theirs. Both routes run through the Warden's client for a player who can't
-create actors themselves, so a Warden must be logged in — with no Warden
-connected the buttons grey out (hovering says why), and they wake on their
-own the moment a Warden arrives. The Warden sees a notification either way — a player import arrives
-with whatever the file says, so it is never invisible.
+Players see **Create PC** and **Import from Kettlewright** while **Allow
+players to create new player characters through random generation or .json
+import** is on. The shipped **Toggle Player Character Creation** macro flips
+it mid-session. A player who imports gets the same options and the same
+summary you would.
 
-## Make it yours: Character Creation Mode
+A player who lacks Foundry's permission to create actors can still use both
+buttons. Your session makes the character and hands it over as theirs, and you
+get a notice naming the player and the character. This needs a Warden logged
+in. With none connected, that player's buttons are greyed out, with the reason
+on hover, and they come back when a Warden arrives.
 
-A generated or imported character arrives quiet — no dice on the sheet. The
-**Character Creation Mode** toggle in the sheet's title bar (it reads
-**CharGen: Off**) brings the
-creation tools back: a die beside each part of the character re-rolls that one thing —
-the name, the portrait, the age, the background (gear and all), the omen, a
-bond, a background question — and a **pick-list button** (the list icon)
-beside the name, background, failed career, omen, bond and question dice —
-and on the portrait — lets you choose instead of roll. The pickers are how you
-recreate a character you rolled with
-the book, paper and dice: pick the rows you already rolled, and the sheet
-grants whatever those rows grant. Traits have their own window: in Character
-Creation Mode, the pen at the end of the trait sentence opens it, with a die
-and a pick-list for each trait. **Roll Character** opens a checklist of everything that can be re-rolled,
-all checked to begin with: uncheck what you want to keep, and only the rest is
-re-rolled. The name, starting gear and the two Background Questions ride the
-Background line — a new background deals its own, name included — while bonds
-re-roll only when their own line is checked. On a Barebones character, starting
-gear also covers the Barebones equipment: the Rations, Torch, weapon, armor and
-extra gear roll are dealt again with it. A Barebones character made before Air
-Bladder 0.1.27 still holds the equipment it was first dealt, which a re-roll
-cannot tell apart from things the player bought: delete those items by hand
-once before you re-roll, or the character ends up with both sets. Even unchecked, a new background
-keeps only as many bonds as it allows: any past that are removed, with their
-items and coins. A background you picked by hand starts unchecked, so a full
-re-roll keeps it unless you say otherwise. What the list never offers it never touches: notes,
-scars, pronouns, and anything bought or given stay yours. A companion, cart or
-pack that the old background or a question granted is never deleted by a
-re-roll. It is unlinked from the character and stays in the world, with
-everything stowed on it, until the Warden deletes it. Its name gains **o_** in
-front (a Mule becomes **o_Mule**), so sorting the Actors tab by name gathers
-every orphan in one place. While the mode is
-on, the STR/DEX/WIL save dice are grayed out — turn it off to roll saves. This
-is the intended loop: generate, re-roll or pick the parts that don't sit
-right, then flip the toggle off and play.
+## The character sheet
 
-For players, the sheet tools ride their own switch — **"Let players use
-Character Creation tools on their sheets"**, flipped by the **Toggle Player
-Creation Tools** macro — so you can allow character creation but keep
-mid-campaign re-rolls to yourself, or hand players the dice entirely.
+The sheet turns its pages from the tabs hung on its edge:
+
+- **Character** — portrait, name, Pronouns and Age, Background, the trait
+  sentence, abilities, HP, Armor, inventory slots and Gold.
+- **Inventory** — everything carried, and Fatigue.
+- **Growth** — Scars, and a journal for the skills and abilities the character
+  gains.
+- **Background & Notes** — the bond, the background questions and their
+  answers, the Omen, a description and notes.
+
+## Character Creation Mode
+
+A generated or imported character opens with its creation tools put away. The
+toggle in the sheet's title bar reads **CharGen: Off**; press it to turn
+**Character Creation Mode** on. While it is on:
+
+- A **die** beside each part re-rolls that part alone: the name, the portrait,
+  the age, the background (with its gear), the omen, a bond, a background
+  question, and a Barebones character's failed career where that hack is on.
+- A **pick-list button** (the list icon) beside the name, background, failed
+  career, omen, bond and question dice, and on the portrait, lets you choose
+  instead. Picking the rows you rolled on paper grants whatever those rows
+  grant.
+- A **pen** at the end of the trait sentence opens the **Traits** window, with
+  a die and a list for each trait.
+- The four **Max** boxes can be typed in. They are locked while the mode is
+  off.
+- The STR, DEX and WIL save dice are greyed out. Turn the mode off to roll
+  saves.
+- **Roll Character** appears in the title bar.
+
+Generate, re-roll or pick the parts that do not fit, then turn the mode off
+and play.
+
+For players these tools follow **Let players use Character Creation tools on
+their sheets**, flipped by the **Toggle Player Creation Tools** macro. You can
+allow character creation and keep re-rolls to yourself, or allow both.
+
+### Roll Character
+
+**Roll Character** opens a checklist of everything that can be re-rolled.
+Uncheck what you want to keep; only the rest is re-rolled.
+
+- **Starting gear** and, on a 2e character, the name and the two Background
+  Questions sit under **Background**. A new background deals its own. On a
+  Barebones character the name has its own line.
+- Bonds re-roll only when **Bond(s)** is checked. A new background still keeps
+  only as many bonds as it allows. Any beyond that are removed, with their
+  items and coins.
+- A background you picked by hand starts unchecked.
+- On a Barebones character, **Starting gear** also covers the Barebones
+  equipment: the Rations, Torch, weapon, armor and Additional Gear roll are
+  dealt again.
+- What the list does not offer is never touched: notes, scars, pronouns, and
+  anything bought or given.
+
+A Barebones character made before Air Bladder 0.1.27 still holds the equipment
+it was first dealt, and a re-roll cannot tell that from things the player
+bought. Delete those items by hand once before you re-roll, or the character
+ends up with both sets.
+
+A companion, cart or pack that the old background or a question granted is
+never deleted by a re-roll. It is disconnected from the character and stays in
+the world, with everything stowed on it, until you delete it. Its name gains
+**o_** in front (a Mule becomes **o_Mule**), so sorting the Actors tab by name
+gathers them.
 
 ## Turn bonds off
 
-A table that does not use bonds can switch them off: **Game Settings → Air
-Bladder → Configure Character Generation → Use bonds**. With it off, a new
-character is dealt no bond, and so none of the items or coins a bond grants.
-Bonds leave every character sheet and the Roll Character window, and printed
-sheets drop their Bonds section. A background that says to roll a second time
-on the Bonds table, like the Fieldwarden, is shown without that sentence. A character who already has a bond keeps it,
-with whatever it gave them; it is only hidden, and comes back if you switch the
-setting on again.
+**Game Settings → Air Bladder → Configure Character Generation → Use bonds.**
+With it off:
+
+- A new character is dealt no bond, and none of the items or coins a bond
+  grants.
+- Bonds leave every character sheet and the Roll Character window, and printed
+  sheets drop their Bonds section.
+- A background that says to roll a second time on the Bonds table, like the
+  Fieldwarden, is shown without that sentence.
+
+A character who already has a bond keeps it, with whatever it gave them. It is
+hidden, and comes back if you switch the setting on again.
+
+## Give Barebones characters a failed career
+
+Knave 2e gives each character a career that didn't work out. To give Barebones
+characters one, turn on **Give Barebones Characters a failed career (like Knave
+2e)** under **Game Settings → Air Bladder → Configure Hacks**. It is greyed out
+unless **Offer Cairn Barebones character sheets** is on. Cairn 2e characters
+never get one.
+
+With it on, Create PC deals a Barebones character two things:
+
+- **Failed career** — a second Barebones background, never the character's
+  own. It grants nothing else.
+- **Failed career item** — one item drawn at random from that background's
+  starting gear, kept as a keepsake. It is Petty, so it fills no slot.
+
+Both lines sit under the background on the sheet. In Character Creation Mode
+the career has a die and a list, and the item has a die that draws again from
+the same career. A new career replaces the old keepsake. **Roll Character**
+offers **Failed career** and, under it, **Keepsake item**. The printed sheet
+shows the career.
+
+Outside Character Creation Mode an empty line is hidden. Turn the setting on in
+a world that already has Barebones characters and the lines appear, empty, in
+Character Creation Mode for you to roll. Turn it off and the lines go; the
+career and its keepsake stay on the character.
 
 ## Choose the dice
 
-Under **Game Settings → Air Bladder → Configure Character Generation** are
-four settings that decide what a player character is rolled with. They apply
-to player characters only: NPCs, hirelings and monsters are not affected by
-any of them.
+**Game Settings → Air Bladder → Configure Character Generation** has four
+settings for what a character is rolled with. The first three apply to player
+characters only. The age formula is also used for generated NPCs and
+hirelings.
 
 | Setting | Choices |
 |---|---|
@@ -160,89 +226,73 @@ any of them.
 | **Hit Protection formula for player characters** | any formula; `1d6` by default |
 | **Age formula for generated characters** | any formula; `2d20 + 10` by default |
 
-**Default is the book.** **Adventurer** rolls four dice and keeps the best
-three, which covers the same 3–18 range but makes high scores far more
-likely. **Crawler** rolls between 5 and 15. The two menus are independent, so
-Adventurer abilities with Default gold is a perfectly good table.
+**Default** is the book's roll. **Adventurer** rolls four dice and keeps the
+best three. **Crawler** rolls between 5 and 15. The two menus are independent.
 
-Hit Protection takes a formula rather than a menu because a fixed value is
-the common want: type `4` and every character arrives with 4. Leave it blank
-for `1d6`. The notation is explained in **Dice Formulas**.
+For Hit Protection, type a plain number for a fixed value: `4` gives every
+character 4. Leave it blank for `1d6`. The notation is explained in
+[Dice Formulas](dice-formulas.md).
 
-These govern the **base roll** only. Coins a bond or a background question
-grants are added on top, as they always were, so a Crawler character still
-receives them above the 5-gold floor.
+These set the base roll only. Coins a bond or a background question grants are
+added on top.
 
-Whatever you choose, **the dice say what they are**: hover any row of the
-Roll Character checklist — STR, DEX, WIL, Hit Protection, Gold or Age — and
-it tells you the formula that row will roll. The die beside Age on the sheet
-names its formula the same way.
+To see what a row will roll, hover STR, DEX, WIL, Hit Protection, Gold or Age
+in the Roll Character checklist. The die beside Age on the sheet names its
+formula the same way.
 
 ## Make the tables yours
 
-Everything a generated character is dealt from is a rollable table, and a table
-in **your world** with a shipped table's name is what gets rolled instead. So
-the durable way to change what characters arrive with is to keep your own copies
-in your world, where no update can touch them. Think of the shipped compendiums
-as **templates**: the starting point you copy and make your own, never the place
-you edit.
+Everything a generated character is dealt from is a rollable table. A table in
+**your world** with a shipped table's name is rolled instead of the shipped
+one. Foundry overwrites the shipped compendiums on every system update, so
+treat them as templates: copy them into your world and edit the copies.
 
-Three buttons do the copying, all Wardens only:
+Three Warden-only buttons do the copying:
 
-- **Create a Custom Spell Table…**, on the **Rollable Tables** sidebar
-  tab. It copies the spell table a character is dealt a random spellbook or
-  scroll from — `Spells — Canon (1d100)`, or `Spells — GLoG` while the GLoG
-  Magic hack is on — into a **Custom Spells** folder, along with every spellbook
-  it can hand out, and points every row at your copies. The hack swaps the pool
-  wholesale and is a one-way campaign decision, so if you copy the canon list
-  and switch the hack on later, come back and press the button again for the
-  GLoG list.
-- **Create Custom Barebones Creation Tables…**, on the **Rollable
-  Tables** sidebar tab. It copies the six tables a Barebones character is dealt
-  from — Weapon, Armor, Additional Gear and the three Weapon Tier tables — into
-  a **Custom Barebones Character Creation** folder, along with every item, mount
-  and transport they can hand out — the items sorted into a subfolder per source compendium,
-  Armor, Background Items, Gear, Tools, Trinkets, Weapons — and points every
-  row at your copies.
-- **Create Custom 2e Backgrounds and Tables…**, the fourth button on the same
-  tab, and also at the top of the **Compendium** tab. That one is the 27 backgrounds plus the eleven
-  tables a 2e character rolls on; see
+- **Create a Custom Spell Table…**, on the **Rollable Tables** sidebar tab.
+  It copies the table a random spellbook or scroll is dealt from —
+  `Spells — Canon (1d100)`, or `Spells — GLoG` while the GLoG Magic hack is
+  on — into a **Custom Spells** folder, with every spellbook it can hand out.
+  If you copy the canon list and switch the hack on later, press the button
+  again for the GLoG list.
+- **Create Custom Barebones Creation Tables…**, on the same tab. It copies the
+  six tables a Barebones character is dealt from — Weapon, Armor, Additional
+  Gear and the three Weapon Tier tables — into a **Custom Barebones Character
+  Creation** folder, with every item, mount and transport they can hand out.
+  The items are sorted into a subfolder per source compendium.
+- **Create Custom 2e Backgrounds and Tables…**, on the same tab and at the top
+  of the **Compendium** tab. It copies the 27 backgrounds and the eleven tables
+  a 2e character rolls on. See
   [Creating Custom Backgrounds](creating-custom-backgrounds.md) and
   [Customizing Bonds](customizing-bonds.md).
 
-Why the items come too: a table row names a document, and generation hands over
-whatever that row points at. Import a table by itself and its rows still point
-into the compendium, so the Dagger a new character receives is the shipped
-Dagger however carefully you edited yours. With the rows pointed at your copies,
-changing a weapon's damage or a piece of gear's description changes what the
-next character is dealt.
+Each button also points every row of the copied tables at your copies of the
+items. A table imported by itself still hands out the shipped item, however
+you edited yours. With the rows pointed at your copies, changing
+a weapon's damage changes what the next character is dealt.
 
-A window afterwards says what landed and offers to open the folders. Running
-either button again never overwrites: what you have edited is kept, and only
-what is missing is added.
+A window afterwards says what was copied and offers to open the folders.
+Running a button again never overwrites anything. It only adds what is
+missing.
 
-Every copy explains itself. Open one and a note at the top says what it is
-dealt for and how to add a row — and, since a table opens in view mode, that
-you press **Edit** at the top of the window first. Drag a spellbook onto the spell table and it
-re-sorts itself by name, formula included, so the new spell can be rolled.
-Drag an item onto a Barebones creation table and the table's die follows its
-rows, so the new item can be rolled too.
+Each copied table has a note at the top saying what it is dealt for and how to
+add a row. A table opens in view mode, so press **Edit** at the top of its
+window first. Drag a spellbook onto the spell table and the table re-sorts by
+name, formula included, so the new spell can be rolled. Drag an item onto a
+Barebones creation table and the table's die follows its rows.
 
 ## Taking a background out of play
 
 You do not need a copy to hide a shipped background. Open any Cairn 2e
-character with **Character Creation Mode** on, press the **pick-list button**
-beside Background, and every background in play is listed with an **eye** at
-the end of its row — the eyes show for the Warden only. Click the eye and that
-background is out: the row greys out for you, and for players it disappears
-from the list and the dice never land on it. Click the eye again to bring it
-back.
+character with **Character Creation Mode** on and press the **pick-list
+button** beside Background. Every background in play is listed, with an **eye**
+at the end of its row that only the Warden sees. Click the eye and that
+background is out: its row greys out for you, and players no longer see it or
+roll it. Click the eye again to bring it back.
 
-It is per background, and the world remembers it, so it holds for every
-character and every session until you change it. It works the same on the
-Player's Guide twenty, the seven in **Backgrounds (Custom)**, and your own
-copies — and a copy made by **Create Custom 2e Backgrounds and Tables…** is the
-same background as far as the eye is concerned, so one you switched off stays
-off when its copy lands, and switching either back on switches on both. The
-last background left in play cannot be switched off, because generation must
-always have something to deal.
+The choice is per background and holds for every character and every session
+until you change it. It works on the Player's Guide twenty, the seven in
+**Backgrounds (Custom)**, and your own copies. A copy made by **Create Custom
+2e Backgrounds and Tables…** counts as the same background: one you switched
+off stays off when its copy lands, and switching either back on switches on
+both. The last background left in play cannot be switched off.

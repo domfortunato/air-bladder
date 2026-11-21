@@ -1,17 +1,17 @@
 # Optional Combat Rules
 
-Three optional rules for a fiercer fight. Each is **off by default**, each is
-switched on and off on its own, and they live under **Game Settings → Air
-Bladder → Configure Hacks**. None of them needs a reload.
+Three optional combat rules and three shield options. All are **off by default**,
+each is switched on its own, and they live under **Game Settings → Air Bladder →
+Configure Hacks**. Only **Shields are Bulky** reloads Foundry.
 
-They affect **player characters only**. NPCs, hirelings and monsters are
-untouched by every one of them.
+The combat rules, **Hands full** and **Shields are d4 weapons** affect **player
+characters only**. NPCs, hirelings and monsters are untouched by them.
 
 ## Exploding damage dice
 
 Tick **Exploding damage dice** and a player character's damage die that rolls
 its highest face is rolled again and added. A die explodes at most **half its
-faces, less one** times, and then the chain stops:
+faces, less one** times:
 
 | Die | Explodes at most |
 |---|---|
@@ -23,96 +23,76 @@ faces, less one** times, and then the chain stops:
 | d20 | nine times |
 
 A d6 rolling 6 then 4 deals 10. A d6 rolling 6, 6 and then 2 deals 14. A d6
-rolling 6, 6, 6 deals 18 and stops there: the third six is added but not
-rolled again.
+rolling 6, 6, 6 deals 18 and stops: the third six is added but not rolled again.
 
 **Only the die you keep explodes.** Cairn's dual-wield and similar rules roll two
-dice and keep the higher. If both come up 6, that is **one** six, so it explodes
-once — you do not get two chains.
+dice and keep the higher. If both come up 6, that is **one** six, and it explodes
+once.
 
-**Down to the d4, every die explodes.** An **Impaired** roll is a d4 and
-explodes like any other die; so does a d4 weapon, if you write one, and so does
-an **Enhanced** roll's d12. A d2 or d3 never explodes: half its faces less one
-is none.
+**Every die from a d4 up explodes.** That includes an **Impaired** roll's d4, a
+d4 weapon and an **Enhanced** roll's d12. A d2 or d3 never explodes.
 
-**Every explosion is announced.** The damage card gains a line — *A d6 exploded!*
-— once for each time the die went again, so a chain that went twice says so
-twice. A die that stops at its cap adds no extra line: the lines count the
-explosions, and the table above says where they stop.
+**Every explosion is announced.** The damage card gains a line — *A d6
+exploded!* — once for each time the die went again. A die that stops at its cap
+adds no extra line.
 
 **An improvised attack counts.** The **Improvised Attack** row at the top of a
-character's inventory rolls whatever die you type into it, and that die explodes
-like any other — the d4 an improvised attack starts on included.
+character's inventory rolls the die you type, and that die explodes like any
+other.
 
 **Only player characters' damage rolls explode.** A monster's attack, an NPC's,
-and the Warden's Damage tool for a trap or hazard all roll normally.
+and the Warden's Damage tool all roll normally.
 
-**One limit, stated plainly.** If you write a keep-highest damage formula out of
-**different** dice — `d6 + d8`, say — it will not explode. Keeping the highest
-and then exploding only that die has no way to be written for mixed dice, and
-the alternative would quietly give you better odds than the rule above. No
-weapon that ships with the system is written this way. Same-sized dice —
-`2d6k`, `d6 + d6`, and every shipped weapon — explode normally. One catch:
+**Mixed dice do not explode.** A keep-highest formula of **different** dice,
+such as `d6 + d8`, is rolled as written. No weapon that ships with the system
+is written this way. Same-sized dice — `2d6k`, `d6 + d6`, and every shipped
+weapon — explode normally.
+
 `d6 + d6` means keep the highest only while **Use Cairn dice notation: 'd6+d6'
-as keep highest** is on. With it off, it is plain addition, so it is rolled as
-written and does not explode — the Cutpurse's twin daggers included.
+as keep highest** is on. With it off, it is plain addition, is rolled as
+written, and does not explode — the Cutpurse's twin daggers included.
 
 **The shield is the exception.** With **Shields are d4 weapons** on, a character
 who adds their shield to an attack rolls the weapon's die and the shield's d4
-and keeps the higher, and that mix does explode, by the rule above: only the die
-you keep explodes, if it rolled its highest face. A d6 rolling 6 against the d4's
-3 keeps the 6 and rolls again; a d6 rolling 5 against the d4's 4 keeps the 5, and
-nothing explodes. On a tie, the weapon's die is the one kept: a d6 and the d4
-both rolling 4 keep the d6's 4, which is not its highest face, so nothing
-explodes. The maneuver line follows the die you keep, so a d4 that rolls
-4 but loses to the weapon's 5 earns no maneuver.
+and keeps the higher. The kept die explodes if it rolled its highest face. A d6
+rolling 6 against the d4's 3 keeps the 6 and rolls again. A d6 rolling 5 against
+the d4's 4 keeps the 5, and nothing explodes. On a tie the weapon's die is kept:
+a d6 and the d4 both rolling 4 keep the d6's 4, so nothing explodes.
 
-**Two more, for formulas of your own.** A damage formula that **adds** two
-dice — `2d10`, which no shipped weapon uses — shares one cap between them
-rather than giving each die its own. And a formula typed with its own `x` (an
-improvised attack rolling `1d6x`, say) is rolled exactly as typed, with no cap:
-the option caps only the chains it writes itself.
+**Formulas of your own.** A damage formula that **adds** two dice — `2d10`,
+which no shipped weapon uses — shares one cap between them. A formula typed with
+its own `x`, such as an improvised attack rolling `1d6x`, is rolled exactly as
+typed, with no cap.
 
 ## Fatigue instead of Critical Damage
 
 Tick **Fatigue instead of Critical Damage** and a player character who fails a
-Critical Damage save is offered a choice on the chat card, side by side: take the
-Critical Damage as usual, or **Take a Fatigue instead**.
+Critical Damage save is offered two buttons on the chat card: **Mark Critical
+Damage**, or **Take a Fatigue instead**.
 
-**Only an overburdened character has to pay.** A Fatigue fills a slot, like any
-ordinary item. If the character has a free slot, pressing the button simply adds
-the Fatigue — even when that leaves them overburdened, as it does at nine of ten.
-If they are **already** overburdened, with no free slot, pressing it asks what
-they put down to make room, and that item goes to the party's Dropped Item Pile,
-so the trade is one thing on the floor for one Fatigue in the pack. Which item
-is always the player's choice; the system never picks.
+**Only an overburdened character has to pay.** A Fatigue fills a slot. If the
+character has a free slot, pressing the button adds the Fatigue, even when that
+fills their last slot. If they have no free slot, a window asks what they put
+down to make room, and that item goes to the party's Dropped Item Pile. The
+player always chooses the item.
 
-The list offers only things whose loss would actually free a slot. Petty items
-are not on it — they take no slot, so giving one up would cost nothing and free
-nothing — and neither is Fatigue itself. Each row says what it frees, because a
-bulky item frees two slots and that is usually the thing worth knowing. A torch
-shows how many uses it has left: it is one item with up to three uses, not three
-torches.
+The list offers only things that free a slot. Petty items and Fatigue are not on
+it. Each row says what it frees, because a bulky item frees two slots. A torch
+shows how many uses it has left.
 
-**Refusing costs the save.** The dialog's second button is *No — take the
-Critical Damage*, and pressing it marks them as you would have anyway. Pressing
-Escape, or closing the window, is **not** a refusal: nothing happens and the card
-is left as it was, so a dialog dismissed by accident has not cost anybody their
-alternative.
+**Refusing costs the save.** The window's second button is *No — take the
+Critical Damage*, and pressing it marks the Critical Damage. Pressing Escape or
+closing the window is **not** a refusal: the card is left as it was.
 
-A character with **nothing** that frees a slot cannot pay, so they take the
-Critical Damage the moment they press the Fatigue button — no dialog, because
-there is nothing to choose from. Worth knowing at the table: it tends to be the
-character who has been taking Fatigue all session who loses the alternative, and
-the card shows a tick against *Mark Critical Damage* so it is clear what
-happened.
+A character with **nothing** that frees a slot cannot pay. They take the
+Critical Damage when they press the Fatigue button, with no window, and the card
+shows a tick against *Mark Critical Damage*.
 
-It is one choice or the other. Pressing either button settles the card, and it
-stays settled — coming back to it later, neither button glows, and a tick marks
-the one that was taken.
+Pressing either button settles the card for good. A tick marks the one that was
+taken.
 
 The choice appears on a card only if the option was on when the save was rolled.
-Turning the option off later does not retract a choice already on screen.
+Turning the option off later does not remove a choice already on screen.
 
 ## Maneuver on max damage
 
@@ -120,45 +100,60 @@ Tick **Maneuver on max damage** and when a player character's damage die rolls
 its **highest face**, the damage stands as rolled and the chat card adds a line:
 *Maximum damage! You may also attempt a maneuver.*
 
-A maneuver is anything the Warden agrees is plausible in the moment — the sort of
-thing that changes the situation rather than the enemy's Hit Protection. It is
-resolved with an ability check the Warden calls for, and it causes no damage
-directly. This is borrowed from **Knave 2e** by Ben Milton, which lists the usual
-examples; the system deliberately does not reprint them.
+A maneuver is resolved with an ability check the Warden calls for, and it causes
+no damage directly. The rule is borrowed from **Knave 2e** by Ben Milton, which
+lists the usual examples. The system does not reprint them.
 
-**The damage is not the price.** Apply it as usual; the maneuver comes on top.
-There is no choice to make on the card and nothing to press.
+**The damage still applies.** Apply it as usual. There is nothing to choose or
+press on the card.
 
-**With Exploding damage dice also on, both happen.** The die explodes when it is
-rolled, the chain is added to the damage, and the line is still there — a die
-that rolled its maximum and then exploded still rolled its maximum.
+**With Exploding damage dice also on, both happen.** The die explodes, the chain
+is added to the damage, and the line still appears.
 
-**Any die, melee or ranged.** A bow's maximum counts the same as a sword's. An
-**Impaired** attack's d4 earns the line on a 4, a d4 weapon's does, and so does an
-Enhanced attack's d12 on a 12. An **improvised attack** is judged on the die you
-typed. The weapon sheet's **Ranged** checkbox, which once kept ranged weapons out
-of this, is still there and does nothing at the moment.
+**Any die, melee or ranged.** An **Impaired** attack's d4 earns the line on a 4,
+and an **Enhanced** attack's d12 on a 12. An **improvised attack** is judged on
+the die you typed. The weapon sheet's **Ranged** checkbox does nothing at the
+moment.
 
-**One limit, the same one exploding dice has.** A keep-highest formula out of
-**different** dice — `d6 + d8` — never shows the line. Same-sized dice written as
-`d6 + d6` are rolled in their keep form, `2d6k`, so the card can tell which die
-was kept, and work normally — but only while **Use Cairn dice notation:
-'d6+d6' as keep highest** is on. With it off, `d6 + d6` is plain addition and
-never shows the line, the Cutpurse's twin daggers included.
+**The same limit as exploding dice.** A keep-highest formula of **different**
+dice — `d6 + d8` — never shows the line. `d6 + d6` works normally while **Use
+Cairn dice notation: 'd6+d6' as keep highest** is on. With it off, `d6 + d6` is
+plain addition and never shows the line.
+
+**With a shield added, the line follows the die you keep.** A d4 that rolls 4
+but loses to the weapon's 5 earns no maneuver.
 
 The line appears only if the option was on when the damage was rolled, and only
-to the people who can see the roll: on a private or blind roll, nobody else learns
-the die came up high.
+to the people who can see the roll.
+
+## Shields
+
+A shield is any armor with **Shield** ticked on its sheet. A character holds or
+slings one with the **Hold shield?** badge beside Armor on their sheet. A
+**Broken** shield cannot be held.
+
+**Shields are Bulky.** Every shield takes two inventory slots, like any Bulky
+item. This one applies to every sheet, and changing it reloads Foundry.
+
+**Hands full: a shield and a light.** A player character holding both a shield
+and a light can attack only with the shield, the light, or an improvised attack.
+Their other weapons cannot be rolled until a hand is free. The Attack window
+says why: *Your hands are full: you are holding a shield and a light.*
+
+**Shields are d4 weapons.** A player character's held shield rolls d4 damage
+from its inventory row and appears in the Attack window. Choose a one-handed
+weapon there and tick **Add the shield (d4)** to roll both dice on a standard
+attack and keep the higher. A two-handed weapon — anything Bulky, and any bow —
+cannot take the shield. A panicked character cannot add it either.
 
 ## Tougher characters, if you want them
 
 Under **Configure Character Generation**, **Ability dice for player characters**
 offers **Crawler (2d6 + 3)**, which rolls every ability between 5 and 15. It is
-independent of everything on this page — use either without the other. Hit
-Protection follows the **Hit Protection formula** there, like every other table.
+independent of everything on this page.
 
 ## See also
 
-- **Dice Formulas** — what a damage formula can say, including keep-highest
-  notation.
-- **GLoG Magic in Foundry** — another optional hack.
+- [Dice Formulas](dice-formulas.md) — what a damage formula can say, including
+  keep-highest notation.
+- [GLoG Magic in Foundry](glog-magic.md) — another optional hack.

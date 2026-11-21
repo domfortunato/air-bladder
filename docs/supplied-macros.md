@@ -1,15 +1,15 @@
 # Supplied macros
 
-Four ready-made macros ship in the **Warden Macros** compendium. Each is a Warden's
-switch: drag it to your hotbar and click to flip the world setting it names —
-no trip into Game Settings. All four take effect on connected clients live,
-with no reload, and all four are Warden-only (the server refuses a
-world-setting write from anyone else; the macro's own check just says so
-politely instead of failing in silence).
+Four macros ship in the **Warden Macros** compendium, in the **Air Bladder -
+Macros** folder. Each flips one world setting, so you do not have to open
+Configure Settings mid-session. Drag one to your hotbar and click it.
 
-| Macro | What it flips |
-| --- | --- |
-| **Toggle Change Log** | The manual-change log. Read live at every posting site, so it takes effect on the next change with no reload. |
-| **Toggle Player Character Creation** | The player-facing character-creation buttons in the Actors sidebar — **Create PC** and **Import from Kettlewright**. Connected players' directories update live. |
-| **Toggle Player Marketplace** | Player shopping. Open sheets update live — the Marketplace button hides or returns, and a purchase is refused even behind a stale, already-open shop dialog. |
-| **Toggle Player Creation Tools** | The sheet's Character Creation tools as players see them: the title-bar Character Creation Mode toggle, the Roll button and every re-roll die hide from players while it is off — even on an actor whose own Character Creation Mode is on. |
+Only the Warden can use them. Each takes effect at once for everyone, with no
+reload.
+
+| Macro | Setting it flips | What changes |
+| --- | --- | --- |
+| **Toggle Change Log** | **Log manual changes to chat** | Whether a hand-made change to stats, gold, traits, conditions, scars or inventory is whispered to chat. |
+| **Toggle Player Character Creation** | **Allow players to create new player characters through random generation or .json import** | Whether players see **Create PC** and **Import from Kettlewright** in the Actors sidebar. |
+| **Toggle Player Marketplace** | **Let players buy and take from the marketplace** | Whether players see the **Marketplace** button on sheets they own. While it is off, a purchase from a shop window a player already had open is refused. You can always shop. |
+| **Toggle Player Creation Tools** | **Let players use Character Creation tools on their sheets** | Whether players see the **CharGen** toggle, the **Roll Character** button and the re-roll dice on their sheets. While it is off they are hidden even on a character whose CharGen is on. |

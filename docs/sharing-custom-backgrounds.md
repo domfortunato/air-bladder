@@ -1,93 +1,82 @@
 # Sharing & moving custom backgrounds
 
-A **custom background** is a Warden-authored Cairn 2e background — a background
-Item carrying its own tagline, example names, starting gear, and two d6
-question tables. It lives in a **world compendium** named *Custom 2e Backgrounds*, and
-whenever the custom content source is toggled on (Game Settings → Air Bladder →
-Character Generation → *Offer custom Cairn 2e backgrounds*) it joins the **Custom**
-section of the character-generation picker.
+A **custom background** is a Cairn 2e background you wrote yourself. It lives
+in a world compendium named *Custom 2e Backgrounds*, and it is offered in the
+background picker, under **Custom 2e Backgrounds**, while **Offer custom Cairn
+2e backgrounds** is on (Game Settings → Configure Settings → Air Bladder →
+Character Generation → Configure Character Generation).
 
-> **Not to be confused with *Backgrounds (Custom)***, the pack Air Bladder ships
-> inside the *Air Bladder - Backgrounds* folder. That one holds seven third-party
-> class backgrounds, is replaced on every system update, and is not where your own
+> **Not *Backgrounds (Custom)*.** That compendium ships with Air Bladder inside
+> the *Air Bladder - Backgrounds* folder. It holds seven third-party class
+> backgrounds, is replaced on every system update, and is not where your own
 > work goes. See
 > [Where it lives](creating-custom-backgrounds.md#where-it-lives).
 
-> **Writing one is covered separately** — see
+> **Writing one** is covered in
 > [Creating a custom 2e background](creating-custom-backgrounds.md). This page
-> assumes you already have one and want to move it.
+> is about moving one you already have.
 
-Because a custom background is a **self-contained snapshot** — gear you drag into
-it is frozen into the background, and its by-name references point at gear every
-Air Bladder install already ships — it travels cleanly to any other Air Bladder
-world or install. This page covers the two ways to move or share them.
+A background carries its own copy of every item you dragged into it, and the
+gear it lists by name is gear every Air Bladder install ships. So it works in
+any other Air Bladder world. There are two ways to move one.
 
-> **Check it travels first.** Open the background's sheet and click **Test ×10**.
-> The report doubles as a self-contained linter: if it flags a *missing* item
-> (a name-only reference that won't resolve on another install), fix that before
-> sharing — re-drag the item into the background so it snapshots. A background
-> that lints clean will arrive intact.
+> **Check it first.** Open the background and click **Test ×10** on its Details
+> tab. If the report says an item *resolves to nothing*, drag that item into
+> the background before you share it. A background whose report reads *Looks
+> self-contained — every grant resolves.* will arrive whole.
 
-## Share a whole set — package a module (recommended)
+## Share a set: package a module
 
-The cleanest way to hand a friend (or another of your own worlds) a *set* of
-custom backgrounds is Foundry's built-in **Module Maker**. The recipient installs
-one module, toggles the Custom source on, and every background appears — no files
-to import one by one.
+Foundry's **Module Maker** packs a set of backgrounds into a module. The
+recipient installs it, turns custom backgrounds on, and every background in it
+is offered.
 
-1. From Foundry's main setup screen, open the **Add-On Modules** tab and click
+1. On Foundry's setup screen, open the **Add-On Modules** tab and click
    **Create Module**.
-2. **Basic Details** — give the module a title, identifier, and version.
-3. **Compendium Packs** → **Add Compendium Pack** — add one pack of document type
-   **Item** (e.g. label *Custom 2e Backgrounds*, required system **air-bladder**).
-4. Finish the wizard. This creates the module shell in your user data folder.
-5. Launch any world, enable the new module, and copy your backgrounds into its
-   compendium: open your world *Custom 2e Backgrounds* compendium, **unlock** the
-   module's compendium (its context menu → *Toggle Edit Lock*), then drag your
-   backgrounds from one compendium into the other.
-6. Zip the module folder from your user data (`Data/modules/<your-module>`) and
-   send it. The recipient drops it into their `Data/modules/`, enables it, and
-   turns the **Custom** content source on.
+2. **Basic Details**: give the module a title, identifier and version.
+3. **Compendium Packs** → **Add Compendium Pack**: add one pack of document
+   type **Item** (for example, label *Custom 2e Backgrounds*, required system
+   **air-bladder**).
+4. Finish the wizard. It creates the module in your user data folder.
+5. Launch a world and enable the module. Open your world's *Custom 2e
+   Backgrounds* compendium, unlock the module's compendium (right-click it →
+   *Toggle Edit Lock*), and drag your backgrounds from one into the other.
+6. Zip the module folder (`Data/modules/<your-module>`) and send it. The
+   recipient puts it in their `Data/modules/`, enables it, and turns on
+   **Offer custom Cairn 2e backgrounds**.
 
-Air Bladder discovers source-2e backgrounds in **any** installed module's Item
-compendium, so a module delivered this way is a first-class content source. It is
-read-only by default; a recipient who wants to tweak one uses **Duplicate into
-Custom 2e Backgrounds** on its sheet, which copies it into their own editable world
-pack.
+Air Bladder offers the 2e backgrounds in any installed module's Item
+compendium. They cannot be edited there. A recipient who wants to change one
+opens it and uses **Duplicate into Custom 2e Backgrounds**, which copies it
+into their own world compendium.
 
-See Foundry's own [Module Maker article](https://foundryvtt.com/article/module-maker/)
+See Foundry's [Module Maker article](https://foundryvtt.com/article/module-maker/)
 for the wizard in detail.
 
-## Share one — Export / Import Data
+## Share one: Export Data and Import Data
 
-For a one-off, use Foundry's per-document JSON. A compendium window offers
-neither Export nor Import Data, so both sides go through the **Items** sidebar:
+A compendium window offers neither Export Data nor Import Data, so both sides
+go through the **Items** sidebar.
 
-1. Open your *Custom 2e Backgrounds* compendium and drag the background into the
-   **Items** sidebar (or right-click it → **Import Entry**). Right-click that copy
-   → **Export Data**. This saves a `.json` you can send; delete the sidebar copy
-   afterwards if you like.
-2. The recipient creates a new background in their **Items** sidebar,
-   right-clicks it → **Import Data** and picks the file. Import Data **replaces**
-   the item it is run on, which is why it goes onto a fresh one. Then they open
-   it and press **Duplicate into Custom 2e Backgrounds**, which copies it into
-   their world compendium. With the Custom source on, it shows up in their
-   picker.
+1. Open your *Custom 2e Backgrounds* compendium and drag the background into
+   the **Items** sidebar (or right-click it → **Import Entry**). Right-click
+   that copy → **Export Data** and send the `.json` file it saves. You can
+   delete the sidebar copy afterwards.
+2. The recipient creates a new Background in their **Items** sidebar,
+   right-clicks it → **Import Data** and picks the file. Import Data replaces
+   the item it is run on, so use a fresh one. They then open it and press
+   **Duplicate into Custom 2e Backgrounds** on its Details tab. With custom
+   backgrounds on, it appears in their picker.
 
-## Notes & caveats
+## Notes
 
-- **Portability is a snapshot, not a link.** A background freezes the gear you
-  dropped into it, so later edits to the *real* item do not propagate — that is
-  the price of a shareable, self-contained unit. Name-only references (kept for
-  shipped gear that every install has) resolve on the far side; the Test ×10
-  linter is what confirms none are dangling.
-- **Module packs are read-only.** They work as a *source*; editing goes through
-  **Duplicate into Custom 2e Backgrounds**.
-- **De-dup is by document id.** If a module re-ships a background that is byte-for-byte
-  a copy of a shipped one but with a new id, both can appear in the picker. Share
-  genuinely custom backgrounds, not re-packaged shipped ones. (A copy made by
-  **Create Custom 2e Backgrounds and Tables…** keeps the shipped
-  id on purpose, so wherever it is shared it stands in for the shipped one and
-  the two never both appear.)
-- Sharing only makes sense **between Air Bladder installs** — a background is an
-  Air Bladder Item type and needs the system to resolve its gear.
+- **Dragged-in items are copies.** Later edits to the original item do not
+  reach a background that already holds a copy. Gear listed by name is looked
+  up on the recipient's install; Test ×10 confirms each name matches an item.
+- **Do not repackage shipped backgrounds.** A hand-made duplicate of a shipped
+  background counts as a different background, so both appear in the picker.
+  A copy made by **Create Custom 2e Backgrounds and Tables…** is the
+  exception: it stands in for the shipped one wherever it is shared, and the
+  two never both appear.
+- **Air Bladder only.** A background needs Air Bladder on the receiving side
+  to find its gear.
