@@ -20,7 +20,7 @@
       "Torch": {
         "name": "Torch",
         "type": "equipment",
-        "consumable": true,
+        "consumable": false,
         "states": 2,
         "light": [
           {
@@ -44,7 +44,7 @@
       "Candle": {
         "name": "Candle",
         "type": "equipment",
-        "consumable": true,
+        "consumable": false,
         "states": 2,
         "light": [
           {
@@ -56,7 +56,7 @@
       "Candle Helmet": {
         "name": "Candle Helmet",
         "type": "equipment",
-        "consumable": true,
+        "consumable": false,
         "states": 2,
         "light": [
           {
@@ -68,7 +68,7 @@
       "Torch Fungus": {
         "name": "Torch Fungus",
         "type": "equipment",
-        "consumable": true,
+        "consumable": false,
         "states": 2,
         "light": [
           { "bright": 10, "dim": 20, "angle": 360, "color": "#b9f2c8", "alpha": 0.35 }
@@ -98,7 +98,7 @@
       "Sun Stick": {
         "name": "Sun Stick",
         "type": "equipment",
-        "consumable": true,
+        "consumable": false,
         "states": 2,
         "light": [
           {
@@ -110,7 +110,7 @@
       "Lightsucker Candle": {
         "name": "Lightsucker Candle",
         "type": "equipment",
-        "consumable": true,
+        "consumable": false,
         "states": 2,
         "light": [
           { "negative": true, "bright": 10, "dim": 20, "angle": 360, "alpha": 0.5 }

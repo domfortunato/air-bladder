@@ -97,9 +97,12 @@ pages: **NPC** or **Hireling**, **Inventory**, **Description** and **Notes**.
 The first page has the name, Pronouns and Age, the Role, the Background or
 Career, the Faction, the trait sentence, the stat block and the Armor row:
 
-- **Hold shield?** and **Hold light?** sit either side of the Armor box. Each
-  holds or puts away a shield or a light the person carries. A shield only
-  adds to Armor while it's in hand.
+- **Equip shield**, **Equip light** and **Equip spellbook** sit in a row under
+  the Armor box. Each equips or puts away a shield, a light, or a spellbook,
+  scroll or Grimoire the person carries, and reads **No Shield**, **No Light**
+  or **No Spellbook** when they don't have one. A shield only adds to Armor
+  while it's equipped. See
+  [Tokens and Sheets](tokens-and-sheets.md#equipping-a-shield-a-light-or-a-spellbook).
 - The **Max** boxes are locked while Character Creation Mode is off.
 
 On the Inventory page, every row has a **Mark broken** toggle beside the trash.

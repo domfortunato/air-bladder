@@ -1092,8 +1092,11 @@
 /* The row's Broken toggle (2026-11-20): game-icons' broken shield as a
    luminance mask, the row icons' muted ink while intact and the Broken tag's
    peril colour while broken. Sized to the Font Awesome glyphs beside it. */
+/* Centred on the row's 26px line like the Font Awesome icons beside it
+   (2026-11-21, user: it was "riding the top of the line", 5.25px high). */
+.cairn-item-controls a.item-toggle-broken { display: inline-flex; align-items: center; justify-content: center; height: 26px; }
 .item-toggle-broken .broken-icon {
-    display: inline-block; width: 1em; height: 1em; vertical-align: -0.125em;
+    display: block; width: 1em; height: 1em;
     background-color: currentColor;
     -webkit-mask: var(--broken-icon) center / contain no-repeat;
     mask: var(--broken-icon) center / contain no-repeat;
@@ -1858,11 +1861,11 @@
 .cairn-attack-dialog .cairn-attack-panic { margin: 4px 0 0; font-size: var(--font-size-12); color: var(--ab-muted); }
 /* Which light to hold (askWhichLight, 2026-11-20): one row per light — the
    radio, the name, its radius — in the Attack window's weapon-row shape. */
-.cairn-light-picker .cairn-light-prompt { margin: 0 0 6px; }
-.cairn-light-picker .cairn-light-choice { display: flex; align-items: center; gap: 8px; padding: 2px 0; cursor: pointer; }
-.cairn-light-picker .cairn-light-choice input { margin: 0; flex: 0 0 auto; }
-.cairn-light-picker .cairn-light-choice strong { flex: 1 1 auto; }
-.cairn-light-picker .cairn-light-radius { flex: 0 0 auto; font-size: var(--font-size-12); color: var(--ab-muted); white-space: nowrap; }
+.cairn-hold-picker .cairn-light-prompt { margin: 0 0 6px; }
+.cairn-hold-picker .cairn-light-choice { display: flex; align-items: center; gap: 8px; padding: 2px 0; cursor: pointer; }
+.cairn-hold-picker .cairn-light-choice input { margin: 0; flex: 0 0 auto; }
+.cairn-hold-picker .cairn-light-choice strong { flex: 1 1 auto; }
+.cairn-hold-picker .cairn-light-radius { flex: 0 0 auto; font-size: var(--font-size-12); color: var(--ab-muted); white-space: nowrap; }
 /* The shield hacks (2026-11-20): "Hands full"'s note, as the panic note, and
    "Add the shield (d4)" under the weapon list. */
 .cairn-attack-dialog .cairn-attack-hands { margin: 4px 0 0; font-size: var(--font-size-12); color: var(--ab-muted); }
@@ -2981,7 +2984,8 @@ ol.combat-tracker li.combatant.cairn-drop-below {
 
 /* The Inventory's first line (round 5, user ask 2026-11-20): a click on an
    item expands its description. "At the top and more visible", so full ink
-   and upright, unlike the muted italic footer hints below; the pointer in
+   and upright, unlike the muted italic footer hints below; the lightbulb (a
+   pointing hand until 2026-11-21, user ask) in
    the accent teal. */
 .cairn-expand-hint {
     padding: 2px 4px 6px;
@@ -4506,6 +4510,21 @@ ol.combat-tracker li.combatant.cairn-drop-below {
     font-weight: bold;
 }
 
+/* The light cell's icon (2026-11-21): the light's own game-icon as a mask in
+   the cell's colour (teal while lit, the cell's ink otherwise). Lit, it is a
+   bare button the Warden clicks to put it out. */
+.cairn-party-sheet .cairn-party-light { display: inline-flex; vertical-align: middle; }
+.cairn-party-sheet button.cairn-party-light {
+    width: auto; height: auto; min-height: 0; padding: 0; margin: 0; line-height: 1;
+    background: none; border: none; box-shadow: none; color: inherit; cursor: pointer;
+}
+.cairn-party-sheet .cairn-party-light-icon {
+    display: block; width: 18px; height: 18px; background-color: currentColor;
+    -webkit-mask: var(--light-icon) center / contain no-repeat;
+    mask: var(--light-icon) center / contain no-repeat;
+    mask-mode: luminance;
+}
+
 /* One letter or number in a square box: the D P E conditions, and a whole
    number on alert (Fatigue, no rations; round 3). The outline is
    `currentColor`, so a box takes its cell's tone — teal Fatigue, red rations
@@ -5852,47 +5871,51 @@ header.character-generator.directory-header .header-actions > button:not(.cairn-
 .cairn-character-sheet .cairn-shield .armor-input:focus { box-shadow: none; }
 /* Inside the shield's lower edge, clear of the light badge beside it. */
 .cairn-character-sheet .cairn-shield .armor-reset { position: absolute; right: -6px; bottom: -4px; margin: 0; font-size: 11px; }
-/* The Armor row (2026-11-20): Hold shield | the Armor box | the light badge.
-   Three columns, the box in the middle one, so it stays centred over HP. */
-.cairn-character-sheet .cairn-armor-row {
-    align-self: stretch; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; column-gap: 4px;
+/* The Armor box on a row of its own, centred over HP (2026-11-21); the three
+   Equip badges in a row under it: shield | light | book, a third of the
+   172px column each. */
+.cairn-character-sheet .cairn-armor-row { align-self: stretch; display: flex; justify-content: center; }
+.cairn-character-sheet .cairn-badge-row {
+    align-self: stretch; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+    align-items: start; column-gap: 2px;
 }
-.cairn-character-sheet .cairn-armor-row > .cairn-armor-box { grid-column: 2; }
-.cairn-character-sheet .cairn-armor-row > .shield-hold { grid-column: 1; justify-self: end; }
-.cairn-character-sheet .cairn-armor-row > .light-hold { grid-column: 3; justify-self: start; }
-.cairn-character-sheet :is(.shield-hold, .light-hold) {
+.cairn-character-sheet .cairn-equip-badge {
     display: flex; flex-direction: column; align-items: center; gap: 2px;
-    width: auto; height: auto; min-height: 0; padding: 2px; margin: 0;
+    width: auto; height: auto; min-height: 0; min-width: 0; padding: 2px 0; margin: 0;
     background: none; border: none; box-shadow: none; line-height: 1;
     font-family: "Alegreya", Times, "Times New Roman", Georgia, serif;
     font-size: 12px; font-weight: bold; font-variant: small-caps; color: var(--ab-ink);
-    text-align: center; white-space: normal; max-width: 58px; cursor: pointer;
+    text-align: center; white-space: normal; cursor: pointer;
 }
-/* The two badges' icons: game-icons art (a white glyph on a black square),
-   used as a LUMINANCE mask so it takes a colour: muted while nothing is held,
-   the accent with a glow while one is (2026-11-20, user asks: "toggling the
-   Hold light make that icon glow"; Hold shield "looks and labels like Hold
-   light", the heater shield). One rule for both. */
+/* The badges' icons: game-icons art (a white glyph on a black square),
+   used as a LUMINANCE mask so it takes a colour: muted while nothing is
+   equipped, the accent with a glow while one is (2026-11-20, user asks:
+   "toggling the Hold light make that icon glow"). One rule for all three. */
 .cairn-character-sheet .shield-hold .shield-icon { --badge-icon: var(--shield-icon); }
 .cairn-character-sheet .light-hold .light-icon { --badge-icon: var(--light-icon); }
-.cairn-character-sheet :is(.shield-hold .shield-icon, .light-hold .light-icon) {
+.cairn-character-sheet .book-hold .book-icon { --badge-icon: var(--book-icon); }
+.cairn-character-sheet :is(.shield-icon, .light-icon, .book-icon) {
     display: block; width: 26px; height: 26px;
     background-color: var(--ab-muted);
     -webkit-mask: var(--badge-icon) center / contain no-repeat;
     mask: var(--badge-icon) center / contain no-repeat;
     mask-mode: luminance;
 }
-.cairn-character-sheet :is(.shield-hold[aria-checked="true"] .shield-icon, .light-hold[aria-checked="true"] .light-icon) {
+.cairn-character-sheet .cairn-equip-badge[aria-checked="true"] :is(.shield-icon, .light-icon, .book-icon) {
     background-color: var(--ab-accent);
     filter: drop-shadow(0 0 3px var(--ab-accent)) drop-shadow(0 0 6px var(--ab-accent));
 }
+/* The switch glyph under the label (2026-11-21, user ask: make it obvious
+   the badge is something you toggle): off in the muted ink, on in the accent. */
+.cairn-character-sheet .cairn-equip-badge .badge-switch { font-size: 13px; line-height: 13px; color: var(--ab-muted); }
+.cairn-character-sheet .cairn-equip-badge[aria-checked="true"] .badge-switch { color: var(--ab-accent); }
 .cairn-character-sheet .light-hold .light-radius {
     font-family: "Signika", ui-sans-serif, sans-serif; font-size: 10px; font-weight: normal;
     font-variant: normal; line-height: 12px; color: var(--ab-muted);
 }
 /* Greyed, and still hoverable for its tooltip (a disabled button gets
    pointerenter in Chromium: core's tooltip still finds it). */
-.cairn-character-sheet :is(.shield-hold, .light-hold):disabled { cursor: default; opacity: 0.45; }
+.cairn-character-sheet .cairn-equip-badge:disabled { cursor: default; opacity: 0.45; }
 .cairn-character-sheet .cairn-vitals .hp-counter { align-self: stretch; }
 .cairn-character-sheet .cairn-slots-line {
     display: flex; justify-content: center; align-items: baseline; gap: 6px; width: 100%;

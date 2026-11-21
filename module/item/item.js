@@ -73,7 +73,9 @@ export const confirmBroken = (item, { windowId } = {}) => {
  * marking one spent survives the next save. Forcing it here would silently refill
  * every scroll on every edit.
  */
-const SCROLL_PINNED = { weightless: true, equipped: false, "uses.max": 1 };
+// `equipped` is no longer pinned (2026-11-21, user ruling: a scroll can be
+// equipped, for the book badge on page 1).
+const SCROLL_PINNED = { weightless: true, "uses.max": 1 };
 
 /** What ticking `scroll` off restores: a book is not petty and has no uses. */
 const BOOK_PINNED = { weightless: false, "uses.max": 0, "uses.value": 0 };
@@ -594,10 +596,12 @@ export class CairnItem extends Item {
       this.system.equipped = !!this._source.system?.equipped && !this.system.broken;
     }
     // A light source is held as a shield is (2026-11-20, user ask: "Hold
-    // light"): held = equipped, so it gets the hand. Its fuel does not.
+    // light"): held = equipped, so it gets the hand. Its fuel does not. A
+    // scroll and the Grimoire are equipped too since 2026-11-21 (user ruling,
+    // the book badge); a bound Grimoire page never is.
     this.system.isEquipable =
-      (["weapon", "armor", "spellbook"].includes(this.type) || isHoldableLight(this)) &&
-      !this.system.scroll &&
+      (["weapon", "armor", "spellbook"].includes(this.type) || isHoldableLight(this)
+        || (this.type === "item" && this.system.grimoire === true)) &&
       !this.system.bound &&
       !this.system.broken &&
       !this.actor?.isThing;

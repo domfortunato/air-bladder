@@ -26,7 +26,7 @@ import { warmPackDocuments } from "./compendium.js";
 import { iconForItem, SPELLSCROLL_ICON, SPELLBOOK_ICON } from "./icons.js";
 import { glogEnabled, grimoiresEnabled, GLOG_PACK, GLOG_SPELL_PACKS, GLOG_NAME_ALIASES } from "./glog.js";
 import { isBulky, handsFullHack } from "./utils.js";
-import { lightSource } from "./light-sources.js";
+import { lightSource, lightSourceKey } from "./light-sources.js";
 
 // Packs searched to resolve a gear name, in precedence order — an earlier pack
 // wins a name collision. Spellbook packs are separate (spell grants route there).
@@ -141,17 +141,18 @@ export const isHoldableLight = (item) => item?.type === "item"
  * share. Nothing happens unless Torch is active and the actor has a token on
  * the viewed scene. Holding selects the light by its stored name
  * (`game.Torch.selectSource`) and lights it if Torch says it is off; stowing
- * puts the token's light out (`extinguish`), and Torch's own rule spends a
- * use of a consumable then (docs/torch-light-sources.json). One-way:
- * Torch's own HUD button does not move the switch.
+ * puts the token's light out (`extinguish`). The SYSTEM spends the use, on
+ * lighting, since 2026-11-21 (`lightIt`); the Torch file marks nothing
+ * consumable, so Torch never spends a second one. One-way: Torch's own HUD
+ * button does not move the switch.
  *
  * Review #35, measured against the guide's promise ("A light Torch doesn't
  * know ... is still held, but it doesn't shine"):
  * - a light missing from the radius table (`lightSource`, the same names the
  *   Torch file carries) is held and NOT selected: Torch does not throw on an
  *   unknown name, it lit whatever other source the token carried;
- * - a light with uses whose count is spent is held and not lit: Torch's own
- *   HUD refuses an exhausted torch, and the switch must not relight it;
+ * - a light with uses whose count is spent is not held at all since
+ *   2026-11-21: lighting it is refused (`registerHeldLightSync`);
  * - stowing while another usable light is still held puts the old one out
  *   and lights that one (one light is held at once; legacy data can hold two).
  * A throw is still swallowed and the hold stands, unlit.
@@ -212,13 +213,129 @@ export const handsBlock = (item) => {
 /** Is this item a light held right now (equipped and not broken)? */
 export const isHeldLight = (item) => isHoldableLight(item) && item.system?.equipped === true && !item.system?.broken;
 
-/** Can Torch light it: a name it knows (the radius table it shares), and a
- *  use left when the light counts them. */
-const shinesInTorch = (item) => {
-  if (!lightSource(item?.name)) return false;
-  const uses = item.system?.uses;
-  return !(Number(uses?.max) > 0 && !(Number(uses?.value) > 0));
+/**
+ * A book a creature can EQUIP (2026-11-21, user asks: a badge on page 1
+ * showing "if a spell book, grimoire or scroll is equipped", and scrolls and
+ * the Grimoire made equippable): a spellbook or scroll that is not a bound
+ * Grimoire page, or the Grimoire itself. One is equipped at a time, as a
+ * light is: the badge and a row's hand put the others away.
+ * @param {Item|Object} item
+ * @returns {Boolean}
+ */
+export const isHoldableBook = (item) => (item?.type === "spellbook" && !item.system?.bound)
+  || (item?.type === "item" && item.system?.grimoire === true);
+
+/** Is this item a book equipped right now (and not broken)? */
+export const isHeldBook = (item) => isHoldableBook(item) && item.system?.equipped === true && !item.system?.broken;
+
+/**
+ * Does an item have a use to spend? An item that doesn't count uses (max 0)
+ * is never used up: a Lantern, a homebrew lamp, an Oil Can nobody numbered.
+ * @param {Item} item
+ */
+const hasUseLeft = (item) => !(Number(item?.system?.uses?.max) > 0) || Number(item?.system?.uses?.value) > 0;
+
+/** Does the item count its uses at all? */
+const countsUses = (item) => Number(item?.system?.uses?.max) > 0;
+
+/**
+ * What the Lantern burns (2026-11-21, user ask: "a lantern can't be used
+ * without candle or oil and one use of them is marked off"): an Oil Can
+ * first, then a Candle (my call, told), each unbroken with a use left. By the
+ * stored English name, as every light rule here, Candle through the radius
+ * table so "Candles" and "Vela" count. Null when there is none.
+ * @param {Actor} actor
+ * @returns {Item|null}
+ */
+export const lanternFuel = (actor) => {
+  const usable = (i) => !i.system?.broken && hasUseLeft(i);
+  const items = actor?.items?.contents ?? [];
+  return items.find((i) => String(i.name ?? "").trim().toLowerCase() === "oil can" && usable(i))
+    ?? items.find((i) => i.type === "item" && lightSourceKey(i.name) === "Candle" && usable(i))
+    ?? null;
 };
+
+/** Is this THE Lantern, the one that needs fuel? Never the Wisp Lantern. */
+const needsFuel = (item) => lightSourceKey(item?.name) === "Lantern";
+
+/**
+ * Why this light can't be lit right now, as a warning to show, or null when
+ * it can: a light whose uses are spent, or the Lantern with no fuel.
+ * @param {Item} item
+ * @returns {String|null}
+ */
+const lightingRefusal = (item) => {
+  const npc = item.parent?.type !== "character";
+  const name = item.name;
+  if (!hasUseLeft(item)) return game.i18n.format(npc ? "CAIRN.LightUsedUpNpc" : "CAIRN.LightUsedUp", { name });
+  if (needsFuel(item) && !lanternFuel(item.parent)) {
+    return game.i18n.format(npc ? "CAIRN.LanternNoFuelNpc" : "CAIRN.LanternNoFuel", { name });
+  }
+  return null;
+};
+
+/**
+ * Post the public light card (2026-11-21, user pick: a notice to everyone
+ * when a light is lit and when it goes out). Its own container class,
+ * `cairn-light-card`, so a probe can pick it out of a busy chat log.
+ * @param {Actor} actor
+ * @param {String} text  already formatted, names escaped
+ */
+const postLightCard = (actor, text) => ChatMessage.create({
+  speaker: ChatMessage.getSpeaker({ actor }),
+  content: `<div class="cairn-light-card"><p>${text}</p></div>`,
+});
+
+/**
+ * Light it: spend the light's own use, or the Lantern's fuel, then tell the
+ * table. The spend is a write of its own with `abNoStatusCard`, so the change
+ * log doesn't repeat what the card says.
+ * @param {Item} item
+ * @param {Object} options  the update's options (abNoStatusCard: no card)
+ */
+const lightIt = async (item, options) => {
+  const actor = item.parent;
+  const esc = foundry.utils.escapeHTML;
+  const names = { actor: esc(actor.name), light: esc(item.name) };
+  let text;
+  if (needsFuel(item)) {
+    const fuel = lanternFuel(actor);
+    if (fuel && countsUses(fuel)) {
+      const n = Math.max(0, Number(fuel.system.uses.value) - 1);
+      await fuel.update({ "system.uses.value": n }, { abNoStatusCard: true });
+      text = game.i18n.format(n === 1 ? "CAIRN.LightCard.LitFuelOne" : "CAIRN.LightCard.LitFuel", { ...names, fuel: esc(fuel.name), n });
+    } else if (fuel) {
+      text = game.i18n.format("CAIRN.LightCard.LitFuelFree", { ...names, fuel: esc(fuel.name) });
+    }
+  } else if (countsUses(item)) {
+    const n = Math.max(0, Number(item.system.uses.value) - 1);
+    await item.update({ "system.uses.value": n }, { abNoStatusCard: true });
+    text = game.i18n.format(n === 1 ? "CAIRN.LightCard.LitUse" : "CAIRN.LightCard.LitUses", { ...names, n });
+  }
+  text ??= game.i18n.format("CAIRN.LightCard.Lit", names);
+  if (!options?.abNoStatusCard) await postLightCard(actor, text);
+};
+
+/**
+ * It went out: tell the table. The Warden putting out a light a PLAYER's
+ * character holds gets its own line (2026-11-21, user ask: "The warden should
+ * be able to put someone's lamp out and the notice in chat should notify
+ * everyone").
+ * @param {Item} item
+ * @param {Object} options
+ */
+const putItOut = async (item, options) => {
+  if (options?.abNoStatusCard) return;
+  const actor = item.parent;
+  const esc = foundry.utils.escapeHTML;
+  const names = { actor: esc(actor.name), light: esc(item.name) };
+  const key = game.user.isGM && actor.hasPlayerOwner ? "CAIRN.LightCard.WardenOut" : "CAIRN.LightCard.Out";
+  await postLightCard(actor, game.i18n.format(key, names));
+};
+
+/** Can Torch light it: a name it knows (the radius table it shares). A spent
+ *  light never gets this far since 2026-11-21: lighting it is refused. */
+const shinesInTorch = (item) => !!lightSource(item?.name);
 
 /**
  * Keep Torch in step with whatever a light's HELD state does (review #35):
@@ -237,8 +354,22 @@ export const registerHeldLightSync = () => {
     queues.set(key, next);
     next.finally(() => { if (queues.get(key) === next) queues.delete(key); });
   };
-  Hooks.on("preUpdateItem", (item, _changes, options) => {
+  Hooks.on("preUpdateItem", (item, changes, options) => {
     if (isHoldableLight(item) && item.parent) {
+      // Lighting it (2026-11-21): a spent light, or the Lantern with no fuel,
+      // is refused here, on the client making the change, whatever route
+      // asked (the badge, a row's hand, the Warden). The rest of that write
+      // goes through.
+      const lighting = !isHeldLight(item)
+        && foundry.utils.getProperty(changes, "system.equipped") === true
+        && !(foundry.utils.getProperty(changes, "system.broken") ?? item.system?.broken);
+      if (lighting) {
+        const why = lightingRefusal(item);
+        if (why) {
+          ui.notifications.warn(why);
+          return false;
+        }
+      }
       options.abHeldLight ??= {};
       options.abHeldLight[item.id] = isHeldLight(item);
     }
@@ -248,6 +379,12 @@ export const registerHeldLightSync = () => {
     const was = options.abHeldLight?.[item.id];
     const now = isHeldLight(item);
     if (was === undefined || was === now) return;
+    // Spend and tell the table BEFORE Torch is asked, in the same queue, so a
+    // light's calls stay in order.
+    const key = item.parent.uuid;
+    const told = (queues.get(key) ?? Promise.resolve()).then(() => (now ? lightIt(item, options) : putItOut(item, options)))
+      .catch((e) => console.error("air-bladder | light card:", e));
+    queues.set(key, told);
     queue(item.parent, item, now);
   });
   Hooks.on("deleteItem", (item, _options, userId) => {

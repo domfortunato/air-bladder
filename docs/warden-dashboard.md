@@ -104,20 +104,25 @@ wouldn't carry Add to scene.
 ## The party at a glance
 
 The **Party sheet** button at the bottom of the Dashboard, beside Warden's
-Damage, opens a table of every character in the Party folder. The **people**
-icon in the Token controls opens it too.
+Damage, opens a table of every character in the Party folder, along with any
+NPC or hireling you've put there. The **people** icon in the Token controls
+opens it too.
 
 Each row is one character: who plays them, their pronouns and background, HP
 and the three abilities, armor, gold, slots, Fatigue, whether their shield is
-held or slung, the light in their hand, how many rations they have left, how
-many hirelings, companions, containers and transports are connected to them,
-and their conditions. Click a name to open that character's sheet.
+equipped or slung, the light they've got equipped, how many rations they have
+left, how many hirelings, companions, containers and transports are connected
+to them, and their conditions. Click a name to open that character's sheet.
 
 Colour is the warning. Amber means HP below max or one slot left. Red means HP
 at 0, an ability below max, no slot left, or no rations. Teal means a shield or
-a light in hand. A shield or light that's carried but not in hand shows its
-symbol without colour. Fatigue and an empty rations count are boxed. Conditions
+a light that's equipped. A shield or light that's carried but not equipped
+shows its symbol without colour, and the light's symbol matches the light, a
+torch or a lantern. Fatigue and an empty rations count are boxed. Conditions
 show as D (Deprived), P (Panicked) and E (Encumbered).
+
+To put out a character's light, click its teal symbol. Everyone sees a chat
+message saying the Warden put it out.
 
 The rows are in marching order. Drag a row onto another to move it there. The
 order is saved with the world.

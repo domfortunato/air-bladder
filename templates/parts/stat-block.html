@@ -118,35 +118,20 @@
 
                     <!-- Vitals: Armor, HP, Deprived and Panicked, slots, and the buttons -->
                     <div class="cairn-vitals">
-                        {{!-- "Hold shield" (2026-11-20, user ask: "a toggle to the left of
-                              the shield with armor value ... the toggle should sling or hold
-                              the shield"): only while the character carries an armor item
-                              ticked Shield. Held is equipped, slung is not (the user's
-                              ruling): a press is the shield row's hand icon. A three-column
-                              row keeps the round Armor box centred whether the switch is
-                              there or not. --}}
-                        <div class="cairn-armor-row">
-                        {{!-- Both controls are ALWAYS drawn, one mechanism (toggleHold):
-                              with none of that kind carried a control is disabled, off,
-                              and says why. The shield's switch carries no tooltip while
-                              live. --}}
-                        {{!-- A BADGE like Hold light's since 2026-11-20 (user ask: "Hold
-                              shield looks and labels like Hold light"): a game-icons
-                              mask, muted when slung, the accent with a glow when held.
-                              Since 2026-11-21 (user asks) Shield Disabled while slung
-                              and Shield Bash in hand, and the off label a question:
-                              "Hold shield?" off, "Shield in hand" on. --}}
-                        {{#if shieldSwitch}}
-                        <button type="button" class="shield-hold" data-action="toggleHold" data-hold="shield" role="switch" aria-checked="{{#if shieldSwitch.held}}true{{else}}false{{/if}}"{{#if shieldSwitch.none}} data-tooltip="{{ localize holdShieldNoneKey }}"{{/if}}{{#if (or shieldSwitch.none (not @root.editable))}} disabled{{/if}}>
-                            <span class="shield-icon" style="--shield-icon: url('{{#if shieldSwitch.held}}{{shieldHeldIcon}}{{else}}{{shieldIcon}}{{/if}}')" inert></span>
-                            <span class="shield-label">{{#if shieldSwitch.held}}{{ localize 'CAIRN.ShieldInHand' }}{{else}}{{ localize 'CAIRN.HoldShieldAsk' }}{{/if}}</span>
-                        </button>
-                        {{/if}}
+                        {{!-- The Armor box, then the three EQUIP BADGES in a row under it (2026-11-21,
+                              user asks; "Hold shield" and "Hold light" sat either side of the box from
+                              2026-11-20). Shield | light | book, each one mechanism (toggleHold):
+                              equipped or not, the inventory row's hand icon. All three are ALWAYS
+                              drawn on a creature, never on a thing: with none of that kind carried a
+                              badge is greyed and says "No Shield" / "No Light" / "No Spellbook", with
+                              the reason in its tooltip. Off reads "Equip …", on "… equipped", and
+                              the switch glyph under the label says it's a toggle. Labels and icons
+                              come from _computeStatContext. --}}
                         {{!-- The Armor box: the shield outline, the number alone inside,
-                              "Armor" OUTSIDE it, right below (2026-11-21, user asks: the
-                              label inside was "CRAMPED"; "the circle shape ... can go back
-                              to being an outline of a shield"). Not level with the badges'
-                              labels (user pick): page 1 has 8px to spare at 480 x 700. --}}
+                              "Armor" OUTSIDE it, right below (2026-11-21, user asks: the label
+                              inside was "CRAMPED"; "the circle shape ... can go back to being an
+                              outline of a shield"). On a row of its own, centred over HP. --}}
+                        <div class="cairn-armor-row">
                         <div class="cairn-armor-box">
                         <div class="cairn-shield armor-counter {{#if system.armorOverridden}}armor-overridden{{/if}}">
                             <input type="number" min="0" max="3" step="1" class="armor-input" id="{{@root.idp}}-armor" value="{{system.armor}}"
@@ -157,21 +142,35 @@
                         </div>
                         <label class="armor-label" for="{{@root.idp}}-armor" data-tooltip="{{ localize 'CAIRN.ArmorTip' }}">{{ localize 'CAIRN.Armor' }}</label>
                         </div>
-                        {{!-- The light BADGE right of the Armor box (2026-11-20, user picks):
-                              it IS the Hold light control. The held light's icon (game-icons,
-                              matched to the light), glowing while held, a neutral lantern
-                              otherwise; "Hold light" under it, then the light's radius. Several
-                              lights and none held: a press asks which (askWhichLight). --}}
-                        {{#if lightSwitch}}
-                        <button type="button" class="light-hold" data-action="toggleHold" data-hold="light" role="switch" aria-checked="{{#if lightSwitch.held}}true{{else}}false{{/if}}" data-tooltip="{{lightSwitch.tip}}"{{#if (or lightSwitch.none (not @root.editable))}} disabled{{/if}}>
-                            <span class="light-icon" style="--light-icon: url('{{lightSwitch.icon}}')" inert></span>
-                            {{!-- "Light in hand" while one is held (2026-11-20, user ask);
-                                  "Hold light?" otherwise (2026-11-21). --}}
-                            <span class="light-label">{{#if lightSwitch.held}}{{ localize 'CAIRN.LightInHand' }}{{else}}{{ localize 'CAIRN.HoldLightAsk' }}{{/if}}</span>
-                            {{#if lightSwitch.radius}}<span class="light-radius">{{lightSwitch.radius}}</span>{{/if}}
-                        </button>
-                        {{/if}}
                         </div>
+                        {{#if shieldSwitch}}
+                        <div class="cairn-badge-row">
+                            {{!-- The shield: Shield (Sbed) slung, Shield Bash equipped, the
+                                  slashed shield with none. No tooltip while live. --}}
+                            <button type="button" class="shield-hold cairn-equip-badge" data-action="toggleHold" data-hold="shield" role="switch" aria-checked="{{#if shieldSwitch.held}}true{{else}}false{{/if}}"{{#if shieldSwitch.none}} data-tooltip="{{ localize holdShieldNoneKey }}"{{/if}}{{#if (or shieldSwitch.none (not @root.editable))}} disabled{{/if}}>
+                                <span class="shield-icon" style="--shield-icon: url('{{shieldSwitch.icon}}')" inert></span>
+                                <span class="shield-label">{{shieldSwitch.label}}</span>
+                                {{#unless shieldSwitch.none}}<span class="badge-switch" inert><i class="fa-solid {{#if shieldSwitch.held}}fa-toggle-on{{else}}fa-toggle-off{{/if}}"></i></span>{{/unless}}
+                            </button>
+                            {{!-- The light: the equipped light's icon, glowing, its radius under
+                                  the switch; otherwise the first carried light's own icon (a
+                                  torch shows a torch). Several and none equipped: a press asks
+                                  which (askWhichHeld). --}}
+                            <button type="button" class="light-hold cairn-equip-badge" data-action="toggleHold" data-hold="light" role="switch" aria-checked="{{#if lightSwitch.held}}true{{else}}false{{/if}}" data-tooltip="{{lightSwitch.tip}}"{{#if (or lightSwitch.none (not @root.editable))}} disabled{{/if}}>
+                                <span class="light-icon" style="--light-icon: url('{{lightSwitch.icon}}')" inert></span>
+                                <span class="light-label">{{lightSwitch.label}}</span>
+                                {{#unless lightSwitch.none}}<span class="badge-switch" inert><i class="fa-solid {{#if lightSwitch.held}}fa-toggle-on{{else}}fa-toggle-off{{/if}}"></i></span>{{/unless}}
+                                {{#if lightSwitch.radius}}<span class="light-radius">{{lightSwitch.radius}}</span>{{/if}}
+                            </button>
+                            {{!-- The book: a spellbook, a scroll or the Grimoire, one at a time;
+                                  the label names the kind ("Equip scroll", "Grimoire equipped"). --}}
+                            <button type="button" class="book-hold cairn-equip-badge" data-action="toggleHold" data-hold="book" role="switch" aria-checked="{{#if bookSwitch.held}}true{{else}}false{{/if}}"{{#if bookSwitch.tip}} data-tooltip="{{bookSwitch.tip}}"{{/if}}{{#if (or bookSwitch.none (not @root.editable))}} disabled{{/if}}>
+                                <span class="book-icon" style="--book-icon: url('{{bookSwitch.icon}}')" inert></span>
+                                <span class="book-label">{{bookSwitch.label}}</span>
+                                {{#unless bookSwitch.none}}<span class="badge-switch" inert><i class="fa-solid {{#if bookSwitch.held}}fa-toggle-on{{else}}fa-toggle-off{{/if}}"></i></span>{{/unless}}
+                            </button>
+                        </div>
+                        {{/if}}
 
                         {{!-- HP's two numbers carry the abilities' words (round 5), in a
                               header row copying the box's geometry: the label half empty,

@@ -79,7 +79,7 @@ try {
     const realWarn = ui.notifications.warn;
     ui.notifications.warn = function (msg, ...rest) { warned.push(String(msg)); return realWarn.call(this, msg, ...rest); };
     // Cards a leg made: by class and by id difference.
-    let seen = new Set(game.messages.contents.map((m) => m.id));
+    const seen = new Set(game.messages.contents.map((m) => m.id));
     const made = [];
     const cards = async (wait = true) => {
       if (wait) await sleep(700);

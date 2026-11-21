@@ -66,6 +66,10 @@ The confirmation for a scroll tells you the cost, which is 50 gold and 6 hours o
 
 You can still transmute a spent scroll, and its page casts like any other.
 
+## Equipping a spellbook, scroll or Grimoire
+
+A spellbook, a scroll or a Grimoire can be equipped, one at a time, with the hand on its inventory row or the **Equip spellbook** badge under Armor on the sheet's first page. The badge's label names what you've got, like **Equip scroll** or **Grimoire equipped**. You don't need to equip something to cast from it. A Grimoire's pages can't be equipped on their own.
+
 ## Casting
 
 Every cast invests **Magic Dice**. You can invest up to one for each free inventory slot the caster has, and never more than 4. A character who doesn't have a free slot doesn't have any dice, so they can't cast.

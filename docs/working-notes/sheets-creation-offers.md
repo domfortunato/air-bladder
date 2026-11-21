@@ -277,6 +277,38 @@ Moved word for word from CLAUDE.md (2026-11-01); CLAUDE.md points here.
   button), on "Shield in hand" / "Light in hand". Icon routes are built for
   every sheet beside `holdShieldNoneKey`. Gates `dev:sheet-rail` leg 25,
   `dev:shield` legs 3 and 6, `dev:sheet-layout`.
+- **The Equip round** (2026-11-21, user asks; supersedes the Hold wording
+  above). The word is "Equip". The Armor box sits on a row of its own and the
+  THREE badges go in a row under it (`.cairn-badge-row`, a third of the 172px
+  column each): shield | light | book, one class `.cairn-equip-badge`, one
+  press (`#onToggleHold`, `data-hold` shield/light/book). Labels and icons
+  come from `_computeStatContext` (`shieldSwitch`/`lightSwitch`/`bookSwitch`
+  each carry `label` and `icon`): off "Equip shield" under Shield (Sbed),
+  on "Shield equipped" under Shield Bash, none "No Shield" greyed under Shield
+  Disabled; the light shows the equipped light's icon, else the FIRST carried
+  light's (`lightIcon`), the neutral lantern with none ("No Light"); the book
+  badge counts `isHoldableBook` (gear.js: spellbook or scroll not bound, or
+  the Grimoire), one at a time like a light, picker `askWhichHeld` (utils.js,
+  the light picker generalised, prompt "Which one?"), labels by `bookKind`.
+  A switch glyph (`.badge-switch`, fa-toggle-on/off) under each live label.
+  Scrolls and the Grimoire became equippable (`isEquipable`, item.js;
+  `SCROLL_PINNED` no longer pins `equipped`). The labels were ALREADY in full
+  ink (measured, `dev:shield` red run 2026-11-21): what read as faint was the
+  question mark. Gates `dev:shield` legs 3, 6, 8, `dev:sheet-rail` leg 22,
+  `dev:spellscroll`.
+- **Lighting spends a use** (2026-11-21, user ask). On the item hooks
+  (`registerHeldLightSync`, gear.js), so every route agrees: `preUpdateItem`
+  REFUSES lighting a spent light or the Lantern with no fuel (`lightingRefusal`,
+  a warning), `updateItem` spends (`lightIt`: the light's own use, or the
+  Lantern's fuel via `lanternFuel`, Oil Can first then Candle) and posts the
+  public `cairn-light-card`; going out posts its own line, the Warden's when a
+  GM puts out a player-owned light (`putItOut`). `abNoStatusCard` skips the
+  card. "The Lantern" is `lightSourceKey` === "Lantern", never the Wisp
+  Lantern. The Torch file marks nothing consumable, so Torch never spends a
+  second use. Gate `dev:light-uses`.
+- The Inventory hint's icon is a lightbulb (2026-11-21, user ask), and the
+  row's broken-shield icon is centred on the 26px line (it sat 5.25px high;
+  `dev:broken` leg 17).
 
 ## Creation routes
 

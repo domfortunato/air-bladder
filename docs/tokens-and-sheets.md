@@ -70,6 +70,31 @@ For a trap or a hazard, use **Warden's Damage**, the skull in the Token
 controls. Whoever you've targeted takes it. If you haven't targeted anyone,
 the card asks who.
 
+## Equipping a shield, a light or a spellbook
+
+Under the Armor box on the first page of a character's or creature's sheet are
+three badges: **Equip shield**, **Equip light** and **Equip spellbook**. Press
+one to equip that thing, and press it again to put it away. It does the same as
+the hand on that item's row in the inventory. While something's equipped, its
+badge glows, the switch under the label turns on, and the label changes to
+**Shield equipped**, **Light equipped** or **Spellbook equipped**. If you don't
+carry one, the badge is greyed out and reads **No Shield**, **No Light** or
+**No Spellbook**.
+
+- **Shield.** A shield only adds to Armor while it's equipped.
+- **Light.** The badge shows the light you're carrying, a torch or a lantern,
+  and how far it reaches once it's lit. Only one light is equipped at a time,
+  and with several it asks which.
+- **Spellbook.** This covers a spellbook, a scroll and the Grimoire, one at a
+  time. The label says which you've got: **Equip scroll**, **Grimoire
+  equipped** and so on. With several, it asks which.
+
+**Lighting a light uses it up.** Equipping a Torch marks off one of its uses,
+and with none left you can't light it. A Lantern burns one use of an **Oil Can**
+you're carrying, or of a **Candle** if you don't have oil, and it won't light
+without either. Lights that don't count uses, like the Glowsnail, light for
+free. Everyone sees a chat message when a light is lit and when it goes out.
+
 ## Handing something to a monster
 
 A player can offer an item to anyone they can see: another player's character,

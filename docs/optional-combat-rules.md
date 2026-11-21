@@ -131,9 +131,9 @@ only for the people who can see the roll.
 
 ## Shields
 
-A shield is any armor with **Shield** ticked on its sheet. A character holds or
-slings one with the **Hold shield?** badge beside Armor on their sheet. A
-**Broken** shield can't be held.
+A shield is any armor with **Shield** ticked on its sheet. A character equips or
+slings one with the **Equip shield** badge under Armor on their sheet. A
+**Broken** shield can't be equipped.
 
 **Shields are Bulky.** Every shield takes two inventory slots, like any Bulky
 item. This one applies to every sheet, and changing it reloads Foundry.

@@ -19,6 +19,8 @@ import { findPartyFolder, isDroppedPile } from "./party-pile.js";
 import { isHoldableLight, isHeldLight, RATIONS_RE } from "./gear.js";
 import { FATIGUE_NAME } from "./item/item.js";
 import { t, itemNamespaces } from "./i18n-content.js";
+import { lightIcon } from "./light-sources.js";
+import { PERSON_ROLES } from "./data-models.js";
 
 /** The world setting holding the marching order: an array of actor ids. */
 export const MARCHING_ORDER_KEY = "party-marching-order";
@@ -46,7 +48,10 @@ const CONNECTION_COLUMNS = [
 ];
 
 /**
- * The party: every character filed in the Party folder.
+ * The party: every character filed in the Party folder, and every NPC or
+ * hireling filed there (2026-11-21, user ask: "If an NPC or Hireling is in
+ * the party, include them in the party sheet"). A monster, a companion or a
+ * thing filed there is not a member.
  *
  * THE FOLDER IS THE ROSTER, and nothing else is. Every route that makes a
  * character files it there (`partyFolderId`), and a Warden moves one out to
@@ -56,10 +61,13 @@ const CONNECTION_COLUMNS = [
  * own predicate rather than by type alone, as `isDroppedPile`'s callers do.
  * @returns {Actor[]}
  */
+/** A character, or a person npc (npc or hireling): the kinds that join. */
+const isPartyKind = (a) => a?.type === "character" || PERSON_ROLES.includes(a?.npcRole);
+
 export const partyMembers = () => {
   const folder = findPartyFolder();
   if (!folder) return [];
-  return folder.contents.filter((a) => a.type === "character" && !isDroppedPile(a));
+  return folder.contents.filter((a) => isPartyKind(a) && !isDroppedPile(a));
 };
 
 /**
@@ -175,9 +183,16 @@ const rowFor = (actor, index) => {
   const slotsTone = sys.encumbered ? "alert" : slotsMax - slotsUsed === 1 ? "warn" : "";
   const lightCount = lights.reduce((n, i) => n + qty(i), 0);
   const lightTone = held ? "accent" : "";
+  // The tooltip is rendered as HTML by core: the name is user text, escaped.
   const lightTip = held
-    ? game.i18n.format("CAIRN.PartySheet.LightHeld", { name: t(nameNs, held.name), count: lightCount })
+    ? `${game.i18n.format("CAIRN.PartySheet.LightHeld", { name: foundry.utils.escapeHTML(t(nameNs, held.name)), count: lightCount })} ${game.i18n.localize("CAIRN.PartySheet.LightPutOut")}`
     : lightCount ? game.i18n.format("CAIRN.PartySheet.LightCarried", { count: lightCount }) : "";
+  // The light's own icon (2026-11-21, user ask: it matches the light): the
+  // lit one's, else the first carried. A ROUTE, as the character sheet's
+  // badge: a relative url() in a custom property resolves against the
+  // stylesheet, not the page.
+  const shownLight = held ?? lights[0] ?? null;
+  const lightIconUrl = shownLight ? foundry.utils.getRoute(lightIcon(shownLight.name)) : "";
 
   return {
     id: actor.id,
@@ -196,7 +211,7 @@ const rowFor = (actor, index) => {
     shield, shieldTone: shield === "held" ? "accent" : "",
     shieldLabel: shield ? game.i18n.localize(`CAIRN.PartySheet.Shield${shield === "held" ? "Held" : "Slung"}`) : "",
     held: held?.name ?? "",
-    lights: lightCount, lightTone, lightTip,
+    lights: lightCount, lightTone, lightTip, lightIcon: lightIconUrl,
     rations, rationsTone: rations === 0 ? "alert" : "",
     connections,
     conditions,
@@ -230,6 +245,7 @@ class PartySheet extends foundry.applications.api.HandlebarsApplicationMixin(
     position: { width: 1300, height: 460 },
     actions: {
       openSheet: PartySheet._onOpenSheet,
+      putOutLight: PartySheet._onPutOutLight,
     },
   };
 
@@ -305,6 +321,23 @@ class PartySheet extends foundry.applications.api.HandlebarsApplicationMixin(
   static _onOpenSheet(event, target) {
     const id = target.closest("[data-actor-id]")?.dataset.actorId;
     game.actors.get(id)?.sheet?.render(true);
+  }
+
+  /**
+   * Put a character's light out (2026-11-21, user ask: "The warden should be
+   * able to put someone's lamp out and the notice in chat should notify
+   * everyone"). The lit cell's click unequips every lit light that actor
+   * holds: the Equip light badge's own write, so registerHeldLightSync
+   * (gear.js) posts the Warden's public card and Torch follows.
+   */
+  static async _onPutOutLight(event, target) {
+    event.preventDefault();
+    event.stopPropagation();
+    if (!game.user.isGM) return;
+    const actor = game.actors.get(target.closest("[data-actor-id]")?.dataset.actorId);
+    if (!actor) return;
+    const lit = actor.items.filter((i) => isHeldLight(i)).map((i) => ({ _id: i.id, "system.equipped": false }));
+    if (lit.length) await actor.updateEmbeddedDocuments("Item", lit);
   }
 
   /** Write the notes line to the actor, trimmed and capped. */
@@ -417,14 +450,14 @@ export const registerPartySheet = () => {
     };
   });
 
-  const touchesParty = (actor, changes = {}) => actor?.type === "character"
+  const touchesParty = (actor, changes = {}) => isPartyKind(actor)
     || !!actor?.system?.connectedTo
     || foundry.utils.hasProperty(changes, "system.connectedTo");
   Hooks.on("updateActor", (actor, changes) => { if (touchesParty(actor, changes)) refreshPartySheet(); });
   Hooks.on("createActor", (actor) => { if (touchesParty(actor)) refreshPartySheet(); });
   Hooks.on("deleteActor", (actor) => { if (touchesParty(actor)) refreshPartySheet(); });
   for (const hook of ["createItem", "updateItem", "deleteItem"]) {
-    Hooks.on(hook, (item) => { if (item.parent?.type === "character") refreshPartySheet(); });
+    Hooks.on(hook, (item) => { if (isPartyKind(item.parent)) refreshPartySheet(); });
   }
   Hooks.on("updateUser", (_user, changes) => { if ("character" in (changes ?? {})) refreshPartySheet(); });
   // The setting's own onChange (settings.js), so a second GM's drag redraws

@@ -3,8 +3,8 @@ import { drawBond, bondRecordFrom, withGrantSource, bondEntitlement, bondsEnable
 import { promptMonsterTier, regenerateMonster } from "../monster-generator.js";
 import { openMarketplace, TRANSPORTS_CATEGORY } from "../marketplace.js";
 import { evaluateFormula, cairnSavePasses, cleanDescription, concealSecrets, holdsProse, bindEditorClickAwaySave, formatCount, sourceLabel, askDamageQuality, damageFormulaFor, damageQualityLabel, damageQualityKind, d20CardBody, d20CardFlavor, D20_CARD_ABILITIES, combatOption, combatDamageFormula, settleKeptPool, askImprovisedAttack, askAttack, IMPROVISED_FORMULA, IMPROVISED_ID, nameEditorToggles,
-  attackFormula, shieldDamage, handsFullHack, shieldWeaponHack, isTwoHanded, shieldPoolFormula, askWhichLight } from "../utils.js";
-import { lightIcon, lightRadiusText, LIGHT_ICON_NEUTRAL } from "../light-sources.js";
+  attackFormula, shieldDamage, handsFullHack, shieldWeaponHack, isTwoHanded, shieldPoolFormula, askWhichHeld } from "../utils.js";
+import { lightIcon, lightRadiusText, LIGHT_ICON_NEUTRAL, bookKind, bookIcon, BOOK_ICON_NEUTRAL } from "../light-sources.js";
 import { resultText, resultPlainText, compendiumInfoFromString } from "../compendium.js";
 import { SETTINGS_NS } from "../settings.js";
 import { CONTAINER_ART_CHOICES, CONTAINER_CLASSES } from "../icons.js";
@@ -40,7 +40,7 @@ const NPC_TRAIT_LABELS = {
   vice: "CAIRN.Trait.Vice",
 };
 import { atConnectionLimit, maxConnections, connectionsUiEnabled, brokenOwnershipShape, OWNERSHIP_SYNC_FLAG } from "../connections.js";
-import { findMatchingStack, capacityVerdict, landingNeed, isHoldableLight, isHeldLight, handsFull, handsBlock } from "../gear.js";
+import { findMatchingStack, capacityVerdict, landingNeed, isHoldableLight, isHeldLight, isHoldableBook, isHeldBook, handsFull, handsBlock } from "../gear.js";
 import {
   canOfferItem, promptOfferTarget, createItemOffer, offerFromDrop,
   canReceiveOffer, settleOwnOffer,
@@ -1538,19 +1538,16 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // stay dumb.
     context.deprivedTipKey = this._wording("CAIRN.DeprivedTip");
     context.panickedTipKey = this._wording("CAIRN.PanickedTip");
-    // Hold shield's reason while none is carried, in the NPC wording on an
+    // Equip shield's reason while none is carried, in the NPC wording on an
     // npc (2026-11-20: every creature's page 1 is the character's stat block,
-    // parts/stat-block.html). Hold light's is built in _computeStatContext.
-    context.holdShieldNoneKey = this._wording("CAIRN.HoldShieldNone");
+    // parts/stat-block.html). The light's and the book's are built in
+    // _computeStatContext, with the three badges' icons and labels.
+    context.holdShieldNoneKey = this._wording("CAIRN.EquipShieldNone");
     // game-icons art the system ships and credits (art/game-icons/CREDITS.md),
-    // drawn as CSS masks so they take the sheet's colours (2026-11-20, user
-    // picks): on the Hold shield badge Shield Disabled while slung and Shield
-    // Bash in hand (2026-11-21; the heater shield for a day before), the
-    // broken shield on every inventory row's Broken toggle. ROUTES, as the
-    // light badge's icon is: a relative url() in a custom property resolves
-    // against the stylesheet, and that icon 404ed on CT 123.
-    context.shieldIcon = foundry.utils.getRoute("systems/air-bladder/art/game-icons/shields/shield-disabled.svg");
-    context.shieldHeldIcon = foundry.utils.getRoute("systems/air-bladder/art/game-icons/shields/shield-bash.svg");
+    // drawn as a CSS mask so it takes the sheet's colours: the broken shield
+    // on every inventory row's Broken toggle. A ROUTE, as the badges' icons
+    // are: a relative url() in a custom property resolves against the
+    // stylesheet, and an icon 404ed on CT 123.
     context.brokenIcon = foundry.utils.getRoute("systems/air-bladder/art/game-icons/shields/broken-shield.svg");
     // The stat inputs' max attribute: a character's 18 cap, none on an npc
     // (the statCap in _onRender, review #34 finding 52).
@@ -2129,6 +2126,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       context.hpDerived = false;
       context.shieldSwitch = null;
       context.lightSwitch = null;
+      context.bookSwitch = null;
       context.criticalToggle = {};
       context.criticalActive = {};
       context.abilityTips = {};
@@ -2178,31 +2176,68 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       context.hpAtFloor = !(sv > 0);
       context.hpDerived = this.#hpIsDerived;
     }
-    // "Hold shield" and "Hold light" beside the Armor box (2026-11-20, user
-    // asks): on while ANY of that kind is held (equipped), and ALWAYS drawn —
-    // greyed with a reason when the character carries none of it.
-    // #onToggleHold is the press for both.
+    // The three EQUIP BADGES under the Armor box (2026-11-20 "Hold shield" and
+    // "Hold light"; the Equip round 2026-11-21, user asks): shield | light |
+    // book. Each is on while ANY of its kind is equipped, and ALWAYS drawn:
+    // greyed, "No Shield" / "No Light" / "No Spellbook", with a reason in its
+    // tooltip, when none is carried. Off reads "Equip …", on "… equipped",
+    // with a switch glyph under the label. #onToggleHold is the press for all
+    // three. Icons are ROUTES, not relative paths: the template sets them in
+    // a custom property, and a relative url() there resolves against the
+    // stylesheet that uses it (css/), not the page — an icon 404ed on CT 123.
+    const loc = (k) => game.i18n.localize(k);
+    const route = (p) => foundry.utils.getRoute(p);
     const holdSwitch = (items) => ({ held: items.some((i) => i.system.equipped), none: !items.length });
-    context.shieldSwitch = holdSwitch(this.#shieldsCarried());
-    // The light BADGE is the Hold light control (2026-11-20, user picks): the
-    // held light's icon, glowing, and its radius under it; a neutral lantern
-    // while none is held. Its tooltip always says what it is holding.
+    // The row's display name, ESCAPED: core renders data-tooltip as HTML, and
+    // an item name is user text (review #35).
+    const shown = (item) => foundry.utils.escapeHTML(t(this._itemNamespaces().nameNs, item.name));
+    {
+      // game-icons: Shield (Sbed) slung, Shield Bash equipped, Shield
+      // Disabled (the slashed shield) with none (user picks, 2026-11-21).
+      const sw = holdSwitch(this.#shieldsCarried());
+      const art = sw.none ? "shield-disabled" : sw.held ? "shield-bash" : "shield";
+      context.shieldSwitch = {
+        ...sw,
+        label: loc(sw.none ? "CAIRN.NoShield" : sw.held ? "CAIRN.ShieldEquipped" : "CAIRN.EquipShield"),
+        icon: route(`systems/air-bladder/art/game-icons/shields/${art}.svg`),
+      };
+    }
+    // The light badge: the equipped light's icon, glowing, and its radius
+    // under it; otherwise the FIRST carried light's own icon (2026-11-21,
+    // user ask: the icon matches the light, lantern or torch); the neutral
+    // lantern, greyed, with none. Its tooltip always says what is equipped.
     {
       const lights = this.#lightsCarried();
       const held = lights.find((i) => i.system.equipped) ?? null;
+      const shownLight = held ?? lights[0] ?? null;
+      const sw = holdSwitch(lights);
       context.lightSwitch = {
-        ...holdSwitch(lights),
-        // A ROUTE, not a relative path: the template sets it in a custom
-        // property, and a relative url() there resolves against the stylesheet
-        // that uses it (css/), not the page — the icon 404ed on CT 123.
-        icon: foundry.utils.getRoute(held ? lightIcon(held.name) : LIGHT_ICON_NEUTRAL),
+        ...sw,
+        label: loc(sw.none ? "CAIRN.NoLight" : sw.held ? "CAIRN.LightEquipped" : "CAIRN.EquipLight"),
+        icon: route(shownLight ? lightIcon(shownLight.name) : LIGHT_ICON_NEUTRAL),
         radius: held ? lightRadiusText(held.name) : "",
-        tip: !lights.length ? game.i18n.localize(this._wording("CAIRN.HoldLightNone"))
-          // The row's display name, ESCAPED: core renders data-tooltip as
-          // HTML, and an item name is user text (review #35).
-          : held ? game.i18n.format("CAIRN.LightHeldTip",
-            { name: foundry.utils.escapeHTML(t(this._itemNamespaces().nameNs, held.name)) })
-            : game.i18n.localize("CAIRN.LightNoneHeld"),
+        tip: !lights.length ? loc(this._wording("CAIRN.EquipLightNone"))
+          : held ? game.i18n.format("CAIRN.LightHeldTip", { name: shown(held) })
+            : loc("CAIRN.LightNoneHeld"),
+      };
+    }
+    // The book badge (2026-11-21, user ask: "something ... that shows if a
+    // spell book, grimoire or scroll is equipped"): the equipped book, else
+    // the first carried, names the label's kind and the icon.
+    {
+      const books = this.#booksCarried();
+      const held = books.find((i) => i.system.equipped) ?? null;
+      const first = held ?? books[0] ?? null;
+      const kind = first ? bookKind(first) : "book";
+      const sw = holdSwitch(books);
+      const ON = { book: "CAIRN.BookEquipped", scroll: "CAIRN.ScrollEquipped", grimoire: "CAIRN.GrimoireEquipped" };
+      const OFF = { book: "CAIRN.EquipBook", scroll: "CAIRN.EquipScroll", grimoire: "CAIRN.EquipGrimoire" };
+      context.bookSwitch = {
+        ...sw,
+        label: loc(sw.none ? "CAIRN.NoBook" : sw.held ? ON[kind] : OFF[kind]),
+        icon: route(first ? bookIcon(first) : BOOK_ICON_NEUTRAL),
+        tip: sw.none ? loc(this._wording("CAIRN.EquipBookNone"))
+          : held ? game.i18n.format("CAIRN.BookEquippedTip", { name: shown(held) }) : null,
       };
     }
     // Skull offered when STR is damaged and still alive, or already marked.
@@ -4496,8 +4531,10 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // its hand puts any other held light away in the same write (review
     // #35). Torch follows through registerHeldLightSync (gear.js), whatever
     // route moved the light.
-    const others = held && isHoldableLight(item)
-      ? this.actor.items.filter((i) => i.id !== item.id && isHeldLight(i)).map((i) => ({ _id: i.id, "system.equipped": false }))
+    // A book likewise (2026-11-21): one spellbook, scroll or Grimoire at once.
+    const sameKind = isHoldableLight(item) ? isHeldLight : isHoldableBook(item) ? isHeldBook : null;
+    const others = held && sameKind
+      ? this.actor.items.filter((i) => i.id !== item.id && sameKind(i)).map((i) => ({ _id: i.id, "system.equipped": false }))
       : [];
     await this.actor.updateEmbeddedDocuments("Item", [...others, { _id: item.id, "system.equipped": held }]);
   }
@@ -4811,29 +4848,46 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
   }
 
   /**
-   * "Hold shield" and "Hold light" (2026-11-20, user asks: "the toggle should
-   * sling or hold the shield", then a light under it). ONE mechanism for both
-   * (`data-hold`: "shield" | "light"). Held is EQUIPPED and slung or stowed is
-   * not — the user's ruling, no new rule — so a press is the inventory row's
-   * hand icon. While any of that kind is held a press puts EVERY held one away
-   * (the switch reads on for any of them, so off must mean none); otherwise it
-   * holds the first, in inventory order, that can be equipped. A light is lit
-   * or put out through Torch by registerHeldLightSync (gear.js), as a row's hand is.
+   * The books a CREATURE carries (`isHoldableBook`, gear.js: a spellbook or
+   * scroll that is not a bound page, or the Grimoire), in inventory order:
+   * what the book badge equips (2026-11-21). Empty for a thing.
+   * @returns {Item[]}
+   */
+  #booksCarried() {
+    if (this.actor.isThing) return [];
+    return this.actor.items
+      .filter((i) => isHoldableBook(i) && !i.system?.broken)
+      .sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0));
+  }
+
+  /**
+   * The three Equip badges (2026-11-20 "Hold shield" and "Hold light", user
+   * asks: "the toggle should sling or hold the shield", then a light under
+   * it; the book badge and the word "Equip", 2026-11-21). ONE mechanism for
+   * all three (`data-hold`: "shield" | "light" | "book"). Held is EQUIPPED and
+   * slung or stowed is not — the user's ruling, no new rule — so a press is
+   * the inventory row's hand icon. While any of that kind is equipped a press
+   * puts EVERY one away (the badge reads on for any of them, so off must mean
+   * none); otherwise it equips the first, in inventory order, that can be
+   * equipped. A light is lit (a use spent, a card posted) or put out by
+   * registerHeldLightSync (gear.js), as a row's hand is.
    * @this {CairnActorSheet}
    */
   static async #onToggleHold(event, target) {
     event.preventDefault();
-    const light = target?.dataset.hold === "light";
-    const carried = light ? this.#lightsCarried() : this.#shieldsCarried();
+    const kind = target?.dataset.hold;
+    const carried = kind === "light" ? this.#lightsCarried()
+      : kind === "book" ? this.#booksCarried() : this.#shieldsCarried();
     if (!carried.length) return;
     const held = carried.filter((i) => i.system.equipped);
     let first = carried.find((i) => i.system.isEquipable !== false);
-    // Several lights and none held: ask which (2026-11-20, user pick). One
-    // light is held at once; a shield is never asked about.
-    if (light && !held.length) {
+    // Several lights (or books) and none equipped: ask which (2026-11-20,
+    // user pick; books 2026-11-21). One of each is equipped at once; a shield
+    // is never asked about.
+    if (kind !== "shield" && !held.length) {
       const offered = carried.filter((i) => i.system.isEquipable !== false);
       if (offered.length > 1) {
-        const id = await askWhichLight(offered, { windowId: this.window?.windowId });
+        const id = await askWhichHeld(offered, { kind, windowId: this.window?.windowId });
         first = offered.find((i) => i.id === id);
         if (!first) return;                 // cancelled: hold nothing
       }

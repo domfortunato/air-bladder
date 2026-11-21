@@ -1050,39 +1050,44 @@ export const askAttack = async ({ actor, weapons, panicked = false, windowId = u
 };
 
 /**
- * Which light to hold? (2026-11-20, user pick "Ask which" over holding the
- * first.) Hold light asks this only when the character carries more than one
- * light and holds none. Each light is listed in inventory order with its
- * radius (lightRadiusText), the first chosen; "Hold light" holds the choice,
- * Cancel (or closing) holds nothing. Names go in as textContent: DialogV2
- * takes content's innerHTML verbatim (see askAttack).
- * @param {Item[]} lights   in inventory order, at least two
+ * Which one to equip? (2026-11-20, user pick "Ask which" over equipping the
+ * first; books too since 2026-11-21.) The light and book badges ask this only
+ * when the creature carries more than one of that kind and has none equipped.
+ * Each is listed in inventory order, a light with its radius
+ * (lightRadiusText), the first chosen; the badge's own words ("Equip light",
+ * "Equip spellbook") equip the choice, Cancel (or closing) equips nothing.
+ * One prompt for both, "Which one?" (my call, told). Names go in as
+ * textContent: DialogV2 takes content's innerHTML verbatim (see askAttack).
+ * @param {Item[]} items   in inventory order, at least two
  * @param {Object} [o]
+ * @param {"light"|"book"} [o.kind]
  * @param {String} [o.windowId]
  * @returns {Promise<String|null>}  the chosen item's id, or null
  */
-export const askWhichLight = async (lights, { windowId = undefined } = {}) => {
+export const askWhichHeld = async (items, { kind = "light", windowId = undefined } = {}) => {
   const L = (k) => game.i18n.localize(k);
+  const light = kind === "light";
+  const label = L(light ? "CAIRN.EquipLight" : "CAIRN.EquipBook");
   const content = document.createElement("div");
   const inner = document.createElement("div");
   inner.className = "cairn-light-picker-body";
   const prompt = document.createElement("p");
   prompt.className = "cairn-light-prompt";
-  prompt.textContent = L("CAIRN.HoldLightPick.Prompt");
+  prompt.textContent = L("CAIRN.EquipPick.Prompt");
   inner.append(prompt);
-  lights.forEach((light, i) => {
+  items.forEach((light, i) => {
     const row = document.createElement("label");
     row.className = "cairn-light-choice";
     const radio = document.createElement("input");
     radio.setAttribute("type", "radio");
-    radio.setAttribute("name", "light");
+    radio.setAttribute("name", kind);
     radio.setAttribute("value", light.id);
     if (i === 0) radio.setAttribute("checked", "");
     const name = document.createElement("strong");
     // The row's display name (review #35); the value stays the item id.
     name.textContent = t(itemNamespaces(light.parent).nameNs, light.name);
     row.append(radio, name);
-    const radius = lightRadiusText(light.name);
+    const radius = kind === "light" ? lightRadiusText(light.name) : "";
     if (radius) {
       const r = document.createElement("span");
       r.className = "cairn-light-radius";
@@ -1093,14 +1098,16 @@ export const askWhichLight = async (lights, { windowId = undefined } = {}) => {
   });
   content.append(inner);
   const answer = await foundry.applications.api.DialogV2.wait({
-    classes: ["cairn-light-picker"],
-    window: { title: L("CAIRN.HoldLight") },
+    // Both kinds share the picker's look (`cairn-hold-picker`); each keeps
+    // its own class for the probes.
+    classes: ["cairn-hold-picker", light ? "cairn-light-picker" : "cairn-book-picker"],
+    window: { title: label },
     renderOptions: { window: { windowId } },   // see _confirmAction in actor-sheet.js
     position: { width: 320 },
     content,
     buttons: [
-      { action: "hold", label: L("CAIRN.HoldLight"), icon: "fa-solid fa-fire", default: true,
-        callback: (_event, button) => button.form.elements.light?.value ?? null },
+      { action: "hold", label, icon: light ? "fa-solid fa-fire" : "fa-solid fa-book", default: true,
+        callback: (_event, button) => button.form.elements[kind]?.value ?? null },
       { action: "cancel", label: L("CAIRN.Cancel"), icon: "fa-solid fa-xmark", callback: () => null },
     ],
     rejectClose: false,

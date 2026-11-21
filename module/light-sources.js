@@ -56,6 +56,20 @@ const BY_NAME = new Map([
  */
 export const lightSource = (name) => BY_NAME.get(String(name ?? "").trim().toLowerCase()) ?? null;
 
+const KEY_BY_NAME = new Map([
+  ...Object.keys(LIGHT_SOURCES).map((k) => [k.toLowerCase(), k]),
+  ...Object.entries(LIGHT_ALIASES).map(([k, v]) => [k.toLowerCase(), v]),
+]);
+
+/**
+ * A name's source by its table key ("Lantern" for "lantern" or "Linterna"),
+ * or null. The Lantern's fuel rule (gear.js) asks this, so the Wisp Lantern
+ * and other background lanterns are never taken for THE Lantern.
+ * @param {String} name
+ * @returns {String|null}
+ */
+export const lightSourceKey = (name) => KEY_BY_NAME.get(String(name ?? "").trim().toLowerCase()) ?? null;
+
 /**
  * How much light a source casts, as the sheet writes it under the badge and
  * in the picker: "Bright 20 ft, dim 40 ft", "Dim 15 ft" for a dim-only light,
@@ -92,3 +106,25 @@ export const lightIcon = (name) => {
   if (/torch|sun stick/i.test(n)) return `${ICON_DIR}/torch.svg`;
   return LIGHT_ICON_NEUTRAL;
 };
+
+/** The book badge's icons (2026-11-21, user ask: a badge showing the equipped
+ *  spellbook, Grimoire or scroll): game-icons art the system ships and
+ *  credits. The neutral spell book doubles as the "No Spellbook" icon. */
+const BOOK_DIR = "systems/air-bladder/art/game-icons/book";
+export const BOOK_ICON_NEUTRAL = `${BOOK_DIR}/spell-book.svg`;
+
+/**
+ * Which kind of book an item is, for the badge's label and icon:
+ * "grimoire", "scroll" or "book".
+ * @param {Item} item
+ * @returns {"grimoire"|"scroll"|"book"}
+ */
+export const bookKind = (item) => (item?.type === "item" && item.system?.grimoire ? "grimoire"
+  : item?.system?.scroll ? "scroll" : "book");
+
+/** The badge's icon for a book's kind. */
+export const bookIcon = (item) => ({
+  grimoire: `${BOOK_DIR}/book-aura.svg`,
+  scroll: `${BOOK_DIR}/tied-scroll.svg`,
+  book: BOOK_ICON_NEUTRAL,
+})[bookKind(item)];

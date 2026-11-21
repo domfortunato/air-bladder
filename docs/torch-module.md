@@ -10,9 +10,9 @@ character is carrying, press it again and the light goes out. Torch knows about
 a dozen game systems out of the box, and Air Bladder is not one of them — so on
 its own it offers an Air Bladder token nothing. This page gives it what it needs.
 
-Air Bladder never lights anything on its own. The file below tells Torch which
+Air Bladder never lights a token on its own. The file below tells Torch which
 inventory items are lights and how far they reach, and the character sheet's
-**Hold light** badge asks Torch to light the one a character holds. Whether to
+**Equip light** badge asks Torch to light the one a character equips. Whether to
 run Torch at all is the Warden's call.
 
 ## Install
@@ -34,17 +34,17 @@ the other lights listed below gets Torch's light button on its HUD.
 Cairn gives no light radii, so these are a Warden's numbers, in feet on the
 5 ft grid. Edit them in the file if your table sees things differently.
 
-| Item | Bright / dim | Burns |
+| Item | Bright / dim | Lighting it spends |
 |---|---|---|
-| Torch | 20 / 40 ft | one use each time it goes out |
-| Lantern | 20 / 40 ft, steadier flame | never — spend the Oil Can by hand |
-| Candle | 5 / 10 ft | one use each time it goes out |
-| Candle Helmet | 5 / 10 ft, hands free | one use each time it goes out |
-| Torch Fungus | 10 / 20 ft, pale and heatless | one use each time it goes out |
-| Wisp Lantern | dim only, 15 ft, blue | never |
-| Glowsnail | dim only, 10 ft, green | never |
-| Sun Stick | 20 / 40 ft, warm | one use each time it goes out |
-| Lightsucker Candle | sheds *darkness* 10 / 20 ft | one use each time it goes out |
+| Torch | 20 / 40 ft | one of its uses |
+| Lantern | 20 / 40 ft, steadier flame | one use of an Oil Can, or of a Candle |
+| Candle | 5 / 10 ft | one of its uses |
+| Candle Helmet | 5 / 10 ft, hands free | nothing (it's worn, not equipped) |
+| Torch Fungus | 10 / 20 ft, pale and heatless | one of its uses, if it counts them |
+| Wisp Lantern | dim only, 15 ft, blue | nothing |
+| Glowsnail | dim only, 10 ft, green | nothing |
+| Sun Stick | 20 / 40 ft, warm | one of its uses, if it counts them |
+| Lightsucker Candle | sheds *darkness* 10 / 20 ft | one of its uses, if it counts them |
 
 Left out on purpose: the **Oil Can** (fuel, not a light), **Fire Oil** and
 **Miracle Oil** (not lights), the **Candle of Ward** (a ward that happens to be
@@ -52,39 +52,43 @@ a candle) and the **Wraith Lantern** (it reveals a path; it does not shine).
 
 ## How burning works
 
-Each time a light goes **out**, Torch spends **one use** of the item — the same
-counter the sheet's −/+ pips show. Lighting it costs nothing; putting it out is
-what uses it up, so a torch that burns until the scene ends is still whole
-until somebody extinguishes it. A Torch has three uses, so it burns out three
-times and is then exhausted: Torch stops offering it until the player rolls the
-next one from the stack on the sheet, or edits the uses. Torch never refills
-anything.
+Air Bladder spends the use, not Torch, and it does it when the light is **lit**:
+equipping a Torch marks off one of its uses, the same counter the sheet's −/+
+pips show. A Torch has three, so it lights three times. With none left you
+can't equip it, and the sheet tells you it's used up.
 
-The Lantern has no counter of its own. Its fuel is the **Oil Can**, and Torch
-cannot see one item as another's fuel, so the Lantern lights for free and the
-oil is spent by hand — which is what the rules text asks for anyway.
+The Lantern doesn't have uses of its own. Lighting it marks off one use of an
+**Oil Can** you're carrying, or of a **Candle** if you don't have oil. Without
+either, you can't light it.
 
-Two Torch settings decide who burns anything: **players consume inventory** is
-on by default, **the GM consumes inventory** is off. A Warden's own tokens
-light without spending a use unless you switch the second one on.
+Everyone at the table sees a chat message when a light is lit and when it goes
+out. When the Warden puts out a player's light, the message says the Warden did
+it.
 
-## Hold light
+The file marks nothing as consumable, so Torch never spends a second use when
+the light goes out. Its **players consume inventory** and **GM consumes
+inventory** settings don't matter here.
 
-Right of the Armor box on a character's or a creature's sheet is the **Hold light** badge: a
-light that glows while one is held, with how far it reaches written underneath.
-Pressing it holds a light, and its label changes from **Hold light?** to **Light in hand**.
-That is the same as pressing that light's hand in the inventory; with more than one light carried, it asks which. Pressing it again
-puts every held light away. One light is held at a time: holding another by its
-hand puts the first away.
+## Equip light
 
-With Torch active and the character's token on the scene you are viewing,
-holding a light also lights the token, and putting it away puts the light out,
-which spends a use as above. A light that leaves the hand any other way (marked
-Broken, given away, dropped or deleted) is put out too. A torch with no uses
-left is held but doesn't light. It works one way only: Torch's own button on the
-token HUD does not move the badge. A light Torch doesn't know (a name missing
-from the file) is still held, but it doesn't shine. Without Torch, or with no
-token on the scene, the badge only holds or puts away the item.
+Under the Armor box on a character's or a creature's sheet is the **Equip
+light** badge. It shows the light you're carrying (a torch, a lantern, a
+candle), and it glows while one is equipped, with how far it reaches written
+underneath. Pressing it equips a light, and its label changes from **Equip
+light** to **Light equipped**. That's the same as pressing that light's hand in
+the inventory. With more than one light carried, it asks which. Pressing it
+again puts every equipped light away. Only one light is equipped at a time, so
+equipping another by its hand puts the first away. With no light at all, the
+badge is greyed out and reads **No Light**.
+
+With Torch active and the character's token on the scene you're viewing,
+equipping a light also lights the token, and putting it away puts the light
+out. A light that leaves the hand any other way (marked Broken, given away,
+dropped or deleted) is put out too. It only works one way: Torch's own button
+on the token HUD doesn't move the badge, and lighting it there doesn't spend a
+use. A light Torch doesn't know (a name missing from the file) is still
+equipped, but it doesn't shine. Without Torch, or with no token on the scene,
+the badge only equips the item and spends the use.
 
 ## Names are what match
 
