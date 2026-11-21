@@ -110,7 +110,7 @@ opens it too.
 
 Each row is one character: who plays them, their pronouns and background, HP
 and the three abilities, armor, gold, slots, Fatigue, whether their shield is
-equipped or slung, the light they've got equipped, how many rations they have
+equipped, the light they've got equipped, how many rations they have
 left, how many hirelings, companions, containers and transports are connected
 to them, and their conditions. Click a name to open that character's sheet.
 
