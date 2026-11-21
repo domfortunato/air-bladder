@@ -2137,7 +2137,7 @@ console.log("\nthe Fatigue-on-a-thing refusal names the thing in the display lan
       pc = await Actor.create({ name: "ZZ Overlay Fatigued", type: "character" });
       const fatigue = (await pc.createEmbeddedDocuments("Item", [{ name: "Fatigue", type: "item" }]))[0];
       i18n._setOverlay({ "monster.name": { "ZZ Overlay Cart": "ZZ-CARRETA-TRADUCIDA" } });
-      notes.warn = function (msg, ...rest) { seen.push(String(msg)); return origWarn.call(this, msg, ...rest); };
+      notes.warn = function (msg, ...rest) { seen.push(rest[0]?.format ? game.i18n.format(String(msg), rest[0].format) : String(msg)); return origWarn.call(this, msg, ...rest); };
       await cart.sheet.render(true);
       for (let i = 0; i < 30 && !cart.sheet.element; i++) await sleep(100);
       const dt = new DataTransfer();

@@ -175,7 +175,7 @@ const wrongDoor = await page.evaluate(async (kw) => {
   const target = await Actor.implementation.create({ name: "ZZ WrongDoor", type: "character" });
   const before = { name: target.name, mtime: target._stats.modifiedTime };
   const warns = [];
-  const shadow = (msg, opts) => { warns.push(String(msg)); };
+  const shadow = (msg, opts) => { warns.push(opts?.format ? game.i18n.format(String(msg), opts.format) : String(msg)); };
   Object.defineProperty(ui.notifications, "warn", { value: shadow, configurable: true, writable: true });
   let threw = null;
   try {

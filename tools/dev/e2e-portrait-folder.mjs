@@ -106,7 +106,7 @@ const res = await page.evaluate(async () => {
   // pre-judges the assertion below.
   const realInfo = ui.notifications.info.bind(ui.notifications);
   out.toasts = [];
-  ui.notifications.info = (msg, opts) => { out.toasts.push(String(msg)); return realInfo(msg, opts); };
+  ui.notifications.info = (msg, opts) => { out.toasts.push(opts?.format ? game.i18n.format(String(msg), opts.format) : String(msg)); return realInfo(msg, opts); };
   await game.settings.set(NS, "custom-portrait-folder", DIR);
   out.afterRescan = await settled((l) => l.some((f) => f.includes("probe-portrait.png")));
   for (let i = 0; i < 20 && !out.toasts.some((t) => /1 image/.test(t)); i++) await new Promise((r) => setTimeout(r, 200));

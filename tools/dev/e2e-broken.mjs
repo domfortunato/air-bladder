@@ -573,7 +573,7 @@ try {
           const notes = ui.notifications;
           const hadOwn = Object.hasOwn(notes, "warn");
           const origWarn = notes.warn;
-          notes.warn = function (m, ...rest) { warns.push(String(m)); return origWarn.call(this, m, ...rest); };
+          notes.warn = function (m, ...rest) { warns.push(rest[0]?.format ? game.i18n.format(String(m), rest[0].format) : String(m)); return origWarn.call(this, m, ...rest); };
           const stale = new Set(document.querySelectorAll(".application.dialog"));
           let dlg = null;
           try {
@@ -653,7 +653,7 @@ try {
           const notes = ui.notifications;
           const hadOwn = Object.hasOwn(notes, "warn");
           const origWarn = notes.warn;
-          notes.warn = function (m, ...rest) { warns.push(String(m)); return origWarn.call(this, m, ...rest); };
+          notes.warn = function (m, ...rest) { warns.push(rest[0]?.format ? game.i18n.format(String(m), rest[0].format) : String(m)); return origWarn.call(this, m, ...rest); };
           const stale = new Set(document.querySelectorAll(".application.dialog"));
           const fresh = () => [...document.querySelectorAll(".application.dialog")].find((x) => !stale.has(x)) ?? null;
           try {

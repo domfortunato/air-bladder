@@ -682,7 +682,7 @@ try {
       await sleep(300);
     };
     try {
-      notes.error = function (msg, ...rest) { seen.push(String(msg)); return origNote.call(this, msg, ...rest); };
+      notes.error = function (msg, ...rest) { seen.push(rest[0]?.format ? game.i18n.format(String(msg), rest[0].format) : String(msg)); return origNote.call(this, msg, ...rest); };
       // Two echoes of each failure asked for: the catch's own log, and core's —
       // an error toast writes its text to the console too (measured on the
       // fleet, 4c7db9c6). Only those; anything else still reaches watchErrors.
@@ -791,7 +791,7 @@ try {
       };
     };
     try {
-      notes.warn = function (msg, ...rest) { warned.push(String(msg)); return origWarn.call(this, msg, ...rest); };
+      notes.warn = function (msg, ...rest) { warned.push(rest[0]?.format ? game.i18n.format(String(msg), rest[0].format) : String(msg)); return origWarn.call(this, msg, ...rest); };
       return { rowName, companion: await run("companion"), hireling: await run("hireling") };
     } finally {
       if (hadOwn) notes.warn = origWarn; else delete notes.warn;

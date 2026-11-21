@@ -534,7 +534,7 @@ try {
     const origNote = notes.error;
     const origConsoleError = console.error;
     try {
-      notes.error = function (msg, ...rest) { seen.push(String(msg)); return origNote.call(this, msg, ...rest); };
+      notes.error = function (msg, ...rest) { seen.push(rest[0]?.format ? game.i18n.format(String(msg), rest[0].format) : String(msg)); return origNote.call(this, msg, ...rest); };
       // Two echoes of the failure asked for: commit()'s own log, and core's —
       // an error toast writes its text to the console too (measured on the
       // fleet, 4c7db9c6). Only those; anything else still reaches watchErrors.

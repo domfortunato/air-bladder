@@ -394,7 +394,7 @@ try {
     ui.notifications.warn = function (msg, ...rest) { warns.push(rest[0]?.format ? game.i18n.format(String(msg), rest[0].format) : String(msg)); return origWarn.call(this, msg, ...rest); };
     const before = new Set(game.messages.map((m) => m.id));
     const stale = new Set(foundry.applications.instances.values());
-    const mine = () => game.messages.filter((m) => !before.has(m.id) && m.speaker?.actor === baseId);
+    const mine = () => game.messages.filter((m) => !before.has(m.id) && m.speaker?.actor === baseId && !m.flags?.["air-bladder"]?.changeLog);
     try {
       const macro = game.macros.get(slotId);
       if (!macro) return { error: "no macro in the slot" };
@@ -412,6 +412,7 @@ try {
         posted: made.length, warns: [...warns],
         flavor: String(made[0]?.flavor ?? "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim(),
         speakerToken: made[0]?.speaker?.token ?? null,
+        flags: made.map((m) => Object.keys(m.flags?.["air-bladder"] ?? {})),
       };
       for (const m of made) await m.delete();
       return out;
