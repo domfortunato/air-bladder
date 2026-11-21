@@ -349,7 +349,11 @@ try {
             { name: "ZZ Hands Shield", type: "armor", system: { armor: 1, shield: true, equipped: true } },
             { name: "Torch", type: "item", system: { uses: { value: 20, max: 20 }, equipped: true } },
           ]);
-          const [book9, scroll9, shield9, torch9] = made.map((i) => i.id);
+          // By NAME, never by position: a batch create's result isn't in the
+          // order asked for (four reds on troll at 25fbfb26 had the "scroll"
+          // be the shield; the diag below caught it).
+          const idOf = (name) => made.find((i) => i.name === name)?.id;
+          const [book9, scroll9, shield9, torch9] = ["ZZ Hands Book", "ZZ Hands Scroll", "ZZ Hands Shield", "Torch"].map(idOf);
           const it = (id) => pc9.items.get(id);
           const eq = () => ({ book: !!it(book9)?.system.equipped, scroll: !!it(scroll9)?.system.equipped,
             shield: !!it(shield9)?.system.equipped, light: !!it(torch9)?.system.equipped });
