@@ -52,6 +52,14 @@
  *  14. a player OBSERVING the character, pressing the control (forced in if
  *      it is not drawn), writes nothing.
  *
+ * Added 2026-11-21 (user ask: "Breaking and unbreaking an item should be
+ * Gated by a yes/no dialogue box"):
+ *  15. on a character, an npc and a container every row press asks first:
+ *      "Mark broken" with the rule line and "Mark {name} broken?"; No writes
+ *      nothing; Yes marks it; the repair asks "Mark {name} repaired?";
+ *  16. the item sheet's Broken box asks the same: No leaves it unticked and
+ *      stores nothing, Yes stores it.
+ *
  * Usage: npm run dev:broken
  */
 import { chromium } from "playwright";
@@ -63,7 +71,7 @@ const ok = (m) => console.log(`  ok    ${m}`);
 const fail = (m) => { console.error(`  FAIL  ${m}`); failed = true; };
 
 const browser = await chromium.launch();
-watchdog(300000, "broken probe", async () => { try { await browser.close(); } catch { /* gone */ } });
+watchdog(360000, "broken probe", async () => { try { await browser.close(); } catch { /* gone */ } });
 const gm = await browser.newContext({ viewport: VIEWPORT }).then((c) => c.newPage());
 const errors = watchErrors(gm);
 
@@ -122,7 +130,12 @@ try {
         clear: !!a && !!b && (a.left >= b.right - 0.5 || a.right <= b.left + 0.5),
         shown: !!a && a.width > 0 && a.height > 0,
       };
+      // Since 2026-11-21 the box asks first (leg 16): answer Yes.
+      const stale = new Set(document.querySelectorAll(".application.dialog"));
       box?.click();
+      let dlg = null;
+      await until(() => (dlg = [...document.querySelectorAll(".application.dialog")].find((x) => !stale.has(x))), 2000);
+      dlg?.querySelector("button[data-action='yes']")?.click();
       await until(() => it._source.system.broken === true, 3000);
       res.stored = it._source.system.broken ?? null;
       out.sheets[type] = res;
@@ -372,16 +385,37 @@ try {
         };
         const res = { blade: await read("ZZ Row Blade"), rope: await read("ZZ Row Rope"),
           fatigue: it("Fatigue") ? (await read("Fatigue")).present : null };
-        // 13: press, then press again (the character's blade, equipped).
-        if (kind === "character" || kind === "npc") {
+        // 15 (2026-11-21, user ask: "Breaking and unbreaking an item should be
+        // Gated by a yes/no dialogue box"): every press asks first. `ask`
+        // presses, reads the NEW dialog's title and question, answers it.
+        const ask = async (n, answer) => {
+          const stale = new Set(document.querySelectorAll(".application.dialog"));
+          ctl(n)?.click();
+          let d = null;
+          await until(() => (d = [...document.querySelectorAll(".application.dialog")].find((x) => !stale.has(x))), 3000);
+          await sleep(200);
+          const seen = d ? { title: d.querySelector(".window-title")?.textContent.trim() ?? null,
+            question: d.querySelector(".cairn-confirm-q")?.textContent.trim() ?? null,
+            tip: d.querySelector(".cairn-confirm")?.firstChild?.textContent?.trim() ?? null } : null;
+          d?.querySelector(`button[data-action='${answer}']`)?.click();
+          await until(() => !d?.isConnected, 3000);
+          await sleep(300);
+          return seen;
+        };
+        // The blade on every kind, answered No first (nothing written), then
+        // 13: Yes, then the repair (Yes).
+        {
           const wasEquipped = it("ZZ Row Blade")?.system.equipped ?? null;
-          ctl("ZZ Row Blade")?.click();
+          res.askNo = await ask("ZZ Row Blade", "no");
+          res.afterNo = { broken: it("ZZ Row Blade")?._source.system.broken ?? null,
+            equipped: it("ZZ Row Blade")?._source.system.equipped ?? null };
+          res.askYes = await ask("ZZ Row Blade", "yes");
           await until(() => it("ZZ Row Blade")?._source.system.broken === true, 3000);
           await until(() => ctl("ZZ Row Blade")?.getAttribute("aria-pressed") === "true", 3000);
           await sleep(300);
           res.pressed = { broken: it("ZZ Row Blade")?._source.system.broken ?? null,
             equipped: it("ZZ Row Blade")?._source.system.equipped ?? null, wasEquipped, ...(await read("ZZ Row Blade")) };
-          ctl("ZZ Row Blade")?.click();
+          res.askRepair = await ask("ZZ Row Blade", "yes");
           await until(() => it("ZZ Row Blade")?._source.system.broken === false, 3000);
           await until(() => ctl("ZZ Row Blade")?.getAttribute("aria-pressed") === "false", 3000);
           await sleep(300);
@@ -391,6 +425,36 @@ try {
         out.rows[kind] = res;
         await s.close();
       }
+      // 16. The item sheet's Broken box asks too (the same helper): No puts
+      // the box back unticked and stores nothing; Yes stores true.
+      {
+        const rope = actors.character.items.find((i) => i.name === "ZZ Row Rope");
+        const sh = rope.sheet;
+        await sh.render(true);
+        await until(() => sh.element?.querySelector?.('input[name="system.broken"]'));
+        await sleep(300);
+        const box = () => sh.element.querySelector('input[name="system.broken"]');
+        const tick = async (answer) => {
+          const stale = new Set(document.querySelectorAll(".application.dialog"));
+          box()?.click();
+          let d = null;
+          await until(() => (d = [...document.querySelectorAll(".application.dialog")].find((x) => !stale.has(x))), 3000);
+          await sleep(200);
+          const q = d?.querySelector(".cairn-confirm-q")?.textContent.trim() ?? null;
+          d?.querySelector(`button[data-action='${answer}']`)?.click();
+          await sleep(900);
+          return { asked: !!d, question: q, checked: box()?.checked ?? null, stored: rope._source.system.broken ?? null };
+        };
+        out.sheetNo = await tick("no");
+        out.sheetYes = await tick("yes");
+        await sh.close();
+      }
+      out.confirmWant = {
+        markTitle: L("CAIRN.ItemMarkBroken"), repairTitle: L("CAIRN.ItemMarkRepaired"), tip: L("CAIRN.ItemBrokenTip"),
+        bladeQ: game.i18n.format("CAIRN.ItemBrokenConfirm", { name: "ZZ Row Blade" }),
+        bladeRepairQ: game.i18n.format("CAIRN.ItemRepairedConfirm", { name: "ZZ Row Blade" }),
+        ropeQ: game.i18n.format("CAIRN.ItemBrokenConfirm", { name: "ZZ Row Rope" }),
+      };
       // 14 runs in Alice's own page: hand her the character as an OBSERVER.
       const alice = game.users.getName("Alice");
       out.aliceId = alice?.id ?? null;
@@ -524,6 +588,26 @@ else {
         ? ok(`${kind}: a second press repairs it, back to "${rw.mark}", not re-equipped`)
         : fail(`${kind} repaired: ${JSON.stringify(rp)}`);
     }
+    // 15: every press asks first, on every kind; No writes nothing.
+    const cw = r.confirmWant ?? {};
+    const missing = [cw.tip, cw.bladeQ, cw.bladeRepairQ].some((v) => typeof v !== "string" || v.startsWith("CAIRN."));
+    const no = k.askNo, yes = k.askYes, rep = k.askRepair;
+    !missing && no?.title === cw.markTitle && no.question === cw.bladeQ && no.tip === cw.tip
+      && k.afterNo?.broken === false && (kind === "container" || k.afterNo?.equipped === true)
+      ? ok(`${kind}: a press asks "${cw.markTitle}" / "${cw.bladeQ}"; No writes nothing`)
+      : fail(`${kind} confirm, No: ${JSON.stringify({ asked: no, after: k.afterNo, want: cw })}`);
+    yes?.question === cw.bladeQ && k.pressed?.broken === true && k.pressed?.tag
+      && rep?.title === cw.repairTitle && rep.question === cw.bladeRepairQ && k.repaired?.broken === false
+      ? ok(`${kind}: Yes marks it broken; the repair asks "${cw.bladeRepairQ}" and Yes repairs it`)
+      : fail(`${kind} confirm, Yes / repair: ${JSON.stringify({ yes, pressed: k.pressed?.broken, repair: rep, repaired: k.repaired?.broken })}`);
+  }
+  // 16: the item sheet's box asks too.
+  {
+    const sn = r.sheetNo ?? {}, sy = r.sheetYes ?? {};
+    sn.asked && sn.question === r.confirmWant?.ropeQ && sn.checked === false && sn.stored === false
+      && sy.asked && sy.stored === true && sy.checked === true
+      ? ok("the item sheet's Broken box asks first: No leaves it unticked and stores nothing, Yes stores it")
+      : fail(`item sheet box confirm: ${JSON.stringify({ no: sn, yes: sy, want: r.confirmWant?.ropeQ })}`);
   }
   // 14
   if (!r.aliceId) fail('no user named "Alice" — run `npm run dev:players` first; the observer leg did not run');

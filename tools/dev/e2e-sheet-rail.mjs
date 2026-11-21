@@ -122,11 +122,13 @@
  *      Pronouns labels wear the PC's face and colour, light and dark. A
  *      monster and a companion are unchanged. (Replaces leg 14's hireling
  *      half, which held the pick-lists open on Description.)
- *  25. (same day: the Armor box "a ROUND outline matching the ability
- *      circles") on a PC, an npc, a hireling, a monster and a companion the
- *      Armor box is 48 x 48 with the STR circle's border (width, style,
- *      colour, 50% radius), labelled Armor, a badge either side; light and
- *      dark.
+ *  25. (rewritten 2026-11-21, user asks: the label "CRAMPED", "the circle
+ *      shape ... can go back to being an outline of a shield") on a PC, an
+ *      npc, a hireling, a monster and a companion the Armor box is the shield
+ *      outline (54 x 60, its asymmetric radius, the STR circle's border width,
+ *      style and colour) holding the number alone at 20px; "Armor" stands
+ *      outside it, below, level with the badges' labels and in their face; a
+ *      badge either side; light and dark.
  *
  * Red-first: run against the commit before the redesign, every leg but 8 and
  * 10 fails (no rail, no growth page, no growth field).
@@ -1366,20 +1368,34 @@ try {
         prose: !!d?.querySelector('prose-mirror[name="system.description"]'),
       };
     };
-    // The Armor box against the same sheet's STR circle.
-    const BORDER = ["borderTopWidth", "borderTopStyle", "borderTopColor", "borderTopLeftRadius", "borderBottomRightRadius"];
+    // The Armor box against the same sheet's STR circle (border) and the
+    // badges' label (face, and the label's height on the row). Since
+    // 2026-11-21 (user asks) a shield OUTLINE again, the number alone inside,
+    // "Armor" outside it, below.
+    const BORDER = ["borderTopWidth", "borderTopStyle", "borderTopColor"];
+    const FACE = ["fontFamily", "fontSize", "fontWeight", "fontVariantCaps"];
     const armor = (s) => {
       const p1 = s.element.querySelector(".tab[data-tab='character']");
       const box = p1?.querySelector(".cairn-shield");
       const circle = p1?.querySelector(".cairn-ability.STR-ability .cairn-ability-circle");
-      const b = box?.getBoundingClientRect();
+      const label = p1?.querySelector(`label[for="${box?.querySelector(".armor-input")?.id}"]`);
+      const badgeLabel = p1?.querySelector(".shield-hold .shield-label");
+      const b = box?.getBoundingClientRect(), l = label?.getBoundingClientRect(), bl = badgeLabel?.getBoundingClientRect();
       const bs = box ? getComputedStyle(box) : null, cs = circle ? getComputedStyle(circle) : null;
+      const face = (n) => { const c = n ? getComputedStyle(n) : null; return Object.fromEntries(FACE.map((k) => [k, c?.[k] ?? null])); };
+      const input = box?.querySelector(".armor-input");
       return {
         size: b ? [Math.round(b.width), Math.round(b.height)] : null,
+        radius: bs ? [bs.borderTopLeftRadius, bs.borderBottomRightRadius] : null,
         border: Object.fromEntries(BORDER.map((k) => [k, bs?.[k] ?? null])),
         circle: Object.fromEntries(BORDER.map((k) => [k, cs?.[k] ?? null])),
-        label: box?.querySelector("label")?.textContent.trim() ?? null,
-        value: !!box?.querySelector(".armor-input"),
+        label: label?.textContent.trim() ?? null,
+        labelOutside: !!label && !!box && !box.contains(label),
+        labelBelow: !!l && !!b && l.top >= b.bottom - 0.5 && l.left < b.right && l.right > b.left,
+        labelLevel: !!l && !!bl && Math.abs(l.top - bl.top) <= 2,
+        labelFace: face(label), badgeFace: face(badgeLabel),
+        numberSize: input ? getComputedStyle(input).fontSize : null,
+        value: !!input,
         shieldBadge: !!p1?.querySelector(".shield-hold .shield-icon"),
         lightBadge: !!p1?.querySelector(".light-hold .light-icon"),
       };
@@ -1641,16 +1657,23 @@ else {
         : fail(`${key} page 1: ${JSON.stringify(x)}`);
     }
 
-    // 25: the Armor box is round, the ability circle's size and border.
-    const round = (a) => !!a && JSON.stringify(a.size) === "[48,48]" && JSON.stringify(a.border) === JSON.stringify(a.circle)
-      && a.border.borderTopLeftRadius === "50%" && a.label === P.want?.armor && a.value && a.shieldBadge && a.lightBadge;
+    // 25 (2026-11-21): the Armor box is the shield outline (54 x 60, its
+    // asymmetric radius, the ability circles' border), the number alone
+    // inside at the circles' 20px, "Armor" OUTSIDE it, below, level with the
+    // badges' labels and in their face.
+    const round = (a) => !!a && JSON.stringify(a.size) === "[54,60]"
+      && JSON.stringify(a.radius) === JSON.stringify(["50% 12%", "50% 88%"])
+      && JSON.stringify(a.border) === JSON.stringify(a.circle) && a.numberSize === "20px"
+      && a.label === P.want?.armor && a.labelOutside && a.labelBelow && a.labelLevel
+      && JSON.stringify(a.labelFace) === JSON.stringify(a.badgeFace) && !!a.badgeFace?.fontFamily
+      && a.value && a.shieldBadge && a.lightBadge;
     const sheets = { character: P.pc?.armor, npc: P.npc?.armor, hireling: P.hireling?.armor, monster: P.monster?.armor, companion: P.companion?.armor };
     Object.values(sheets).every(round)
-      ? ok(`the Armor box is a 48 x 48 circle with the ability circles' border, labelled "${P.want?.armor}", between two badges, on every creature`)
+      ? ok(`the Armor box is the shield outline with the number alone inside; "${P.want?.armor}" stands below it, level with the badges' labels, on every creature`)
       : fail(`Armor box: ${JSON.stringify(Object.fromEntries(Object.entries(sheets).filter(([, a]) => !round(a))))}`);
     const st = P.npc?.styles ?? {};
     ["light", "dark"].every((s) => round(st[s]?.pcArmor) && round(st[s]?.npcArmor))
-      ? ok(`the round Armor box holds in light (${st.light?.pcArmor?.border?.borderTopColor}) and dark (${st.dark?.pcArmor?.border?.borderTopColor})`)
+      ? ok(`the Armor box holds in light (${st.light?.pcArmor?.border?.borderTopColor}) and dark (${st.dark?.pcArmor?.border?.borderTopColor})`)
       : fail(`Armor box by scheme: ${JSON.stringify(st && { light: [st.light?.pcArmor, st.light?.npcArmor], dark: [st.dark?.pcArmor, st.dark?.npcArmor] })}`);
   }
 

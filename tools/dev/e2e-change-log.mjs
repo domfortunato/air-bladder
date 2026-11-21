@@ -15,8 +15,15 @@
  *                 uses line; the rollover click (uses cross zero on a stack)
  *                 posts ONE card carrying quantity AND uses lines (the
  *                 handler's one-write merge, review #13 #20+#21); a flagged
- *                 quantity write and a rename post nothing (machinery stays
- *                 silent; renames are off the ledger by ruling)
+ *                 quantity write posts nothing (machinery stays silent)
+ *   every inventory action (user ask 2026-11-21, reversing review #13's
+ *                 equipped/rename exclusion) — Mark broken / repaired through
+ *                 the row's yes/no (No posts nothing; breaking an equipped
+ *                 item posts the broken line alone), the hand, Hold shield,
+ *                 Hold light, a rename, the Bulky / Weightless / Shield boxes,
+ *                 a book bound into the Grimoire each post their line; a
+ *                 reorder and a description save post nothing (the user's two
+ *                 exclusions); an npc, a monster and a container log alike
  *   suppression — a flagged update posts nothing; regenerateNpc (the real
  *                 machinery path: deleteAll + create + update) posts nothing.
  *                 The DAMAGE path is not driven here: its writes carry
@@ -42,7 +49,7 @@ import {
   FOUNDRY_URL, VIEWPORT, joinAsGM, joinAs, watchdog, watchErrors, withSettings,
 } from "./lib.mjs";
 
-const dog = watchdog(300000, "dev:changelog");
+const dog = watchdog(420000, "dev:changelog");
 
 const results = [];
 /**
@@ -511,26 +518,214 @@ const run = async () => {
       });
 
       since = await messageIds(gm);
-      await leg("flagged quantity write and a rename post nothing", async () => {
+      await leg("a flagged quantity write posts nothing", async () => {
         await gm.evaluate(async (id) => {
           const a = game.actors.get(id);
           const it = a.items.find((i) => i.name === "Probe Torch");
           // Machinery-shaped write: every generation/grant path flags like this.
           await it.update({ "system.quantity": 5 }, { abNoStatusCard: true });
-          // A rename is a REAL unflagged update, and it must stay off the
-          // ledger: quantity and uses are the whole update-seam vocabulary
-          // (equipped/rename/description excluded by ruling).
-          await it.update({ name: "Probe Torch Renamed" });
         }, created.witness);
         const logs = await logsSince(gm, since, { expectNone: true });
         assert(logs.length === 0, `expected no cards, got ${logs.length}`);
         await gm.evaluate(async (id) => {
           const a = game.actors.get(id);
-          const it = a.items.find((i) => i.name === "Probe Torch Renamed");
+          const it = a.items.find((i) => i.name === "Probe Torch");
           if (it) await a.deleteEmbeddedDocuments("Item", [it.id], { abNoStatusCard: true });
           await a.sheet.close();
         }, created.witness);
       });
+
+      // ---- every inventory action (user ask 2026-11-21) --------------------
+      // "All actions on inventory items, including breaking and unbreaking
+      // them, should show in the chat log" — the user's pick: everything but a
+      // drag-reorder and a description save. This REVERSES review #13's
+      // ruling that kept equipped and renames off the ledger. The row
+      // controls are pressed for real on the acting client (the Broken
+      // toggle's yes/no answered), because the confirm lives in the handler.
+      const want = (page, key, data) => page.evaluate(({ key, data }) => game.i18n.format(key, data), { key, data });
+      const pressRow = (page, actorId, itemName, action, answer = "yes") =>
+        page.evaluate(async ({ id, name, action, answer }) => {
+          const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+          const actor = game.actors.get(id);
+          const sheet = actor.sheet;
+          if (!sheet.rendered) await sheet.render(true);
+          const t0 = Date.now();
+          while (!sheet.element?.querySelector(".cairn-items-list-row") && Date.now() - t0 < 5000) await sleep(100);
+          await sheet.changeTab("items", "primary");
+          await sleep(200);
+          const item = actor.items.find((i) => i.name === name);
+          const btn = sheet.element.querySelector(`.cairn-items-list-row[data-item-id="${item?.id}"] [data-action="${action}"]`);
+          if (!btn) throw new Error(`no ${action} on the "${name}" row`);
+          const stale = new Set(document.querySelectorAll(".application.dialog"));
+          btn.click();
+          if (action !== "itemToggleBroken") return { dialog: false };
+          let dlg = null;
+          while (!(dlg = [...document.querySelectorAll(".application.dialog")].find((d) => !stale.has(d))) && Date.now() - t0 < 4000) await sleep(100);
+          dlg?.querySelector(`button[data-action='${answer}']`)?.click();
+          return { dialog: !!dlg };
+        }, { id: actorId, name: itemName, action, answer });
+      const pressBadge = (page, actorId, sel) => page.evaluate(async ({ id, sel }) => {
+        const sheet = game.actors.get(id).sheet;
+        if (!sheet.rendered) await sheet.render(true);
+        await sheet.changeTab("character", "primary");
+        await new Promise((r) => setTimeout(r, 300));
+        const b = sheet.element.querySelector(`.tab[data-tab="character"] ${sel}`);
+        if (!b) throw new Error(`no ${sel} on page 1`);
+        b.click();
+      }, { id: actorId, sel });
+      const lineOf = (logs) => (logs[0]?.content ?? "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+
+      await gm.evaluate((id) => game.actors.get(id).createEmbeddedDocuments("Item", [
+        { name: "Probe Blade", type: "weapon", system: { damageFormula: "1d6", equipped: true } },
+        { name: "Probe Buckler", type: "armor", system: { armor: 1, shield: true, equipped: false } },
+        { name: "Torch", type: "item", system: { equipped: false } },
+        { name: "Probe Tome", type: "spellbook", system: {} },
+        { name: "Probe Sack", type: "item", system: {} },
+      ], { abNoStatusCard: true }), created.witness);
+
+      since = await messageIds(gm);
+      await leg("Mark broken on an EQUIPPED item (row + Yes, Alice) → one line, no 'Unequipped'", async () => {
+        await pressRow(alice, created.witness, "Probe Blade", "itemToggleBroken", "yes");
+        const logs = await logsSince(gm, since);
+        assert(logs.length === 1, `expected 1 card, got ${logs.length}`);
+        const w = await want(gm, "CAIRN.ChangeLog.Broken", { name: "Probe Blade" });
+        assert(logs[0].content.includes(w), `card lacks "${w}": "${lineOf(logs)}"`);
+        assert(logs[0].items === 1, `expected the broken line alone (the forced unequip folded in), got ${logs[0].items}: "${lineOf(logs)}"`);
+        assert(logs[0].content.includes("Alice"), "card does not name Alice");
+      });
+
+      since = await messageIds(gm);
+      await leg("Mark repaired (row + Yes) → 'Marked repaired'", async () => {
+        await pressRow(alice, created.witness, "Probe Blade", "itemToggleBroken", "yes");
+        const logs = await logsSince(gm, since);
+        assert(logs.length === 1, `expected 1 card, got ${logs.length}`);
+        const w = await want(gm, "CAIRN.ChangeLog.Repaired", { name: "Probe Blade" });
+        assert(logs[0].content.includes(w) && logs[0].items === 1, `card lacks "${w}" alone: "${lineOf(logs)}"`);
+      });
+
+      since = await messageIds(gm);
+      await leg("Mark broken answered No → no card, not broken", async () => {
+        const r = await pressRow(alice, created.witness, "Probe Sack", "itemToggleBroken", "no");
+        const logs = await logsSince(gm, since, { expectNone: true });
+        const broken = await gm.evaluate((id) => game.actors.get(id).items.find((i) => i.name === "Probe Sack")?._source.system.broken, created.witness);
+        assert(r.dialog, "no yes/no appeared");
+        assert(logs.length === 0 && broken === false, `No still wrote: ${logs.length} card(s), broken ${broken}`);
+      });
+
+      since = await messageIds(gm);
+      await leg("the hand equips and unequips → 'Equipped' / 'Unequipped'", async () => {
+        await pressRow(alice, created.witness, "Probe Blade", "itemToggleEquipped");
+        let logs = await logsSince(gm, since);
+        let w = await want(gm, "CAIRN.ChangeLog.Equipped", { name: "Probe Blade" });
+        assert(logs.length === 1 && logs[0].content.includes(w), `equip: ${logs.length} card(s), want "${w}": "${lineOf(logs)}"`);
+        since = await messageIds(gm);
+        await pressRow(alice, created.witness, "Probe Blade", "itemToggleEquipped");
+        logs = await logsSince(gm, since);
+        w = await want(gm, "CAIRN.ChangeLog.Unequipped", { name: "Probe Blade" });
+        assert(logs.length === 1 && logs[0].content.includes(w), `unequip: ${logs.length} card(s), want "${w}": "${lineOf(logs)}"`);
+      });
+
+      since = await messageIds(gm);
+      await leg("Hold shield and Hold light → 'Equipped' lines", async () => {
+        await pressBadge(alice, created.witness, ".shield-hold");
+        let logs = await logsSince(gm, since);
+        let w = await want(gm, "CAIRN.ChangeLog.Equipped", { name: "Probe Buckler" });
+        assert(logs.length === 1 && logs[0].content.includes(w), `Hold shield: ${logs.length} card(s), want "${w}": "${lineOf(logs)}"`);
+        since = await messageIds(gm);
+        await pressBadge(alice, created.witness, ".light-hold");
+        logs = await logsSince(gm, since);
+        w = await want(gm, "CAIRN.ChangeLog.Equipped", { name: "Torch" });
+        assert(logs.length === 1 && logs[0].content.includes(w), `Hold light: ${logs.length} card(s), want "${w}": "${lineOf(logs)}"`);
+      });
+
+      since = await messageIds(gm);
+      await leg("a rename → 'Renamed: old → new'", async () => {
+        await alice.evaluate((id) => game.actors.get(id).items.find((i) => i.name === "Probe Sack").update({ name: "Probe Bag" }), created.witness);
+        const logs = await logsSince(gm, since);
+        const w = await want(gm, "CAIRN.ChangeLog.Renamed", { from: "Probe Sack", to: "Probe Bag" });
+        assert(logs.length === 1 && logs[0].content.includes(w), `${logs.length} card(s), want "${w}": "${lineOf(logs)}"`);
+      });
+
+      await leg("the Bulky, Weightless and Shield boxes → marked / cleared lines", async () => {
+        for (const [path, label] of [["system.bulky", "CAIRN.Bulky"], ["system.weightless", "CAIRN.Weightless"]]) {
+          for (const on of [true, false]) {
+            since = await messageIds(gm);
+            await alice.evaluate(({ id, path, on }) => game.actors.get(id).items.find((i) => i.name === "Probe Bag").update({ [path]: on }),
+              { id: created.witness, path, on });
+            const logs = await logsSince(gm, since);
+            const w = await gm.evaluate(({ label, on }) => game.i18n.format(on ? "CAIRN.ChangeLog.ItemMarked" : "CAIRN.ChangeLog.ItemCleared",
+              { label: game.i18n.localize(label), name: "Probe Bag" }), { label, on });
+            assert(logs.length === 1 && logs[0].content.includes(w), `${path} ${on}: ${logs.length} card(s), want "${w}": "${lineOf(logs)}"`);
+          }
+        }
+        since = await messageIds(gm);
+        await alice.evaluate((id) => game.actors.get(id).items.find((i) => i.name === "Probe Buckler").update({ "system.shield": false }), created.witness);
+        const logs = await logsSince(gm, since);
+        const w = await gm.evaluate(() => game.i18n.format("CAIRN.ChangeLog.ItemCleared",
+          { label: game.i18n.localize("CAIRN.Shield"), name: "Probe Buckler" }));
+        assert(logs.length === 1 && logs[0].content.includes(w), `shield off: ${logs.length} card(s), want "${w}": "${lineOf(logs)}"`);
+      });
+
+      since = await messageIds(gm);
+      await leg("a book bound into the Grimoire → 'Bound into the Grimoire'", async () => {
+        // Transmute's single-book write (#onPageTransmute) is this update; the
+        // ledger is hook-driven, so the write itself is the action under test.
+        await alice.evaluate((id) => game.actors.get(id).items.find((i) => i.name === "Probe Tome")
+          .update({ "system.bound": true, "system.boundTo": "zzledger" }), created.witness);
+        const logs = await logsSince(gm, since);
+        const w = await want(gm, "CAIRN.ChangeLog.Transmuted", { name: "Probe Tome" });
+        assert(logs.length === 1 && logs[0].content.includes(w), `${logs.length} card(s), want "${w}": "${lineOf(logs)}"`);
+      });
+
+      since = await messageIds(gm);
+      await leg("a reorder and a description save post nothing (the user's two exclusions)", async () => {
+        await alice.evaluate(async (id) => {
+          const a = game.actors.get(id);
+          const bag = a.items.find((i) => i.name === "Probe Bag");
+          await bag.update({ sort: (bag.sort ?? 0) + 100000 });
+          await bag.update({ "system.description": "<p>ZZ ledger prose</p>" });
+        }, created.witness);
+        const logs = await logsSince(gm, since, { expectNone: true });
+        assert(logs.length === 0, `expected no cards, got ${logs.length}: "${lineOf(logs)}"`);
+      });
+
+      // ALL sheets: an npc, a monster and a container log the same way
+      // (the change log lives on CairnActor; the rows are one partial).
+      await leg("on an npc, a monster and a container: Mark broken (row + Yes) and the hand post", async () => {
+        const made = await gm.evaluate(async () => {
+          const Cls = getDocumentClass("Actor");
+          const items = [{ name: "Probe Club", type: "weapon", system: { damageFormula: "1d6", equipped: false } }];
+          const out = {};
+          for (const role of ["npc", "monster", "container"]) {
+            out[role] = (await Cls.create({ name: `ChangeLog ${role}`, type: "npc", system: { role }, items },
+              { abNoStatusCard: true })).id;
+          }
+          return out;
+        });
+        created.extra = Object.values(made);
+        try {
+          for (const [role, id] of Object.entries(made)) {
+            since = await messageIds(gm);
+            await pressRow(gm, id, "Probe Club", "itemToggleBroken", "yes");
+            let logs = await logsSince(gm, since);
+            let w = await want(gm, "CAIRN.ChangeLog.Broken", { name: "Probe Club" });
+            assert(logs.length === 1 && logs[0].content.includes(w), `${role} broken: ${logs.length} card(s), want "${w}": "${lineOf(logs)}"`);
+            await pressRow(gm, id, "Probe Club", "itemToggleBroken", "yes");
+            if (role === "container") continue;   // a thing's rows offer no hand
+            since = await messageIds(gm);
+            await pressRow(gm, id, "Probe Club", "itemToggleEquipped");
+            logs = await logsSince(gm, since);
+            w = await want(gm, "CAIRN.ChangeLog.Equipped", { name: "Probe Club" });
+            assert(logs.length === 1 && logs[0].content.includes(w), `${role} equip: ${logs.length} card(s), want "${w}": "${lineOf(logs)}"`);
+          }
+        } finally {
+          await gm.evaluate(async (ids) => {
+            for (const id of ids) { const a = game.actors.get(id); await a?.sheet?.close(); await a?.delete(); }
+          }, Object.values(made));
+        }
+      });
+      await gm.evaluate((id) => game.actors.get(id).sheet.close(), created.witness);
+      await alice.evaluate((id) => game.actors.get(id).sheet.close(), created.witness);
 
       // ---- suppression -----------------------------------------------------
       since = await messageIds(gm);

@@ -68,7 +68,10 @@
  * badge like Hold light's, game-icons' heater shield as a mask (its url
  * fetched), muted when slung, glowing when held, labelled "Hold shield" /
  * "Shield in hand"; Hold light reads "Light in hand" while a light is held
- * (legs 3 and 6). The Armor box's round shape is dev:sheet-rail's leg 25.
+ * (legs 3 and 6). The Armor box's shape is dev:sheet-rail's leg 25.
+ * Since 2026-11-21 (user asks) the badge shows game-icons' Shield Disabled
+ * (Skoll) while slung and Shield Bash (Delapouite) in hand, and the off
+ * labels are questions: "Hold shield?" / "Hold light?".
  *
  * The re-armed migration walks the whole world, so every armor item's stored
  * `system.shield` is snapshotted first and put back afterwards, with the
@@ -162,7 +165,7 @@ try {
     };
     const L = (k) => game.i18n.localize(k);
     const flags = { "air-bladder": { probeFixture: fixture } };
-    const out = { wantShield: L("CAIRN.Shield"), wantHold: L("CAIRN.HoldShield"), wantInHand: L("CAIRN.ShieldInHand"),
+    const out = { wantShield: L("CAIRN.Shield"), wantHold: L("CAIRN.HoldShieldAsk"), wantInHand: L("CAIRN.ShieldInHand"),
       wantShieldNone: L("CAIRN.HoldShieldNone"), wantLightNone: L("CAIRN.HoldLightNone") };
 
     // 1. The armor sheet's Shield box.
@@ -394,7 +397,7 @@ try {
     };
     const L = (k) => game.i18n.localize(k);
     const flags = { "air-bladder": { probeFixture: fixture } };
-    const out = { wantLight: L("CAIRN.HoldLight"), wantLightOn: L("CAIRN.LightInHand") };
+    const out = { wantLight: L("CAIRN.HoldLightAsk"), wantLightOn: L("CAIRN.LightInHand") };
     const realTorch = game.Torch;
     const hadOwnGet = Object.prototype.hasOwnProperty.call(game.modules, "get");
     const realGet = game.modules.get;
@@ -952,13 +955,13 @@ const sl = u.slung ?? {};
 sl.disabled === false && sl.tip === null
   ? ok("a live Hold shield switch carries no tooltip")
   : fail(`live shield switch: disabled ${sl.disabled}, tooltip ${JSON.stringify(sl.tip)}`);
-sl.present && sl.label === u.wantHold && sl.icon === "shield" && sl.loads && sl.left && sl.beside && sl.checked === "false"
+sl.present && sl.label === u.wantHold && u.wantHold !== "CAIRN.HoldShieldAsk" && sl.icon === "shield-disabled" && sl.loads && sl.left && sl.beside && sl.checked === "false"
   && sl.filter === "none" && sl.armor === "1"
   ? ok(`with a slung shield, the heater-shield badge "${sl.label}" stands left of the Armor box, off and unlit, Armor ${sl.armor}`)
-  : fail(`slung: ${JSON.stringify(sl)} (want ${JSON.stringify(u.wantHold)}, game-icons shields/shield.svg)`);
+  : fail(`slung: ${JSON.stringify(sl)} (want ${JSON.stringify(u.wantHold)}, game-icons shields/shield-disabled.svg)`);
 const he = u.held ?? {};
 he.equipped === true && he.checked === "true" && he.label === u.wantInHand && u.wantInHand !== "CAIRN.ShieldInHand"
-  && he.icon === "shield" && he.loads && he.color !== sl.color && he.filter && he.filter !== "none" && he.armor === "2"
+  && he.icon === "shield-bash" && he.loads && he.color !== sl.color && he.filter && he.filter !== "none" && he.armor === "2"
   ? ok(`a press holds it: equipped, "${he.label}", glowing (${he.color}), Armor ${he.armor}`)
   : fail(`held: ${JSON.stringify(he)} (want ${JSON.stringify(u.wantInHand)}, slung colour ${sl.color})`);
 const rs = u.reslung ?? {};
@@ -1007,7 +1010,7 @@ hs.torch && hs.lantern && hs.glowsnail && hs.sunStick && !hs.oil && !hs.rope
   : fail(`light hands: ${JSON.stringify(hs)}`);
 const lw = lt.want ?? {};
 const lp = lt.place ?? {};
-lp.label === lt.wantLight && lp.disabled === false && lp.checked === "false" && lp.tip === lw.noneHeld
+lp.label === lt.wantLight && lt.wantLight !== "CAIRN.HoldLightAsk" && lp.disabled === false && lp.checked === "false" && lp.tip === lw.noneHeld
   && lp.radius === null && lp.icon === "lantern-flame" && lp.loads && lp.right && lp.beside
   ? ok(`the light badge stands right of the Armor box: a neutral lantern, "${lp.label}", "${lp.tip}", no radius`)
   : fail(`light badge, none held: ${JSON.stringify(lp)} (want label ${JSON.stringify(lt.wantLight)}, tip ${JSON.stringify(lw.noneHeld)})`);
