@@ -556,7 +556,7 @@ try {
         if (id === "torch") return { id: "torch", active: torchActive };
         return realGet.call(this, id, ...rest);
       };
-      let tokens = [{ id: "zzTok", parent: { id: "zzScene" } }];
+      let tokens = [{ id: "zzTokenProbe0001", parent: { id: "zzSceneProbe0001" } }];
       // The real method's two shapes: TokenDocuments with `document` true
       // (holdLight's call), canvas placeables (`.document`, `.controlled`)
       // otherwise — core's ChatMessage.getSpeaker asks for those
@@ -606,7 +606,7 @@ try {
       out.torch.noToken = { calls: calls.length, held: it("Torch").system.equipped };
       await press(() => !it("Torch")?.system.equipped);
       await settle();
-      tokens = [{ id: "zzTok", parent: { id: "zzScene" } }];
+      tokens = [{ id: "zzTokenProbe0001", parent: { id: "zzSceneProbe0001" } }];
       // Torch inactive.
       torchActive = false;
       calls = [];
@@ -1050,8 +1050,8 @@ tx.darkness === tx.wantDark && tx.none === "" && tx.alias === lw.bright
   ? ok(`the darkness light reads "${tx.darkness}"; a light with no numbers reads nothing; "Torches" reads as a Torch`)
   : fail(`radius texts: ${JSON.stringify(tx)}`);
 const tc = lt.torch ?? {};
-const lightCalls = [["selectSource", "zzScene", "zzTok", "Torch"], ["currentState", "zzScene", "zzTok"], ["toggle", "zzScene", "zzTok"]];
-const outCalls = [["extinguish", "zzScene", "zzTok"]];
+const lightCalls = [["selectSource", "zzSceneProbe0001", "zzTokenProbe0001", "Torch"], ["currentState", "zzSceneProbe0001", "zzTokenProbe0001"], ["toggle", "zzSceneProbe0001", "zzTokenProbe0001"]];
+const outCalls = [["extinguish", "zzSceneProbe0001", "zzTokenProbe0001"]];
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 same(tc.switch?.on, lightCalls) && same(tc.switch?.off, outCalls)
   ? ok("with Torch active and a token, Hold light selects the Torch and lights it; a stow puts it out")

@@ -5504,7 +5504,9 @@ header.character-generator.directory-header .header-actions > button:not(.cairn-
    split as the inputs split it (each input width 100%, shrunk alike). */
 .cairn-character-sheet .cairn-hp-head {
     align-self: stretch; display: flex; box-sizing: border-box;
-    border: 0 solid transparent; border-width: 0 2px; margin-bottom: -6px; font-size: 12px;
+    /* -3px against the Vitals' 4px gap (8px and -6px until 2026-11-21): 1px
+       clear of the box. dev:sheet-layout holds the two apart. */
+    border: 0 solid transparent; border-width: 0 2px; margin-bottom: -3px; font-size: 12px;
 }
 .cairn-character-sheet .cairn-hp-head .head-spacer { width: 50%; }
 .cairn-character-sheet .cairn-hp-head .head-numbers { width: 50%; display: flex; }
@@ -5657,18 +5659,21 @@ header.character-generator.directory-header .header-actions > button:not(.cairn-
    since 2026-11-21 (8 before): the Armor box grew to the shield outline with
    its label below (77px), and the tallest head (a hireling for hire, career,
    day rate) then put the footer 16px past the 700px window — measured on CT
-   123, where this column, not the abilities, sets page 1's height. 4px leaves
-   4px to spare there (dev:sheet-layout, dev:sheet-rail leg 21). */
+   123, where this column, not the abilities, sets page 1's height. With HP's
+   header margin and the Armor box's gap trimmed to match, about 3px to spare
+   there (dev:sheet-layout, dev:sheet-rail leg 21). */
 .cairn-character-sheet .cairn-vitals { display: flex; flex-direction: column; align-items: center; gap: 4px; }
 /* The Armor box (2026-11-21, user asks): the SHIELD OUTLINE again (54 x 60,
    the ability circles' 2px line; a 48px circle for one day, its label inside
    "CRAMPED"), the number alone inside at the circles' 20px, and "Armor"
    OUTSIDE it, right below, in the badges' label face (.cairn-armor-box stacks
-   the two). Shield + label is about 77px, inside the row's 82 (the held
+   the two). Shield + label is about 75px, inside the row's 82 (the held
    light's badge): page 1 has 8px to spare at 480 x 700, so the label is not
    lifted level with the badges' (user pick). */
 .cairn-character-sheet .cairn-armor-box {
-    display: flex; flex-direction: column; align-items: center; gap: 2px;
+    /* No gap: the shield's lower edge is a point, so the label sits under it
+       without touching, and the 2px is page 1's (8px slack in all). */
+    display: flex; flex-direction: column; align-items: center; gap: 0;
 }
 .cairn-character-sheet .cairn-shield {
     position: relative; width: 54px; height: 60px; box-sizing: border-box;
