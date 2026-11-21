@@ -72,8 +72,8 @@ light without spending a use unless you switch the second one on.
 
 Right of the Armor box on a character's or a creature's sheet is the **Hold light** badge: a
 light that glows while one is held, with how far it reaches written underneath.
-Pressing it holds a light, the same as pressing that light's hand in the
-inventory; with more than one light carried, it asks which. Pressing it again
+Pressing it holds a light, and its label changes from **Hold light?** to **Light in hand**.
+That is the same as pressing that light's hand in the inventory; with more than one light carried, it asks which. Pressing it again
 puts every held light away. One light is held at a time: holding another by its
 hand puts the first away.
 

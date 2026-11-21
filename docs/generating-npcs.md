@@ -60,8 +60,8 @@ is the one to use when you want the new person filed straight into a folder.
 - **An age**, rolled with your **Age formula for generated characters**
   setting, the same as a player character's.
 - **Blank pronouns.** Generation does not choose them — there is no table for
-  pronouns and no die should decide them. The field is at the top of the
-  Description tab; fill it in when you know.
+  pronouns and no die should decide them. The field is under the name on the
+  sheet's first page, where a player character's is; fill it in when you know.
 - **A portrait and a matching token.** If you have set up a custom portrait
   folder with an `npc` subfolder, it draws from there — see
   [Using Your Own Portraits](using-your-own-portraits.md).
@@ -100,11 +100,11 @@ and the rate fills itself; set a rate by hand and nothing overrides it.
 
 ## The biography reads "They"
 
-The sentence under the pronouns is written in the third person on both of these
+The trait sentence at the top of the sheet's first page is written in the third person on both of these
 sheets — *"They have a Gaunt Physique, Sallow Skin and Wiry Hair…"* — where a
 player character's reads *"You have…"*. The printed sheet says the same.
 
-Open **Traits** to change any single one from its table's list. Anything you
+With **Character Creation Mode** on, press the pen at the end of that sentence to open the **Traits** window and change any single one from its table's list. Anything you
 type that is not on the table survives too; it just shows as it is.
 
 ## Re-rolling
