@@ -64,6 +64,12 @@
  *      "Shield" / "Hacked Shield" ticked, and the locked pack is locked again.
  *      Markers shadowed; every other world pack's staffs and shields put back.
  *
+ * Rewritten 2026-11-20 (user ask, the Armor row redone): Hold shield is a
+ * badge like Hold light's, game-icons' heater shield as a mask (its url
+ * fetched), muted when slung, glowing when held, labelled "Hold shield" /
+ * "Shield in hand"; Hold light reads "Light in hand" while a light is held
+ * (legs 3 and 6). The Armor box's round shape is dev:sheet-rail's leg 25.
+ *
  * The re-armed migration walks the whole world, so every armor item's stored
  * `system.shield` is snapshotted first and put back afterwards, with the
  * marker.
@@ -156,7 +162,7 @@ try {
     };
     const L = (k) => game.i18n.localize(k);
     const flags = { "air-bladder": { probeFixture: fixture } };
-    const out = { wantShield: L("CAIRN.Shield"), wantHold: L("CAIRN.HoldShield"),
+    const out = { wantShield: L("CAIRN.Shield"), wantHold: L("CAIRN.HoldShield"), wantInHand: L("CAIRN.ShieldInHand"),
       wantShieldNone: L("CAIRN.HoldShieldNone"), wantLightNone: L("CAIRN.HoldLightNone") };
 
     // 1. The armor sheet's Shield box.
@@ -199,22 +205,38 @@ try {
       await sleep(400);
       return { pc, sheet };
     };
-    const look = (sheet) => {
+    // Since 2026-11-20 (user ask, the Armor row redone) Hold shield is a BADGE
+    // like Hold light's: game-icons' heater shield as a mask, muted when slung,
+    // the accent with a glow when held, "Hold shield" / "Shield in hand" under
+    // it. The mask's RESOLVED url is fetched (the light badge's 404 lesson).
+    const shieldLoads = new Map();
+    const shieldLoadsOk = async (url) => {
+      if (!url) return false;
+      if (!shieldLoads.has(url)) shieldLoads.set(url, await fetch(url).then((res) => res.ok).catch(() => false));
+      return shieldLoads.get(url);
+    };
+    const look = async (sheet) => {
       const page = sheet.element.querySelector('.tab[data-tab="character"]');
       const sw = page?.querySelector(".shield-hold");
       const armorBox = page?.querySelector(".cairn-shield");
       const a = sw?.getBoundingClientRect(), b = armorBox?.getBoundingClientRect();
       const lw = page?.querySelector(".light-hold");
+      const icon = sw?.querySelector(".shield-icon");
+      const cs = icon ? getComputedStyle(icon) : null;
+      const mask = cs?.maskImage || cs?.webkitMaskImage || "";
+      const url = /url\("?([^")]+)"?\)/.exec(mask)?.[1] ?? null;
       return {
         present: !!sw,
-        text: sw?.textContent.trim() ?? null,
+        label: sw?.querySelector(".shield-label")?.textContent.trim() ?? null,
+        icon: /game-icons\/shields\/([a-z-]+)\.svg/.exec(url ?? "")?.[1] ?? null,
+        loads: await shieldLoadsOk(url),
+        color: cs?.backgroundColor ?? null,
+        filter: cs?.filter ?? null,
         disabled: sw?.disabled ?? null,
         tip: sw?.dataset.tooltip ?? null,
         light: { present: !!lw, disabled: lw?.disabled ?? null, checked: lw?.getAttribute("aria-checked") ?? null,
-          off: !!lw?.querySelector(".fa-toggle-off"), tip: lw?.dataset.tooltip ?? null },
+          tip: lw?.dataset.tooltip ?? null },
         checked: sw?.getAttribute("aria-checked") ?? null,
-        on: !!sw?.querySelector(".fa-toggle-on"),
-        off: !!sw?.querySelector(".fa-toggle-off"),
         left: !!a && !!b && a.right <= b.left + 0.5,
         // Beside it, not above or below: the two overlap vertically.
         beside: !!a && !!b && a.top < b.bottom && a.bottom > b.top,
@@ -229,13 +251,13 @@ try {
 
     {
       const { pc, sheet } = await mkPc("ZZ Shield None", []);
-      out.none = look(sheet);
+      out.none = await look(sheet);
       await sheet.close();
       await pc.delete();
     }
     {
       const { pc, sheet } = await mkPc("ZZ Shield Helmet", [{ name: "ZZ Helmet", type: "armor", system: { armor: 1, equipped: true } }]);
-      out.helmetOnly = look(sheet);
+      out.helmetOnly = await look(sheet);
       await sheet.close();
       await pc.delete();
     }
@@ -245,11 +267,11 @@ try {
         { name: "ZZ Kite", type: "armor", system: { armor: 1, equipped: false, shield: true } },
       ]);
       const kite = () => pc.items.find((i) => i.name === "ZZ Kite");
-      out.slung = look(sheet);
+      out.slung = await look(sheet);
       await press(sheet, pc, () => kite()?.system.equipped === true);
-      out.held = { ...look(sheet), equipped: kite()?.system.equipped ?? null };
+      out.held = { ...(await look(sheet)), equipped: kite()?.system.equipped ?? null };
       await press(sheet, pc, () => kite()?.system.equipped === false);
-      out.reslung = { ...look(sheet), equipped: kite()?.system.equipped ?? null };
+      out.reslung = { ...(await look(sheet)), equipped: kite()?.system.equipped ?? null };
       await sheet.close();
       await pc.delete();
     }
@@ -259,9 +281,9 @@ try {
         { name: "ZZ Kite B", type: "armor", system: { armor: 1, equipped: true, shield: true } },
       ]);
       const held = () => pc.items.filter((i) => i.system.shield && i.system.equipped).length;
-      out.two = { before: look(sheet) };
+      out.two = { before: await look(sheet) };
       await press(sheet, pc, () => held() === 0);
-      out.two.after = { ...look(sheet), held: held() };
+      out.two.after = { ...(await look(sheet)), held: held() };
       await sheet.close();
       await pc.delete();
     }
@@ -372,7 +394,7 @@ try {
     };
     const L = (k) => game.i18n.localize(k);
     const flags = { "air-bladder": { probeFixture: fixture } };
-    const out = { wantLight: L("CAIRN.HoldLight") };
+    const out = { wantLight: L("CAIRN.HoldLight"), wantLightOn: L("CAIRN.LightInHand") };
     const realTorch = game.Torch;
     const hadOwnGet = Object.prototype.hasOwnProperty.call(game.modules, "get");
     const realGet = game.modules.get;
@@ -918,7 +940,8 @@ sh.shield === true && sh.hacked === true && sh.buckler === true && sh.helmet ===
   ? ok("the shipped Shield, Hacked Shield and Steadymade Buckler are shields; the Helmet is not")
   : fail(`shipped shields: ${JSON.stringify(sh)}`);
 // Leg 3, rewritten by leg 6: both switches are always drawn.
-const greyed = (x, tip) => !!x && x.present && x.disabled === true && x.checked === "false" && x.off && x.tip === tip;
+// Both are badges since 2026-11-20: off reads "Hold shield", no toggle glyph.
+const greyed = (x, tip) => !!x && x.present && x.disabled === true && x.checked === "false" && x.label === u.wantHold && x.tip === tip;
 // The light control is the badge since 2026-11-20 (no toggle glyph).
 const greyedLight = (x, tip) => !!x && x.present && x.disabled === true && x.checked === "false" && x.tip === tip;
 greyed(u.none, u.wantShieldNone) && greyed(u.helmetOnly, u.wantShieldNone)
@@ -929,15 +952,17 @@ const sl = u.slung ?? {};
 sl.disabled === false && sl.tip === null
   ? ok("a live Hold shield switch carries no tooltip")
   : fail(`live shield switch: disabled ${sl.disabled}, tooltip ${JSON.stringify(sl.tip)}`);
-sl.present && sl.text === u.wantHold && sl.left && sl.beside && sl.checked === "false" && sl.off && !sl.on && sl.armor === "1"
-  ? ok(`with a slung shield, "${sl.text}" stands left of the Armor box, off, Armor ${sl.armor}`)
-  : fail(`slung: ${JSON.stringify(sl)} (want ${JSON.stringify(u.wantHold)})`);
+sl.present && sl.label === u.wantHold && sl.icon === "shield" && sl.loads && sl.left && sl.beside && sl.checked === "false"
+  && sl.filter === "none" && sl.armor === "1"
+  ? ok(`with a slung shield, the heater-shield badge "${sl.label}" stands left of the Armor box, off and unlit, Armor ${sl.armor}`)
+  : fail(`slung: ${JSON.stringify(sl)} (want ${JSON.stringify(u.wantHold)}, game-icons shields/shield.svg)`);
 const he = u.held ?? {};
-he.equipped === true && he.checked === "true" && he.on && he.armor === "2"
-  ? ok(`a press holds it: equipped, the switch on, Armor ${he.armor}`)
-  : fail(`held: ${JSON.stringify(he)}`);
+he.equipped === true && he.checked === "true" && he.label === u.wantInHand && u.wantInHand !== "CAIRN.ShieldInHand"
+  && he.icon === "shield" && he.loads && he.color !== sl.color && he.filter && he.filter !== "none" && he.armor === "2"
+  ? ok(`a press holds it: equipped, "${he.label}", glowing (${he.color}), Armor ${he.armor}`)
+  : fail(`held: ${JSON.stringify(he)} (want ${JSON.stringify(u.wantInHand)}, slung colour ${sl.color})`);
 const rs = u.reslung ?? {};
-rs.equipped === false && rs.checked === "false" && rs.off && rs.armor === "1"
+rs.equipped === false && rs.checked === "false" && rs.label === u.wantHold && rs.filter === "none" && rs.armor === "1"
   ? ok("a second press slings it again: not equipped, off, Armor back to 1")
   : fail(`re-slung: ${JSON.stringify(rs)}`);
 const tw = u.two ?? {};
@@ -998,15 +1023,18 @@ JSON.stringify(pk.afterCancel) === "[]" && JSON.stringify(pk.held) === JSON.stri
 const lb = lt.lanternBadge ?? {};
 lb.checked === "true" && lb.icon === "lantern-flame" && lb.loads && lb.radius === lw.bright && lb.tip === lw.heldLantern
   && lb.color !== lp.color && lb.filter && lb.filter !== "none"
-  ? ok(`held, the badge glows (${lb.color}, ${lb.filter}) and reads "${lb.radius}", "${lb.tip}"`)
-  : fail(`lantern badge: ${JSON.stringify(lb)} (none-held colour ${lp.color})`);
+  && lb.label === lt.wantLightOn && lt.wantLightOn !== "CAIRN.LightInHand"
+  ? ok(`held, the badge glows (${lb.color}, ${lb.filter}), says "${lb.label}" and reads "${lb.radius}", "${lb.tip}"`)
+  : fail(`lantern badge: ${JSON.stringify(lb)} (none-held colour ${lp.color}, want label ${JSON.stringify(lt.wantLightOn)})`);
 const st = lt.stowed ?? {};
 JSON.stringify(st.held) === "[]" && !st.picker && st.badge?.checked === "false" && st.badge?.radius === null
-  ? ok("with two held, one press puts both away, with no picker")
+  && st.badge?.label === lt.wantLight
+  ? ok(`with two held, one press puts both away, with no picker, back to "${lt.wantLight}"`)
   : fail(`stow all: ${JSON.stringify(st)}`);
 const tb = lt.torchBadge ?? {};
 tb.checked === "true" && !tb.picker && tb.icon === "torch" && tb.loads && tb.radius === lw.bright && tb.tip === lw.heldTorch
-  ? ok("with one light, a press holds it at once: the torch icon, its radius")
+  && tb.label === lt.wantLightOn
+  ? ok("with one light, a press holds it at once: the torch icon, its radius, \"Light in hand\"")
   : fail(`single light: ${JSON.stringify(tb)}`);
 const tx = lt.texts ?? {};
 tx.darkness === tx.wantDark && tx.none === "" && tx.alias === lw.bright

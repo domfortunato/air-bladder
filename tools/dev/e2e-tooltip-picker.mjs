@@ -569,36 +569,31 @@ try {
       };
       out.npcPickIcon = nRoot?.querySelector(".profession-pick i")?.className ?? "";
       out.aria.npc = bareAnchors(nRoot);
-      // The traits header's hint and the grid with NO die, read where they
-      // still render since round 4: a hireling's Description page (the
-      // character's pick-lists live in the Traits window, which only Creation
-      // Mode opens). A hireling's grid is eight rows, as a character's was.
+      // A hireling's traits, since 2026-11-20 (user ask: an NPC's page 1 "look
+      // and act like the PC sheets"): edited as a character's are, through
+      // the pen on page 1's trait sentence in Creation Mode, which opens the
+      // Traits window; no pick-lists on Description. So the pen is there On
+      // and gone Off, with the character's tooltip, and Off no trait row or
+      // die is drawn anywhere on the sheet. (The Description header's "Rolled
+      // at creation" hint and the die-less grid went with the pick-lists.)
       const nq = (sel) => nSheet.element?.querySelector(sel);
-      const nTurn = async () => {
-        nq('nav.tabs [data-tab="description"]')?.click();
-        await wait(300);
-        if (!nq(".trait-grid")) { nq('a[data-action="toggleTraits"]')?.click(); await wait(300); }
-      };
-      await nTurn();
-      out.hintsOn.traits = nq(".trait-picklist-label")?.dataset.tooltip ?? "";
+      await nSheet.changeTab("character", "primary");
+      await wait(300);
+      out.hintsOn.traits = nq('.cairn-left > .trait-sentence [data-action="editTraits"]')?.dataset.tooltip ?? "";
       await npc.update({ "system.generationEnabled": false });
       await wait(800);
-      await nTurn();
-      out.hintsOff.traits = nq(".trait-picklist-label")?.hasAttribute("data-tooltip") ?? false;
-      // The rows render, the DICE alone are gone with the mode.
+      out.hintsOff.traits = !!nq('[data-action="editTraits"]');
       out.traitDiceOff = {
         dice: nSheet.element?.querySelectorAll('a[data-action="rollTrait"]').length ?? -1,
-        rows: nSheet.element?.querySelectorAll(".trait-grid .trait-row").length ?? 0,
+        rows: nSheet.element?.querySelectorAll(".trait-grid .trait-row").length ?? -1,
+        sentence: !!nq(".cairn-left > .trait-sentence"),
       };
-      // The geometry with NO die in the row: the select spans the empty die
-      // track, so one gap follows the label, not two.
-      out.traitGeomOff = geometry(nSheet.element);
       await nSheet.close();
 
       // ---- 3b'. The NPC sheet's trait dice wear THEIR tables' dice ---------
-      // A role-npc person renders the same partial with the Warden's four d20
-      // tables beside six d10 ones — the second sheet is what proves the glyph
-      // is derived per row and not a new literal.
+      // A role-npc person's Traits window renders the same partial with the
+      // Warden's four d20 tables beside six d10 ones — the second sheet is
+      // what proves the glyph is derived per row and not a new literal.
       const person = track(await Actor.create({
         name: "PROBE Tooltip NPC", type: "npc", system: { role: "npc" },
       }));
@@ -607,13 +602,13 @@ try {
       await pSheet.render(true);
       await wait(800);
       const pRootOf = () => (pSheet.element instanceof HTMLElement ? pSheet.element : pSheet.element?.[0]);
-      pRootOf()?.querySelector('[data-tab="description"]')?.click();
+      await pSheet.changeTab("character", "primary");
       await wait(300);
-      if (!pRootOf()?.querySelector(".trait-grid")) {
-        pRootOf()?.querySelector('a[data-action="toggleTraits"]')?.click();
-        await wait(300);
-      }
-      out.npcTraitGlyphs = await glyphsOf(pRootOf(), pSheet._traitTableMapping());
+      const pStale = new Set(document.querySelectorAll(".cairn-trait-editor"));
+      pRootOf()?.querySelector('.trait-sentence [data-action="editTraits"]')?.click();
+      const pEditor = await waitFor(() => [...document.querySelectorAll(".cairn-trait-editor")].find((d) => !pStale.has(d)), 5000) || null;
+      out.npcTraitGlyphs = await glyphsOf(pEditor, pSheet._traitTableMapping());
+      await closeEditor(pEditor);
       await pSheet.close();
 
       // ---- 3c. A MONSTER's save dice stay LIVE under the mode -------------
@@ -768,9 +763,9 @@ try {
     !HF.hp.endsWith("Rolled at creation.") && !HF.gold.endsWith("Rolled at creation.")
       ? ok("mode Off: the sentence is gone")
       : fail(`mode-Off labels still carry it: hp="${HF.hp}", gold="${HF.gold}"`);
-    HN.traits === "CAIRN.TraitsRolledTip" && HF.traits === false
-      ? ok("the traits header hints only while On (a hireling's, the header's one home since round 4)")
-      : fail(`traits header: on="${HN.traits}", off-has-attr=${HF.traits}`);
+    HN.traits === "CAIRN.EditTraits" && HF.traits === false
+      ? ok("a hireling's trait pen shows only while On, with the character's tooltip")
+      : fail(`hireling trait pen: on tooltip="${HN.traits}", off present=${HF.traits}`);
 
     // Per-trait dice (2026-09-05): one per row, keyed, tooltip pre-formatted
     // with the row's own label (the rollAgeTitle idiom — text, not a bare key).
@@ -792,9 +787,9 @@ try {
     !PO.pen && PO.sentence
       ? ok("mode Off: a character's sentence stays and its pen (the way to the trait dice) goes")
       : fail(`mode-off pen: ${JSON.stringify(PO)}`);
-    TDO.dice === 0 && TDO.rows > 0
-      ? ok("mode Off: a hireling's rows stay, its trait dice vanish")
-      : fail(`mode-off trait dice: ${JSON.stringify(TDO)}`);
+    TDO.dice === 0 && TDO.rows === 0 && TDO.sentence
+      ? ok("mode Off: a hireling's sentence stays; no trait row or die anywhere on its sheet")
+      : fail(`mode-off hireling traits: ${JSON.stringify(TDO)}`);
 
     // THE DIE EACH ROW WEARS IS ITS TABLE'S (2026-10-03). Expected classes are
     // computed in-page off the resolved table through the same helper, so a
@@ -845,11 +840,9 @@ try {
     !tilt.length && GOn.length === 8
       ? ok("…and each die sits level with its select (the fa-solid-vs-fas alignment trap, measured)")
       : fail(`die not level with its select: ${JSON.stringify(tilt)}`);
-    const GOff = r.traitGeomOff ?? [];
-    const offBad = GOff.filter((g) => g.selLeft == null || g.selLeft - g.textRight > GAP);
-    GOff.length === 8 && !offBad.length && halves(GOff) === 2
-      ? ok(`mode Off (a hireling's grid): with no die, the select follows the label text within ${GAP}px on all 8 rows — the hole beside "Skin" is gone`)
-      : fail(`mode-off geometry: ${JSON.stringify(offBad.length ? offBad : GOff)} halves=${halves(GOff)}`);
+    // The die-less grid's geometry leg retired 2026-11-20: a hireling's grid
+    // was the last one drawn without dice, and it moved into the Traits
+    // window, which Creation Mode alone opens (always with dice).
 
     r.omenDieWorld === "PROBE OMEN — the sky is a lid"
       ? ok("the omen DIE reads a world table named Omens (world-first)")

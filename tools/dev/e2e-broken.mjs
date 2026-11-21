@@ -38,10 +38,24 @@
  *      forced Transmute asks nothing and binds nothing, and castFromGrimoire
  *      itself opens nothing and returns null.
  *
+ * Added 2026-11-20 (user ask: an icon on each inventory row that marks an
+ * item Broken, "to the left of the delete icon (trash can)"; the item sheet's
+ * box stays):
+ *  12. on a character, an npc and a container, every row that can be broken
+ *      carries the control DIRECTLY left of the trash, reading "Mark broken",
+ *      its icon game-icons' broken shield (the mask's url fetched); a Fatigue
+ *      row has none;
+ *  13. a press marks the item broken: the tag shows, the hand goes, an
+ *      equipped item is stripped, the control reads "Mark repaired" in the
+ *      peril colour (the Broken tag's), not the colour it had intact; a second
+ *      press repairs it, and it is not re-equipped;
+ *  14. a player OBSERVING the character, pressing the control (forced in if
+ *      it is not drawn), writes nothing.
+ *
  * Usage: npm run dev:broken
  */
 import { chromium } from "playwright";
-import { VIEWPORT, joinAsGM, watchErrors, dismissChrome, watchdog } from "./lib.mjs";
+import { VIEWPORT, joinAs, joinAsGM, watchErrors, dismissChrome, watchdog } from "./lib.mjs";
 
 const FIXTURE = "e2e-broken";
 let failed = false;
@@ -49,7 +63,7 @@ const ok = (m) => console.log(`  ok    ${m}`);
 const fail = (m) => { console.error(`  FAIL  ${m}`); failed = true; };
 
 const browser = await chromium.launch();
-watchdog(240000, "broken probe", async () => { try { await browser.close(); } catch { /* gone */ } });
+watchdog(300000, "broken probe", async () => { try { await browser.close(); } catch { /* gone */ } });
 const gm = await browser.newContext({ viewport: VIEWPORT }).then((c) => c.newPage());
 const errors = watchErrors(gm);
 
@@ -303,8 +317,128 @@ try {
         game.settings.get = origGet;
       }
     }
+
+    // 12-13. The row control, on a character, an npc and a container.
+    {
+      const want = { mark: L("CAIRN.ItemMarkBroken"), repair: L("CAIRN.ItemMarkRepaired") };
+      // The key itself back means the string is missing: never a pass.
+      out.rowWant = { ...want, missing: want.mark === "CAIRN.ItemMarkBroken" || want.repair === "CAIRN.ItemMarkRepaired" };
+      const loads = new Map();
+      const loadsOk = async (url) => {
+        if (!url) return false;
+        if (!loads.has(url)) loads.set(url, await fetch(url).then((res) => res.ok).catch(() => false));
+        return loads.get(url);
+      };
+      const ITEMS = [
+        { name: "ZZ Row Blade", type: "weapon", system: { damageFormula: "1d6", equipped: true } },
+        { name: "ZZ Row Rope", type: "item", system: {} },
+        { name: "Fatigue", type: "item", system: {} },
+      ];
+      const actors = {
+        character: await getDocumentClass("Actor").create({ name: "ZZ Row PC", type: "character", flags, items: ITEMS }, { abNoStatusCard: true }),
+        npc: await getDocumentClass("Actor").create({ name: "ZZ Row NPC", type: "npc", system: { role: "npc" }, flags, items: ITEMS }, { abNoStatusCard: true }),
+        container: await getDocumentClass("Actor").create({ name: "ZZ Row Chest", type: "npc", system: { role: "container" }, flags,
+          items: ITEMS.filter((i) => i.name !== "Fatigue") }, { abNoStatusCard: true }),
+      };
+      out.rows = {};
+      for (const [kind, a] of Object.entries(actors)) {
+        const s = a.sheet;
+        await s.render(true);
+        await until(() => s.element?.querySelector?.(".cairn-items-list-row"));
+        await s.changeTab("items", "primary");
+        await sleep(400);
+        const it = (n) => a.items.find((i) => i.name === n);
+        const rowOf = (n) => s.element.querySelector(`.cairn-items-list-row[data-item-id="${it(n)?.id}"]`);
+        const ctl = (n) => rowOf(n)?.querySelector('[data-action="itemToggleBroken"]');
+        const read = async (n) => {
+          const c = ctl(n);
+          const icon = c?.querySelector(".broken-icon");
+          const cs = icon ? getComputedStyle(icon) : null;
+          const mask = cs?.maskImage || cs?.webkitMaskImage || "";
+          const url = /url\("?([^")]+)"?\)/.exec(mask)?.[1] ?? null;
+          const tag = rowOf(n)?.querySelector(".cairn-item-tag.tag-broken");
+          return {
+            present: !!c,
+            leftOfTrash: !!c && c.nextElementSibling?.dataset.action === "itemDelete",
+            title: c?.getAttribute("title") ?? null,
+            pressed: c?.getAttribute("aria-pressed") ?? null,
+            icon: /game-icons\/shields\/([a-z-]+)\.svg/.exec(url ?? "")?.[1] ?? null,
+            loads: await loadsOk(url),
+            color: cs?.backgroundColor ?? null,
+            tag: !!tag,
+            tagColor: tag ? getComputedStyle(tag).color : null,
+            hand: !!rowOf(n)?.querySelector('[data-action="itemToggleEquipped"]'),
+          };
+        };
+        const res = { blade: await read("ZZ Row Blade"), rope: await read("ZZ Row Rope"),
+          fatigue: it("Fatigue") ? (await read("Fatigue")).present : null };
+        // 13: press, then press again (the character's blade, equipped).
+        if (kind === "character" || kind === "npc") {
+          const wasEquipped = it("ZZ Row Blade")?.system.equipped ?? null;
+          ctl("ZZ Row Blade")?.click();
+          await until(() => it("ZZ Row Blade")?._source.system.broken === true, 3000);
+          await until(() => ctl("ZZ Row Blade")?.getAttribute("aria-pressed") === "true", 3000);
+          await sleep(300);
+          res.pressed = { broken: it("ZZ Row Blade")?._source.system.broken ?? null,
+            equipped: it("ZZ Row Blade")?._source.system.equipped ?? null, wasEquipped, ...(await read("ZZ Row Blade")) };
+          ctl("ZZ Row Blade")?.click();
+          await until(() => it("ZZ Row Blade")?._source.system.broken === false, 3000);
+          await until(() => ctl("ZZ Row Blade")?.getAttribute("aria-pressed") === "false", 3000);
+          await sleep(300);
+          res.repaired = { broken: it("ZZ Row Blade")?._source.system.broken ?? null,
+            equipped: it("ZZ Row Blade")?._source.system.equipped ?? null, ...(await read("ZZ Row Blade")) };
+        }
+        out.rows[kind] = res;
+        await s.close();
+      }
+      // 14 runs in Alice's own page: hand her the character as an OBSERVER.
+      const alice = game.users.getName("Alice");
+      out.aliceId = alice?.id ?? null;
+      if (alice) {
+        await actors.character.update({ ownership: { default: 0, [alice.id]: CONST.DOCUMENT_OWNERSHIP_LEVELS.OBSERVER } });
+        out.observedId = actors.character.id;
+        out.observedItem = actors.character.items.find((i) => i.name === "ZZ Row Rope")?.id ?? null;
+      }
+    }
     return out;
   }, FIXTURE);
+
+  // 14. An observer's press (forced in if the control is not drawn) writes nothing.
+  if (r?.aliceId && r.observedId) {
+    const alice = await browser.newContext({ viewport: VIEWPORT }).then((c) => c.newPage());
+    try {
+      await joinAs(alice, "Alice");
+      r.observer = await alice.evaluate(async ({ actorId, itemId }) => {
+        const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
+        const a = game.actors.get(actorId);
+        if (!a) return { error: "Alice cannot see the character" };
+        const s = a.sheet;
+        await s.render(true);
+        for (let i = 0; i < 40 && !s.element?.querySelector?.(".cairn-items-list-row"); i++) await sleep(150);
+        await s.changeTab("items", "primary");
+        await sleep(400);
+        const row = s.element.querySelector(`.cairn-items-list-row[data-item-id="${itemId}"]`);
+        let c = row?.querySelector('[data-action="itemToggleBroken"]');
+        const drawn = !!c;
+        if (!c && row) {
+          c = document.createElement("a");
+          c.dataset.action = "itemToggleBroken";
+          (row.querySelector(".cairn-item-controls") ?? row).append(c);
+        }
+        c?.click();
+        await sleep(1500);
+        const res = { editable: s.isEditable, drawn, row: !!row };
+        await s.close();
+        return res;
+      }, { actorId: r.observedId, itemId: r.observedItem });
+      r.observer.broken = await gm.evaluate(({ actorId, itemId }) =>
+        game.actors.get(actorId)?.items.get(itemId)?._source.system.broken ?? null, { actorId: r.observedId, itemId: r.observedItem });
+    } catch (e) {
+      r.observer = { error: e.message };
+    } finally {
+      await alice.context().close();
+    }
+  }
 } catch (e) {
   fail(`probe threw: ${e.stack ?? e.message}`);
 } finally {
@@ -365,6 +499,40 @@ else {
   bc.result === null && bc.opened === false
     ? ok("castFromGrimoire on a broken Grimoire opens nothing and returns null")
     : fail(`broken Grimoire cast: ${JSON.stringify(bc)}`);
+  // 12
+  const rw = r.rowWant ?? {};
+  if (rw.missing) fail(`the row control's strings are missing: ${JSON.stringify(rw)}`);
+  const intact = (x) => !!x && x.present && x.leftOfTrash && x.title === rw.mark && x.pressed === "false"
+    && x.icon === "broken-shield" && x.loads && !x.tag;
+  for (const kind of ["character", "npc", "container"]) {
+    const k = r.rows?.[kind] ?? {};
+    intact(k.blade) && intact(k.rope)
+      ? ok(`${kind}: every row carries "${rw.mark}" directly left of the trash, game-icons' broken shield`)
+      : fail(`${kind} row control: ${JSON.stringify({ blade: k.blade, rope: k.rope, want: rw.mark })}`);
+    if (kind !== "container") {
+      k.fatigue === false
+        ? ok(`${kind}: a Fatigue row has no Broken control`)
+        : fail(`${kind} Fatigue row control: ${JSON.stringify(k.fatigue)}`);
+      // 13
+      const pr = k.pressed ?? {}, rp = k.repaired ?? {};
+      pr.wasEquipped === true && pr.broken === true && pr.equipped === false && pr.tag && !pr.hand
+        && pr.title === rw.repair && pr.pressed === "true" && pr.color === pr.tagColor && pr.color !== k.blade?.color
+        ? ok(`${kind}: a press marks it broken (tag shown, hand gone, unequipped); the control reads "${rw.repair}" in the peril colour ${pr.color}`)
+        : fail(`${kind} pressed: ${JSON.stringify({ pressed: pr, intactColor: k.blade?.color, want: rw.repair })}`);
+      rp.broken === false && rp.equipped === false && !rp.tag && rp.hand && rp.title === rw.mark && rp.pressed === "false"
+        && rp.color === k.blade?.color
+        ? ok(`${kind}: a second press repairs it, back to "${rw.mark}", not re-equipped`)
+        : fail(`${kind} repaired: ${JSON.stringify(rp)}`);
+    }
+  }
+  // 14
+  if (!r.aliceId) fail('no user named "Alice" — run `npm run dev:players` first; the observer leg did not run');
+  else {
+    const o = r.observer ?? {};
+    !o.error && o.row && o.editable === false && o.broken === false
+      ? ok(`an observing player's press writes nothing (control ${o.drawn ? "drawn" : "forced in"})`)
+      : fail(`observer press: ${JSON.stringify(o)}`);
+  }
 }
 errors.length === 0 ? ok("no console errors") : fail(`console errors: ${errors.join(" | ")}`);
 

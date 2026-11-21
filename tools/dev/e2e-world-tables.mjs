@@ -302,23 +302,19 @@ try {
     const read = async (actor, keys) => {
       const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
       const sheet = actor.sheet;
-      sheet._traitsCollapsed = false;        // the pick-lists render only expanded
       await sheet.render(true);
       // A character's pick-lists are in the Traits window since round 4
       // (2026-11-19), opened by the pen at the end of its trait sentence (with
-      // no traits yet, the pen beside the word "Traits"); the npc sheet keeps
-      // them in its own form.
+      // no traits yet, the pen beside the word "Traits"); a person npc's too
+      // since 2026-11-20 (its page 1 is the character's).
       let root = null;
       let editor = null;
-      if (actor.type === "character") {
+      {
         for (let i = 0; i < 60 && !sheet.element?.querySelector('[data-action="editTraits"]'); i++) await sleep(100);
         const stale = new Set(document.querySelectorAll(".cairn-trait-editor"));
         sheet.element?.querySelector('[data-action="editTraits"]')?.click();
         for (let i = 0; i < 60 && !(editor = [...document.querySelectorAll(".cairn-trait-editor")].find((d) => !stale.has(d))); i++) await sleep(100);
         root = editor;
-      } else {
-        for (let i = 0; i < 60 && !sheet.element?.querySelector("select.trait-input"); i++) await sleep(100);
-        root = sheet.element;
       }
       const out = {};
       for (const k of keys) {
@@ -338,7 +334,7 @@ try {
     });
     const pcRows = await read(pc, Object.keys(CONFIG.Cairn.characterGenerator2e.biography.items));
     const npc = await CONFIG.Actor.documentClass.create({
-      name: "PROBE world-tables npc traits", type: "npc", system: { role: "npc" }, flags: { "air-bladder": { [FLAG]: true } },
+      name: "PROBE world-tables npc traits", type: "npc", system: { role: "npc", generationEnabled: true }, flags: { "air-bladder": { [FLAG]: true } },
     });
     const npcRows = await read(npc, Object.keys(CONFIG.Cairn.npcGenerator.traits));
     await pc.delete();

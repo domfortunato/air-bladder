@@ -111,6 +111,22 @@
  *      carry a slung Shield and an unlit Torch: on npc, hireling, monster
  *      and companion both controls are live with no "none" tooltip and a
  *      press on Hold shield holds it; a thing still draws neither.
+ *  24. (user asks 2026-11-20: NPC and Hireling sheets "look and act like the
+ *      PC sheets as MUCH AS POSSIBLE", Pronouns and Age "placed exactly the
+ *      same as a PC") a person npc and a hireling, beside a PC on the same
+ *      480px frame: Pronouns and Age under the name, label and input at the
+ *      PC's left edges; page 1's left column opens with the run-in "Traits"
+ *      sentence; CharGen off no pen, on the pen opens the Traits window with
+ *      the npc's ten selects (a hireling's eight), a die each; Description
+ *      keeps the Scars and the prose and none of the rest; the Traits and
+ *      Pronouns labels wear the PC's face and colour, light and dark. A
+ *      monster and a companion are unchanged. (Replaces leg 14's hireling
+ *      half, which held the pick-lists open on Description.)
+ *  25. (same day: the Armor box "a ROUND outline matching the ability
+ *      circles") on a PC, an npc, a hireling, a monster and a companion the
+ *      Armor box is 48 x 48 with the STR circle's border (width, style,
+ *      colour, 50% radius), labelled Armor, a badge either side; light and
+ *      dark.
  *
  * Red-first: run against the commit before the redesign, every leg but 8 and
  * 10 fails (no rail, no growth page, no growth field).
@@ -120,7 +136,7 @@ import { VIEWPORT, dismissChrome, joinAs, joinAsGM, watchErrors, watchdog } from
 
 const FIXTURE = "sheet-rail";
 const browser = await chromium.launch();
-watchdog(420000, "sheet-rail probe", async () => { try { await browser.close(); } catch { /* gone */ } });
+watchdog(480000, "sheet-rail probe", async () => { try { await browser.close(); } catch { /* gone */ } });
 const gm = await browser.newContext({ viewport: VIEWPORT }).then((c) => c.newPage());
 const errors = watchErrors(gm);
 let failed = false;
@@ -1281,6 +1297,151 @@ try {
     return out;
   }, FIXTURE);
 
+  /* ---- 24-25. a person npc's page 1 is the PC's; the Armor row --------- */
+  // (user asks 2026-11-20: "make the NPC and Hireling sheets look and act like
+  // the PC sheets as MUCH AS POSSIBLE", Pronouns and Age "placed exactly the
+  // same as a PC"; the Armor box "a ROUND outline matching the ability
+  // circles".) Both colour schemes through core's configureUI, nothing
+  // written, each sheet re-rendered after a switch.
+  r.page1 = await gm.evaluate(async (fixture) => {
+    const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
+    const until = async (fn, ms = 5000) => {
+      const t = Date.now();
+      while (!fn() && Date.now() - t < ms) await sleep(100);
+      return fn();
+    };
+    const L = (k) => game.i18n.localize(k);
+    const flags = { "air-bladder": { probeFixture: fixture } };
+    const out = { want: { traits: L("CAIRN.Traits"), armor: L("CAIRN.Armor") } };
+    const mk = (name, type, system) => getDocumentClass("Actor").create({ name, type, system, flags }, { abNoStatusCard: true });
+    const open = async (a) => {
+      const s = a.sheet;
+      await s.render(true);
+      await until(() => s.element?.querySelector?.(".tab.active .cairn-left, .tab.active .cairn-head"));
+      await s.changeTab("character", "primary");
+      await sleep(400);
+      return s;
+    };
+    const rerender = async (s) => {
+      const was = s.element.querySelector(".tab[data-tab='character']");
+      await s.render();
+      await until(() => { const n = s.element?.querySelector(".tab[data-tab='character']"); return !!n && n !== was; }, 5000);
+      await sleep(300);
+    };
+    const STYLE = ["fontFamily", "fontSize", "fontWeight", "fontVariantCaps", "color"];
+    const styleOf = (n) => { const cs = n ? getComputedStyle(n) : null; return Object.fromEntries(STYLE.map((k) => [k, cs?.[k] ?? null])); };
+    // Page 1's head and sentence, measured against the sheet's own frame.
+    const head = (s) => {
+      const e = s.element;
+      const fl = e.getBoundingClientRect().left;
+      const p1 = e.querySelector(".tab[data-tab='character']");
+      const identity = p1?.querySelector(".cairn-head .cairn-identity");
+      const bio = identity?.querySelector(":scope > .identity-bio-line");
+      const at = (sel) => { const n = bio?.querySelector(sel); return n ? Math.round(n.getBoundingClientRect().left - fl) : null; };
+      const left = p1?.querySelector(".cairn-left");
+      const sent = left?.firstElementChild?.matches(".trait-sentence") ? left.firstElementChild : null;
+      const c = sent?.cloneNode(true);
+      c?.querySelectorAll(".traits-label, .trait-edit").forEach((n) => n.remove());
+      return {
+        order: [...(identity?.children ?? [])].slice(0, 2).map((n) => n.className.split(" ")[0]),
+        pronouns: !!bio?.querySelector('.pronouns-row input[name="system.pronouns"]'),
+        age: !!bio?.querySelector('.age-row input[name="system.age"]'),
+        geo: { pLabel: at(".pronouns-row label"), pInput: at(".pronouns-row input"), aLabel: at(".age-row label"), aInput: at(".age-row input") },
+        pLabelStyle: styleOf(bio?.querySelector(".pronouns-row label")),
+        sentence: c?.textContent.trim() ?? null,
+        label: sent?.querySelector(":scope > .traits-label")?.textContent.trim() ?? null,
+        labelStyle: styleOf(sent?.querySelector(":scope > .traits-label")),
+        pen: !!sent?.querySelector(".trait-edit[data-action='editTraits']"),
+      };
+    };
+    const descPage = (s) => {
+      const d = s.element.querySelector(".tab[data-tab='description']");
+      return {
+        present: !!d,
+        pronouns: !!d?.querySelector('input[name="system.pronouns"]'),
+        age: !!d?.querySelector('input[name="system.age"]'),
+        sentence: !!d?.querySelector(".trait-sentence"),
+        picklists: !!d?.querySelector(".trait-picklist-section, select[name^='system.traits.']"),
+        scars: !!d?.querySelector(".scar-section"),
+        prose: !!d?.querySelector('prose-mirror[name="system.description"]'),
+      };
+    };
+    // The Armor box against the same sheet's STR circle.
+    const BORDER = ["borderTopWidth", "borderTopStyle", "borderTopColor", "borderTopLeftRadius", "borderBottomRightRadius"];
+    const armor = (s) => {
+      const p1 = s.element.querySelector(".tab[data-tab='character']");
+      const box = p1?.querySelector(".cairn-shield");
+      const circle = p1?.querySelector(".cairn-ability.STR-ability .cairn-ability-circle");
+      const b = box?.getBoundingClientRect();
+      const bs = box ? getComputedStyle(box) : null, cs = circle ? getComputedStyle(circle) : null;
+      return {
+        size: b ? [Math.round(b.width), Math.round(b.height)] : null,
+        border: Object.fromEntries(BORDER.map((k) => [k, bs?.[k] ?? null])),
+        circle: Object.fromEntries(BORDER.map((k) => [k, cs?.[k] ?? null])),
+        label: box?.querySelector("label")?.textContent.trim() ?? null,
+        value: !!box?.querySelector(".armor-input"),
+        shieldBadge: !!p1?.querySelector(".shield-hold .shield-icon"),
+        lightBadge: !!p1?.querySelector(".light-hold .light-icon"),
+      };
+    };
+    const schemes = async (sheets, fn) => {
+      const res = {};
+      try {
+        for (const scheme of ["light", "dark"]) {
+          const cfg = foundry.utils.deepClone(game.settings.get("core", "uiConfig"));
+          cfg.colorScheme = { applications: scheme, interface: scheme };
+          game.configureUI(cfg);
+          for (const s of sheets) await rerender(s);
+          res[scheme] = fn();
+        }
+      } finally {
+        game.configureUI(game.settings.get("core", "uiConfig"));
+        for (const s of sheets) await rerender(s);
+      }
+      return res;
+    };
+
+    const traits = { physique: "Athletic", skin: "Birthmark" };
+    const pc = await mk("ZZ Rail Page1 PC", "character", { traits, age: "30", pronouns: "they", generationEnabled: false });
+    const npc = await mk("ZZ Rail Page1 NPC", "npc", { role: "npc", traits, age: "40", pronouns: "she", generationEnabled: false });
+    const hire = await mk("ZZ Rail Page1 Hire", "npc", { role: "hireling", traits, age: "22", pronouns: "he", generationEnabled: false });
+    const mon = await mk("ZZ Rail Page1 Monster", "npc", { role: "monster", generationEnabled: false });
+    const comp = await mk("ZZ Rail Page1 Companion", "npc", { role: "companion", generationEnabled: false });
+    const ps = await open(pc);
+    out.pc = { off: head(ps), armor: armor(ps) };
+    for (const [key, a, selects] of [["npc", npc, 10], ["hireling", hire, 8]]) {
+      const s = await open(a);
+      const res = { wantSelects: selects, off: head(s), desc: descPage(s), armor: armor(s) };
+      // Colours and faces in both schemes, the PC's open beside it.
+      res.styles = await schemes([ps, s], () => ({ pc: head(ps), npc: head(s), pcArmor: armor(ps), npcArmor: armor(s) }));
+      // CharGen on: the pen, and the Traits window with every trait's select.
+      await a.update({ "system.generationEnabled": true }, { abNoStatusCard: true });
+      await until(() => s.element?.querySelector(".tab[data-tab='character'] .trait-edit"), 4000);
+      await sleep(300);
+      res.on = head(s);
+      const stale = new Set(document.querySelectorAll(".application"));
+      s.element.querySelector(".tab[data-tab='character'] .trait-edit")?.click();
+      let d = null;
+      await until(() => (d = [...document.querySelectorAll(".application.cairn-trait-editor")].find((x) => !stale.has(x))), 5000);
+      await sleep(300);
+      res.editor = { open: !!d, selects: d?.querySelectorAll('select[name^="system.traits."]').length ?? 0,
+        dice: d?.querySelectorAll('a.trait-roll[data-action="rollTrait"]').length ?? 0 };
+      d?.querySelector('header [data-action="close"]')?.click();
+      await until(() => !d?.isConnected, 4000);
+      await sleep(200);
+      out[key] = res;
+      await s.close();
+    }
+    for (const [key, a] of [["monster", mon], ["companion", comp]]) {
+      const s = await open(a);
+      const h = head(s);
+      out[key] = { bio: !!s.element.querySelector(".identity-bio-line"), sentence: h.sentence !== null || !!h.label, armor: armor(s) };
+      await s.close();
+    }
+    await ps.close();
+    return out;
+  }, FIXTURE);
+
   /* ---- 9-10. a player's view ------------------------------------------- */
   if (r?.aliceId) {
     const alice = await browser.newContext({ viewport: VIEWPORT }).then((c) => c.newPage());
@@ -1439,9 +1600,59 @@ else {
     && bio.pronounsInput && bio.ageInput
     ? ok("Pronouns and Age stand under the name; Gold stands alone in the band")
     : fail(`page-1 head/band: ${JSON.stringify(bio)}`);
-  r.npc.traitSelects > 0 && r.npc.pronouns
-    ? ok("a hireling's trait pick-lists are open too, its pronouns on its own sheet")
-    : fail(`hireling traits/pronouns: ${JSON.stringify(r.npc)}`);
+  // Leg 14's hireling half moved to leg 24 (2026-11-20): its Pronouns and Age
+  // stand under the name and its pick-lists are in the Traits window.
+
+  // 24: a person npc's page 1 is the PC's.
+  {
+    const P = r.page1 ?? {};
+    const pcOff = P.pc?.off ?? {};
+    pcOff.order?.[1] === "identity-bio-line" && pcOff.sentence
+      ? ok(`the PC's page 1 (reference): Pronouns and Age under the name, the sentence "${pcOff.sentence}"`)
+      : fail(`PC page 1 reference: ${JSON.stringify(pcOff)}`);
+    for (const key of ["npc", "hireling"]) {
+      const x = P[key] ?? {};
+      const o = x.off ?? {};
+      JSON.stringify(o.order) === JSON.stringify(["name-line", "identity-bio-line"]) && o.pronouns && o.age
+        && JSON.stringify(o.geo) === JSON.stringify(pcOff.geo)
+        ? ok(`${key}: Pronouns and Age stand under the name, at the PC's geometry ${JSON.stringify(o.geo)}`)
+        : fail(`${key} head: ${JSON.stringify({ order: o.order, pronouns: o.pronouns, age: o.age, geo: o.geo, pcGeo: pcOff.geo })}`);
+      o.label === P.want?.traits && !!o.sentence && !o.pen
+        ? ok(`${key}: page 1's left column opens with "${o.label} ${o.sentence}"; CharGen off, no pen`)
+        : fail(`${key} sentence, CharGen off: ${JSON.stringify(o)}`);
+      const on = x.on ?? {}, ed = x.editor ?? {};
+      on.pen && on.label === P.want?.traits && ed.open && ed.selects === x.wantSelects && ed.dice === x.wantSelects
+        ? ok(`${key}: CharGen on, the pen opens the Traits window with its ${ed.selects} selects and dice`)
+        : fail(`${key} pen / Traits window: ${JSON.stringify({ on, editor: ed, want: x.wantSelects })}`);
+      const d = x.desc ?? {};
+      d.present && !d.pronouns && !d.age && !d.sentence && !d.picklists && d.scars && d.prose
+        ? ok(`${key}: Description keeps the Scars and the prose, and no Pronouns, Age, sentence or pick-lists`)
+        : fail(`${key} Description page: ${JSON.stringify(d)}`);
+      const st = x.styles ?? {};
+      ["light", "dark"].every((s) => st[s] && JSON.stringify(st[s].npc.labelStyle) === JSON.stringify(st[s].pc.labelStyle)
+        && JSON.stringify(st[s].npc.pLabelStyle) === JSON.stringify(st[s].pc.pLabelStyle) && !!st[s].pc.labelStyle?.color)
+        ? ok(`${key}: the Traits and Pronouns labels wear the PC's face and colour in light and dark`)
+        : fail(`${key} label styles: ${JSON.stringify(st)}`);
+    }
+    for (const key of ["monster", "companion"]) {
+      const x = P[key] ?? {};
+      !x.bio && !x.sentence
+        ? ok(`${key}: unchanged, no Pronouns/Age line and no trait sentence`)
+        : fail(`${key} page 1: ${JSON.stringify(x)}`);
+    }
+
+    // 25: the Armor box is round, the ability circle's size and border.
+    const round = (a) => !!a && JSON.stringify(a.size) === "[48,48]" && JSON.stringify(a.border) === JSON.stringify(a.circle)
+      && a.border.borderTopLeftRadius === "50%" && a.label === P.want?.armor && a.value && a.shieldBadge && a.lightBadge;
+    const sheets = { character: P.pc?.armor, npc: P.npc?.armor, hireling: P.hireling?.armor, monster: P.monster?.armor, companion: P.companion?.armor };
+    Object.values(sheets).every(round)
+      ? ok(`the Armor box is a 48 x 48 circle with the ability circles' border, labelled "${P.want?.armor}", between two badges, on every creature`)
+      : fail(`Armor box: ${JSON.stringify(Object.fromEntries(Object.entries(sheets).filter(([, a]) => !round(a))))}`);
+    const st = P.npc?.styles ?? {};
+    ["light", "dark"].every((s) => round(st[s]?.pcArmor) && round(st[s]?.npcArmor))
+      ? ok(`the round Armor box holds in light (${st.light?.pcArmor?.border?.borderTopColor}) and dark (${st.dark?.pcArmor?.border?.borderTopColor})`)
+      : fail(`Armor box by scheme: ${JSON.stringify(st && { light: [st.light?.pcArmor, st.light?.npcArmor], dark: [st.dark?.pcArmor, st.dark?.npcArmor] })}`);
+  }
 
   // 15
   const R = r.r4 ?? {};

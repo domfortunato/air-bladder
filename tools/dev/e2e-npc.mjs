@@ -391,7 +391,10 @@ try {
     // fields, dispatch ONE change — submitOnChange serialises the whole form.
     await actor.sheet.render(true);
     await settle(800);
-    const roundTrip = { hasBlock: !!el8()?.querySelector(".character-traits") };
+    // Since 2026-11-20 a person's page 1 is the character's: Pronouns and Age
+    // under the name (.identity-bio-line), the trait selects in the Traits
+    // window, and Description keeps the Scars.
+    const roundTrip = { hasBlock: !!el8()?.querySelector(".identity-bio-line") && !!el8()?.querySelector(".tab[data-tab='description'] .scar-section") };
     const pIn = el8()?.querySelector('input[name="system.pronouns"]');
     const aIn = el8()?.querySelector('input[name="system.age"]');
     if (pIn && aIn) {
@@ -403,13 +406,18 @@ try {
     roundTrip.pronouns = actor.system.pronouns === "ze/zir";
     roundTrip.age = actor.system.age === "44";
 
-    // The pick-lists open by default since 2026-11-19 (transient sheet state);
-    // click the toggle only if they are shut, or the click would CLOSE them.
-    if (!el8()?.querySelector('select[name^="system.traits."]')) {
-      el8()?.querySelector(".trait-toggle")?.click();
-      await settle(900);
-    }
-    const sels = [...(el8()?.querySelectorAll('select[name^="system.traits."]') ?? [])];
+    // The trait selects are the Traits window's since 2026-11-20 (as a
+    // character's): Creation Mode on, the pen on page 1's sentence, pick the
+    // last option in each, Save.
+    const genWas = actor.system.generationEnabled;
+    if (!genWas) { await actor.update({ "system.generationEnabled": true }); await settle(900); }
+    await actor.sheet.changeTab("character", "primary");
+    await settle(300);
+    const edStale = new Set(document.querySelectorAll(".cairn-trait-editor"));
+    el8()?.querySelector('.trait-sentence [data-action="editTraits"]')?.click();
+    let ed = null;
+    for (let i = 0; i < 50 && !(ed = [...document.querySelectorAll(".cairn-trait-editor")].find((d) => !edStale.has(d))); i++) await settle(100);
+    const sels = [...(ed?.querySelectorAll('select[name^="system.traits."]') ?? [])];
     roundTrip.traitSelects = sels.length;
     const picked = {};
     for (const s of sels) {
@@ -417,10 +425,11 @@ try {
       s.value = opt.value;
       picked[s.name.split(".").pop()] = opt.value;
     }
-    sels.at(-1)?.dispatchEvent(new Event("change", { bubbles: true }));
+    ed?.querySelector('footer button[data-action="save"]')?.click();
     await settle(1300);
     roundTrip.traits = sels.length === 8
       && Object.entries(picked).every(([k, v]) => actor.system.traits?.[k] === v);
+    if (!genWas) { await actor.update({ "system.generationEnabled": false }); await settle(600); }
 
     // Scars: the enable box reveals the checklist, the first check stores one.
     el8()?.querySelector(".scar-enable")?.click();
@@ -440,8 +449,7 @@ try {
     roundTrip.survivesRender =
       el8()?.querySelector('input[name="system.pronouns"]')?.value === "ze/zir"
       && el8()?.querySelector('input[name="system.age"]')?.value === "44"
-      && !!el8()?.querySelector(".scar-check:checked")
-      && el8()?.querySelector('select[name="system.traits.physique"]')?.value === actor.system.traits.physique;
+      && !!el8()?.querySelector(".scar-check:checked");
 
     // FAIL-WITNESS (schema): the exact failure mode the declarations prevent —
     // an undeclared key on the same write is dropped silently, the declared one
@@ -489,7 +497,7 @@ try {
       await settle(700);
       const xe = x.sheet.element instanceof HTMLElement ? x.sheet.element : x.sheet.element?.[0];
       gate[label] = {
-        traits: !!xe?.querySelector(".character-traits"),
+        traits: !!xe?.querySelector(".identity-bio-line, .trait-sentence, .character-traits"),
         scars: !!xe?.querySelector(".scar-section"),
         pronouns: !!xe?.querySelector('input[name="system.pronouns"]'),
       };
@@ -518,7 +526,7 @@ try {
     await settle(700);
     const gcEl = gateControlActor.sheet.element instanceof HTMLElement
       ? gateControlActor.sheet.element : gateControlActor.sheet.element?.[0];
-    gate.control = !!gcEl?.querySelector(".character-traits");
+    gate.control = !!gcEl?.querySelector(".identity-bio-line");
     await gateControlActor.sheet.close();
     await gateControlActor.delete();
     sheetProto._prepareContext = origPrepCtx;
@@ -661,7 +669,7 @@ try {
       : fail(`a bare npc arrived with biography values: ${JSON.stringify(r.bioGen.bare)}`);
 
     console.log("\n  the biography round-trips through the sheet");
-    r.roundTrip.hasBlock ? ok("the bio block renders on a role-npc sheet") : fail("no .character-traits block on the person's Description tab");
+    r.roundTrip.hasBlock ? ok("the bio block renders on a role-npc sheet") : fail("no Pronouns/Age line on page 1, or no Scars on Description");
     r.roundTrip.pronouns ? ok("pronouns: form write → document") : fail("pronouns did not round-trip");
     r.roundTrip.age ? ok("age: form write → document") : fail("age did not round-trip");
     r.roundTrip.traits ? ok("all eight trait selects: form write → document") : fail(`traits did not round-trip (${r.roundTrip.traitSelects} selects found)`);
