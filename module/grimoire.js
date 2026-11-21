@@ -23,6 +23,23 @@ import { t, speakerDisplayName } from "./i18n-content.js";
 import { cleanDescription, concealSecrets, formatCount } from "./utils.js";
 import { SETTINGS_NS } from "./settings.js";
 import { grimoiresEnabled } from "./glog.js";
+import { castRefusal } from "./gear.js";
+
+/**
+ * Both hands (2026-11-21, user ruling, gear.js `castRefusal`): the book,
+ * scroll or Grimoire must be equipped, and no shield or light. Warns and
+ * answers true when the cast is refused. Every cast asks it after its own
+ * refusals, and again once its dice window is answered: the window isn't
+ * modal, so the book may have been put away meanwhile.
+ * @param {Actor} actor
+ * @param {Item} item
+ * @returns {Boolean}
+ */
+const refusedForHands = (actor, item) => {
+  const why = castRefusal(actor, item);
+  if (why) ui.notifications.warn(why.key, why.format ? { format: why.format } : undefined);
+  return !!why;
+};
 
 /** The shipped Mishaps table's stored English name (tables-glog). "GLoG"
  *  since 2026-11-20; a world copy still called "GLOG Magic: Mishaps" is found
@@ -438,6 +455,7 @@ export const castFromGrimoire = async (actor, { windowId } = {}) => {
     ui.notifications.warn("CAIRN.Notify.GrimoireNoDice", { format: { name: actor.name } });
     return null;
   }
+  if (refusedForHands(actor, book)) return null;
 
   const L = (k) => game.i18n.localize(k);
   // Display names through the overlay; the VALUE stays the item id.
@@ -487,6 +505,8 @@ export const castFromGrimoire = async (actor, { windowId } = {}) => {
   if (!picked) return null;
   const page = actor.items.get(picked.pageId);
   if (!page) return null;
+  const bookNow = actor.items.get(book.id);
+  if (!bookNow || refusedForHands(actor, bookNow)) return null;
 
   return reportCast(actor, page, picked.dice);
 };
@@ -522,6 +542,7 @@ export const castScroll = async (actor, scroll, { windowId } = {}) => {
     ui.notifications.warn("CAIRN.Notify.GrimoireNoDice", { format: { name: actor.name } });
     return null;
   }
+  if (refusedForHands(actor, scroll)) return null;
 
   const picked = await askMagicDice(scroll, maxDice, windowId);
   if (!picked) return null;
@@ -535,6 +556,7 @@ export const castScroll = async (actor, scroll, { windowId } = {}) => {
     ui.notifications.warn(game.i18n.localize("CAIRN.Notify.ScrollSpent"));
     return null;
   }
+  if (refusedForHands(actor, actor.items.get(scroll.id))) return null;
   if (scrollCastInFlight.has(scroll.uuid)) return null;
   scrollCastInFlight.add(scroll.uuid);
   try {
@@ -612,9 +634,11 @@ export const castSpellbook = async (actor, book, { windowId } = {}) => {
     ui.notifications.warn("CAIRN.Notify.GrimoireNoDice", { format: { name: actor.name } });
     return null;
   }
+  if (refusedForHands(actor, book)) return null;
   const picked = await askMagicDice(book, maxDice, windowId);
   if (!picked) return null;
   if (!actor.items.get(book.id)) return null;
+  if (refusedForHands(actor, actor.items.get(book.id))) return null;
   return reportCast(actor, book, picked);
 };
 

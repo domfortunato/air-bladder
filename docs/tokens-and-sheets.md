@@ -76,18 +76,19 @@ Under the Armor box on the first page of a character's or creature's sheet are
 three badges: **Equip shield**, **Equip light** and **Equip Spell**. Press
 one to equip that thing, and press it again to put it away. It does the same as
 the hand on that item's row in the inventory. While something's equipped, its
-badge glows, the switch under the label turns on, and the label changes to
-**Shield equipped**, **Light equipped** or **Spellbook equipped**. If you don't
-carry one, the badge is greyed out and reads **No Shield**, **No Light** or
-**No Spellbook**.
+badge glows and the label changes to **Shield equipped**, **Light equipped** or
+**Spell equipped**. If you don't carry one, the badge is greyed out and reads
+**No Shield**, **No Light** or **No Spell**.
 
 - **Shield.** A shield only adds to Armor while it's equipped.
 - **Light.** The badge shows the light you're carrying, a torch or a lantern,
   and how far it reaches once it's lit. Only one light is equipped at a time,
   and with several it asks which.
-- **Spellbook.** This covers a spellbook, a scroll and the Grimoire, one at a
-  time. The label says which you've got: **Equip scroll**, **Grimoire
-  equipped** and so on. With several, it asks which.
+- **Spell.** This covers a spellbook, a scroll and the Grimoire, one at a
+  time, and its tooltip names the one that's equipped. With several, it asks
+  which. You have to equip it to cast from it, and it takes both hands:
+  equipping it puts away your shield and light, and equipping either of those
+  puts it away.
 
 **Lighting a light uses it up.** Equipping a Torch marks off one of its uses,
 and with none left you can't light it. A Lantern burns one use of an **Oil Can**

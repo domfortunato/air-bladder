@@ -1155,6 +1155,10 @@
    a shield and a light, greyed; its tooltip says why. */
 .cairn-item-controls a.roll-control.roll-blocked { opacity: 0.4; cursor: default; }
 .cairn-item-controls a.roll-control.roll-blocked:hover { text-shadow: none; }
+/* A Cast that both hands would refuse (2026-11-21): greyed the same way, but
+   still pressable, so a click says why in full. */
+.cairn-item-controls a.item-control.cast-blocked { opacity: 0.4; }
+.cairn-item-controls a.item-control.cast-blocked:hover { text-shadow: none; }
 
 /* BOTH SPELLINGS, because `fas` and `fa-solid` render the same glyph and a rule
    keyed to one of them silently misses the other. Every icon in these rows was

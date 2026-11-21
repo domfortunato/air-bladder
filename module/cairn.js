@@ -20,7 +20,7 @@ import { registerWardenDamageControl } from "./warden-damage.js";
 import { registerWardenDashboardControl, refreshDashboardTime, localizeDashboardCard } from "./warden-dashboard.js";
 import { registerPartySheet } from "./party-sheet.js";
 import { handlePileQuery, localizePileCard, PILE_DROP_QUERY, askWhatToDrop, dropItemToPile, partyFolderId, stripPlantedPileFlags, findDroppedPile, mayQueryWarden, sayCannotQueryWarden } from "./party-pile.js";
-import { mustDropForFatigue, registerHeldLightSync, localizeLightCard } from "./gear.js";
+import { mustDropForFatigue, registerHeldLightSync, registerBothHands, localizeLightCard } from "./gear.js";
 import { installWorldCalendar, checkWorldCalendar } from "./game-time.js";
 import { renderWatchClock, refreshWatchClock, pullCalendarBar } from "./watch-clock.js";
 import { refreshValdCalendar } from "./vald-calendar.js";
@@ -4762,3 +4762,10 @@ const configureHandleBar = () => {
  * pile. gear.js `registerHeldLightSync`.
  */
 Hooks.once("init", registerHeldLightSync);
+
+/**
+ * Casting takes both hands (2026-11-21, user ruling): a book equipped puts
+ * the shield and light away, and either of those puts the book away, by
+ * every route. gear.js `registerBothHands`.
+ */
+Hooks.once("init", registerBothHands);

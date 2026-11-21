@@ -177,24 +177,28 @@
       </a>
       {{/if}}
 
+      {{!-- Casting takes both hands (2026-11-21, user ruling): while the book,
+            scroll or Grimoire isn't equipped, or a shield or light is, its
+            Cast is greyed with why (castBlocked). The press stays, so a click
+            gets the refusal in full. --}}
       {{#if item.system.canCast}}
-      <a class="item-control grimoire-cast" data-action="grimoireCast"
-        title="{{ localize 'CAIRN.GrimoireCastHint' }}">
+      <a class="item-control grimoire-cast{{#if item.system.castBlocked}} cast-blocked{{/if}}" data-action="grimoireCast"
+        {{#if item.system.castBlocked}}aria-disabled="true" data-tooltip="{{item.system.castBlocked}}"{{else}}title="{{ localize 'CAIRN.GrimoireCastHint' }}"{{/if}}>
         <i class="fas fa-hand-sparkles"></i>
       </a>
       {{/if}}
 
       {{#if item.system.canCastScroll}}
-      <a class="item-control scroll-cast" data-action="scrollCast"
-        title="{{ localize 'CAIRN.ScrollCastHint' }}">
+      <a class="item-control scroll-cast{{#if item.system.castBlocked}} cast-blocked{{/if}}" data-action="scrollCast"
+        {{#if item.system.castBlocked}}aria-disabled="true" data-tooltip="{{item.system.castBlocked}}"{{else}}title="{{ localize 'CAIRN.ScrollCastHint' }}"{{/if}}>
         <i class="fas fa-hand-sparkles"></i>
       </a>
       {{/if}}
 
       {{!-- A spellbook's own Cast: GLOG without Grimoires (2026-11-20). --}}
       {{#if item.system.canCastBook}}
-      <a class="item-control spellbook-cast" data-action="spellbookCast"
-        title="{{ localize 'CAIRN.SpellbookCastHint' }}">
+      <a class="item-control spellbook-cast{{#if item.system.castBlocked}} cast-blocked{{/if}}" data-action="spellbookCast"
+        {{#if item.system.castBlocked}}aria-disabled="true" data-tooltip="{{item.system.castBlocked}}"{{else}}title="{{ localize 'CAIRN.SpellbookCastHint' }}"{{/if}}>
         <i class="fas fa-hand-sparkles"></i>
       </a>
       {{/if}}

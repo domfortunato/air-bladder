@@ -306,11 +306,12 @@ Moved word for word from CLAUDE.md (2026-11-01); CLAUDE.md points here.
   light's (`lightIcon`), the neutral lantern with none ("No Light"); the book
   badge counts `isHoldableBook` (gear.js: spellbook or scroll not bound, or
   the Grimoire), one at a time like a light, picker `askWhichHeld` (utils.js,
-  the light picker generalised, prompt "Which one?"), labels by `bookKind`
-  and icons by `bookIcon` (both light-sources.js). A spellbook's off label
-  reads "Equip Spell" (`CAIRN.EquipBook`, user, 2026-11-21, from "Equip
-  spellbook"); it's the book picker's title and button too. Its on, none,
-  scroll and Grimoire labels stay as they were until the user says.
+  the light picker generalised, prompt "Which one?"), icons by `bookIcon`
+  (light-sources.js). ONE wording for every kind (user, 2026-11-21): "Equip
+  Spell" (`CAIRN.EquipBook`, also the picker's title and button), "Spell
+  equipped", "No Spell"; the tooltip names the item. The per-kind keys
+  (`EquipScroll`, `GrimoireEquipped` and the rest) are gone, and the sheet no
+  longer reads `bookKind`.
   No switch glyph: one (`.badge-switch`, fa-toggle-on/off) sat under each live
   label for a few hours, and the user took it out the same day ("Just
   'Equip...' should be enough"). At the same time "Armor" moved to the RIGHT
@@ -325,6 +326,18 @@ Moved word for word from CLAUDE.md (2026-11-01); CLAUDE.md points here.
   ink (measured, `dev:shield` red run 2026-11-21): what read as faint was the
   question mark. Gates `dev:shield` legs 3, 6, 8, `dev:sheet-rail` leg 22,
   `dev:spellscroll`.
+- **Both hands** (2026-11-21, user ruling; Cairn 2e as written). A spellbook,
+  scroll or Grimoire casts only while EQUIPPED, and never with a shield or
+  light equipped: `castRefusal` (gear.js), asked by all three casts in
+  grimoire.js after their own refusals and again once the dice window is
+  answered, and by the sheet, which greys the row's Cast (`castBlocked`,
+  `.cast-blocked`, "Equip it first to cast.") but keeps its press so a click
+  gives the refusal in full. `registerBothHands` (gear.js, on `init` in
+  cairn.js) puts away the shield and light when a book becomes equipped, and
+  the book when either does, on the changing client, by every route (user
+  pick: put away, never refuse). A light put away so goes out through
+  `registerHeldLightSync`. Casting is character-only, so the refusals have no
+  NPC wording. Gate `dev:glog-books` leg 9.
 - **Lighting spends a use** (2026-11-21, user ask). On the item hooks
   (`registerHeldLightSync`, gear.js), so every route agrees: `preUpdateItem`
   REFUSES lighting a spent light or the Lantern with no fuel (`lightingRefusal`,

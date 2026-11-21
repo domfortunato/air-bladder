@@ -229,6 +229,62 @@ export const isHoldableBook = (item) => (item?.type === "spellbook" && !item.sys
 /** Is this item a book equipped right now (and not broken)? */
 export const isHeldBook = (item) => isHoldableBook(item) && item.system?.equipped === true && !item.system?.broken;
 
+/** Is this item a shield equipped right now (and not broken)? */
+const isHeldShield = (item) => item?.type === "armor" && item.system?.shield === true
+  && item.system?.equipped === true && !item.system?.broken;
+
+/**
+ * BOTH HANDS (2026-11-21, user ruling): "spell book must be grasped with both
+ * hands. A spell cannot be cast ... if the player has a shield or light
+ * equipped", and "Scrolls must be equipped as well". Cairn 2e as written: a
+ * caster holds the Spellbook in both hands and reads it aloud.
+ *
+ * Why this cast is refused, or null when it may go ahead: the spellbook,
+ * scroll or Grimoire must be EQUIPPED, and no shield or light may be. Asked
+ * by all three casts in grimoire.js after their own refusals (no pages, no
+ * Magic Dice), so those still say what they said; the sheet greys the Cast
+ * control on the same answer.
+ * @param {Actor} actor
+ * @param {Item} item  the spellbook, scroll or Grimoire cast from
+ * @returns {{key: String, format?: Object}|null}
+ */
+export const castRefusal = (actor, item) => {
+  if (!item?.system?.equipped) {
+    return { key: "CAIRN.Notify.CastNotEquipped", format: { name: t("item.name", item?.name ?? "") } };
+  }
+  if (actor?.items.some((i) => isHeldShield(i) || isHeldLight(i))) return { key: "CAIRN.Notify.CastHandsBusy" };
+  return null;
+};
+
+/**
+ * Keep both hands honest whatever route equipped something (the badge, a
+ * row's hand, an item sheet's Equipped box, the Warden): a book becoming
+ * equipped puts away every equipped shield and light, and a shield or light
+ * becoming equipped puts away every equipped book (user pick 2026-11-21:
+ * put them away, never refuse). On the client that made the change, once.
+ * A light put away this way goes out through registerHeldLightSync, its
+ * card and Torch included. Equipping one book still puts away the others
+ * in the caller's own write, as a light does.
+ */
+export const registerBothHands = () => {
+  const inHand = (i) => isHoldableBook(i) || isHoldableLight(i) || (i?.type === "armor" && i.system?.shield === true);
+  Hooks.on("preUpdateItem", (item, _changes, options) => {
+    if (!item.parent || !inHand(item)) return;
+    options.abWasEquipped ??= {};
+    options.abWasEquipped[item.id] = item.system?.equipped === true && !item.system?.broken;
+  });
+  Hooks.on("updateItem", (item, _changes, options, userId) => {
+    if (userId !== game.user.id || !item.parent || options.abWasEquipped?.[item.id] !== false) return;
+    const book = isHeldBook(item);
+    if (!book && !isHeldShield(item) && !isHeldLight(item)) return;
+    const away = item.parent.items.filter((i) => i.id !== item.id
+      && (book ? isHeldShield(i) || isHeldLight(i) : isHeldBook(i)));
+    if (!away.length) return;
+    item.parent.updateEmbeddedDocuments("Item", away.map((i) => ({ _id: i.id, "system.equipped": false })))
+      .catch((e) => console.error("air-bladder | both hands:", e));
+  });
+};
+
 /**
  * Does an item have a use to spend? An item that doesn't count uses (max 0)
  * is never used up: a Lantern, a homebrew lamp, an Oil Can nobody numbered.

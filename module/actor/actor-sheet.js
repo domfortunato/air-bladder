@@ -4,7 +4,7 @@ import { promptMonsterTier, regenerateMonster } from "../monster-generator.js";
 import { openMarketplace, TRANSPORTS_CATEGORY } from "../marketplace.js";
 import { evaluateFormula, cairnSavePasses, cleanDescription, concealSecrets, holdsProse, bindEditorClickAwaySave, formatCount, sourceLabel, askDamageQuality, damageFormulaFor, damageQualityLabel, damageQualityKind, d20CardBody, d20CardFlavor, D20_CARD_ABILITIES, combatOption, combatDamageFormula, settleKeptPool, askImprovisedAttack, askAttack, IMPROVISED_FORMULA, IMPROVISED_ID, nameEditorToggles,
   attackFormula, shieldDamage, handsFullHack, shieldWeaponHack, isTwoHanded, shieldPoolFormula, askWhichHeld } from "../utils.js";
-import { lightIcon, lightRadiusText, LIGHT_ICON_NEUTRAL, bookKind, bookIcon, BOOK_ICON_NEUTRAL } from "../light-sources.js";
+import { lightIcon, lightRadiusText, LIGHT_ICON_NEUTRAL, bookIcon, BOOK_ICON_NEUTRAL } from "../light-sources.js";
 import { resultText, resultPlainText, compendiumInfoFromString } from "../compendium.js";
 import { SETTINGS_NS } from "../settings.js";
 import { CONTAINER_ART_CHOICES, CONTAINER_CLASSES } from "../icons.js";
@@ -40,7 +40,7 @@ const NPC_TRAIT_LABELS = {
   vice: "CAIRN.Trait.Vice",
 };
 import { atConnectionLimit, maxConnections, connectionsUiEnabled, brokenOwnershipShape, OWNERSHIP_SYNC_FLAG } from "../connections.js";
-import { findMatchingStack, capacityVerdict, landingNeed, isHoldableLight, isHeldLight, isHoldableBook, isHeldBook, handsFull, handsBlock, lightingRefusal } from "../gear.js";
+import { findMatchingStack, capacityVerdict, landingNeed, isHoldableLight, isHeldLight, isHoldableBook, isHeldBook, handsFull, handsBlock, lightingRefusal, castRefusal } from "../gear.js";
 import {
   canOfferItem, promptOfferTarget, createItemOffer, offerFromDrop,
   canReceiveOffer, settleOwnOffer,
@@ -1390,6 +1390,17 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
           return i;
         });
       }
+      // BOTH HANDS (2026-11-21, user ruling; gear.js castRefusal): a Cast the
+      // rule would refuse (the book not equipped, or a shield or light
+      // equipped) is drawn greyed with why. Its press still runs, so the
+      // refusal says it in full ("Equip the … to cast from it").
+      context.items = context.items.map((i) => {
+        if (!(i.system.canCast || i.system.canCastScroll || i.system.canCastBook)) return i;
+        const why = castRefusal(this.actor, this.actor.items.get(i._id));
+        if (!why) return i;
+        const tip = game.i18n.localize(why.key === "CAIRN.Notify.CastNotEquipped" ? "CAIRN.CastEquipFirst" : why.key);
+        return { ...i, system: { ...i.system, castBlocked: tip } };
+      });
       // THE SHIELD HACKS (2026-11-20), display annotation on the copies; the
       // gate is #attackWeapon, which the roll handlers re-ask. A held shield
       // under "Shields are d4 weapons" gets its derived d4 as the row's die
@@ -2278,18 +2289,17 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     }
     // The book badge (2026-11-21, user ask: "something ... that shows if a
     // spell book, grimoire or scroll is equipped"): the equipped book, else
-    // the first carried, names the label's kind and the icon.
+    // the first carried, gives the icon. ONE wording for every kind since the
+    // same day (user: "Equip Spell", then yes to "Spell equipped" / "No Spell"
+    // for a scroll and the Grimoire too); the tooltip names the item.
     {
       const books = this.#booksCarried();
       const held = books.find((i) => i.system.equipped) ?? null;
       const first = held ?? books[0] ?? null;
-      const kind = first ? bookKind(first) : "book";
       const sw = holdSwitch(books);
-      const ON = { book: "CAIRN.BookEquipped", scroll: "CAIRN.ScrollEquipped", grimoire: "CAIRN.GrimoireEquipped" };
-      const OFF = { book: "CAIRN.EquipBook", scroll: "CAIRN.EquipScroll", grimoire: "CAIRN.EquipGrimoire" };
       context.bookSwitch = {
         ...sw,
-        label: loc(sw.none ? "CAIRN.NoBook" : sw.held ? ON[kind] : OFF[kind]),
+        label: loc(sw.none ? "CAIRN.NoBook" : sw.held ? "CAIRN.BookEquipped" : "CAIRN.EquipBook"),
         icon: route(first ? bookIcon(first) : BOOK_ICON_NEUTRAL),
         tip: sw.none ? loc(this._wording("CAIRN.EquipBookNone"))
           : held ? game.i18n.format("CAIRN.BookEquippedTip", { name: shown(held) }) : null,

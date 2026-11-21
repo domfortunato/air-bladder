@@ -100,7 +100,7 @@ Career, the Faction, the trait sentence, the stat block and the Armor row:
 - **Equip shield**, **Equip light** and **Equip Spell** sit in a row under
   the Armor box. Each equips or puts away a shield, a light, or a spellbook,
   scroll or Grimoire the person carries, and reads **No Shield**, **No Light**
-  or **No Spellbook** when they don't have one. A shield only adds to Armor
+  or **No Spell** when they don't have one. A shield only adds to Armor
   while it's equipped. See
   [Tokens and Sheets](tokens-and-sheets.md#equipping-a-shield-a-light-or-a-spellbook).
 - The **Max** boxes are locked while Character Creation Mode is off.
