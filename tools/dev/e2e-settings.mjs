@@ -41,10 +41,11 @@ try {
     const out = {};
     // every registered setting, grouped by namespace
     const ns = {};
-    // The ONE air-bladder row on core's flat list, by design: the calendar
-    // bar's tuck is per PERSON (client scope, 2026-11-20), and every submenu is
-    // Warden-only, so a player could not reach it inside one.
-    const PER_PERSON = ["air-bladder.tuck-calendar-bar"];
+    // The air-bladder rows on core's flat list, by design: each is per PERSON
+    // (client scope) — the calendar bar's tuck (2026-11-20) and the page tabs'
+    // side (2026-11-21) — and every submenu is Warden-only, so a player could
+    // not reach one inside it.
+    const PER_PERSON = ["air-bladder.tuck-calendar-bar", "air-bladder.tab-rail-side"];
     out.perPerson = PER_PERSON.map((k) => {
       const cfg = game.settings.settings.get(k);
       return { key: k, scope: cfg?.scope ?? null, config: cfg?.config ?? null };
@@ -120,6 +121,9 @@ try {
       // The calendar bar's per-person tuck (2026-11-20): client scope, and it
       // postdates the namespace move, so no "cairn.<key>" value exists.
       "tuck-calendar-bar",
+      // The page tabs' side (2026-11-21): per person, client scope, and it
+      // postdates the namespace move — the tuck's case.
+      "tab-rail-side",
       // The Gnarled Staff unbulking's completion marker (2026-11-20, weapon
       // data review); postdates the namespace move.
       "gnarled-staff-unbulked"];
@@ -182,7 +186,7 @@ try {
   stale === 0 ? ok(`nothing left under the unmappable "cairn" namespace`)
               : fail(`${stale} setting(s) still under "cairn" — they render as Unmapped`);
   r.perPerson.every((x) => x.scope === "client" && x.config === true)
-    ? ok(`the one per-person row on core's list is client-scoped: ${r.perPerson.map((x) => x.key).join(", ")}`)
+    ? ok(`the per-person rows on core's list are client-scoped: ${r.perPerson.map((x) => x.key).join(", ")}`)
     : fail(`per-person rows: ${JSON.stringify(r.perPerson)}`);
   !r.unlisted.length
     ? ok("every registered key is in SETTING_KEYS (markers exempt) — the migration carries it")
@@ -278,10 +282,10 @@ try {
     // key, never a shared "Configure".
     out.buttonText = buttons.map((b) => b.textContent.trim());
     out.expectedText = mod.SETTING_GROUPS.map((g) => game.i18n.localize(g.button));
-    // The calendar bar's per-person tuck is the one row allowed here (see the
-    // registry walk above).
+    // The per-person rows are the ones allowed here (see the registry walk
+    // above): the calendar bar's tuck and the page tabs' side.
     out.looseRows = [...root.querySelectorAll(`[name^="${NS}."]`)].map((i) => i.name)
-      .filter((k) => k !== `${NS}.tuck-calendar-bar`);
+      .filter((k) => k !== `${NS}.tuck-calendar-bar` && k !== `${NS}.tab-rail-side`);
     out.indexed = buttons.map((b) => !!b.closest(".form-group")?.querySelector("[data-searchable]"));
     const search = root.querySelector("input[type=search]");
     out.hasSearch = !!search;

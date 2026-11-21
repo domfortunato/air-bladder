@@ -24,6 +24,15 @@
  * green with the fix reverted the last time this trap was probed, because
  * `getSpeaker()` had resolved to some other controlled token.
  *
+ * THE PAGES (2026-11-21, user ask: the Party sheet, Warden's Damage and this
+ * window in one, "Party", "Damage", "Tables", on a rail), leg 1b: the rail
+ * carries the three pages and a chat button; the clipboard opens on Tables,
+ * the skull on Damage; each page has its own size and a resized page keeps
+ * the Warden's size; the clock band and the table tabs show on Tables only;
+ * the chat button opens core's chat pop-out; and the page-tabs-side setting
+ * moves this window's rail as it moves a sheet's. The Party page's own legs
+ * are `dev:party-sheet`'s, the Damage page's `dev:hazard`'s.
+ *
  * Creates chat messages and one actor, and deletes exactly the ids it added.
  */
 import { chromium } from "playwright";
@@ -104,7 +113,10 @@ try {
     const app = document.querySelector("#cairn-warden-dashboard");
     out.rendered = !!app;
     if (app) {
-      out.tabs = [...app.querySelectorAll('.tabs [data-action="tab"]')].map((a) => a.dataset.tab);
+      out.tabs = [...app.querySelectorAll('.cairn-dashboard-tabs [data-action="tab"]')].map((a) => a.dataset.tab);
+      out.pages = [...app.querySelectorAll('nav.cairn-tab-rail [data-action="tab"]')].map((a) => a.dataset.tab);
+      out.chat = app.querySelectorAll('nav.cairn-tab-rail button[data-action="openChat"]').length;
+      out.onTables = foundry.applications.instances.get("cairn-warden-dashboard")?.tabGroups?.page ?? null;
       // `rollWeather` counts: Today's Weather IS a table button — it posts
       // core's card through the same helper — it simply also stores what it
       // rolled and forces the card public. Counting only `rollTable` would
@@ -114,7 +126,7 @@ try {
         'button[data-action="rollTable"], button[data-action="rollWeather"]').length;
       out.sets = app.querySelectorAll('button[data-action="rollSet"]').length;
       out.creates = app.querySelectorAll('button[data-action="generate"]').length;
-      out.damage = app.querySelectorAll('button[data-action="wardenDamage"]').length;
+      out.damage = app.querySelectorAll('.cairn-damage-page button[data-action="rollDamage"]').length;
       out.isForm = app.tagName === "FORM" || !!app.querySelector("form");
       // Every button must be type=button: the application element IS a form,
       // so a submit button would submit the window instead of rolling.
@@ -138,7 +150,13 @@ try {
     : fail("every shipped table has a button", `only ${opened.buttons}`);
   opened.sets === 4 ? ok("four combined draws") : fail("four combined draws", String(opened.sets));
   opened.creates === 4 ? ok("four generator buttons") : fail("four generator buttons", String(opened.creates));
-  opened.damage === 1 ? ok("the damage tool is on the window too") : fail("the damage tool is on the window too");
+  opened.damage === 1 ? ok("the Damage page's Roll is on the window too") : fail("the Damage page's Roll is on the window too", String(opened.damage));
+  JSON.stringify(opened.pages) === JSON.stringify(["party", "damage", "tables"]) && opened.chat === 1
+    ? ok("the rail carries Party, Damage and Tables, then the chat button")
+    : fail("the rail's pages", JSON.stringify({ pages: opened.pages, chat: opened.chat }));
+  opened.onTables === "tables"
+    ? ok("the clipboard opens it on Tables")
+    : fail("the clipboard opens it on Tables", String(opened.onTables));
   opened.notButtons === 0
     ? ok("every button is type=button, so none submits the form")
     : fail("every button is type=button", `${opened.notButtons} would submit`);
@@ -163,6 +181,109 @@ try {
   names.weatherEye && names.unnamed.length === 0
     ? ok("every icon-only control on the window carries a localized aria-label", `${names.scanned} scanned`)
     : fail("an icon-only control with no accessible name", JSON.stringify(names));
+
+  /* ---- 1b. the pages (2026-11-21) -------------------------------------- */
+
+  const pages = await page.evaluate(async () => {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const app = foundry.applications.instances.get("cairn-warden-dashboard");
+    const el = app.element;
+    const { PAGE_SIZE } = await import("/systems/air-bladder/module/warden-dashboard.js");
+    const shown = (sel) => { const n = el.querySelector(sel); return !!n && n.getBoundingClientRect().height > 0; };
+    const view = () => ({
+      page: app.tabGroups.page,
+      width: Math.round(app.position.width),
+      height: Math.round(app.position.height),
+      party: shown(":scope > .window-content > .cairn-party-inner"),
+      damage: shown(":scope > .window-content > .cairn-damage-page"),
+      band: shown(":scope > .window-content > .cairn-dashboard-time"),
+      body: shown(":scope > .window-content > .cairn-dashboard-inner"),
+    });
+    const turn = async (id) => {
+      el.querySelector(`nav.cairn-tab-rail button[data-tab="${id}"]`)?.click();
+      await sleep(400);
+      return view();
+    };
+    const out = { want: PAGE_SIZE };
+    out.tables = view();
+    out.party = await turn("party");
+    out.damage = await turn("damage");
+    out.damageFields = {
+      formula: el.querySelector('.cairn-damage-page input[name="formula"]')?.value ?? null,
+      pool: el.querySelector('.cairn-damage-page select[name="pool"]')?.value ?? null,
+      dice: el.querySelectorAll(".cairn-damage-page .wd-die").length,
+    };
+    out.backToTables = await turn("tables");
+    // A resized page keeps the Warden's size: Tables to 700 wide, away, back.
+    await app.setPosition({ width: 700, height: 600 });
+    await sleep(200);
+    await turn("party");
+    out.resizedBack = await turn("tables");
+    await app.setPosition({ width: PAGE_SIZE.tables.width, height: PAGE_SIZE.tables.height });
+    await sleep(200);
+    // The skull and the clipboard on an OPEN window turn its page.
+    ui.controls.controls.tokens.tools.abWardenDamage.onChange();
+    await sleep(900);
+    out.skull = app.tabGroups.page;
+    ui.controls.controls.tokens.tools.abWardenDashboard.onChange();
+    await sleep(900);
+    out.clipboard = app.tabGroups.page;
+    // The chat button: core's own chat pop-out.
+    await ui.chat.popout?.close();
+    await sleep(200);
+    el.querySelector('nav.cairn-tab-rail button[data-action="openChat"]')?.click();
+    for (let i = 0; i < 30 && !ui.chat.popout?.rendered; i++) await sleep(100);
+    out.chatPopout = !!ui.chat.popout?.rendered && ui.chat.popout.id === "chat-popout";
+    await ui.chat.popout?.close();
+    // The page-tabs-side setting: SET for the leg, the value READ put back.
+    const KEY = "air-bladder.tab-rail-side";
+    const was = game.settings.get("air-bladder", "tab-rail-side");
+    out.sideRegistered = game.settings.settings.get(KEY)?.scope === "client";
+    try {
+      await game.settings.set("air-bladder", "tab-rail-side", "left");
+      await sleep(400);
+      out.leftWhenLeft = el.classList.contains("cairn-rail-left");
+      await game.settings.set("air-bladder", "tab-rail-side", "right");
+      await sleep(400);
+      out.rightWhenRight = !el.classList.contains("cairn-rail-left");
+    } finally {
+      await game.settings.set("air-bladder", "tab-rail-side", was);
+    }
+    return out;
+  });
+  const P = pages.want;
+  pages.tables.page === "tables" && pages.tables.band && pages.tables.body && !pages.tables.party && !pages.tables.damage
+    && pages.tables.width === P.tables.width
+    ? ok("Tables shows the clock band and the tables alone, at its own width", `${pages.tables.width}`)
+    : fail("Tables page", JSON.stringify(pages.tables));
+  pages.party.page === "party" && pages.party.party && !pages.party.band && !pages.party.body
+    && pages.party.width === P.party.width && pages.party.height === P.party.height
+    ? ok("the rail turns to Party, which takes its own size and hides the band", `${pages.party.width}x${pages.party.height}`)
+    : fail("Party page", JSON.stringify(pages.party));
+  pages.damage.page === "damage" && pages.damage.damage && !pages.damage.party && !pages.damage.band
+    && pages.damage.width === P.damage.width
+    ? ok("...and to Damage, at its own size", `${pages.damage.width}x${pages.damage.height}`)
+    : fail("Damage page", JSON.stringify(pages.damage));
+  pages.damageFields.formula === "1d6" && pages.damageFields.pool === "hp" && pages.damageFields.dice > 0
+    ? ok("the Damage page carries the damage fields and the dice builder", JSON.stringify(pages.damageFields))
+    : fail("the Damage page's fields", JSON.stringify(pages.damageFields));
+  pages.backToTables.width === P.tables.width && pages.backToTables.band
+    ? ok("back on Tables, the window is Tables' size again")
+    : fail("back on Tables", JSON.stringify(pages.backToTables));
+  pages.resizedBack.width === 700 && pages.resizedBack.height === 600
+    ? ok("a page the Warden resized keeps that size after a visit elsewhere")
+    : fail("a resized page lost its size", JSON.stringify(pages.resizedBack));
+  pages.skull === "damage" && pages.clipboard === "tables"
+    ? ok("on the open window, the skull turns to Damage and the clipboard to Tables")
+    : fail("the tools on an open window", JSON.stringify({ skull: pages.skull, clipboard: pages.clipboard }));
+  pages.chatPopout
+    ? ok("the rail's chat button opens core's chat pop-out")
+    : fail("the rail's chat button opened no chat pop-out");
+  pages.sideRegistered && pages.leftWhenLeft && pages.rightWhenRight
+    ? ok("the page-tabs-side setting moves the Dashboard's rail to the left and back")
+    : fail("the page-tabs-side setting and the Dashboard's rail",
+      JSON.stringify({ registered: pages.sideRegistered, left: pages.leftWhenLeft, right: pages.rightWhenRight }));
+
 
   /* ---- 1a. the shape of a tab, after the readability pass -------------- */
 
@@ -718,7 +839,7 @@ try {
   // columns. Measured, because "it looks fine here" is not an assertion.
   const layout = await page.evaluate(() => {
     const app = document.querySelector("#cairn-warden-dashboard");
-    const tabs = [...app.querySelectorAll('.tabs [data-action="tab"]')];
+    const tabs = [...app.querySelectorAll('.cairn-dashboard-tabs [data-action="tab"]')];
     const tops = new Set(tabs.map((a) => Math.round(a.getBoundingClientRect().top)));
     const grid = app.querySelector('.tab.active .cairn-dashboard-grid')
       ?? app.querySelector(".cairn-dashboard-grid");
@@ -1197,14 +1318,12 @@ try {
     await new Promise((r) => setTimeout(r, 300));
     const body = app.querySelector(".cairn-dashboard-body");
     const nav = app.querySelector(".cairn-dashboard-tabs");
-    const foot = app.querySelector(".cairn-dashboard-footer");
     const content = app.querySelector(".window-content");
     const out = {
       resizable: !!app.querySelector(".window-resize-handle"),
       bodyScrolls: body.scrollHeight > body.clientHeight,
       // The chrome must NOT be scrolled away with the panel.
       navVisible: nav.getBoundingClientRect().height > 0,
-      footVisible: foot.getBoundingClientRect().height > 0,
       // Nothing may spill sideways out of the window.
       noHorizontalSpill: content.scrollWidth <= content.clientWidth + 1,
     };
@@ -1215,9 +1334,9 @@ try {
   narrow.bodyScrolls
     ? ok("narrowed to 320px the panel scrolls rather than clipping")
     : fail("narrowed to 320px the panel scrolls", "body did not overflow, so nothing proves it scrolls");
-  narrow.navVisible && narrow.footVisible
-    ? ok("...while the tabs and the damage button stay put")
-    : fail("...while the tabs and the damage button stay put", JSON.stringify(narrow));
+  narrow.navVisible
+    ? ok("...while the tabs stay put")
+    : fail("...while the tabs stay put", JSON.stringify(narrow));
   narrow.noHorizontalSpill
     ? ok("...and nothing spills sideways")
     : fail("...and nothing spills sideways");

@@ -2,7 +2,8 @@
 /**
  * The Warden's Party sheet (2026-11-21, user ask): one table of every PC in the
  * Party folder, in marching order, with each character's vitals, gear tallies,
- * connections and a Warden-only notes line.
+ * connections and a Warden-only notes line. Since the same day's later ask it
+ * is the PARTY PAGE of the Warden's Dashboard, not a window of its own.
  *
  * What this protects, leg by leg:
  *   1. Every cell reads the actor it claims to. A planted PC carries one of
@@ -16,8 +17,11 @@
  *   3. The notes line writes the actor flag and survives a re-render.
  *   4. The table follows the actor: an HP write redraws the cell.
  *   5. A character outside the Party folder is not listed.
- *   6. The Dashboard's footer button opens it, and the Token control exists.
- *   7. As Alice (a player), `openPartySheet()` refuses and no window opens.
+ *   6. The people-icon Token tool opens the Dashboard ON the Party page, and
+ *      the rail turns to it from Tables. No Party sheet window of its own is
+ *      left, and the Dashboard has no footer.
+ *   7. As Alice (a player), `openWardenDashboard({page: "party"})` refuses and
+ *      no window opens.
  *   8. (2026-11-21, user asks) An NPC and a hireling filed in the Party folder
  *      get rows; a monster filed there does not. The light cell draws the
  *      light's own icon (a torch for A's Torch, a lantern for B's Lantern),
@@ -33,6 +37,20 @@
  *  11. (review #36 S8) The window's focusout listener is bound once per
  *      frame, not once per render: after three more renders, with a render
  *      waiting on a focused note, ONE focusout asks for ONE render.
+ *  12. (2026-11-21, user ask) The bulk buttons: off until a row is ticked; on
+ *      A and C, Add Fatigue gives each one (B, unticked, keeps none) and Remove
+ *      Fatigue, after one confirm, takes one off each; Mark Deprived asks about
+ *      C alone (A already is) and marks C; Clear Deprived clears both. The
+ *      select-all box ticks every row. Panicked's pair is offered exactly when
+ *      the use-panic setting is on (READ, never written: it needs a reload).
+ *  13. (2026-11-21, user ask) An item dropped on a row is given to that
+ *      character, as a drop on their sheet: a world item is COPIED (it stays
+ *      in the sidebar); A's own Lantern dropped on C's row MOVES (A has none
+ *      left); and B, planted one slot short of full, takes two one-slot items —
+ *      the second past the limit, which the user ruled a Warden's drop may
+ *      do — with the over-capacity notice naming B. The same item through B's
+ *      SHEET's own drop is refused (the control: the overfill is the Party
+ *      page's alone). A row's own item dropped on its row changes nothing.
  *
  * Fixtures are stamped `probeFixture` and swept from the catch; the
  * marching-order setting is READ first and restored, and SET to [] for the run
@@ -60,8 +78,10 @@ const cleanup = async () => {
   try {
     await gm.evaluate(async ({ fixture, savedOrder, madeFolder }) => {
       for (const app of foundry.applications.instances.values()) {
-        if (app.id === "cairn-party-sheet") await app.close();
+        if (app.id === "cairn-warden-dashboard") await app.close();
       }
+      const items = game.items.filter((i) => i.getFlag("air-bladder", "probeFixture") === fixture).map((i) => i.id);
+      if (items.length) await Item.deleteDocuments(items);
       const mine = game.actors.filter((a) => a.getFlag("air-bladder", "probeFixture") === fixture);
       // Children first, so a keeper's delete does not convert them.
       const kids = mine.filter((a) => a.system?.connectedTo).map((a) => a.id);
@@ -169,7 +189,7 @@ try {
 
   /* --- 1. open, and read every cell --------------------------------------- */
   const read = () => gm.evaluate(async () => {
-    const root = document.querySelector("#cairn-party-sheet");
+    const root = document.querySelector("#cairn-warden-dashboard .cairn-party-inner");
     if (!root) return null;
     const rows = [...root.querySelectorAll("tr[data-actor-id]")];
     return rows.map((tr) => ({
@@ -200,15 +220,16 @@ try {
 
   const opened = await gm.evaluate(async () => {
     try {
-      const mod = await import("/systems/air-bladder/module/party-sheet.js");
-      await mod.openPartySheet();
+      const mod = await import("/systems/air-bladder/module/warden-dashboard.js");
+      await mod.openWardenDashboard({ page: "party" });
       await new Promise((r) => setTimeout(r, 600));
-      return { ok: !!document.querySelector("#cairn-party-sheet") };
+      const page = document.querySelector("#cairn-warden-dashboard .cairn-party-inner");
+      return { ok: !!page && page.classList.contains("active") && page.getBoundingClientRect().height > 0 };
     } catch (e) {
       return { ok: false, error: e.message };
     }
   });
-  check(opened.ok, "openPartySheet() opens the window", opened.error ?? "");
+  check(opened.ok, "openWardenDashboard({page: \"party\"}) opens the Dashboard on its Party page", opened.error ?? "");
 
   let rows = (await read()) ?? [];
   const rowA = rows.find((r) => r.id === setup.a);
@@ -293,7 +314,7 @@ try {
   /* --- 8. the Warden puts a light out -------------------------------------- */
   const putOut = await gm.evaluate(async (a) => {
     const before = new Set(game.messages.contents.map((m) => m.id));
-    const btn = document.querySelector(`#cairn-party-sheet tr[data-actor-id="${a}"] [data-col="light"] button[data-action="putOutLight"]`);
+    const btn = document.querySelector(`#cairn-warden-dashboard .cairn-party-inner tr[data-actor-id="${a}"] [data-col="light"] button[data-action="putOutLight"]`);
     if (!btn) return { error: "no put-out button" };
     btn.click();
     const torch = () => game.actors.get(a).items.find((i) => i.name === "Torch");
@@ -303,7 +324,7 @@ try {
     // Let the table's own redraw land (the cell loses its button) before the
     // layout leg measures it: a queued render mid-measure detached the scroll
     // box once (box=0, 20261121T172526Z).
-    const lit = () => document.querySelector(`#cairn-party-sheet tr[data-actor-id="${a}"] [data-col="light"] button[data-action="putOutLight"]`);
+    const lit = () => document.querySelector(`#cairn-warden-dashboard .cairn-party-inner tr[data-actor-id="${a}"] [data-col="light"] button[data-action="putOutLight"]`);
     const t1 = Date.now();
     while (Date.now() - t1 < 5000 && lit()) await new Promise((r) => setTimeout(r, 100));
     await new Promise((r) => setTimeout(r, 600));
@@ -324,12 +345,12 @@ try {
   // `overflow: hidden`, which makes the table the sticky header's scroll
   // container, so the header scrolled away with the rows.
   const layout = await gm.evaluate(async () => {
-    const app = foundry.applications.instances.get("cairn-party-sheet");
+    const app = foundry.applications.instances.get("cairn-warden-dashboard");
     const root = app?.element;
     const sc = root?.querySelector(".cairn-party-scroll");
     if (!sc) return { error: "no scroll box" };
     const out = { fitsWide: sc.scrollWidth <= sc.clientWidth + 1, wide: `${sc.scrollWidth}/${sc.clientWidth}` };
-    const home = app.constructor.DEFAULT_OPTIONS.position;
+    const home = (await import("/systems/air-bladder/module/warden-dashboard.js")).PAGE_SIZE.party;
     await app.setPosition({ width: 600, height: 300 });
     await new Promise((r) => setTimeout(r, 300));
     sc.scrollTop = sc.scrollHeight;
@@ -350,7 +371,7 @@ try {
 
   /* --- 2. drag B onto A --------------------------------------------------- */
   const dragged = await gm.evaluate(async ({ a, b }) => {
-    const root = document.querySelector("#cairn-party-sheet");
+    const root = document.querySelector("#cairn-warden-dashboard .cairn-party-inner");
     const from = root?.querySelector(`tr[data-actor-id="${b}"]`);
     const to = root?.querySelector(`tr[data-actor-id="${a}"]`);
     if (!from || !to) return { error: "rows missing" };
@@ -379,7 +400,7 @@ try {
 
   /* --- 3. the notes line -------------------------------------------------- */
   const noted = await gm.evaluate(async (a) => {
-    const input = document.querySelector(`#cairn-party-sheet tr[data-actor-id="${a}"] [data-col="notes"] input`);
+    const input = document.querySelector(`#cairn-warden-dashboard .cairn-party-inner tr[data-actor-id="${a}"] [data-col="notes"] input`);
     if (!input) return { error: "no notes input" };
     input.focus();
     input.value = "owes the ferryman";
@@ -393,7 +414,7 @@ try {
   }, setup.a);
   check(noted.flag === "owes the ferryman", "typing a note writes the actor flag", noted.error ?? `flag=${JSON.stringify(noted.flag)}`);
   await gm.evaluate(async () => {
-    await foundry.applications.instances.get("cairn-party-sheet")?.render();
+    await foundry.applications.instances.get("cairn-warden-dashboard")?.render();
     await new Promise((r) => setTimeout(r, 500));
   });
   rows = (await read()) ?? [];
@@ -402,7 +423,7 @@ try {
   /* --- 4. live update ----------------------------------------------------- */
   const live = await gm.evaluate(async (a) => {
     await game.actors.get(a).update({ "system.hp.value": 1 });
-    const cell = () => document.querySelector(`#cairn-party-sheet tr[data-actor-id="${a}"] [data-col="hp"]`)?.textContent.replace(/\s+/g, "").trim();
+    const cell = () => document.querySelector(`#cairn-warden-dashboard .cairn-party-inner tr[data-actor-id="${a}"] [data-col="hp"]`)?.textContent.replace(/\s+/g, "").trim();
     const t0 = Date.now();
     while (Date.now() - t0 < 5000 && cell() !== "1/4") await new Promise((r) => setTimeout(r, 100));
     return cell();
@@ -414,23 +435,23 @@ try {
   // each one asks for a render when one is waiting on a focused note. Bound
   // in `_onRender`, the three renders here stack three more of them.
   const blurred = await gm.evaluate(async (a) => {
-    const app = foundry.applications.instances.get("cairn-party-sheet");
-    if (!app) return { error: "no Party sheet" };
+    const app = foundry.applications.instances.get("cairn-warden-dashboard");
+    if (!app) return { error: "no Dashboard" };
     for (let i = 0; i < 3; i++) await app.render();
     const input = app.element.querySelector(`tr[data-actor-id="${a}"] [data-col="notes"] input`);
     if (!input) return { error: "no notes input" };
     input.focus();
     const focused = app.element.ownerDocument.activeElement === input;
     // The real queueRender, with a note focused: it parks the render for blur.
-    const real = app.queueRender;
+    const real = app.party.queueRender;
     real();
     await new Promise((r) => setTimeout(r, 400));
     let calls = 0;
-    app.queueRender = () => { calls++; };
+    app.party.queueRender = () => { calls++; };
     try {
       input.dispatchEvent(new FocusEvent("focusout", { bubbles: true }));
     } finally {
-      app.queueRender = real;
+      app.party.queueRender = real;
     }
     // Leave as found: the blur runs the parked render.
     input.blur();
@@ -441,24 +462,198 @@ try {
   check(blurred.calls === 1, "one focusout asks for one render, however many renders came before",
     blurred.error ?? `calls=${blurred.calls}`);
 
+  /* --- 12. the bulk buttons (2026-11-21) ----------------------------------- */
+  const bulk = await gm.evaluate(async ({ a, b, c }) => {
+    const PAGE = "#cairn-warden-dashboard .cairn-party-inner";
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const page = () => document.querySelector(PAGE);
+    const box = (id) => page()?.querySelector(`tr[data-actor-id="${id}"] input[data-pick]`);
+    const btn = (id) => page()?.querySelector(`button[data-bulk="${id}"]`);
+    const fatigue = (id) => game.actors.get(id).items.filter((i) => i.system?.isFatigue).length;
+    const until = async (fn, ms = 5000) => { const t0 = Date.now(); while (Date.now() - t0 < ms && !fn()) await sleep(100); return fn(); };
+    const yes = async () => {
+      const t0 = Date.now();
+      let y = null;
+      while (Date.now() - t0 < 4000 && !(y = document.querySelector('.application.dialog button[data-action="yes"]'))) await sleep(100);
+      const text = y?.closest(".application")?.querySelector(".cairn-confirm-q")?.textContent.trim() ?? null;
+      y?.click();
+      return text;
+    };
+    const out = {};
+    // Clear any tick a previous leg left, then read the resting state.
+    const app = foundry.applications.instances.get("cairn-warden-dashboard");
+    app.party.picks.clear();
+    await app.render({ parts: ["party"] });
+    await sleep(300);
+    const buttons = [...page().querySelectorAll("button[data-bulk]")];
+    out.ids = buttons.map((x) => x.dataset.bulk);
+    out.offAtRest = buttons.length > 0 && buttons.every((x) => x.disabled);
+    out.usePanic = !!game.settings.get("air-bladder", "use-panic");
+    box(a).click();
+    box(c).click();
+    await sleep(100);
+    out.onWhenTicked = buttons.every((x) => !x.disabled);
+    const before = { a: fatigue(a), b: fatigue(b), c: fatigue(c) };
+    btn("addFatigue").click();
+    await until(() => fatigue(a) === before.a + 1 && fatigue(c) === before.c + 1);
+    await sleep(500);
+    out.added = { a: fatigue(a) - before.a, b: fatigue(b) - before.b, c: fatigue(c) - before.c };
+    out.ticksSurvive = !!box(a)?.checked && !!box(c)?.checked && !box(b)?.checked;
+    btn("removeFatigue").click();
+    out.removeAsked = await yes();
+    await until(() => fatigue(a) === before.a && fatigue(c) === before.c);
+    await sleep(300);
+    out.removed = { a: fatigue(a) - before.a, c: fatigue(c) - before.c };
+    out.aDeprived = !!game.actors.get(a).system.deprived;
+    btn("markDeprived").click();
+    out.deprivedAsked = await yes();
+    await until(() => game.actors.get(c).system.deprived === true);
+    out.markedC = game.actors.get(c).system.deprived === true;
+    await sleep(300);
+    btn("clearDeprived").click();
+    await until(() => !game.actors.get(a).system.deprived && !game.actors.get(c).system.deprived);
+    out.cleared = !game.actors.get(a).system.deprived && !game.actors.get(c).system.deprived;
+    out.bUntouched = !game.actors.get(b).system.deprived;
+    await sleep(300);
+    const all = page().querySelector("input[data-pick-all]");
+    all.click();
+    await sleep(100);
+    const rowBoxes = [...page().querySelectorAll("input[data-pick]")];
+    out.allTicked = rowBoxes.length > 0 && rowBoxes.every((x) => x.checked) && app.party.picks.size === rowBoxes.length;
+    all.click();
+    await sleep(100);
+    out.noneTicked = rowBoxes.every((x) => !x.checked) && app.party.picks.size === 0
+      && [...page().querySelectorAll("button[data-bulk]")].every((x) => x.disabled);
+    return out;
+  }, { a: setup.a, b: setup.b, c: setup.c }).catch((e) => ({ error: e.message }));
+  const wantIds = ["addFatigue", "removeFatigue", ...(bulk.usePanic ? ["markPanicked", "clearPanicked"] : []), "markDeprived", "clearDeprived"];
+  check(JSON.stringify(bulk.ids) === JSON.stringify(wantIds),
+    "the bulk buttons, Panicked's pair exactly when use-panic is on", bulk.error ?? `${JSON.stringify(bulk.ids)} use-panic=${bulk.usePanic}`);
+  check(bulk.offAtRest && bulk.onWhenTicked, "they are off until a row is ticked, and on once one is",
+    JSON.stringify({ rest: bulk.offAtRest, ticked: bulk.onWhenTicked }));
+  check(bulk.added?.a === 1 && bulk.added?.c === 1 && bulk.added?.b === 0,
+    "Add Fatigue gives the ticked A and C one each, and unticked B none", JSON.stringify(bulk.added));
+  check(bulk.ticksSurvive, "the ticks survive the page's redraw");
+  check(bulk.removed?.a === 0 && bulk.removed?.c === 0 && /ZZ Party A/.test(bulk.removeAsked ?? "") && /ZZ Party C/.test(bulk.removeAsked ?? ""),
+    "Remove Fatigue asks once, naming both, then takes one off each", JSON.stringify({ asked: bulk.removeAsked, removed: bulk.removed }));
+  check(bulk.aDeprived && bulk.markedC && /ZZ Party C/.test(bulk.deprivedAsked ?? "") && !/ZZ Party A/.test(bulk.deprivedAsked ?? ""),
+    "Mark Deprived asks about C alone (A already is) and marks C", JSON.stringify({ asked: bulk.deprivedAsked, marked: bulk.markedC }));
+  check(bulk.cleared && bulk.bUntouched, "Clear Deprived clears both ticked, without asking, and leaves B alone");
+  check(bulk.allTicked && bulk.noneTicked, "the select-all box ticks every row, and clears them again",
+    JSON.stringify({ all: bulk.allTicked, none: bulk.noneTicked }));
+
+  /* --- 13. an item dropped on a row is given (2026-11-21) ------------------ */
+  const gift = await gm.evaluate(async ({ a, b, c, fixture }) => {
+    const PAGE = "#cairn-warden-dashboard .cairn-party-inner";
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const flags = { "air-bladder": { probeFixture: fixture } };
+    const until = async (fn, ms = 5000) => { const t0 = Date.now(); while (Date.now() - t0 < ms && !fn()) await sleep(100); return fn(); };
+    const drop = async (actorId, uuid) => {
+      const row = document.querySelector(`${PAGE} tr[data-actor-id="${actorId}"]`);
+      if (!row) return false;
+      const dt = new DataTransfer();
+      dt.setData("text/plain", JSON.stringify({ type: "Item", uuid }));
+      row.dispatchEvent(new DragEvent("dragover", { bubbles: true, cancelable: true, dataTransfer: dt }));
+      row.dispatchEvent(new DragEvent("drop", { bubbles: true, cancelable: true, dataTransfer: dt }));
+      return true;
+    };
+    const has = (id, name) => game.actors.get(id).items.some((i) => i.name === name);
+    const warns = [];
+    const origWarn = ui.notifications.warn;
+    ui.notifications.warn = function (m, ...r) {
+      warns.push(r[0]?.format ? game.i18n.format(String(m), r[0].format) : game.i18n.localize(String(m)));
+      return origWarn.call(this, m, ...r);
+    };
+    const out = {};
+    try {
+      // One create each: a batch returns in completion order, never by position.
+      const g1 = await Item.create({ name: "ZZ Party Gift", type: "item", flags });
+      const g2 = await Item.create({ name: "ZZ Party Gift Two", type: "item", flags });
+      const g3 = await Item.create({ name: "ZZ Party Gift Three", type: "item", flags });
+      // A world item is copied.
+      await drop(c, g1.uuid);
+      out.copied = await until(() => has(c, "ZZ Party Gift"));
+      out.worldKept = game.items.has(g1.id);
+      // A's own Lantern moves.
+      const lantern = game.actors.get(a).items.find((i) => i.name === "Lantern");
+      out.hadLantern = !!lantern;
+      if (lantern) {
+        await drop(c, lantern.uuid);
+        out.moved = await until(() => has(c, "Lantern") && !has(a, "Lantern"));
+      }
+      // B: one slot short of full. The first gift fills the last slot.
+      const B = () => game.actors.get(b);
+      out.bFree = B().system.slotsMax - B().system.slotsUsed;
+      await drop(b, g2.uuid);
+      out.firstLands = await until(() => has(b, "ZZ Party Gift Two"));
+      await sleep(300);
+      out.bFull = B().system.slotsUsed >= B().system.slotsMax;
+      // The control: B's sheet's own drop refuses the third.
+      warns.length = 0;
+      const viaSheet = await B().sheet._onDropItem(new DragEvent("drop"), g3);
+      out.sheetRefused = !viaSheet && !has(b, "ZZ Party Gift Three");
+      out.sheetWarn = warns.slice();
+      // The Party row takes it past the limit, and says so.
+      warns.length = 0;
+      await drop(b, g3.uuid);
+      out.overLands = await until(() => has(b, "ZZ Party Gift Three"));
+      await sleep(300);
+      out.over = `${B().system.slotsUsed}/${B().system.slotsMax}`;
+      out.isOver = B().system.slotsUsed > B().system.slotsMax;
+      out.overWarn = warns.slice();
+      out.wantWarn = game.i18n.format("CAIRN.PartySheet.Overfilled", { name: "ZZ Party B" });
+      // A row's own item on its own row: nothing.
+      const own = B().items.find((i) => i.name === "ZZ Party Gift Two");
+      const count = B().items.size;
+      await drop(b, own.uuid);
+      await sleep(800);
+      out.ownNoop = B().items.size === count && (B().items.get(own.id)?.system.quantity ?? 1) === 1;
+    } finally {
+      ui.notifications.warn = origWarn;
+    }
+    return out;
+  }, { a: setup.a, b: setup.b, c: setup.c, fixture: FIXTURE }).catch((e) => ({ error: e.message }));
+  check(gift.copied && gift.worldKept, "a world item dropped on C's row is copied to C, the original kept",
+    gift.error ?? JSON.stringify({ copied: gift.copied, kept: gift.worldKept }));
+  check(gift.hadLantern && gift.moved, "A's Lantern dropped on C's row moves to C", JSON.stringify({ had: gift.hadLantern, moved: gift.moved }));
+  check(gift.bFree === 1 && gift.firstLands && gift.bFull, "B, one slot short, takes the first gift and is full",
+    JSON.stringify({ free: gift.bFree, landed: gift.firstLands, full: gift.bFull }));
+  check(gift.sheetRefused && gift.sheetWarn?.length > 0, "the same item through B's sheet's own drop is refused",
+    JSON.stringify({ refused: gift.sheetRefused, warn: gift.sheetWarn }));
+  check(gift.overLands && gift.isOver, "the Warden's drop on B's row lands it past the limit", `slots ${gift.over}`);
+  check(gift.overWarn?.includes(gift.wantWarn) && !gift.wantWarn?.startsWith("CAIRN."),
+    "and the notice names B as over capacity", JSON.stringify({ got: gift.overWarn, want: gift.wantWarn }));
+  check(gift.ownNoop, "a row's own item dropped on its row changes nothing");
+
   /* --- 5. the ways in ----------------------------------------------------- */
   const ways = await gm.evaluate(async () => {
-    await foundry.applications.instances.get("cairn-party-sheet")?.close();
-    await new Promise((r) => setTimeout(r, 400));
-    const tool = !!ui.controls?.controls?.tokens?.tools?.abPartySheet;
-    const dash = await import("/systems/air-bladder/module/warden-dashboard.js");
-    await dash.openWardenDashboard();
-    await new Promise((r) => setTimeout(r, 600));
-    const btn = document.querySelector('#cairn-warden-dashboard .cairn-dashboard-footer button[data-action="openPartySheet"]');
-    btn?.click();
-    await new Promise((r) => setTimeout(r, 800));
-    const opened = !!document.querySelector("#cairn-party-sheet");
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     await foundry.applications.instances.get("cairn-warden-dashboard")?.close();
-    await foundry.applications.instances.get("cairn-party-sheet")?.close();
-    return { tool, btn: !!btn, opened };
+    await sleep(400);
+    const tool = ui.controls?.controls?.tokens?.tools?.abPartySheet;
+    tool?.onChange?.();
+    await sleep(900);
+    const app = foundry.applications.instances.get("cairn-warden-dashboard");
+    const out = {
+      tool: !!tool,
+      opened: !!app?.rendered,
+      onParty: app?.tabGroups?.page === "party"
+        && !!app.element.querySelector(".cairn-party-inner.active"),
+      noOwnWindow: !document.querySelector("#cairn-party-sheet") && !foundry.applications.instances.has("cairn-party-sheet"),
+      noFooter: !app?.element.querySelector(".cairn-dashboard-footer, [data-action='openPartySheet'], [data-action='wardenDamage']"),
+    };
+    // From Tables, the rail turns back to Party.
+    await app.changeTab("tables", "page");
+    await sleep(300);
+    app.element.querySelector('nav.cairn-tab-rail button[data-tab="party"]')?.click();
+    await sleep(400);
+    out.railTurns = app.tabGroups.page === "party" && !!app.element.querySelector(".cairn-party-inner.active");
+    await app.close();
+    return out;
   });
-  check(ways.tool, "the Token controls carry the Party sheet tool");
-  check(ways.btn && ways.opened, "the Dashboard footer button opens it", JSON.stringify(ways));
+  check(ways.tool && ways.opened && ways.onParty, "the people-icon tool opens the Dashboard on its Party page", JSON.stringify(ways));
+  check(ways.railTurns, "the rail turns to Party from Tables");
+  check(ways.noOwnWindow && ways.noFooter, "no Party sheet window of its own, and no Dashboard footer");
 
   /* --- 6. a player is refused --------------------------------------------- */
   if (!setup.alice) {
@@ -471,16 +666,16 @@ try {
     await dismissChrome(ap);
     const refused = await ap.evaluate(async () => {
       try {
-        const mod = await import("/systems/air-bladder/module/party-sheet.js");
-        const got = await mod.openPartySheet();
+        const mod = await import("/systems/air-bladder/module/warden-dashboard.js");
+        const got = await mod.openWardenDashboard({ page: "party" });
         await new Promise((r) => setTimeout(r, 500));
-        return { got: got ?? null, window: !!document.querySelector("#cairn-party-sheet"),
+        return { got: got ?? null, window: !!document.querySelector("#cairn-warden-dashboard"),
           tool: !!ui.controls?.controls?.tokens?.tools?.abPartySheet?.visible };
       } catch (e) {
         return { error: e.message };
       }
     });
-    check(!refused.error && refused.got === null && !refused.window, "as Alice, openPartySheet() refuses",
+    check(!refused.error && refused.got === null && !refused.window, "as Alice, the Dashboard's Party page refuses",
       JSON.stringify(refused));
     check(!refused.tool, "as Alice, the tool is not visible");
     if (aliceErrors.length) fail("Alice's console is clean", aliceErrors.slice(0, 3).join(" | "));

@@ -523,13 +523,14 @@ try {
     const out = { detached: app.element.ownerDocument !== document };
     out.setDate = await homeOf("#cairn-warden-dashboard-set-date");
     out.setWeather = await homeOf("#cairn-warden-dashboard-set-weather");
-    out.damage = await homeOf('[data-action="wardenDamage"]');
     out.create = await homeOf('[data-gen="npc"]');
     await app.attachWindow();
     await app.close();
     return out;
   });
-  const dashHomes = ["setDate", "setWeather", "damage", "create"];
+  // Damage is a PAGE of the Dashboard since 2026-11-21, not a dialog, so it
+  // has left this list.
+  const dashHomes = ["setDate", "setWeather", "create"];
   dash.detached && dashHomes.every((k) => dash[k] === "dashboard" || dash[k] === "no control")
     && dashHomes.some((k) => dash[k] === "dashboard")
     ? ok("every Dashboard dialog opens in the Dashboard's own window", JSON.stringify(dash))

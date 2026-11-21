@@ -4,8 +4,13 @@
  * Every other damage path starts at a weapon on somebody's sheet, so a pit, a
  * poison or a fright had to be applied by hand — no card, no STR save, no Scar,
  * no death bar, nothing in the log. A hazard is a weapon nobody is holding: the
- * dialog posts the ORDINARY damage card and everything downstream already
+ * Damage page posts the ORDINARY damage card and everything downstream already
  * works. What is new is the Token-controls button and the POOL.
+ *
+ * The Damage PAGE of the Warden's Dashboard since 2026-11-21 (it was its own
+ * dialog): the skull opens the Dashboard on it. Every leg that needs a FRESH
+ * page — the pre-filled 1d6, the dice builder wired under the notation the leg
+ * shadows — closes the Dashboard first, so the skull renders it anew.
  *
  * Its own file rather than more legs in `dev:enc-damage`, which is already the
  * largest probe here. That means `docs/release-testing.md` and `check:probes`
@@ -68,7 +73,7 @@ check("its tooltip is localized", !!gmTool.label && !/^CAIRN\./.test(gmTool.labe
  * 2. A player gets neither the tool nor the action.
  *
  * TWO readings, and they are different claims: the tool being absent from her
- * palette is the affordance, and `openWardenDamage` refusing her call is the
+ * palette is the affordance, and the Dashboard and `rollWardenDamage` refusing her is the
  * enforcement. Removing either alone leaves a change that looks landed and is
  * not, so they are witnessed separately.
  * ------------------------------------------------------------------------- */
@@ -81,7 +86,8 @@ try {
     ui.controls.activate({ control: "tokens" });
     await sleep(500);
     const before = game.messages.size;
-    const { openWardenDamage } = await import("/systems/air-bladder/module/warden-damage.js");
+    const { openWardenDashboard } = await import("/systems/air-bladder/module/warden-dashboard.js");
+    const { rollWardenDamage } = await import("/systems/air-bladder/module/warden-damage.js");
     // RACED, and this is not belt-and-braces. With the refusal removed the call
     // OPENS THE DIALOG instead of returning, and a DialogV2 nobody answers never
     // settles — so the bare `await` here hung the whole run at the watchdog
@@ -89,18 +95,21 @@ try {
     // regression. A witness must redden a LEG, never kill the run; the rule
     // covers awaits that only open a dialog ONCE A WITNESS IS APPLIED.
     const result = await Promise.race([
-      openWardenDamage(),
+      openWardenDashboard({ page: "damage" }),
       new Promise((res) => setTimeout(() => res("__never-settled__"), 4000)),
     ]);
     await sleep(300);
-    const dialogOpened = !!document.querySelector("dialog.dialog");
+    const dialogOpened = !!document.querySelector("#cairn-warden-dashboard");
     // Close whatever opened, or it eats the next leg's clicks.
-    document.querySelector("dialog.dialog")?.remove();
+    await foundry.applications.instances.get("cairn-warden-dashboard")?.close();
+    // The roll itself refuses her too: the half that survives a page reached
+    // some other way.
+    const rolled = await rollWardenDamage({ formula: "1d6" });
     return {
       ran: true, isGM: game.user.isGM,
       registered: !!ui.controls.controls?.tokens?.tools?.abWardenDamage,
       inDom: !!document.querySelector('button[data-tool="abWardenDamage"]'),
-      refused: result === null,
+      refused: result === null && rolled === null,
       // No dialog either: a refusal that still opened the form would let her
       // fill it in and only then be told no.
       dialogOpened,
@@ -120,13 +129,13 @@ check("and the action refuses her", player.refused && !player.dialogOpened && pl
   `refused=${player.refused} dialog=${player.dialogOpened} — the enforcement, which is the half that survives reaching the function another way`);
 
 /* ---------------------------------------------------------------------------
- * 3. The dialog, driven end to end through the real button.
+ * 3. The Damage page, driven end to end through the real button.
  *
  * Clicked rather than called: the whole claim is that a Warden can reach this
  * from the palette, and a helper invoked directly would prove only that the
  * helper works.
  * ------------------------------------------------------------------------- */
-console.log("\nthe dialog posts an ordinary damage card");
+console.log("\nthe Damage page posts an ordinary damage card");
 const HAZARD_XSS = 'ZZ Pit <img src=x onerror="window.__abHazXSS=1">';
 const dialog = await page.evaluate(async ({ xss }) => {
   const ActorImpl = CONFIG.Actor.documentClass;
@@ -148,27 +157,27 @@ const dialog = await page.evaluate(async ({ xss }) => {
   r.targeted = game.user.targets.size;
 
   const before = new Set(game.messages.contents.map((m) => m.id));
+  await foundry.applications.instances.get("cairn-warden-dashboard")?.close();
+  await sleep(300);
   document.querySelector('button[data-tool="abWardenDamage"]')?.click();
   let form = null;
   for (let i = 0; i < 40 && !form; i++) {
-    form = document.querySelector("dialog.dialog input[name='formula']");
+    form = document.querySelector("#cairn-warden-dashboard .cairn-damage-page input[name='formula']");
     if (!form) await sleep(150);
   }
   r.dialogOpened = !!form;
-  // The formula field arrives PRE-FILLED, which is only true if the value
-  // reached the markup: it is set with setAttribute because the element is
-  // serialized and re-parsed, and a `.value =` property would arrive empty.
+  // The formula field arrives PRE-FILLED: its default is set with setAttribute.
   r.formulaPrefilled = form?.value ?? null;
-  r.poolOptions = [...document.querySelectorAll("dialog.dialog select[name='pool'] option")]
+  r.poolOptions = [...document.querySelectorAll("#cairn-warden-dashboard .cairn-damage-page select[name='pool'] option")]
     .map((o) => o.value);
-  r.poolDefault = document.querySelector("dialog.dialog select[name='pool']")?.value ?? null;
-  r.placeholder = document.querySelector("dialog.dialog input[name='source']")?.getAttribute("placeholder") ?? null;
+  r.poolDefault = document.querySelector("#cairn-warden-dashboard .cairn-damage-page select[name='pool']")?.value ?? null;
+  r.placeholder = document.querySelector("#cairn-warden-dashboard .cairn-damage-page input[name='source']")?.getAttribute("placeholder") ?? null;
 
-  const src = document.querySelector("dialog.dialog input[name='source']");
+  const src = document.querySelector("#cairn-warden-dashboard .cairn-damage-page input[name='source']");
   src.value = xss;
   form.value = "3";
-  document.querySelector("dialog.dialog select[name='pool']").value = "WIL";
-  document.querySelector('dialog.dialog button[data-action="roll"]')?.click();
+  document.querySelector("#cairn-warden-dashboard .cairn-damage-page select[name='pool']").value = "WIL";
+  document.querySelector('#cairn-warden-dashboard .cairn-damage-page button[data-action="rollDamage"]')?.click();
 
   let msg = null;
   for (let i = 0; i < 40 && !msg; i++) {
@@ -203,14 +212,15 @@ const dialog = await page.evaluate(async ({ xss }) => {
   document.querySelector('button[data-tool="abWardenDamage"]')?.click();
   let f2 = null;
   for (let i = 0; i < 40 && !f2; i++) {
-    f2 = document.querySelector("dialog.dialog input[name='formula']");
+    f2 = document.querySelector("#cairn-warden-dashboard .cairn-damage-page input[name='formula']");
     if (!f2) await sleep(150);
   }
   f2.value = "not a roll";
-  document.querySelector('dialog.dialog button[data-action="roll"]')?.click();
+  document.querySelector('#cairn-warden-dashboard .cairn-damage-page button[data-action="rollDamage"]')?.click();
   await sleep(800);
   r.badFormulaPostedNothing = game.messages.size === beforeBad;
-  document.querySelector("dialog.dialog")?.remove();
+  await foundry.applications.instances.get("cairn-warden-dashboard")?.close();
+  await sleep(300);
 
   // AN @-REFERENCE IS REFUSED TOO, and it is a separate leg because it is the
   // case the guard used to LET THROUGH. `Roll.validate` stubs every @ref with "1"
@@ -223,27 +233,27 @@ const dialog = await page.evaluate(async ({ xss }) => {
   document.querySelector('button[data-tool="abWardenDamage"]')?.click();
   let f3 = null;
   for (let i = 0; i < 40 && !f3; i++) {
-    f3 = document.querySelector("dialog.dialog input[name='formula']");
+    f3 = document.querySelector("#cairn-warden-dashboard .cairn-damage-page input[name='formula']");
     if (!f3) await sleep(150);
   }
   f3.value = "1d6 + @abilities.STR.value";
-  document.querySelector('dialog.dialog button[data-action="roll"]')?.click();
+  document.querySelector('#cairn-warden-dashboard .cairn-damage-page button[data-action="rollDamage"]')?.click();
   await sleep(800);
   r.atRefPostedNothing = game.messages.size === beforeAt;
   // And the reason a plain `Roll.validate` gate cannot be trusted here.
   r.atRefStillValidates = Roll.validate("1d6 + @abilities.STR.value");
-  document.querySelector("dialog.dialog")?.remove();
+  await foundry.applications.instances.get("cairn-warden-dashboard")?.close();
 
   game.user.targets.forEach((t) => t.setTarget(false, { releaseOthers: false }));
   r.ids = { sceneId: scene.id, victimId: victim.id, msgId: msg?.id ?? null };
   return r;
 }, { xss: HAZARD_XSS });
 
-check("the button opens the dialog", dialog.dialogOpened, "driven through the palette, not by calling the helper");
+check("the skull opens the Damage page", dialog.dialogOpened, "driven through the palette, not by calling the helper");
 check("the formula field is pre-filled", dialog.formulaPrefilled === "1d6",
-  `value="${dialog.formulaPrefilled}" — set with setAttribute, since a property never reaches the serialized markup`);
+  `value="${dialog.formulaPrefilled}" — the builder's setAttribute default`);
 check("the placeholder survives", dialog.placeholder === "Spiked pit",
-  `"${dialog.placeholder}" — element content bypasses cleanHTML, whose allow-list would have stripped it`);
+  `"${dialog.placeholder}"`);
 check("four pools, HP first",
   JSON.stringify(dialog.poolOptions) === JSON.stringify(["hp", "STR", "DEX", "WIL"])
   && dialog.poolDefault === "hp",
@@ -284,11 +294,10 @@ check("an @-reference is refused", dialog.atRefPostedNothing && dialog.atRefStil
  *    composer must be `evaluateFormula`'s exact inverse, so each emitted
  *    string is fed BACK to the evaluator and the resulting roll formula is
  *    checked for `kh`. Deterministic: it asserts the rewrite, not a die.
- *  - the LIVE dialog, driven through the real palette button — clicks must
- *    change the field at all (listeners on the built nodes are serialized
- *    away, so this is the leg that catches wiring them in buildForm instead
- *    of in `render`), greying must follow a hand edit, and a built string
- *    must survive Roll.validate on the way to a card.
+ *  - the LIVE page, driven through the real palette button — clicks must
+ *    change the field at all (this is the leg that catches the page drawing
+ *    the builder without wiring it), greying must follow a hand edit, and a
+ *    built string must survive Roll.validate on the way to a card.
  *
  * The DIALECT leg shadows `game.settings.get` in-page rather than writing the
  * world setting: `use-cairn-dice-notation` is the user's world's, and a leaked
@@ -329,20 +338,22 @@ const builder = await page.evaluate(async () => {
   r.pSumOffCount = JSON.stringify(parseDiceFormula("2d6 + d8", { cairnNotation: false }));
 
   const open = async () => {
-    // A CLOSING dialog LINGERS in the DOM. Reopening while the last one is
-    // still tearing down hands every q() below the OLD dialog's nodes — whose
-    // listeners are live and whose closure captured the OLD dialect, which is
-    // exactly the wrong thing to click in the shadow leg. Wait it out first.
-    for (let i = 0; i < 40 && document.querySelector("dialog.dialog"); i++) await sleep(150);
+    // A FRESH page, every time: the dice builder reads the notation setting
+    // when it is wired, so the shadow leg below must rebuild the page under
+    // its shadow — an open page's listeners captured the OLD dialect, which
+    // is exactly the wrong thing to click there. Closing discards the page;
+    // the skull renders it anew.
+    await foundry.applications.instances.get("cairn-warden-dashboard")?.close();
+    for (let i = 0; i < 40 && document.querySelector("#cairn-warden-dashboard"); i++) await sleep(150);
     document.querySelector('button[data-tool="abWardenDamage"]')?.click();
     let f = null;
     for (let i = 0; i < 40 && !f; i++) {
-      f = document.querySelector("dialog.dialog input[name='formula']");
+      f = document.querySelector("#cairn-warden-dashboard .cairn-damage-page input[name='formula']");
       if (!f) await sleep(150);
     }
     return f;
   };
-  const q = (sel) => document.querySelector(`dialog.dialog ${sel}`);
+  const q = (sel) => document.querySelector(`#cairn-warden-dashboard .cairn-damage-page ${sel}`);
 
   let f = await open();
   r.uiOpened = !!f;
@@ -376,7 +387,7 @@ const builder = await page.evaluate(async () => {
   const src = q("input[name='source']");
   if (src) src.value = "ZZ Builder Trap";
   const beforeRoll = game.messages.size;
-  q('button[data-action="roll"]')?.click();
+  q('button[data-action="rollDamage"]')?.click();
   for (let i = 0; i < 40 && game.messages.size === beforeRoll; i++) await sleep(150);
   r.uiPosted = game.messages.size > beforeRoll;
 
@@ -401,7 +412,7 @@ const builder = await page.evaluate(async () => {
   delete settings.get;
   r.settingRestored = settings.get(
     "air-bladder", "use-cairn-dice-notation") === true;
-  q('button[data-action="cancel"]')?.click();
+  await foundry.applications.instances.get("cairn-warden-dashboard")?.close();
   await sleep(300);
   return r;
 });

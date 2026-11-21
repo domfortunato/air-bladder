@@ -321,6 +321,15 @@ try {
         { ...(await open(npc)), what: `${npc.name} (npc)`, slug: "npc" },
         { ...(await open(weapon)), what: `${weapon.name} (weapon)`, slug: "weapon" },
         { ...(await open(bg)), what: `${bg.name} (background)`, slug: "background" },
+        // The Warden's Dashboard since its pages (2026-11-21): Party, Damage
+        // and Tables on its rail, each audited as a page of its own.
+        await (async () => {
+          const { openWardenDashboard } = await import("/systems/air-bladder/module/warden-dashboard.js");
+          await openWardenDashboard({ page: "party" });
+          for (let i = 0; i < 60 && !document.querySelector("#cairn-warden-dashboard"); i++) await new Promise((r) => setTimeout(r, 100));
+          return { sel: "#cairn-warden-dashboard", appv1: false, label: "WardenDashboard",
+            what: "Warden's Dashboard", slug: "dashboard" };
+        })(),
       ],
     };
   });
@@ -393,7 +402,9 @@ try {
       }, sheet.sel);
       // The npc sheet's pages since 2026-11-20 (the character sheet's format).
       const WANT_PAGES = { character: ["character", "items", "growth", "notes"],   // no Description page since round 4
-        npc: ["character", "items", "description", "notes"] };
+        npc: ["character", "items", "description", "notes"],
+        // Its three pages, then the six table tabs on Tables.
+        dashboard: ["party", "damage", "tables", "travel", "encounters", "people", "factions", "monsters", "yours"] };
       if (WANT_PAGES[sheet.slug]) {
         const want = WANT_PAGES[sheet.slug];
         const missing = want.filter((t) => !tabs.includes(t));
@@ -450,6 +461,8 @@ try {
       }
     }
   }
+  // The Dashboard is wide on its Party page; out of the way of the legs below.
+  await page.evaluate(() => foundry.applications.instances.get("cairn-warden-dashboard")?.close());
 
   /* ---- the watch clock: Foundry's chrome, not a sheet -------------------- */
   //

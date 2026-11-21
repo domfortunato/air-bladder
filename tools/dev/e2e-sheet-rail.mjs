@@ -268,6 +268,12 @@ try {
         left: frame.classList.contains("cairn-rail-left"),
         dir: frame.querySelector("nav.cairn-tab-rail button")?.dataset.tooltipDirection ?? null };
     };
+    // The page-tabs-side setting (2026-11-21) is per person: SET to the
+    // default for these three, so a value this browser kept cannot place the
+    // rail for them; the value READ is put back after the Left legs below.
+    out.sideWas = game.settings.get("air-bladder", "tab-rail-side");
+    await game.settings.set("air-bladder", "tab-rail-side", "right");
+    await sleep(200);
     sheet.setPosition({ left: 100, top: 60 });
     await sleep(400);
     out.placeRight = boxes();
@@ -277,12 +283,37 @@ try {
     sheet.setPosition({ left: 100 });
     await sleep(400);
     out.placeBack = boxes();
+    // Left asked for: the rail moves at once with nothing re-rendered, hangs
+    // left at left:100, flips RIGHT at the screen's LEFT edge, and back.
+    try {
+      const railBefore = frame.querySelector(":scope > .window-content > nav.cairn-tab-rail");
+      await game.settings.set("air-bladder", "tab-rail-side", "left");
+      await sleep(400);
+      out.preferLeft = boxes();
+      out.noRerender = !!railBefore && frame.querySelector(":scope > .window-content > nav.cairn-tab-rail") === railBefore;
+      sheet.setPosition({ left: 0 });
+      await sleep(400);
+      out.preferLeftEdge = boxes();
+      sheet.setPosition({ left: 100 });
+      await sleep(400);
+      out.preferLeftBack = boxes();
+    } finally {
+      await game.settings.set("air-bladder", "tab-rail-side", out.sideWas);
+      await sleep(300);
+    }
     const mod = await import("/systems/air-bladder/module/actor/tab-rail.js");
     out.unit = [
       mod.railHangsLeft({ left: 100, right: 580 }, 44, 1600) === false,   // room on the right
       mod.railHangsLeft({ left: 1100, right: 1580 }, 44, 1600) === true,  // 20px right, 1100 left
       mod.railHangsLeft({ left: 0, right: 1590 }, 44, 1600) === false,    // no room either side: stay right
       mod.railHangsLeft({ left: 1100, right: 1556 }, 44, 1600) === false, // exactly fits
+    ];
+    // The same four, mirrored, with Left asked for.
+    out.unitLeft = [
+      mod.railHangsLeft({ left: 100, right: 580 }, 44, 1600, "left") === true,    // room on the left
+      mod.railHangsLeft({ left: 20, right: 500 }, 44, 1600, "left") === false,    // 20px left, 1100 right
+      mod.railHangsLeft({ left: 10, right: 1600 }, 44, 1600, "left") === true,    // no room either side: stay left
+      mod.railHangsLeft({ left: 44, right: 500 }, 44, 1600, "left") === true,     // exactly fits
     ];
 
     /* ---- 5. Growth and Description ------------------------------------- */
@@ -1664,6 +1695,20 @@ else {
   r.unit.every(Boolean)
     ? ok("railHangsLeft: room right / none right / none either side / exact fit all answer as intended")
     : fail(`railHangsLeft cases: ${JSON.stringify(r.unit)}`);
+  // 4b, the page-tabs-side setting (2026-11-21, user ask).
+  const pl = r.preferLeft, ple = r.preferLeftEdge, plb = r.preferLeftBack;
+  pl?.left && pl.rr !== null && pl.rr <= pl.fl + 2 && pl.dir === "LEFT" && r.noRerender
+    ? ok("with Left asked for, the rail moves to the frame's left at once, tooltips pointing left, nothing re-rendered")
+    : fail(`prefer left: ${JSON.stringify({ ...pl, noRerender: r.noRerender })}`);
+  ple && !ple.left && ple.rl !== null && ple.rl >= ple.fr - 2 && ple.dir === "RIGHT"
+    ? ok("...at the screen's left edge it flips to the frame's right")
+    : fail(`prefer left, edge: ${JSON.stringify(ple)}`);
+  plb?.left && plb.rr <= plb.fl + 2
+    ? ok("...and back to the left when the window moves away")
+    : fail(`prefer left, back: ${JSON.stringify(plb)}`);
+  r.unitLeft?.every(Boolean)
+    ? ok("railHangsLeft, Left asked for: the four cases mirrored")
+    : fail(`railHangsLeft left cases: ${JSON.stringify(r.unitLeft)}`);
 
   // 5
   const g = r.growth;
