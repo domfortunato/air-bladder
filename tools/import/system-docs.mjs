@@ -6,6 +6,7 @@
  * plays so nobody has to open the repo to learn a feature.
  *
  *   node tools/import/system-docs.mjs [--dry]
+ *   node tools/import/system-docs.mjs --list   (the roster's filenames only)
  *
  * CANONICAL SOURCE IS `docs/*.md` — the recorded warden-guides pattern
  * (docs/ + site card + both READMEs) gains a fourth surface here, and this
@@ -128,6 +129,15 @@ const ROSTER = [
   ["dice-formulas.md", "Dice Formulas"],
 ];
 const idOf = new Map(ROSTER.map(([f, name]) => [f, idFor(`air-bladder-system-docs:${f}`)]));
+
+// `--list` prints the roster's filenames and writes nothing. The maintainer's
+// review round trip (guides copied out to an Obsidian folder, edited there,
+// copied back into docs/) reads the roster from here, so it is never kept in a
+// second place.
+if (process.argv.includes("--list")) {
+  for (const [file] of ROSTER) console.log(file);
+  process.exit(0);
+}
 
 /* ---------------------------------------------------------------- convert */
 const convert = (file) => {
