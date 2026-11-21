@@ -68,7 +68,10 @@ game.
 from [Kettlewright](https://kettlewright.com/), the official Cairn app, and it
 becomes a new character actor here: stats, gold and inventory as exported, a
 stock Kettlewright portrait mapped to the same face, questions and bonds
-matched back to their tables so they stay re-rollable. Items and bonds that
+matched back to their tables so they stay re-rollable. A Barebones character
+comes in as Barebones. A portrait the player uploaded to Kettlewright is shown
+from kettlewright.com. A pet comes in as an item if it is one here and there is
+room for it, and otherwise as a companion connected to the character. Items and bonds that
 match nothing are still imported — built from their tags or kept as text — and
 a summary dialog lists everything worth reviewing. A background this world
 doesn't have doesn't stop the import either: the character still arrives with

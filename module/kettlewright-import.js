@@ -22,6 +22,15 @@ import { t } from "./i18n-content.js";
  * 2026-09-22 the background's questions and answers ride their own numbered
  * `background_tableN_question` / `_answer` keys and `notes` is left empty; older
  * exports wrote both into `notes` (readTablePairs, parseQuestionAnswers).
+ * `edition` picks the background pool and the content source; `pets` land as
+ * items or connected companions (placePets).
+ *
+ * Deliberately NOT read (user rulings, 2026-11-20 — do not "fix"):
+ *  - `dead`: Air Bladder keeps no dead flag (STR 0 is death); a dead
+ *    character imports as any other.
+ *  - containers other than Main: flattened, contents onto the character
+ *    and the summary lists them. Rebuilding them as Actors is out of scope.
+ *  - a standalone pet/hireling export: this imports player characters only.
  *
  * Deliberately does NOT route through character-generator's characterToActorData:
  * that helper force-resets omen/scars/critical, which would wipe the very fields we
@@ -985,6 +994,21 @@ export const showImportSummary = async (actor, report) => {
       ? F("CAIRN.KWImport.PortraitUrlDropped", { url: esc(report.portrait.dropped) })
       : F("CAIRN.KWImport.PortraitUnknown", { name: esc(report.portrait.dropped) });
     parts.push(`<p class="kwi-warn"><i class="fas fa-circle-exclamation"></i> ${line}</p>`);
+  }
+  // An upload shown from kettlewright.com (2026-11-20): it works, but it is
+  // not this world's to keep — say so, and how to keep it.
+  if (report.portraitLinked) {
+    parts.push(`<p class="kwi-warn"><i class="fas fa-circle-exclamation"></i> ${L("CAIRN.KWImport.PortraitLinked")}</p>`);
+  }
+  // Where each pet went (placePets / mintPets). A pet the character already
+  // held as an item says nothing: nothing happened to it (user, 2026-11-21).
+  for (const pet of report.pets ?? []) {
+    const key = { item: "PetItem", companion: "PetCompanion", limit: "PetLimit" }[pet.as];
+    if (!key) continue;
+    const text = F(`CAIRN.KWImport.${key}`, { name: esc(pet.name) });
+    parts.push(pet.as === "limit"
+      ? `<p class="kwi-warn"><i class="fas fa-circle-exclamation"></i> ${text}</p>`
+      : `<p class="kwi-ok"><i class="fas fa-check"></i> ${text}</p>`);
   }
   // Traits either became structured fields or stayed prose — say which, because the
   // difference is visible on the sheet (populated dropdowns vs a paragraph in Notes).
