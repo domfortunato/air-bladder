@@ -43,9 +43,9 @@
                             <td class="cairn-party-name" data-col="name">
                                 <a data-action="openSheet"><img src="{{row.img}}" alt="" loading="lazy">{{row.name}}</a>
                             </td>
-                            <td data-col="player">{{row.player}}</td>
-                            <td data-col="pronouns">{{row.pronouns}}</td>
-                            <td data-col="background">{{row.background}}</td>
+                            <td class="cairn-party-wrap" data-col="player">{{row.player}}</td>
+                            <td class="cairn-party-wrap" data-col="pronouns">{{row.pronouns}}</td>
+                            <td class="cairn-party-wrap" data-col="background">{{row.background}}</td>
                             <td class="cairn-party-num" data-col="hp">{{row.hp.value}}/{{row.hp.max}}</td>
                             <td class="cairn-party-num" data-col="str">{{row.str.value}}/{{row.str.max}}</td>
                             <td class="cairn-party-num" data-col="dex">{{row.dex.value}}/{{row.dex.max}}</td>
@@ -63,7 +63,7 @@
                             {{#each row.connections as |c|}}
                                 <td class="cairn-party-num {{#if c.none}}cairn-party-none{{/if}}" data-col="{{c.col}}">{{c.count}}</td>
                             {{/each}}
-                            <td data-col="conditions">
+                            <td class="cairn-party-wrap" data-col="conditions">
                                 {{#each row.conditions as |cond|}}<span class="cairn-party-condition" data-condition="{{cond.id}}">{{cond.label}}</span>{{/each}}
                             </td>
                             <td class="cairn-party-notes" data-col="notes">

@@ -4509,14 +4509,24 @@ ol.combat-tracker li.combatant.cairn-drop-below {
     font-size: var(--font-size-11, 11px);
 }
 
+/* The TEXT columns wrap; the numbers never do. A party's backgrounds and
+   player names are as long as they are, so no fixed window width can promise
+   every table fits on one line — measured: the probe's planted names made
+   the table 1308px where CT 123's party made it 1235. Letting the words wrap
+   brings the table's minimum down to its longest word per column. */
+.cairn-party-sheet .cairn-party-table td.cairn-party-wrap {
+    white-space: normal;
+    min-width: 60px;
+}
+
 .cairn-party-sheet .cairn-party-notes {
-    min-width: 200px;
+    min-width: 170px;
     width: 100%;
 }
 
 .cairn-party-sheet .cairn-party-notes input {
     width: 100%;
-    min-width: 180px;
+    min-width: 150px;
 }
 
 .cairn-party-sheet tr.cairn-dragging td {
