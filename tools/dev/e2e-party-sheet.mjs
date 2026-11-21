@@ -187,6 +187,37 @@ try {
     check(ia < ib, "with no stored order, A sorts before B by name", `A=${ia} B=${ib}`);
   }
 
+  /* --- 1b. layout ---------------------------------------------------------- */
+  // Both found by walking the window on CT 123, not by a probe (2026-11-21):
+  // at 1180px the table was 83px wider than its window, so the notes column
+  // opened clipped behind a sideways scrollbar; and core gives every <table>
+  // `overflow: hidden`, which makes the table the sticky header's scroll
+  // container, so the header scrolled away with the rows.
+  const layout = await gm.evaluate(async () => {
+    const app = foundry.applications.instances.get("cairn-party-sheet");
+    const root = app?.element;
+    const sc = root?.querySelector(".cairn-party-scroll");
+    if (!sc) return { error: "no scroll box" };
+    const out = { fitsWide: sc.scrollWidth <= sc.clientWidth + 1, wide: `${sc.scrollWidth}/${sc.clientWidth}` };
+    const home = app.constructor.DEFAULT_OPTIONS.position;
+    await app.setPosition({ width: 600, height: 300 });
+    await new Promise((r) => setTimeout(r, 300));
+    sc.scrollTop = sc.scrollHeight;
+    await new Promise((r) => setTimeout(r, 200));
+    const th = root.querySelector("thead th").getBoundingClientRect().top;
+    const top = sc.getBoundingClientRect().top;
+    out.scrolled = sc.scrollTop > 0;
+    out.pinned = Math.abs(th - top) < 2;
+    out.pin = `th=${Math.round(th)} box=${Math.round(top)}`;
+    out.noSpill = root.querySelector(".window-content").scrollWidth <= root.querySelector(".window-content").clientWidth + 1;
+    sc.scrollTop = 0;
+    await app.setPosition({ width: home.width, height: home.height });
+    return out;
+  });
+  check(layout.fitsWide, "at its default width the table needs no sideways scroll", layout.error ?? layout.wide);
+  check(layout.scrolled && layout.pinned, "narrowed, the header stays pinned while rows scroll", layout.error ?? layout.pin);
+  check(layout.noSpill, "narrowed, nothing spills out of the window sideways");
+
   /* --- 2. drag B onto A --------------------------------------------------- */
   const dragged = await gm.evaluate(async ({ a, b }) => {
     const root = document.querySelector("#cairn-party-sheet");
