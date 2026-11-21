@@ -68,5 +68,8 @@ Moved word for word from CLAUDE.md (2026-11-01); CLAUDE.md points here.
   broken (`_preCreate` / `_preUpdate`), so no Armor, no damage roll, no Hold shield and no
   Attack-window entry; `isEquipable` and `hasPlusMinus` go false, so the hand and the uses /
   charges controls go (the pips stay); Cast and Transmute go, and their handlers refuse too.
-  The slot stays: `itemSlotCost` never reads it. Marked on the item sheet only, in the name
-  row; the inventory row wears a Broken tag. Gate `dev:broken`.
+  The slot stays: `itemSlotCost` never reads it. Marked on the item sheet, in the name
+  row, and since 2026-11-20 (user ask) from a toggle on every inventory row, directly left
+  of the trash (`itemToggleBroken`, owned(); `system.canBreak`: a type with `broken`,
+  never a Fatigue; game-icons' broken shield, the peril colour while broken, "Mark broken" /
+  "Mark repaired"); the row wears a Broken tag. Gate `dev:broken` (legs 12-14 the row).

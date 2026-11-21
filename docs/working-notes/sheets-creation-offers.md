@@ -137,7 +137,7 @@ Moved word for word from CLAUDE.md (2026-11-01); CLAUDE.md points here.
 - **Hold light** (2026-11-20, user asks): `isHoldableLight` (gear.js) = a plain `item`
   whose name passes `isLightName` (the keyword rule OR a name in `LIGHT_SOURCES`, so the
   Glowsnail and Sun Stick count), never its fuel; `isEquipable` gains it, so a light gets
-  the hand and held = equipped. The Armor row is Hold shield | Armor (54 x 60) | the
+  the hand and held = equipped. The Armor row is Hold shield | Armor (a 48px circle since 2026-11-20) | the
   light BADGE, and the badge IS the Hold light control (the 172px column cannot hold two
   switches, the shield and a badge with text: user pick). ONE handler `#onToggleHold`
   (`data-hold`); several lights and none held asks which (`askWhichLight`, utils.js).
@@ -234,7 +234,7 @@ Moved word for word from CLAUDE.md (2026-11-01); CLAUDE.md points here.
 - ONE mechanism: page 1's banners, stat block, slot line and footer are
   partials both templates render (`parts/status-banners.html`,
   `stat-block.html`, `slots-line.html`, `compat-footer.html`). The stat block's
-  differences are context, not copies: `showTraitSentence` (the character's),
+  differences are context, not copies: `showTraitSentence` (every person's),
   `system.showGold` (a companion has no purse), `statMax` (the character's 18
   cap, absent on an npc), `holdShieldNoneKey`. The values only the character's
   page 1 read (`maxLocked`, `hpTip`, `goldTip`, `abilityHints`) are built in the
@@ -249,6 +249,28 @@ Moved word for word from CLAUDE.md (2026-11-01); CLAUDE.md points here.
   (every role's page 1 with the tallest head it can carry, the footer inside
   the window), `dev:roles` (the page order and the opening page, with an
   in-page control).
+- **A person's page 1 IS the character's** (2026-11-20, user ask: "make the NPC
+  and Hireling sheets look and act like the PC sheets as MUCH AS POSSIBLE";
+  Pronouns and Age "placed exactly the same as a PC"). npc and hireling only
+  (`showBiography`); monsters, companions and things unchanged. Pronouns and
+  Age are ONE partial, `parts/identity-bio-line.html`, both sheets render under
+  the name. `_prepareBiographyContext` sets `showTraitSentence` and
+  `canEditTraits` for both callers (the character's call moved after its
+  `generationEnabled`, which the pen reads), so a person gets the stat
+  block's "Traits" sentence and, in CharGen, the pen and the Traits window (ten
+  selects on an npc, eight on a hireling). The Description page keeps Scars and
+  the prose (user pick A); `bio-block.html` is Omen/Scars only, and
+  `toggleTraits` / `traitsCollapsed` and the die-less grid are gone. No name
+  pick-list: `#onPickName` refuses npc and hireling by design. Gate
+  `dev:sheet-rail` leg 24.
+- **The Armor row redone** (same day, user asks): the Armor box is a 48 x 48
+  circle with the ability circles' border (`.cairn-shield`, class kept), the
+  label and number inside; Hold shield is a badge like Hold light's
+  (`.shield-icon`, game-icons `shields/shield.svg`, one mask rule for both
+  badges), "Hold shield" / "Shield in hand"; Hold light reads "Light in hand"
+  while held. Icon routes `shieldIcon` / `brokenIcon` are built for every
+  sheet beside `holdShieldNoneKey`. Gates `dev:sheet-rail` leg 25,
+  `dev:shield` legs 3 and 6.
 
 ## Creation routes
 
