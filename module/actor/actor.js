@@ -1335,6 +1335,36 @@ export class CairnActor extends Actor {
     return created;
   }
 
+  /**
+   * Take one Fatigue: the sheet's + and the Party page's Add Fatigue (2026-11-21)
+   * both come here, so there is one way in. NEVER refused for load — Fatigue is a
+   * cost the rules owe, so it is `ignoreCapacity` — but refused on a thing, which
+   * Fatigue never lands on by any route. The caller names the refusal and the
+   * over-capacity notice; this only answers what happened.
+   * @returns {Promise<Item|null>}  the Fatigue, or null on a thing
+   */
+  async addFatigue() {
+    if (this.isThing) return null;
+    const [created] = (await this.createOwnedItem(
+      { name: FATIGUE_NAME, type: "item" }, { ignoreCapacity: true })) ?? [];
+    return created ?? null;
+  }
+
+  /**
+   * Clear one Fatigue, the first in document order (every Fatigue is the same
+   * document and fills one slot, so which one goes changes nothing). No confirm:
+   * the sheet asks before it calls `deleteOwnedItem`, and the Party page asks
+   * once for the whole selection before it calls this.
+   * @returns {Promise<boolean>}  whether one was there to clear
+   */
+  async removeFatigue() {
+    const fatigue = this.items.find((i) => i.system?.isFatigue);
+    if (!fatigue) return false;
+    await fatigue.delete();
+    this._synchronizeOwnerSheets();
+    return true;
+  }
+
   /* `createOwnedContainer` lived here and is gone with the `container` type
      (2026-07-31): it accepted nothing else, so retiring the type made it
      unreachable. It was the two-write half of the old link — this actor's uuid

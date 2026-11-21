@@ -1,10 +1,12 @@
 {{!--
-  The Warden's Dashboard.
+  The Warden's Dashboard's Tables page (the whole Dashboard until 2026-11-21,
+  when the Party sheet and Warden's Damage joined it as pages). Its root is
+  the page's tab, as the time band's is.
 
   ONE ROOT ELEMENT, and it is not a style choice: an ApplicationV2 part that
   renders several top-level elements fails outright with "Template part must
   render a single HTML element", and the window never opens. The wrapper is
-  the flex column; the four bands inside it are its children.
+  the flex column; the bands inside it are its children.
 
   ONE loop over `panelList`, where each entry already carries core's tab state
   and its own buttons — see `_prepareContext`. The alternative was six
@@ -23,7 +25,7 @@
   hidden half-label is worse than a taller row, and the CSS lets the pair
   stretch so the eye still matches the two halves.
 --}}
-<div class="cairn-dashboard-inner">
+<div class="cairn-dashboard-inner tab {{pageTabs.tables.cssClass}}" data-group="page" data-tab="tables">
 
     {{!--
       ABOVE THE TAB STRIP, not below it. There is ONE of these and it governs
@@ -134,22 +136,5 @@
         {{/each}}
     </section>
 
-    {{!--
-      The damage tool sits OUTSIDE the tabs, so it is one click from wherever
-      the Warden is standing. It keeps its Token-controls button too: its
-      targets come from the aiming gesture, which is a token-layer operation,
-      so the palette entry sits beside the gesture that feeds it and this one
-      is the convenience.
-    --}}
-    <footer class="cairn-dashboard-footer">
-        <button type="button" data-action="wardenDamage">
-            <i class="fas fa-skull-crossbones"></i>
-            <span>{{damageLabel}}</span>
-        </button>
-        <button type="button" data-action="openPartySheet">
-            <i class="fas fa-users"></i>
-            <span>{{localize "CAIRN.PartySheet.Open"}}</span>
-        </button>
-    </footer>
 
 </div>

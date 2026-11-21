@@ -1,18 +1,35 @@
 {{!--
-  The Warden's Party sheet: one row per PC in the Party folder, in marching
-  order. ONE ROOT ELEMENT (an ApplicationV2 part must render exactly one).
+  The Warden's Dashboard's Party page (the Party sheet's own window until
+  2026-11-21): one row per member of the Party folder, in marching order.
+  ONE ROOT ELEMENT (an ApplicationV2 part must render exactly one), and it is
+  the page's tab, so turning a page hides it without a render.
+
+  A tick per row, a select-all box, and the bulk buttons over the table
+  (2026-11-21, user ask): greyed until a row is ticked (user ruling). Dropping
+  an item on a row gives it to that character (PartyPage#giveItem).
 
   Every value cell carries `data-col`, which is what `dev:party-sheet` reads;
   a ratio is written with no spaces round the slash ("3/4") because the probe
   compares the cell's text. Narrow count columns head with a glyph and say
   what they count in the tooltip.
 --}}
-<div class="cairn-party-inner">
+<div class="cairn-party-inner tab {{pageTabs.party.cssClass}}" data-group="page" data-tab="party">
     {{#if rows.length}}
+        <div class="cairn-party-bulk" role="toolbar" aria-label="{{localize 'CAIRN.PartySheet.BulkLabel'}}">
+            <span class="cairn-party-bulk-label">{{localize "CAIRN.PartySheet.BulkLabel"}}</span>
+            {{#each bulk as |b|}}
+                <button type="button" data-action="partyBulk" data-bulk="{{b.id}}" {{#if @root.nonePicked}}disabled{{/if}}>
+                    {{b.label}}
+                </button>
+            {{/each}}
+            <span class="cairn-party-drop-hint">{{localize "CAIRN.PartySheet.DropTip"}}</span>
+        </div>
         <div class="cairn-party-scroll">
             <table class="cairn-party-table">
                 <thead>
                     <tr>
+                        <th class="cairn-party-pick"><input type="checkbox" data-pick-all {{#if allPicked}}checked{{/if}}
+                            aria-label="{{localize 'CAIRN.PartySheet.PickAll'}}" data-tooltip="{{localize 'CAIRN.PartySheet.PickAll'}}"></th>
                         <th class="cairn-party-order" data-tooltip="{{localize 'CAIRN.PartySheet.OrderTip'}}">{{localize "CAIRN.PartySheet.Order"}}</th>
                         <th class="cairn-party-name">{{localize "CAIRN.PartySheet.Character"}}</th>
                         <th>{{localize "CAIRN.PartySheet.Player"}}</th>
@@ -39,6 +56,8 @@
                 <tbody>
                     {{#each rows as |row|}}
                         <tr data-actor-id="{{row.id}}">
+                            <td class="cairn-party-pick" data-col="pick"><input type="checkbox" data-pick {{#if row.picked}}checked{{/if}}
+                                aria-label="{{localize 'CAIRN.PartySheet.Pick' name=row.name}}"></td>
                             <td class="cairn-party-order" data-col="order"><i class="fa-solid fa-grip-vertical"></i> {{row.position}}</td>
                             <td class="cairn-party-name" data-col="name">
                                 <a data-action="openSheet"><img src="{{row.img}}" alt="" loading="lazy">{{row.name}}</a>

@@ -1,6 +1,9 @@
 {{!--
   The Warden's clock, above the Dashboard's tabs.
 
+  ON THE TABLES PAGE ONLY (user ruling 2026-11-21): its root wears that
+  page's tab, beside the body's.
+
   A BAND, NOT A SEVENTH TAB. The date is context for everything below it, and
   a tab would put it one click away from every roll it informs. It is also the
   only shape that keeps the tab strip at six, which the probe asserts.
@@ -24,7 +27,7 @@
   THE RULE in warden-dashboard.js is untouched. It keeps its eye, so the
   probe's show/roll invariant still holds.
 --}}
-<div class="cairn-dashboard-time">
+<div class="cairn-dashboard-time tab {{pageTabs.tables.cssClass}}" data-group="page" data-tab="tables">
 
     {{!--
       STACKED, LIKE THE CALENDAR'S DAY PANEL (user, 2026-09-11, with both

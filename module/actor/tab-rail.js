@@ -9,15 +9,33 @@
  * tabs. That element is not positioned, so the rail is placed against the
  * window frame and hangs outside it; the stylesheet stops the frame clipping.
  *
- * Which side it hangs on is decided here: the right, unless the rail does not
- * fit between the frame and the edge of the frame's own browser window and the
- * left has more room, when the frame wears `cairn-rail-left` and the
+ * Which side it hangs on is decided here: the side the person chose
+ * (RAIL_SIDE_KEY, the right by default), unless the rail does not fit between
+ * the frame and that edge of the frame's own browser window and the other side
+ * has more room. On the left the frame wears `cairn-rail-left` and the
  * stylesheet mirrors it. Only the frame is measured, so the answer never flips
  * because the rail changed side. A popped-out sheet measures its own popup.
  *
  * Every actor sheet draws one since 2026-11-20 (each in the character sheet's
  * format); every function here is a no-op on a frame without one.
  */
+
+/**
+ * The per-person setting choosing the side the rail hangs on (2026-11-21, user
+ * ask): "right" (the default, the side it always had) or "left". Read from the
+ * system's own namespace so this file keeps no imports. A side that has no room
+ * still hands the rail to the other one, as the right always did.
+ */
+export const RAIL_SIDE_KEY = "tab-rail-side";
+
+/** The side this person asked for; "right" before the setting is registered. */
+export const preferredRailSide = () => {
+  try {
+    return game.settings.get(game.system.id, RAIL_SIDE_KEY) === "left" ? "left" : "right";
+  } catch {
+    return "right";
+  }
+};
 
 /** Each frame's rail width, measured once: _onPosition runs on every drag frame. */
 const railWidths = new WeakMap();
@@ -31,16 +49,19 @@ export const RAIL_SELECTOR = ":scope > .window-content > nav.cairn-tab-rail";
 const railOf = (frame) => frame?.querySelector(RAIL_SELECTOR) ?? null;
 
 /**
- * Whether the rail should hang off the left edge: it does not fit on the right,
- * and the left has more room.
+ * Whether the rail should hang off the left edge. It hangs on the preferred
+ * side, unless it does not fit there and the other side has more room.
  * @param {{left: number, right: number}} frameBox  The frame's box in its browser window's pixels
  * @param {number} railWidth
  * @param {number} viewWidth  The width of the frame's own browser window
+ * @param {"right"|"left"} [prefer]  The side asked for (RAIL_SIDE_KEY)
  * @returns {boolean}
  */
-export const railHangsLeft = (frameBox, railWidth, viewWidth) => {
+export const railHangsLeft = (frameBox, railWidth, viewWidth, prefer = "right") => {
   const spaceRight = viewWidth - frameBox.right;
-  return railWidth > spaceRight && frameBox.left > spaceRight;
+  const spaceLeft = frameBox.left;
+  if (prefer === "left") return !(railWidth > spaceLeft && spaceRight > spaceLeft);
+  return railWidth > spaceRight && spaceLeft > spaceRight;
 };
 
 /**
@@ -69,9 +90,19 @@ export const placeRail = (app, position, retries = MEASURE_RETRIES) => {
   const box = inMain && Number.isFinite(position?.left) && Number.isFinite(position?.width)
     ? { left: position.left, right: position.left + (position.width * (position.scale ?? 1)) }
     : frame.getBoundingClientRect();
-  const left = railHangsLeft(box, width, view.innerWidth);
+  const left = railHangsLeft(box, width, view.innerWidth, preferredRailSide());
   frame.classList.toggle("cairn-rail-left", left);
   for (const button of rail.querySelectorAll("button")) button.dataset.tooltipDirection = left ? "LEFT" : "RIGHT";
+};
+
+/**
+ * Hang every open rail again: the side setting changed. Nothing is re-rendered,
+ * only the class and the tooltip directions move.
+ */
+export const placeEveryRail = () => {
+  for (const app of foundry.applications.instances.values()) {
+    if (app.rendered && app.element?.classList.contains("cairn-railed")) placeRail(app);
+  }
 };
 
 /**

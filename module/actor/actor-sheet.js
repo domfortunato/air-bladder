@@ -4842,10 +4842,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       } });
       return;
     }
-    await this.actor.createOwnedItem(
-      { name: FATIGUE_NAME, type: "item" },
-      { ignoreCapacity: true }
-    );
+    await this.actor.addFatigue();
     // A notice, never a refusal, and only when this click is what tipped them
     // over. The stored name is English by design, so localize it for display the
     // way the inventory rows do. Its words say HP stays 0, so only where the
@@ -6620,8 +6617,12 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    * @override
    * @param {DragEvent} event
    * @param {CairnItem} originalItem  the dropped Item, already resolved by ActorSheetV2
+   * @param {object} [options]
+   * @param {boolean} [options.overfill]  The Warden's drop on a Party row (2026-11-21,
+   *        user ruling): a person who lives by the player rules takes it even with
+   *        no free slot. Core never passes it; only the Party page does.
    */
-  async _onDropItem(event, originalItem) {
+  async _onDropItem(event, originalItem, { overfill = false } = {}) {
     if (!originalItem) return null;
 
     // The Actor the item currently belongs to; null for a world or compendium
@@ -6759,7 +6760,10 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
         );
         return null;
       }
-    } else if (need > 0 && this.actor.isEncumbered()) {
+    } else if (need > 0 && this.actor.isEncumbered() && !(overfill && game.user.isGM)) {
+      // The one door past this wall: the Warden's drop on a Party row, which
+      // the user ruled may overfill (2026-11-21). The Party page names the
+      // over-capacity result itself.
       // A PETTY item costs no slot and lands on a full person, as it does
       // through Create Item, the shop and a gift (review #34 finding 47).
       ui.notifications.warn(game.i18n.localize("CAIRN.Notify.MaxSlotsOccupied"));

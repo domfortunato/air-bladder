@@ -191,8 +191,9 @@ Listed so a review does not re-litigate them. Argue against the reason, not the 
   stored-HP judgement; gate `dev:enc-damage`).
 - **Overflow is owed, never merely allowed.** A character may exceed the limit only
   for: generation and background grants; Fatigue (`ignoreCapacity: true`); an
-  accepted gift after the recipient's informed confirm. A thing/companion/monster
-  never overflows. Ordinary acquisition refuses (drop, Create Item, marketplace —
+  accepted gift after the recipient's informed confirm; the Warden's drop on a
+  Party page row (user ruling 2026-11-21, `_onDropItem`'s `overfill`, with a
+  notice). A thing/companion/monster never overflows. Ordinary acquisition refuses (drop, Create Item, marketplace —
   greying is the affordance, `acquire` refusal is the enforcement). Marketplace
   carve-outs: petty items and transports.
 - **Coins consume slots** (2e p.9): `ceil(gold/N) - 1`, N = coins-per-slot setting.

@@ -1,4 +1,4 @@
-import { evaluateFormula, buildDiceBuilder, wireDiceBuilder } from "./utils.js";
+import { evaluateFormula, buildDiceBuilder } from "./utils.js";
 import { DAMAGE_POOLS } from "./damage.js";
 
 /**
@@ -15,10 +15,11 @@ import { DAMAGE_POOLS } from "./damage.js";
  * has no notion of who swung — so this posts the ORDINARY damage card and the
  * flow that already ships does the rest (the splat, `askDamageTargets`, the
  * detail cards, the STR save, the Scar draw, the status bars, the attribution
- * line). What is genuinely new is a way to open the dialog, and the POOL.
+ * line). What is genuinely new is a way to say what happened, and the POOL.
  *
- * It lives in its own file rather than in `utils.js` because it owns a Foundry
- * surface — the scene-controls palette — that nothing else here touches.
+ * The Damage page of the Warden's Dashboard since 2026-11-21 (it was its own
+ * dialog): the Dashboard draws `buildForm`'s fields and its Roll button calls
+ * `rollWardenDamage`.
  */
 
 const CARD_TEMPLATE = "systems/air-bladder/templates/chat/dmg-roll-card.html";
@@ -26,76 +27,25 @@ const CARD_TEMPLATE = "systems/air-bladder/templates/chat/dmg-roll-card.html";
 /** What the formula field starts at. A d6 trap is the commonest thing there is. */
 const DEFAULT_FORMULA = "1d6";
 
-/**
- * Add the Warden's damage tool to the Token controls.
- *
- * The shipped client documents this exact case — `hooks.mjs:393-409` is a
- * GM-only `button: true` tool added at `controls.tokens.tools.<name>` with an
- * `onChange` that opens an application — so there is no API to guess at.
- *
- * `controls` and each control's `tools` are RECORDS keyed by name, not arrays
- * (`applications/ui/scene-controls.mjs:382-392`). Pushing onto them fails
- * silently, which is the trap worth knowing before writing another one.
- *
- * `visible` IS NOT A LIVE GATE. `#prepareControls` runs once, when the palette
- * is first rendered, and later renders reuse the structure
- * (`scene-controls.mjs:378-380`). That is correct for a GM check — nobody's role
- * changes mid-session — but it is an affordance and never the enforcement:
- * `openWardenDamage` refuses on its own, the way
- * `onClickChatMessageApplyButton` does.
- */
-export const registerWardenDamageControl = () => {
-  Hooks.on("getSceneControlButtons", (controls) => {
-    const tools = controls?.tokens?.tools;
-    if (!tools) return;   // core renamed or removed the control set
-    tools.abWardenDamage = {
-      name: "abWardenDamage",
-      title: "CAIRN.WardenDamage.Tool",
-      icon: "fas fa-skull-crossbones",
-      // Last in the palette. `order` is read for the default-tool sort and for
-      // placement; appending means core's own tools keep the positions a
-      // Warden's hands already know.
-      order: Object.keys(tools).length,
-      button: true,
-      visible: game.user.isGM,
-      onChange: () => {
-        // Not awaited — `onChange` is fire-and-forget, and an unhandled
-        // rejection out of a click handler is silent.
-        openWardenDamage().catch((err) => {
-          console.error("Air Bladder | the Warden's damage dialog failed:", err);
-        });
-      },
-    };
-  });
-};
+/* The Token-controls skull lived here until 2026-11-21; it opens the Damage
+   page of the Warden's Dashboard now, and is registered with the Dashboard's
+   other two tools in warden-dashboard.js (`registerWardenDashboardControl`). */
 
 /**
- * Build the dialog's fields.
+ * Build the Damage page's fields: a hint, Source, Damage, the dice builder and
+ * Applies to (a dialog's content until 2026-11-21; the Dashboard appends this
+ * element to its `damage` part now).
  *
- * An HTMLDivElement rather than a string. DialogV2 runs a STRING through
- * `cleanHTML` but takes an element's innerHTML VERBATIM
- * (`options.content = options.content.innerHTML`, dialog.mjs:187-191), so the
- * element path is the one that is NOT sanitized. Safe here for a reason worth
- * stating rather than assuming: every node below is built in code, and every
- * value is a localized string or a literal — no authored content is
- * interpolated. Interpolate any, and this must go back to being a string.
+ * Built in code, not a template, so it stayed one builder when it changed
+ * hosts. Every value is a localized string or a literal — no authored content
+ * is interpolated — and it is appended as nodes, never parsed from a string.
  *
- * Until 2026-08-07 this comment justified the element by claiming `cleanHTML`
- * would strip the placeholder off the text input. It would not: `placeholder`
- * is in core's `input` allow-list (`common/constants.mjs:1863-1866`), `class`
- * is global (:1839-1841), and `select`/`option` keep `name`/`value`/`selected`
- * — nothing in this form would be touched. The element that lacks
- * `placeholder` is `textarea` (:1885).
- *
- * The outer div must BE a div and carry NO attributes at all — core throws on
- * each separately (dialog.mjs:188-189).
- *
- * Every value is set with `setAttribute` and never as a property. The element is
- * serialized to HTML and re-parsed, so `input.value = x` sets an IDL property
- * that does NOT reflect into the markup and arrives empty, silently — the same
- * trap the target picker's checkboxes documented.
+ * Values go in with `setAttribute`, which is the field's DEFAULT: it was
+ * required while DialogV2 serialized this element (a property set with
+ * `input.value = x` never reaches the markup), and it is still what a fresh
+ * page should start at.
  */
-const buildForm = () => {
+export const buildForm = () => {
   const content = document.createElement("div");
 
   const hint = document.createElement("p");
@@ -146,19 +96,16 @@ const buildForm = () => {
   return content;
 };
 
-/* `wireDiceBuilder` MOVED to utils.js on 2026-10-02, when the Improvised Attack
-   dialog briefly became its second consumer. That dialog lost its dice buttons
-   the same day (user ruling), so this is the only caller again — the helper
-   stays where it is, and its `render`-callback contract and the
-   field-is-the-only-state rule are documented beside it. */
+/* `wireDiceBuilder` (utils.js) wires the dice builder; the Dashboard calls it on
+   each render of the Damage page, on the LIVE nodes. */
 
 /**
- * Ask the Warden what happened, roll it, and post an ordinary damage card.
+ * Roll what the Warden typed on the Damage page and post an ordinary damage card.
  *
- * WARDEN ONLY, stated here as well as by the tool's `visible` flag: the tool
- * being absent is the affordance, this is the enforcement, and it is the half
- * that survives someone reaching the function another way. Deciding what
- * happened to somebody else's character is the Warden's call.
+ * WARDEN ONLY, stated here as well as by the tool's `visible` flag and the
+ * Dashboard's own refusal: this is the half that survives someone reaching the
+ * function another way. Deciding what happened to somebody else's character is
+ * the Warden's call.
  *
  * TARGETS come from `game.user.targets`, exactly as `#onRollDamage` does, so a
  * Warden who aimed first gets one gesture and one who did not gets the splat and
@@ -166,45 +113,17 @@ const buildForm = () => {
  * an aiming gesture the Warden made, where the pre-tick was a guess read off the
  * canvas selection.
  *
+ * @param {{source?: string, formula?: string, pool?: string}} fields
  * @return {Promise<ChatMessage|null>} the card, or null if nothing was rolled
  */
-export const openWardenDamage = async ({ windowId } = {}) => {
+export const rollWardenDamage = async ({ source = "", formula = "", pool = "hp" } = {}) => {
   if (!game.user.isGM) {
     ui.notifications.warn(game.i18n.localize("CAIRN.Notify.WardenDamageWardenOnly"));
     return null;
   }
-
-  const answer = await foundry.applications.api.DialogV2.wait({
-    renderOptions: { window: { windowId } },   // the caller's own window (review #34 finding 161)
-    classes: ["cairn-warden-damage"],
-    window: { title: game.i18n.localize("CAIRN.WardenDamage.Title") },
-    content: buildForm(),
-    // The dice builder's listeners go on the LIVE nodes — see wireDiceBuilder.
-    render: (event, dialog) => wireDiceBuilder(dialog.element),
-    buttons: [
-      {
-        action: "roll",
-        label: "CAIRN.WardenDamage.Roll",
-        icon: "fa-solid fa-burst",
-        default: true,
-        // DialogV2 hands the callback the clicked BUTTON, and `button.form` is
-        // the dialog's form. Returning an OBJECT is what tells a real answer
-        // from Cancel, which resolves to its action string, and from a dismissal,
-        // which resolves to null — the same discriminator askDamageTargets uses,
-        // and the reason neither can be mistaken for a choice.
-        callback: (event, button) => ({
-          source: button.form.elements.source.value.trim(),
-          formula: button.form.elements.formula.value.trim(),
-          pool: button.form.elements.pool.value,
-        }),
-      },
-      { action: "cancel", label: "CAIRN.Cancel", icon: "fa-solid fa-xmark" },
-    ],
-    rejectClose: false,
-  });
-  if (!answer || typeof answer !== "object") return null;
-
-  const { source, formula, pool } = answer;
+  source = String(source).trim();
+  formula = String(formula).trim();
+  if (!DAMAGE_POOLS.includes(pool)) pool = "hp";
   // Refused rather than defaulted. A hazard with no damage is not a hazard, and
   // silently substituting a die would apply a number the Warden never chose.
   //
@@ -240,7 +159,7 @@ export const openWardenDamage = async ({ windowId } = {}) => {
   // NOT a bare `ChatMessage.getSpeaker()`. With no arguments it falls through to
   // "infer from controlled tokens" and then to the user's impersonated actor
   // (chat-message.mjs:243-255), so a Warden with a token selected — which the
-  // gesture before opening this dialog routinely leaves them with — would have
+  // gesture before rolling routinely leaves them with — would have
   // posted the trap in that creature's name. The user speaker is built the way
   // core builds it (chat-message.mjs:307-314); a trap has no actor and no token,
   // and saying so is honest.

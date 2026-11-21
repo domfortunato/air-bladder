@@ -434,7 +434,7 @@ export class Damage {
                     // whose slot takes a phrase when this is true.
                     unarmed: label?.dataset.unarmed === "1",
                     // HAZARD-NESS IS THE BOOLEAN, NOT THE TEXT. The Warden may leave
-                    // Source blank on purpose — openWardenDamage allows it, and the
+                    // Source blank on purpose — rollWardenDamage allows it, and the
                     // roll card then carries the die alone. Deciding hazard-ness from
                     // the text made a blank Source fall through to the attacker branch,
                     // which resolved a null token to the speaker's alias and printed
@@ -458,7 +458,7 @@ export class Damage {
                 // displayed nowhere, and the card's author owns its flavor, so a
                 // player could add `data-pool="WIL"` to an ordinary dagger card and
                 // the Warden's routine Apply skipped armour and HP. Only
-                // `openWardenDamage` mints a pool, and it refuses non-GMs.
+                // `rollWardenDamage` mints a pool, and it refuses non-GMs.
                 const pool = message?.author?.isGM ? (label?.dataset.pool || "hp") : "hp";
                 const applied = await this.applyToTargets(
                     targetsList, dmg, scene, source, pool);

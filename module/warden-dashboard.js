@@ -22,15 +22,22 @@
  * they go through the overlay's `table.name` namespace exactly as the
  * compendium sidebar does.
  *
- * It lives in its own file for the same reason `warden-damage.js` does: it
- * owns a Foundry surface, the scene-controls palette.
+ * THREE PAGES since 2026-11-21 (user ask): Party (party-sheet.js, the Party
+ * sheet's own window until then), Damage (warden-damage.js, the Warden's
+ * Damage dialog until then) and Tables (everything above), on a rail hung off
+ * the frame the way a sheet's is (actor/tab-rail.js), with a button below
+ * them that opens core's chat pop-out. This file owns the window and the
+ * three Token-controls tools that open it on each page; the other two own
+ * their page's data and behaviour.
  */
 
 import { findTableByName, resultText, resultPlainText } from "./compendium.js";
-import { cleanDescription } from "./utils.js";
+import { cleanDescription, wireDiceBuilder } from "./utils.js";
 import { t } from "./i18n-content.js";
-import { openWardenDamage } from "./warden-damage.js";
-import { openPartySheet } from "./party-sheet.js";
+import { buildForm as buildDamageForm, rollWardenDamage } from "./warden-damage.js";
+import { PartyPage, partyContext, isPartyKind } from "./party-sheet.js";
+import { isHeldLight } from "./gear.js";
+import { placeRail, placeRailSoon } from "./actor/tab-rail.js";
 import {
   valdEnabled, describeTime, weatherTableForToday, monthChoices, WATCH_KEYS,
   advanceWatch, backWatch, advanceDay, toNextMorning, setDate, timeForDate, describeDateAt, describeShift,
@@ -1072,22 +1079,29 @@ class WardenDashboard extends foundry.applications.api.HandlebarsApplicationMixi
     // scopes it to `.cairn.sheet .window-content`. That restored scrolling is
     // what makes this window safe to resize: shrink it and the body scrolls
     // instead of clipping.
-    classes: ["cairn", "sheet", "cairn-dashboard"],
+    //
+    // `cairn-railed` hangs the page rail off the frame (tab-rail.js, the
+    // sheets' own). `cairn-party-sheet` and `cairn-warden-damage` are the
+    // classes the Party sheet's window and the damage dialog wore, kept so
+    // their stylesheet blocks reach the pages they became (2026-11-21).
+    classes: ["cairn", "sheet", "cairn-dashboard", "cairn-railed", "cairn-party-sheet", "cairn-warden-damage"],
     window: {
       title: "CAIRN.Dashboard.Title",
       icon: "fas fa-clipboard-list",
       resizable: true,
     },
-    // WIDER AND TALLER since 2026-09-10, part of the readability pass: six
-    // tabs then sit on one row instead of wrapping, and the button grid gets
-    // four columns where it had three.
+    // The Tables page's size; each page has its own (PAGE_SIZE).
     position: { width: 640, height: 680 },
     actions: {
       rollTable: WardenDashboard._onRollTable,
       showTable: WardenDashboard._onShowTable,
       rollSet: WardenDashboard._onRollSet,
       generate: WardenDashboard._onGenerate,
-      wardenDamage: WardenDashboard._onWardenDamage,
+      rollDamage: WardenDashboard._onRollDamage,
+      openChat: WardenDashboard._onOpenChat,
+      openSheet: WardenDashboard._onOpenSheet,
+      putOutLight: WardenDashboard._onPutOutLight,
+      partyBulk: WardenDashboard._onPartyBulk,
       advanceWatch: WardenDashboard._onAdvanceWatch,
       backWatch: WardenDashboard._onBackWatch,
       advanceDay: WardenDashboard._onAdvanceDay,
@@ -1096,7 +1110,6 @@ class WardenDashboard extends foundry.applications.api.HandlebarsApplicationMixi
       rollWeather: WardenDashboard._onRollWeather,
       setWeather: WardenDashboard._onSetWeather,
       openCalendar: WardenDashboard._onOpenCalendar,
-      openPartySheet: WardenDashboard._onOpenPartySheet,
     },
   };
 
@@ -1119,7 +1132,19 @@ class WardenDashboard extends foundry.applications.api.HandlebarsApplicationMixi
    * and the band would take half the window while rendering perfectly and
    * logging nothing. The CSS pins it `flex: 0 0 auto`.
    */
+  //
+  // THREE PAGES since 2026-11-21 (user ask: the Party sheet, Warden's Damage
+  // and the Dashboard in one window, "Party", "Damage", "Tables", on a rail).
+  // `rail` is drawn first, straight inside .window-content, where core's
+  // changeTab looks for the tabs (the sheets' rail, tab-rail.js). Party and
+  // Damage are a part each; Tables is the two parts above, time and body, both
+  // wearing the Tables page's tab (user ruling: the clock band on Tables only).
+  // A page is a TAB, so turning one hides the others without a render, and
+  // each part still renders on its own.
   static PARTS = {
+    rail: { template: "systems/air-bladder/templates/parts/tab-rail.html" },
+    party: { template: "systems/air-bladder/templates/dashboard/party-sheet.html" },
+    damage: { template: "systems/air-bladder/templates/dashboard/warden-damage.html" },
     time: { template: "systems/air-bladder/templates/dashboard/warden-dashboard-time.html" },
     body: { template: "systems/air-bladder/templates/dashboard/warden-dashboard.html" },
   };
@@ -1129,10 +1154,19 @@ class WardenDashboard extends foundry.applications.api.HandlebarsApplicationMixi
    * Mythic Bastionland hit the failure and wrote it down: the instance keeps
    * the tab you left it on while the template redraws marking the first one
    * active, so the remembered tab cannot be clicked back to until a third has
-   * been visited. With a single tab group core supplies `context.tabs` itself
-   * (application.mjs:693), so nothing here needs to call `_prepareTabs`.
+   * been visited. TWO GROUPS since the pages (2026-11-21), so core no longer
+   * supplies `context.tabs` (it does for exactly one group, application.mjs:693)
+   * and `_prepareContext` calls `_prepareTabs` for each.
    */
   static TABS = {
+    page: {
+      initial: "tables",
+      tabs: [
+        { id: "party", icon: "fa-solid fa-users", label: "CAIRN.Dashboard.Page.Party" },
+        { id: "damage", icon: "fa-solid fa-skull-crossbones", label: "CAIRN.Dashboard.Page.Damage" },
+        { id: "tables", icon: "fa-solid fa-clipboard-list", label: "CAIRN.Dashboard.Page.Tables" },
+      ],
+    },
     primary: {
       initial: "travel",
       tabs: [
@@ -1149,6 +1183,8 @@ class WardenDashboard extends foundry.applications.api.HandlebarsApplicationMixi
   /** @override */
   async _prepareContext(options) {
     const context = await super._prepareContext(options);
+    context.tabs = this._prepareTabs("primary");
+    context.pageTabs = this._prepareTabs("page");
     const label = (k) => game.i18n.localize(k);
     const buttons = (rows) => rows.map(([key, table, icon]) => ({ label: label(key), table, icon }));
 
@@ -1217,7 +1253,6 @@ class WardenDashboard extends foundry.applications.api.HandlebarsApplicationMixi
       label: game.i18n.localize(cfg.label),
       selected: value === DEFAULT_MESSAGE_MODE,
     }));
-    context.damageLabel = game.i18n.localize("CAIRN.WardenDamage.Title");
 
     // The time band. `describeTime` is the SAME call the watch clock makes, so
     // the two surfaces can never drift into disagreeing about what time it is.
@@ -1242,6 +1277,98 @@ class WardenDashboard extends foundry.applications.api.HandlebarsApplicationMixi
     context.events = buttons(TIME_EVENTS);
     return context;
   }
+
+  /**
+   * Each part's own reads. The rail gets the PAGE tabs under the name the
+   * sheets' rail template reads (`tabs`), on a context of its own so the
+   * body's `tabs` (the six table tabs) is left alone.
+   * @override
+   */
+  async _preparePartContext(partId, context, options) {
+    context = await super._preparePartContext(partId, context, options);
+    if (partId === "rail") {
+      const tabs = Object.values(context.pageTabs).map((tab) => ({ ...tab, tip: game.i18n.localize(tab.label) }));
+      return { ...context, tabs, limitedView: false, canImprovise: false, canChat: true };
+    }
+    if (partId === "party") {
+      this.party.pruneTicks();
+      Object.assign(context, partyContext(this.party.picks));
+    }
+    return context;
+  }
+
+  /** The Party page's behaviour: its ticks, drags, drops and notes (party-sheet.js). */
+  party = new PartyPage(this);
+
+  /* -------------------------------------------- */
+  /*  The pages                                   */
+  /* -------------------------------------------- */
+
+  /**
+   * Turning a page hands the window that page's size (user ruling 2026-11-21:
+   * each page keeps its own; the Party table is twice the Tables page's
+   * width). What the Warden resized a page to is remembered for the session,
+   * in `pageSizes`, when they leave it.
+   * @override
+   */
+  changeTab(tab, group, options = {}) {
+    if (group !== "page" || !this.rendered) return super.changeTab(tab, group, options);
+    const from = this.tabGroups.page;
+    if (from === tab && !options.force) return;
+    if (from && !this.minimized) pageSizes[from] = { width: this.position.width, height: this.position.height };
+    super.changeTab(tab, group, { ...options, updatePosition: false });
+    this.setPosition(sizeOfPage(tab));
+  }
+
+  /** @override */
+  async _onFirstRender(context, options) {
+    await super._onFirstRender(context, options);
+    this.party.bindFrame(this.element);
+  }
+
+  /** @override */
+  async _onRender(context, options) {
+    await super._onRender(context, options);
+    const parts = options.parts ?? [];
+    // Each part's listeners go on that part's own fresh element, so a part
+    // rendered alone never stacks a second copy on another.
+    if (parts.includes("party")) {
+      const el = this.element.querySelector(":scope > .window-content > .cairn-party-inner");
+      if (el) this.party.bind(el);
+    }
+    if (parts.includes("damage")) this.#fillDamagePage();
+    // The rail's side: the setting's, unless the window stands too near that edge.
+    placeRailSoon(this);
+  }
+
+  /**
+   * The Damage page's fields, built by warden-damage.js (they were its
+   * dialog's), and the dice builder wired on the live nodes. Enter in a text
+   * field rolls, as the dialog's default button did.
+   */
+  #fillDamagePage() {
+    const page = this.element.querySelector(":scope > .window-content > .cairn-damage-page");
+    const holder = page?.querySelector(".cairn-damage-fields");
+    if (!holder) return;
+    holder.replaceChildren(...buildDamageForm().childNodes);
+    // What the Warden had typed before this redraw (`_preSyncPartState`).
+    for (const [name, value] of Object.entries(this.#damageValues ?? {})) {
+      const field = holder.querySelector(`[name="${name}"]`);
+      if (field && value !== undefined) field.value = value;
+    }
+    this.#damageValues = null;
+    wireDiceBuilder(page);
+    for (const input of page.querySelectorAll('input[type="text"]')) {
+      input.addEventListener("keydown", (event) => {
+        if (event.key !== "Enter") return;
+        event.preventDefault();
+        page.querySelector('button[data-action="rollDamage"]')?.click();
+      });
+    }
+  }
+
+  /** The Damage page's fields as they stood before a redraw of that page. */
+  #damageValues = null;
 
   /* -------------------------------------------- */
 
@@ -1269,6 +1396,12 @@ class WardenDashboard extends foundry.applications.api.HandlebarsApplicationMixi
   _preSyncPartState(partId, newElement, priorElement, state) {
     super._preSyncPartState(partId, newElement, priorElement, state);
     if (partId === "body") state.messageMode = priorElement.querySelector("[name=messageMode]")?.value;
+    // The Damage page's three fields, the same way: its fields are built in
+    // `_onRender`, after core's sync, so they are held here until then.
+    if (partId === "damage") {
+      this.#damageValues = Object.fromEntries(["source", "formula", "pool"]
+        .map((name) => [name, priorElement.querySelector(`[name="${name}"]`)?.value]));
+    }
   }
 
   /** @override */
@@ -1363,9 +1496,59 @@ class WardenDashboard extends foundry.applications.api.HandlebarsApplicationMixi
     });
   }
 
-  /** @this {WardenDashboard} */
-  static async _onWardenDamage(event, target) {
-    await this._whileDisabled(target, () => openWardenDamage({ windowId: this.window?.windowId }));
+  /**
+   * The Damage page's Roll: what the three fields say, rolled into an ordinary
+   * damage card (warden-damage.js). The page stays as it is, ready for the
+   * next trap.
+   * @this {WardenDashboard}
+   */
+  static async _onRollDamage(event, target) {
+    const page = target.closest(".cairn-damage-page");
+    const value = (name) => page?.querySelector(`[name="${name}"]`)?.value ?? "";
+    await this._whileDisabled(target, () => rollWardenDamage({
+      source: value("source"), formula: value("formula"), pool: value("pool"),
+    }));
+  }
+
+  /**
+   * The rail's chat button: Foundry's own chat log in its own window (user
+   * ruling 2026-11-21). Core allows the log in two places only, the sidebar and
+   * ONE pop-out (sidebar-tab.mjs `renderPopout`), and only those two receive new
+   * messages and the message box, so a copy inside this window would be a
+   * silent, deaf one. A second press brings the pop-out forward.
+   */
+  static async _onOpenChat() {
+    const popout = await ui.chat.renderPopout();
+    popout?.bringToFront?.();
+  }
+
+  /** The Party page: a character's own sheet, from its name. @this {WardenDashboard} */
+  static _onOpenSheet(event, target) {
+    const id = target.closest("[data-actor-id]")?.dataset.actorId;
+    game.actors.get(id)?.sheet?.render(true);
+  }
+
+  /**
+   * The Party page: put a character's light out (2026-11-21, user ask: "The
+   * warden should be able to put someone's lamp out and the notice in chat
+   * should notify everyone"). The lit cell's click unequips every lit light
+   * that actor holds: the Equip light badge's own write, so
+   * registerHeldLightSync (gear.js) posts the Warden's public card and Torch
+   * follows.
+   */
+  static async _onPutOutLight(event, target) {
+    event.preventDefault();
+    event.stopPropagation();
+    if (!game.user.isGM) return;
+    const actor = game.actors.get(target.closest("[data-actor-id]")?.dataset.actorId);
+    if (!actor) return;
+    const lit = actor.items.filter((i) => isHeldLight(i)).map((i) => ({ _id: i.id, "system.equipped": false }));
+    if (lit.length) await actor.updateEmbeddedDocuments("Item", lit);
+  }
+
+  /** The Party page's bulk buttons, over the ticked rows (`PartyPage#runBulk`). @this {WardenDashboard} */
+  static async _onPartyBulk(event, target) {
+    await this._whileDisabled(target, () => this.party.runBulk(target.dataset.bulk));
   }
 
   /**
@@ -1437,11 +1620,6 @@ class WardenDashboard extends foundry.applications.api.HandlebarsApplicationMixi
   }
 
   /** @this {WardenDashboard} */
-  /** The Party sheet, from the footer beside the damage tool. */
-  static async _onOpenPartySheet() {
-    await openPartySheet();
-  }
-
   static async _onSetDate(event, target) {
     await this._whileDisabled(target, () => promptSetDate({ windowId: this.window?.windowId }));
   }
@@ -1474,12 +1652,21 @@ class WardenDashboard extends foundry.applications.api.HandlebarsApplicationMixi
   _onDetach(from, to) {
     super._onDetach(from, to);
     this.#syncPopOut();
+    // A move between browser windows: the rail's side is decided against the new one.
+    placeRailSoon(this);
   }
 
   /** @override */
   _onAttach(from, to) {
     super._onAttach(from, to);
     this.#syncPopOut();
+    placeRailSoon(this);
+  }
+
+  /** Every move, a drag's every frame included, decides the rail's side again. @override */
+  _onPosition(position) {
+    super._onPosition(position);
+    placeRail(this, position);
   }
 
   /** Show Pop Out exactly when core would offer Detach, using core's predicate. */
@@ -1495,22 +1682,65 @@ class WardenDashboard extends foundry.applications.api.HandlebarsApplicationMixi
 
 let dashboard = null;
 
+/** The pages, in rail order. */
+export const PAGE_IDS = ["party", "damage", "tables"];
+
+/**
+ * Each page's opening size (user ruling 2026-11-21: each page keeps its own).
+ * Party is the Party sheet's 1300 x 460, measured on CT 123 for its columns
+ * (`dev:party-sheet`); Tables is the Dashboard's 640 x 680; Damage the
+ * dialog's fields with room to breathe.
+ */
+export const PAGE_SIZE = {
+  party: { width: 1300, height: 460 },
+  damage: { width: 480, height: 440 },
+  tables: { width: 640, height: 680 },
+};
+
+/** What the Warden resized each page to, this session (`WardenDashboard#changeTab`). */
+const pageSizes = {};
+
+/** The size a page opens at: the Warden's own, else its default. */
+const sizeOfPage = (page) => ({ ...(pageSizes[page] ?? PAGE_SIZE[page] ?? PAGE_SIZE.tables) });
+
 /**
  * Open the Warden's Dashboard, reusing the one instance rather than stacking a
- * window per click.
+ * window per click, on the page asked for (the people icon opens Party, the
+ * skull Damage, the clipboard Tables — user ruling 2026-11-21) or, with none
+ * named, the page it was left on.
  *
- * WARDEN ONLY, stated here as well as by the tool's `visible` flag: the tool
+ * Already open, it brings itself forward and turns the page, and redraws
+ * every part BUT Damage, so the clipboard still refreshes the tables as it
+ * always has while the Warden's half-typed trap survives.
+ *
+ * WARDEN ONLY, stated here as well as by the tools' `visible` flag: the tool
  * being absent is the affordance, this is the enforcement, and it is the half
  * that survives someone reaching the function another way. Every table here is
  * the Warden's to roll, and several would spoil an encounter.
+ * @param {{page?: "party"|"damage"|"tables"}} [options]
  */
-export const openWardenDashboard = async () => {
+export const openWardenDashboard = async ({ page } = {}) => {
   if (!game.user.isGM) {
     ui.notifications.warn(game.i18n.localize("CAIRN.Notify.DashboardWardenOnly"));
     return null;
   }
+  const want = PAGE_IDS.includes(page) ? page : null;
   dashboard ??= new WardenDashboard();
-  return dashboard.render({ force: true });
+  if (dashboard.rendered) {
+    await dashboard.render({ force: true, parts: ["rail", "party", "time", "body"] });
+    if (want) dashboard.changeTab(want, "page");
+    return dashboard;
+  }
+  if (want) dashboard.tabGroups.page = want;
+  return dashboard.render({ force: true, position: sizeOfPage(dashboard.tabGroups.page ?? "tables") });
+};
+
+/**
+ * Redraw the Party page, soon and once (`PartyPage#queueRender`): every party
+ * write fires a hook, and a burst collapses into one render.
+ */
+export const refreshDashboardParty = () => {
+  if (dashboard?.rendered) dashboard.party.queueRender();
 };
 
 /**
@@ -1545,17 +1775,25 @@ export const refreshDashboardTables = () => {
 };
 
 /**
- * Add the dashboard to the Token controls, beside the Warden's damage tool.
+ * The Dashboard's three Token-controls tools (2026-11-21: one window, three
+ * doors) — the skull opens Damage, the clipboard Tables, the people icon Party
+ * — in the order the three separate tools had, so a Warden's hands keep their
+ * places. Each is appended after core's own (`order`).
  *
- * The traps are `warden-damage.js`'s and they have not changed: `tools` is a
- * RECORD keyed by name, so pushing onto it fails silently; and `visible` is
- * evaluated ONCE, when the palette first renders, which is correct for a GM
- * check and is why the open function enforces on its own.
+ * The traps of a tool are unchanged: `tools` is a RECORD keyed by name, so
+ * pushing onto it fails silently (scene-controls.mjs:382-392); and `visible`
+ * is evaluated ONCE, when the palette first renders (:378-380), which is
+ * correct for a GM check and is why the open function enforces on its own.
  *
  * It also registers the three world-table hooks that keep Your Tables current
- * (`refreshDashboardTables`). A compendium table never appears on that tab,
- * and of a table's own fields only its NAME is drawn there.
- * NAMED, so a probe can switch each off by name for a red-first leg.
+ * (`refreshDashboardTables`) — NAMED, so a probe can switch each off by name
+ * for a red-first leg; a compendium table never appears on that tab, and of a
+ * table's own fields only its NAME is drawn there — and the hooks that keep the
+ * Party page current. Those fire on every client and cost a property read
+ * each: the window is only ever built on a GM's. Their filters are
+ * deliberately loose, a character or anything connected to one, because a
+ * missed redraw is a wrong number in front of the Warden and a spare one is a
+ * debounced render of a few rows.
  */
 export const registerWardenDashboardControl = () => {
   const worldTable = (doc) => !doc?.pack;
@@ -1565,23 +1803,44 @@ export const registerWardenDashboardControl = () => {
     if (worldTable(doc) && ("name" in (changes ?? {}))) refreshDashboardTables();
   });
 
+  const touchesParty = (actor, changes = {}) => isPartyKind(actor)
+    || !!actor?.system?.connectedTo
+    || foundry.utils.hasProperty(changes, "system.connectedTo");
+  Hooks.on("updateActor", (actor, changes) => { if (touchesParty(actor, changes)) refreshDashboardParty(); });
+  Hooks.on("createActor", (actor) => { if (touchesParty(actor)) refreshDashboardParty(); });
+  Hooks.on("deleteActor", (actor) => { if (touchesParty(actor)) refreshDashboardParty(); });
+  for (const hook of ["createItem", "updateItem", "deleteItem"]) {
+    Hooks.on(hook, (item) => { if (isPartyKind(item.parent)) refreshDashboardParty(); });
+  }
+  Hooks.on("updateUser", (_user, changes) => { if ("character" in (changes ?? {})) refreshDashboardParty(); });
+  // The marching order setting's own onChange (settings.js), so a second GM's
+  // drag redraws this one's table too.
+  Hooks.on("cairnMarchingOrderChanged", refreshDashboardParty);
+
+  const TOOLS = [
+    { name: "abWardenDamage", title: "CAIRN.WardenDamage.Tool", icon: "fas fa-skull-crossbones", page: "damage" },
+    { name: "abWardenDashboard", title: "CAIRN.Dashboard.Tool", icon: "fas fa-clipboard-list", page: "tables" },
+    { name: "abPartySheet", title: "CAIRN.PartySheet.Tool", icon: "fas fa-users", page: "party" },
+  ];
   Hooks.on("getSceneControlButtons", (controls) => {
     const tools = controls?.tokens?.tools;
     if (!tools) return;   // core renamed or removed the control set
-    tools.abWardenDashboard = {
-      name: "abWardenDashboard",
-      title: "CAIRN.Dashboard.Tool",
-      icon: "fas fa-clipboard-list",
-      order: Object.keys(tools).length,
-      button: true,
-      visible: game.user.isGM,
-      onChange: () => {
-        // Not awaited — `onChange` is fire-and-forget, and an unhandled
-        // rejection out of a click handler is silent.
-        openWardenDashboard().catch((err) => {
-          console.error("Air Bladder | the Warden's dashboard failed:", err);
-        });
-      },
-    };
+    for (const tool of TOOLS) {
+      tools[tool.name] = {
+        name: tool.name,
+        title: tool.title,
+        icon: tool.icon,
+        order: Object.keys(tools).length,
+        button: true,
+        visible: game.user.isGM,
+        onChange: () => {
+          // Not awaited — `onChange` is fire-and-forget, and an unhandled
+          // rejection out of a click handler is silent.
+          openWardenDashboard({ page: tool.page }).catch((err) => {
+            console.error("Air Bladder | the Warden's dashboard failed:", err);
+          });
+        },
+      };
+    }
   });
 };

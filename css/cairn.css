@@ -4150,7 +4150,7 @@ ol.combat-tracker li.combatant.cairn-drop-below {
    `.cairn.sheet .window-content > * { flex: 1 }` lands on the wrapper, which
    is what we want, and the wrapper is the flex column that lays out the four
    bands. The BODY takes the slack and the scrolling; the tabs, the visibility
-   row and the damage button keep their natural height, so they stay put while
+   row keep their natural height, so they stay put while
    the panel scrolls under them. */
 .cairn-dashboard .cairn-dashboard-inner {
     display: flex;
@@ -4395,19 +4395,8 @@ ol.combat-tracker li.combatant.cairn-drop-below {
     font-size: 16px;
 }
 
-.cairn-dashboard .cairn-dashboard-footer {
-    display: flex;
-    gap: 6px;
-    margin-top: 6px;
-    padding-top: 6px;
-    border-top: 1px solid var(--ab-line);
-}
-
-.cairn-dashboard .cairn-dashboard-footer button {
-    flex: 1 1 0;
-    width: auto;
-    margin: 0;
-}
+/* The footer that opened Warden's Damage and the Party sheet went with them
+   onto the rail (2026-11-21). */
 
 /* ---- The Warden's Party sheet (2026-11-21) --------------------------------
    One table, one row per PC, in marching order. The window-content's single
@@ -4575,6 +4564,76 @@ ol.combat-tracker li.combatant.cairn-drop-below {
 
 .cairn-party-sheet tr.cairn-drop-target td {
     border-top: 2px solid var(--ab-accent);
+}
+
+/* The tick column and the bulk buttons over the table (2026-11-21). The row
+   of buttons keeps its natural height above the scrolling table and wraps in
+   a narrowed window; disabled until a row is ticked (core's disabled skin). */
+.cairn-party-sheet .cairn-party-pick {
+    width: 28px;
+    text-align: center;
+}
+.cairn-party-sheet .cairn-party-pick input {
+    margin: 0;
+}
+.cairn-party-sheet .cairn-party-bulk {
+    flex: 0 0 auto;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 6px;
+}
+.cairn-party-sheet .cairn-party-bulk-label {
+    font-weight: bold;
+}
+.cairn-party-sheet .cairn-party-bulk button {
+    flex: 0 0 auto;
+    width: auto;
+    margin: 0;
+    padding: 0 8px;
+    gap: 4px;
+}
+.cairn-party-sheet .cairn-party-drop-hint {
+    margin-left: auto;
+    color: var(--ab-muted);
+    font-size: var(--font-size-13, 13px);
+}
+
+/* ---- The Warden's Dashboard's pages (2026-11-21) --------------------------
+   Party, Damage and Tables are tabs of group "page" on the window's rail.
+   Core hides an inactive `.tab`, but in @layer blocks.ui, and this file's
+   layer comes later and wins whatever the specificity: `.cairn-party-inner`
+   and `.cairn-dashboard-inner` set `display: flex`, so without this every
+   page would show at once. */
+.cairn.cairn-dashboard > .window-content > .tab[data-group="page"]:not(.active) {
+    display: none;
+}
+
+/* The Damage page: the dialog's fields, then Roll at the foot. */
+.cairn-warden-damage .cairn-damage-page {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-height: 0;
+}
+.cairn-warden-damage .cairn-damage-fields {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.cairn-warden-damage .cairn-damage-fields > p {
+    margin: 0 0 4px;
+}
+.cairn-warden-damage .cairn-damage-footer {
+    display: flex;
+    margin-top: auto;
+    padding-top: 6px;
+    border-top: 1px solid var(--ab-line);
+}
+.cairn-warden-damage .cairn-damage-footer button {
+    flex: 1 1 auto;
+    margin: 0;
 }
 
 /* ---- The Warden's clock, on the Dashboard --------------------------------

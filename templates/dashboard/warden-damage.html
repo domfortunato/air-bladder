@@ -1,0 +1,18 @@
+{{!--
+  The Warden's Dashboard's Damage page (the Warden's Damage dialog until
+  2026-11-21). ONE ROOT ELEMENT, the page's tab.
+
+  The fields are built in code (warden-damage.js `buildForm`, the dialog's own
+  builder) and appended to `.cairn-damage-fields` in `_onRender`; this is only
+  their frame and the Roll button. Every <button> is type="button": the window
+  is a <form>.
+--}}
+<section class="cairn-damage-page tab {{pageTabs.damage.cssClass}}" data-group="page" data-tab="damage">
+    <div class="cairn-damage-fields"></div>
+    <footer class="cairn-damage-footer">
+        <button type="button" data-action="rollDamage">
+            <i class="fa-solid fa-burst" inert></i>
+            <span>{{localize "CAIRN.WardenDamage.Roll"}}</span>
+        </button>
+    </footer>
+</section>

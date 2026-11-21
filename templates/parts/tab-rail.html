@@ -29,5 +29,14 @@
     <i class="fa-solid fa-burst" inert></i>
   </button>
   {{/if}}
+  {{#if canChat}}
+  {{!-- The Warden's Dashboard's rail only (2026-11-21, user ruling): not a
+        page, core's chat log in its own window (WardenDashboard._onOpenChat). --}}
+  <span class="cairn-rail-divider" aria-hidden="true"></span>
+  <button type="button" class="cairn-rail-chat" data-action="openChat"
+    aria-label="{{localize 'CAIRN.Dashboard.Chat'}}" data-tooltip-text="{{localize 'CAIRN.Dashboard.Chat'}}">
+    <i class="fa-solid fa-comments" inert></i>
+  </button>
+  {{/if}}
   {{/unless}}
 </nav>

@@ -669,7 +669,7 @@ export const IMPROVISED_FORMULA = "1d4";
  * `relabelQualityButtons` existed to paper over.
  *
  * NOTHING IS VALIDATED HERE. The caller checks the formula the way
- * `openWardenDamage` does, because the same three rules apply (no empty, no `@`,
+ * `rollWardenDamage` does, because the same three rules apply (no empty, no `@`,
  * and `Roll.validate` last since it lies about `@` references).
  *
  * @param {Object} [opts]
@@ -1147,13 +1147,12 @@ export const buildDiceBuilder = () => {
   // the greying is the affordance, and there is nothing to enforce because the
   // field is authoritative.
   //
-  // Every <button> is `type="button"` EXPLICITLY: DialogV2 renders content
-  // inside a <form>, where a bare <button> is type=submit — a die click would
-  // submit the dialog and close it.
+  // Every <button> is `type="button"` EXPLICITLY: the Warden's Dashboard it
+  // sits in is a <form> (it was a DialogV2's form until 2026-11-21), where a
+  // bare <button> is type=submit.
   //
-  // Listeners are NOT attached here. This element is serialized to innerHTML
-  // and re-parsed (dialog.mjs:187-191), so anything wired now is dead on
-  // arrival; `openWardenDamage` wires the LIVE nodes in its `render` callback.
+  // Listeners are NOT attached here: the Dashboard's Damage page wires the
+  // LIVE nodes with `wireDiceBuilder` once they are in the page.
   const builder = document.createElement("div");
   builder.className = "wd-dice-builder";
 
@@ -1202,13 +1201,10 @@ export const buildDiceBuilder = () => {
 };
 
 /**
- * Wire the dice builder onto the dialog's LIVE nodes.
- *
- * Called from DialogV2's `render` option (dialog.mjs:405, :420-422) — the seam
- * the client's own docs point at for exactly this ("the element will get
- * stringified, so any listeners … will not carry forward; you must still use
- * the `render` option", dialog.mjs:152-155). The same rule the background
- * picker's eye toggles already follow via `dialog.render(true).then(...)`.
+ * Wire the dice builder onto its LIVE nodes: the Warden's Dashboard calls it on
+ * each render of the Damage page, once the fields are in the page. (Until
+ * 2026-11-21 it was DialogV2's `render` option, because a dialog stringifies its
+ * content and drops any listener wired before.)
  *
  * THE FIELD IS THE ONLY STATE. Every gesture is read-modify-write against the
  * formula input via `parseDiceFormula` / `composeDiceFormula`:
@@ -1216,7 +1212,7 @@ export const buildDiceBuilder = () => {
  *  - a die button parses the field, appends its die, recomposes;
  *  - a mode radio recomposes the same dice under the new mode;
  *  - ✕ EMPTIES the field (user ruling — ✕ means clear, the buttons are the way
- *    back; only opening the dialog pre-fills 1d6);
+ *    back; only a fresh Damage page pre-fills 1d6);
  *  - a hand edit re-greys or re-enables on every keystroke.
  *
  * The DIALECT is read from the setting ONCE here and passed as an argument —

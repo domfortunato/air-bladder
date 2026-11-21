@@ -690,6 +690,28 @@ export const registerSettings = () => {
     },
   });
 
+  // Which side the page tabs hang on, per person (2026-11-21, user ask): every
+  // actor sheet's rail and the Warden's Dashboard's. CLIENT scope and on core's
+  // flat list for the tuck's reason (a player cannot open a submenu). The side
+  // asked for still gives way when a window is too near that screen edge
+  // (tab-rail.js). Nothing re-renders: placeEveryRail moves a class.
+  game.settings.register(SETTINGS_NS, "tab-rail-side", {
+    name: "CAIRN.Settings.TabRailSide.label",
+    hint: "CAIRN.Settings.TabRailSide.hint",
+    scope: "client",
+    config: true,
+    type: String,
+    choices: {
+      right: "CAIRN.Settings.TabRailSideChoice.Right",
+      left: "CAIRN.Settings.TabRailSideChoice.Left",
+    },
+    default: "right",
+    onChange: async () => {
+      const { placeEveryRail } = await import("./actor/tab-rail.js");
+      placeEveryRail();
+    },
+  });
+
   // `show-features-section` was registered here and is GONE (2026-08-09, user
   // ruling): the Features list it toggled was removed outright — a
   // fork-inherited UI nobody here uses. The `system.features` field SURVIVES,
