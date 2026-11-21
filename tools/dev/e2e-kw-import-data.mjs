@@ -86,7 +86,11 @@ const result = await page.evaluate(async () => {
     reportMatched: report.matched,
     reportFallback: report.fallback,
     reportFatigue: report.fatigue,
-    allImportedTagged: data.items.every((i) => i.flags?.["air-bladder"]?.grantSource === "imported"),
+    // Rations is in the Kettlewright background's own starting gear, so it
+    // re-tags to that background (2026-11-20); the two items no grant names
+    // stay `imported`, which no re-roll ever removes.
+    allImportedTagged: ["Frobnicator", FAT].every((n) => data.items.find((i) => i.name === n)?.flags?.["air-bladder"]?.grantSource === "imported"),
+    rationsSource: data.items.find((i) => i.name === "Rations")?.flags?.["air-bladder"]?.grantSource ?? null,
     // text best-fit
     scars: s.scars,
     scarEnabled: s.scarEnabled,
@@ -161,9 +165,96 @@ const pairs = await page.evaluate(async (dj) => {
   };
 }, darragh);
 
+// --- Bonds, uses, Barebones, starting gear (2026-11-20 plan, items 1-3) -----
+// Evander is a real Barebones export from the user, 2026-11-20 (Barkeep).
+// Data-only like the leg above: nothing is created.
+const evander = JSON.parse(fs.readFileSync(path.join(ROOT, "tools", "dev", "fixtures", "kettlewright-evander.json"), "utf8"));
+const more = await page.evaluate(async ({ dj, ev }) => {
+  const KW = game.cairn.kettlewrightImport;
+  const src = (item) => item?.flags?.["air-bladder"]?.grantSource ?? null;
+  const byName = (data, name) => data.items.find((i) => i.name === name);
+  const out = {};
+
+  // (1) Two bonds, the way Kettlewright joins a Fieldwarden's or an
+  // Outrider's: a blank line between. The second is another shipped Bonds row
+  // that grants an item, picked from the pack so the text is the pack's own.
+  const bondsTable = (await game.packs.get("air-bladder.tables-2e").getDocuments()).find((t) => t.name === "Bonds");
+  const second = bondsTable.results.find((r) => {
+    const its = r.getFlag("air-bladder", "items") ?? [];
+    return its.length === 1 && its[0].name !== "Silver Moss" && !dj.items.some((i) => i.name === its[0].name);
+  });
+  const secondText = second.description || second.name;
+  const secondItem = second.getFlag("air-bladder", "items")[0].name;
+  out.secondItem = secondItem;
+  const twoBonds = {
+    ...dj,
+    bonds: `${dj.bonds}\n\n${secondText}`,
+    items: [...dj.items, { id: "zz-bond2", name: secondItem, tags: [], location: 0, description: "" }],
+  };
+  for (const [leg, json] of [["bondsDirect", twoBonds], ["bondsRelay", KW.sanitizeKettlewrightExport(twoBonds)]]) {
+    const { data } = await KW.kettlewrightToActorData(json);
+    const b = data.system.bonds;
+    out[leg] = {
+      count: b.length,
+      texts: b.map((x) => x.description),
+      moss: src(byName(data, "Silver Moss")),
+      second: src(byName(data, secondItem)),
+      ids: b.map((x) => x.id),
+    };
+  }
+  out.secondText = secondText;
+  const single = await KW.kettlewrightToActorData(dj);
+  out.singleBondCount = single.data.system.bonds.length;
+
+  // (2) Uses below their maximum: a matched Torch at 1 of 3, and an item no
+  // pack carries (built from its tags) at 1 of 4.
+  const worn = {
+    ...dj,
+    items: [
+      ...dj.items.map((i) => (i.name === "Torch" ? { ...i, uses: 1, max_uses: 3 } : i)),
+      { id: "zz-flask", name: "ZZ Probe Flask", tags: ["uses"], uses: 1, max_uses: 4, location: 0, description: "" },
+    ],
+  };
+  for (const [leg, json] of [["usesDirect", worn], ["usesRelay", KW.sanitizeKettlewrightExport(worn)]]) {
+    const { data } = await KW.kettlewrightToActorData(json);
+    out[leg] = {
+      torch: byName(data, "Torch")?.system?.uses ?? null,
+      flask: byName(data, "ZZ Probe Flask")?.system?.uses ?? null,
+    };
+  }
+
+  // (3) Barebones: the content source, the Barebones background pool, the
+  // background's three items and the SRD kit each tagged so a re-roll
+  // replaces rather than doubles. Darragh is the 2e control.
+  for (const [leg, json] of [["evDirect", ev], ["evRelay", KW.sanitizeKettlewrightExport(ev)]]) {
+    const { data, report } = await KW.kettlewrightToActorData(json);
+    out[leg] = {
+      source: data.system.contentSource,
+      background: data.system.background,
+      uuid: data.system.backgroundUuid,
+      matched: report.background?.matched ?? null,
+      tags: Object.fromEntries(data.items.map((i) => [i.name, src(i)])),
+      questions: data.system.questions.length,
+    };
+  }
+  out.evUuidIsBarebones = !!out.evDirect.uuid && out.evDirect.uuid.includes("backgrounds-barebones");
+  const d = single.data;
+  out.darraghSource = d.system.contentSource;
+  // 2e starting gear: Kettlewright's own Pincers / Roll of Tin / Gloves / Hammer.
+  out.darraghGear = Object.fromEntries(["Pincers", "Roll of Tin", "Gloves", "Hammer", "Long Sword"].map((n) => [n, src(byName(d, n))]));
+  return out;
+}, { dj: darragh, ev: evander });
+
 await browser.close();
 
 const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+const bondsOk = (r) => r && r.count === 2 && r.texts[0] === darragh.bonds && r.texts[1] === more.secondText
+  && r.moss === `bond:${r.ids[0]}` && r.second === `bond:${r.ids[1]}`;
+const evKit = ["Rations", "Torch", "Chainmail", "Sword", "Air Bladder"];
+const evBg = ["Alcohol", "Sealable Bottle", "Sedative"];
+const evOk = (r) => r && r.source === "barebones" && r.background === "Barkeep" && r.matched === true
+  && evKit.every((n) => r.tags[n] === "barebones-kit")
+  && evBg.every((n) => /^background/.test(r.tags[n] ?? "")) && r.questions === 0;
 const wantAnswers = [darragh.background_table1_answer, darragh.background_table2_answer];
 const placedRight = (r) => r && eq(r.answers, wantAnswers) && r.found === 2 && r.total === 2;
 const retagged = (r) => r && r.sword === "question:0" && r.gambeson === "question:0" && r.paste === "question:1"
@@ -183,7 +274,8 @@ const checks = [
   ["Frobnicator in fallback list", result.reportFallback.includes("Frobnicator")],
   ["Fatigue item created", result.hasFatigue && result.reportFatigue === 1],
   ["Carrying marker skipped", result.carryingSkipped === true],
-  ["all imported items tagged grantSource=imported", result.allImportedTagged === true],
+  ["items no grant names stay grantSource=imported", result.allImportedTagged === true],
+  ["the background's starting gear re-tags to it (Rations)", /^background/.test(result.rationsSource ?? "")],
   ["scars split into two, enabled", eq(result.scars, ["Split Ear", "Broken Nose"]) && result.scarEnabled === true],
   ["omen set + enabled", /crows gather/.test(result.omen) && result.omenEnabled === true],
   ["bonds -> one entry", Array.isArray(result.bonds) && result.bonds.length === 1 && /owe a debt/.test(result.bonds[0].description)],
@@ -206,6 +298,18 @@ const checks = [
     pairs.unmatched.found === null && wantAnswers.every((a) => pairs.unmatched.notes.includes(a))
     && pairs.unmatched.notes.includes(darragh.background_table1_question)],
   ["older export: answers in notes still split", placedRight(pairs.legacy) && retagged(pairs.legacy) && pairs.legacy.notes === ""],
+  ["two bonds: split at the blank line, each item re-tagged to its own bond", bondsOk(more.bondsDirect)],
+  ["two bonds: the player relay too", bondsOk(more.bondsRelay)],
+  ["one bond stays one bond", more.singleBondCount === 1],
+  ["uses: a matched Torch keeps 1 of 3", eq(more.usesDirect.torch, { value: 1, max: 3 })],
+  ["uses: a tag-built item keeps 1 of 4", eq(more.usesDirect.flask, { value: 1, max: 4 })],
+  ["uses: the player relay keeps max_uses", eq(more.usesRelay.torch, { value: 1, max: 3 }) && eq(more.usesRelay.flask, { value: 1, max: 4 })],
+  ["Barebones: content source, Barebones background, kit and background gear tagged", evOk(more.evDirect) && more.evUuidIsBarebones],
+  ["Barebones: the player relay too", evOk(more.evRelay)],
+  ["2e control: Darragh stays 2e", more.darraghSource === "2e"],
+  ["2e: the background's starting gear re-tags, an answer's item keeps its question",
+    ["Pincers", "Roll of Tin", "Gloves", "Hammer"].every((n) => /^background/.test(more.darraghGear[n] ?? ""))
+    && more.darraghGear["Long Sword"] === "question:0"],
 ];
 
 console.log(`\n${FOUNDRY_URL}\n`);
@@ -216,6 +320,7 @@ for (const [label, pass] of checks) {
 }
 console.log("\n", JSON.stringify(result, null, 2));
 console.log("\n", JSON.stringify(pairs, null, 2));
+console.log("\n", JSON.stringify(more, null, 2));
 if (errors.length) { ok = false; console.log("\nConsole errors:\n" + errors.join("\n")); }
 console.log(ok ? "\nprobe passed\n" : "\nprobe FAILED\n");
 process.exit(ok ? 0 : 1);

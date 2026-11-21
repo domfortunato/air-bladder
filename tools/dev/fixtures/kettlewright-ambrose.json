@@ -1,0 +1,174 @@
+{
+    "armor": 0,
+    "background": "Mountebank",
+    "background_table1_answer": "Your latest stunt destroyed a priceless artifact and injured a dozen bystanders. Start with a Captain's Uniform (petty), a Ceremonial Sword (harmless, 60gp), and a Bouquet of Flowers.",
+    "background_table1_question": "How was your fraud exposed?",
+    "background_table2_answer": "Alchemical Tattoo: A dog, cat, or bird that can leave your body on demand. It follows your commands to the best of its abilities and can pass its injuries (as STR loss) back onto you. Petty.",
+    "background_table2_question": "What keepsake could always identify you?",
+    "bonds": "A white crow appeared to you in a dream, holding a twig in its mouth. You awoke the next morning with The Twig (petty) in your hand. You believe it brings you luck. It smells faintly of sulfur.",
+    "containers": [
+        {
+            "id": 0,
+            "name": "Main",
+            "slots": 10
+        },
+        {
+            "carried_by": "0",
+            "id": 1,
+            "load": 2,
+            "name": "Cart",
+            "slots": 4
+        }
+    ],
+    "custom_background": "",
+    "custom_image": true,
+    "custom_name": "",
+    "dead": false,
+    "deprived": false,
+    "description": "Wits are your sharpest weapon, a facade your strongest shield. But when you do lose, you lose badly.",
+    "dexterity": 9,
+    "dexterity_max": 9,
+    "edition": "2e",
+    "gold": 7,
+    "hp": 3,
+    "hp_max": 3,
+    "image_url": "/portraits/a964406b66538ae43b83954b30445e8c27f72b93a178af2ba96276daf7b42f36.webp",
+    "items": [
+        {
+            "armor_active": false,
+            "description": "",
+            "id": "3f359fb9d9634c7eab571cf72d8b74c3",
+            "location": 0,
+            "name": "Captain's Uniform",
+            "tags": [
+                "petty"
+            ]
+        },
+        {
+            "armor_active": false,
+            "description": "Harmless, worth 60gp",
+            "id": "8499653f0d9c445d9e97acd1ea4fbde4",
+            "location": 0,
+            "name": "Ceremonial Sword",
+            "tags": []
+        },
+        {
+            "armor_active": false,
+            "description": "",
+            "id": "da392e6b507c4a4f95ec4b3bdd07f1d5",
+            "location": 0,
+            "name": "Bouquet of Flowers",
+            "tags": []
+        },
+        {
+            "armor_active": false,
+            "description": "",
+            "id": "caa3f76a6caa428fac34a1d70198fc3a",
+            "location": 0,
+            "name": "Alchemical Tattoo",
+            "tags": [
+                "petty"
+            ]
+        },
+        {
+            "armor_active": false,
+            "description": "-",
+            "id": "13a03c2f445a46d8b9c3031c22c390be",
+            "location": 0,
+            "max_uses": 3,
+            "name": "Rations",
+            "tags": [
+                "uses"
+            ],
+            "uses": 3
+        },
+        {
+            "armor_active": false,
+            "description": "-",
+            "id": "25761f03bf16406d889a9a2214285428",
+            "location": 0,
+            "max_uses": 3,
+            "name": "Torch",
+            "tags": [
+                "uses"
+            ],
+            "uses": 3
+        },
+        {
+            "armor_active": false,
+            "description": "",
+            "id": "8b497a48fb8244639aed1a4d190fcd26",
+            "location": 0,
+            "name": "Trick Playing Cards",
+            "tags": []
+        },
+        {
+            "armor_active": false,
+            "description": "",
+            "id": "f275e2a20c8a41b6b69cf4fa2ceb2b7a",
+            "location": 0,
+            "name": "Fancy Hat",
+            "tags": [
+                "petty"
+            ]
+        },
+        {
+            "armor_active": false,
+            "description": "",
+            "id": "86c99685d93d4c49b64b63af18dbf28f",
+            "location": 0,
+            "name": "Cane Sword",
+            "tags": [
+                "d6"
+            ]
+        },
+        {
+            "carrying": 1,
+            "editable": false,
+            "id": "a87d0ef8e0f944ed9ea4c5b355e94aa5_0",
+            "location": 0,
+            "name": "Carrying Cart",
+            "tags": [
+                "bulky"
+            ]
+        }
+    ],
+    "name": "Ambrose",
+    "notes": "",
+    "omens": "The constellations have slowly started shifting in the night sky, forming unfamiliar patterns that have stargazers and sages perplexed. Even the animals seem disturbed.",
+    "panicked": null,
+    "pets": [
+        {
+            "armor": 0,
+            "attack": "",
+            "containers": [
+                {
+                    "id": 0,
+                    "name": "Main",
+                    "slots": 0
+                }
+            ],
+            "custom_image": false,
+            "dexterity": null,
+            "dexterity_max": null,
+            "gold": 0,
+            "hp": null,
+            "hp_max": null,
+            "image_url": "",
+            "items": [],
+            "name": "Alchemical Tattoo",
+            "notes": "Alchemical Tattoo: A dog, cat, or bird that can leave your body on demand. It follows your commands to the best of its abilities and can pass its injuries (as STR loss) back onto you. Petty.",
+            "role": "Alchemical Tattoo",
+            "strength": null,
+            "strength_max": null,
+            "willpower": null,
+            "willpower_max": null
+        }
+    ],
+    "scars": "",
+    "strength": 13,
+    "strength_max": 13,
+    "traits": "You have a Flabby Physique, Rosy Skin, and Oily Hair. Your Face is Rakish, your Speech Gravelly. You have Frumpy Clothing. You are Honorable and Rude. You are 40 years old.",
+    "willpower": 11,
+    "willpower_max": 11
+}

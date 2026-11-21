@@ -1,0 +1,145 @@
+{
+    "armor": 2,
+    "background": "Barkeep",
+    "background_table1_answer": "",
+    "background_table1_question": "",
+    "background_table2_answer": "",
+    "background_table2_question": "",
+    "bonds": "",
+    "containers": [
+        {
+            "id": 0,
+            "name": "Main",
+            "slots": 10
+        }
+    ],
+    "custom_background": "",
+    "custom_image": false,
+    "custom_name": "",
+    "dead": false,
+    "deprived": false,
+    "description": "",
+    "dexterity": 7,
+    "dexterity_max": 7,
+    "edition": "barebones",
+    "gold": 12,
+    "hp": 4,
+    "hp_max": 4,
+    "image_url": "portrait25.webp",
+    "items": [
+        {
+            "armor_active": false,
+            "description": "",
+            "id": "0b03d23822bc487e9be2d00f6fb2025f",
+            "location": 0,
+            "max_uses": 3,
+            "name": "Rations",
+            "tags": [
+                "uses"
+            ],
+            "uses": 3
+        },
+        {
+            "armor_active": false,
+            "description": "",
+            "id": "1a3defbc46de44e897c99c4ddafba8b2",
+            "location": 0,
+            "max_uses": 3,
+            "name": "Torch",
+            "tags": [
+                "uses"
+            ],
+            "uses": 3
+        },
+        {
+            "armor_active": false,
+            "description": "",
+            "id": "694d2445e8564c31b5bd47a42e7c4628",
+            "location": 0,
+            "name": "Alcohol",
+            "tags": []
+        },
+        {
+            "armor_active": false,
+            "description": "",
+            "id": "f6f629fe9c754de8a2326244cf0841ab",
+            "location": 0,
+            "name": "Sealable Bottle",
+            "tags": []
+        },
+        {
+            "armor_active": false,
+            "description": "",
+            "id": "30aa29dc2fbc45dfa9fd5298f5617c48",
+            "location": 0,
+            "name": "Sedative",
+            "tags": []
+        },
+        {
+            "description": "",
+            "id": "93423c129a8f41cfbffec3fe7a54a303",
+            "location": 0,
+            "name": "Chainmail",
+            "tags": [
+                "2 Armor",
+                "bulky"
+            ]
+        },
+        {
+            "armor_active": false,
+            "description": "",
+            "id": "b6d134796a684344b0180e8f1cd26a9d",
+            "location": 0,
+            "name": "Sword",
+            "tags": [
+                "d8"
+            ]
+        },
+        {
+            "armor_active": false,
+            "description": "",
+            "id": "73df057114e14fe883bc70cd67018824",
+            "location": 0,
+            "name": "Air Bladder",
+            "tags": []
+        }
+    ],
+    "name": "Evander Barebones",
+    "notes": "",
+    "omens": "",
+    "panicked": null,
+    "pets": [
+        {
+            "armor": 0,
+            "attack": "",
+            "containers": [
+                {
+                    "id": 0,
+                    "name": "Main",
+                    "slots": 0
+                }
+            ],
+            "custom_image": false,
+            "dexterity": null,
+            "dexterity_max": null,
+            "gold": 0,
+            "hp": null,
+            "hp_max": null,
+            "image_url": "",
+            "items": [],
+            "name": "Carrion Cat",
+            "notes": "A clever pet, small enough to hide in your pack (bulky), but strong enough to scare off smaller predators. Requires one Ration a day, and it must be meat.",
+            "role": "Carrion Cat",
+            "strength": null,
+            "strength_max": null,
+            "willpower": null,
+            "willpower_max": null
+        }
+    ],
+    "scars": "",
+    "strength": 6,
+    "strength_max": 6,
+    "traits": "You have a Short Physique, Tattooed Skin, and Long Hair. Your Face is Perfect, your Speech Cryptic. You have Antique Clothing. You are Disciplined and Vengeful. You are 34 years old.",
+    "willpower": 12,
+    "willpower_max": 12
+}
