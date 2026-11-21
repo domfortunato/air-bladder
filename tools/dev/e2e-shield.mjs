@@ -179,6 +179,7 @@ try {
     const L = (k) => game.i18n.localize(k);
     const flags = { "air-bladder": { probeFixture: fixture } };
     const out = { wantShield: L("CAIRN.Shield"), wantHold: L("CAIRN.EquipShield"), wantInHand: L("CAIRN.ShieldEquipped"),
+      wantBonus: game.i18n.format("CAIRN.ShieldArmorBonus", { n: 1 }),
       wantNoShield: L("CAIRN.NoShield"), wantNoLight: L("CAIRN.NoLight"),
       wantShieldNone: L("CAIRN.EquipShieldNone"), wantLightNone: L("CAIRN.EquipLightNone") };
 
@@ -285,6 +286,23 @@ try {
           return { right: lbl.left >= b.right - 0.5 && lbl.top < b.bottom && lbl.bottom > b.top,
             size: parseFloat(getComputedStyle(page.querySelector(".cairn-armor-box > .armor-label")).fontSize),
             shieldW: Math.round(b.width), shieldH: Math.round(b.height) };
+        })(),
+        // "+1 Armor" under an equipped shield, in the light radius's face
+        // (2026-11-21, user ask). The face is read off a scratch .light-radius
+        // span in the light badge, so "same font" is measured, not assumed.
+        bonus: sw?.querySelector(".shield-bonus")?.textContent.trim() ?? null,
+        bonusFace: (() => {
+          const b = sw?.querySelector(".shield-bonus");
+          if (!b || !lw) return null;
+          const ref = document.createElement("span");
+          ref.className = "light-radius";
+          lw.append(ref);
+          const keys = ["fontFamily", "fontSize", "fontWeight", "fontVariantCaps", "color"];
+          const bs = getComputedStyle(b), rs = getComputedStyle(ref);
+          const same = keys.every((k) => bs[k] === rs[k]);
+          const face = Object.fromEntries(keys.map((k) => [k, bs[k]]));
+          ref.remove();
+          return { same, face };
         })(),
         armor: page?.querySelector(".armor-input")?.value ?? null,
       };
@@ -1144,16 +1162,17 @@ sl.disabled === false && sl.tip === null
   : fail(`live shield switch: disabled ${sl.disabled}, tooltip ${JSON.stringify(sl.tip)}`);
 sl.present && sl.label === u.wantHold && u.wantHold !== "CAIRN.EquipShield" && sl.icon === "shield" && sl.loads && sl.below && sl.leftOfLight
   && sl.checked === "false" && sl.glyph === null && sl.labelInk && sl.filter === "none" && sl.armor === "1"
-  && sl.armorLook?.right && sl.armorLook.size > 12 && sl.armorLook.shieldW < 54 && sl.armorLook.shieldH < 60
+  && sl.armorLook?.right && sl.armorLook.size > 12 && sl.armorLook.shieldW < 54 && sl.armorLook.shieldH < 60 && sl.bonus === null
   ? ok(`with a slung shield, the Shield badge "${sl.label}" stands under the Armor box, left of the light's, off (no switch glyph, full ink), Armor ${sl.armor}, "Armor" right of a ${sl.armorLook?.shieldW}x${sl.armorLook?.shieldH} shield at ${sl.armorLook?.size}px`)
   : fail(`slung: ${JSON.stringify(sl)} (want ${JSON.stringify(u.wantHold)}, game-icons shields/shield.svg, under the Armor box)`);
 const he = u.held ?? {};
 he.equipped === true && he.checked === "true" && he.label === u.wantInHand && u.wantInHand !== "CAIRN.ShieldEquipped" && he.glyph === null && he.labelInk
+  && he.bonus === u.wantBonus && u.wantBonus !== "CAIRN.ShieldArmorBonus" && !!he.bonusFace?.same
   && he.icon === "shield-bash" && he.loads && he.color !== sl.color && he.filter && he.filter !== "none" && he.armor === "2"
-  ? ok(`a press holds it: equipped, "${he.label}", glowing (${he.color}), Armor ${he.armor}`)
+  ? ok(`a press holds it: equipped, "${he.label}", glowing (${he.color}), Armor ${he.armor}, "${he.bonus}" under it in the light radius's face (${JSON.stringify(he.bonusFace?.face)})`)
   : fail(`held: ${JSON.stringify(he)} (want ${JSON.stringify(u.wantInHand)}, slung colour ${sl.color})`);
 const rs = u.reslung ?? {};
-rs.equipped === false && rs.checked === "false" && rs.label === u.wantHold && rs.icon === "shield" && rs.glyph === null && rs.filter === "none" && rs.armor === "1"
+rs.equipped === false && rs.checked === "false" && rs.label === u.wantHold && rs.icon === "shield" && rs.glyph === null && rs.filter === "none" && rs.armor === "1" && rs.bonus === null
   ? ok("a second press slings it again: not equipped, off, Armor back to 1")
   : fail(`re-slung: ${JSON.stringify(rs)}`);
 const tw = u.two ?? {};
