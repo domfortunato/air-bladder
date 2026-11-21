@@ -1912,6 +1912,13 @@ try {
   await dismissChrome(alicePage);
   await glogOn(alicePage);
   try {
+    // Casting needs the Grimoire EQUIPPED since 2026-11-21 (both hands, user
+    // ruling), and legs 10 and 10a sent it to the pile and back: a book put
+    // down comes home unequipped. Alice equips it on her own client first.
+    await alicePage.evaluate(async (id) => {
+      const g = game.actors.get(id)?.items.find((i) => i.system?.grimoire);
+      if (g && !g.system.equipped) await g.update({ "system.equipped": true });
+    }, id);
     const aliceCast = await seedCast(alicePage, [0.9, 0.4]);
     check(!aliceCast.error && aliceCast.rollTotal === 5,
       "Alice casts from her own character end-to-end");
