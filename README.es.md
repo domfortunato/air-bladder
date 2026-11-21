@@ -61,7 +61,7 @@ https://github.com/domfortunato/air-bladder/releases/latest/download/system.json
 
 - Generación aleatoria de personajes a partir de trasfondos de Cairn 2e, de Cairn Barebones y personalizados, con cualquier parte suelta que se puede volver a tirar; o una hoja vacía con las listas de selección preparadas, si tiras en la mesa.
 - Generadores de PNJ, seguidores, monstruos y facciones, y tablas de encuentros con «Añadir a la escena» en un clic.
-- El Panel del Guardián: las 45 tablas de tiradas del Guardián en botones, la barra del calendario y el clima del día.
+- El Panel del Guardián: todo el grupo en una tabla, el daño de trampas y peligros, las 45 tablas de tiradas del Guardián en botones, la barra del calendario y el clima del día.
 - Dos hacks opcionales, cada uno tras un interruptor del Guardián: el hack oficial de Magia GLoG, con sus 100 conjuros, y el calendario y las estaciones de Vald.
 - Un Mercado, vínculos y tablas de tiradas personalizables. Tus copias sobreviven a cada actualización.
 - Importación de personajes desde Kettlewright, la aplicación oficial de Cairn.

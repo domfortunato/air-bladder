@@ -116,6 +116,12 @@ You turn the sheet's pages with the tabs on its edge:
 - **Background & Notes** — the bond, the background questions and their
   answers, the Omen, a description and notes.
 
+The tabs sit on the sheet's right edge. To have them on the left, change
+**Page tabs side** in Configure Settings. It changes only your own screen,
+and it moves the Warden's Dashboard's tabs too. If a sheet is too close to
+that edge of the screen, its tabs move to the other side until you move it
+back.
+
 ## Character Creation Mode
 
 A generated or imported character opens with its creation tools put away. The

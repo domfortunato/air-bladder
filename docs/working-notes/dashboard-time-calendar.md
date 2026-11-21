@@ -19,11 +19,47 @@ Moved word for word from CLAUDE.md (2026-11-01); CLAUDE.md points here.
   Private under them). The time band still redraws alone. A batch Add to scene
   creates numbered tokens ONE AT A TIME (encounters.js): core's `appendNumber`
   reads the tokens already on the scene, so a batch gave six "Goblin (1)".
-- **The Party sheet** (`module/party-sheet.js`, 2026-11-21, user ask): the
-  Warden's table of the party, one row each, in marching order. Its own window
-  (user ruling), opened from a Token-controls tool and from the Dashboard's
-  footer beside Warden's Damage; Warden only (the tool is hidden and
-  `openPartySheet` refuses a player).
+- **ONE WINDOW, THREE PAGES** (2026-11-21, user ask, reversing the morning's
+  "its own window" ruling for the Party sheet): the Dashboard hangs the sheets'
+  rail (`tab-rail.html`, `cairn-railed`, `placeRail` on move/render/detach/
+  attach) with a `page` tab group: **Party** (party-sheet.js's data and
+  `PartyPage`), **Damage** (warden-damage.js's `buildForm`, rolled by
+  `rollWardenDamage`) and **Tables** (the time band and body, both wearing
+  its tab; the band is on Tables only, user ruling), then a chat button. User
+  rulings: each page keeps its own size (`PAGE_SIZE`, a resize remembered for
+  the session in `pageSizes`, written in `changeTab`); all three Token tools
+  stay, in their order, each opening its page (`registerWardenDashboardControl`
+  registers all three); the chat button opens core's chat pop-out (core keeps
+  the log in the sidebar and ONE pop-out only; a third copy gets no new
+  messages and no input). Traps paid for:
+  - core's inactive-`.tab` hide is in an earlier CSS layer, so our
+    `display: flex` on a page's root beat it and every page showed: our own
+    `.cairn.cairn-dashboard > .window-content > .tab[data-group="page"]:not(.active)`.
+  - with two tab groups core stops filling `context.tabs`; `_prepareContext`
+    prepares both, and the rail part gets its own context.
+  - each page's listeners bind to that PART's element on that part's render,
+    never the whole window, which renders its other parts alone.
+  - a tool pressed on an open window redraws every part but Damage (the
+    clipboard still refreshes the tables), then turns the page.
+  - the Damage page's fields are built in `_onRender`, after core's part sync,
+    so `_preSyncPartState` holds their values until then.
+  - the old window classes (`cairn-party-sheet`, `cairn-warden-damage`) ride
+    the Dashboard so their CSS blocks still reach their pages.
+- **The Party page** (`module/party-sheet.js`, 2026-11-21, user ask; the Party
+  sheet's own window until the merge the same day): the Warden's table of the
+  party, one row each, in marching order. Warden only (the tool is hidden and
+  `openWardenDashboard` refuses a player).
+  - **Bulk conditions** (user ask + rulings): a tick per row and a select-all;
+    Add/Remove Fatigue, Mark/Clear Panicked (only with `use-panic` on), Mark/
+    Clear Deprived act on the ticked rows, greyed until a tick. Marking and
+    Remove Fatigue confirm once, naming only those they change; clearing does
+    not ask (the sheet's own split). Fatigue goes through `CairnActor#addFatigue`
+    / `#removeFatigue`, which the sheet's + also calls. Ticks live in
+    `PartyPage#picks` and survive the page's redraws.
+  - **Drop to give** (user ask): an Item dropped on a row runs that member's
+    sheet's own `_onDropItem`, so every drop rule holds, with `overfill: true`
+    (user ruling: the Warden's drop may go past "no free slot", GM only, with
+    the `Overfilled` notice). CLAUDE.md's overflow list carries it.
   - **The Party folder is the roster** (`partyMembers`): every character filed
     there, plus every npc and hireling filed there (`PERSON_ROLES`, user ask the
     same day). A monster, a companion or a thing there isn't a member, and the
@@ -54,9 +90,9 @@ Moved word for word from CLAUDE.md (2026-11-01); CLAUDE.md points here.
     SECRET: a flag rides the actor, so the player who owns it can read it in
     the console. The user chose that.
   - An open table redraws on actor, item, user and order changes, debounced
-    (`queueRender`), and waits for a focused notes line to blur first. The
-    focusout listener is bound in `_onFirstRender`, once: the frame survives a
-    re-render.
+    (`PartyPage#queueRender`, the `party` part alone), and waits for a focused
+    notes line to blur first. The focusout listener is bound in the Dashboard's
+    `_onFirstRender`, once: the frame survives a re-render.
   - Gate `dev:party-sheet`.
 - **Watches are core Cairn 2e and never gated; the Vald calendar is a hack**
   (`enable-vald-calendar`, `requiresReload`, converts nothing). Read the live

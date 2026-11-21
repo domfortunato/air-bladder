@@ -66,9 +66,10 @@ control. The target's Armor comes off the damage, the rest comes off HP, and
 anything left over comes off STR. If you rolled the card without a target, it
 asks who takes it.
 
-For a trap or a hazard, use **Warden's Damage**, the skull in the Token
-controls. Whoever you've targeted takes it. If you haven't targeted anyone,
-the card asks who.
+For a trap or a hazard, use the **Damage** page of the
+[Warden's Dashboard](warden-dashboard.md), the skull in the Token controls.
+Whoever you've targeted takes it. If you haven't targeted anyone, the card
+asks who.
 
 ## Equipping a shield, a light or a spellbook
 

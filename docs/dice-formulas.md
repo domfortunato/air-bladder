@@ -1,7 +1,7 @@
 # Dice Formulas
 
 Air Bladder reads dice formulas in a few places you can edit: a weapon's
-damage, a monster's attack, the **Damage** field on the Warden's Damage tool,
+damage, a monster's attack, the **Damage** field on the Warden's Dashboard,
 and two settings under Character Generation, the **Age formula for generated
 characters** and the **Hit Protection formula for player characters**. This
 page covers what those formulas can say. It also explains the notation on the
@@ -10,7 +10,7 @@ menus, which offer a fixed set of formulas.
 
 **Every field that takes dice also takes a plain number.** Put `4` in the Hit
 Protection formula and every character has 4 Hit Protection. Put `3` in the
-Warden's Damage field and it deals 3.
+Dashboard's Damage field and it deals 3.
 
 ## The basics
 

@@ -4,11 +4,12 @@ Moved word for word from CLAUDE.md (2026-11-01); CLAUDE.md points here.
 
 - Neither is a new type: the pile is an npc `role: container`. **Nothing is created
   on load** — folder on first Create of a PC, pile on first drop.
-- **The folder is also the Party sheet's roster** (`partyMembers`,
-  party-sheet.js, 2026-11-21): the characters, npcs and hirelings filed in it.
-  A Warden benches someone by moving them out. The pile sits in the same folder
-  and is left out by `isDroppedPile`, never by type alone. The sheet itself is
-  in `dashboard-time-calendar.md`.
+- **The folder is also the Party page's roster** (`partyMembers`,
+  party-sheet.js, 2026-11-21; the Party sheet's own window until it became a
+  page of the Warden's Dashboard the same day): the characters, npcs and
+  hirelings filed in it. A Warden benches someone by moving them out. The pile
+  sits in the same folder and is left out by `isDroppedPile`, never by type
+  alone. The page itself is in `dashboard-time-calendar.md`.
 - **Found by flag, never by name — AND the pile must have no player owner**
   (`isDroppedPile` asks `!hasPlayerOwner`). A flag alone is not identity.
   `pileDisplayName` names it by its current name.

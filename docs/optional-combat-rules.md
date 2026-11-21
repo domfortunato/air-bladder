@@ -43,7 +43,7 @@ character's inventory rolls the die you type, and that die explodes like any
 other.
 
 **Only player characters' damage rolls explode.** A monster's attack, an NPC's,
-and the Warden's Damage tool all roll normally.
+and the Dashboard's Damage page all roll normally.
 
 **Mixed dice don't explode.** A keep-highest formula of **different** dice,
 such as `d6 + d8`, is rolled as written. The weapons that ship with the system

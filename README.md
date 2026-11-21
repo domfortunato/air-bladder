@@ -42,7 +42,7 @@ https://github.com/domfortunato/air-bladder/releases/latest/download/system.json
 
 - Random character generation from Cairn 2e, Cairn Barebones and custom backgrounds, with any single part re-rollable; or an empty sheet with the pick-lists ready, if you roll at the table.
 - NPC, hireling, monster and faction generators, and encounter tables with one-click Add to Scene.
-- The Warden's Dashboard: all 45 Warden roll tables on buttons, the calendar bar and the day's weather.
+- The Warden's Dashboard: the whole party in one table, damage from traps and hazards, all 45 Warden roll tables on buttons, the calendar bar and the day's weather.
 - Two optional hacks, each behind a Warden switch: the official GLoG Magic hack with all 100 spells, and Vald's calendar and seasons.
 - A customizable marketplace, bonds and roll tables. Your copies survive every update.
 - Character import from Kettlewright, the official Cairn app.

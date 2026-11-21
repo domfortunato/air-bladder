@@ -42,8 +42,9 @@ back. You can change the key in Configure Controls.
 
 ## Moving the clock
 
-The controls are at the top of the [Warden's Dashboard](warden-dashboard.md),
-the clipboard in the Token controls down the left of the map.
+The controls are at the top of the Tables page of the
+[Warden's Dashboard](warden-dashboard.md), the clipboard in the Token controls
+down the left of the map.
 
 | Button | What it does |
 |---|---|
