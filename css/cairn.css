@@ -4609,6 +4609,22 @@ ol.combat-tracker li.combatant.cairn-drop-below {
 .cairn.cairn-dashboard > .window-content > .tab[data-group="page"]:not(.active) {
     display: none;
 }
+/* `.cairn .tab { height: 100% }` is for a sheet's pages. A page root here is
+   one flex child among several (Tables is the time band AND the body), so it
+   takes the height the flex rules give it: at 100% the band stretched to the
+   whole window and squeezed the tables to nothing (dev:vald-time, measured
+   626px of a 642px window). */
+.cairn.cairn-dashboard > .window-content > .tab[data-group="page"] {
+    height: auto;
+}
+/* The table tabs' strip now stands straight inside a `.tab` (the Tables
+   page), where core's `.tab[data-tab] > nav.tabs` gives its rules a 25% wash
+   of the dark backdrop: invisible on a railed window's solid dark ground
+   (dev:theme, 1.00:1). Core's own strip colour, as it was outside a tab. */
+.cairn.cairn-dashboard .cairn-dashboard-inner > nav.cairn-dashboard-tabs {
+    border-top-color: var(--color-tabs-border);
+    border-bottom-color: var(--color-tabs-border);
+}
 
 /* The Damage page: the dialog's fields, then Roll at the foot. */
 .cairn-warden-damage .cairn-damage-page {

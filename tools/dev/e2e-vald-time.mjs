@@ -603,7 +603,13 @@ try {
         + parseFloat(cs.borderTopWidth) + parseFloat(cs.borderBottomWidth));
 
       return {
-        bandIsFirstChild: content.firstElementChild === band,
+        // The first child LAID OUT (2026-11-21): the Dashboard's page rail is
+        // drawn first but hangs outside the frame, and the Party and Damage
+        // pages before the band are hidden on Tables.
+        bandIsFirstChild: [...content.children].find((el) => {
+          const s = getComputedStyle(el);
+          return s.display !== "none" && s.position !== "absolute";
+        }) === band,
         bandHeight: Math.round(band.getBoundingClientRect().height),
         bandNatural: Math.round(bandNatural),
         bandGrows: cs.flexGrow !== "0",
@@ -663,7 +669,7 @@ try {
     : fail("six tabs", String(off.tabs));
 
   off.bandIsFirstChild
-    ? ok("the time band is the first child of .window-content")
+    ? ok("the time band is the first child of .window-content laid out")
     : fail("the band is the window's first band", JSON.stringify(off));
 
   // The `flex: 1` trap: with two PARTS the restored
