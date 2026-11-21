@@ -1,6 +1,6 @@
 import { resolveGearItem, buildGearItem, warmGearItems } from "./gear.js";
 import { resultText } from "./compendium.js";
-import { getBackgroundsFor, withGrantSource, randomPortraitPair, kettlewrightPortraitPath, FLAG_SCOPE } from "./character-generator.js";
+import { getBackgroundsFor, withGrantSource, randomPortraitPair, kettlewrightPortraitPath, backgroundGearSource, BAREBONES_KIT_SOURCE, FLAG_SCOPE } from "./character-generator.js";
 import { CairnActor } from "./actor/actor.js";
 import { FATIGUE_NAME } from "./item/item.js";
 import { Cairn } from "./config.js";
@@ -126,7 +126,9 @@ export const bestTextMatch = (text, candidates, textOf) => {
  *
  * @param {Object[]} items    the built item payloads, mutated in place
  * @param {Object[]} granted  [{name}] the source is known to grant
- * @param {String} source     the grantSource tag to apply
+ * @param {String|((name: String) => String)} source  the grantSource tag to
+ *   apply, or a function of the item's name for a grant whose source varies by
+ *   item (background starting gear: `backgroundGearSource`)
  * @returns {Number} how many items were re-tagged
  */
 const retagGranted = (items, granted, source) => {
@@ -138,7 +140,7 @@ const retagGranted = (items, granted, source) => {
       (it) => norm(it.name) === want && it.flags?.[FLAG_SCOPE]?.grantSource === "imported",
     );
     if (!hit) continue;
-    hit.flags[FLAG_SCOPE].grantSource = source;
+    hit.flags[FLAG_SCOPE].grantSource = typeof source === "function" ? source(hit.name) : source;
     n++;
   }
   return n;
@@ -163,6 +165,25 @@ const findBondEntry = async (text) => {
   const hit = bestTextMatch(text, table?.results ?? [], resultText);
   if (!hit) return null;
   return { items: hit.getFlag(FLAG_SCOPE, "items") ?? [], gold: hit.getFlag(FLAG_SCOPE, "gold") ?? 0 };
+};
+
+/**
+ * Every item name a Barebones character's kit can be dealt from: the Rations
+ * and Torch every one starts with, and each row of the shipped
+ * `tables-barebones` tables (Creation - Weapon / Armor / Additional Gear and
+ * the weapon tiers) — the tables rollBarebonesEquipment rolls. A row that
+ * points at another table carries that table's name, which no item has.
+ * The SHIPPED pack, not a world-first override, for findBondEntry's reason:
+ * Kettlewright dealt from the SRD's tables, not from the Warden's.
+ * Read-only; never rolls.
+ * @returns {Promise<{name: String}[]>}
+ */
+const barebonesKitNames = async () => {
+  const pack = game.packs.get("air-bladder.tables-barebones");
+  const tables = pack ? await pack.getDocuments() : [];
+  const names = new Set(["Rations", "Torch"]);
+  for (const table of tables) for (const r of table.results) if (r.name) names.add(r.name);
+  return [...names].map((name) => ({ name }));
 };
 
 /* -------------------------------------------------------------------------- */
@@ -401,9 +422,12 @@ export const resolveVirtueVice = async (pair) => {
  */
 const importItem = async (kw) => {
   const matched = await resolveGearItem(kw.name);
+  // `uses` is the CURRENT count and `max_uses` its maximum (Kettlewright since
+  // 2026-09-22). Read alone, `uses` stood in for both, so a Torch burned down
+  // to 1 of 3 arrived as 1 of 1 and could never be refilled to 3.
   if (matched) {
-    if (kw.max_charges != null || kw.charges != null || kw.uses != null) {
-      const max = kw.max_charges ?? kw.uses ?? matched.system.uses?.max ?? 0;
+    if (kw.max_charges != null || kw.charges != null || kw.uses != null || kw.max_uses != null) {
+      const max = kw.max_charges ?? kw.max_uses ?? kw.uses ?? matched.system.uses?.max ?? 0;
       const value = kw.charges ?? kw.uses ?? matched.system.uses?.value ?? max;
       matched.system.uses = { value, max };
     }
@@ -418,6 +442,11 @@ const importItem = async (kw) => {
     charges: kw.charges,
     maxCharges: kw.max_charges,
   });
+  // buildGearItem reads one count as both value and max (generation grants
+  // full items); a worn one keeps its own maximum.
+  if (kw.max_uses != null && kw.max_charges == null) {
+    built.system.uses = { value: num(kw.uses, num(kw.max_uses)), max: num(kw.max_uses) };
+  }
   return { item: withGrantSource(built, "imported"), how: "fallback" };
 };
 
@@ -437,14 +466,23 @@ const importItem = async (kw) => {
 export const kettlewrightToActorData = async (json, { labels = null } = {}) => {
   const report = { name: json?.name ?? "", matched: [], fallback: [], fatigue: 0, skipped: [], background: null, containers: [] };
 
+  // --- Edition: which of the two generators made this character --------------
+  // Kettlewright writes `edition` since 2026-11-11 ("2e" | "barebones"); an
+  // older export has none and was 2e, the only kind it made. The content
+  // source decides which background pool the name is matched against and what
+  // a later re-roll deals, which is character generation's business — the
+  // one place the content source may branch.
+  const contentSource = json.edition === "barebones" ? "barebones" : "2e";
+
   // --- Background: match by name, else keep the raw string ------------------
   const bgName = json.custom_background || json.background || "";
   let background = bgName;
   let backgroundUuid = "";
   let bgQuestions = []; // the matched background's question prompts, in table order
   let bgTables = []; // …and the full tables, so an answer can be traced to its option
+  let bgGear = []; // …and its own starting gear, so those items can be traced too
   if (bgName) {
-    const pool = await getBackgroundsFor("2e");
+    const pool = await getBackgroundsFor(contentSource);
     const hit = pool.find((b) => b.name.toLowerCase() === bgName.toLowerCase());
     if (hit) {
       background = hit.name;
@@ -452,6 +490,7 @@ export const kettlewrightToActorData = async (json, { labels = null } = {}) => {
       report.background = { name: hit.name, matched: true };
       bgTables = hit.system?.tables ?? [];
       bgQuestions = bgTables.map((t) => String(t?.question ?? "").trim());
+      bgGear = hit.system?.startingGear ?? [];
     } else {
       report.background = { name: bgName, matched: false };
     }
@@ -501,15 +540,20 @@ export const kettlewrightToActorData = async (json, { labels = null } = {}) => {
 
   // --- Free-text best-fit ----------------------------------------------------
   const scars = splitScars(json.scars);
-  const bondsText = String(json.bonds ?? "").trim();
-  const bonds = bondsText ? [{ id: foundry.utils.randomID(), description: bondsText, gold: 0 }] : [];
+  // A Fieldwarden or an Outrider holds two bonds, and Kettlewright writes them
+  // as one string with a blank line between (char_utils.py upstream). Read as
+  // one, the pair matched no Bonds row, so neither bond's item was re-rollable
+  // and the sheet showed one bond where the character has two. A single bond
+  // is one paragraph, so the split is a no-op for everyone else.
+  const bonds = String(json.bonds ?? "").split(/\n\s*\n/).map((t) => t.trim()).filter(Boolean)
+    .map((description) => ({ id: foundry.utils.randomID(), description, gold: 0 }));
   // Same trick as the questions: a Kettlewright bond is a Bonds-table entry
   // verbatim, so the items it granted can be handed to `bond:<id>` and become
   // re-rollable instead of accumulating.
-  if (bonds.length) {
-    const entry = await findBondEntry(bondsText);
+  for (const bond of bonds) {
+    const entry = await findBondEntry(bond.description);
     if (entry) {
-      report.regranted = (report.regranted ?? 0) + retagGranted(items, entry.items, `bond:${bonds[0].id}`);
+      report.regranted = (report.regranted ?? 0) + retagGranted(items, entry.items, `bond:${bond.id}`);
     }
   }
   const omens = String(json.omens ?? "");
@@ -562,6 +606,27 @@ export const kettlewrightToActorData = async (json, { labels = null } = {}) => {
       });
     }
   }
+  // The background's own starting gear, and a Barebones character's SRD kit.
+  // AFTER the questions and bonds on purpose: those name their item exactly,
+  // so they claim first, and this pass takes only what is still `imported`.
+  //
+  // Starting gear re-tags to the source generation gives it (`background`, or
+  // `background-mundane` for Rations and light — backgroundGearSource), so a
+  // Background re-roll replaces it instead of adding a second set beside it.
+  report.regranted = (report.regranted ?? 0) + retagGranted(items, bgGear, backgroundGearSource);
+  // A Barebones character's Rations, Torch, weapon, armor and additional gear
+  // are its KIT (BAREBONES_KIT_SOURCE), which a Background or Starting gear
+  // re-roll re-deals (redealBarebonesKit) — and which it deals a SECOND copy of
+  // when it finds none tagged. Name hits against the tables the kit is dealt
+  // from are tagged as that kit (user ruling 2026-11-20). Deliberately unlike
+  // the 2026-11-06 rule for characters made here before the tag existed
+  // ("nothing guesses"): this one comes fresh from Kettlewright's own Barebones
+  // generator, so an item named on those tables IS its kit, not gear the player
+  // chose. An item no table names stays `imported` and is never removed.
+  if (contentSource === "barebones") {
+    report.regranted = (report.regranted ?? 0) + retagGranted(items, await barebonesKitNames(), BAREBONES_KIT_SOURCE);
+  }
+
   // Kettlewright's traits blob is a parseable sentence, not opaque prose: it maps
   // back onto the eight typed slots and system.age. Only if the parse yields
   // nothing at all does it fall back to landing in Notes under a label — better an
@@ -612,7 +677,7 @@ export const kettlewrightToActorData = async (json, { labels = null } = {}) => {
       armorOverride,
       background,
       backgroundUuid,
-      contentSource: "2e",
+      contentSource,
       description: String(json.description ?? ""),
       notes,
       traits,
@@ -918,6 +983,8 @@ export const sanitizeKettlewrightExport = (json) => {
   return {
     ...tablePairs,
     name: str(json.name, 120),
+    // One of the two values Kettlewright writes, or nothing (an older, 2e export).
+    edition: json.edition === "barebones" ? "barebones" : json.edition === "2e" ? "2e" : undefined,
     background: str(json.background, 200),
     custom_background: str(json.custom_background, 200),
     items: items.map((it) => ({
@@ -925,6 +992,7 @@ export const sanitizeKettlewrightExport = (json) => {
       tags: (Array.isArray(it?.tags) ? it.tags : []).slice(0, 40).map((tag) => str(tag, 100)),
       description: str(it?.description, 5000),
       uses: maybeNum(it?.uses),
+      max_uses: maybeNum(it?.max_uses),
       charges: maybeNum(it?.charges),
       max_charges: maybeNum(it?.max_charges),
       // Presence is the signal the skip-check reads (`carrying != null`).

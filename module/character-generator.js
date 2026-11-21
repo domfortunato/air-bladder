@@ -1018,7 +1018,17 @@ const BG_GRANT_SOURCES = ["background", "background-mundane"];
  *  Warden's gift or a purchase, which is exactly what buildNpcItems always
  *  said about its own. */
 const tagBackgroundGear = (items) =>
-  items.map((it) => withGrantSource(it, isMundaneGear(it.name) ? "background-mundane" : "background"));
+  items.map((it) => withGrantSource(it, backgroundGearSource(it.name)));
+
+/**
+ * Which of the two sources above a piece of background starting gear carries.
+ * Exported for the Kettlewright importer, which re-tags an imported item it
+ * has matched to the background's own gear and must land on the SAME source
+ * generation would have given it, chip and all.
+ * @param {String} name
+ * @returns {"background"|"background-mundane"}
+ */
+export const backgroundGearSource = (name) => (isMundaneGear(name) ? "background-mundane" : "background");
 
 /**
  * The Barebones PLAYER CHARACTER's equipment kit — the SRD procedure's Rations,
