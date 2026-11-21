@@ -127,13 +127,15 @@
                               equipped or not, the inventory row's hand icon. All three are ALWAYS
                               drawn on a creature, never on a thing: with none of that kind carried a
                               badge is greyed and says "No Shield" / "No Light" / "No Spellbook", with
-                              the reason in its tooltip. Off reads "Equip …", on "… equipped", and
-                              the switch glyph under the label says it's a toggle. Labels and icons
-                              come from _computeStatContext. --}}
+                              the reason in its tooltip. Off reads "Equip …", on "… equipped": the
+                              words alone say it's a toggle (a switch glyph under them went the same
+                              day, user: "Just 'Equip...' should be enough"). Labels and icons come
+                              from _computeStatContext. --}}
                         {{!-- The Armor box: the shield outline, the number alone inside,
-                              "Armor" OUTSIDE it, right below (2026-11-21, user asks: the label
+                              "Armor" OUTSIDE it, to its RIGHT (2026-11-21, user asks: the label
                               inside was "CRAMPED"; "the circle shape ... can go back to being an
-                              outline of a shield"). On a row of its own, centred over HP. --}}
+                              outline of a shield"; then "Armor" right of a smaller shield, a
+                              little larger). On a row of its own, centred over HP. --}}
                         <div class="cairn-armor-row">
                         <div class="cairn-armor-box">
                         <div class="cairn-shield armor-counter {{#if system.armorOverridden}}armor-overridden{{/if}}">
@@ -153,16 +155,14 @@
                             <button type="button" class="shield-hold cairn-equip-badge" id="{{@root.idp}}-hold-shield" data-action="toggleHold" data-hold="shield" role="switch" aria-checked="{{#if shieldSwitch.held}}true{{else}}false{{/if}}"{{#if shieldSwitch.none}} data-tooltip="{{ localize holdShieldNoneKey }}"{{/if}}{{#if (or shieldSwitch.none (not @root.editable))}} disabled{{/if}}>
                                 <span class="shield-icon" style="--shield-icon: url('{{shieldSwitch.icon}}')" inert></span>
                                 <span class="shield-label">{{shieldSwitch.label}}</span>
-                                {{#unless shieldSwitch.none}}<span class="badge-switch" inert><i class="fa-solid {{#if shieldSwitch.held}}fa-toggle-on{{else}}fa-toggle-off{{/if}}"></i></span>{{/unless}}
                             </button>
                             {{!-- The light: the equipped light's icon, glowing, its radius under
-                                  the switch; otherwise the first carried light's own icon (a
+                                  the label; otherwise the first carried light's own icon (a
                                   torch shows a torch). Several and none equipped: a press asks
                                   which (askWhichHeld). --}}
                             <button type="button" class="light-hold cairn-equip-badge" id="{{@root.idp}}-hold-light" data-action="toggleHold" data-hold="light" role="switch" aria-checked="{{#if lightSwitch.held}}true{{else}}false{{/if}}" data-tooltip="{{lightSwitch.tip}}"{{#if (or lightSwitch.none (not @root.editable))}} disabled{{/if}}>
                                 <span class="light-icon" style="--light-icon: url('{{lightSwitch.icon}}')" inert></span>
                                 <span class="light-label">{{lightSwitch.label}}</span>
-                                {{#unless lightSwitch.none}}<span class="badge-switch" inert><i class="fa-solid {{#if lightSwitch.held}}fa-toggle-on{{else}}fa-toggle-off{{/if}}"></i></span>{{/unless}}
                                 {{#if lightSwitch.radius}}<span class="light-radius">{{lightSwitch.radius}}</span>{{/if}}
                             </button>
                             {{!-- The book: a spellbook, a scroll or the Grimoire, one at a time;
@@ -170,7 +170,6 @@
                             <button type="button" class="book-hold cairn-equip-badge" id="{{@root.idp}}-hold-book" data-action="toggleHold" data-hold="book" role="switch" aria-checked="{{#if bookSwitch.held}}true{{else}}false{{/if}}"{{#if bookSwitch.tip}} data-tooltip="{{bookSwitch.tip}}"{{/if}}{{#if (or bookSwitch.none (not @root.editable))}} disabled{{/if}}>
                                 <span class="book-icon" style="--book-icon: url('{{bookSwitch.icon}}')" inert></span>
                                 <span class="book-label">{{bookSwitch.label}}</span>
-                                {{#unless bookSwitch.none}}<span class="badge-switch" inert><i class="fa-solid {{#if bookSwitch.held}}fa-toggle-on{{else}}fa-toggle-off{{/if}}"></i></span>{{/unless}}
                             </button>
                         </div>
                         {{/if}}

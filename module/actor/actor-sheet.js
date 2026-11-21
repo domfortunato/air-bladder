@@ -2236,7 +2236,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // book. Each is on while ANY of its kind is equipped, and ALWAYS drawn:
     // greyed, "No Shield" / "No Light" / "No Spellbook", with a reason in its
     // tooltip, when none is carried. Off reads "Equip …", on "… equipped",
-    // with a switch glyph under the label. #onToggleHold is the press for all
+    // and the words alone say it's a toggle. #onToggleHold is the press for all
     // three. Icons are ROUTES, not relative paths: the template sets them in
     // a custom property, and a relative url() there resolves against the
     // stylesheet that uses it (css/), not the page — an icon 404ed on CT 123.

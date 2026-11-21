@@ -5838,20 +5838,19 @@ header.character-generator.directory-header .header-actions > button:not(.cairn-
    header margin and the Armor box's gap trimmed to match, about 3px to spare
    there (dev:sheet-layout, dev:sheet-rail leg 21). */
 .cairn-character-sheet .cairn-vitals { display: flex; flex-direction: column; align-items: center; gap: 4px; }
-/* The Armor box (2026-11-21, user asks): the SHIELD OUTLINE again (54 x 60,
-   the ability circles' 2px line; a 48px circle for one day, its label inside
-   "CRAMPED"), the number alone inside at the circles' 20px, and "Armor"
-   OUTSIDE it, right below, in the badges' label face (.cairn-armor-box stacks
-   the two). Shield + label is about 75px, inside the row's 82 (the held
-   light's badge): page 1 has 8px to spare at 480 x 700, so the label is not
-   lifted level with the badges' (user pick). */
+/* The Armor box (2026-11-21, user asks): the SHIELD OUTLINE again (the
+   ability circles' 2px line; a 48px circle for one day, its label inside
+   "CRAMPED"), the number alone inside, and "Armor" OUTSIDE it. It sat right
+   below a 54 x 60 shield until the user asked, the same day, for "Armor" to
+   the RIGHT of a smaller shield and a little larger: 44 x 49 now, the label
+   a size up from the badges' 12px. The pair is centred over HP; the 10px gap
+   keeps the reset arrow (it hangs off the shield's lower right) off the
+   word. */
 .cairn-character-sheet .cairn-armor-box {
-    /* No gap: the shield's lower edge is a point, so the label sits under it
-       without touching, and the 2px is page 1's (8px slack in all). */
-    display: flex; flex-direction: column; align-items: center; gap: 0;
+    display: flex; flex-direction: row; align-items: center; gap: 10px;
 }
 .cairn-character-sheet .cairn-shield {
-    position: relative; width: 54px; height: 60px; box-sizing: border-box;
+    position: relative; width: 44px; height: 49px; box-sizing: border-box;
     border: 2px solid var(--ab-line);
     border-radius: 50% 50% 50% 50% / 12% 12% 88% 88%;
     display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -5861,15 +5860,15 @@ header.character-generator.directory-header .header-actions > button:not(.cairn-
     /* line-height above the size: Alegreya's glyphs run taller than their
        size, and a line box of exactly the size clips them (dev:sheet-layout,
        2026-11-19). */
-    font-size: 12px; font-weight: bold; font-variant: small-caps; line-height: 15px; margin: 0;
+    font-size: 15px; font-weight: bold; font-variant: small-caps; line-height: 19px; margin: 0;
 }
 .cairn-character-sheet .cairn-shield .armor-input {
-    width: 40px; height: 26px !important; padding: 0;
+    width: 34px; height: 24px !important; padding: 0;
     background: none !important; border: none !important;
-    text-align: center; font-size: 20px; font-weight: bold;
+    text-align: center; font-size: 18px; font-weight: bold;
 }
 .cairn-character-sheet .cairn-shield .armor-input:focus { box-shadow: none; }
-/* Inside the shield's lower edge, clear of the light badge beside it. */
+/* Off the shield's lower right, short of the label beside it. */
 .cairn-character-sheet .cairn-shield .armor-reset { position: absolute; right: -6px; bottom: -4px; margin: 0; font-size: 11px; }
 /* The Armor box on a row of its own, centred over HP (2026-11-21); the three
    Equip badges in a row under it: shield | light | book, a third of the
@@ -5905,10 +5904,6 @@ header.character-generator.directory-header .header-actions > button:not(.cairn-
     background-color: var(--ab-accent);
     filter: drop-shadow(0 0 3px var(--ab-accent)) drop-shadow(0 0 6px var(--ab-accent));
 }
-/* The switch glyph under the label (2026-11-21, user ask: make it obvious
-   the badge is something you toggle): off in the muted ink, on in the accent. */
-.cairn-character-sheet .cairn-equip-badge .badge-switch { font-size: 13px; line-height: 13px; color: var(--ab-muted); }
-.cairn-character-sheet .cairn-equip-badge[aria-checked="true"] .badge-switch { color: var(--ab-accent); }
 .cairn-character-sheet .light-hold .light-radius {
     font-family: "Signika", ui-sans-serif, sans-serif; font-size: 10px; font-weight: normal;
     font-variant: normal; line-height: 12px; color: var(--ab-muted);

@@ -295,8 +295,12 @@ Moved word for word from CLAUDE.md (2026-11-01); CLAUDE.md points here.
   badge counts `isHoldableBook` (gear.js: spellbook or scroll not bound, or
   the Grimoire), one at a time like a light, picker `askWhichHeld` (utils.js,
   the light picker generalised, prompt "Which one?"), labels by `bookKind`.
-  A switch glyph (`.badge-switch`, fa-toggle-on/off) under each live label.
-  Scrolls and the Grimoire became equippable (`isEquipable`, item.js;
+  No switch glyph: one (`.badge-switch`, fa-toggle-on/off) sat under each live
+  label for a few hours, and the user took it out the same day ("Just
+  'Equip...' should be enough"). At the same time "Armor" moved to the RIGHT
+  of the shield outline, which shrank to 44 x 49, the label up to 15px
+  (`.cairn-armor-box` is a row now). `dev:shield` leg 3 wants no glyph and
+  reads the label's box against the shield's. Scrolls and the Grimoire became equippable (`isEquipable`, item.js;
   `SCROLL_PINNED` no longer pins `equipped`). The labels were ALREADY in full
   ink (measured, `dev:shield` red run 2026-11-21): what read as faint was the
   question mark. Gates `dev:shield` legs 3, 6, 8, `dev:sheet-rail` leg 22,
