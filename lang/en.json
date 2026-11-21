@@ -1167,6 +1167,7 @@
     }
   },
   "CAIRN.Shield": "Shield",
+  "CAIRN.ShieldArmorBonus": "+{n} Armor",
   "CAIRN.ShieldEquipped": "Shield equipped",
   "CAIRN.Slots": "Slots",
   "CAIRN.Source": "Source:",

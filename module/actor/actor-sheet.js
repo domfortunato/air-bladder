@@ -2260,12 +2260,18 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     {
       // game-icons: Shield (Sbed) slung, Shield Bash equipped, Shield
       // Disabled (the slashed shield) with none (user picks, 2026-11-21).
-      const sw = holdSwitch(this.#shieldsCarried());
+      const shields = this.#shieldsCarried();
+      const sw = holdSwitch(shields);
       const art = sw.none ? "shield-disabled" : sw.held ? "shield-bash" : "shield";
+      // "+1 Armor" under an equipped shield (2026-11-21, user ask), in the
+      // light radius's face: the equipped shields' own Armor, so a shield a
+      // Warden made +2 says so.
+      const bonus = shields.filter((i) => i.system.equipped).reduce((n, i) => n + (Number(i.system.armor) || 0), 0);
       context.shieldSwitch = {
         ...sw,
         label: loc(sw.none ? "CAIRN.NoShield" : sw.held ? "CAIRN.ShieldEquipped" : "CAIRN.EquipShield"),
         icon: route(`systems/air-bladder/art/game-icons/shields/${art}.svg`),
+        bonus: bonus > 0 ? game.i18n.format("CAIRN.ShieldArmorBonus", { n: bonus }) : "",
       };
     }
     // The light badge: the equipped light's icon, glowing, and its radius

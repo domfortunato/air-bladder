@@ -5908,7 +5908,10 @@ header.character-generator.directory-header .header-actions > button:not(.cairn-
     background-color: var(--ab-accent);
     filter: drop-shadow(0 0 3px var(--ab-accent)) drop-shadow(0 0 6px var(--ab-accent));
 }
-.cairn-character-sheet .light-hold .light-radius {
+/* The light's radius, and "+1 Armor" under an equipped shield in the same
+   face (2026-11-21, user ask). */
+.cairn-character-sheet .light-hold .light-radius,
+.cairn-character-sheet .shield-hold .shield-bonus {
     font-family: "Signika", ui-sans-serif, sans-serif; font-size: 10px; font-weight: normal;
     font-variant: normal; line-height: 12px; color: var(--ab-muted);
 }

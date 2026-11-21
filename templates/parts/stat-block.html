@@ -151,10 +151,13 @@
                         {{#if shieldSwitch}}
                         <div class="cairn-badge-row">
                             {{!-- The shield: Shield (Sbed) slung, Shield Bash equipped, the
-                                  slashed shield with none. No tooltip while live. --}}
+                                  slashed shield with none. No tooltip while live. Equipped,
+                                  "+1 Armor" under the label in the light radius's face
+                                  (2026-11-21, user ask). --}}
                             <button type="button" class="shield-hold cairn-equip-badge" id="{{@root.idp}}-hold-shield" data-action="toggleHold" data-hold="shield" role="switch" aria-checked="{{#if shieldSwitch.held}}true{{else}}false{{/if}}"{{#if shieldSwitch.none}} data-tooltip="{{ localize holdShieldNoneKey }}"{{/if}}{{#if (or shieldSwitch.none (not @root.editable))}} disabled{{/if}}>
                                 <span class="shield-icon" style="--shield-icon: url('{{shieldSwitch.icon}}')" inert></span>
                                 <span class="shield-label">{{shieldSwitch.label}}</span>
+                                {{#if shieldSwitch.bonus}}<span class="shield-bonus">{{shieldSwitch.bonus}}</span>{{/if}}
                             </button>
                             {{!-- The light: the equipped light's icon, glowing, its radius under
                                   the label; otherwise the first carried light's own icon (a

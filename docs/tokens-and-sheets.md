@@ -80,7 +80,8 @@ badge glows and the label changes to **Shield equipped**, **Light equipped** or
 **Spell equipped**. If you don't carry one, the badge is greyed out and reads
 **No Shield**, **No Light** or **No Spell**.
 
-- **Shield.** A shield only adds to Armor while it's equipped.
+- **Shield.** A shield only adds to Armor while it's equipped, and then the
+  badge says how much, like **+1 Armor**.
 - **Light.** The badge shows the light you're carrying, a torch or a lantern,
   and how far it reaches once it's lit. Only one light is equipped at a time,
   and with several it asks which.
