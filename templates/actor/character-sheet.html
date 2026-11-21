@@ -64,30 +64,10 @@
                             <a class="name-pick" data-action="pickName" data-tooltip="CAIRN.PickName" aria-label="{{ localize 'CAIRN.PickName' }}"><i class="fas fa-list-ul"></i></a>
                             {{/if}}
                         </div>
-                        {{!-- Pronouns and Age, under the name (user ask 2026-11-19), moved
-                              from the Description page's bio-block under its gates there
-                              (traitRows, then showAge). Names, classes and the rollAge
-                              action are the bio-block's, so the submit path and the Age
-                              die are untouched. --}}
+                        {{!-- Pronouns and Age, under the name (user ask 2026-11-19): one
+                              partial, the person npc's too since 2026-11-20. --}}
                         {{#if traitRows}}
-                        <div class="identity-bio-line">
-                            <div class="pronouns-row">
-                                <label for="{{@root.idp}}-system.pronouns">{{ localize 'CAIRN.Pronouns' }}</label>
-                                <input class="trait-input" type="text" name="system.pronouns" id="{{@root.idp}}-system.pronouns"
-                                    value="{{system.pronouns}}" maxlength="20" />
-                            </div>
-                            {{#if showAge}}
-                            <div class="age-row">
-                                <label for="{{@root.idp}}-system.age">{{ localize 'CAIRN.Age' }}</label>
-                                <input class="trait-input" type="text" name="system.age" id="{{@root.idp}}-system.age" value="{{system.age}}" />
-                                {{#if generationEnabled}}
-                                {{!-- rollAgeTitle is pre-FORMATTED text (it carries the
-                                      Warden's formula), so the aria-label takes it verbatim. --}}
-                                <a class="age-roll" data-action="rollAge" data-tooltip="{{rollAgeTitle}}" aria-label="{{rollAgeTitle}}"><i class="fas fa-dice-d20"></i></a>
-                                {{/if}}
-                            </div>
-                            {{/if}}
-                        </div>
+                        {{> "systems/air-bladder/templates/parts/identity-bio-line.html"}}
                         {{/if}}
                         {{!-- Labelled "Background" and drawn as a FIELD on both branches
                               (round 4, user ask 2026-11-19), in the Pronouns and Age labels'

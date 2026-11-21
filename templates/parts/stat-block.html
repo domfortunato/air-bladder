@@ -2,8 +2,9 @@
       character-sheet.html 2026-11-20, user ask: "All character sheets should
       have the same format at style as the Player Character Sheet"). One
       partial, so a change to the character's page 1 reaches every sheet.
-      The trait sentence is the character's (showTraitSentence): a person
-      npc keeps its traits on Description. The Gold band follows
+      The trait sentence is every person's (showTraitSentence, set by
+      _prepareBiographyContext): a character's, and a person npc's since
+      2026-11-20; a monster or companion draws none. The Gold band follows
       system.showGold (a companion has no purse); statMax is the
       character's 18 cap, absent on an npc (no cap); holdShieldNoneKey is
       _wording's, so an npc reads "They have no shield to hold." --}}
@@ -121,18 +122,23 @@
                               the shield with armor value ... the toggle should sling or hold
                               the shield"): only while the character carries an armor item
                               ticked Shield. Held is equipped, slung is not (the user's
-                              ruling): a press is the shield row's hand icon. The creation-
-                              mode toggle's icons, as a switch. A three-column row keeps the
-                              Armor box centred whether the switch is there or not. --}}
+                              ruling): a press is the shield row's hand icon. A three-column
+                              row keeps the round Armor box centred whether the switch is
+                              there or not. --}}
                         <div class="cairn-armor-row">
                         {{!-- Both controls are ALWAYS drawn, one mechanism (toggleHold):
                               with none of that kind carried a control is disabled, off,
                               and says why. The shield's switch carries no tooltip while
                               live. --}}
+                        {{!-- A BADGE like Hold light's since 2026-11-20 (user ask: "Hold
+                              shield looks and labels like Hold light"): game-icons'
+                              heater shield as a mask, muted when slung, the accent
+                              with a glow when held; "Hold shield" off, "Shield in
+                              hand" on. --}}
                         {{#if shieldSwitch}}
                         <button type="button" class="shield-hold" data-action="toggleHold" data-hold="shield" role="switch" aria-checked="{{#if shieldSwitch.held}}true{{else}}false{{/if}}"{{#if shieldSwitch.none}} data-tooltip="{{ localize holdShieldNoneKey }}"{{/if}}{{#if (or shieldSwitch.none (not @root.editable))}} disabled{{/if}}>
-                            <i class="fas {{#if shieldSwitch.held}}fa-toggle-on{{else}}fa-toggle-off{{/if}}" inert></i>
-                            <span>{{ localize 'CAIRN.HoldShield' }}</span>
+                            <span class="shield-icon" style="--shield-icon: url('{{shieldIcon}}')" inert></span>
+                            <span class="shield-label">{{#if shieldSwitch.held}}{{ localize 'CAIRN.ShieldInHand' }}{{else}}{{ localize 'CAIRN.HoldShield' }}{{/if}}</span>
                         </button>
                         {{/if}}
                         <div class="cairn-shield armor-counter {{#if system.armorOverridden}}armor-overridden{{/if}}">
@@ -151,7 +157,8 @@
                         {{#if lightSwitch}}
                         <button type="button" class="light-hold" data-action="toggleHold" data-hold="light" role="switch" aria-checked="{{#if lightSwitch.held}}true{{else}}false{{/if}}" data-tooltip="{{lightSwitch.tip}}"{{#if (or lightSwitch.none (not @root.editable))}} disabled{{/if}}>
                             <span class="light-icon" style="--light-icon: url('{{lightSwitch.icon}}')" inert></span>
-                            <span class="light-label">{{ localize 'CAIRN.HoldLight' }}</span>
+                            {{!-- "Light in hand" while one is held (2026-11-20, user ask). --}}
+                            <span class="light-label">{{#if lightSwitch.held}}{{ localize 'CAIRN.LightInHand' }}{{else}}{{ localize 'CAIRN.HoldLight' }}{{/if}}</span>
                             {{#if lightSwitch.radius}}<span class="light-radius">{{lightSwitch.radius}}</span>{{/if}}
                         </button>
                         {{/if}}

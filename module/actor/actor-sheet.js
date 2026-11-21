@@ -423,6 +423,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       itemDelete: owned(CairnActorSheet.#onItemDelete),
       itemDrop: owned(CairnActorSheet.#onItemDrop),
       itemToggleEquipped: owned(CairnActorSheet.#onItemToggleEquipped),
+      itemToggleBroken: owned(CairnActorSheet.#onItemToggleBroken),
       itemAddUse: owned(CairnActorSheet.#onItemAddUse),
       itemRemoveUse: owned(CairnActorSheet.#onItemRemoveUse),
       pageTransmute: owned(CairnActorSheet.#onPageTransmute),
@@ -470,7 +471,6 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       // so mayRandomize as well as owned (the bond and question pickers'
       // gate).
       editTraits: owned(mayRandomize(CairnActorSheet.#onEditTraits)),
-      toggleTraits: CairnActorSheet.#onToggleTraits,
       toggleScars: CairnActorSheet.#onToggleScars,
       // Background / failed career
       rollBackground: owned(mayRandomize(CairnActorSheet.#onRollBackground)),
@@ -578,6 +578,9 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
           // Page 1's frame pieces, shared by every actor sheet since
           // 2026-11-20 (each sheet in the character sheet's format).
           "systems/air-bladder/templates/parts/status-banners.html",
+          // Pronouns and Age under the name: the character's and, since
+          // 2026-11-20, a person npc's.
+          "systems/air-bladder/templates/parts/identity-bio-line.html",
           "systems/air-bladder/templates/parts/stat-block.html",
           "systems/air-bladder/templates/parts/slots-line.html",
           "systems/air-bladder/templates/parts/compat-footer.html",
@@ -1539,6 +1542,14 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // npc (2026-11-20: every creature's page 1 is the character's stat block,
     // parts/stat-block.html). Hold light's is built in _computeStatContext.
     context.holdShieldNoneKey = this._wording("CAIRN.HoldShieldNone");
+    // game-icons art the system ships and credits (art/game-icons/CREDITS.md),
+    // drawn as CSS masks so they take the sheet's colours (2026-11-20, user
+    // picks): the heater shield on the Hold shield badge, the broken shield on
+    // every inventory row's Broken toggle. ROUTES, as the light badge's icon
+    // is: a relative url() in a custom property resolves against the
+    // stylesheet, and that icon 404ed on CT 123.
+    context.shieldIcon = foundry.utils.getRoute("systems/air-bladder/art/game-icons/shields/shield.svg");
+    context.brokenIcon = foundry.utils.getRoute("systems/air-bladder/art/game-icons/shields/broken-shield.svg");
     // The stat inputs' max attribute: a character's 18 cap, none on an npc
     // (the statCap in _onRender, review #34 finding 52).
     context.statMax = this.actor.type === "character" ? 18 : null;
@@ -1802,12 +1813,20 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // Traits window builds its rows through the same call (round 4).
     context.traitRows = await this._buildTraitRows();
 
-    // Live constructed trait sentence + collapsible pick-lists (transient
-    // sheet state, the npc sheet's alone since round 4: a character's
-    // pick-lists are in its Traits window). OPEN by default since 2026-11-19
-    // (user ruling; they were collapsed behind the sentence).
+    // The constructed trait sentence. The pick-lists are the Traits window's,
+    // for a character since round 4 and a person npc since 2026-11-20 (the
+    // Description page's collapsible copy and its toggle went then).
     context.traitSentence = this._buildTraitSentence(this.actor.system.traits, this.actor.system.age);
-    context.traitsCollapsed = this._traitsCollapsed ?? false;
+    // The trait sentence over STR (parts/stat-block.html) is every PERSON's:
+    // the character's since round 4, a person npc's since 2026-11-20 (user
+    // ask: "the same Traits field and formatting ... behave the same way
+    // during CharGen On"). A monster or companion never reaches here, so it
+    // draws none. The pen at its end opens the Traits window: Creation Mode
+    // only, as the bond and question pickers, and only for a viewer who may
+    // write the sheet (the action is owned() too: the two-layer rule). Both
+    // callers set generationEnabled first.
+    context.showTraitSentence = true;
+    context.canEditTraits = !!context.generationEnabled && this.isEditable;
 
     // Scars pick-list from the same tables-2e pack. Neither Omen nor Scar is
     // generated: a player ticks the field's checkbox to enable it, then rolls
@@ -1862,8 +1881,6 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    * @private
    */
   async _prepareCharacterContext(context) {
-    await this._prepareBiographyContext(context);
-
     // Background description (from the linked Item) + a friendly source label,
     // shown in the sheet header. "2e" -> "Cairn 2e".
     const bgUuid = this.actor.system.backgroundUuid;
@@ -1970,6 +1987,9 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // 2026-08-09). The Warden's own render is unaffected.
     context.generationEnabled = this.actor.system.generationEnabled !== false
       && this._mayRandomize();
+    // The biography (Pronouns, Age, the trait sentence and its pen) reads the
+    // mode, so it is built once the mode is known, as on the npc path.
+    await this._prepareBiographyContext(context);
     // A character is always a person, so its save-die lock IS the mode —
     // the narrowing lives on the npc sheet, where the monster role keeps
     // live save dice (2026-09-02 ruling, review #21 finding 10).
@@ -1989,17 +2009,6 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       && (!!context.failedCareer || context.generationEnabled);
     context.showFailedCareerItemLine = context.showFailedCareer
       && (!!context.failedCareerItem || context.generationEnabled);
-    // The pen at the end of the trait sentence, which opens the Traits window
-    // (round 4, user ruling 2026-11-19): Creation Mode only, as the bond and
-    // question pickers, and only for a viewer who may write the sheet (the
-    // action is owned() too: the two-layer rule). With the mode off a
-    // character's traits are read-only on the sheet.
-    context.canEditTraits = context.generationEnabled && this.isEditable;
-    // The trait sentence over STR is the character's: parts/stat-block.html
-    // serves every creature since 2026-11-20, and a person npc keeps its
-    // traits on its Description page.
-    context.showTraitSentence = true;
-
     // While the mode is On, the HP and Gold labels also say where their
     // numbers came from (2026-09-01, user's wording — ONE terse shared key,
     // "no need to be so verbose"). Appended to the existing tips,
@@ -4492,6 +4501,23 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
   }
 
   /**
+   * The row's Broken toggle (2026-11-20, user ask: an icon on each inventory
+   * row, left of the trash; the item sheet's box stays). Flips
+   * `system.broken`, nothing else: CairnItem._preUpdate strips the equip of a
+   * broken item, and the Torch sync and stacking follow from the item. Re-
+   * derived here, not trusted from the row: only a type that carries `broken`,
+   * never a Fatigue (canBreak). owned(), as Delete is.
+   * @this {CairnActorSheet}
+   */
+  static async #onItemToggleBroken(event, target) {
+    event.preventDefault();
+    const row = CairnActorSheet.#row(target);
+    const item = this.actor.getOwnedItem(row?.dataset.itemId);
+    if (!item?.system?.canBreak) return;
+    await item.update({ "system.broken": !item.system.broken });
+  }
+
+  /**
    * Transmute a spellbook or spellscroll into the carried Grimoire: the item
    * becomes a BOUND PAGE (weightless, grouped under the book, no way back —
    * CairnItem holds the invariant). The row control is the affordance; every
@@ -5784,19 +5810,6 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     }
     if (Object.keys(asRolled).length) await this.actor.update(asRolled, { abNoStatusCard: true });
     if (Object.keys(asPicked).length) await this.actor.update(asPicked);
-  }
-
-  /**
-   * Expand/collapse the trait pick-lists (+/-). Transient sheet state, so it
-   * survives re-renders but is not stored on the actor. Defaults OPEN since
-   * 2026-11-19 (_prepareBiographyContext uses `?? false`), so read the
-   * effective value rather than negating a maybe-undefined flag.
-   * @this {CairnActorSheet}
-   */
-  static #onToggleTraits(event) {
-    event.preventDefault();
-    this._traitsCollapsed = !(this._traitsCollapsed ?? false);
-    this.render(false);
   }
 
   /** @this {CairnActorSheet} */

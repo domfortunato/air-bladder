@@ -1,0 +1,25 @@
+{{!-- Pronouns and Age, under the name on page 1 (user ask 2026-11-19 for the
+      character; the person npc and hireling's since 2026-11-20, user ask:
+      "their pronouns and AGE should be placed exactly the same as a PC").
+      ONE partial both sheets render, so the two cannot drift. Names, classes
+      and the rollAge action are the old bio-block's, so the submit path and
+      the Age die are untouched. The caller gates it on traitRows (and the npc
+      sheet on showBiography); Age rides showAge, its die generationEnabled. --}}
+                        <div class="identity-bio-line">
+                            <div class="pronouns-row">
+                                <label for="{{@root.idp}}-system.pronouns">{{ localize 'CAIRN.Pronouns' }}</label>
+                                <input class="trait-input" type="text" name="system.pronouns" id="{{@root.idp}}-system.pronouns"
+                                    value="{{system.pronouns}}" maxlength="20" />
+                            </div>
+                            {{#if showAge}}
+                            <div class="age-row">
+                                <label for="{{@root.idp}}-system.age">{{ localize 'CAIRN.Age' }}</label>
+                                <input class="trait-input" type="text" name="system.age" id="{{@root.idp}}-system.age" value="{{system.age}}" />
+                                {{#if generationEnabled}}
+                                {{!-- rollAgeTitle is pre-FORMATTED text (it carries the
+                                      Warden's formula), so the aria-label takes it verbatim. --}}
+                                <a class="age-roll" data-action="rollAge" data-tooltip="{{rollAgeTitle}}" aria-label="{{rollAgeTitle}}"><i class="fas fa-dice-d20"></i></a>
+                                {{/if}}
+                            </div>
+                            {{/if}}
+                        </div>

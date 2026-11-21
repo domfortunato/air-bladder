@@ -257,6 +257,19 @@
       {{/unless}}
       {{/unless}}
       {{/if}}
+      {{!-- BROKEN, directly left of the trash (2026-11-20, user ask: "an icon
+            that marks it Broken ... to the left of the delete icon"), on every
+            sheet that draws this list. Every type that carries `broken`, never
+            a Fatigue (canBreak, the item sheet's rule). A press flips
+            system.broken; CairnItem unequips it. game-icons' broken shield as a
+            mask (`@root.brokenIcon`, routed, the light badge's 404 lesson), lit in
+            the peril colour while broken. aria-pressed says which. --}}
+      {{#if item.system.canBreak}}
+      <a class="item-control item-toggle-broken{{#if item.system.broken}} is-broken{{/if}}" data-action="itemToggleBroken" role="button"
+        aria-pressed="{{#if item.system.broken}}true{{else}}false{{/if}}"
+        title="{{#if item.system.broken}}{{ localize 'CAIRN.ItemMarkRepaired' }}{{else}}{{ localize 'CAIRN.ItemMarkBroken' }}{{/if}}"
+        aria-label="{{#if item.system.broken}}{{ localize 'CAIRN.ItemMarkRepaired' }}{{else}}{{ localize 'CAIRN.ItemMarkBroken' }}{{/if}}"><span class="broken-icon" style="--broken-icon: url('{{@root.brokenIcon}}')" inert></span></a>
+      {{/if}}
       <a class="item-control item-delete" data-action="itemDelete" title="{{ localize 'CAIRN.DeleteItem' }}"><i class="fas fa-trash"></i></a>
     </div>
   </div>

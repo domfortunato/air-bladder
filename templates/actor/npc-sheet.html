@@ -67,6 +67,13 @@
                             <a class="name-roll" data-action="rollName" data-tooltip="CAIRN.RollName" aria-label="{{ localize 'CAIRN.RollName' }}"><i class="fas fa-dice-d20"></i></a>
                             {{/if}}
                         </div>
+                        {{!-- A person's Pronouns and Age, under the name exactly as a
+                              character's (2026-11-20, user ask: "placed exactly the same
+                              as a PC"): the character's own partial. A monster, companion
+                              or thing has no biography (showBiography). --}}
+                        {{#if showBiography}}{{#if traitRows}}
+                        {{> "systems/air-bladder/templates/parts/identity-bio-line.html"}}
+                        {{/if}}{{/if}}
                         {{!-- What this actor IS to the party — the one discriminator that
                               replaced the For Hire and Inanimate checkboxes (two booleans
                               could say "for-hire inanimate chest"; a pick-list cannot).

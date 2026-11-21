@@ -578,6 +578,10 @@ export class CairnItem extends Item {
         this.system.uses.value = this.system.uses.max;
     }
     this.system.isFatigue = this.name === FATIGUE_NAME;
+    // The row's Broken toggle (2026-11-20, user ask: an icon on each inventory
+    // row, left of the trash): every type that carries `broken`, never a
+    // Fatigue, the rule the item sheet's box already follows. TOTAL.
+    this.system.canBreak = this.system.broken !== undefined && !this.system.isFatigue;
     // Bulky as the slot maths sees it (`isBulky`: the stored box, or a shield
     // under the Shields are Bulky hack), for the row tag and the printed note.
     // DERIVED beside the stored `bulky`, never over it: the item sheet spreads

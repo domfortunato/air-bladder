@@ -1089,6 +1089,17 @@
 
 /* Broken (2026-11-20): the tag in the peril colour, the title dimmed. */
 .cairn-item-tag.tag-broken { color: var(--ab-peril); border-color: var(--ab-peril); font-weight: bold; }
+/* The row's Broken toggle (2026-11-20): game-icons' broken shield as a
+   luminance mask, the row icons' muted ink while intact and the Broken tag's
+   peril colour while broken. Sized to the Font Awesome glyphs beside it. */
+.item-toggle-broken .broken-icon {
+    display: inline-block; width: 1em; height: 1em; vertical-align: -0.125em;
+    background-color: currentColor;
+    -webkit-mask: var(--broken-icon) center / contain no-repeat;
+    mask: var(--broken-icon) center / contain no-repeat;
+    mask-mode: luminance;
+}
+.item-toggle-broken.is-broken .broken-icon { background-color: var(--ab-peril); }
 .cairn-items-list-row.is-broken .cairn-item-title { opacity: 0.6; }
 
 .cairn-item-tag {
@@ -2143,46 +2154,13 @@
 }
 
 /******************************************************************************
- * Description tab: traits (pronouns/age/sentence/pick-lists), Omen, Scars.
+ * The trait grid (the Traits window since 2026-11-20, a person npc's too),
+ * Omen and Scars.
  ******************************************************************************/
 .character-traits {
     display: flex;
     flex-direction: column;
     gap: 8px;
-}
-
-/* Pronouns and Age side by side at the top. */
-.character-traits .bio-top {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    column-gap: 16px;
-    row-gap: 4px;
-}
-
-/* The constructed trait sentence — the default read view of the character's
-   traits, sitting above the (collapsed) pick-lists. */
-.character-traits .trait-sentence {
-    margin: 4px 0;
-    padding: 0;
-    font-style: italic;
-    line-height: 1.5;
-}
-
-/* Collapsible pick-list section: header + toggle, then the trait grid. */
-.character-traits .trait-picklist-header {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.character-traits .trait-picklist-label {
-    font-weight: bold;
-    flex: 0 0 auto;
-}
-
-.character-traits .trait-toggle {
-    flex: 0 0 auto;
-    cursor: pointer;
 }
 
 /* The 8 trait dropdowns: two columns, column-major (physical traits left).
@@ -2222,13 +2200,6 @@
     column-gap: 8px;
 }
 
-/* With Character Creation Mode off the die is not rendered and its track is
-   empty; the select spans it so there is ONE 8px gap after the label, not
-   two. :has() has a precedent at .reroll-dialog .reroll-row:has(input:disabled). */
-.character-traits .trait-grid .trait-row:not(:has(.trait-roll)) .trait-input {
-    grid-column: span 2;
-}
-
 .character-traits .trait-grid .trait-label {
     min-width: auto;
     text-align: right;
@@ -2240,8 +2211,10 @@
 .cairn-trait-editor .cairn-trait-editor-grid { padding: 4px 2px 8px; }
 .cairn-trait-editor .cairn-trait-editor-grid .trait-grid { margin-top: 0; }
 
-/* Separate the traits block from the Omen/Scar block below it. */
-.character-omen-scar {
+/* The Omen/Scar block opens a person npc's Description page since its
+   traits left it (2026-11-20), so the rule that parted it from them is
+   drawn only with something above it. */
+.character-omen-scar:not(:first-child) {
     margin-top: 12px;
     padding-top: 12px;
     border-top: 1px solid var(--ab-rule-strong);
@@ -2304,17 +2277,6 @@
 /* On its heading row the die follows the label, as a Bond's does. */
 :is(.character-omen-scar, .notes-omen) .omen-head .omen-label { min-width: 0; }
 
-/* Pronouns and Age hug their fields instead of reserving the 96px column. */
-.character-traits .pronouns-row .trait-label,
-.character-traits .age-row .trait-label {
-    min-width: auto;
-}
-
-.character-traits .age-row .trait-input {
-    flex: 0 0 auto;
-    width: 56px;
-}
-
 :is(.character-omen-scar, .notes-omen) .omen-label {
     display: flex;
     align-items: center;
@@ -2334,7 +2296,6 @@ textarea.omen-input {
 
 :is(.character-omen-scar, .notes-omen) .omen-roll,
 :is(.character-omen-scar, .notes-omen) .omen-pick,
-.character-traits .age-roll,
 .character-traits .trait-roll {
     flex: 0 0 auto;
     cursor: pointer;
@@ -5694,13 +5655,14 @@ header.character-generator.directory-header .header-actions > button:not(.cairn-
 
 /* Vitals: the Armor shield, HP, the slot count and the buttons. */
 .cairn-character-sheet .cairn-vitals { display: flex; flex-direction: column; align-items: center; gap: 8px; }
-/* The Armor shield, 54 x 60 since 2026-11-20 (66 x 72 before): the row it
-   heads shares the 172px column with Hold shield and the light badge, and
-   page 1 must fit 480 x 700 (user report: "the foot obscured"). */
+/* The Armor box: a CIRCLE the ability circles' size and border since
+   2026-11-20 (user ask: "a ROUND outline matching the ability circles,
+   labelled Armor"; a 54 x 60 shield outline before). The label and the number
+   stack inside it, so both are kept small enough to fit the 44px within. */
 .cairn-character-sheet .cairn-shield {
-    position: relative; width: 54px; height: 60px; box-sizing: border-box;
+    position: relative; width: 48px; height: 48px; box-sizing: border-box;
     border: 2px solid var(--ab-line);
-    border-radius: 50% 50% 50% 50% / 12% 12% 88% 88%;
+    border-radius: 50%;
     display: flex; flex-direction: column; align-items: center; justify-content: center;
 }
 .cairn-character-sheet .cairn-shield label {
@@ -5708,15 +5670,15 @@ header.character-generator.directory-header .header-actions > button:not(.cairn-
     /* line-height above the size: Alegreya's glyphs run taller than their
        size, and a line box of exactly the size clips them (dev:sheet-layout,
        2026-11-19). */
-    font-size: 12px; font-weight: bold; font-variant: small-caps; line-height: 15px; margin: 2px 0 0;
+    font-size: 11px; font-weight: bold; font-variant: small-caps; line-height: 13px; margin: 0;
 }
 .cairn-character-sheet .cairn-shield .armor-input {
-    width: 40px; height: 26px !important; padding: 0;
+    width: 36px; height: 22px !important; padding: 0;
     background: none !important; border: none !important;
     text-align: center; font-size: 20px; font-weight: bold;
 }
 .cairn-character-sheet .cairn-shield .armor-input:focus { box-shadow: none; }
-/* Inside the shield's lower edge, clear of the light badge beside it. */
+/* On the circle's lower right, clear of the light badge beside it. */
 .cairn-character-sheet .cairn-shield .armor-reset { position: absolute; right: -6px; bottom: -4px; margin: 0; font-size: 11px; }
 /* The Armor row (2026-11-20): Hold shield | the Armor box | the light badge.
    Three columns, the box in the middle one, so it stays centred over HP. */
@@ -5734,20 +5696,21 @@ header.character-generator.directory-header .header-actions > button:not(.cairn-
     font-size: 12px; font-weight: bold; font-variant: small-caps; color: var(--ab-ink);
     text-align: center; white-space: normal; max-width: 58px; cursor: pointer;
 }
-.cairn-character-sheet .shield-hold i { margin: 0; font-size: 20px; color: var(--ab-muted); }
-.cairn-character-sheet .shield-hold[aria-checked="true"] i { color: var(--ab-accent); }
-/* The light badge's icon: game-icons art (a white glyph on a black square),
+/* The two badges' icons: game-icons art (a white glyph on a black square),
    used as a LUMINANCE mask so it takes a colour: muted while nothing is held,
-   the accent with a glow while a light is (2026-11-20, user ask: "toggling
-   the Hold light make that icon glow"). */
-.cairn-character-sheet .light-hold .light-icon {
+   the accent with a glow while one is (2026-11-20, user asks: "toggling the
+   Hold light make that icon glow"; Hold shield "looks and labels like Hold
+   light", the heater shield). One rule for both. */
+.cairn-character-sheet .shield-hold .shield-icon { --badge-icon: var(--shield-icon); }
+.cairn-character-sheet .light-hold .light-icon { --badge-icon: var(--light-icon); }
+.cairn-character-sheet :is(.shield-hold .shield-icon, .light-hold .light-icon) {
     display: block; width: 26px; height: 26px;
     background-color: var(--ab-muted);
-    -webkit-mask: var(--light-icon) center / contain no-repeat;
-    mask: var(--light-icon) center / contain no-repeat;
+    -webkit-mask: var(--badge-icon) center / contain no-repeat;
+    mask: var(--badge-icon) center / contain no-repeat;
     mask-mode: luminance;
 }
-.cairn-character-sheet .light-hold[aria-checked="true"] .light-icon {
+.cairn-character-sheet :is(.shield-hold[aria-checked="true"] .shield-icon, .light-hold[aria-checked="true"] .light-icon) {
     background-color: var(--ab-accent);
     filter: drop-shadow(0 0 3px var(--ab-accent)) drop-shadow(0 0 6px var(--ab-accent));
 }

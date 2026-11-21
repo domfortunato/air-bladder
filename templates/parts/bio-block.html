@@ -1,64 +1,14 @@
-{{!-- The biography block: pronouns + age, the trait sentence and its
-      pick-lists, then Omen (showOmen) and Scars (showScars, the
-      scar-block.html partial). MOVED verbatim from character-sheet.html
-      (2026-08-01) when role-npc PEOPLE got the same block; rendered by the
-      npc sheet behind `{{#if showBiography}}` (BOTH person roles since the
-      2026-08-20 split: npc and hireling. An NPC's grid is ten rows, a
-      hireling's eight — Quirk and Goal are the NPC's). The CHARACTER sheet no
-      longer renders it (round 4, 2026-11-19): its Pronouns and Age stand under
-      the name, its sentence above STR, its pick-lists in the Traits window
-      (trait-grid.html, shared with this block), its Omen on Background & Notes
-      (omen-row.html, shared too) and its Scars on Growth. Context comes from
-      `_prepareBiographyContext` plus the flags each caller sets. --}}
-                        {{#if traitRows}}
-                        <div class="character-traits">
-                            <!-- Pronouns + Age at the top, then the constructed sentence. -->
-                            <div class="bio-top">
-                                <div class="trait-row pronouns-row">
-                                    <label class="trait-label">{{ localize 'CAIRN.Pronouns' }}</label>
-                                    <input class="trait-input" type="text" name="system.pronouns"
-                                        value="{{system.pronouns}}" maxlength="20" />
-                                </div>
-                                {{#if showAge}}
-                                <div class="trait-row age-row">
-                                    <label class="trait-label">{{ localize 'CAIRN.Age' }}</label>
-                                    <input class="trait-input" type="text" name="system.age" value="{{system.age}}" />
-                                    {{#if generationEnabled}}
-                                    {{!-- rollAgeTitle is pre-FORMATTED text (it carries the
-                                          Warden's formula), so the aria-label takes it
-                                          verbatim — no localize pass. --}}
-                                    <a class="age-roll" data-action="rollAge" data-tooltip="{{rollAgeTitle}}" aria-label="{{rollAgeTitle}}"><i class="fas fa-dice-d20"></i></a>
-                                    {{/if}}
-                                </div>
-                                {{/if}}
-                            </div>
-                            {{!-- showTraits (2026-09-07): the Warden's show-traits switch
-                                  hides the sentence and the whole pick-list section.
-                                  Pronouns above stay — never rolled, never hidden. --}}
-                            {{#if showTraits}}
-                            {{#if traitSentence}}
-                            <p class="trait-sentence">{{traitSentence}}</p>
-                            {{/if}}
-                            <!-- Collapsible pick-lists, OPEN by default since 2026-11-19
-                                 (traitsCollapsed ?? false); +/- folds them away. -->
-                            <div class="trait-picklist-section">
-                                <div class="trait-picklist-header">
-                                    {{!-- While the mode is On, say where the traits came
-                                          from: they ARE rolled at generation off the 2e
-                                          tables — these pick-lists are the OVERRIDE
-                                          (2026-09-01; the first draft said the opposite
-                                          and the user corrected it). --}}
-                                    <label class="trait-picklist-label" {{#if generationEnabled}}data-tooltip="CAIRN.TraitsRolledTip"{{/if}}>{{ localize 'CAIRN.Traits' }}</label>
-                                    <a class="trait-toggle" data-action="toggleTraits" title="{{ localize 'CAIRN.ToggleTraits' }}"><i
-                                            class="fas {{#if traitsCollapsed}}fa-plus-square{{else}}fa-minus-square{{/if}}"></i></a>
-                                </div>
-                                {{#unless traitsCollapsed}}
-                                {{> "systems/air-bladder/templates/parts/trait-grid.html"}}
-                                {{/unless}}
-                            </div>
-                            {{/if}}
-                        </div>
-                        {{/if}}
+{{!-- The biography block on a person npc's Description page: Omen
+      (showOmen, a character's only, so off here) and Scars (showScars, the
+      scar-block.html partial). It held Pronouns, Age, the trait sentence and
+      the collapsible pick-lists too, MOVED from character-sheet.html
+      (2026-08-01) when role-npc PEOPLE got the block; the character's left it
+      in round 4 (2026-11-19) and a person npc's on 2026-11-20 (user ask: an
+      NPC's page 1 "look and act like the PC sheets"): Pronouns and Age stand
+      under the name (identity-bio-line.html), the sentence above STR
+      (stat-block.html) and the pick-lists in the Traits window
+      (trait-grid.html). Context comes from `_prepareBiographyContext` plus
+      the flags the npc sheet sets. --}}
                         {{#if (or showOmen showScars)}}
                         <div class="character-omen-scar">
                             {{#if showOmen}}
