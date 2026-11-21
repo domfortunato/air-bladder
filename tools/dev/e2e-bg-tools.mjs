@@ -55,6 +55,22 @@ const result = await page.evaluate(async () => {
 
   await bg.delete();
 
+  // --- Archetype is no lint matter (user ruling 2026-11-21) -------------------
+  // Your own background lists under "Custom 2e Backgrounds" whatever its
+  // archetype (getBackgroundsByArchetype groups by provenance), so Test x10 must
+  // not warn about a blank one, and the sheet's hint must not ask for one.
+  const bare = await Item.create({ name: "Linter Probe No Archetype ZZ", type: "background",
+    system: { source: "2e", archetype: "", names: ["Ade"], startingGear: [{ name: "Rations" }] } });
+  try {
+    const bareReport = await CG.previewBackground(bare, 0);
+    out.archetypeWarnings = bareReport.problems.filter((p) => /archetype/i.test(p.msg)).map((p) => p.msg);
+  } finally {
+    await bare.delete();
+  }
+  const hint = game.i18n.localize("CAIRN.BgAuthor.SourceHint");
+  out.hintAsksArchetype = /archetype/i.test(hint);
+  out.hintNamesCustomGroup = hint.includes(game.i18n.localize("CAIRN.Archetype.Custom"));
+
   // --- Duplicate into my backgrounds -----------------------------------------
   // THE WARDEN'S PACK IS NEVER DELETED (review #34 finding 22).
   // `world.custom-backgrounds` is "the only place user backgrounds survive"
@@ -202,6 +218,9 @@ const checks = [
   ["missing starting-gear flagged", result.hasMissingGearError === true],
   ["missing option item flagged", result.hasMissingOptionError === true],
   ["empty options warned (>=4)", result.emptyOptionWarnings >= 4],
+  [`Test ×10 does not warn about a blank archetype: ${JSON.stringify(result.archetypeWarnings)}`, result.archetypeWarnings?.length === 0],
+  ["the sheet's hint does not ask for an archetype", result.hintAsksArchetype === false],
+  ["...and names the Custom 2e Backgrounds group", result.hintNamesCustomGroup === true],
   ["table 1 fired sums to 10", result.firedSumsToN[0] === 10],
   ["table 2 fired sums to 10", result.firedSumsToN[1] === 10],
   ["sampling reports gold", typeof result.sampling.goldAvg === "number"],
