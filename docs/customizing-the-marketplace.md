@@ -13,17 +13,17 @@ to be the Warden.
 Each aisle is a **rollable table**, and each row names one item:
 
 - **Cost** is the price.
-- **Bulky** and **Petty** set the slots it takes: Bulky takes two, Petty takes
-  none, anything else takes one.
+- **Bulky** and **Petty** set how many slots it takes. Bulky takes two, Petty
+  doesn't take any, and anything else takes one.
 - The description is what a shopper reads when they click the name.
 
-Change an item and the next person to open the shop sees the change, with no
-reload.
+If you change an item, the next person to open the shop sees the change.
+Nobody has to reload.
 
 A shopper can **Buy** an item, paying its cost in gold, or **Take** it for free.
-A character with no free slot is refused anything but a Petty item or a
-transport. Buying a mount, cart or pack creates a new actor, which Foundry lets
-only the Warden do by default.
+A character who doesn't have a free slot can't get anything except a Petty item
+or a transport. Buying a mount, cart or pack creates a new actor, which Foundry
+only lets the Warden do by default.
 
 To close the shop to players, turn off **Let players buy and take from the
 marketplace** under **Configure Inventory**, or run the shipped **Toggle Player
@@ -32,8 +32,8 @@ Marketplace** macro. The Warden can always shop.
 ## Do not edit the shipped compendiums
 
 Foundry lets you unlock **Marketplace** or **Market Goods** and edit them in
-place. Those edits are lost: a system compendium is replaced whole every time
-Air Bladder updates.
+place. You'll lose those edits, because a system compendium is replaced whole
+every time Air Bladder updates.
 
 An update never touches your world. Keep your version of the shop there, and
 treat the shipped compendiums as templates to copy.
@@ -61,8 +61,8 @@ From then on the shop reads your tables and your items, and your changes
 survive every update.
 
 - **Running it again never overwrites.** Anything already in your world is
-  kept. Only what is missing is added, and the window says how many of each.
-- **A table you imported by hand earlier is kept too.** It is found by name, so
+  kept. Only what's missing is added, and the window says how many of each.
+- **A table you imported by hand earlier is kept too.** It's found by name, so
   a `Market: Gear` you already had stays yours. Its rows still point at the
   shipped items, and the window says so. Delete it and run again to have it
   rebuilt pointing at your copies.
@@ -79,18 +79,18 @@ its source.
 1. Open the **Compendium** sidebar tab → **Marketplace** → right-click
    **Market: Gear** → **Import**.
 2. The copy lands in your **Rollable Tables** sidebar under the same name. Keep
-   that name: it is how the shop finds your table.
+   that name, because it's how the shop finds your table.
 3. Open the table and press **Edit** at the top of the window. Delete rows you
-   do not stock, and drag in items you do, from the Items sidebar or a
+   don't stock, and drag in items you do, from the Items sidebar or a
    compendium, anywhere onto the table's window.
 
 A note at the top of any `Market:` table in your world says which aisle it
-stocks and how to add or remove a row. On a shipped table the note says it is a
-template and names the button. Rename a table away from `Market:` and the note
-disappears, because the shop has stopped reading it. If two tables in your world
-share a name, both say so. Rename or delete one of them.
+stocks and how to add or remove a row. On a shipped table the note says it's a
+template and names the button. If you rename a table away from `Market:`, the
+note disappears, because the shop has stopped reading it. If two tables in your
+world share a name, both say so. Rename or delete one of them.
 
-Your table stays in alphabetical order: drop an item in and the rows are
+Your table stays in alphabetical order. When you drop an item in, the rows are
 re-numbered by name. The shop shows the aisle in the same order.
 
 The four names, spelled exactly:
@@ -101,14 +101,14 @@ The four names, spelled exactly:
 - `Market: Transports & Containers`
 
 A world table **replaces** its aisle. Importing the shipped table first gives
-you all of its rows to start from. Delete your table and the shipped aisle comes
-back.
+you all of its rows to start from. If you delete your table, the shipped aisle
+comes back.
 
 ## An aisle of your own
 
-Make a rollable table whose name begins with `Market: ` and it becomes a new
-aisle, such as `Market: Poisons`. It appears after the four shipped ones, for
-everybody.
+If you make a rollable table whose name begins with `Market: `, it becomes a
+new aisle, such as `Market: Poisons`. It shows up after the four shipped ones,
+for everybody.
 
 ## Your own prices
 
@@ -128,7 +128,7 @@ By hand, one item at a time:
 4. Drag your copy into your market table, and delete the row pointing at the
    shipped one.
 
-Items you write yourself work the same way: give one a Cost and drag it into an
+Items you write yourself work the same way. Give one a Cost and drag it into an
 aisle.
 
 ## What a row can point at

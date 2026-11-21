@@ -26,20 +26,21 @@ You need to be the Warden (GM), in a world.
 | Warden: Encounters - Dungeon | 1d6 | an example |
 
 The terrain tables pair with **Warden: Events - Wilderness**. When a travel
-watch turns up an *Encounter*, roll the table for the terrain you are in. Page
-references in the rows are to the **Cairn 2e Bestiary**.
+watch turns up an *Encounter*, roll the table for the terrain you're in. The
+page references in the rows point to the **Cairn 2e Bestiary**.
 
 All seven are also on the Encounters tab of the
 [Warden's Dashboard](warden-dashboard.md).
 
-You can roll a table straight from the compendium. Import it into your world
-only to edit its rows; your copy works the same way.
+You can roll a table straight from the compendium. You only need to import it
+into your world if you want to edit its rows. Your copy works the same way.
 
-A few rows name creatures the Monsters compendium does not have (Burrowing
+A few rows name creatures the Monsters compendium doesn't have (Burrowing
 Horror, Creeping Vines, Night Cat, Root Witch, Will-o-Wisp, Kraken). Those rows
-still roll but have no button. If you make your own actor for one, import the
-table, press **Edit**, and open that row with the pen icon at its end. In its
-**Description**, put a count in front and drag your actor into the text.
+still roll, but they don't get a button. If you make your own actor for one,
+import the table, press **Edit**, and open that row with the pen icon at its
+end. In its **Description**, put a count in front and drag your actor into the
+text.
 
 ## What the button does
 
@@ -50,18 +51,19 @@ Click **Add to scene: 1d6 × Goblins** and, for each rolled row:
    first use. Later encounters with the same monster reuse that actor. You can
    rename or move the folder.
 3. **Tokens are placed on the scene you are viewing**, around the centre of your
-   view, each on its own grid cell. Each token takes its own damage; see
+   view, each on its own grid cell. Each token takes its own damage. See
    [Tokens and Sheets](tokens-and-sheets.md).
 
-The card then reads **Added to the scene** and the button will not work twice.
-Roll again for a new card. If no scene is open, nothing is rolled or placed.
+The card then reads **Added to the scene** and the button won't work a second
+time. Roll again for a new card. If you don't have a scene open, nothing is
+rolled or placed.
 
-Tokens arrive with **neutral disposition**, because meeting something is not
+Tokens arrive with **neutral disposition**, because meeting something isn't
 fighting it. Roll **Warden: NPC - Reactions** to find out how it feels about
 the party.
 
-The button places tokens and nothing more. It does not read the monster's stats
-or roll its attacks.
+The button only places tokens. It doesn't read the monster's stats or roll its
+attacks.
 
 ---
 
@@ -79,20 +81,20 @@ Dragging the monster in makes a link in the text. The leading dice, or a plain
 number, are the quantity. A row gets the button when it has both.
 
 - **The count must come first.** `1d4 [Wolves] on the ridge` gets a button.
-  `Wolves guard the [Ogre] bridge` does not.
+  `Wolves guard the [Ogre] bridge` doesn't.
 - **The quantity applies to the first link only.** A row like
   `1d6 [Gnolls] (pg 69) or [Gnomes] (pg 70)` places Gnolls. Place the Gnomes by
   hand if you choose them.
 - **`random NPC` runs the NPC generator.** A row containing that phrase makes a
   new person each time, with stats, a portrait and a name, filed in the
   Encounters folder. The count is optional and defaults to 1.
-- **The link's label is only wording.** You can edit a link's text after
+- **The link's label is just wording.** You can edit a link's text after
   dragging the monster in. The shipped Hills table links the Tiger and labels
   it *Mountain Lion*, and the Dungeon table pluralizes *Goblins*. The monster
-  placed is the one the link points at.
-- **A row with no count, or no link, has no button.** It rolls like any other
-  row.
+  that gets placed is the one the link points at.
+- **A row without a count, or without a link, doesn't get a button.** It rolls
+  like any other row.
 - **An actor dropped in as the result itself** also works. The count is read
-  from the row's text if you write one, and is otherwise 1.
+  from the row's text if you write one. If you don't, it's 1.
 
-There is no setting to switch on.
+There isn't a setting to switch on.

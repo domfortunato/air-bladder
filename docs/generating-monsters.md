@@ -18,8 +18,8 @@ The same button is on the **Monsters** tab of the Warden's Dashboard, under
 **Create**.
 
 It opens a window with a **How dangerous is it?** list and a **Use random
-generation.** tick-box. Clear the box for an empty Monster sheet; the list
-greys out, since an empty sheet has no tier.
+generation.** tick-box. Clear the box if you want an empty Monster sheet. The
+list greys out, because an empty sheet doesn't have a tier.
 
 | Tier | HP | Attack die | Armor |
 |---|---|---|---|
@@ -28,7 +28,7 @@ greys out, since an empty sheet has no tier.
 | **Serious** | 10 | d10 | 3 times in 4 |
 | **Random** (the default) | — | — | picks Standard, Hardier or Serious, weighted 3 : 2 : 1 |
 
-**Cancel** or **✕** creates nothing.
+**Cancel** or **✕** closes the window and doesn't create anything.
 
 ## What you get
 
@@ -38,32 +38,32 @@ greys out, since an empty sheet has no tier.
 - **One equipped attack** with the tier's damage die. Its name is the rolled
   attack type plus `*` (*Bites\**, *Constricts\**), the marker the shipped
   monsters use for an attack whose special effect is in the description.
-- **Armor as an equipped item**, when the tier grants it, worth 1 to 3. It is
+- **Armor as an equipped item**, when the tier gives it, worth 1 to 3. It's
   named for the rolled feature when that feature is Carapace, Shell or Scales,
   and "Tough Hide" otherwise.
 - **A five-line description**: the appearance, a **Quirk**, a **Weakness**, an
-  **Ability** and a **Critical Damage** effect. All of it is prose for you to
-  apply; none of it is automated.
+  **Ability** and a **Critical Damage** effect. It's all prose for you to
+  apply. The system doesn't automate any of it.
 - **A draft name** built from the appearance rolls, such as *Hulking Tentacled
   Creature*. Rename it when you know what it is.
 - **A portrait** from the creature categories of the Game-Icons gallery, or
   from your own monster art if you keep any (see
-  [Using Your Own Portraits](using-your-own-portraits.md)). The token wears the
-  same image. It is hostile and unlinked, like the shipped monsters, so you can
-  place the same monster many times and damage each one separately; see
+  [Using Your Own Portraits](using-your-own-portraits.md)). The token uses the
+  same image. It's hostile and unlinked, like the shipped monsters, so you can
+  place the same monster many times and damage each one separately. See
   [Tokens and Sheets](tokens-and-sheets.md).
 
 ## Re-rolling a monster
 
 With Character Creation Mode on, a monster sheet has a **Roll Monster** button
-in its title bar. A generated monster starts with the mode off: press the
+in its title bar. A generated monster starts with the mode off, so press the
 **CharGen: Off** toggle in the title bar to turn it on.
 
 Roll Monster asks **Roll this monster again?** and offers the four tiers as
-buttons. Pressing one is the confirmation, and it cannot be undone. Everything
+buttons. Pressing one is the confirmation, and it can't be undone. Everything
 the monster is carrying is deleted, and its abilities, HP, attack, armor and
 description are re-rolled. Its name, portrait and token stay. Closing the
-window changes nothing.
+window doesn't change anything.
 
 Because the name and portrait stay, you can turn a Standard monster the party
 ignored into a Serious one without changing what it looks like.
@@ -86,12 +86,12 @@ by Yochai Gal). The generator never marks a table's rows as drawn.
 
 **You can replace any of them**, as with the
 [faction generator](generating-factions.md)'s tables. Make a RollTable in your
-world with exactly a shipped table's name and the generator rolls yours. Your
-table survives a system update. Edits made inside the shipped compendium do
-not: an update replaces it.
+world with exactly the same name as a shipped table, and the generator rolls
+yours. Your table survives a system update. Edits made inside the shipped
+compendium don't, because an update replaces it.
 
 ## Monsters play by the same rules
 
-A monster takes damage as every other creature does. Damage past HP comes off
+A monster takes damage the same way every other creature does. Damage past HP comes off
 STR and calls for a STR save. Damage that lands exactly on 0 HP rolls a Scar.
 Armor is capped at 3.

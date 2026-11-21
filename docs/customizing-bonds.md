@@ -2,7 +2,7 @@
 
 A **bond** is the tie a Cairn 2e character starts with: a short piece of prose,
 sometimes with gold or an item attached. Generation rolls one for every 2e
-character. Barebones characters get none. Bonds are kept on the character
+character. Barebones characters don't get one. Bonds are kept on the character
 sheet's **Background & Notes** page. With Character Creation Mode on, each bond
 there has a re-roll die and a list button, a bond after the first has a ✕, and
 an **Add a bond** link appears when the character is owed another.
@@ -27,8 +27,8 @@ way:
    one.
 3. Otherwise, the shipped **Bonds** table in **Tables (2e)** is used.
 
-One world table named `Bonds` therefore changes the bonds for every
-background, canon ones included. Delete it and the shipped bonds are back.
+That means one world table named `Bonds` changes the bonds for every
+background, canon ones included. If you delete it, the shipped bonds come back.
 
 ---
 
@@ -39,39 +39,39 @@ Custom 2e Backgrounds and Tables…** (Wardens only), then **Copy**. Alongside
 the 27 backgrounds, it copies the **eleven tables a 2e character rolls on**
 into a **Custom 2e Character Creation** folder in your Rollable Tables: Bonds,
 Omens, Scars, and the eight trait tables (Physique, Skin, Hair, Face, Speech,
-Clothing, Vice, Virtue). The gold and item each shipped bond grants come with
-it.
+Clothing, Vice, Virtue). The gold and item each shipped bond gives come along
+too.
 
-The Scars it copies is the one in **Utils**, which deals a scar when damage
+The Scars it copies is the one in **Utils**, which gives a scar when damage
 calls for one. The `Scars` in **Tables (2e)** is the list of checkboxes on the
 character sheet. The sheet always reads that list from the compendium, and a
 note on the table says so.
 
-Treat the shipped compendiums as templates: copy from them, and edit the copy.
+Treat the shipped compendiums as templates. Copy from them, and edit the copy.
 A world table with a shipped table's name is rolled instead of the shipped
 one, so once the eleven are copied you can reword a bond, add an omen or
 change a scar by editing the table in your sidebar.
 
-Running it again never overwrites. A table you have edited is kept as it is,
-and only what is missing is added. A copy you renamed is left alone too, and a
+Running it again never overwrites anything. A table you've edited is kept as
+it is, and only what's missing is added. A copy you renamed is left alone too, and a
 fresh copy lands under the shipped name beside it.
 
 Each copy opens with a note at the top:
 
 - It says Air Bladder rolls this table instead of the shipped one, and how to
   add a row.
-- A table opens in view mode, where rows cannot be added. The note tells you
+- A table opens in view mode, where you can't add rows. The note tells you
   to press **Edit** at the top of the window first.
 - A new row is rolled with the rest straight away. The table's die follows its
   rows: a twenty-first bond makes the formula `1d21`, and deleting the last row
   shrinks it back.
 - Tables rolled with more than one die, such as the NPC reaction, encounter
-  and GLoG mishap tables, do not change their own formula. Their note names
+  and GLoG mishap tables, don't change their own formula. Their note names
   the dice and asks you to set the formula on the **Summary** tab yourself.
-- If two tables in your world share a name, both say so. Air Bladder cannot
+- If two tables in your world share a name, both say so. Air Bladder can't
   tell which to read, so rename or delete one.
 
-To copy one table and not eleven, import it by hand as below.
+To copy one table instead of all eleven, import it by hand as below.
 
 ---
 
@@ -80,18 +80,18 @@ To copy one table and not eleven, import it by hand as below.
 1. Open the **Compendium** sidebar tab → **Tables (2e)** → right-click
    **Bonds** → **Import Entry**.
 2. The copy lands in your **Rollable Tables** sidebar, named `Bonds`. Keep
-   that name; it is how Air Bladder finds the table.
+   that name, because it's how Air Bladder finds the table.
 3. Edit it there: reword, delete or add rows. Any number of rows works, and
    the die follows the rows. A thirty-row table rolls `1d30`.
 
-The imported rows keep the gold and the item each shipped bond grants, so a
-reworded row still grants them.
+The imported rows keep the gold and the item each shipped bond gives, so a
+reworded row still gives them.
 
-**Rows you add by hand grant their text only.** Foundry's table editor cannot
+**Rows you add by hand only give their text.** Foundry's table editor can't
 attach gold or an item to a row. Put anything mechanical in the prose and let
 the player apply it.
 
-**Do not edit the copy inside Tables (2e).** A system update replaces that
+**Don't edit the copy inside Tables (2e).** A system update replaces that
 compendium. Your world's copy survives.
 
 ---
@@ -102,14 +102,14 @@ A **custom background** can name its own table in the **Bonds table** box on
 its Details tab (see
 [Creating a custom 2e background](creating-custom-backgrounds.md)). Type the
 table's name. Your world's tables are checked first, then every compendium.
-Leave the box empty and the background uses the default above. Rows in a table
-of your own grant their text only.
+If you leave the box empty, the background uses the default above. Rows in a
+table of your own only give their text.
 
-If the name matches no table, the default is used, and a warning goes to the
-browser console. A background shared to a world that lacks its table still
-hands out ordinary bonds.
+If the name doesn't match a table, the default is used and a warning goes to
+the browser console. A background shared to a world that doesn't have its
+table still hands out ordinary bonds.
 
-Canon backgrounds have no such box. To give one of them its own bonds, open it
+Canon backgrounds don't have this box. To give one of them its own bonds, open it
 in **Backgrounds (2e)**, click **Duplicate into Custom 2e Backgrounds**, and
 set the box on the copy. Then switch the original off with the **eye toggle**
 on its picker row, so that only the copy comes up (see
@@ -122,15 +122,15 @@ in Generating Characters).
 
 A character is owed one bond, plus:
 
-- one more if the background grants two. A custom background does so with its
+- one more if the background gives two. A custom background does that with its
   **Grants two bonds** checkbox. A shipped one, such as the Fieldwarden, does
-  so with a description containing the sentence "roll a second time on the
-  bonds table". The checkbox and the sentence together still count once.
-- one more for each rolled question answer containing that sentence.
+  it with a description that contains the sentence "roll a second time on the
+  bonds table". The checkbox and the sentence together still only count once.
+- one more for each rolled question answer that contains that sentence.
 
-A drawn bond the character already holds is re-rolled, up to ten times. After
-that the repeat is kept, so a bonds table with fewer rows than the character
-has bonds still gives every bond owed.
+If a bond comes up that the character already has, it's re-rolled, up to ten
+times. After that the repeat is kept, so a bonds table with fewer rows than
+the character has bonds still gives every bond owed.
 
 ---
 
@@ -138,9 +138,10 @@ has bonds still gives every bond owed.
 
 The omen die on the character sheet, and the list button beside it, use a
 **RollTable in your world named `Omens`** in place of the shipped one in
-**Tables (2e)**. Delete it and the shipped table is back. Import the shipped
-**Omens** table as step 1 above imports Bonds, keep the name, and edit it. Any
-number of rows works. Omen rows are plain prose and grant nothing.
+**Tables (2e)**. If you delete it, the shipped table comes back. Import the
+shipped **Omens** table the way step 1 above imports Bonds, keep the name, and
+edit it. Any number of rows works. Omen rows are plain prose and don't give
+anything.
 
 ---
 
@@ -149,7 +150,8 @@ number of rows works. Omen rows are plain prose and grant nothing.
 **A table in your world with the same name is rolled instead of the shipped
 one.** That covers every table a generator or a sheet die uses. Import the
 shipped table, keep its name and edit it. The button on the Warden's Dashboard
-and the generator both roll yours. Delete it and the shipped table is back.
+and the generator both roll yours. If you delete it, the shipped table comes
+back.
 
 | Where it rolls | Tables (their shipped compendium) |
 |---|---|
@@ -170,7 +172,7 @@ Two things to know:
 - **A row's text is what gets written.** On a table whose rows drive something
   else, such as the NPC Background that decides an NPC's starting gear, keep
   the shipped wording of the rows you want to keep working and add your own
-  beside them. On a spell table, a row that is not a spellbook is skipped.
+  beside them. On a spell table, a row that isn't a spellbook is skipped.
 
-None of this needs a system compendium unlocked, and none of it is lost when
-Air Bladder updates.
+You don't need to unlock a system compendium for any of this, and you don't
+lose any of it when Air Bladder updates.

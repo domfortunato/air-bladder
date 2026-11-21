@@ -14,11 +14,11 @@ Warden's Damage field and it deals 3.
 
 ## The basics
 
-A die is `NdX`: `1d20` rolls one twenty-sider, `2d6` rolls two six-siders and
-adds them. Plain numbers add on: `2d20 + 10` rolls two d20s, adds them, then
-adds 10 — ages 12 to 50, the book's roll and the Age formula's default. Any
-number of faces works: `1d31 + 19` gives ages 20 to 50 with every age equally
-likely.
+A die is written `NdX`. `1d20` rolls one twenty-sider, and `2d6` rolls two
+six-siders and adds them. Plain numbers add on, so `2d20 + 10` rolls two d20s,
+adds them, then adds 10. That gives ages 12 to 50, which is the book's roll and
+the Age formula's default. Any number of faces works. `1d31 + 19` gives ages 20
+to 50, with every age equally likely.
 
 ## Cairn's plus sign
 
@@ -48,8 +48,8 @@ many dice to keep:
 
 This is Foundry's own notation, so it works whether the Cairn notation setting
 is on or off. The **Adventurer** option on the Ability dice and Gold dice menus
-rolls `4d6kh3`: the same 3–18 range as the book's `3d6`, weighted towards the
-top.
+rolls `4d6kh3`. That's the same 3–18 range as the book's `3d6`, weighted
+towards the top.
 
 `d8 + d8` keeps **one** die of two, so it stays within one die's range, 1–8.
 `4d6kh3` keeps **three** dice and adds them.
@@ -67,14 +67,13 @@ the result, for as long as it keeps rolling the highest:
 
 Order matters. In `2d6kx`, `k` keeps the higher die first, so only the kept die
 explodes, and two sixes count as one. Written the other way round, `2d6xk`
-explodes both dice and then compares them, which can never exceed 6.
+explodes both dice and then compares them, which can never be more than 6.
 
-**The Exploding damage dice option applies this for you**, to player
-characters' damage rolls only — see
-[Optional Combat Rules](optional-combat-rules.md). It writes the capped form:
-`1d6x2=6`, `2d6kx2=6`, `1d4x1=4`. The number after `x` is the cap and the number
-after `=` is the face that explodes. Foundry reads `x2` on its own as "explode
-on a 2", so keep the `=` if you type a cap yourself.
+**The Exploding damage dice option does this for you**, for player characters'
+damage rolls only. See [Optional Combat Rules](optional-combat-rules.md). It
+writes the capped form: `1d6x2=6`, `2d6kx2=6`, `1d4x1=4`. The number after `x`
+is the cap and the number after `=` is the face that explodes. Foundry reads
+`x2` on its own as "explode on a 2", so keep the `=` if you type a cap yourself.
 
 ## Minimums and maximums
 
@@ -90,8 +89,8 @@ The brace form is Foundry's own, so it works whether the Cairn notation setting
 is on or off.
 
 Where you can, shape the dice instead of capping them. A cap piles results onto
-the boundary: capping `2d20 + 10` at 30 makes more than half of all rolls
-exactly 30. Dice sized to the range spread across it.
+the boundary. Capping `2d20 + 10` at 30 makes more than half of all rolls
+exactly 30. Dice sized to the range spread across it instead.
 
 ## Age formula recipes
 
@@ -105,12 +104,13 @@ exactly 30. Dice sized to the range spread across it.
 
 ## When a formula cannot be read
 
-A formula the system cannot read in the Age or Hit Protection setting is not
-rolled. The default is rolled instead, and a warning names the text that was
-rejected. A **blank** field means "use the default", with no warning.
+If the system can't read the formula in the Age or Hit Protection setting, it
+doesn't roll it. It rolls the default instead, and a warning shows the text
+that was rejected. A **blank** field means "use the default", and you don't get
+a warning.
 
-The age box on a character's sheet stays free text. A typed age is never checked
-against any formula.
+The age box on a character's sheet stays free text. An age you type there isn't
+checked against any formula.
 
 Foundry's own dice reference covers the full notation:
 [foundryvtt.com/article/dice](https://foundryvtt.com/article/dice/).

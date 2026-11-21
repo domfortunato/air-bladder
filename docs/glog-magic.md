@@ -2,15 +2,15 @@
 
 Air Bladder ships with the optional [GLoG Magic hack](https://cairnrpg.com/hacks/glog-magic/) for Cairn, based on Goblin Punch's **Goblin Laws of Magic** and its [2016 blogpost](https://goblinpunch.blogspot.com/2016/05/the-glog.html). The Warden switches it on in the world's settings.
 
-Yochai Gal's adaptation of the rules — casting, Fatigue, Mishaps, copying and creating Grimoires — ships as the **GLoG Magic — Player Rules** journal in the **Journals (GLoG)** compendium, with all 100 spells beside it in **GLoG Magic — Spells**.
+Yochai Gal's adaptation of the rules covers casting, Fatigue, Mishaps, and copying and creating Grimoires. It ships as the **GLoG Magic — Player Rules** journal in the **Journals (GLoG)** compendium, with all 100 spells beside it in **GLoG Magic — Spells**.
 
 ## Overview
 
-**Magic Dice** — every cast invests one to four Magic Dice, and never more than the caster's free inventory slots. More dice make a stronger spell and raise the risk of Fatigue and Mishaps.
+**Magic Dice** — every cast invests one to four Magic Dice, and never more than the caster has free inventory slots. More dice make a stronger spell, and they also raise the risk of Fatigue and Mishaps.
 
-**Spellbooks and Spellscrolls** — with GLoG Magic alone, spellbooks stay spellbooks. Each takes its spell's GLoG wording and casts from the inventory with Magic Dice.
+**Spellbooks and Spellscrolls** — with only GLoG Magic on, spellbooks stay spellbooks. Each one gets its spell's GLoG wording, and you cast it from the inventory with Magic Dice.
 
-**Grimoires** — an option of their own. With **Use Grimoires** on, every spellbook becomes a single-use Spellscroll, and a character can bind scrolls into a Grimoire as pages that cast without being used up.
+**Grimoires** — these are a separate option. With **Use Grimoires** on, every spellbook becomes a single-use Spellscroll, and a character can bind scrolls into a Grimoire as pages. A page isn't used up when it's cast.
 
 ## Turning it on
 
@@ -18,17 +18,17 @@ Yochai Gal's adaptation of the rules — casting, Fatigue, Mishaps, copying and 
 
 Turning this on rewrites the whole world, once:
 
-- Every canon spell anywhere takes its GLoG wording. A spellbook stays a spellbook and a scroll stays a scroll, spent or not.
-- Spells that arrive later take it too.
-- Generation hands out only GLoG and custom spells, as spellbooks (as scrolls with Grimoires on). They are rolled on the shipped **Spells — GLoG** table in **Tables (GLoG)**. A table of that name in your world is rolled instead. **Create a Custom Spell Table…** on the Rollable Tables sidebar makes that copy while the hack is on (see [Generating Characters](generating-characters.md)).
+- Every canon spell, wherever it is, gets its GLoG wording. A spellbook stays a spellbook and a scroll stays a scroll, whether it's spent or not.
+- Spells that show up later get it too.
+- Generation only hands out GLoG and custom spells. They come as spellbooks, or as scrolls with Grimoires on. They're rolled on the shipped **Spells — GLoG** table in **Tables (GLoG)**. If your world has a table with that name, it's rolled instead. **Create a Custom Spell Table…** on the Rollable Tables sidebar makes that copy while the hack is on (see [Generating Characters](generating-characters.md)).
 
-**Turning GLoG Magic off does not change spells back to their Cairn wording, and turning Grimoires off does not turn spellscrolls back into spellbooks.** Treat each switch as a campaign decision.
+**Turning GLoG Magic off doesn't change spells back to their Cairn wording, and turning Grimoires off doesn't turn spellscrolls back into spellbooks.** Treat each switch as a campaign decision.
 
 ## Grimoires (optional)
 
-**Use Grimoires (converts all spellbooks!)**, just under Use GLoG Magic, is off by default and greyed out while GLoG Magic is off. Turning it on converts the whole world, once: every spellbook becomes a single-use Spellscroll, new arrivals land as scrolls, and Grimoires, Transmute and casting from a Grimoire come into play. Turning it off converts nothing back. A world that used GLoG Magic before this option existed keeps Grimoires on.
+**Use Grimoires (converts all spellbooks!)**, just under Use GLoG Magic, is off by default, and it's greyed out while GLoG Magic is off. Turning it on converts the whole world, once. Every spellbook becomes a single-use Spellscroll, new spells arrive as scrolls, and you can use Grimoires, Transmute and casting from a Grimoire. Turning it off doesn't convert anything back. A world that used GLoG Magic before this option existed keeps Grimoires on.
 
-The next three sections apply only while Use Grimoires is on.
+The next three sections only apply while Use Grimoires is on.
 
 ## Getting a Grimoire into a character's inventory
 
@@ -37,49 +37,49 @@ The Grimoire is an item in the **Reliquary** compendium, in the **Air Bladder - 
 1. Open the **Reliquary** compendium.
 2. Drag the **Grimoire** onto a character's sheet.
 
-It is Bulky (two slots), and a character can carry **one**: a second dropped onto the same character is refused. An NPC, crate or pile can hold any number of Grimoires, but only a player character's sheet shows the Transmute and Cast controls.
+It's Bulky (two slots), and a character can only carry **one**. If you drop a second onto the same character, it's refused. An NPC, crate or pile can hold any number of Grimoires, but only a player character's sheet shows the Transmute and Cast controls.
 
-The shipped marketplace does not sell Grimoires. How a character makes one is in the Player Rules journal.
+The shipped marketplace doesn't sell Grimoires. The Player Rules journal explains how a character makes one.
 
-A Grimoire holds 10 pages by default. Change **Pages** on its item sheet for a larger or smaller book. Each page holds one spell.
+A Grimoire holds 10 pages by default. To make the book larger or smaller, change **Pages** on its item sheet. Each page holds one spell.
 
-The **Grimoire** box and its **Pages** field appear only on a Grimoire's sheet, and only while Use Grimoires is on. No other item offers to become one. A spellbook's **GLoG** box, which marks a spell written in the hack's wording, appears only while GLoG Magic is on. Its **Scroll** box is Cairn 2e's and is always there.
+The **Grimoire** box and its **Pages** field only show up on a Grimoire's sheet, and only while Use Grimoires is on. Other items don't offer to become one. A spellbook's **GLoG** box marks a spell written in the hack's wording, and it only shows up while GLoG Magic is on. Its **Scroll** box is Cairn 2e's, so it's always there.
 
 ## Moving a Grimoire between sheets
 
-**A Grimoire's pages travel with it.** Drag a Grimoire from one sheet to another and its pages go along, to another character or into a crate. A page cannot be dragged on its own. A sheet holding several Grimoires keeps each one's pages with it.
+**A Grimoire's pages travel with it.** When you drag a Grimoire from one sheet to another, its pages go along, whether that's to another character or into a crate. You can't drag a page on its own. If a sheet holds several Grimoires, each one keeps its own pages.
 
-A player cannot offer a Grimoire to another character. The Warden moves it.
+A player can't offer a Grimoire to another character. The Warden has to move it.
 
-One exception concerns pages bound in an early version of Air Bladder, before a page recorded which Grimoire it was in. Your world is repaired the first time you open it after updating, wherever a sheet holds a single Grimoire. If two or more of those older Grimoires sit on the *same* sheet, their pages stay where they are when either one leaves. Move the Grimoires off one at a time and the last one out takes what remains. The repair names any such sheet in the browser console (F12).
+There's one exception, for pages bound in an early version of Air Bladder, before a page kept track of which Grimoire it was in. Your world is repaired the first time you open it after updating, wherever a sheet holds a single Grimoire. If two or more of those older Grimoires are on the *same* sheet, their pages stay where they are when either one leaves. Move the Grimoires off one at a time, and the last one out takes the pages that are left. The repair lists any sheet like that in the browser console (F12).
 
 ## Transmuting spells into a Grimoire's pages
 
-While a character carries a Grimoire that is not full, every spellscroll or spellbook in their inventory that is not already a page shows a **Transmute into the Grimoire** control on its row. Click it, confirm, and the spell becomes a page:
+While a character is carrying a Grimoire that isn't full, every spellscroll or spellbook in their inventory that isn't already a page shows a **Transmute into the Grimoire** control on its row. Click it and confirm, and the spell becomes a page:
 
-- It is Petty: pages take no inventory slots.
-- It is listed under the Grimoire, indented, with a page icon.
-- It is no longer single-use. A page can be cast any number of times.
-- It can never be removed from the Grimoire.
+- It's Petty, so it doesn't take up an inventory slot.
+- It's listed under the Grimoire, indented, with a page icon.
+- It isn't single-use any more. You can cast a page any number of times.
+- You can never take it out of the Grimoire.
 
-The confirmation for a scroll names the cost: 50 gold and 6 hours of downtime. The system does not deduct either. Mark them yourselves.
+The confirmation for a scroll tells you the cost, which is 50 gold and 6 hours of downtime. The system doesn't deduct either one, so mark them yourselves.
 
-A spent scroll can still be transmuted, and its page casts like any other.
+You can still transmute a spent scroll, and its page casts like any other.
 
 ## Casting
 
-Every cast invests **Magic Dice**: up to the caster's free inventory slots, and at most 4. A character with no free slot has no dice and cannot cast.
+Every cast invests **Magic Dice**. You can invest up to one for each free inventory slot the caster has, and never more than 4. A character who doesn't have a free slot doesn't have any dice, so they can't cast.
 
 **From a Grimoire (Grimoires on):** once the Grimoire holds a page, its inventory row shows **Cast**. Pick the spell and the number of dice.
 
-**From a scroll:** an unspent scroll that is not a page shows its own cast control. The cast spends the scroll. It stays in the inventory, struck through.
+**From a scroll:** an unspent scroll that isn't a page shows its own cast control. Casting spends the scroll, and it stays in the inventory, struck through.
 
-**From a spellbook (Grimoires off):** each spellbook's row shows **Cast**. The spellbook is not used up.
+**From a spellbook (Grimoires off):** each spellbook's row shows **Cast**. The spellbook isn't used up.
 
 The roll is a Foundry roll, so Dice So Nice animates it. Two messages follow:
 
-- **A public card** with the spell's text filled in: `[dice]`, `[sum]` and the per-power blocks are replaced by the rolled values. Hover a number to see what it replaced.
-- **A whisper to the caster** with the rolled dice. If any die shows 4–6, an **Add N Fatigue** button adds one Fatigue per such die. It is never refused, even with a full inventory. If the dice show doubles, the whisper says a Mishap has occurred and gives the Mishaps table's entry for the dice's sum.
+- **A public card** with the spell's text filled in. `[dice]`, `[sum]` and the per-power blocks are replaced by the rolled values. Hover over a number to see what it replaced.
+- **A whisper to the caster** with the rolled dice. If any die shows 4–6, an **Add N Fatigue** button adds one Fatigue for each of those dice. It's never refused, even when the inventory is full. If the dice show doubles, the whisper says a Mishap has happened and gives the Mishaps table's entry for the dice's sum.
 
 ## Customizing the Mishaps
 
@@ -87,4 +87,4 @@ Import **GLoG Magic: Mishaps** from the **Tables (GLoG)** compendium into your w
 
 ## What is not automated
 
-The whisper reports and does not apply. Fatigue has the one button. Everything a Mishap or a spell *does* stays text for the table to act out.
+The whisper only tells you what happened. It doesn't apply anything for you, apart from the one Fatigue button. Everything a Mishap or a spell *does* stays as text for the table to act out.

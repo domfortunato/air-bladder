@@ -1,8 +1,8 @@
 # Tokens and sheets
 
-Every token on a map is backed by an actor sheet. Several tokens either share
-one sheet or each keep their own. That is set when you create the actor, and it
-decides how you track damage in a fight.
+Every token on a map has an actor sheet behind it. When there are several
+tokens, they either share one sheet or each keep their own. That's set when you
+create the actor, and it decides how you track damage in a fight.
 
 Only the Warden (GM) can change it.
 
@@ -18,14 +18,14 @@ Only the Warden (GM) can change it.
 | disposition | neutral | hostile |
 
 An innkeeper, a rival or a hired torchbearer is one person, so there is one
-sheet. HP changed on the token changes on the sheet.
+sheet. If you change HP on the token, it changes on the sheet too.
 
 Six bandits each need their own damage. Each Monster token carries its own copy
 of the stat block, and the sheet it came from stays a template.
 
 ## Running a group of the same enemy
 
-Use a Monster. The Monsters compendium carries human ones — `Bandit`, `Brigand`,
+Use a Monster. The Monsters compendium has human ones — `Bandit`, `Brigand`,
 `Brigand Leader`, `Acolyte` — alongside the beasts.
 
 **Compendium sidebar → Air Bladder - Actors → Monsters**: drag one into the
@@ -45,11 +45,12 @@ The **Add to scene** button on a rolled encounter does all of this for you. See
 Open the actor's sheet and go to **the ⋮ menu in the title bar → Prototype
 Token → Identity**, then tick or untick **Link Actor Data**.
 
-That governs tokens placed from then on. Tokens already on a map keep the
-behaviour they were placed with. Delete and re-place them to change it.
+That only affects tokens you place from then on. Tokens already on a map keep
+the behaviour they were placed with. To change those, delete them and place
+them again.
 
 Switching an actor's **Role** from Monster to NPC or Hireling also ticks **Link
-Actor Data**. If you had left it unticked on purpose, untick it again after the
+Actor Data**. If you'd left it unticked on purpose, untick it again after the
 switch.
 
 ## Attacking from a sheet
@@ -61,19 +62,19 @@ attack is standard, impaired or enhanced. A panicked attacker's attacks are
 always impaired.
 
 The roll posts a damage card. You apply it with the card's **Apply damage**
-control: the target's Armor comes off the damage, the rest comes off HP, and
-anything left over comes off STR. A card rolled with no target asks who takes
-it.
+control. The target's Armor comes off the damage, the rest comes off HP, and
+anything left over comes off STR. If you rolled the card without a target, it
+asks who takes it.
 
 For a trap or a hazard, use **Warden's Damage**, the skull in the Token
-controls. Whoever you have targeted takes it; with nothing targeted, the card
-asks who.
+controls. Whoever you've targeted takes it. If you haven't targeted anyone,
+the card asks who.
 
 ## Handing something to a monster
 
 A player can offer an item to anyone they can see: another player's character,
 an innkeeper, a mule, a crate. A monster is created with its permission at
-**None**, so players cannot see it and it never appears in their give list.
+**None**, so players can't see it and it never shows up in their give list.
 
 To let the party hand something to a monster:
 
@@ -81,8 +82,8 @@ To let the party hand something to a monster:
    directory, then **Configure Ownership**).
 2. Tick **Link Actor Data** on its token, if the creature is on a map.
 
-Without the second step the gift lands on the Actors-tab entry and not on the
-token in front of the party, because an unlinked token is its own copy.
+If you skip the second step, the gift lands on the Actors-tab entry instead of
+the token in front of the party, because an unlinked token is its own copy.
 
 You answer the offer yourself. No player owns a monster or a Limited innkeeper,
 so the card waits for the Warden.
@@ -90,17 +91,17 @@ so the card waits for the Warden.
 ## Giving things away from a sheet you own
 
 The hand icon on an item row (**Give this to someone else…**) is on every sheet
-you own, which for the Warden is all of them. Hand a dead goblin's sword to
-whoever earned it, or empty a crate into the party. A player has it on anything
-they own, such as a hireling or a connected mule.
+you own, which for the Warden is all of them. You can hand a dead goblin's
+sword to whoever earned it, or empty a crate into the party. A player has it on
+anything they own, such as a hireling or a connected mule.
 
 - **Giving to a player's character posts a card and waits for them.** Taking an
-  item can leave a character with no free slot, which sets their HP to 0, so
-  the choice is theirs.
-- **Giving to something no player owns is one click.** The card is the record
-  of it.
+  item can leave a character without a free slot, which sets their HP to 0, so
+  it's their choice.
+- **Giving to something that no player owns takes one click.** The card is the
+  record of it.
 
-Fatigue, a Grimoire and its bound pages cannot be given.
+Fatigue, a Grimoire and its bound pages can't be given.
 
 ## Related
 

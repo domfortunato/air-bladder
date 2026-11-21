@@ -16,8 +16,8 @@ crowd whose members take damage separately, make a Monster, or clear **Link
 Actor Data** on the actor's Prototype Token. See
 [Tokens and Sheets](tokens-and-sheets.md).
 
-You need permission to create Actors. The Warden always has it; a player only
-if you have granted it.
+You need permission to create Actors. The Warden always has it. A player only
+has it if you've given it to them.
 
 ---
 
@@ -34,7 +34,7 @@ if you have granted it.
 | extra traits | **Quirk, Goal**, plus NPC Virtue and Vice | 2e Virtue and Vice |
 
 The **Role** dropdown at the top of either sheet switches one into the other
-and loses nothing. See [Changing your mind](#changing-your-mind).
+without losing anything. See [Changing your mind](#changing-your-mind).
 
 ## Where the buttons are
 
@@ -44,7 +44,7 @@ and loses nothing. See [Changing your mind](#changing-your-mind).
 - **Create Hireling** (the coin-in-hand icon)
 
 Both are also in a folder's **+** menu, under *What are you creating?*, which
-files the new person straight into that folder.
+puts the new person straight into that folder.
 
 ## What an NPC arrives with
 
@@ -56,19 +56,19 @@ files the new person straight into that folder.
   **Virtue** and **Vice** off the Warden's Guide NPC lists.
 - **An age**, rolled with your **Age formula for generated characters**
   setting, the same as a player character's.
-- **Blank pronouns.** There is no table for pronouns and generation never
+- **Blank pronouns.** There isn't a table for pronouns, and generation never
   chooses them. The field is under the name on the sheet's first page.
-- **A portrait and a matching token.** If you have set up a custom portrait
-  folder with an `npc` subfolder, it draws from there. See
+- **A portrait and a matching token.** If you've set up a custom portrait
+  folder with an `npc` subfolder, it picks from there. See
   [Using Your Own Portraits](using-your-own-portraits.md).
-- **Gear**: the full Barebones equipment kit plus what its Background grants.
-  A **Lord or Politician arrives with no items at all**. See
+- **Gear**: the full Barebones equipment kit plus what its Background gives.
+  A **Lord or Politician doesn't get any items at all**. See
   [What an NPC is carrying](#what-an-npc-is-carrying) below.
 - **A rolled stat block**: 3d6 for each of STR, DEX and WIL, and 1d6 Hit
   Protection.
 
-The Warden's Guide gives NPCs no numbers. These save you inventing them when
-an NPC ends up in a fight. Type over anything that does not suit.
+The Warden's Guide doesn't give NPCs numbers. These save you from making them
+up when an NPC ends up in a fight. Type over anything that doesn't suit.
 
 ## What a hireling arrives with
 
@@ -80,31 +80,31 @@ an NPC ends up in a fight. Type over anything that does not suit.
   already right.
 - **For Hire** ticked, and the day rate showing.
 
-Untick **For Hire** and the rate hides. Use that to keep a Career on someone
-who is not taking work.
+Untick **For Hire** to hide the rate. That lets you keep a Career on someone
+who isn't taking work.
 
 The twelve careers, with their day rates in gold: Alchemist (30), Animal Handler
 (5), Blacksmith (15), Bodyguard (10), Local Guide (5), Lockpick (10), Navigator
 (10), Sailor (5), Scholar (20), Tracker (5), Trapper (5), Veteran Bodyguard
-(20). Type one of those names over the Career of a hireling whose rate is 0 and
-the rate fills itself. A rate you set by hand is never overridden.
+(20). If you type one of those names over the Career of a hireling whose rate
+is 0, the rate fills itself in. A rate you set by hand is never overridden.
 
 ## The sheet
 
 An NPC's or hireling's sheet is laid out like a player character's, with four
 pages: **NPC** or **Hireling**, **Inventory**, **Description** and **Notes**.
 
-The first page carries the name, Pronouns and Age, the Role, the Background or
+The first page has the name, Pronouns and Age, the Role, the Background or
 Career, the Faction, the trait sentence, the stat block and the Armor row:
 
 - **Hold shield?** and **Hold light?** sit either side of the Armor box. Each
-  holds or puts away a shield or a light the person carries. A shield adds to
-  Armor only while it is in hand.
+  holds or puts away a shield or a light the person carries. A shield only
+  adds to Armor while it's in hand.
 - The **Max** boxes are locked while Character Creation Mode is off.
 
 On the Inventory page, every row has a **Mark broken** toggle beside the trash.
 It asks first. A broken item still takes up a slot but doesn't provide any
-benefit: it cannot be held or worn, adds no Armor and rolls no damage.
+benefit. It can't be held or worn, and it doesn't add Armor or roll damage.
 
 ### The trait sentence reads "They"
 
@@ -114,17 +114,17 @@ says the same.
 
 With **Character Creation Mode** on, press the pen at the end of that sentence
 to open the **Traits** window and change any trait from its table's list. A
-trait you typed that is not on the table is kept and shown as it is.
+trait you typed that isn't on the table is kept and shown as it is.
 
 ## Re-rolling
 
 Each of these sheets has a **Roll NPC** button in the title bar while
-**Character Creation Mode** is on. Generated people arrive with the mode off;
-the toggle in the title bar reads **CharGen: Off**.
+**Character Creation Mode** is on. Generated people arrive with the mode off,
+and the toggle in the title bar reads **CharGen: Off**.
 
 Roll NPC asks first, and the question depends on the role:
 
-- On a **hireling**: everything it is carrying is deleted, and its abilities,
+- On a **hireling**: everything it's carrying is deleted, and its abilities,
   HP, Career, day rate, traits and age are replaced. Its pronouns, coins and
   status marks are cleared, and it is marked For Hire.
 - On an **NPC**: its Background, stat block, traits and age are replaced, and
@@ -133,7 +133,7 @@ Roll NPC asks first, and the question depends on the role:
   by hand is kept. The new stat block arrives at full.
 
 Both keep the name, the portrait and the notes, so you can re-roll a
-shopkeeper the party has already met. Neither can be undone.
+shopkeeper the party has already met. You can't undo either one.
 
 ## The dice on the sheet
 
@@ -142,50 +142,50 @@ With Character Creation Mode on, each of these re-rolls one thing:
 | Die | What it does |
 |---|---|
 | beside the name | a new name off the d60 |
-| beside **Background** (NPC) | a new Background **and the gear it grants**. The kit stays between ordinary trades. Landing **Lord or Politician empties the whole pack**, and rolling back off one packs a fresh kit |
+| beside **Background** (NPC) | a new Background **and the gear that comes with it**. The kit stays between ordinary trades. Landing **Lord or Politician empties the whole pack**, and rolling back off one packs a fresh kit |
 | beside **Career** (hireling) | a new Career, **with its stat block, day rate and gear** |
 | beside **Faction** | a side, off `Warden: NPC - Faction` |
 | beside **Age** | your **Age formula for generated characters** setting (default 2d20 + 10 — see [Dice Formulas](dice-formulas.md)) |
 | on the portrait | another face from the same folder |
 
-**These dice are the Warden's alone.** A player never sees them on an NPC or
-hireling sheet, even a player who owns the hireling, and whatever **Let
+**These dice are only for the Warden.** A player never sees them on an NPC or
+hireling sheet, even if they own the hireling, and no matter what **Let
 players use Character Creation tools on their sheets** says. That setting
-governs player characters only.
+only covers player characters.
 
 ### Picking instead of rolling
 
-Beside the die, the **pick-list button** chooses a specific value:
+Beside the die, the **pick-list button** lets you choose a specific value:
 
 - **Career** (hireling): the twelve 2e careers, each shown with its day rate
-  and loadout. Picking one adopts the whole career, as the die would.
+  and loadout. Picking one brings the whole career, as the die would.
 - **Background** (NPC): the d20 table. The gear follows the same rules as the
   die, Lord and Politician included.
-- **Faction**: your faction table. A table of the same name in your world wins
-  over the shipped one.
+- **Faction**: your faction table. A table of the same name in your world is
+  used instead of the shipped one.
 - **Portrait**: the list button on the portrait opens the portrait gallery,
   as clicking the portrait does.
 
-There is no pick-list for the name. The pick-list buttons show and hide with
+There isn't a pick-list for the name. The pick-list buttons show and hide with
 the dice.
 
 ## What players see
 
 A generated NPC or hireling arrives with **Limited** default ownership. Players
 see its name and portrait in the Actors list, and opening the sheet shows them
-the portrait, the name and the Description — no stat block, no inventory, no
-notes, and no Print button. Put anything the players may read in
-**Description** and keep your secrets in **Notes**.
+the portrait, the name and the Description. They don't see the stat block, the
+inventory, the notes or a Print button. Put anything the players are allowed to
+read in **Description** and keep your secrets in **Notes**.
 
-When the party hires a hireling, grant ownership as usual. Its generation dice
-stay yours however much of it a player owns.
+When the party hires a hireling, give ownership as usual. Its generation
+dice stay yours, no matter how much of it a player owns.
 
 ## Changing your mind
 
 The **Role** dropdown turns an NPC into a hireling and back. Nothing is thrown
-away in either direction. Background and Career are kept separately, and Quirk
-and Goal stay stored on a hireling even though its Traits window does not list
-them. Switch back and everything returns.
+away either way. Background and Career are kept separately, and Quirk and Goal
+stay stored on a hireling even though its Traits window doesn't list them.
+When you switch back, everything returns.
 
 The same dropdown holds the other four roles: Monster, Companion, Transport and
 Container.
@@ -206,23 +206,24 @@ The text is the Cairn 2e Warden's Guide NPC tables (CC BY-SA 4.0, by Yochai
 Gal). Generation *rolls* these tables and never *draws* from them, so your
 tables are never marked as drawn.
 
-**Every one of these tables can be overridden.** Make a rollable table in your
+**You can override every one of these tables.** Make a rollable table in your
 own world with exactly a shipped table's name — `Warden: NPC - Faction`, say —
-and it is used instead of the shipped one, and survives a system update. Edits
-made inside the shipped compendium do not survive: an update replaces it.
+and it's used instead of the shipped one. It also survives a system update.
+Edits made inside the shipped compendium don't survive, because an update
+replaces it.
 
-The twelve careers are **not** a table. They are a fixed list taken from the
-2e hireling examples, so there is no careers compendium to edit. For a career
-the book does not have, type it into the Career field and set the rate
+The twelve careers are **not** a table. They're a fixed list taken from the
+2e hireling examples, so there isn't a careers compendium to edit. For a career
+the book doesn't have, type it into the Career field and set the rate
 yourself.
 
 ## What an NPC is carrying
 
-An NPC's Background is a word off a d20 table, and the table grants no gear.
-The Cairn Barebones list of 100 backgrounds does, so each row of the NPC table
-is matched to its nearest Barebones counterpart and the NPC arrives with that
-gear. The items come from the same item compendiums a Barebones character and
-a hireling draw on.
+An NPC's Background is a word off a d20 table, and the table doesn't give any
+gear. The Cairn Barebones list of 100 backgrounds does, so each row of the NPC
+table is matched to its nearest Barebones counterpart and the NPC arrives with
+that gear. The items come from the same item compendiums a Barebones character
+and a hireling use.
 
 | d20 | NPC Background | Barebones counterpart | d100 | what you get |
 |---|---|---|---|---|
@@ -248,28 +249,28 @@ a hireling draw on.
 | 20 | Thug | Highway Robber | 50 | Grappling Hook, Rope, Signal Flag |
 
 Eleven are the same word in both lists, in **bold**. Seven are matched to a
-different trade, and two have no counterpart:
+different trade, and two don't have a counterpart:
 
-- **Lord and Politician arrive with no items at all**, kit included. Every
-  Barebones background is an occupation, so rank and office have no
+- **Lord and Politician don't get any items at all**, kit included. Every
+  Barebones background is an occupation, so rank and office don't have a
   counterpart. Give them what the fiction says they carry.
 - **Thug is Highway Robber, not Thief**, because Thief is already row 19.
 - **Healer and Academic are the loosest matches.** Barebones splits each
-  across several trades — a healer could as well be Apothecary, Physician,
+  across several trades — a healer could just as well be Apothecary, Physician,
   Barber Surgeon or Leech Collector.
 - **"Random Additional Gear" is a roll** on the Barebones Additional Gear
   d100, rerolled if it duplicates something the NPC already has.
-- **The Merchant's Wagon and the Peddler's Cart are not granted.** A transport
-  is its own Actor in the Actors list, and generating a dozen NPCs should not
+- **NPCs don't get the Merchant's Wagon or the Peddler's Cart.** A transport
+  is its own Actor in the Actors list, and generating a dozen NPCs shouldn't
   create a dozen carts. Make one if the peddler needs it. A hireling's career
-  grants no transport either.
+  doesn't come with a transport either.
 
-**Every other NPC also carries a kit**: the equipment procedure a Barebones
-character goes through. That is Rations, a Torch, a rolled weapon and armor
-(both worn), and a roll on the Barebones Additional Gear table, with a second
-roll when the armor comes up None. With the Background's gear that is about
-eight items, so some NPCs arrive **encumbered**, with no free slot and 0 HP,
-as a freshly generated player character can. Decide what they put down.
+**Every other NPC also carries a kit**, which is the equipment a Barebones
+character gets. That's Rations, a Torch, a rolled weapon and armor (both
+worn), and a roll on the Barebones Additional Gear table, with a second roll
+when the armor comes up None. With the Background's gear that's about eight
+items, so some NPCs arrive **encumbered**, without a free slot and at 0 HP,
+just as a freshly generated player character can. Decide what they put down.
 
 What each re-roll replaces:
 
@@ -277,15 +278,15 @@ What each re-roll replaces:
   ordinary trades it leaves the kit alone. Landing on Lord or Politician
   removes the gear and the kit, and moving back off one packs a fresh kit.
 - **Roll NPC** replaces both.
-- **Anything you added by hand is never touched by either.**
+- **Neither one touches anything you added by hand.**
 
 ## What generation will not do
 
-- **It grants no transport.** See above.
-- **It automates no rules text.** A trait, a quirk or a goal is prose for you
-  to play. Nothing reads it or rolls it.
-- **It rolls no faction at creation.** The Faction die is there when you want
-  it.
+- **It doesn't give anyone a transport.** See above.
+- **It doesn't automate rules text.** A trait, a quirk or a goal is prose for
+  you to play. The system doesn't read it or roll it.
+- **It doesn't roll a faction at creation.** The Faction die is there when you
+  want it.
 
 ## Related
 

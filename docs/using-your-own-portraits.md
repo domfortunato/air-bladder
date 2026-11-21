@@ -4,21 +4,22 @@ Point Air Bladder at a folder of your own portrait art and it uses that art in
 the picker on every sheet, and for the portraits it assigns when you generate a
 character, an NPC or a monster.
 
-Name a subfolder `pc`, `npc`, `monster` or `companion` and each kind draws from
-its own folder.
+If you name a subfolder `pc`, `npc`, `monster` or `companion`, each kind draws
+from its own folder.
 
-You need to be the Warden to set this up. Your players need no permissions to
-use it — see [Why your players can see them](#why-your-players-can-see-them).
+You need to be the Warden to set this up. Your players don't need any
+permissions to use it. See
+[Why your players can see them](#why-your-players-can-see-them).
 
 ## Setting the folder
 
 **Settings → Configure Settings → Air Bladder → Character Generation → Configure
 Character Generation → Custom character portrait folder.**
 
-It is already filled in with `air-bladder-portraits`, and that folder is created
+It's already filled in with `air-bladder-portraits`, and that folder is created
 for you. It sits at the **Foundry data root**, beside your `worlds/` and
-`modules/` folders, and not inside the system folder, which is overwritten on
-every update.
+`modules/` folders. It isn't inside the system folder, because that gets
+overwritten on every update.
 
 Drop your images in, then press **Refresh** (below).
 
@@ -37,14 +38,14 @@ Air Bladder reads the folder and remembers what it found. It reads it again:
 - when you change the folder setting, and
 - every time a Warden logs in.
 
-A notification says how many images it found. If it says none and the folder is
-full, check the path, then Refresh.
+A notification tells you how many images it found. If it says it didn't find
+any and the folder is full, check the path, then Refresh.
 
 ### Why your players can see them
 
-Players cannot normally list a folder on the server. The Warden's refresh saves
-the list of images in the world, and players read that list. **A player sees
-whatever the last refresh found**, so add art, then Refresh.
+Players can't normally list a folder on the server. When the Warden refreshes,
+the list of images is saved in the world, and players read that list. **A
+player sees whatever the last refresh found**, so add art, then Refresh.
 
 ## A folder per kind
 
@@ -56,35 +57,35 @@ becomes the pool for that kind alone:
 | `pc` | player characters, including ones a player generates themselves |
 | `npc` | generated NPCs and hirelings, and NPC people you create by hand |
 | `monster` | generated monsters |
-| `companion` | a granted beast that is not one of the shipped mounts |
+| `companion` | a granted beast that isn't one of the shipped mounts |
 
-- **Singular or plural**, and case does not matter: `Monsters`, `monster` and
+- **Singular or plural**, and case doesn't matter: `Monsters`, `monster` and
   `MONSTERS` are the same folder.
 - **Top level only.** A folder called `Kindred/monster` is an ordinary folder.
 - **Nesting inside them counts.** `monster/undead/lich.webp` is monster art.
 
-Everything that is *not* inside one of those four folders is the **general
+Everything that *isn't* inside one of those four folders is the **general
 pool**.
 
 ### If you use none of these names
 
-Every image is one pool. Player characters and NPCs draw from it, and monsters
-and companions keep the shipped art.
+Then every image goes into one pool. Player characters and NPCs draw from it,
+and monsters and companions keep the shipped art.
 
 ### Two rules to know before you sort
 
-**1. The general pool is everything outside the reserved folders.** Sorting only
-your monster art does not put monsters on player characters.
+**1. The general pool is everything outside the reserved folders.** If you sort
+only your monster art, monsters don't end up on player characters.
 
-**2. `monster` and `companion` fall back to nothing of yours.** A monster takes
-a creature icon from the shipped Game-Icons art, and a granted beast takes its
-own illustration or an icon. They use your art only when you name a folder for
-them.
+**2. `monster` and `companion` don't fall back to any of your art.** A monster
+takes a creature icon from the shipped Game-Icons art, and a granted beast takes
+its own illustration or an icon. They only use your art when you name a folder
+for them.
 
 Player characters and NPCs fall back to the general pool.
 
-**Categories never borrow from each other.** Fill `pc/` and nothing else, and
-your NPCs get the shipped art.
+**Categories never borrow from each other.** If you fill only `pc/`, your NPCs
+get the shipped art.
 
 ### Three examples
 
@@ -120,22 +121,22 @@ air-bladder-portraits/          →  monsters draw from monster/
 | What you do | Pool it draws from |
 |---|---|
 | Generate a player character (yours or a player's) | `pc` |
-| Import a Kettlewright character with no portrait of its own | `pc` |
+| Import a Kettlewright character that doesn't have its own portrait | `pc` |
 | Generate an NPC | `npc` |
 | Generate a hireling | `npc` |
 | Create an NPC person by hand | `npc` |
 | Generate a monster | `monster` |
-| A background grants a beast the shipped mounts pack does not carry | `companion` |
+| A background gives you a beast the shipped mounts pack doesn't carry | `companion` |
 | Roll the portrait die on a sheet | whichever folder the current portrait came from |
 
 Not covered:
 
 - **A granted mount the pack does carry** keeps the illustration that ships with
   it.
-- **Carts, wagons, sacks and chests** wear icons and have no folder of their
-  own.
-- **Items** can be given your art from their own picker, by hand. Nothing
-  assigns item art for you.
+- **Carts, wagons, sacks and chests** use icons and don't have a folder of
+  their own.
+- **Items** can take your art, but you give it to them by hand from their own
+  picker. Item art isn't assigned for you.
 
 ## The portrait die
 
@@ -143,13 +144,13 @@ The d20 beside a portrait rolls a new one **from the folder the current portrait
 came from**. A monster wearing your monster art rolls another monster, and a
 character rolls another character.
 
-If you cannot see the die, turn **Character Creation Mode** on with the
+If you can't see the die, turn **Character Creation Mode** on with the
 **CharGen** toggle in the sheet's title bar.
 
 ## The picker still shows everything
 
-The reserved folders decide what is assigned automatically. They never limit
-what you choose by hand: the **Custom** tab lists every folder you have.
+The reserved folders decide what is assigned automatically. They don't limit
+what you choose by hand. The **Custom** tab lists every folder you have.
 
 Every folder that holds images becomes a tile, labelled by its path, so
 `OSR Fantasy/townsfolk/` reads "OSR Fantasy / Townsfolk". Images loose at the
@@ -158,13 +159,13 @@ top show as a grid above the tiles. The four reserved folders are captioned
 
 ## Things that will not happen
 
-- **Nothing is rewritten.** A portrait is set on a character when it is created.
-  Sorting your folders later changes no existing character. Use the die, or
-  pick by hand.
+- **Nothing is rewritten.** A portrait is set on a character when it's created.
+  Sorting your folders later doesn't change any existing character. Use the
+  die, or pick by hand.
 - **No separate token art.** A custom portrait is its own token image. Only the
   shipped Jon Aspeheim and Lydia Comer galleries carry a second image made for
   tokens.
-- **Portraits do not travel.** They are paths on your own server, and do not
+- **Portraits don't travel.** They're paths on your own server, so they don't
   follow a character or a shared background to another install.
 
 ## If something looks wrong
@@ -180,5 +181,5 @@ the browser console (F12). Flatten the folders if you hit it.
 **A player sees fewer portraits than you do.** They see what the last refresh
 found. Press Refresh.
 
-**Your art is not being assigned to monsters.** Check the folder is named
+**Your art isn't being assigned to monsters.** Check that the folder is named
 `monster` or `monsters` and sits at the *top* of your portrait folder.
