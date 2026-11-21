@@ -78,7 +78,8 @@
  * first carried light's own icon; on reads "Shield equipped" / "Light
  * equipped"; with none carried the badge is greyed and reads "No Shield" /
  * "No Light" (the slashed shield, the neutral lantern). Every label is in full
- * ink with an on/off switch glyph under it, and the three badges stand in a
+ * ink (no switch glyph since 2026-11-21, user: "Just \"Equip...\" should be
+ * enough"), and the three badges stand in a
  * row UNDER the Armor box (shield | light | book). Lighting spends a use, so
  * the Torch here has 20, and a spent one is now REFUSED (6b). Leg 8 is the
  * book badge: a spellbook, a scroll or the Grimoire, one equipped at a time,
@@ -261,7 +262,7 @@ try {
         present: !!sw,
         label: lab?.textContent.trim() ?? null,
         labelInk: !!lab && getComputedStyle(lab).color === inkOf(sw),
-        glyph: sw?.querySelector(".badge-switch i.fa-toggle-on") ? "on" : sw?.querySelector(".badge-switch i.fa-toggle-off") ? "off" : null,
+        glyph: sw?.querySelector(":is(.badge-switch, .fa-toggle-on, .fa-toggle-off)") ? "drawn" : null,
         icon: /game-icons\/shields\/([a-z-]+)\.svg/.exec(url ?? "")?.[1] ?? null,
         loads: await shieldLoadsOk(url),
         color: cs?.backgroundColor ?? null,
@@ -276,6 +277,15 @@ try {
         // badge below it, and left of the light's on the same row.
         below: !!a && !!b && a.top >= b.bottom - 0.5,
         leftOfLight: !!a && !!lb && a.right <= lb.left + 0.5 && a.top < lb.bottom && a.bottom > lb.top,
+        // The Armor label stands to the RIGHT of a smaller shield outline, a
+        // size up from the badges' 12px (2026-11-21, user asks).
+        armorLook: (() => {
+          const lbl = page?.querySelector(".cairn-armor-box > .armor-label")?.getBoundingClientRect();
+          if (!lbl || !b) return null;
+          return { right: lbl.left >= b.right - 0.5 && lbl.top < b.bottom && lbl.bottom > b.top,
+            size: parseFloat(getComputedStyle(page.querySelector(".cairn-armor-box > .armor-label")).fontSize),
+            shieldW: Math.round(b.width), shieldH: Math.round(b.height) };
+        })(),
         armor: page?.querySelector(".armor-input")?.value ?? null,
       };
     };
@@ -367,7 +377,7 @@ try {
         tip: b?.dataset.tooltip ?? null,
         icon: /game-icons\/book\/([a-z-]+)\.svg/.exec(mask)?.[1] ?? null,
         url: /url\("?([^")]+)"?\)/.exec(mask)?.[1] ?? null,
-        glyph: b?.querySelector(".badge-switch i.fa-toggle-on") ? "on" : b?.querySelector(".badge-switch i.fa-toggle-off") ? "off" : null,
+        glyph: b?.querySelector(":is(.badge-switch, .fa-toggle-on, .fa-toggle-off)") ? "drawn" : null,
         rightOfLight: !!lb && !!bb && bb.left >= lb.right - 0.5 && bb.top < lb.bottom && bb.bottom > lb.top,
       };
     };
@@ -606,7 +616,7 @@ try {
         return {
           url: /url\("?([^")]+)"?\)/.exec(mask)?.[1] ?? null,
           label: b?.querySelector(".light-label")?.textContent.trim() ?? null,
-          glyph: b?.querySelector(".badge-switch i.fa-toggle-on") ? "on" : b?.querySelector(".badge-switch i.fa-toggle-off") ? "off" : null,
+          glyph: b?.querySelector(":is(.badge-switch, .fa-toggle-on, .fa-toggle-off)") ? "drawn" : null,
           radius: b?.querySelector(".light-radius")?.textContent.trim() ?? null,
           icon: mask.match(/game-icons\/fire\/([a-z-]+)\.svg/)?.[1] ?? null,
           color: cs?.backgroundColor ?? null,
@@ -1131,16 +1141,17 @@ sl.disabled === false && sl.tip === null
   ? ok("a live Hold shield switch carries no tooltip")
   : fail(`live shield switch: disabled ${sl.disabled}, tooltip ${JSON.stringify(sl.tip)}`);
 sl.present && sl.label === u.wantHold && u.wantHold !== "CAIRN.EquipShield" && sl.icon === "shield" && sl.loads && sl.below && sl.leftOfLight
-  && sl.checked === "false" && sl.glyph === "off" && sl.labelInk && sl.filter === "none" && sl.armor === "1"
-  ? ok(`with a slung shield, the Shield badge "${sl.label}" stands under the Armor box, left of the light's, off (switch off, full ink), Armor ${sl.armor}`)
+  && sl.checked === "false" && sl.glyph === null && sl.labelInk && sl.filter === "none" && sl.armor === "1"
+  && sl.armorLook?.right && sl.armorLook.size > 12 && sl.armorLook.shieldW < 54 && sl.armorLook.shieldH < 60
+  ? ok(`with a slung shield, the Shield badge "${sl.label}" stands under the Armor box, left of the light's, off (no switch glyph, full ink), Armor ${sl.armor}, "Armor" right of a ${sl.armorLook?.shieldW}x${sl.armorLook?.shieldH} shield at ${sl.armorLook?.size}px`)
   : fail(`slung: ${JSON.stringify(sl)} (want ${JSON.stringify(u.wantHold)}, game-icons shields/shield.svg, under the Armor box)`);
 const he = u.held ?? {};
-he.equipped === true && he.checked === "true" && he.label === u.wantInHand && u.wantInHand !== "CAIRN.ShieldEquipped" && he.glyph === "on" && he.labelInk
+he.equipped === true && he.checked === "true" && he.label === u.wantInHand && u.wantInHand !== "CAIRN.ShieldEquipped" && he.glyph === null && he.labelInk
   && he.icon === "shield-bash" && he.loads && he.color !== sl.color && he.filter && he.filter !== "none" && he.armor === "2"
   ? ok(`a press holds it: equipped, "${he.label}", glowing (${he.color}), Armor ${he.armor}`)
   : fail(`held: ${JSON.stringify(he)} (want ${JSON.stringify(u.wantInHand)}, slung colour ${sl.color})`);
 const rs = u.reslung ?? {};
-rs.equipped === false && rs.checked === "false" && rs.label === u.wantHold && rs.icon === "shield" && rs.glyph === "off" && rs.filter === "none" && rs.armor === "1"
+rs.equipped === false && rs.checked === "false" && rs.label === u.wantHold && rs.icon === "shield" && rs.glyph === null && rs.filter === "none" && rs.armor === "1"
   ? ok("a second press slings it again: not equipped, off, Armor back to 1")
   : fail(`re-slung: ${JSON.stringify(rs)}`);
 const tw = u.two ?? {};
@@ -1186,7 +1197,7 @@ hs.torch && hs.lantern && hs.glowsnail && hs.sunStick && !hs.oil && !hs.rope
 const lw = lt.want ?? {};
 const lp = lt.place ?? {};
 lp.label === lt.wantLight && lt.wantLight !== "CAIRN.EquipLight" && lp.disabled === false && lp.checked === "false" && lp.tip === lw.noneHeld
-  && lp.radius === null && lp.icon === "torch" && lp.loads && lp.right && lp.beside && lp.glyph === "off"
+  && lp.radius === null && lp.icon === "torch" && lp.loads && lp.right && lp.beside && lp.glyph === null
   ? ok(`the light badge stands under the Armor box, right of the shield's: the first light's own icon (a torch, unlit), "${lp.label}", "${lp.tip}", no radius`)
   : fail(`light badge, none held: ${JSON.stringify(lp)} (want label ${JSON.stringify(lt.wantLight)}, tip ${JSON.stringify(lw.noneHeld)})`);
 const pk = lt.picker ?? {};
@@ -1201,7 +1212,7 @@ JSON.stringify(pk.afterCancel) === "[]" && JSON.stringify(pk.held) === JSON.stri
 const lb = lt.lanternBadge ?? {};
 lb.checked === "true" && lb.icon === "lantern-flame" && lb.loads && lb.radius === lw.bright && lb.tip === lw.heldLantern
   && lb.color !== lp.color && lb.filter && lb.filter !== "none"
-  && lb.label === lt.wantLightOn && lt.wantLightOn !== "CAIRN.LightEquipped" && lb.glyph === "on"
+  && lb.label === lt.wantLightOn && lt.wantLightOn !== "CAIRN.LightEquipped" && lb.glyph === null
   ? ok(`held, the badge glows (${lb.color}, ${lb.filter}), says "${lb.label}" and reads "${lb.radius}", "${lb.tip}"`)
   : fail(`lantern badge: ${JSON.stringify(lb)} (none-held colour ${lp.color}, want label ${JSON.stringify(lt.wantLightOn)})`);
 const st = lt.stowed ?? {};
@@ -1263,8 +1274,8 @@ bn.present && bn.disabled === true && bn.checked === "false" && bn.label === bw.
   ? ok(`with no book, the book badge stands right of the light's, greyed: "${bn.label}", "${bn.tip}"`)
   : fail(`book badge, none: ${JSON.stringify(bn)} (want ${JSON.stringify([bw.none, bw.noneTip])})`);
 const b1 = bo.one ?? {};
-b1.off?.label === bw.off && b1.off?.glyph === "off" && b1.off?.disabled === false && b1.off?.icon === "spell-book"
-  && b1.on?.equipped === true && !b1.on.picker && b1.on.checked === "true" && b1.on.label === bw.on && b1.on.glyph === "on" && b1.on.loads
+b1.off?.label === bw.off && b1.off?.glyph === null && b1.off?.disabled === false && b1.off?.icon === "spell-book"
+  && b1.on?.equipped === true && !b1.on.picker && b1.on.checked === "true" && b1.on.label === bw.on && b1.on.glyph === null && b1.on.loads
   && b1.after?.equipped === false && b1.after.label === bw.off
   ? ok(`one spellbook: "${bw.off}", a press equips it at once ("${bw.on}"), a second puts it away`)
   : fail(`one book: ${JSON.stringify(b1)} (want ${JSON.stringify([bw.off, bw.on])})`);
