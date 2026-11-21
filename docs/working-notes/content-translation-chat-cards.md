@@ -13,7 +13,8 @@ Moved word for word from CLAUDE.md (2026-11-01); CLAUDE.md points here.
   English source string, never text.** Examples: `damageCard`
   (`localizeDamageCard`, values sanitized, runs before `nameDamageSource`),
   `localizeD20Card`, `localizeStatusCard`, `localizeEncounterQty`,
-  `localizeChangeLogCard`, `ROLL_FLAVOR_KEYS`. `localize()` returns unknown keys
+  `localizeChangeLogCard` (its `itemFlag` lines whitelist `f` against
+  `AUDIT_ITEM_FLAGS`), `ROLL_FLAVOR_KEYS`. `localize()` returns unknown keys
   verbatim — whitelist kinds. Write `data-panic` as `"0"` or `"1"`; absence means
   "older than the attribute", leave alone.
 - **Every rebuild in `renderChatMessageHTML` must ask `message.isContentVisible`

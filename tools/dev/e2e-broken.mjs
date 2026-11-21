@@ -462,6 +462,9 @@ try {
         await actors.character.update({ ownership: { default: 0, [alice.id]: CONST.DOCUMENT_OWNERSHIP_LEVELS.OBSERVER } });
         out.observedId = actors.character.id;
         out.observedItem = actors.character.items.find((i) => i.name === "ZZ Row Rope")?.id ?? null;
+        // Its state BEFORE the press (leg 16 left it broken): the leg asks
+        // that the press CHANGED nothing, not that it is intact.
+        out.observedBefore = actors.character.items.get(out.observedItem)?._source.system.broken ?? null;
       }
     }
     return out;
@@ -613,7 +616,7 @@ else {
   if (!r.aliceId) fail('no user named "Alice" — run `npm run dev:players` first; the observer leg did not run');
   else {
     const o = r.observer ?? {};
-    !o.error && o.row && o.editable === false && o.broken === false
+    !o.error && o.row && o.editable === false && typeof r.observedBefore === "boolean" && o.broken === r.observedBefore
       ? ok(`an observing player's press writes nothing (control ${o.drawn ? "drawn" : "forced in"})`)
       : fail(`observer press: ${JSON.stringify(o)}`);
   }

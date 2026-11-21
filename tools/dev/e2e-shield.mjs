@@ -557,7 +557,13 @@ try {
         return realGet.call(this, id, ...rest);
       };
       let tokens = [{ id: "zzTok", parent: { id: "zzScene" } }];
-      pc.getActiveTokens = () => tokens;
+      // The real method's two shapes: TokenDocuments with `document` true
+      // (holdLight's call), canvas placeables (`.document`, `.controlled`)
+      // otherwise — core's ChatMessage.getSpeaker asks for those
+      // (chat-message.mjs:229-233), and since 2026-11-21 a hold posts a
+      // change-log card, whose speaker reads them.
+      pc.getActiveTokens = (_linked, document) => (document ? tokens
+        : tokens.map((d) => ({ id: d.id, document: d, controlled: false })));
       const settle = async () => { await sleep(600); };
       const viaSwitch = async () => {
         calls = [];

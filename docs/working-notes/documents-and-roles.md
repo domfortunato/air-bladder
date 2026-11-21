@@ -72,4 +72,17 @@ Moved word for word from CLAUDE.md (2026-11-01); CLAUDE.md points here.
   row, and since 2026-11-20 (user ask) from a toggle on every inventory row, directly left
   of the trash (`itemToggleBroken`, owned(); `system.canBreak`: a type with `broken`,
   never a Fatigue; game-icons' broken shield, the peril colour while broken, "Mark broken" /
-  "Mark repaired"); the row wears a Broken tag. Gate `dev:broken` (legs 12-14 the row).
+  "Mark repaired"); the row wears a Broken tag. Since 2026-11-21 (user ask) every break
+  and repair asks first, on the row AND the item sheet's box: ONE `confirmBroken`
+  (item.js), `_confirmAction`'s shape; the sheet's box is caught in the target phase so
+  `submitOnChange` never stores it. Gate `dev:broken` (legs 12-14 the row, 15-16 the
+  yes/no).
+- **Every item action is on the change log** (2026-11-21, user ask: "All actions on
+  inventory items, including breaking and unbreaking them, should show in the chat log";
+  the user's pick, all but a drag-reorder and a description save). REVERSES review #13's
+  exclusion of equipped and renames. `AUDIT_ITEM_FLAGS` (actor.js): broken, equipped
+  (the hand, Hold shield, Hold light), bound (Transmute), bulky, weightless, shield; plus
+  `rename` lines. ONE `itemAuditOf` / `itemAuditEntries` pair serves both item seams
+  (`_preUpdateDescendantDocuments` and a parent update's `changed.items`). Breaking an
+  equipped item posts the broken line alone (the forced unequip folded in). Machinery
+  writes stay silent through `abNoStatusCard` as before. Gate `dev:changelog`.

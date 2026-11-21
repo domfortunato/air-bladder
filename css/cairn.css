@@ -5653,8 +5653,13 @@ header.character-generator.directory-header .header-actions > button:not(.cairn-
 .cairn-character-sheet .cairn-band .band-gold.overburdened-gold .gold-input { color: var(--ab-peril); }
 .cairn-character-sheet .cairn-band .band-gold.overburdened-gold .gold-input { border-color: var(--ab-peril); }
 
-/* Vitals: the Armor shield, HP, the slot count and the buttons. */
-.cairn-character-sheet .cairn-vitals { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+/* Vitals: the Armor shield, HP, the slot count and the buttons. 4px apart
+   since 2026-11-21 (8 before): the Armor box grew to the shield outline with
+   its label below (77px), and the tallest head (a hireling for hire, career,
+   day rate) then put the footer 16px past the 700px window — measured on CT
+   123, where this column, not the abilities, sets page 1's height. 4px leaves
+   4px to spare there (dev:sheet-layout, dev:sheet-rail leg 21). */
+.cairn-character-sheet .cairn-vitals { display: flex; flex-direction: column; align-items: center; gap: 4px; }
 /* The Armor box (2026-11-21, user asks): the SHIELD OUTLINE again (54 x 60,
    the ability circles' 2px line; a 48px circle for one day, its label inside
    "CRAMPED"), the number alone inside at the circles' 20px, and "Armor"

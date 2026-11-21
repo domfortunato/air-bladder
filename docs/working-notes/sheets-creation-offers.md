@@ -263,14 +263,20 @@ Moved word for word from CLAUDE.md (2026-11-01); CLAUDE.md points here.
   `toggleTraits` / `traitsCollapsed` and the die-less grid are gone. No name
   pick-list: `#onPickName` refuses npc and hireling by design. Gate
   `dev:sheet-rail` leg 24.
-- **The Armor row redone** (same day, user asks): the Armor box is a 48 x 48
-  circle with the ability circles' border (`.cairn-shield`, class kept), the
-  label and number inside; Hold shield is a badge like Hold light's
-  (`.shield-icon`, game-icons `shields/shield.svg`, one mask rule for both
-  badges), "Hold shield" / "Shield in hand"; Hold light reads "Light in hand"
-  while held. Icon routes `shieldIcon` / `brokenIcon` are built for every
-  sheet beside `holdShieldNoneKey`. Gates `dev:sheet-rail` leg 25,
-  `dev:shield` legs 3 and 6.
+- **The Armor row redone** (2026-11-20 and 21, user asks): the Armor box is the
+  54 x 60 shield outline (`.cairn-shield`, class kept; a 48px circle for one
+  day, its label inside "CRAMPED") holding the number alone, and "Armor" sits
+  OUTSIDE it, right below (`.cairn-armor-box > .armor-label`), in the badges'
+  label face. Not level with the badges' labels: page 1 has 8px to spare at
+  480 x 700 (measured, CT 123) and the row is 82px, set by a held light's badge
+  (user pick). Hold shield is a badge like Hold light's (`.shield-icon`, one
+  mask rule for both badges): game-icons Shield Disabled while slung
+  (`shieldIcon`), Shield Bash in hand (`shieldHeldIcon`); off labels are
+  questions, "Hold shield?" / "Hold light?" (`CAIRN.HoldShieldAsk` /
+  `HoldLightAsk`; `CAIRN.HoldLight` stays the light picker's title and
+  button), on "Shield in hand" / "Light in hand". Icon routes are built for
+  every sheet beside `holdShieldNoneKey`. Gates `dev:sheet-rail` leg 25,
+  `dev:shield` legs 3 and 6, `dev:sheet-layout`.
 
 ## Creation routes
 

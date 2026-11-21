@@ -710,7 +710,13 @@ const run = async () => {
             let logs = await logsSince(gm, since);
             let w = await want(gm, "CAIRN.ChangeLog.Broken", { name: "Probe Club" });
             assert(logs.length === 1 && logs[0].content.includes(w), `${role} broken: ${logs.length} card(s), want "${w}": "${lineOf(logs)}"`);
+            // The repair, and ITS card awaited before the next leg counts
+            // (a late repair card was counted as the equip's second).
+            since = await messageIds(gm);
             await pressRow(gm, id, "Probe Club", "itemToggleBroken", "yes");
+            logs = await logsSince(gm, since);
+            w = await want(gm, "CAIRN.ChangeLog.Repaired", { name: "Probe Club" });
+            assert(logs.length === 1 && logs[0].content.includes(w), `${role} repaired: ${logs.length} card(s), want "${w}": "${lineOf(logs)}"`);
             if (role === "container") continue;   // a thing's rows offer no hand
             since = await messageIds(gm);
             await pressRow(gm, id, "Probe Club", "itemToggleEquipped");
