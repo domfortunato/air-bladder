@@ -103,7 +103,19 @@ try {
         { name: "ZZ Probe Shield", type: "armor", system: { armor: 1, equipped: true, shield: true } },
       ],
     }, { abNoStatusCard: true });
-    const b = await Cls.create({ name: "ZZ Party B", type: "character", folder, flags }, { abNoStatusCard: true });
+    // B is A's other side (round 2, 2026-11-21): Panicked (HP derives to 0),
+    // a SLUNG shield, a Lantern carried but not held, and padded to exactly
+    // one free slot — every amber and red tone A does not reach.
+    const b = await Cls.create({
+      name: "ZZ Party B", type: "character", folder, flags,
+      system: { panicked: true, hp: { value: 4, max: 4 } },
+      items: [
+        { name: "Lantern", type: "item", system: { equipped: false } },
+        { name: "ZZ Probe Shield B", type: "armor", system: { armor: 1, equipped: false, shield: true } },
+      ],
+    }, { abNoStatusCard: true });
+    const pad = b.system.slotsMax - 1 - b.system.slotsUsed;
+    if (pad > 0) await b.createEmbeddedDocuments("Item", [{ name: "ZZ Probe Pebbles", type: "item", system: { quantity: pad } }]);
     const outside = await Cls.create({ name: "ZZ Party Outside", type: "character", flags }, { abNoStatusCard: true });
     const kid = (name, type, system) => Cls.create({ name, type, flags, system: { ...system, connectedTo: a.uuid } });
     await kid("ZZ Party Hireling", "hireling", {});
@@ -115,6 +127,7 @@ try {
       want: {
         slots: `${a.system.slotsUsed}/${a.system.slotsMax}`, armor: String(a.system.armor),
         slotsB: `${b.system.slotsUsed}/${b.system.slotsMax}`,
+        oneFreeB: b.system.slotsMax - b.system.slotsUsed === 1,
       },
     };
   }, FIXTURE);
@@ -135,6 +148,8 @@ try {
       held: tr.querySelector('[data-col="light"]')?.dataset.held ?? "",
       lights: tr.querySelector('[data-col="light"]')?.dataset.count ?? "",
       conditions: [...tr.querySelectorAll('[data-col="conditions"] [data-condition]')].map((e) => e.dataset.condition),
+      letters: [...tr.querySelectorAll('[data-col="conditions"] [data-condition]')].map((e) => e.textContent.trim()).join(""),
+      tones: Object.fromEntries([...tr.querySelectorAll("[data-col]")].map((td) => [td.dataset.col, td.dataset.tone ?? ""])),
       note: tr.querySelector('[data-col="notes"] input')?.value ?? null,
     }));
   });
@@ -171,17 +186,27 @@ try {
     check(rowA.shield === "held", "row A: the shield is held", `state="${rowA.shield}"`);
     check(rowA.held === "Torch" && rowA.lights === "2", "row A: Torch in hand, two light sources",
       `held="${rowA.held}" count="${rowA.lights}"`);
-    check(rowA.conditions.includes("deprived") && !rowA.conditions.includes("encumbered"),
-      "row A: Deprived marked, not encumbered", JSON.stringify(rowA.conditions));
+    check(JSON.stringify(rowA.conditions) === '["deprived"]' && rowA.letters === "D",
+      "row A: Deprived alone, boxed as D", `${JSON.stringify(rowA.conditions)} "${rowA.letters}"`);
+    // Round 2 (user, 2026-11-21): colour does the warning.
+    const toneA = { hp: "warn", str: "alert", dex: "alert", wil: "", fatigue: "accent", shield: "accent", light: "accent", slots: "" };
+    const offA = Object.entries(toneA).filter(([k, v]) => rowA.tones[k] !== v).map(([k, v]) => `${k}: want "${v}" got "${rowA.tones[k]}"`);
+    check(!offA.length, "row A: HP amber, abilities red, held gear and Fatigue teal", offA.join("; "));
 
     const b = rowB.cells;
     const expectB = { name: "ZZ Party B", fatigue: "0", rations: "0", slots: setup.want.slotsB,
       hirelings: "0", companions: "0", containers: "0", transports: "0" };
     const wrongB = Object.entries(expectB).filter(([k, v]) => b[k] !== v).map(([k, v]) => `${k}: want "${v}" got "${b[k]}"`);
-    check(!wrongB.length, "row B: the empty PC reads empty", wrongB.join("; "));
-    check(rowB.shield === "" && rowB.held === "" && rowB.lights === "0" && !rowB.conditions.length,
-      "row B: no shield, no light, no conditions",
-      `shield="${rowB.shield}" held="${rowB.held}" lights="${rowB.lights}" cond=${JSON.stringify(rowB.conditions)}`);
+    check(!wrongB.length, "row B: its counts match the actor", wrongB.join("; "));
+    check(setup.want.oneFreeB, "row B was planted with exactly one slot free", setup.want.slotsB);
+    check(rowB.shield === "slung" && rowB.held === "" && rowB.lights === "1",
+      "row B: shield slung, a light carried but not held",
+      `shield="${rowB.shield}" held="${rowB.held}" lights="${rowB.lights}"`);
+    check(JSON.stringify(rowB.conditions) === '["panicked"]' && rowB.letters === "P",
+      "row B: Panicked shows, boxed as P", `${JSON.stringify(rowB.conditions)} "${rowB.letters}"`);
+    const toneB = { hp: "alert", slots: "warn", shield: "warn", light: "warn", fatigue: "", str: "" };
+    const offB = Object.entries(toneB).filter(([k, v]) => rowB.tones[k] !== v).map(([k, v]) => `${k}: want "${v}" got "${rowB.tones[k]}"`);
+    check(!offB.length, "row B: HP 0 red, one slot left amber, slung and unheld amber", offB.join("; "));
     const ia = rows.indexOf(rowA);
     const ib = rows.indexOf(rowB);
     check(ia < ib, "with no stored order, A sorts before B by name", `A=${ia} B=${ib}`);
