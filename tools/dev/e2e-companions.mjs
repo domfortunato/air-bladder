@@ -409,7 +409,17 @@ const legacy = await page.evaluate(async () => {
   const [plain] = await scene.createEmbeddedDocuments("Token", [{
     name: "ZZ Legacy Plain Token", actorId: a.id, actorLink: false, x: 200, y: 0,
   }]);
+  // And one with NOTHING TO MIGRATE AT ALL (review #36): no notes of its own,
+  // no ledger, no old-shape scroll, on an actor no migration writes to. Its
+  // base actor has to be its own — core rebuilds a token's synthetic actor
+  // whenever its BASE actor is updated (`TokenDocument#_onUpdateBaseActor`),
+  // and the world batch updates every actor above.
+  const bystander = await ActorImpl.create({ name: "ZZ Legacy Bystander", type: "character" });
+  const [idle] = await scene.createEmbeddedDocuments("Token", [{
+    name: "ZZ Legacy Idle Token", actorId: bystander.id, actorLink: false, x: 400, y: 0,
+  }]);
   return {
+    bystanderId: bystander.id, idleTokenId: idle.id,
     id: a.id, before: a.system.notes,
     ledger: (a.getFlag("air-bladder", "grantNotes") ?? []).length,
     editedId: edited.id, editedBefore: edited.system.notes,
@@ -453,6 +463,33 @@ await dismissChrome(page);
 // The migrations are awaited phases inside the ready hook, not part of `ready`
 // itself, so game.ready can be true a beat before they have written.
 await page.waitForTimeout(3000);
+
+// THE SWEEPS BUILD ONLY THE TOKENS THEY WRITE (review #36). Read FIRST, before
+// anything below asks a token for its `actor`: that getter is what builds an
+// unlinked token's ActorDelta and synthetic Actor, and core leaves both unbuilt
+// until something needs them (`TokenDocument#isLazyDelta`). The grant-notes
+// pass and the spellscroll pass have no marker, so they run on every Warden
+// load, and both read `token.actor` for every unlinked token in every scene
+// before deciding whether it was theirs — a large world paid one Actor per
+// token per login. The fixture scene is never viewed, so nothing but a sweep
+// has a reason to build these.
+const lazy = await page.evaluate(({ sceneId, tokenId, idleTokenId }) => {
+  const scene = game.scenes.get(sceneId);
+  return {
+    viewed: scene?.isView ?? null,
+    idle: scene?.tokens.get(idleTokenId)?.isLazyDelta ?? null,
+    diverged: scene?.tokens.get(tokenId)?.isLazyDelta ?? null,
+  };
+}, legacy);
+check("precondition: the fixture scene is not the one on the canvas", lazy.viewed === false,
+  `isView=${lazy.viewed} — a drawn scene builds its own tokens and the leg below would blame the sweeps`);
+check("a token with nothing to migrate is left unbuilt by the ready sweeps", lazy.idle === true,
+  `isLazyDelta=${lazy.idle} — the sweeps must pick their tokens off the raw source `
+  + "(`token._source.delta`) and only then read `token.actor`");
+// The control: the measure can tell the two apart. This token's delta holds its
+// own notes, so the removal had to build it to write it.
+check("...while the token the removal had to write WAS built", lazy.diverged === false,
+  `isLazyDelta=${lazy.diverged}`);
 
 const swept = await page.evaluate((id) => {
   const a = game.actors.get(id);
@@ -655,7 +692,7 @@ const cleaned = await page.evaluate(async ({ ids, grantIds, ravenId, rerollIds, 
     reroll.keeperId, ...(reroll.beastIds ?? []),
     stock.keeperId, ...(stock.cartIds ?? []),
     pair.keeperId, ...(pair.madeIds ?? []),
-    legacy.id, legacy.editedId, legacy.untouchedId, legacy.tokenBaseId,
+    legacy.id, legacy.editedId, legacy.untouchedId, legacy.tokenBaseId, legacy.bystanderId,
   ],
 });
 

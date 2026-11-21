@@ -51,6 +51,11 @@
  *      escape Hooks.#call's SYNCHRONOUS try/catch as an unhandled rejection
  *      naming nothing. A message whose spent-stamp read throws must land in
  *      the call site's catch, not as an unhandled rejection.
+ *  12. No-replacement draws, twenty tokens, and the VIEWED level (review #34).
+ *  13. A prototype token set to append a number (review #36): the three
+ *      tokens of one row come out (1), (2), (3), and a second card's row
+ *      carries on at (4). Core numbers against the tokens already on the
+ *      scene, so a numbered row is created one token at a time.
  *
  * Everything planted is swept from Node, names and ids printed. The
  * "Encounters" folder is deleted only when THIS run created it.
@@ -742,7 +747,7 @@ try {
       if (s.includes(wantText)) return;
       return origError(...a);
     };
-    ui.notifications.error = (...a) => { out.toasts.push(String(a[0])); return origToast(...a); };
+    ui.notifications.error = (...a) => { out.toasts.push(a[1]?.format ? game.i18n.format(String(a[0]), a[1].format) : String(a[0])); return origToast(...a); };
     try {
       document.querySelector(`[data-message-id="${msgId}"] .encounter-spawn`)?.click();
       for (let i = 0; i < 50 && !out.toasts.length; i++) await new Promise((r) => setTimeout(r, 200));
@@ -913,6 +918,79 @@ try {
   big.viewing && big.onUpper
     ? ok("encounter tokens land on the level being VIEWED", JSON.stringify(big))
     : fail("encounter tokens landed on another level", JSON.stringify(big));
+
+  /* --- 13. a numbered prototype numbers each token of a row (review #36) --- */
+  // "Append Incrementing Number" on a monster's prototype token is how a
+  // Warden tells six goblins apart. Core picks the lowest number not in use
+  // among the actor's tokens ALREADY ON THE SCENE, and spawnTokens built the
+  // whole row before creating any of it, so every token took the same number.
+  // A world actor of the probe's own with the box ticked, a table of its own
+  // (swept in this leg's finally), and TWO cards for the same row: the first
+  // must come out 1, 2, 3 and the second must carry on from the tokens the
+  // first left, which is what core's own actor drop does. Tokens are read by
+  // id difference. The actor is made in a call of its own so its id reaches
+  // the Node sweep even if the leg throws.
+  const numberedId = await gm.evaluate(async () => {
+    const a = await CONFIG.Actor.documentClass.create({
+      name: "ZZ Enc Numbered", type: "npc",
+      system: { role: "monster", generationEnabled: false, hp: { value: 4, max: 4 } },
+      prototypeToken: { name: "ZZ Enc Numbered", appendNumber: true, actorLink: false },
+      flags: { "air-bladder": { probeFixture: "encounters-numbered" } },
+    });
+    return a?.id ?? null;
+  });
+  if (numberedId) cleanup.actorIds.push(numberedId);
+  const numbered = await gm.evaluate(async ({ actorId, sceneId }) => {
+    const enc = await import("/systems/air-bladder/module/encounters.js");
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const scene = game.scenes.get(sceneId);
+    const actor = game.actors.get(actorId);
+    const out = { proto: { appendNumber: actor?.prototypeToken.appendNumber ?? null, actorLink: actor?.prototypeToken.actorLink ?? null } };
+    let table = null;
+    const before = new Set(game.messages.map((m) => m.id));
+    try {
+      table = await RollTable.create({
+        name: "ZZ Enc Numbered Table", formula: "1d1", replacement: true, displayRoll: true,
+        results: [{ type: "text", description: `3 @UUID[Actor.${actorId}]{ZZ Numbered} stand in a row.`, range: [1, 1], weight: 1 }],
+      });
+      const cards = [];
+      for (let n = 0; n < 2; n++) {
+        const seen = new Set(game.messages.map((m) => m.id));
+        await table.draw();
+        let msg = null;
+        for (let i = 0; i < 40 && !msg; i++) {
+          msg = game.messages.contents.find((m) => !seen.has(m.id) && m.getFlag("core", "RollTable") === table.id);
+          if (!msg) await sleep(150);
+        }
+        cards.push(msg);
+      }
+      out.cards = cards.filter(Boolean).length;
+      out.rows = [];
+      const placed = [];
+      for (const msg of cards.filter(Boolean)) {
+        const tokensBefore = new Set(scene.tokens.map((t) => t.id));
+        await enc.spawnEncounterFromMessage(msg);
+        const mine = scene.tokens.contents.filter((t) => !tokensBefore.has(t.id) && t.actorId === actorId);
+        placed.push(...mine.map((t) => t.id));
+        out.rows.push(mine.map((t) => t.name).sort());
+      }
+      await scene.deleteEmbeddedDocuments("Token", placed);
+    } finally {
+      if (table) await table.delete();
+      for (const m of game.messages.filter((m) => !before.has(m.id))) await m.delete();
+    }
+    return out;
+  }, { actorId: numberedId, sceneId: fx.sceneId });
+  const wantRow = (from) => [0, 1, 2].map((i) => `ZZ Enc Numbered (${from + i})`);
+  numbered.proto.appendNumber === true && numbered.proto.actorLink === false && numbered.cards === 2
+    ? ok("precondition: a numbered, unlinked prototype and two cards for its row")
+    : fail("precondition: a numbered, unlinked prototype and two cards for its row", JSON.stringify(numbered));
+  JSON.stringify(numbered.rows?.[0]) === JSON.stringify(wantRow(1))
+    ? ok("a numbered prototype numbers each token of the row", numbered.rows[0].join(", "))
+    : fail("every token of a numbered row took the same number", JSON.stringify(numbered.rows?.[0]));
+  JSON.stringify(numbered.rows?.[1]) === JSON.stringify(wantRow(4))
+    ? ok("...and a second row carries on from the tokens already there", numbered.rows[1].join(", "))
+    : fail("a second numbered row did not carry on from the first", JSON.stringify(numbered.rows?.[1]));
 
   /* ------------------------------------------------------- console errors -- */
   const gmErrs = gmErrors.filter((e) => !/ZZ Enc/.test(e));

@@ -1181,7 +1181,7 @@ try {
 
       const toasts = [];
       const origInfo = ui.notifications.info.bind(ui.notifications);
-      ui.notifications.info = (msg, ...rest) => { toasts.push(String(msg)); return origInfo(msg, ...rest); };
+      ui.notifications.info = (msg, ...rest) => { toasts.push(rest[0]?.format ? game.i18n.format(String(msg), rest[0].format) : String(msg)); return origInfo(msg, ...rest); };
       try {
         await market.openMarketplace(pc);
         for (let i = 0; i < 40 && !document.querySelector(".marketplace"); i++) await settle(150);
@@ -1974,7 +1974,7 @@ const refusalLeg = await page.evaluate(async () => {
   const out = { actorIds: [], itemIds: [] };
   const warns = [];
   const origWarn = ui.notifications.warn;
-  ui.notifications.warn = (m) => { warns.push(String(m)); return null; };
+  ui.notifications.warn = (m, o) => { warns.push(o?.format ? game.i18n.format(String(m), o.format) : String(m)); return null; };
   try {
     i18n._setOverlay({
       "item.name": { "ZZ Probe Lantern": "ZZ-FAROL" },

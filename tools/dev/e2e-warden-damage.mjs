@@ -470,6 +470,8 @@ const pools = await page.evaluate(async () => {
   const dieV = await mk("ZZ Pool Dying", { hp: { value: 9, max: 9 }, armor: 0, abilities: { STR: { value: 2, max: 2 } } }, 700);
   const oldV = await mk("ZZ Pool Legacy", { hp: { value: 5, max: 5 }, armor: 0 }, 900);
   const badV = await mk("ZZ Pool Bogus", { hp: { value: 5, max: 5 }, armor: 0 }, 1100);
+  // Below its max AND above 0, so a rise and a fall are both visible.
+  const negV = await mk("ZZ Pool Negative", { hp: { value: 9, max: 9 }, armor: 0, abilities: { STR: { value: 5, max: 10 } } }, 1300);
 
   const { evaluateFormula } = await import("/systems/air-bladder/module/utils.js");
   // Post a card with a given pool, click its REAL control, and hand back what
@@ -546,12 +548,21 @@ const pools = await page.evaluate(async () => {
   r.bogusAbilities = JSON.stringify(badV.t.actor.toObject().system.abilities ?? {});
   r.bogusKinds = badOut.kinds;
 
+  // A ROLL BELOW ZERO (review #36). The tool takes any formula that validates,
+  // so "1d4-2" is a legal weak poison and can come up negative. `1d1 - 3` is
+  // always -2: taken off an ability as it stood, STR 5 became 7.
+  const negOut = await spend(negV.t, "1d1 - 3", "STR");
+  r.negTotal = game.messages.get(negOut.rollId)?.rolls?.[0]?.total ?? null;
+  r.negValue = negV.t.actor.toObject().system.abilities.STR.value;
+  r.negKinds = negOut.kinds;
+  r.negCard = negOut.first.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+
   // Clean up: this scene's messages, then the documents.
   for (const m of game.messages.contents.slice().reverse().slice(0, 48)) {
     if (m.speaker?.scene === scene.id) await m.delete();
   }
   await scene.delete();
-  for (const v of [strV, dexV, wilV, dieV, oldV, badV]) await v.a.delete();
+  for (const v of [strV, dexV, wilV, dieV, oldV, badV, negV]) await v.a.delete();
   return r;
 });
 
@@ -585,6 +596,12 @@ check("an unrecognised pool falls back to HP", pools.bogusHp === 3
   && !/NOPE/.test(pools.bogusAbilities ?? "")
   && JSON.stringify(pools.bogusKinds) === JSON.stringify(["damage"]),
   `hp 5 -> ${pools.bogusHp}, abilities ${pools.bogusAbilities} — the pool is spliced into system.abilities.<POOL>.value, so anything unrecognised must be Cairn's ordinary rule`);
+check("precondition: the roll came up below zero", pools.negTotal === -2, `total=${pools.negTotal}`);
+check("a negative roll heals no ability", pools.negValue === 5,
+  `STR 5 -> ${pools.negValue} after a roll of ${pools.negTotal} — the amount is floored at 0 as the HP path floors it, or a weak poison raises STR, past its max`);
+check("and its card reads no negative damage", JSON.stringify(pools.negKinds) === JSON.stringify(["damage"])
+  && !/[-−]\s*2/.test(pools.negCard ?? ""),
+  `${JSON.stringify(pools.negKinds)} ${JSON.stringify(pools.negCard)}`);
 
 /* ---------------------------------------------------------------------------
  * 5. Every card line comes through a WHOLE-LINE key (review #13 fix #10).

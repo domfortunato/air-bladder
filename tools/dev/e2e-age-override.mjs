@@ -193,7 +193,7 @@ try {
     // --- 5. invalid falls back with a warning; blank falls back silently ----
     const warns = [];
     const origWarn = ui.notifications.warn;
-    ui.notifications.warn = function (m, ...rest) { warns.push(String(m)); return origWarn.call(this, m, ...rest); };
+    ui.notifications.warn = function (m, ...rest) { warns.push(rest[0]?.format ? game.i18n.format(String(m), rest[0].format) : String(m)); return origWarn.call(this, m, ...rest); };
     try {
       await game.settings.set(NS, "age-formula", "not dice");
       out.tooltipInvalid = await tooltipNow();

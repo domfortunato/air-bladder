@@ -24,6 +24,15 @@
  *      and the Warden's click on a lit light puts it out: unequipped, and a
  *      public chat card reads "The Warden puts out ZZ Party A's Torch."
  *      (selected by its own class and by message id difference).
+ *   9. (review #36 S22) A STACK of Rations counts its unopened units: C's
+ *      Rations at quantity 2, 1/3 reads 4, and the Party NPC's at quantity
+ *      2, 0/3 reads a plain 3, never the boxed red 0.
+ *  10. (review #36 S17) The lit light's aria-label is plain text: the Party
+ *      hireling holds "ZZ Miner's Lantern", and the label carries the
+ *      apostrophe, not `&#x27;`. The tooltip keeps the escaped name.
+ *  11. (review #36 S8) The window's focusout listener is bound once per
+ *      frame, not once per render: after three more renders, with a render
+ *      waiting on a focused note, ONE focusout asks for ONE render.
  *
  * Fixtures are stamped `probeFixture` and swept from the catch; the
  * marching-order setting is READ first and restored, and SET to [] for the run
@@ -123,11 +132,23 @@ try {
     const pad = b.system.slotsMax - 1 - b.system.slotsUsed;
     if (pad > 0) await b.createEmbeddedDocuments("Item", [{ name: "ZZ Probe Pebbles", type: "item", system: { quantity: pad } }]);
     // C carries no shield and no light (round 3): both cells must be EMPTY.
-    const c = await Cls.create({ name: "ZZ Party C", type: "character", folder, flags }, { abNoStatusCard: true });
+    // Leg 9: C's Rations are a STACK, two units with the open one at 1/3.
+    const c = await Cls.create({
+      name: "ZZ Party C", type: "character", folder, flags,
+      items: [{ name: "Rations", type: "item", system: { quantity: 2, uses: { value: 1, max: 3 } } }],
+    }, { abNoStatusCard: true });
     const outside = await Cls.create({ name: "ZZ Party Outside", type: "character", flags }, { abNoStatusCard: true });
     // Leg 8: persons in the Party folder are members; a monster is not.
-    const pNpc = await Cls.create({ name: "ZZ Party Npc", type: "npc", folder, flags, system: { role: "npc" } }, { abNoStatusCard: true });
-    const pHire = await Cls.create({ name: "ZZ Party Hired", type: "hireling", folder, flags }, { abNoStatusCard: true });
+    // Leg 9: a stack whose open unit is empty still holds one full unit.
+    const pNpc = await Cls.create({
+      name: "ZZ Party Npc", type: "npc", folder, flags, system: { role: "npc" },
+      items: [{ name: "Rations", type: "item", system: { quantity: 2, uses: { value: 0, max: 3 } } }],
+    }, { abNoStatusCard: true });
+    // Leg 10: a lit light whose name carries an apostrophe.
+    const pHire = await Cls.create({
+      name: "ZZ Party Hired", type: "hireling", folder, flags,
+      items: [{ name: "ZZ Miner's Lantern", type: "item", system: { equipped: true } }],
+    }, { abNoStatusCard: true });
     const pMon = await Cls.create({ name: "ZZ Party Monster", type: "npc", folder, flags, system: { role: "monster" } }, { abNoStatusCard: true });
     const kid = (name, type, system) => Cls.create({ name, type, flags, system: { ...system, connectedTo: a.uuid } });
     await kid("ZZ Party Hireling", "hireling", {});
@@ -170,6 +191,8 @@ try {
         return /game-icons\/fire\/([a-z-]+)\.svg/.exec(mask)?.[1] ?? "";
       })(),
       putOut: !!tr.querySelector('[data-col="light"] button[data-action="putOutLight"]'),
+      lightAria: tr.querySelector('[data-col="light"] .cairn-party-light')?.getAttribute("aria-label") ?? null,
+      lightTip: tr.querySelector('[data-col="light"] .cairn-party-light')?.dataset.tooltip ?? null,
       boxed: { fatigue: !!tr.querySelector('[data-col="fatigue"] .cairn-party-box'), rations: !!tr.querySelector('[data-col="rations"] .cairn-party-box') },
       note: tr.querySelector('[data-col="notes"] input')?.value ?? null,
     }));
@@ -249,6 +272,22 @@ try {
       JSON.stringify({ a: rowA.lightIcon, b: rowB.lightIcon }));
     check(rowA.putOut && !rowB.putOut, "a lit light is a button; an unlit one is not",
       JSON.stringify({ a: rowA.putOut, b: rowB.putOut }));
+
+    /* --- 9. a stack of Rations counts its unopened units (review #36 S22) --- */
+    const rowNpc = rows.find((r) => r.id === setup.npc);
+    check(rowC?.cells.rations === "4", "a Rations stack of 2 at 1/3 reads four meals", `rations="${rowC?.cells.rations}"`);
+    check(rowNpc?.cells.rations === "3" && rowNpc.tones.rations === "" && !rowNpc.boxed.rations,
+      "a Rations stack of 2 at 0/3 reads a plain 3, not the red 0",
+      JSON.stringify(rowNpc ? { rations: rowNpc.cells.rations, tone: rowNpc.tones.rations, boxed: rowNpc.boxed.rations } : null));
+
+    /* --- 10. the lit light's aria-label is plain text (review #36 S17) ------ */
+    const rowHired = rows.find((r) => r.id === setup.hired);
+    check(rowHired?.putOut && rowHired.held === "ZZ Miner's Lantern", "the Party hireling holds the planted lantern",
+      JSON.stringify(rowHired ? { putOut: rowHired.putOut, held: rowHired.held } : null));
+    check(!!rowHired?.lightAria?.includes("ZZ Miner's Lantern") && !/&#?\w+;/.test(rowHired.lightAria),
+      "the lit light's aria-label carries the apostrophe, no entity", JSON.stringify(rowHired?.lightAria ?? null));
+    check(!!rowHired?.lightTip?.includes("ZZ Miner&#x27;s Lantern"),
+      "its tooltip, which core draws as HTML, keeps the escaped name", JSON.stringify(rowHired?.lightTip ?? null));
   }
 
   /* --- 8. the Warden puts a light out -------------------------------------- */
@@ -369,6 +408,38 @@ try {
     return cell();
   }, setup.a);
   check(live === "1/4", "an HP write redraws the row", `hp="${live}"`);
+
+  /* --- 11. one focusout listener per frame (review #36 S8) ----------------- */
+  // A listener count can't be read in-page, so count what the listeners DO:
+  // each one asks for a render when one is waiting on a focused note. Bound
+  // in `_onRender`, the three renders here stack three more of them.
+  const blurred = await gm.evaluate(async (a) => {
+    const app = foundry.applications.instances.get("cairn-party-sheet");
+    if (!app) return { error: "no Party sheet" };
+    for (let i = 0; i < 3; i++) await app.render();
+    const input = app.element.querySelector(`tr[data-actor-id="${a}"] [data-col="notes"] input`);
+    if (!input) return { error: "no notes input" };
+    input.focus();
+    const focused = app.element.ownerDocument.activeElement === input;
+    // The real queueRender, with a note focused: it parks the render for blur.
+    const real = app.queueRender;
+    real();
+    await new Promise((r) => setTimeout(r, 400));
+    let calls = 0;
+    app.queueRender = () => { calls++; };
+    try {
+      input.dispatchEvent(new FocusEvent("focusout", { bubbles: true }));
+    } finally {
+      app.queueRender = real;
+    }
+    // Leave as found: the blur runs the parked render.
+    input.blur();
+    await new Promise((r) => setTimeout(r, 600));
+    return { focused, calls };
+  }, setup.a);
+  check(blurred.focused, "the note input took focus for the blur leg", blurred.error ?? "");
+  check(blurred.calls === 1, "one focusout asks for one render, however many renders came before",
+    blurred.error ?? `calls=${blurred.calls}`);
 
   /* --- 5. the ways in ----------------------------------------------------- */
   const ways = await gm.evaluate(async () => {

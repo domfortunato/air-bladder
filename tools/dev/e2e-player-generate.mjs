@@ -1089,7 +1089,7 @@ try {
     const want = game.i18n.localize("CAIRN.Notify.PcGenDisabled");
     const warned = [];
     const realWarn = ui.notifications.warn;
-    ui.notifications.warn = function (m, ...rest) { warned.push(String(m)); return realWarn.call(this, m, ...rest); };
+    ui.notifications.warn = function (m, ...rest) { warned.push(rest[0]?.format ? game.i18n.format(String(m), rest[0].format) : String(m)); return realWarn.call(this, m, ...rest); };
     let dlg = null, result = null;
     try {
       const pending = cg.createActorInteractive("character");

@@ -130,6 +130,12 @@
  *      outside it, right below, in the badges' label face (not level with
  *      them: the user's pick, page 1 has 8px to spare); a badge either side;
  *      light and dark.
+ *  26. (review #36 S3) HP −, an ability's − and a row's use −, each pressed
+ *      twice in one tick, take two off: presses are queued, so the second
+ *      reads the number after the first has landed.
+ *  27. (review #36 S4) HP +, an ability's + and the shield badge, focused and
+ *      pressed, are still the focused element after the re-render (each has
+ *      an id core's focus restore can record).
  *
  * Red-first: run against the commit before the redesign, every leg but 8 and
  * 10 fails (no rail, no growth page, no growth field).
@@ -1469,6 +1475,91 @@ try {
     return out;
   }, FIXTURE);
 
+  /* ---- 26-27. quick presses all count; a pressed control keeps focus ---- */
+  // (review #36 S3, S4.) Two presses in ONE tick, so the second is made before
+  // the first write can have come back whatever the server's latency. A
+  // character of its own; every card its presses post is deleted by id
+  // difference.
+  r.steps = await gm.evaluate(async (fixture) => {
+    const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
+    const until = async (fn, ms = 5000) => {
+      const t = Date.now();
+      while (!fn() && Date.now() - t < ms) await sleep(100);
+      return fn();
+    };
+    const out = {};
+    const before = new Set(game.messages.map((m) => m.id));
+    let a = null;
+    try {
+      a = await getDocumentClass("Actor").create({
+        name: "ZZ Rail Steps PC", type: "character",
+        system: { hp: { value: 5, max: 6 }, abilities: { STR: { value: 9, max: 12 } } },
+        items: [
+          { name: "ZZ Rail Steps Flask", type: "item", system: { uses: { value: 3, max: 3 } } },
+          { name: "ZZ Rail Steps Shield", type: "armor", system: { armor: 1, shield: true, equipped: false } },
+        ],
+        flags: { "air-bladder": { probeFixture: fixture } },
+      }, { abNoStatusCard: true });
+      const flask = a.items.find((i) => i.type === "item");
+      const shield = a.items.find((i) => i.type === "armor");
+      const s = a.sheet;
+      await s.render(true);
+      await until(() => s.element?.querySelector('[data-action="hpDown"]'));
+      await sleep(500);
+      const q = (sel) => s.element.querySelector(sel);
+      const hp = () => a._source.system.hp.value;
+      const str = () => a._source.system.abilities.STR.value;
+      const uses = () => flask._source.system.uses.value;
+      out.pre = { hp: hp(), str: str(), uses: uses() };
+
+      // 26. Two presses, one tick: each must count.
+      const twice = async (sel, read, want) => {
+        const b = q(sel);
+        if (!b || b.disabled) return { missing: true };
+        b.click();
+        b.click();
+        await until(() => read() === want, 4000);
+        await sleep(500);
+        return { got: read(), want };
+      };
+      out.hpTwice = await twice('[data-action="hpDown"]', hp, 3);
+      out.strTwice = await twice('.STR-ability [data-action="abilityDown"]', str, 7);
+      out.usesTwice = await twice(`[data-item-id="${flask.id}"] [data-action="itemRemoveUse"]`, uses, 1);
+
+      // 27. A focused control is still the focused control after its press
+      // re-renders the page. Never stepped onto a bound: a disabled button
+      // can't take focus back.
+      const keeps = async (sel, done) => {
+        const b = q(sel);
+        if (!b || b.disabled) return { missing: true };
+        b.focus();
+        const res = { focusedBefore: document.activeElement === b };
+        b.click();
+        await until(done, 4000);
+        await until(() => { const n = q(sel); return !!n && n !== b; }, 4000);
+        await sleep(400);
+        const n = q(sel);
+        // A NEW node, or focus trivially "survives" a render that replaced nothing.
+        res.rebuilt = !!n && n !== b;
+        res.focusedAfter = !!n && document.activeElement === n;
+        res.active = document.activeElement?.id || document.activeElement?.tagName || null;
+        return res;
+      };
+      const hpWas = hp(), strWas = str();
+      out.hpFocus = await keeps('[data-action="hpUp"]', () => hp() === hpWas + 1);
+      out.strFocus = await keeps('.STR-ability [data-action="abilityUp"]', () => str() === strWas + 1);
+      out.holdFocus = await keeps('[data-action="toggleHold"][data-hold="shield"]', () => shield._source.system.equipped === true);
+      await s.close();
+    } catch (e) {
+      out.error = `${e.name}: ${e.message}`;
+    } finally {
+      for (const m of game.messages.contents.filter((x) => !before.has(x.id) && x.speaker?.actor === a?.id)) {
+        try { await m.delete(); } catch { /* gone */ }
+      }
+    }
+    return out;
+  }, FIXTURE);
+
   /* ---- 9-10. a player's view ------------------------------------------- */
   if (r?.aliceId) {
     const alice = await browser.newContext({ viewport: VIEWPORT }).then((c) => c.newPage());
@@ -1933,6 +2024,25 @@ else {
   r.roles?.container?.reset?.group === "character" && r.roles.container.reset.active === "character"
     ? ok("a thing remembering a Description page lands on page 1")
     : fail(`thing reset: ${JSON.stringify(r.roles?.container?.reset)}`);
+
+  // 26-27 (review #36 S3, S4)
+  {
+    const s = r.steps ?? {};
+    if (s.error) fail(`the step legs threw: ${s.error}`);
+    s.pre?.hp === 5 && s.pre.str === 9 && s.pre.uses === 3
+      ? ok("precondition: a character at HP 5, STR 9 and a flask with 3 uses")
+      : fail(`step fixtures: ${JSON.stringify(s.pre)}`);
+    for (const [label, x] of [["HP −", s.hpTwice], ["STR −", s.strTwice], ["a row's use −", s.usesTwice]]) {
+      x && !x.missing && x.got === x.want
+        ? ok(`${label} pressed twice in one tick takes two off (${x.got})`)
+        : fail(`${label} pressed twice in one tick: ${JSON.stringify(x)} — a press read the number before the one before it had landed`);
+    }
+    for (const [label, x] of [["HP +", s.hpFocus], ["STR +", s.strFocus], ["the shield badge", s.holdFocus]]) {
+      x && !x.missing && x.focusedBefore && x.rebuilt && x.focusedAfter
+        ? ok(`${label} keeps focus through the re-render its press causes`)
+        : fail(`${label} focus: ${JSON.stringify(x)} — a second Enter would do nothing`);
+    }
+  }
 
   // 9-10
   if (!r.aliceId) fail('no user named "Alice" — run `npm run dev:players` first; the player legs did not run');

@@ -63,6 +63,21 @@
  *      row's broken-shield icon is centred on the same line as the trash can
  *      beside it: their vertical centres within 1px.
  *
+ * Added by review #36:
+ *  18. (S12) an item CREATED broken and equipped (createEmbeddedDocuments) is
+ *      stored unequipped: `_preCreate` reads the source, not the derived
+ *      `system.equipped` prepareData has already forced false;
+ *  19. (S12) leg 8's inline items, stored broken AND equipped, do not spring
+ *      back equipped when repaired; a repair that asks to equip in the same
+ *      write still equips;
+ *  20. (S7) the item sheet's Broken box writes the state it ASKED about: with
+ *      "Mark broken?" standing, the item is broken from elsewhere, and Yes
+ *      leaves it broken (it used to repair it), on a world item and an owned
+ *      one; an item deleted while the question stood is not written at all;
+ *  21. (S6) the portrait of an item that cannot be edited opens no art
+ *      picker and says why: a locked compendium's item names the pack (read
+ *      only, nothing written), and an observing player's names the item.
+ *
  * Usage: npm run dev:broken
  */
 import { chromium } from "playwright";
@@ -246,6 +261,32 @@ try {
       axeRoll: !!row2("ZZ Old Axe")?.querySelector('[data-action="rollDamage"]'),
     };
     await s2.close();
+
+    // 18 (review #36 S12). Created broken AND equipped through the item's own
+    // create: _preCreate must strip the STORED flag. Read by the id returned.
+    {
+      const [made] = await pc2.createEmbeddedDocuments("Item", [
+        { name: "ZZ New Helm", type: "armor", system: { armor: 1, equipped: true, broken: true } },
+      ]);
+      out.createdBroken = { broken: made?._source.system.broken ?? null, stored: made?._source.system.equipped ?? null };
+    }
+    // 19 (review #36 S12). Leg 8's inline items are STORED broken + equipped
+    // (asserted there). Repairing one must not equip it; a repair that itself
+    // asks to equip still does.
+    {
+      const mail = pc2.items.find((i) => i.name === "ZZ Old Mail");
+      const axe = pc2.items.find((i) => i.name === "ZZ Old Axe");
+      const pre = { mail: mail?._source.system.equipped ?? null, axe: axe?._source.system.equipped ?? null };
+      await mail.update({ "system.broken": false });
+      await until(() => mail._source.system.broken === false, 3000);
+      await axe.update({ "system.broken": false, "system.equipped": true });
+      await until(() => axe._source.system.broken === false, 3000);
+      out.repairedInline = {
+        pre,
+        mail: { stored: mail._source.system.equipped, read: mail.system.equipped },
+        axe: { stored: axe._source.system.equipped, read: axe.system.equipped },
+      };
+    }
 
     // 9. Stacking (review #35): a broken item and an intact one of the same
     // name and type are not one stack, either way round; two intact are.
@@ -458,6 +499,101 @@ try {
         out.sheetYes = await tick("yes");
         await sh.close();
       }
+      // 20 (review #36 S7). The box writes the state it ASKED about. With
+      // "Mark broken?" standing, the item is broken from elsewhere (what a
+      // second client's write does to this page's document); Yes must leave
+      // it broken. On a world item (no parent) and an owned one. Then: an
+      // item deleted while the question stood is not written at all.
+      {
+        const openAsk = async (it) => {
+          const sh = it.sheet;
+          await sh.render(true);
+          await until(() => sh.element?.querySelector?.('input[name="system.broken"]'));
+          await sleep(300);
+          const stale = new Set(document.querySelectorAll(".application.dialog"));
+          sh.element.querySelector('input[name="system.broken"]')?.click();
+          let d = null;
+          await until(() => (d = [...document.querySelectorAll(".application.dialog")].find((x) => !stale.has(x))), 3000);
+          await sleep(200);
+          return { sh, d, question: d?.querySelector(".cairn-confirm-q")?.textContent.trim() ?? null };
+        };
+        const flipped = async (it) => {
+          const was = it._source.system.broken;
+          const { sh, d, question } = await openAsk(it);
+          await it.update({ "system.broken": true });
+          await until(() => it._source.system.broken === true, 3000);
+          d?.querySelector("button[data-action='yes']")?.click();
+          await until(() => !d?.isConnected, 3000);
+          await sleep(900);
+          const res = { was, asked: !!d, question, want: game.i18n.format("CAIRN.ItemBrokenConfirm", { name: it.name }),
+            stored: it._source.system.broken ?? null };
+          await sh.close();
+          return res;
+        };
+        const world = await getDocumentClass("Item").create({ name: "ZZ Asked World", type: "item", flags });
+        const [owned] = await actors.npc.createEmbeddedDocuments("Item", [{ name: "ZZ Asked Owned", type: "item" }]);
+        out.asked = { world: await flipped(world), owned: await flipped(owned) };
+        // Deleted while the question stood: Yes must not write (a write to a
+        // document that is gone rejects, unhandled, inside the listener).
+        const [gone] = await actors.npc.createEmbeddedDocuments("Item", [{ name: "ZZ Asked Gone", type: "item" }]);
+        const rejections = [];
+        const onReject = (ev) => { rejections.push(String(ev.reason?.message ?? ev.reason)); ev.preventDefault(); };
+        const origUpdate = gone.update;
+        let writes = 0;
+        // Counted on this ONE planted item, in-page; the call still goes through.
+        gone.update = function (...a) { writes++; return origUpdate.apply(this, a); };
+        window.addEventListener("unhandledrejection", onReject);
+        try {
+          const { d } = await openAsk(gone);
+          await gone.delete();
+          await until(() => !actors.npc.items.get(gone.id), 3000);
+          d?.querySelector("button[data-action='yes']")?.click();
+          await until(() => !d?.isConnected, 3000);
+          await sleep(900);
+          out.askedGone = { asked: !!d, deleted: !actors.npc.items.get(gone.id), writes, rejections };
+        } finally {
+          window.removeEventListener("unhandledrejection", onReject);
+          delete gone.update;
+        }
+      }
+      // 21 (review #36 S6), the locked-compendium half: READ ONLY. A shipped
+      // item's sheet is not editable; its portrait must open no picker and
+      // name the locked pack. Nothing is written and the pack is not touched.
+      {
+        const pack = game.packs.find((p) => p.documentName === "Item" && p.locked
+          && p.metadata.packageName === "air-bladder" && p.index.size);
+        const doc = pack ? await pack.getDocument(pack.index.contents[0]._id) : null;
+        out.lockedArt = { pack: pack?.collection ?? null };
+        if (doc) {
+          const sh = doc.sheet;
+          await sh.render(true);
+          await until(() => sh.element?.querySelector?.('[data-action="editImage"]'));
+          await sleep(300);
+          const warns = [];
+          const notes = ui.notifications;
+          const hadOwn = Object.hasOwn(notes, "warn");
+          const origWarn = notes.warn;
+          notes.warn = function (m, ...rest) { warns.push(String(m)); return origWarn.call(this, m, ...rest); };
+          const stale = new Set(document.querySelectorAll(".application.dialog"));
+          let dlg = null;
+          try {
+            const img = sh.element.querySelector('[data-action="editImage"]');
+            img?.click();
+            await until(() => warns.length || (dlg = [...document.querySelectorAll(".application.dialog")].find((x) => !stale.has(x))), 5000);
+            await sleep(500);
+            dlg = [...document.querySelectorAll(".application.dialog")].find((x) => !stale.has(x)) ?? null;
+            Object.assign(out.lockedArt, {
+              control: !!img, editable: sh.isEditable, picker: !!dlg, warns,
+              want: game.i18n.format("CAIRN.Notify.PackLocked", { pack: pack.title ?? pack.collection }),
+            });
+          } finally {
+            if (hadOwn) notes.warn = origWarn; else delete notes.warn;
+            dlg?.querySelector('header [data-action="close"]')?.click();
+            await sleep(200);
+            await sh.close();
+          }
+        }
+      }
       out.confirmWant = {
         markTitle: L("CAIRN.ItemMarkBroken"), repairTitle: L("CAIRN.ItemMarkRepaired"), tip: L("CAIRN.ItemBrokenTip"),
         bladeQ: game.i18n.format("CAIRN.ItemBrokenConfirm", { name: "ZZ Row Blade" }),
@@ -505,6 +641,35 @@ try {
         await sleep(1500);
         const res = { editable: s.isEditable, drawn, row: !!row };
         await s.close();
+        // 21 (review #36 S6), the observer half: the item's own sheet. Its
+        // portrait must open no art picker and say she may not edit it.
+        const item = a.items.get(itemId);
+        if (item) {
+          const sh = item.sheet;
+          await sh.render(true);
+          for (let i = 0; i < 40 && !sh.element?.querySelector?.('[data-action="editImage"]'); i++) await sleep(150);
+          await sleep(300);
+          const warns = [];
+          const notes = ui.notifications;
+          const hadOwn = Object.hasOwn(notes, "warn");
+          const origWarn = notes.warn;
+          notes.warn = function (m, ...rest) { warns.push(String(m)); return origWarn.call(this, m, ...rest); };
+          const stale = new Set(document.querySelectorAll(".application.dialog"));
+          const fresh = () => [...document.querySelectorAll(".application.dialog")].find((x) => !stale.has(x)) ?? null;
+          try {
+            const img = sh.element.querySelector('[data-action="editImage"]');
+            img?.click();
+            for (let i = 0; i < 50 && !warns.length && !fresh(); i++) await sleep(100);
+            await sleep(500);
+            res.art = { control: !!img, editable: sh.isEditable, picker: !!fresh(), warns,
+              want: game.i18n.format("CAIRN.Notify.NotEditable", { name: item.name }) };
+          } finally {
+            if (hadOwn) notes.warn = origWarn; else delete notes.warn;
+            fresh()?.querySelector('header [data-action="close"]')?.click();
+            await sleep(200);
+            await sh.close();
+          }
+        }
         return res;
       }, { actorId: r.observedId, itemId: r.observedItem });
       r.observer.broken = await gm.evaluate(({ actorId, itemId }) =>
@@ -632,6 +797,47 @@ else {
     !o.error && o.row && o.editable === false && typeof r.observedBefore === "boolean" && o.broken === r.observedBefore
       ? ok(`an observing player's press writes nothing (control ${o.drawn ? "drawn" : "forced in"})`)
       : fail(`observer press: ${JSON.stringify(o)}`);
+    // 21, the observer half
+    const oa = o.art ?? {};
+    oa.control && oa.editable === false && oa.picker === false && oa.warns?.length === 1 && oa.warns[0] === oa.want
+      ? ok(`an observing player's click on an item's picture opens no art picker and says "${oa.want}"`)
+      : fail(`observer's item picture: ${JSON.stringify(oa)}`);
+  }
+  // 18
+  {
+    const c = r.createdBroken ?? {};
+    c.broken === true && c.stored === false
+      ? ok("an item created broken and equipped is stored unequipped")
+      : fail(`created broken + equipped: ${JSON.stringify(c)} (want stored equipped false)`);
+  }
+  // 19
+  {
+    const ri = r.repairedInline ?? {};
+    ri.pre?.mail === true && ri.pre?.axe === true
+      && ri.mail?.stored === false && ri.mail?.read === false && ri.axe?.stored === true && ri.axe?.read === true
+      ? ok("an item stored broken and equipped is repaired unequipped; a repair that asks to equip still equips")
+      : fail(`repairing a stored broken + equipped item: ${JSON.stringify(ri)}`);
+  }
+  // 20
+  {
+    for (const where of ["world", "owned"]) {
+      const a = r.asked?.[where] ?? {};
+      a.was === false && a.asked && a.question === a.want && a.stored === true
+        ? ok(`${where} item: broken from elsewhere while "${a.want}" stood, Yes leaves it broken`)
+        : fail(`${where} item, the Broken box's answer after an outside write: ${JSON.stringify(a)}`);
+    }
+    const g = r.askedGone ?? {};
+    g.asked && g.deleted && g.writes === 0 && g.rejections?.length === 0
+      ? ok("an item deleted while the Broken question stood is not written")
+      : fail(`Broken box on a deleted item: ${JSON.stringify(g)}`);
+  }
+  // 21, the locked-compendium half
+  {
+    const la = r.lockedArt ?? {};
+    if (!la.pack) fail("no locked Air Bladder item compendium to open an item from — the locked-picture leg did not run");
+    else la.control && la.editable === false && la.picker === false && la.warns?.length === 1 && la.warns[0] === la.want
+      ? ok(`a locked compendium item's picture opens no art picker and says "${la.want}"`)
+      : fail(`locked compendium item's picture (${la.pack}): ${JSON.stringify(la)}`);
   }
 }
 errors.length === 0 ? ok("no console errors") : fail(`console errors: ${errors.join(" | ")}`);

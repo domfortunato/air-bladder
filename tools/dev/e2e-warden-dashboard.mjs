@@ -526,17 +526,20 @@ try {
     };
   });
 
-  // Re-read the default after the render above, which is what a Warden opening
-  // the window gets. Set separately from the leg that changes it, or the two
-  // assertions would be one.
+  // Re-read the default on a window OPENED AFRESH, which is what a Warden
+  // opening it gets: closed and opened again, because since review #36 a
+  // re-render of the open window KEEPS the Warden's choice (leg 12), so a bare
+  // `render()` here would read back the "blind" set above. Set separately from
+  // the leg that changes it, or the two assertions would be one.
   const openedMode = await page.evaluate(async () => {
     const app = foundry.applications.instances.get("cairn-warden-dashboard");
-    await app.render();
+    await app.close();
+    await app.render({ force: true });
     return app.element.querySelector("[name=messageMode]").value;
   });
 
   openedMode === "gm"
-    ? ok("a freshly rendered dashboard opens Private to Gamemasters")
+    ? ok("a freshly opened dashboard opens Private to Gamemasters")
     : fail("the dashboard opens on the wrong visibility", `"${openedMode}"`);
 
   freshMode.rows === 1 && freshMode.aboveTabs && freshMode.afterSwitch === "blind"
@@ -1474,6 +1477,91 @@ try {
   } finally {
     await alice.context().close();
   }
+
+  /* ---- 12. the tool, clicked again, keeps the Warden's visibility -------
+   * (review #36 S9). The Token-controls tool on an OPEN window is how a Warden
+   * brings a buried Dashboard forward, and it renders both parts: the body's
+   * template stamps `selected` on the default, so the dropdown went back to
+   * Private and the next rolls were whispered. "public", not "gm": a leg that
+   * set the default would pass on the render that threw the choice away.
+   * -------------------------------------------------------------------- */
+  const reopened = await page.evaluate(async () => {
+    const wd = await import("/systems/air-bladder/module/warden-dashboard.js");
+    await wd.openWardenDashboard();
+    const app = foundry.applications.instances.get("cairn-warden-dashboard");
+    const select = () => app.element.querySelector("[name=messageMode]");
+    const was = select().value;
+    select().value = "public";
+    const stale = select();
+    await wd.openWardenDashboard();
+    await new Promise((r) => setTimeout(r, 300));
+    const out = { was, after: select().value, redrawn: select() !== stale };
+    select().value = was;
+    return out;
+  });
+  reopened.redrawn
+    ? ok("precondition: the tool on an open Dashboard redraws its body")
+    : fail("precondition: the tool no longer redraws the body, so leg 12 proves nothing", JSON.stringify(reopened));
+  reopened.after === "public"
+    ? ok("the Dashboard tool, clicked on an open window, keeps the Warden's visibility choice (review #36)")
+    : fail("the Dashboard tool reset the visibility dropdown", `it now reads "${reopened.after}"`);
+
+  /* ---- 13. Your Tables follows the world's tables ------------------------
+   * (review #36 S9). The list was read off `game.tables` only when the body
+   * rendered, and nothing rendered it: a table made, renamed or deleted with
+   * the window open left a stale button. The planted table is stamped, held
+   * by ID, and its button is looked up by the name THAT document carries, a
+   * name no other world table has (checked). The dropdown rides along on a
+   * non-default value: the body renders three times here and must keep it.
+   * -------------------------------------------------------------------- */
+  const yoursLive = await page.evaluate(async () => {
+    const app = foundry.applications.instances.get("cairn-warden-dashboard");
+    const select = () => app.element.querySelector("[name=messageMode]");
+    const was = select().value;
+    select().value = "public";
+    const had = new Set(game.tables.contents.map((t) => t.id));
+    const token = foundry.utils.randomID(8);
+    const button = (name) => [...app.element.querySelectorAll('button[data-action="rollTable"]')]
+      .some((b) => b.dataset.table === name);
+    const until = async (test) => {
+      for (let i = 0; i < 50 && !test(); i++) await new Promise((r) => setTimeout(r, 100));
+      return test();
+    };
+    const out = {};
+    let table = null;
+    try {
+      await RollTable.create({
+        name: `ZZ Dashboard Yours ${token}`, formula: "1d1",
+        flags: { "air-bladder": { probeFixture: "warden-dashboard" } },
+        results: [{ type: "text", description: "ZZ Yours Row", range: [1, 1] }],
+      });
+      table = game.tables.contents.find((t) => !had.has(t.id)) ?? null;
+      if (!table) return { error: "the planted table was not created" };
+      const first = table.name;
+      out.unique = game.tables.filter((t) => t.name === first).length === 1;
+      out.listed = await until(() => button(first));
+      await table.update({ name: `ZZ Dashboard Renamed ${token}` });
+      out.renamed = await until(() => button(table.name) && !button(first));
+      const last = table.name;
+      await table.delete();
+      table = null;
+      out.gone = await until(() => !button(last));
+      out.mode = select().value;
+    } finally {
+      if (table && game.tables.has(table.id)) await table.delete();
+      select().value = was;
+    }
+    return out;
+  });
+  yoursLive.unique && yoursLive.listed
+    ? ok("a world table made with the Dashboard open appears on Your Tables (review #36)")
+    : fail("Your Tables did not list a table made while the window was open", JSON.stringify(yoursLive));
+  yoursLive.renamed && yoursLive.gone
+    ? ok("...its button follows a rename, and goes when the table is deleted")
+    : fail("Your Tables kept a stale button", JSON.stringify(yoursLive));
+  yoursLive.mode === "public"
+    ? ok("...and those redraws of the body keep the Warden's visibility choice")
+    : fail("a Your Tables redraw reset the visibility dropdown", `it now reads "${yoursLive.mode}"`);
 
   /* ---- cleanup --------------------------------------------------------- */
 

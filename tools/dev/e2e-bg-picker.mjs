@@ -259,6 +259,79 @@ try {
       await game.settings.set(NS, "content-source-custom", customWas);
     }
 
+    // 3d. THE DESCRIPTION PANEL IS CLEANED, AND CHOOSE ANSWERS ONLY FROM ITS
+    //     OWN LIST (review #36 S34). A background's description is stored
+    //     HTML, and the server's cleaner keeps <input name> and
+    //     <button data-action>. Written raw into the panel, which sits inside
+    //     the dialog's form, a checked radio named "bg" took the check from
+    //     the row the reader clicked and Choose resolved whatever uuid it
+    //     carried. Planted IN-PAGE, nothing is written: the pack hands the
+    //     chosen background back with the description changed on the client's
+    //     copy only, and the finally puts back what it read.
+    const inject = {};
+    {
+      const pool3d = (await gen.getBackgroundsByArchetype("2e")).flatMap((g) => g.backgrounds);
+      const victim3d = pool3d.find((b) => b.uuid !== actor.system.backgroundUuid && !gen.isBackgroundDisabled(b));
+      const pack3d = game.packs.get(victim3d.pack);
+      const descWas = victim3d.system.description;
+      const planted = `<p>zz-probe-3d</p><input type="radio" name="bg" value="${actor.uuid}" checked>`
+        + "<button type=\"button\" data-action=\"cancel\">y</button>";
+      const touched = new Set();
+      const plant = (doc) => {
+        if (doc?.id === victim3d.id) { doc.updateSource({ "system.description": planted }); touched.add(doc); }
+        return doc;
+      };
+      const wrapped = {
+        get: (...a) => plant(Object.getPrototypeOf(pack3d).get.apply(pack3d, a)),
+        getDocument: async (...a) => plant(await Object.getPrototypeOf(pack3d).getDocument.apply(pack3d, a)),
+        getDocuments: async (...a) => {
+          const docs = await Object.getPrototypeOf(pack3d).getDocuments.apply(pack3d, a);
+          docs.forEach(plant);
+          return docs;
+        },
+      };
+      const chooseBtn = () => document.querySelector(".bg-picker")?.closest(".application")
+        ?.querySelector('.form-footer button[data-action="choose"], footer button[data-action="choose"]');
+      try {
+        Object.assign(pack3d, wrapped);
+        // The reader clicks the planted row, then Choose.
+        const pickI = gen.promptBackground("2e", actor.system.backgroundUuid);
+        await waitFor(() => document.querySelector(".bg-picker"));
+        const rootI = document.querySelector(".bg-picker");
+        const radioI = rootI?.querySelector(`.bg-pick-list input[name="bg"][value="${victim3d.uuid}"]`);
+        radioI?.click();
+        const panelI = rootI?.querySelector(".bg-pick-desc");
+        inject.rowFound = !!radioI;
+        // The plant reached the panel at all: its visible text is there.
+        inject.panelShowsPlant = (panelI?.textContent ?? "").includes("zz-probe-3d");
+        inject.namedInPanel = panelI?.querySelectorAll("[name]").length ?? -1;
+        inject.actionsInPanel = panelI?.querySelectorAll("[data-action]").length ?? -1;
+        inject.formValueIsRow = rootI?.closest("form")?.elements?.bg?.value === victim3d.uuid;
+        chooseBtn()?.click();
+        const gotI = await pickI;
+        inject.choseTheRow = !!gotI && gotI.bg?.uuid === victim3d.uuid;
+        await pickerGone("3d");
+
+        // A value that is on no row, by any other route: Choose must not
+        // resolve it. The live radio's value is pointed at the ACTOR.
+        const pickJ = gen.promptBackground("2e", actor.system.backgroundUuid);
+        await waitFor(() => document.querySelector(".bg-picker"));
+        const radioJ = document.querySelector(`.bg-picker .bg-pick-list input[name="bg"][value="${victim3d.uuid}"]`);
+        if (radioJ) { radioJ.value = actor.uuid; radioJ.checked = true; }
+        chooseBtn()?.click();
+        const gotJ = await pickJ;
+        inject.offListRefused = !!radioJ && gotJ === false;
+        await pickerGone("3d (off-list value)");
+      } finally {
+        for (const k of Object.keys(wrapped)) delete pack3d[k];
+        for (const doc of touched) doc.updateSource({ "system.description": descWas });
+        // A leg that threw must not leave its picker open for the next.
+        document.querySelector(".bg-picker")?.closest(".application")
+          ?.querySelector('footer button[data-action="cancel"]')?.click();
+      }
+      inject.restored = [...touched].every((d) => d.system.description === descWas) && touched.size > 0;
+    }
+
     // 4. The surgical swap. The character starts as a FIELDWARDEN on purpose:
     //    its "Roll a second time on the Bonds table" prose entitles TWO bonds
     //    (the book rule), and Kettlewright entitles one — so this swap is also
@@ -531,7 +604,7 @@ try {
     await sheet.close();
 
     for (const a of made) { try { await a.delete(); } catch { /* already gone */ } }
-    return { grouping, tagline, dialogInfo, disable, swap, containers, randomRepeated: repeated, bbSwap, mundane, bbDialog, bondRace };
+    return { grouping, tagline, dialogInfo, disable, inject, swap, containers, randomRepeated: repeated, bbSwap, mundane, bbDialog, bondRace };
   });
 
   if (r.error) {
@@ -588,6 +661,20 @@ try {
     E.currentOffRandomChecked && E.currentOffRadiosDrawn
       ? ok("a disabled CURRENT background falls back to Random checked, radios drawn")
       : fail(`current-disabled first render: randomChecked=${E.currentOffRandomChecked}, radiosDrawn=${E.currentOffRadiosDrawn}`);
+    const J = r.inject ?? {};
+    J.rowFound && J.panelShowsPlant
+      ? ok("a description carrying a named radio and an action button reaches the panel (planted in-page)")
+      : fail(`the injection leg is vacuous: ${JSON.stringify(J)}`);
+    J.namedInPanel === 0 && J.actionsInPanel === 0
+      ? ok("the description panel holds no named control and no data-action (review #36 S34)")
+      : fail(`the description panel kept ${J.namedInPanel} named control(s) and ${J.actionsInPanel} data-action(s) from a background's description`);
+    J.formValueIsRow && J.choseTheRow
+      ? ok("the clicked row keeps the check, and Choose answers with it")
+      : fail(`a radio in the description took the choice: formValueIsRow=${J.formValueIsRow}, choseTheRow=${J.choseTheRow}`);
+    J.offListRefused
+      ? ok("a value that is on no row is not resolved: Choose answers false")
+      : fail("Choose resolved a uuid that is on none of the picker's rows");
+    J.restored ? ok("the planted description is put back on the client's copy") : fail("the planted description was not restored");
 
     const S = r.swap;
     S.uuidLinked ? ok(`swapped to ${S.background}, linked by uuid`) : fail("swap did not relink the background uuid");

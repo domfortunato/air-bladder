@@ -519,7 +519,7 @@ const drag = await page.evaluate(async () => {
   // Cross-bucket: the enemy row dropped into the first bucket refuses.
   const warned = [];
   const origWarn = ui.notifications.warn;
-  ui.notifications.warn = (m, ...rest) => { warned.push(String(m)); return origWarn.call(ui.notifications, m, ...rest); };
+  ui.notifications.warn = (m, ...rest) => { warned.push(rest[0]?.format ? game.i18n.format(String(m), rest[0].format) : String(m)); return origWarn.call(ui.notifications, m, ...rest); };
   const snapshot = () => JSON.stringify(combat.turns.map(
     (c) => `${c.name}:${c.initiative}:${c.flags?.["air-bladder"]?.combatSort ?? ""}`));
   const beforeCross = snapshot();

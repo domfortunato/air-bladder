@@ -266,7 +266,7 @@ try {
       await new Promise((r) => setTimeout(r, 900));
       const notices = [];
       const orig = ui.notifications.warn.bind(ui.notifications);
-      ui.notifications.warn = (m, ...a) => { notices.push(m); return orig(m, ...a); };
+      ui.notifications.warn = (m, ...a) => { notices.push(a[0]?.format ? game.i18n.format(String(m), a[0].format) : m); return orig(m, ...a); };
       const dt = new DataTransfer();
       dt.setData("text/plain", JSON.stringify({ type: "Item", uuid }));
       try { await pile.sheet._onDrop(new DragEvent("drop", { dataTransfer: dt })); }
@@ -401,7 +401,7 @@ try {
     // container, which is the case the hidden header cannot cover.
     const notices = [];
     const orig = ui.notifications.warn.bind(ui.notifications);
-    ui.notifications.warn = (m, ...a) => { notices.push(m); return orig(m, ...a); };
+    ui.notifications.warn = (m, ...a) => { notices.push(a[0]?.format ? game.i18n.format(String(m), a[0].format) : m); return orig(m, ...a); };
     const planted = document.createElement("a");
     planted.dataset.action = "addFatigue";
     thingEl.querySelector(".cairn-items-list-header")?.appendChild(planted);

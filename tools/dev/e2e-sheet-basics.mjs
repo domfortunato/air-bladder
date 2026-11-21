@@ -279,7 +279,7 @@ const aeLeg = await page.evaluate(async (id) => {
   const eff = new CONFIG.ActiveEffect.documentClass({ name: "ZZ Temp Effect" });
   const warns = [];
   const orig = ui.notifications.warn.bind(ui.notifications);
-  ui.notifications.warn = (m, ...rest) => { warns.push(String(m)); return orig(m, ...rest); };
+  ui.notifications.warn = (m, ...rest) => { warns.push(rest[0]?.format ? game.i18n.format(String(m), rest[0].format) : String(m)); return orig(m, ...rest); };
   const out = { key: "CAIRN.Notify.EffectsUnsupported" };
   try {
     out.result = await sheet._onDropActiveEffect(new DragEvent("drop"), eff);

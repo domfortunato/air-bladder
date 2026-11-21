@@ -768,7 +768,7 @@ try {
       await wait(800);
       const warns = [];
       const origWarn = ui.notifications.warn.bind(ui.notifications);
-      ui.notifications.warn = (m, ...rest) => { warns.push(String(m)); return origWarn(m, ...rest); };
+      ui.notifications.warn = (m, ...rest) => { warns.push(rest[0]?.format ? game.i18n.format(String(m), rest[0].format) : String(m)); return origWarn(m, ...rest); };
       CONFIG.Dice.randomUniform = () => 0;   // a re-rolled STR is 18, never a lucky 10
       try {
         dlg = await openDialog(kwSheet);

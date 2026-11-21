@@ -283,7 +283,7 @@ try {
     // --- 4b. HP's three fallbacks, the age-formula contract -----------------
     const warns = [];
     const origWarn = ui.notifications.warn;
-    ui.notifications.warn = function (m, ...rest) { warns.push(String(m)); return origWarn.call(this, m, ...rest); };
+    ui.notifications.warn = function (m, ...rest) { warns.push(rest[0]?.format ? game.i18n.format(String(m), rest[0].format) : String(m)); return origWarn.call(this, m, ...rest); };
     try {
       // CONTROL FIRST: Roll.validate still ACCEPTS an @-reference, stubbing
       // every ref to "1" before evaluating (dice/roll.mjs:772-790) while real

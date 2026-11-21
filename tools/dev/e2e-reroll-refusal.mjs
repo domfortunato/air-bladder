@@ -238,7 +238,7 @@ try {
     const root = sheet.element instanceof HTMLElement ? sheet.element : sheet.element?.[0];
     const warns = [];
     const origWarn = ui.notifications.warn.bind(ui.notifications);
-    ui.notifications.warn = (m, ...r) => { warns.push(String(m)); return origWarn(m, ...r); };
+    ui.notifications.warn = (m, ...r) => { warns.push(r[0]?.format ? game.i18n.format(String(m), r[0].format) : String(m)); return origWarn(m, ...r); };
     const origUniform = CONFIG.Dice.randomUniform;
     CONFIG.Dice.randomUniform = () => 0;   // max faces: a roll that happens SHOWS
     // Every token write from this page held back 1.5 s: the Warden's client

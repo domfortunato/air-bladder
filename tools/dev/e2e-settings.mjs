@@ -506,7 +506,7 @@ try {
     const found = snap();
     const warns = [];
     const origWarn = ui.notifications.warn;
-    ui.notifications.warn = function (msg, ...rest) { warns.push(String(msg)); return origWarn.call(this, msg, ...rest); };
+    ui.notifications.warn = function (msg, ...rest) { warns.push(rest[0]?.format ? game.i18n.format(String(msg), rest[0].format) : String(msg)); return origWarn.call(this, msg, ...rest); };
     const seq = [];
     const hookId = Hooks.on("updateSetting", (doc) => {
       if (doc.key.startsWith(`${NS}.content-source`)) seq.push(`${doc.key.slice(NS.length + 1)}=${doc.value}`);

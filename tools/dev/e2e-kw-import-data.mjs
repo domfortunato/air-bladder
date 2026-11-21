@@ -329,6 +329,64 @@ const petLegs = await page.evaluate(async ({ am, ev }) => {
     out.cleaned = made.map((a) => a.name);
     if (made.length) await Actor.implementation.deleteDocuments(made.map((a) => a.id));
   }
+
+  // CREATE, two companions (review #36 S13, S14). Two pets no pack carries,
+  // each holding its own item, and each named with a word the Kind classifier
+  // reads as a thing: "Cart Horse" (cart) and "Chestnut" (chest).
+  //   S13: a batch create comes back in the order the server finished each
+  //   document, so each pet's items must reach it by identity. The control
+  //   is in-page and writes nothing of its own: createDocuments hands a
+  //   batch of two or more back REVERSED for this leg only, so pairing by
+  //   position puts each pet's item on the other.
+  //   S14: a pet is a companion whatever it is called, so its stored Kind
+  //   and its art must be a companion's, never the cart's or the chest's.
+  const twoPet = (name, item) => ({
+    name, role: name, notes: "", attack: "",
+    hp: 2, hp_max: 2, strength: 5, strength_max: 5, dexterity: 9, dexterity_max: 9,
+    willpower: 6, willpower_max: 6, armor: 0, gold: 0, image_url: "", custom_image: false,
+    items: [{ id: `zz-${item}`, name: item, tags: [], location: 0, description: "" }], containers: [],
+  });
+  const two = { ...ev, pets: [twoPet("Cart Horse", "ZZ Probe Saddle"), twoPet("Chestnut", "ZZ Probe Bell")] };
+  const icons = await import("/systems/air-bladder/module/icons.js");
+  const Cls = Actor.implementation;
+  const ownCreate = Object.hasOwn(Cls, "createDocuments");
+  const origCreate = Cls.createDocuments;
+  const before2 = new Set(game.actors.map((a) => a.id));
+  try {
+    Cls.createDocuments = async function(...args) {
+      const made = await origCreate.apply(this, args);
+      return made.length > 1 ? [...made].reverse() : made;
+    };
+    const { actor, report } = await KW.performKettlewrightImport(two);
+    const fresh = game.actors.filter((a) => !before2.has(a.id) && a.type === "npc");
+    const seen = (name) => {
+      const npc = fresh.find((a) => a.name === name);
+      const cls = npc?.system?.containerClass ?? null;
+      return {
+        found: !!npc,
+        connected: !!npc && npc.system.connectedTo === actor?.uuid,
+        role: npc?.system?.role ?? null,
+        cls,
+        clsRole: cls == null ? null : icons.containerClassRole(cls),
+        img: npc?.img ?? null,
+        token: npc?.prototypeToken?.texture?.src ?? null,
+        items: npc ? npc.items.map((i) => i.name).sort() : null,
+      };
+    };
+    out.twoPets = {
+      count: fresh.length,
+      cartHorse: seen("Cart Horse"),
+      chestnut: seen("Chestnut"),
+      turnedAway: report.petsTurnedAway ?? null,
+      pets: report.pets ?? null,
+    };
+  } finally {
+    if (ownCreate) Cls.createDocuments = origCreate;
+    else delete Cls.createDocuments;
+    const made = game.actors.filter((a) => !before2.has(a.id));
+    out.twoPetsCleaned = made.length;
+    if (made.length) await Actor.implementation.deleteDocuments(made.map((a) => a.id));
+  }
   return out;
 }, { am: ambrose, ev: evander });
 
@@ -420,6 +478,16 @@ const checks = [
     && petLegs.created?.connected === true && petLegs.created?.role === "companion"
     && petLegs.created?.description === catNotes && petLegs.created?.catItemOnPc === false],
   ["create: cleanup removed exactly the character and the companion", eq([...petLegs.cleaned].sort(), ["Carrion Cat", evander.name].sort())],
+  ["two companions: both are minted and connected, none turned away", petLegs.twoPets?.count === 2
+    && petLegs.twoPets.cartHorse.connected && petLegs.twoPets.chestnut.connected && petLegs.twoPets.turnedAway === null
+    && eq(petLegs.twoPets.pets, [{ name: "Cart Horse", as: "companion" }, { name: "Chestnut", as: "companion" }])],
+  ["two companions: each holds its own item when the batch comes back reversed (review #36 S13)",
+    eq(petLegs.twoPets?.cartHorse.items, ["ZZ Probe Saddle"]) && eq(petLegs.twoPets?.chestnut.items, ["ZZ Probe Bell"])],
+  ["a pet named like a cart or a chest is a companion in role, Kind and art (review #36 S14)",
+    [petLegs.twoPets?.cartHorse, petLegs.twoPets?.chestnut].every((p) => p && p.role === "companion"
+      && ["", "companion"].includes(p.clsRole)
+      && !/(?:cart|chest)\.svg$/.test(p.img ?? "") && !/(?:cart|chest)\.svg$/.test(p.token ?? ""))],
+  ["two companions: cleanup removed exactly the character and both companions", petLegs.twoPetsCleaned === 3],
   ["summary: the linked portrait is said", petLegs.amSummary.includes("The uploaded portrait is loaded from kettlewright.com. Save a copy and set it from the sheet to keep it.")],
   ["summary: a held pet says nothing", !/Pet: Alchemical Tattoo/.test(petLegs.amSummary)],
   ["summary: a companion pet is said", petLegs.evSummary.includes("Pet: Carrion Cat came in as a companion connected to this character.")],

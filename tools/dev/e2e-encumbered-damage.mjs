@@ -398,7 +398,7 @@ const out = await page.evaluate(async () => {
   const [t3] = await scene3.createEmbeddedDocuments("Token", [await v3.getTokenDocument({ x: 400, y: 400 })]);
   const warns = [];
   const origWarn = ui.notifications.warn;
-  ui.notifications.warn = function (m, ...rest) { warns.push(String(m)); return origWarn.call(this, m, ...rest); };
+  ui.notifications.warn = function (m, ...rest) { warns.push(rest[0]?.format ? game.i18n.format(String(m), rest[0].format) : String(m)); return origWarn.call(this, m, ...rest); };
   const msg4 = await postCard([t3.id, "zzzzzzzzzzzzzzzz"], t3);
   document.querySelector(`[data-message-id="${msg4.id}"] .apply-dmg i`)?.click();
   results.mixedSurvivorHit = await until(() => v3.toObject().system.hp.value === 2);
@@ -1504,7 +1504,7 @@ const untargeted = await page.evaluate(async () => {
   {
     const warns = [];
     const origWarn = ui.notifications.warn;
-    ui.notifications.warn = function (m, ...rest) { warns.push(String(m)); return origWarn.call(this, m, ...rest); };
+    ui.notifications.warn = function (m, ...rest) { warns.push(rest[0]?.format ? game.i18n.format(String(m), rest[0].format) : String(m)); return origWarn.call(this, m, ...rest); };
     try {
       anchor?.click();
       const open = await dialogEl();
@@ -2217,6 +2217,10 @@ const strRefused = { ran: false };
  *   F170 — a STR save rolled on a COMPENDIUM actor's sheet offered Critical
  *          Damage, and the buttons resolve in the WORLD by id; a pack copy of a
  *          world character shares that id.
+ *   S27  — (review #36) a STR save rolled from a monster's WORLD sheet while
+ *          unlinked tokens of it stood on the viewed scene was spoken as one of
+ *          them (core's getSpeaker picks a placed token), so Mark Critical
+ *          Damage marked that token and left the sheet that rolled unmarked.
  * ------------------------------------------------------------------------- */
 const cardTargets = await page.evaluate(async () => {
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -2294,6 +2298,59 @@ const cardTargets = await page.evaluate(async () => {
     out.baseCritical = base.toObject().system.critical === true;
     out.survivorCritical = scene.tokens.get(tokB.id)?.actor?.system.critical === true;
 
+    // Review #36 S27: a STR save rolled from the WORLD sheet while two unlinked
+    // tokens of the monster stand on the VIEWED scene. Core's getSpeaker names
+    // one of them, and the button then marked that token, not the sheet that
+    // rolled. A monster of its own, so F240's survivor can't stand in.
+    const herd = await CONFIG.Actor.documentClass.create({ name: "ZZ Card Targets Herd", type: "npc",
+      system: { role: "monster", abilities: { STR: { value: 6, max: 10 } } },
+      prototypeToken: { actorLink: false } });
+    made.actors.push(herd);
+    const herdIds = [foundry.utils.randomID(), foundry.utils.randomID()];
+    await scene.createEmbeddedDocuments("Token", [
+      await herd.getTokenDocument({ _id: herdIds[0], x: 500, y: 500 }),
+      await herd.getTokenDocument({ _id: herdIds[1], x: 600, y: 600 })], { keepId: true });
+    // Look away again BEFORE the finally deletes the scene (the idiom above).
+    const prevScene = canvas?.scene;
+    try {
+      await scene.view();
+      for (let i = 0; i < 40 && canvas?.scene?.id !== scene.id; i++) await sleep(150);
+      for (let i = 0; i < 40 && !herdIds.every((id) => canvas?.tokens?.get(id)); i++) await sleep(150);
+      // The precondition the bug needs: core sees both tokens as the actor's.
+      out.herdStanding = herd.getActiveTokens().filter((t) => herdIds.includes(t.id)).length;
+      const since4 = new Set(game.messages.map((m) => m.id));
+      const origRnd4 = CONFIG.Dice.randomUniform;
+      CONFIG.Dice.randomUniform = () => 0.5;   // a 10 or 11, a failure against 6 either way round
+      try {
+        await herd.sheet.constructor.DEFAULT_OPTIONS.actions.rollAbility.call({ actor: herd },
+          { preventDefault: () => {} }, { dataset: { roll: "d20cs<=@abilities.STR.value", ability: "STR" } });
+      } finally {
+        CONFIG.Dice.randomUniform = origRnd4;
+      }
+      let herdCard = null;
+      for (let i = 0; i < 40 && !herdCard; i++) {
+        herdCard = game.messages.contents.find((m) => !since4.has(m.id) && m.getFlag("air-bladder", "d20Card"));
+        if (!herdCard) await sleep(150);
+      }
+      const herdFlag = herdCard?.getFlag("air-bladder", "d20Card");
+      out.herdCard = herdFlag ? { failed: herdFlag.failed, crit: herdFlag.crit } : null;
+      out.herdSpeaker = herdCard ? { actor: herdCard.speaker?.actor === herd.id, token: herdCard.speaker?.token ?? null } : null;
+      const deltaCrit = (id) => foundry.utils.getProperty(scene.tokens.get(id)?.delta?.toObject() ?? {}, "system.critical") === true;
+      if (herdCard) {
+        const fresh = await herdCard.renderHTML();
+        fresh.querySelector(".mark-critical-damage")?.click();
+        for (let i = 0; i < 40 && herd.toObject().system.critical !== true && !herdIds.some(deltaCrit); i++) await sleep(150);
+        await sleep(500);
+      }
+      out.herdCritical = herd.toObject().system.critical === true;
+      out.herdDeltas = herdIds.map(deltaCrit);
+    } finally {
+      if (prevScene && prevScene.id !== scene.id) {
+        await prevScene.view();
+        for (let i = 0; i < 40 && canvas?.scene?.id === scene.id; i++) await sleep(150);
+      }
+    }
+
     // F170: a pack copy of a world character (same id), STR save rolled on it.
     const world = await CONFIG.Actor.documentClass.create({ name: "ZZ Card Targets Twin", type: "character",
       system: { abilities: { STR: { value: 6, max: 10 } } } });
@@ -2321,6 +2378,106 @@ const cardTargets = await page.evaluate(async () => {
     for (const m of game.messages.contents.filter((m) => !before.has(m.id))) { try { await m.delete(); } catch { /* gone */ } }
     for (const a of made.actors) { try { await a.delete(); } catch { /* gone */ } }
     for (const s of made.scenes) { try { await s.delete(); } catch { /* gone */ } }
+  }
+});
+
+/* ---------------------------------------------------------------------------
+ * THE TOKEN HUD'S HP BOX NEVER WRITES OVER STORED HP WHILE THE RULE ZEROES IT
+ * (review #36).
+ *
+ * Bar 2 of every token is Hit Protection (`secondaryTokenAttribute`), and the
+ * HUD's input writes through `Actor#modifyTokenAttribute`, which works the new
+ * value out from the PREPARED one. On an overloaded or panicked actor that is
+ * the rule's 0: "-1" stored 0 over the real value and "+2" stored 2 over it —
+ * the stored-HP loss the sheet's strip and the damage flow were both fixed
+ * for, by a third route. The method is called as the HUD calls it
+ * (`token-hud.mjs` `#onSubmitBar`): a delta down, a delta up, an absolute.
+ *
+ * WITNESS, in page, on a planted actor of its own: CORE's method run on the
+ * same state does destroy the stored value, so "still 6" is the override's
+ * work and not a call that wrote nothing. CONTROLS: an actor nothing zeroes
+ * takes the same entry, and so does the loaded one once its load is gone — the
+ * override must not make the box dead.
+ *
+ * Panic needs the `use-panic` setting, which is the world's: it is shadowed in
+ * page for the leg and put back from the finally, never written.
+ * ------------------------------------------------------------------------- */
+const hudHp = await page.evaluate(async () => {
+  const Cls = CONFIG.Actor.documentClass;
+  const res = {};
+  const made = [];
+  const stored = (a) => a.toObject().system.hp.value;
+  const mk = async (name, extra = {}, load = false) => {
+    const a = await Cls.create({
+      name, type: "character", flags: { "air-bladder": { probeFixture: "e2e-encumbered-damage" } },
+      system: { hp: { value: 6, max: 6 }, abilities: { STR: { value: 10, max: 10 } }, ...extra },
+    }, { abNoStatusCard: true });
+    made.push(a);
+    // Bulky items are 2 slots each; 10 slots is the default limit.
+    if (load) {
+      await a.createEmbeddedDocuments("Item", Array.from({ length: 8 }, (_, i) => ({
+        name: `ZZ HUD Anvil ${i}`, type: "item", system: { bulky: true },
+      })));
+    }
+    return a;
+  };
+  const entries = async (a) => {
+    const seen = [];
+    await a.modifyTokenAttribute("hp", -1, true, true);
+    seen.push(stored(a));
+    await a.modifyTokenAttribute("hp", 2, true, true);
+    seen.push(stored(a));
+    await a.modifyTokenAttribute("hp", 4, false, true);
+    seen.push(stored(a));
+    return seen;
+  };
+  const origGet = game.settings.get;
+  const before = new Set(game.messages.map((m) => m.id));
+  try {
+    const loaded = await mk("ZZ HUD Loaded", {}, true);
+    res.loadedPre = { enc: loaded.system.encumbered === true, shown: loaded.system.hp.value, stored: stored(loaded) };
+    res.loadedStored = await entries(loaded);
+    res.loadedStr = loaded.toObject().system.abilities.STR.value;
+
+    // The witness: core's own method, on a second actor in the same state.
+    const witness = await mk("ZZ HUD Witness", {}, true);
+    await foundry.documents.Actor.prototype.modifyTokenAttribute.call(witness, "hp", -1, true, true);
+    res.witnessStored = stored(witness);
+
+    // Panic. The actor is prepared again under the shadow, as a world with the
+    // option on prepares it.
+    game.settings.get = function (scope, key, ...rest) {
+      if (rest[0]?.document) return foundry.helpers.ClientSettings.prototype.get.call(this, scope, key, ...rest);
+      if (scope === "air-bladder" && key === "use-panic") return true;
+      return origGet.call(this, scope, key, ...rest);
+    };
+    const scared = await mk("ZZ HUD Panicked", { panicked: true });
+    scared.reset();
+    res.scaredPre = { enc: scared.system.encumbered === true, shown: scared.system.hp.value, stored: stored(scared) };
+    res.scaredStored = await entries(scared);
+    game.settings.get = origGet;
+
+    // Controls: the box still works where no rule holds the 0.
+    const plain = await mk("ZZ HUD Plain");
+    await plain.modifyTokenAttribute("hp", -1, true, true);
+    res.plainStored = stored(plain);
+    await loaded.deleteEmbeddedDocuments("Item", loaded.items.map((i) => i.id));
+    res.unloadedShown = loaded.system.hp.value;
+    await loaded.modifyTokenAttribute("hp", -1, true, true);
+    res.unloadedStored = stored(loaded);
+    return res;
+  } catch (e) {
+    res.error = `${e.name}: ${e.message}`;
+    return res;
+  } finally {
+    game.settings.get = origGet;
+    // Whatever a stored-HP write posted about these actors (a status bar, a
+    // change-log line), by id difference.
+    const mine = new Set(made.map((a) => a.id));
+    for (const m of game.messages.contents.filter((m) => !before.has(m.id) && mine.has(m.speaker?.actor))) {
+      try { await m.delete(); } catch { /* gone */ }
+    }
+    for (const a of made) { try { await a.delete(); } catch { /* gone */ } }
   }
 });
 
@@ -3026,10 +3183,44 @@ check("precondition: the monster's tokens are unlinked", cardTargets.unlinked ==
 check("a save card whose unlinked token is gone marks nothing on the world monster (F240)",
   cardTargets.baseCritical === false && cardTargets.survivorCritical === false,
   `world actor critical=${cardTargets.baseCritical}, surviving token critical=${cardTargets.survivorCritical}`);
+check("precondition: two unlinked tokens of a monster stand on the viewed scene, and its world sheet's STR save failed",
+  cardTargets.herdStanding === 2 && cardTargets.herdCard?.failed === true && cardTargets.herdCard.crit === true,
+  `standing=${cardTargets.herdStanding} card=${JSON.stringify(cardTargets.herdCard)}`);
+check("a save rolled from the world sheet speaks for the world actor, not one of its unlinked tokens (review #36 S27)",
+  cardTargets.herdSpeaker?.actor === true && cardTargets.herdSpeaker.token === null,
+  JSON.stringify(cardTargets.herdSpeaker));
+check("...and its Mark Critical Damage marks the sheet that rolled, and neither token's own data",
+  cardTargets.herdCritical === true && (cardTargets.herdDeltas ?? []).length === 2 && cardTargets.herdDeltas.every((d) => d === false),
+  `world actor critical=${cardTargets.herdCritical}, token deltas=${JSON.stringify(cardTargets.herdDeltas)}`);
 check("precondition: a pack copy sharing the world character's id", cardTargets.twinIsPack === true, "");
 check("a STR save rolled on a compendium actor offers no Critical Damage (F170)",
   cardTargets.twinCard?.failed === true && cardTargets.twinCard.crit === false && cardTargets.twinCard.fatigue === false,
   JSON.stringify(cardTargets.twinCard));
+
+console.log("\nthe Token HUD's HP box, while the rule holds HP at 0");
+check("the HUD section ran to its end", !hudHp.error, hudHp.error ?? "");
+check("precondition: a loaded character showing 0 over a stored 6",
+  hudHp.loadedPre?.enc === true && hudHp.loadedPre.shown === 0 && hudHp.loadedPre.stored === 6,
+  JSON.stringify(hudHp.loadedPre));
+check("witness: core's own method stores the derived 0 over it", hudHp.witnessStored === 0,
+  `stored 6 -> ${hudHp.witnessStored} after "-1" through Actor.prototype.modifyTokenAttribute — if this is not 0, `
+  + "the legs below prove nothing");
+check("a HUD entry on a LOADED character leaves stored HP alone",
+  JSON.stringify(hudHp.loadedStored) === "[6,6,6]",
+  `stored after "-1", "+2" and "4": ${JSON.stringify(hudHp.loadedStored)} — core works the entry out from the 0 on `
+  + "show, so each one stored a number that has nothing to do with the 6 underneath");
+check("...and is a raw edit, not a hit: STR does not move", hudHp.loadedStr === 10, `STR=${hudHp.loadedStr}`);
+check("precondition: a panicked character showing 0 over a stored 6, not loaded",
+  hudHp.scaredPre?.enc === false && hudHp.scaredPre.shown === 0 && hudHp.scaredPre.stored === 6,
+  JSON.stringify(hudHp.scaredPre));
+check("a HUD entry on a PANICKED character leaves stored HP alone",
+  JSON.stringify(hudHp.scaredStored) === "[6,6,6]",
+  `stored after "-1", "+2" and "4": ${JSON.stringify(hudHp.scaredStored)}`);
+check("control: the same entry writes where no rule holds the 0", hudHp.plainStored === 5,
+  `stored 6 -> ${hudHp.plainStored} after "-1"`);
+check("control: ...and on the loaded character once the load is gone",
+  hudHp.unloadedShown === 6 && hudHp.unloadedStored === 5,
+  `shown ${hudHp.unloadedShown}, stored -> ${hudHp.unloadedStored} after "-1" — the 6 came back, and the box is live again`);
 
 if (errors.length) { bad++; console.log("Console errors:\n" + errors.join("\n")); }
 console.log(bad === 0 ? "\nencumbered-damage e2e passed" : `\nencumbered-damage e2e FAILED — ${bad}`);

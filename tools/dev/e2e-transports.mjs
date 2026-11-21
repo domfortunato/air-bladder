@@ -272,7 +272,7 @@ try {
     const warns = [];
     const origWarn = ui.notifications.warn;
     ui.notifications.warn = (m, ...rest) => {
-      warns.push(String(m));
+      warns.push(rest[0]?.format ? game.i18n.format(String(m), rest[0].format) : String(m));
       return origWarn.call(ui.notifications, m, ...rest);
     };
     // The token PC below is a WORLD actor with a token on a scene; both are

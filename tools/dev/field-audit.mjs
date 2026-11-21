@@ -239,6 +239,59 @@ const auditSystem = (type, system, where) => {
     }
   }
 };
+
+// Shipped pack data must also ARRIVE as the statblock it is: nothing on import
+// lifts a value to its max, renames a prototype token or re-reads a formula, so
+// what the YAML says is what a Warden gets. Four rules, each paid for by a
+// record that rode in from the upstream pack unnoticed (review #36):
+//
+//   - an Actor's hp and ability `value` equal their `max`. Saves roll against
+//     `value`, so the Buccaneer shipped saving at DEX 10 and WIL 10 under a
+//     stat line of 14 and 12 — already hurt, out of the box.
+//   - an Actor's `prototypeToken.name` is its `name`. A placed token, the
+//     combat tracker and an unlinked token's chat cards all read the token's
+//     name, and CairnActor._preUpdate follows a rename only while the two
+//     already match — so "Brigand, Leader" placed tokens called "Brigand" that
+//     no rename could repair.
+//   - a `damageFormula` never keeps the highest of ONE die. `k` defaults to
+//     keep-highest-1, so `d6k` is a plain d6 wearing a modifier that does
+//     nothing: a truncated `2d6k` (Ape, White's claws are d6+d6 in Cairn's
+//     monster collection).
+//   - a top-level Item in an Item pack does not ship `equipped: true`. A
+//     compendium drop, the marketplace and a dealt spellbook copy the flag
+//     verbatim, so a mixed pack decides by which row the die hit whether a
+//     character starts with the book in hand, or holds two at once. Items
+//     EMBEDDED on a pack Actor are exempt: a monster's armour is worn on
+//     purpose. `armor` and `weapons` are exempt TOO, and that is a debt, not a
+//     decision: both ship mixed (5 of 8, 14 of 18), and flattening them changes
+//     whether a bought weapon or armour arrives worn — a rule for the
+//     maintainer to set in the marketplace's `acquire`, never for the pack.
+//     Delete a name from EQUIPPED_UNRULED once its pack says one thing.
+const EQUIPPED_UNRULED = new Set(["armor", "weapons"]);
+const KEEP_OF_ONE_DIE = /(?<![\d)])1?d\d+k/i;
+const auditStatblock = (doc, rel) => {
+  const pack = rel.split("/")[2];
+  const isActor = doc.type in ACTOR_DATA_MODELS;
+  if (isActor) {
+    const pools = { hp: doc.system?.hp, ...(doc.system?.abilities ?? {}) };
+    for (const [key, pool] of Object.entries(pools)) {
+      if (pool && typeof pool === "object" && "value" in pool && "max" in pool && pool.value !== pool.max) {
+        problems.push(`${rel} ships ${key} ${pool.value} of ${pool.max} — a pack statblock arrives at full value, and saves roll against the value`);
+      }
+    }
+    if (doc.prototypeToken && doc.prototypeToken.name !== doc.name) {
+      problems.push(`${rel} is "${doc.name}" but its prototype token is "${doc.prototypeToken.name}" — placed tokens, the combat tracker and chat cards read the token's name`);
+    }
+  } else if (doc.type in ITEM_DATA_MODELS && doc.system?.equipped === true && !EQUIPPED_UNRULED.has(pack)) {
+    problems.push(`${rel} ships equipped: true — an Item pack's documents arrive unequipped; whoever grants one decides whether it's worn`);
+  }
+  for (const it of [doc, ...(Array.isArray(doc.items) ? doc.items : [])]) {
+    const formula = it?.system?.damageFormula;
+    if (typeof formula === "string" && KEEP_OF_ONE_DIE.test(formula)) {
+      problems.push(`${rel} "${it.name}" has damageFormula ${formula} — keep-highest of a single die is a plain die; a two-dice attack is written 2dXk`);
+    }
+  }
+};
 for (const file of walk(at("src", "packs"), ".yml")) {
   let doc;
   try { doc = yaml.load(readFile(file)); } catch { continue; }
@@ -251,6 +304,7 @@ for (const file of walk(at("src", "packs"), ".yml")) {
   for (const it of Array.isArray(doc.items) ? doc.items : []) {
     auditSystem(it?.type, it?.system, "items[].");
   }
+  auditStatblock(doc, path.relative(ROOT, file).replace(/\\/g, "/"));
 }
 
 // Parsed here rather than at its other use below, because the provenance check

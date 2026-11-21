@@ -186,7 +186,7 @@ try {
 
     const warns = [];
     const origWarn = ui.notifications.warn.bind(ui.notifications);
-    ui.notifications.warn = (m, ...r) => { warns.push(String(m)); return origWarn(m, ...r); };
+    ui.notifications.warn = (m, ...r) => { warns.push(r[0]?.format ? game.i18n.format(String(m), r[0].format) : String(m)); return origWarn(m, ...r); };
 
     const DialogV2 = foundry.applications.api.DialogV2;
     const origConfirm = DialogV2.confirm;

@@ -1883,6 +1883,88 @@ try {
     await disarmConfirm().catch(() => {});
   }
 
+  /* ---- T. one item on two cards (review #36 S23) -------------------------- */
+  console.log("\none item, two offers");
+  // Nothing stops a giver offering the same row twice ("whoever wants it"), and
+  // the only lock was per CARD. Both accepts were checked against stock that
+  // loses its unit only when the first hand-off's offerDone lands, several
+  // round trips later, so one Rope became two with both cards reading settled;
+  // and two offerDone decrements of one stack could each read the same
+  // quantity. Bob owns both targets, so both accepts leave one client in one
+  // tick and reach Alice's back to back; the targets differ, so the per-target
+  // delivery chain does not serialise them either. No confirm is in play: each
+  // target is at max-2 and the gift is one slot.
+  await gm.evaluate(async () => {
+    await __abFresh("ZZ Offer Giver").createEmbeddedDocuments("Item", [
+      { name: "ZZ Twin Rope", type: "item" },
+      { name: "ZZ Twin Torch", type: "item", system: { quantity: 3 } },
+    ]);
+  });
+  const twinGiverQty = (name) => gm.evaluate((name) =>
+    __abFresh("ZZ Offer Giver")?.items.filter((i) => i.name === name)
+      .reduce((n, i) => n + (i.system.quantity ?? 1), 0) ?? null, name);
+  const twinClickBoth = (a, b) => bob.evaluate(({ a, b }) => {
+    for (const id of [a, b]) {
+      document.querySelector(`.chat-message[data-message-id="${id}"] .cairn-offer-accept`)?.click();
+    }
+  }, { a, b });
+
+  // T1. A quantity-1 row on two cards, both accepted at once: ONE lands, the
+  // other is told the item is being handed over and its card stays open.
+  const tA = await plantConsent("ZZ Twin Alpha");
+  const tB = await plantConsent("ZZ Twin Beta");
+  const t1a = await consentOffer("ZZ Twin Rope", tA.uuid);
+  const t1b = await consentOffer("ZZ Twin Rope", tB.uuid);
+  if (t1a && t1b && tA.atMaxLess2 && tB.atMaxLess2 && (await twinGiverQty("ZZ Twin Rope")) === 1) {
+    const heard = await bob.evaluate(() => window.__offerAnswers.length);
+    await twinClickBoth(t1a, t1b);
+    await poll(gm, (ids) => ids.some((id) =>
+      game.messages.get(id)?.getFlag("air-bladder", "itemOffer")?.settled) || null, [t1a, t1b], 20000);
+    await new Promise((r) => setTimeout(r, 3000));
+    const landed1 = (await consentHolds(tA.uuid, ["ZZ Twin Rope"])).qty["ZZ Twin Rope"]
+      + (await consentHolds(tB.uuid, ["ZZ Twin Rope"])).qty["ZZ Twin Rope"];
+    const states1 = [await consentState(t1a), await consentState(t1b)];
+    const answers1 = await bob.evaluate((n) => window.__offerAnswers.slice(n), heard);
+    const left1 = await twinGiverQty("ZZ Twin Rope");
+    check("one row offered on two cards and accepted at once changes hands ONCE: one card settles, the other is answered busy and stays open",
+      landed1 === 1 && left1 === 0 && answers1.includes("busy")
+        && states1.filter((s) => s === "settled").length === 1 && states1.filter((s) => s === "open").length === 1,
+      JSON.stringify({ landed: landed1, giverLeft: left1, states: states1, answers: answers1 }));
+  } else fail("the two-cards leg's fixtures did not stand up", JSON.stringify({ t1a, t1b, tA, tB }));
+
+  // T2. A stack of three, one unit on each of two cards, both accepted at
+  // once: there is stock for both, so both land, and the stack loses TWO.
+  const tC = await plantConsent("ZZ Twin Gamma");
+  const tD = await plantConsent("ZZ Twin Delta");
+  const t2a = await consentOffer("ZZ Twin Torch", tC.uuid);
+  const t2b = await consentOffer("ZZ Twin Torch", tD.uuid);
+  if (t2a && t2b && tC.atMaxLess2 && tD.atMaxLess2 && (await twinGiverQty("ZZ Twin Torch")) === 3) {
+    await twinClickBoth(t2a, t2b);
+    await consentSettled([t2a, t2b]);
+    await new Promise((r) => setTimeout(r, 1500));
+    const landed2 = (await consentHolds(tC.uuid, ["ZZ Twin Torch"])).qty["ZZ Twin Torch"]
+      + (await consentHolds(tD.uuid, ["ZZ Twin Torch"])).qty["ZZ Twin Torch"];
+    const states2 = [await consentState(t2a), await consentState(t2b)];
+    const left2 = await twinGiverQty("ZZ Twin Torch");
+    check("two units of one stack accepted at once both land, and the stack goes 3 → 1",
+      landed2 === 2 && left2 === 1 && states2.every((s) => s === "settled"),
+      JSON.stringify({ landed: landed2, giverLeft: left2, states: states2 }));
+
+    // T3. The hold on the row is let go when each hand-off ends: the last
+    // Torch can still be given. A hold that outlived its hand-off would
+    // answer "busy" for the rest of the session.
+    const tE = await plantConsent("ZZ Twin Epsilon");
+    const t3 = await consentOffer("ZZ Twin Torch", tE.uuid);
+    if (t3 && tE.atMaxLess2) {
+      await clickCard(bob, t3, "cairn-offer-accept");
+      await consentSettled([t3]);
+      const [state3, left3] = [await consentState(t3), await twinGiverQty("ZZ Twin Torch")];
+      const held3 = (await consentHolds(tE.uuid, ["ZZ Twin Torch"])).qty["ZZ Twin Torch"];
+      check("...and afterwards the last one can still be given: nothing is left held",
+        state3 === "settled" && left3 === 0 && held3 === 1, JSON.stringify({ state: state3, giverLeft: left3, held: held3 }));
+    } else fail("the last-torch offer never posted");
+  } else fail("the stack leg's fixtures did not stand up", JSON.stringify({ t2a, t2b, tC, tD }));
+
   const allErrors = [...gmErrors, ...alErrors, ...bobErrors].filter((e) => !/ZZ /.test(e));
   check("zero console errors", allErrors.length === 0, allErrors.slice(0, 3).join(" | "));
 } finally {

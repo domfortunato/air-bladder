@@ -209,5 +209,37 @@ batchDestructures.length === 0
   ? ok("no probe reads a batch create's documents by position")
   : fail(`${batchDestructures.length} batch create(s) destructured by position — the server returns them in completion order; supply _ids with keepId and read by id:\n         ${batchDestructures.join("\n         ")}`);
 
+// A TOAST IS NEVER HANDED TO CORE ALREADY FORMATTED. `Notifications#notify`
+// escapes each `format` value and leaves a known key alone; a sentence built
+// with `game.i18n.format` first is not a key, so core cleans the WHOLE toast
+// as HTML and sets it with innerHTML. A name with an angle bracket in it
+// ("Torch <the Old>") then cuts the toast short, and allowed markup in a name
+// is rendered. Review #20 fixed three sites and wrote the rule down in one
+// file; review #36 found fifty more, the newest a day old. So this holds it,
+// over module/ (the one check here that reads the system and not the probes):
+// `ui.notifications.<level>("CAIRN.Key", { format: {...} })`, always. It sees
+// the direct call, a ternary of two, and a variable formatted first; a
+// function that RETURNS a formatted sentence for a caller to show is out of
+// its reach (`lightingRefusal` returns `{key, format}` for that reason).
+const moduleDir = path.join(ROOT, "module");
+const moduleFiles = fs.readdirSync(moduleDir, { recursive: true })
+  .map(String).filter((f) => f.endsWith(".js"));
+const SKIP = "(?:\\s|//[^\\n]*\\n)*";
+const TOAST = "notifications\\.(?:notify|info|warn|error|success)\\(" + SKIP;
+const formattedToasts = [];
+for (const f of moduleFiles) {
+  const src = fs.readFileSync(path.join(moduleDir, f), "utf8");
+  const lineOf = (index) => src.slice(0, index).split("\n").length;
+  const direct = new RegExp(TOAST + "(?:[^;(]*\\?" + SKIP + ")?game\\.i18n\\.format\\(", "g");
+  for (const m of src.matchAll(direct)) formattedToasts.push(`${f.replace(/\\/g, "/")}:${lineOf(m.index)}`);
+  for (const v of src.matchAll(/\b(?:const|let|var)\s+([\w$]+)\s*=\s*game\.i18n\.format\(/g)) {
+    const shown = new RegExp(TOAST + v[1].replace(/\$/g, "\\$") + "\\s*[,)]", "g");
+    for (const m of src.matchAll(shown)) formattedToasts.push(`${f.replace(/\\/g, "/")}:${lineOf(m.index)} (${v[1]})`);
+  }
+}
+formattedToasts.length === 0
+  ? ok("no toast in module/ is handed to core already formatted (key + {format}, so a name prints as typed)")
+  : fail(`${formattedToasts.length} toast(s) built with game.i18n.format — core cleans the whole sentence as HTML; pass the key and { format: {...} }:\n         ${formattedToasts.join("\n         ")}`);
+
 console.log(failed ? "\nPROBE WIRING CHECK FAILED\n" : "\nprobe wiring check passed\n");
 process.exit(failed ? 1 : 0);

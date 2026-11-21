@@ -20,6 +20,12 @@
  *   4. the background picker's description panel, for a Warden's world-pack
  *      background.
  *
+ * And the other way round (review #36 S2): the actor and item sheets DID
+ * enrich, but without `secrets`, so core removed the block for the owner too:
+ *
+ *   5. a monster sheet's Description and Notes and an item sheet's Description,
+ *      editor closed: the Warden reads their own note, an observer does not.
+ *
  * Every surface is read on a PLAYER's client, where the viewer owns none of
  * the documents. Two controls run on the Warden's client, who owns them all:
  * the note must be THERE, or the player legs pass for the wrong reason.
@@ -99,7 +105,14 @@ try {
       src.name = "ZZ Secret Background";
       src.system.description = SECRET;
       const [bg] = await Item.createDocuments([src], { pack: pack.collection });
-      return { playerName: pc.name, mineId: mine.id, chestId: chest.id, castId: cast.id, bgUuid: bg.uuid };
+      // Leg 5: a monster and a world item the player only OBSERVES, each with
+      // the note in a field its own sheet shows through enrichHTML.
+      const keeper = await Actor.create({ name: "ZZ Secret Keeper", type: "npc", flags,
+        ownership: { default: 2 }, system: { description: SECRET, notes: SECRET } });
+      const relic = await Item.create({ name: "ZZ Secret Relic", type: "item", flags,
+        ownership: { default: 2 }, system: { description: SECRET } });
+      return { playerName: pc.name, mineId: mine.id, chestId: chest.id, castId: cast.id, bgUuid: bg.uuid,
+        keeperId: keeper.id, relicId: relic.id };
     }, { fixture: FIXTURE, SECRET });
     if (fx.error) { fail(`precondition: ${fx.error}`); return; }
     ok(`fixtures planted; the player is ${fx.playerName}`);
@@ -147,6 +160,20 @@ try {
       out.bgRow = !!radio;
       dlg?.closest(".application")?.querySelector('button[data-action="cancel"]')?.click();
       await pick;
+      // 5. The sheets' own display halves (review #36 S2): the closed, toggled
+      // editors for a monster's Description and Notes and an item's Description.
+      const shown = async (doc, name) => {
+        await doc.sheet.render(true);
+        const el = await until(() => doc.sheet.element?.querySelector(`prose-mirror[name="${name}"] .editor-content`));
+        return el?.textContent.replace(/\s+/g, " ").trim() ?? null;
+      };
+      const keeper = game.actors.get(ids.keeperId);
+      out.sheetDesc = await shown(keeper, "system.description");
+      out.sheetNotes = await shown(keeper, "system.notes");
+      await keeper.sheet.close();
+      const relic = game.items.get(ids.relicId);
+      out.itemDesc = await shown(relic, "system.description");
+      await relic.sheet.close();
       return out;
     }, { ids: fx });
 
@@ -155,6 +182,14 @@ try {
     warden.shop?.includes(NOTE) && warden.row?.includes(NOTE)
       ? ok("CONTROL: the Warden, who owns them, reads the note in the shop row and the row panel")
       : fail(`CONTROL FAILED — the note is not on the Warden's surfaces, so the player legs prove nothing: ${JSON.stringify(warden)}`);
+    // Leg 5, the owner's half (review #36 S2): the sheets enriched without
+    // `secrets`, so an owner's own Secret block was gone from the closed editor.
+    for (const [label, text] of [["a monster sheet's Description", warden.sheetDesc],
+      ["a monster sheet's Notes", warden.sheetNotes], ["an item sheet's Description", warden.itemDesc]]) {
+      text?.includes(PUBLIC) && text.includes(NOTE)
+        ? ok(`${label}: the Warden, who owns it, reads their own Secret block with the editor closed`)
+        : fail(`${label} on the Warden's client lost the Secret block: ${JSON.stringify(text)}`);
+    }
 
     player = await browser.newPage({ viewport: VIEWPORT });
     playerErrors = watchErrors(player);
@@ -169,6 +204,10 @@ try {
     seen.bgRow
       ? check("the background picker's panel", seen.bg)
       : fail("the background picker offered no row for the world-pack background — the leg cannot read its panel");
+    // Leg 5, the observer's half: the same three editors, on sheets they don't own.
+    check("an observed monster sheet's Description", seen.sheetDesc);
+    check("an observed monster sheet's Notes", seen.sheetNotes);
+    check("an observed item sheet's Description", seen.itemDesc);
   });
 } catch (e) {
   fail(`${e.name}: ${e.message}`);

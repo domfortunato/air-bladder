@@ -266,7 +266,7 @@ try {
 
         const warns = [];
         const origWarn = ui.notifications.warn;
-        ui.notifications.warn = function (msg, ...rest) { warns.push(String(msg)); return origWarn.call(this, msg, ...rest); };
+        ui.notifications.warn = function (msg, ...rest) { warns.push(rest[0]?.format ? game.i18n.format(String(msg), rest[0].format) : String(msg)); return origWarn.call(this, msg, ...rest); };
         const out = { editable: sheet.isEditable };
         // Die of Fate is the one read roll rendered as a <button>, and core's
         // DocumentSheetV2._onRender disables every form element on a non-

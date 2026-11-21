@@ -287,7 +287,8 @@ try {
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     const el = () => document.getElementById("cairn-watch-clock");
     const tabs = () => el()?.querySelector(".cairn-bar-tabs")?.getBoundingClientRect();
-    const watchTip = () => el()?.querySelector(".cairn-bar-watch")?.dataset.tooltip ?? null;
+    // `data-tooltip-text`, core's plain-text form (review #36, leg 32).
+    const watchTip = () => el()?.querySelector(".cairn-bar-watch")?.dataset.tooltipText ?? null;
     const cfg = game.settings.settings.get("air-bladder.tuck-calendar-bar");
     const out = { scope: cfg?.scope ?? null, config: cfg?.config ?? null };
     if (!cfg) return out;
@@ -518,6 +519,39 @@ try {
   epoch.date === "Market Day, the 1st of Mourning, 7728"
     ? ok("world time zero reads as Market Day, the 1st of Mourning, 7728")
     : fail("the epoch", epoch.date);
+
+  /* ---- 30. a leap week does not restart the season it interrupts ------- */
+  // Review #36. The Reclamation week is a season entry of its own (leg 12
+  // says why) and falls inside Harvest, so the day after it differed from the
+  // day before it and Mourning 1 of 7729 was marked "Harvest season begins" —
+  // 72 days after Quell 1, and three days before Dead begins. Read off
+  // buildMonth, which is what the grid and the day panel both draw from. The
+  // three controls are the marks that must stay: Dead on Mourning 4, Harvest
+  // on Quell 1, and Recognize's own. 7730 follows an ordinary year and was
+  // never marked.
+  const resumed = await withVald(page, async (gt) => {
+    const pick = (year, month, index) => {
+      const d = gt.buildMonth({ year, month }).days[index];
+      return d ? { begins: d.seasonBegins, key: d.seasonKey } : null;
+    };
+    return {
+      afterLeap: pick(7729, 0, 0),
+      dead: pick(7729, 0, 3),
+      quell: pick(7729, 9, 0),
+      recognize: pick(7728, 12, 0),
+      renew: pick(7728, 12, 5),
+      plainYear: pick(7730, 0, 0),
+    };
+  });
+  resumed.afterLeap?.key === "CAIRN.Vald.Season.Harvest" && resumed.afterLeap.begins === false
+    ? ok("Mourning 1 after a Reclamation week is Harvest resumed, not \"Harvest season begins\"")
+    : fail("the day after the leap week is marked as a season beginning", JSON.stringify(resumed.afterLeap));
+  resumed.dead?.begins === true && resumed.dead.key === "CAIRN.Vald.Season.Dead"
+    && resumed.quell?.begins === true && resumed.quell.key === "CAIRN.Vald.Season.Harvest"
+    && resumed.recognize?.begins === true && resumed.recognize.key === "CAIRN.Vald.Season.Reclamation"
+    && resumed.renew?.begins === false && resumed.plainYear?.begins === false
+    ? ok("...while Mourning 4, Quell 1 and Recognize keep their marks, and nothing else gains one")
+    : fail("the season marks around the leap week", JSON.stringify(resumed));
 
   /* ---- 15. the Vald weather group is gated ---------------------------- */
 
@@ -1287,6 +1321,58 @@ try {
       yearEl.dispatchEvent(new Event("input", { bubbles: true }));
       await wait(80);
       out.preview.restored = previewText();
+      // 2b. THE MONTH LIST FOLLOWS THE YEAR FIELD (review #36 S31). It was
+      //     built once, for today's year: Reclamation stayed on offer for a
+      //     typed year that has none (and day 2 of it ran into the next
+      //     year's Mourning), and was never offered for a Reclamation year
+      //     typed from an ordinary one. What each year SHOULD offer is worked
+      //     out here from the calendar, not asked of `monthChoices`.
+      {
+        const liveCal = game.time.calendar;
+        const zero = liveCal.years?.yearZero ?? 0;
+        const isLeap = (y) => !!liveCal.isLeapYear(y - zero);
+        const wantFor = (y) => liveCal.months.values
+          .map((m, i) => [i, (isLeap(y) ? (m.leapDays ?? m.days) : m.days) ?? 0])
+          .filter(([, d]) => d > 0).map(([i, d]) => `${i}:${d}`).join(",");
+        const monthEl = root.querySelector("#ab-date-month");
+        const shown = () => [...monthEl.options].map((o) => `${o.value}:${o.dataset.days}`).join(",");
+        const type = async (y) => {
+          yearEl.value = String(y);
+          yearEl.dispatchEvent(new Event("input", { bubbles: true }));
+          await wait(80);
+        };
+        const startYear = Number(yearEl.value);
+        const startMonth = monthEl.value;
+        let leapY = null;
+        let plainY = null;
+        for (let y = startYear + 1; y < startYear + 60 && (leapY === null || plainY === null); y++) {
+          if (isLeap(y)) leapY ??= y;
+          else plainY ??= y;
+        }
+        const follow = { leapY, plainY, wantPlain: wantFor(plainY), wantLeap: wantFor(leapY) };
+        await type(plainY);
+        follow.plain = shown();
+        await type(leapY);
+        follow.leap = shown();
+        // Pick the leap year's last month (Reclamation), then type a year
+        // without it: the selection has to land on a month that year has, and
+        // come back when the Reclamation year is typed again.
+        follow.picked = monthEl.options[monthEl.options.length - 1].value;
+        monthEl.value = follow.picked;
+        monthEl.dispatchEvent(new Event("change", { bubbles: true }));
+        await type(plainY);
+        follow.fellBackTo = monthEl.value;
+        follow.fellBackOffered = [...monthEl.options].some((o) => o.value === monthEl.value) && monthEl.selectedIndex >= 0;
+        follow.previewPlain = previewText();
+        await type(leapY);
+        follow.cameBackTo = monthEl.value;
+        await type(startYear);
+        monthEl.value = startMonth;
+        monthEl.dispatchEvent(new Event("change", { bubbles: true }));
+        await wait(80);
+        follow.endPreview = previewText();
+        out.preview.follow = follow;
+      }
       yearEl.focus();
       out.preview.focusedFirst = document.activeElement === yearEl;
       yearEl.dispatchEvent(new WheelEvent("wheel", { deltaY: 100, bubbles: true }));
@@ -1378,6 +1464,19 @@ try {
   P.timeAfterCancel === G.wasTime
     ? ok("Cancel on Set the Date… moves nothing")
     : fail("Cancel on the dialog moved the world", JSON.stringify({ was: G.wasTime, after: P.timeAfterCancel }));
+  // Review #36 S31. `wantPlain !== wantLeap` is the precondition: under a
+  // calendar whose months are the same every year this leg would prove nothing.
+  const F = P.follow ?? {};
+  F.wantPlain && F.wantLeap && F.wantPlain !== F.wantLeap
+    ? ok("precondition: this calendar's months differ between an ordinary year and a leap year", `${F.plainY} / ${F.leapY}`)
+    : fail("precondition: no year whose months differ was found", JSON.stringify(F));
+  F.plain === F.wantPlain && F.leap === F.wantLeap
+    ? ok("Set the Date…'s month list follows the Year field: Reclamation leaves for an ordinary year and returns, six days long, for a Reclamation year")
+    : fail("Set the Date…'s month list did not follow the Year field", JSON.stringify(F));
+  F.fellBackOffered && F.fellBackTo !== F.picked && F.cameBackTo === F.picked && /today$/.test(F.endPreview ?? "")
+    ? ok("...a picked Reclamation falls back to a month the typed year has, and comes back with a Reclamation year")
+    : fail("the picked month did not follow the Year field",
+      JSON.stringify({ picked: F.picked, fellBackTo: F.fellBackTo, cameBackTo: F.cameBackTo, end: F.endPreview }));
 
   cal.browsedAway
     && cal.browsedAfter?.month === cal.browsedBefore?.month
@@ -1618,7 +1717,7 @@ try {
           return {
             vald: gt.describeTime().vald,
             clock: line("#cairn-watch-clock .cairn-watch-weather"),
-            tooltip: document.querySelector("#cairn-watch-clock [data-tooltip]")?.dataset.tooltip ?? null,
+            tooltip: document.querySelector("#cairn-watch-clock [data-tooltip-text]")?.dataset.tooltipText ?? null,
             band: line("#cairn-warden-dashboard .cairn-time-today-weather"),
           };
         } finally {
@@ -1638,6 +1737,45 @@ try {
       /A rain of ash/.test(plainShown.band ?? "")
         ? ok("...and so does the Dashboard band", plainShown.band)
         : fail("...and so does the Dashboard band", JSON.stringify(plainShown.band));
+
+      /* ---- 32. the bar's tooltips say what the Warden typed ---------------- */
+      // Review #36. The weather is free text, and the bar put it in
+      // `data-tooltip`, which core renders as cleaned HTML: "<heavy>" is an
+      // element it does not know, so it went, and the rest of the line with
+      // it. The clock face (a text node) showed the whole thing; the tooltip
+      // every player hovers did not. Read off CORE'S OWN TOOLTIP ELEMENT after
+      // a real activate, never off the attribute — the attribute held the right
+      // text all along. The weather tab and the watch tab (whose sentence ends
+      // in the weather) are both read.
+      const typed = "ZZ storm <heavy> & <b>hail</b>";
+      const barTips = await page.evaluate(async (text) => {
+        const gt = await import("/systems/air-bladder/module/game-time.js");
+        const wc = await import("/systems/air-bladder/module/watch-clock.js");
+        await gt.setTodayWeather(text);
+        const pill = () => document.querySelector("#cairn-watch-clock .cairn-bar-weather");
+        for (let i = 0; i < 30 && !pill()?.textContent.includes("ZZ storm"); i++) await new Promise((r) => setTimeout(r, 100));
+        if (!pill()?.textContent.includes("ZZ storm")) await wc.refreshWatchClock();
+        await new Promise((r) => setTimeout(r, 200));
+        const tipOf = (el) => {
+          if (!el) return null;
+          game.tooltip.activate(el);
+          const shown = { text: game.tooltip.tooltip.textContent, elements: game.tooltip.tooltip.childElementCount };
+          game.tooltip.deactivate();
+          return shown;
+        };
+        return {
+          face: pill()?.textContent.replace(/\s+/g, " ").trim() ?? null,
+          weather: tipOf(pill()),
+          watch: tipOf(document.querySelector("#cairn-watch-clock .cairn-bar-watch")),
+          htmlForm: document.querySelectorAll("#cairn-watch-clock [data-bar-tooltip][data-tooltip]").length,
+        };
+      }, typed);
+      barTips.face === typed && barTips.weather?.text === typed && barTips.weather.elements === 0
+        ? ok("the weather's tooltip shows what the Warden typed, brackets and all", JSON.stringify(barTips.weather.text))
+        : fail("the weather's tooltip lost or rendered part of the typed text", JSON.stringify(barTips));
+      barTips.watch?.text.endsWith(typed) && barTips.watch.elements === 0 && barTips.htmlForm === 0
+        ? ok("...and so does the watch tab's sentence; no bar tab carries the HTML form")
+        : fail("the watch tab's tooltip", JSON.stringify(barTips));
 
       // EMPTY MEANS UNCALLED, which is how a Warden undoes a mistake.
       await page.evaluate(async () => {
@@ -1666,11 +1804,19 @@ try {
         const tomorrow = gt.todayWeather();
         await game.time.set(was);
         await new Promise((r) => setTimeout(r, 300));
-        return { here, tomorrow };
+        // 33 (review #36). The clock is back on the day the weather was called
+        // for, and nothing was called in between: the one record still names
+        // this day, so the weather shows again. todayWeather's docblock said
+        // the opposite for two months and no leg read it.
+        const backAgain = gt.todayWeather();
+        return { here, tomorrow, backAgain };
       });
       stale.here === "Thunderstorms" && stale.tomorrow === ""
         ? ok("the weather goes stale on its own when the day turns over")
         : fail("the weather goes stale", JSON.stringify(stale));
+      stale.backAgain === "Thunderstorms"
+        ? ok("...and setting the clock back to that day shows its weather again")
+        : fail("the weather after the clock was set back to its day", JSON.stringify(stale));
 
       // A PLAYER CANNOT WRITE IT. The setting is world-scoped, so the SERVER
       // refuses — the same wall that protects the clock.
@@ -1781,6 +1927,36 @@ try {
       out.thisYearHasMoot = [...(await ce.marksByDay(7728)).values()].flat()
         .some((m) => m.name === "ZZ Probe Moot");
 
+      // 31 (review #36). THE DAY CELL'S TOOLTIP NAMES THE EVENT AS TYPED. The
+      // cell put its event names in `data-tooltip`, which core renders as
+      // cleaned HTML, so an event called "Feast <of Fools>" lost everything
+      // from the bracket on in the tooltip every player hovers, while the day
+      // panel beside it (a text node) named it whole. Read off core's own
+      // tooltip element after a real activate. The event is added through the
+      // dialog on a day of its own and removed again before the legs below
+      // read the grid; day 6 is picked again, as those legs found it.
+      {
+        const fairName = "ZZ Probe <Fair> & <b>Games</b>";
+        el().querySelector('.cairn-calendar-day[data-day="9"]').click();
+        await new Promise((r) => setTimeout(r, 150));
+        await add((root) => {
+          root.querySelector("[name=name]").value = fairName;
+        });
+        await app.render();
+        const fair = cell(9);
+        out.fair = { name: fairName, marked: !!fair?.querySelector(".cairn-calendar-dot.is-warden"),
+          panel: el().querySelector(".cairn-calendar-festival.is-warden h4")?.innerText.trim() ?? null };
+        if (fair) {
+          game.tooltip.activate(fair);
+          out.fair.tip = game.tooltip.tooltip.textContent;
+          out.fair.elements = game.tooltip.tooltip.childElementCount;
+          game.tooltip.deactivate();
+        }
+        await game.journal.contents.flatMap((j) => j.pages.contents).find((p) => p.name === fairName)?.delete();
+        el().querySelector('.cairn-calendar-day[data-day="6"]').click();
+        await new Promise((r) => setTimeout(r, 150));
+      }
+
       // PAGED, NOT PICKED (review #30): Next month, no day clicked, Add an
       // event… — the page must land on that month's 1st, the day the panel
       // headline names, and not on today. `#selected` is stale after paging
@@ -1819,6 +1995,13 @@ try {
     evented.thisYearHasMoot && !evented.nextYearHasMoot
       ? ok("...and a dated event belongs to its own year, not to every year")
       : fail("the event's year", JSON.stringify(evented));
+
+    evented.fair?.marked && evented.fair.panel === evented.fair.name
+      ? ok("precondition: an event named with brackets is on its day, and the panel names it whole")
+      : fail("precondition: the bracketed event on its day", JSON.stringify(evented.fair));
+    evented.fair?.tip?.includes(evented.fair.name) && evented.fair.elements === 0
+      ? ok("...and the day cell's tooltip names it as typed, as text", JSON.stringify(evented.fair.tip))
+      : fail("the day cell's tooltip lost or rendered part of the event's name", JSON.stringify(evented.fair));
 
     evented.hiddenOwnership === 0
       ? ok("...and the hidden journal is ownership NONE")
@@ -2147,6 +2330,50 @@ try {
     hiddenMark.seen && hiddenMark.wrote && !hiddenMark.leaked
       ? ok("a HIDDEN event on the day is not written into the log the party reads")
       : fail("a hidden event in the weather log", JSON.stringify(hiddenMark));
+
+    /* ---- 34. a dollar sign in the weather is logged as typed ------------- */
+    // Review #36. A later line joins the page through String#replace, and the
+    // line was handed over as the replacement STRING — which is a pattern:
+    // `$$` is one dollar and `$&` is the text matched, here the list's own
+    // "</ul>". So weather typed with either was rewritten on its way into the
+    // log, and `$&` spliced a list close into the middle of the line. The FIRST
+    // line of a page never went through the replace, which is why this leg
+    // needs the log the legs above already wrote to: the precondition is that
+    // the page holds a line before this one. escapeHTML leaves `$` alone and
+    // turns the `&` after it into `&amp;`, so the stored line is read for that.
+    const dollars = await page.evaluate(async () => {
+      const settings = game.settings;
+      const realGet = settings.get.bind(settings);
+      settings.get = (ns, key, ...rest) => rest[0]?.document
+        ? foundry.helpers.ClientSettings.prototype.get.call(game.settings, ns, key, ...rest)   // review #34 finding 29
+        : (ns === "air-bladder" && key === "weather-log" ? true : realGet(ns, key, ...rest));
+      try {
+        const gt = await import("/systems/air-bladder/module/game-time.js");
+        const log = () => game.journal.contents.find((j) => j.flags?.["air-bladder"]?.weatherLog);
+        const text = () => log()?.pages?.contents?.[0]?.text?.content ?? "";
+        const count = (s, re) => (s.match(re) ?? []).length;
+        const before = text();
+        const linesBefore = count(before, /<li>/g);
+        await gt.setTodayWeather("ZZ hail $& fire, $$ and sleet");
+        for (let i = 0; i < 60 && count(text(), /<li>/g) <= linesBefore; i++) await new Promise((r) => setTimeout(r, 100));
+        const after = text();
+        return {
+          linesBefore,
+          lines: count(after, /<li>/g),
+          closes: count(after, /<\/ul>/g),
+          closesBefore: count(before, /<\/ul>/g),
+          line: (after.split("<li>").at(-1) ?? "").slice(0, 300),
+        };
+      } finally {
+        settings.get = realGet;
+      }
+    });
+    dollars.linesBefore >= 1 && dollars.lines === dollars.linesBefore + 1
+      ? ok("precondition: the log's page already held a line, and took one more", `${dollars.linesBefore} -> ${dollars.lines}`)
+      : fail("precondition: a later line on the log's page", JSON.stringify(dollars));
+    dollars.line.includes("ZZ hail $&amp; fire, $$ and sleet") && dollars.closes === dollars.closesBefore
+      ? ok("...and weather typed with $& and $$ is logged as typed, the list closed once")
+      : fail("the weather log rewrote a dollar sign in the weather", JSON.stringify(dollars));
 
     /* ---- hidden is OWNERSHIP, not the journal it is filed in (review #34 finding 230) ---- */
 

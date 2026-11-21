@@ -108,7 +108,7 @@ const claim = await alicePage.evaluate(async ({ pcId, muleUuid }) => {
   const pc = game.actors.get(pcId);
   const notices = [];
   const origWarn = ui.notifications.warn.bind(ui.notifications);
-  ui.notifications.warn = (m, ...a) => { notices.push(String(m)); return origWarn(m, ...a); };
+  ui.notifications.warn = (m, ...a) => { notices.push(a[0]?.format ? game.i18n.format(String(m), a[0].format) : String(m)); return origWarn(m, ...a); };
   // The Connections UI is parked (2026-08-09): without the in-page shadow the
   // drop refuses SILENTLY at the parked gate, before the ownership wall this
   // leg exists to witness. The shadow lets the drop reach that wall; the

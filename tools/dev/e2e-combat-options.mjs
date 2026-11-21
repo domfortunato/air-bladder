@@ -2917,7 +2917,7 @@ try {
           const fatiguesBefore = fatigues();
           const warns = [];
           const origWarn = ui.notifications.warn.bind(ui.notifications);
-          ui.notifications.warn = (msg, ...r) => { warns.push(String(msg)); return origWarn(msg, ...r); };
+          ui.notifications.warn = (msg, ...r) => { warns.push(r[0]?.format ? game.i18n.format(String(msg), r[0].format) : String(msg)); return origWarn(msg, ...r); };
           let row = null;
           for (let i = 0; i < 40 && !row; i++) { row = document.querySelector(`[data-message-id="${msgId}"]`); if (!row) await sleep(200); }
           const out = { row: !!row };
@@ -2986,7 +2986,7 @@ try {
           const ctl = mine.sheet.element?.querySelector(`[data-item-id="${item.id}"] [data-action="itemDrop"]`);
           const warns = [];
           const origWarn = ui.notifications.warn.bind(ui.notifications);
-          ui.notifications.warn = (msg, ...r) => { warns.push(String(msg)); return origWarn(msg, ...r); };
+          ui.notifications.warn = (msg, ...r) => { warns.push(r[0]?.format ? game.i18n.format(String(msg), r[0].format) : String(msg)); return origWarn(msg, ...r); };
           try {
             const clicking = ctl ? mine.sheet.options.actions.itemDrop.call(mine.sheet, { preventDefault() {} }, ctl) : null;
             let yes = null;
@@ -3015,6 +3015,93 @@ try {
         && refusedDrop.warns.includes(refusedDrop.want)
         ? ok(`a Drop the Warden's client refused says so ("${refusedDrop.want}"), and the item stays`)
         : fail(`the refused Drop: ${JSON.stringify(refusedDrop)}`);
+
+      /* ---- review #36 S24: without "Query Users", the refusal names it ---- */
+      // A player's Drop and a choice on a card the Warden rolled both go
+      // through `User#query`, which throws without the QUERY_USER permission —
+      // one a Warden can untick for players in Configure Permissions. The throw
+      // was swallowed, so the Drop said only that it "did not go through" and
+      // the choice said "No Warden is connected" with the Warden sitting there.
+      // DEFEATED IN PAGE: her own client's `hasPermission` answers false for
+      // that one permission (an own property over the prototype's, deleted
+      // again in the finally). The world's real permission setting is not
+      // written.
+      const noQueryCard = await page.evaluate(async ({ mineUuid }) => {
+        await game.settings.set("air-bladder", "fatigue-for-critical-damage", true);
+        const utils = await import("/systems/air-bladder/module/utils.js");
+        const actor = await fromUuid(mineUuid);
+        const card = { kind: "save", ability: "STR", formula: "d20cs<=10", rolled: 17, failed: true, crit: true, fatigue: true };
+        const m = await ChatMessage.create({
+          speaker: ChatMessage.getSpeaker({ actor }),
+          content: utils.d20CardBody(card),
+          flags: { "air-bladder": { d20Card: card } },
+        });
+        return { id: m.id, critBefore: actor._source.system.critical === true };
+      }, seed);
+      let noQuery = null;
+      try {
+        noQuery = await alicePage.evaluate(async ({ mineUuid, cardId }) => {
+          const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+          const mine = await fromUuid(mineUuid);
+          const [item] = await mine.createEmbeddedDocuments("Item", [{ name: "ZZ Alice No Query Rope", type: "item" }]);
+          const real = game.user.hasPermission;
+          const out = { hadIt: game.user.hasPermission("QUERY_USER"), warden: !!game.users.activeGM };
+          game.user.hasPermission = function (p) { return p === "QUERY_USER" ? false : real.call(this, p); };
+          const warns = [];
+          const origWarn = ui.notifications.warn.bind(ui.notifications);
+          ui.notifications.warn = (msg, ...r) => { warns.push(r[0]?.format ? game.i18n.format(String(msg), r[0].format) : String(msg)); return origWarn(msg, ...r); };
+          try {
+            // The Drop, off her own sheet.
+            await mine.sheet.render(true);
+            for (let i = 0; i < 30 && !(mine.sheet.element instanceof HTMLElement); i++) await sleep(100);
+            mine.sheet.element?.querySelector('[data-action="tab"][data-tab="items"]')?.click();
+            await sleep(400);
+            const ctl = mine.sheet.element?.querySelector(`[data-item-id="${item.id}"] [data-action="itemDrop"]`);
+            out.control = !!ctl;
+            const clicking = ctl ? mine.sheet.options.actions.itemDrop.call(mine.sheet, { preventDefault() {} }, ctl) : null;
+            let yes = null;
+            for (let i = 0; i < 40 && !yes; i++) { yes = document.querySelector('dialog.dialog button[data-action="drop"]'); if (!yes) await sleep(150); }
+            yes?.click();
+            await clicking;
+            await sleep(1500);
+            out.dropWarns = warns.splice(0);
+            out.kept = !!mine.items.get(item.id);
+            // The choice, on the card the Warden rolled for her.
+            let row = null;
+            for (let i = 0; i < 40 && !row; i++) { row = document.querySelector(`[data-message-id="${cardId}"]`); if (!row) await sleep(200); }
+            const crit = row?.querySelector(".mark-critical-damage");
+            out.critShown = !!crit && getComputedStyle(crit).display !== "none";
+            crit?.click();
+            await sleep(2500);
+            out.choiceWarns = warns.splice(0);
+            out.flag = game.messages.get(cardId)?.getFlag("air-bladder", "crawlerChoiceTaken") ?? null;
+            out.critical = mine._source.system.critical === true;
+          } finally {
+            ui.notifications.warn = origWarn;
+            delete game.user.hasPermission;
+          }
+          out.restored = game.user.hasPermission("QUERY_USER") === out.hadIt;
+          out.want = game.i18n.localize("CAIRN.Pile.CannotAskWarden");
+          out.dropFailed = game.i18n.format("CAIRN.Pile.DropFailed", { name: item.name });
+          out.noWarden = game.i18n.localize("CAIRN.Crawler.NoWardenForChoice");
+          await mine.sheet.close();
+          try { await item.delete(); } catch { /* gone */ }
+          return out;
+        }, { ...seed, cardId: noQueryCard.id });
+      } finally {
+        await page.evaluate((id) => game.messages.get(id)?.delete(), noQueryCard.id).catch(() => {});
+      }
+      noQuery?.hadIt && noQuery.warden && noQuery.control && noQuery.critShown && noQuery.restored
+        && noQuery.want !== "CAIRN.Pile.CannotAskWarden"
+        ? ok("precondition: she holds Query Users, a Warden is connected, the Drop control and the choice are hers, and her client was put back")
+        : fail(`the no-Query-Users leg's precondition: ${JSON.stringify(noQuery)}`);
+      noQuery?.kept && noQuery.dropWarns?.includes(noQuery.want) && !noQuery.dropWarns.includes(noQuery.dropFailed)
+        ? ok(`a Drop she isn't allowed to ask for names the permission ("${noQuery.want}"), once, and the item stays`)
+        : fail(`the Drop without Query Users: ${JSON.stringify({ kept: noQuery?.kept, warns: noQuery?.dropWarns })}`);
+      noQuery?.flag === null && noQuery.critical === noQueryCard.critBefore
+        && noQuery.choiceWarns?.includes(noQuery.want) && !noQuery.choiceWarns.includes(noQuery.noWarden)
+        ? ok("...and her choice on the Warden's card says the same, not that no Warden is connected; nothing is recorded or marked")
+        : fail(`the choice without Query Users: ${JSON.stringify({ flag: noQuery?.flag, critical: noQuery?.critical, warns: noQuery?.choiceWarns })}`);
 
       player.clamped === 25
         ? ok("...and a 40-character note sent through the broker lands clamped to 25 — the enforcement is on the GM's side, where the write is, because maxlength binds the field and not the wire")

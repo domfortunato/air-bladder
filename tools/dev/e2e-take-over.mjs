@@ -226,7 +226,7 @@ const answerConfirm = (action) => page.evaluate(async (action) => {
   if (!dlg) return { error: "no confirm handle" };
   const warns = [];
   const origWarn = ui.notifications.warn;
-  ui.notifications.warn = (m, ...rest) => { warns.push(String(m)); return origWarn.call(ui.notifications, m, ...rest); };
+  ui.notifications.warn = (m, ...rest) => { warns.push(rest[0]?.format ? game.i18n.format(String(m), rest[0].format) : String(m)); return origWarn.call(ui.notifications, m, ...rest); };
   const seen = new Set(foundry.applications.instances.keys());
   try {
     if (action === "close") await dlg.close();

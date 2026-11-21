@@ -52,7 +52,7 @@ const out = await page.evaluate(async () => {
 
   const warns = [];
   const origWarn = ui.notifications.warn.bind(ui.notifications);
-  ui.notifications.warn = (m, ...r) => { warns.push(m); return origWarn(m, ...r); };
+  ui.notifications.warn = (m, ...r) => { warns.push(r[0]?.format ? game.i18n.format(String(m), r[0].format) : m); return origWarn(m, ...r); };
 
   const Cls = CONFIG.Actor.documentClass;
   const ItemCls = CONFIG.Item.documentClass;

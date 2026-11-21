@@ -14,12 +14,13 @@
  *      and builds one that DRAWS (`Hotbar#_onDrop`); the system's catch-all
  *      swallowed that branch. This system ships encounter, spell and Scars
  *      tables.
- *   3. A LOCKED bar accepted the drop. On 14.365-14.367 core tests the hook's
+ *   3. A LOCKED bar accepted the drop. Before 14.368 core tested the hook's
  *      return value BEFORE its own lock check and `assignHotbarMacro` never
  *      consults `locked`, so `return false` skipped the only enforcement there
- *      is. The 14.368 client moved the lock ahead of the hook, so the REAL drop
- *      below can no longer see the guard on the verified build; the leg after
- *      it calls the hook itself (review #34 finding 14).
+ *      was. Core tests the lock first on every supported build (14.368 on,
+ *      `Hotbar#_onDrop`), so a locked bar never reaches the hook and the
+ *      system's own guard is gone (review #36). The REAL drop below now
+ *      witnesses core's lock end to end: it has no system fix to defeat.
  *
  * **Driven by a REAL `drop` event on a real slot element**, never by calling
  * `createCairnMacro` directly. The private `#onDragDrop` is where the hook's
@@ -84,6 +85,9 @@ console.log(`  note  using slots ${world.free.join(", ")}; ${world.macroIds.leng
 // #34 finding 26): the teardown sat at the end of the file, so a throw in any
 // leg left the Warden's user hotbar holding this run's macros.
 let fx = null;
+// The unlinked-token leg's scene and actor (review #36), removed from the
+// finally by the ids planted here.
+let tokFx = null;
 try {
   fx = await page.evaluate(async () => {
     const ActorImpl = CONFIG.Actor.documentClass;
@@ -208,29 +212,8 @@ try {
   check("a locked bar takes nothing",
     lockedDrop.after === lockedDrop.before && lockedDrop.unchanged,
     `macros ${lockedDrop.before} -> ${lockedDrop.after} slot ${lockedDrop.slotBefore} -> ${lockedDrop.slotId} `
-    + "— on 14.365-14.367 core tests this hook's return BEFORE its own lock check, and assignHotbarMacro "
-    + "never consults `locked`, so returning false here skipped the only enforcement there is");
-
-  // THE GUARD ITSELF, whatever core's order (review #34 finding 14). From 14.368
-  // core returns at its lock before the hook runs, so the real drop above passes
-  // with or without the system's guard. Called directly, with the bar shadowed
-  // locked, the system's hook must hand the drop BACK to core (`true`) and make
-  // no macro — not take it over (`false`) and write to a locked bar. Read with
-  // Hooks.call's own semantics: it returns false the moment a callback does.
-  const direct = await page.evaluate(async (uuid) => {
-    const before = game.macros.size;
-    Object.defineProperty(ui.hotbar, "locked", { get: () => true, configurable: true });
-    let result;
-    try {
-      result = Hooks.call("hotbarDrop", ui.hotbar, { type: "Item", uuid }, 9);
-    } finally {
-      delete ui.hotbar.locked;
-    }
-    await new Promise((r) => setTimeout(r, 800));
-    return { result, made: game.macros.size - before };
-  }, fx.weaponUuid);
-  check("the system's hook hands a LOCKED bar's drop back to core, on any build",
-    direct.result === true && direct.made === 0, JSON.stringify(direct));
+    + "— core tests the lock before it calls the hotbarDrop hook (Hotbar#_onDrop, 14.368 on), so the "
+    + "system's hook should never have seen this drop; if this is red, core's order has moved again");
 
   /* ------------------------------------- 4. the positive controls still work */
   console.log("\nwhat must keep working");
@@ -313,7 +296,7 @@ try {
     const id = (n) => pc.items.find((i) => i.name === n).id;
     const warns = [];
     const origWarn = ui.notifications.warn;
-    ui.notifications.warn = function (msg, ...rest) { warns.push(String(msg)); return origWarn.call(this, msg, ...rest); };
+    ui.notifications.warn = function (msg, ...rest) { warns.push(rest[0]?.format ? game.i18n.format(String(msg), rest[0].format) : String(msg)); return origWarn.call(this, msg, ...rest); };
     const origGet = game.settings.get;
     let handsFull = false;
     game.settings.get = function (scope, key, ...rest) {
@@ -364,9 +347,121 @@ try {
   check("...and still rolls an intact weapon with a hand free",
     macroRolls.intact.posted === 1 && macroRolls.intact.warns.length === 0, JSON.stringify(macroRolls.intact));
 
+  /* ---------------- 5. an UNLINKED TOKEN's weapon rolls the token's own copy */
+  // Review #36. A synthetic actor keeps its BASE actor's id and isn't in
+  // game.actors, so a macro keyed by actor id and item id rolled the WORLD
+  // actor's copy of the weapon — and said the item was gone when the weapon
+  // had been added to the token alone. Two weapons on one unlinked token: one
+  // the world actor has too, RENAMED on the token (the name is on the card, and
+  // unlike the die it does not depend on which quality the dialog's first
+  // button picks), and one only the token has. Each is dropped on a real slot
+  // and its macro EXECUTED, as a click on the bar does. The scene is never
+  // viewed, so a card spoken for the world actor names no token at all. The
+  // slots are two of the probe's own that the legs above leave empty.
+  console.log("\nan unlinked token's weapon");
+  tokFx = await page.evaluate(async () => {
+    const stamp = { "air-bladder": { probeFixture: "e2e-hotbar" } };
+    const scene = await Scene.create({ name: "ZZ Hotbar Token scene", width: 1000, height: 1000, flags: stamp });
+    const base = await getDocumentClass("Actor").create({
+      name: "ZZ Hotbar Monster", type: "npc", system: { role: "monster" }, flags: stamp,
+      items: [{ name: "ZZ Tok Claw", type: "weapon", system: { damageFormula: "1d6" } }],
+    }, { abNoStatusCard: true });
+    const [tok] = await scene.createEmbeddedDocuments("Token",
+      [await base.getTokenDocument({ x: 100, y: 100, actorLink: false })]);
+    const shared = tok.actor.items.find((i) => i.name === "ZZ Tok Claw");
+    await shared.update({ name: "ZZ Tok Claw EDITED" });
+    const knownItems = new Set(tok.actor.items.map((i) => i.id));
+    await tok.actor.createEmbeddedDocuments("Item",
+      [{ name: "ZZ Tok Sting", type: "weapon", system: { damageFormula: "1d6" } }]);
+    const own = tok.actor.items.find((i) => !knownItems.has(i.id));
+    return {
+      sceneId: scene.id, baseId: base.id, tokenId: tok.id,
+      unlinked: tok.actorLink === false && tok.actor !== base && tok.actor.id === base.id,
+      sharedUuid: shared.uuid, sharedOnBase: base.items.get(shared.id)?.name ?? null,
+      ownUuid: own?.uuid ?? null, ownOnBase: !!base.items.get(own?.id),
+    };
+  });
+  check("precondition: an unlinked token sharing its base actor's id", tokFx.unlinked, JSON.stringify(tokFx));
+  check("precondition: one weapon renamed on the token only, one the token alone has",
+    tokFx.sharedOnBase === "ZZ Tok Claw" && !!tokFx.ownUuid && tokFx.ownOnBase === false, JSON.stringify(tokFx));
+
+  // Execute the macro a slot holds and report what it posted and warned. The
+  // quality dialog is answered by its first button, as the leg above does.
+  const press = async (slotId) => page.evaluate(async ({ slotId, baseId }) => {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const warns = [];
+    const origWarn = ui.notifications.warn;
+    ui.notifications.warn = function (msg, ...rest) { warns.push(rest[0]?.format ? game.i18n.format(String(msg), rest[0].format) : String(msg)); return origWarn.call(this, msg, ...rest); };
+    const before = new Set(game.messages.map((m) => m.id));
+    const stale = new Set(foundry.applications.instances.values());
+    const mine = () => game.messages.filter((m) => !before.has(m.id) && m.speaker?.actor === baseId);
+    try {
+      const macro = game.macros.get(slotId);
+      if (!macro) return { error: "no macro in the slot" };
+      const pending = Promise.resolve(macro.execute()).catch((e) => warns.push(`threw: ${e.message}`));
+      for (let i = 0; i < 20 && !warns.length; i++) {
+        const d = [...foundry.applications.instances.values()].find((x) => !stale.has(x) && x instanceof foundry.applications.api.DialogV2);
+        if (d) { d.element.querySelector("footer button")?.click(); break; }
+        await sleep(100);
+      }
+      await Promise.race([pending, sleep(3000)]);
+      for (let i = 0; i < 20 && !warns.length && !mine().length; i++) await sleep(150);
+      await sleep(300);
+      const made = mine();
+      const out = {
+        posted: made.length, warns: [...warns],
+        flavor: String(made[0]?.flavor ?? "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim(),
+        speakerToken: made[0]?.speaker?.token ?? null,
+      };
+      for (const m of made) await m.delete();
+      return out;
+    } finally {
+      ui.notifications.warn = origWarn;
+    }
+  }, { slotId, baseId: tokFx.baseId });
+
+  const sharedDrop = await drop(SLOT_TEXT, JSON.stringify({ type: "Item", uuid: tokFx.sharedUuid }));
+  check("a token's weapon still makes its roll macro", /game\.cairn\.rollItemMacro/.test(sharedDrop.command ?? ""),
+    `command=${JSON.stringify(sharedDrop.command)}`);
+  const sharedRoll = sharedDrop.slotId ? await press(sharedDrop.slotId) : { error: "nothing in the slot" };
+  check("...which rolls the TOKEN's copy of the weapon, not the world actor's",
+    sharedRoll.posted === 1 && /ZZ Tok Claw EDITED/.test(sharedRoll.flavor ?? ""),
+    `${JSON.stringify(sharedRoll)} — the world actor's copy is still "ZZ Tok Claw", and the two share an id`);
+  check("...and speaks for that token", sharedRoll.speakerToken === tokFx.tokenId,
+    `speaker token=${sharedRoll.speakerToken} want=${tokFx.tokenId}`);
+
+  const ownDrop = await drop(SLOT_LOCK, JSON.stringify({ type: "Item", uuid: tokFx.ownUuid }));
+  const ownRoll = ownDrop.slotId ? await press(ownDrop.slotId) : { error: "nothing in the slot" };
+  check("a weapon only the token has rolls too", ownRoll.posted === 1 && ownRoll.warns?.length === 0
+    && /ZZ Tok Sting/.test(ownRoll.flavor ?? "") && ownRoll.speakerToken === tokFx.tokenId,
+    `${JSON.stringify(ownRoll)} — the world actor has no such item, so the old command answered "no longer has the item"`);
+
+  // What the button says once its weapon, then its token, is gone: the same
+  // two sentences a world actor's button has.
+  const gone = await page.evaluate(async ({ sceneId, tokenId, ownUuid }) => {
+    const tok = game.scenes.get(sceneId)?.tokens.get(tokenId);
+    const wantItem = game.i18n.format("CAIRN.Macro.NoItem", { name: tok.actor.name });
+    await (await fromUuid(ownUuid))?.delete();
+    return { wantItem, wantActor: game.i18n.localize("CAIRN.Macro.NoActor") };
+  }, tokFx);
+  const itemGone = ownDrop.slotId ? await press(ownDrop.slotId) : { error: "nothing in the slot" };
+  check("the button says so by name once the token's weapon is gone",
+    itemGone.posted === 0 && (itemGone.warns ?? []).includes(gone.wantItem), `${JSON.stringify(itemGone)} want=${JSON.stringify(gone.wantItem)}`);
+  await page.evaluate(({ sceneId, tokenId }) => game.scenes.get(sceneId)?.tokens.get(tokenId)?.delete(), tokFx);
+  const tokenGone = sharedDrop.slotId ? await press(sharedDrop.slotId) : { error: "nothing in the slot" };
+  check("...and that its actor no longer exists once the token is",
+    tokenGone.posted === 0 && (tokenGone.warns ?? []).includes(gone.wantActor), `${JSON.stringify(tokenGone)} want=${JSON.stringify(gone.wantActor)}`);
+
 } catch (e) {
   check("the probe ran to the end", false, e.message);
 } finally {
+  if (tokFx) {
+    await page.evaluate(async ({ sceneId, baseId }) => {
+      for (const m of game.messages.filter((m) => m.speaker?.actor === baseId)) { try { await m.delete(); } catch { /* gone */ } }
+      try { await game.scenes.get(sceneId)?.delete(); } catch { /* gone */ }
+      try { await game.actors.get(baseId)?.delete(); } catch { /* gone */ }
+    }, tokFx).catch(() => {});
+  }
   if (fx) {
     /* ----------------------------------------------------------- teardown ---- */
     // Restore the bar to its SNAPSHOT and delete only the id DIFFERENCE. Never "the

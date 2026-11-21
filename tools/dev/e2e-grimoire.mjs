@@ -295,7 +295,7 @@ try {
     const a = game.actors.get(id);
     const warns = [];
     const origWarn = ui.notifications.warn;
-    ui.notifications.warn = (m) => { warns.push(String(m)); return null; };
+    ui.notifications.warn = (m, o) => { warns.push(o?.format ? game.i18n.format(String(m), o.format) : String(m)); return null; };
     try {
       i18n._setOverlay({ "item.name": { "ZZ Grim Tome": "ZZ-TOMO" } });
       const book = a.items.find((i) => i.system?.grimoire);
@@ -592,7 +592,7 @@ try {
       { closest: () => ({ dataset: { itemId: delta.id } }) });
     const warns = [];
     const orig = ui.notifications.warn;
-    ui.notifications.warn = (m) => { warns.push(String(m)); };
+    ui.notifications.warn = (m, o) => { warns.push(o?.format ? game.i18n.format(String(m), o.format) : String(m)); };
     // The full-book refusal names the book, so it reads through the overlay too
     // (review #16). Installed here rather than in its own leg because the
     // fixture it needs -- a book at capacity -- is this leg's.
@@ -990,7 +990,7 @@ try {
     // The pack is full from leg 8: zero free slots -> refusal.
     const warns = [];
     const orig = ui.notifications.warn;
-    ui.notifications.warn = (m) => { warns.push(String(m)); };
+    ui.notifications.warn = (m, o) => { warns.push(o?.format ? game.i18n.format(String(m), o.format) : String(m)); };
     let out;
     try { out = await castFromGrimoire(a); } finally { ui.notifications.warn = orig; }
     return { out, warned: warns.some((w) => w.includes(game.i18n.format("CAIRN.Notify.GrimoireNoDice", { name: a.name }))) };
@@ -1031,7 +1031,7 @@ try {
     const page = caster.items.find((i) => i.system?.bound);
     const warns = [];
     const orig = ui.notifications.warn;
-    ui.notifications.warn = (m) => { warns.push(String(m)); };
+    ui.notifications.warn = (m, o) => { warns.push(o?.format ? game.i18n.format(String(m), o.format) : String(m)); };
     let pageDrop;
     try { pageDrop = await pile.sheet._onDropItem({ preventDefault: () => {} }, page); }
     finally { ui.notifications.warn = orig; }
@@ -1135,7 +1135,7 @@ try {
     const one = sh.items.find((i) => i.name === "ZZ Grim Tome One");
     const warns = [];
     const orig = ui.notifications.warn;
-    ui.notifications.warn = (m) => { warns.push(String(m)); };
+    ui.notifications.warn = (m, o) => { warns.push(o?.format ? game.i18n.format(String(m), o.format) : String(m)); };
     let moved;
     try {
       moved = await reader.sheet._onDropItem(
@@ -1350,7 +1350,7 @@ try {
     const warned = [];
     const origWarn = ui.notifications.warn;
     ui.notifications.warn = function (msg, ...rest) {
-      warned.push(String(msg));
+      warned.push(rest[0]?.format ? game.i18n.format(String(msg), rest[0].format) : String(msg));
       return origWarn.call(this, msg, ...rest);
     };
     const book = (n, key = "") => ({ name: `ZZ Grim Payload Wall ${n}`, type: "item",
@@ -1578,7 +1578,7 @@ try {
       let second = undefined;
       if (solo.system.uses.value === 0) {
         const origWarn = ui.notifications.warn;
-        ui.notifications.warn = (m) => { warns.push(String(m)); };
+        ui.notifications.warn = (m, o) => { warns.push(o?.format ? game.i18n.format(String(m), o.format) : String(m)); };
         try { second = await castScroll(a, solo); } finally { ui.notifications.warn = origWarn; }
       }
       return {
@@ -1722,7 +1722,7 @@ try {
     };
     const origWarn = ui.notifications.warn;
     const warns = [];
-    ui.notifications.warn = (m) => { warns.push(String(m)); };
+    ui.notifications.warn = (m, o) => { warns.push(o?.format ? game.i18n.format(String(m), o.format) : String(m)); };
     const timeout = (p) => Promise.race([p, new Promise((r) => setTimeout(() => r("__timeout__"), 20000))]);
     try {
       const opened = new Set(foundry.applications.instances.keys());
