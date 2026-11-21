@@ -1,0 +1,81 @@
+{{!--
+  The Warden's Party sheet: one row per PC in the Party folder, in marching
+  order. ONE ROOT ELEMENT (an ApplicationV2 part must render exactly one).
+
+  Every value cell carries `data-col`, which is what `dev:party-sheet` reads;
+  a ratio is written with no spaces round the slash ("3/4") because the probe
+  compares the cell's text. Narrow count columns head with a glyph and say
+  what they count in the tooltip.
+--}}
+<div class="cairn-party-inner">
+    {{#if rows.length}}
+        <div class="cairn-party-scroll">
+            <table class="cairn-party-table">
+                <thead>
+                    <tr>
+                        <th class="cairn-party-order" data-tooltip="{{localize 'CAIRN.PartySheet.OrderTip'}}">{{localize "CAIRN.PartySheet.Order"}}</th>
+                        <th class="cairn-party-name">{{localize "CAIRN.PartySheet.Character"}}</th>
+                        <th>{{localize "CAIRN.PartySheet.Player"}}</th>
+                        <th>{{localize "CAIRN.Pronouns"}}</th>
+                        <th>{{localize "CAIRN.Background"}}</th>
+                        <th class="cairn-party-num">{{localize "CAIRN.HitProtection"}}</th>
+                        <th class="cairn-party-num">{{localize "STR"}}</th>
+                        <th class="cairn-party-num">{{localize "DEX"}}</th>
+                        <th class="cairn-party-num">{{localize "WIL"}}</th>
+                        <th class="cairn-party-num">{{localize "CAIRN.Armor"}}</th>
+                        <th class="cairn-party-num">{{localize "CAIRN.Gold"}}</th>
+                        <th class="cairn-party-num">{{localize "CAIRN.Slots"}}</th>
+                        <th class="cairn-party-num">{{localize "CAIRN.Fatigue"}}</th>
+                        <th>{{localize "CAIRN.Shield"}}</th>
+                        <th data-tooltip="{{localize 'CAIRN.PartySheet.LightTip'}}">{{localize "CAIRN.PartySheet.Light"}}</th>
+                        <th class="cairn-party-num" data-tooltip="{{localize 'CAIRN.PartySheet.RationsTip'}}">{{localize "CAIRN.PartySheet.Rations"}}</th>
+                        {{#each connectionColumns as |c|}}
+                            <th class="cairn-party-num" data-tooltip="{{localize c.key}}" aria-label="{{localize c.key}}"><i class="fa-solid {{c.icon}}"></i></th>
+                        {{/each}}
+                        <th>{{localize "CAIRN.PartySheet.Conditions"}}</th>
+                        <th class="cairn-party-notes" data-tooltip="{{localize 'CAIRN.PartySheet.NotesTip'}}">{{localize "CAIRN.PartySheet.Notes"}}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{#each rows as |row|}}
+                        <tr data-actor-id="{{row.id}}">
+                            <td class="cairn-party-order" data-col="order"><i class="fa-solid fa-grip-vertical"></i> {{row.position}}</td>
+                            <td class="cairn-party-name" data-col="name">
+                                <a data-action="openSheet"><img src="{{row.img}}" alt="" loading="lazy">{{row.name}}</a>
+                            </td>
+                            <td data-col="player">{{row.player}}</td>
+                            <td data-col="pronouns">{{row.pronouns}}</td>
+                            <td data-col="background">{{row.background}}</td>
+                            <td class="cairn-party-num" data-col="hp">{{row.hp.value}}/{{row.hp.max}}</td>
+                            <td class="cairn-party-num" data-col="str">{{row.str.value}}/{{row.str.max}}</td>
+                            <td class="cairn-party-num" data-col="dex">{{row.dex.value}}/{{row.dex.max}}</td>
+                            <td class="cairn-party-num" data-col="wil">{{row.wil.value}}/{{row.wil.max}}</td>
+                            <td class="cairn-party-num" data-col="armor">{{row.armor}}</td>
+                            <td class="cairn-party-num" data-col="gold">{{row.gold}}</td>
+                            <td class="cairn-party-num {{#if row.slots.full}}cairn-party-full{{/if}}" data-col="slots">{{row.slots.used}}/{{row.slots.max}}</td>
+                            <td class="cairn-party-num {{#if row.noFatigue}}cairn-party-none{{/if}}" data-col="fatigue">{{row.fatigue}}</td>
+                            <td data-col="shield" data-state="{{row.shield}}">{{row.shieldLabel}}</td>
+                            <td data-col="light" data-held="{{row.held}}" data-count="{{row.lights}}">
+                                {{#if row.held}}<span class="cairn-party-held" data-tooltip="{{localize 'CAIRN.PartySheet.InHand'}}"><i class="fa-solid fa-hand"></i> {{row.heldLabel}}</span>{{/if}}
+                                <span class="cairn-party-count {{#unless row.lights}}cairn-party-none{{/unless}}">{{row.lights}}</span>
+                            </td>
+                            <td class="cairn-party-num {{#if row.noRations}}cairn-party-none{{/if}}" data-col="rations">{{row.rations}}</td>
+                            {{#each row.connections as |c|}}
+                                <td class="cairn-party-num {{#if c.none}}cairn-party-none{{/if}}" data-col="{{c.col}}">{{c.count}}</td>
+                            {{/each}}
+                            <td data-col="conditions">
+                                {{#each row.conditions as |cond|}}<span class="cairn-party-condition" data-condition="{{cond.id}}">{{cond.label}}</span>{{/each}}
+                            </td>
+                            <td class="cairn-party-notes" data-col="notes">
+                                <input type="text" data-note value="{{row.note}}" maxlength="{{@root.noteMax}}"
+                                       aria-label="{{localize 'CAIRN.PartySheet.Notes'}}">
+                            </td>
+                        </tr>
+                    {{/each}}
+                </tbody>
+            </table>
+        </div>
+    {{else}}
+        <p class="hint">{{localize "CAIRN.PartySheet.Empty"}}</p>
+    {{/if}}
+</div>

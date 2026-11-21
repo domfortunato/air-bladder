@@ -108,6 +108,9 @@ try {
       // Internal, and dates from after the namespace move (2026-11-19), so no
       // "cairn.<key>" value exists for SETTING_KEYS to carry: vald-weather-today's case.
       "welcome-on-start",
+      // The Party sheet's marching order (2026-11-21): a record of the table,
+      // postdating the namespace move — vald-weather-today's case again.
+      "party-marching-order",
       // The shield-flag stamp's completion marker (2026-11-20, Hold shield);
       // postdates the namespace move, as every marker here does.
       "shield-flag-stamped",

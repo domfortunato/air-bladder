@@ -4388,14 +4388,138 @@ ol.combat-tracker li.combatant.cairn-drop-below {
 }
 
 .cairn-dashboard .cairn-dashboard-footer {
+    display: flex;
+    gap: 6px;
     margin-top: 6px;
     padding-top: 6px;
     border-top: 1px solid var(--ab-line);
 }
 
 .cairn-dashboard .cairn-dashboard-footer button {
+    flex: 1 1 0;
+    width: auto;
+    margin: 0;
+}
+
+/* ---- The Warden's Party sheet (2026-11-21) --------------------------------
+   One table, one row per PC, in marching order. The window-content's single
+   child is `.cairn-party-inner`; the SCROLL box inside it takes both
+   directions, so a narrowed window scrolls the table rather than wrapping
+   twenty-two columns into a ragged block, and the header row stays pinned
+   while the rows scroll under it. The header sits on the black label bar the
+   sheets use, which is opaque in both schemes — a sticky header over a
+   translucent wash would show the rows through it. */
+.cairn-party-sheet .cairn-party-inner {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
+.cairn-party-sheet .cairn-party-scroll {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: auto;
+}
+
+.cairn-party-sheet .cairn-party-table {
     width: 100%;
     margin: 0;
+    border-collapse: collapse;
+    color: var(--ab-ink);
+    font-size: var(--font-size-13, 13px);
+}
+
+.cairn-party-sheet .cairn-party-table th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    padding: 4px 6px;
+    background: var(--ab-bar);
+    color: var(--ab-on-bar);
+    font-family: inherit;
+    font-weight: bold;
+    text-align: left;
+    white-space: nowrap;
+}
+
+.cairn-party-sheet .cairn-party-table td {
+    padding: 3px 6px;
+    border-bottom: 1px solid var(--ab-hairline);
+    white-space: nowrap;
+    vertical-align: middle;
+}
+
+.cairn-party-sheet .cairn-party-table tbody tr:nth-child(even) td {
+    background: var(--ab-wash);
+}
+
+.cairn-party-sheet .cairn-party-table .cairn-party-num {
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+}
+
+.cairn-party-sheet .cairn-party-order {
+    cursor: grab;
+    color: var(--ab-muted);
+}
+
+.cairn-party-sheet .cairn-party-name a {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: bold;
+}
+
+.cairn-party-sheet .cairn-party-name img {
+    width: 28px;
+    height: 28px;
+    object-fit: cover;
+    border: 1px solid var(--ab-rule);
+    border-radius: 3px;
+}
+
+/* A zero is a non-answer: muted, so the counts that matter stand out. */
+.cairn-party-sheet .cairn-party-none {
+    color: var(--ab-faint);
+}
+
+.cairn-party-sheet .cairn-party-full {
+    color: var(--ab-peril);
+    font-weight: bold;
+}
+
+.cairn-party-sheet .cairn-party-held {
+    margin-right: 6px;
+    color: var(--ab-accent);
+    font-weight: bold;
+}
+
+.cairn-party-sheet .cairn-party-condition {
+    display: inline-block;
+    margin-right: 4px;
+    padding: 0 5px;
+    border: 1px solid var(--ab-peril);
+    border-radius: 3px;
+    color: var(--ab-peril);
+    font-size: var(--font-size-11, 11px);
+}
+
+.cairn-party-sheet .cairn-party-notes {
+    min-width: 200px;
+    width: 100%;
+}
+
+.cairn-party-sheet .cairn-party-notes input {
+    width: 100%;
+    min-width: 180px;
+}
+
+.cairn-party-sheet tr.cairn-dragging td {
+    opacity: 0.5;
+}
+
+.cairn-party-sheet tr.cairn-drop-target td {
+    border-top: 2px solid var(--ab-accent);
 }
 
 /* ---- The Warden's clock, on the Dashboard --------------------------------

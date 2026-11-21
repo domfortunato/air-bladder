@@ -123,6 +123,28 @@ That is the reason the Encounters tab has no combined button. Rolling several
 encounter tables into one result would cost you that button, and placing the
 monsters is the whole point.
 
+## The party at a glance
+
+The **Party sheet** button at the bottom of the dashboard, beside Warden's
+Damage, opens a table of every character in the Party folder. The **people**
+icon in the Token controls opens it too.
+
+Each row is one character: who plays them, their pronouns and background, HP
+and the three abilities, armor, gold, slots, Fatigue, whether their shield is
+held or slung, the light in their hand, how many rations they have left, how
+many hirelings, companions, containers and transports are connected to them,
+and whether they are encumbered or Deprived. Click a name to open that
+character's sheet.
+
+The rows are in marching order. Drag a row onto another to move it there; the
+order is saved with the world.
+
+The last column is a line for your own notes on each character. It is shown
+only here, and only you can open this window.
+
+Move a character out of the Party folder and it leaves the table; move it back
+and it returns.
+
 ## Related
 
 - [Encounter Tables](encounter-tables.md) — writing your own encounter tables,

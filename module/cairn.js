@@ -18,6 +18,7 @@ import { createCairnMacro, rollItemMacro } from "./macros.js";
 import { Damage, DAMAGE_APPLIED_FLAG, DAMAGE_SOURCE_FLAG, localizeDamageCard } from "./damage.js";
 import { registerWardenDamageControl } from "./warden-damage.js";
 import { registerWardenDashboardControl, refreshDashboardTime, localizeDashboardCard } from "./warden-dashboard.js";
+import { registerPartySheet } from "./party-sheet.js";
 import { handlePileQuery, localizePileCard, PILE_DROP_QUERY, askWhatToDrop, dropItemToPile, partyFolderId, stripPlantedPileFlags, findDroppedPile } from "./party-pile.js";
 import { mustDropForFatigue, registerHeldLightSync } from "./gear.js";
 import { installWorldCalendar, checkWorldCalendar } from "./game-time.js";
@@ -133,6 +134,9 @@ Hooks.once("init", async function () {
   // Beside it, and for the same reason: both hang a GM-only button on the
   // Token controls, and neither palette exists yet at this point.
   registerWardenDashboardControl();
+  // The Party sheet's Token-controls button, beside the Dashboard's, and the
+  // hooks that keep an open table current (2026-11-21).
+  registerPartySheet();
 
   // The Vald calendar, if the hack is on. AFTER registerSettings() — it reads
   // the setting — and the ordering against core is the trick that makes this

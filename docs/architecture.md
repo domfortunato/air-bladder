@@ -29,7 +29,7 @@ git grep -n "_prepareContext" -- module/
 
 `system.json` names exactly one JavaScript file, `module/cairn.js`. Everything
 that runs in the browser is reachable from that file's imports; nothing else in
-the repository executes at all. It imports 30 of the system's 39 JavaScript
+the repository executes at all. It imports 32 of the system's 44 JavaScript
 files, registers the document classes, sheets and settings, subscribes 26
 Foundry hooks and one socket channel, and then gets out of the way.
 Play happens inside two document classes, two sheet classes, a combat tracker,
@@ -44,8 +44,8 @@ and a set of feature files that mostly do not know about each other.
 | `module/`, physical lines | **~40,200** |
 | `module/`, code lines | **~16,600** |
 | Comment and blank share | **~59%** |
-| JavaScript files | 42 (re-counted 2026-11-19, with the welcome window and the character sheet's tab rail) |
-| Handlebars templates | 30 files (re-counted 2026-11-20, with page 1's four shared partials), ~3,800 lines |
+| JavaScript files | 44 (re-counted 2026-11-21, with the Party sheet) |
+| Handlebars templates | 32 files (re-counted 2026-11-21, with the Party sheet), ~3,900 lines |
 | Stylesheet | 1 file, ~5,100 lines |
 | Compendium source documents | ~1,140 YAML files across 29 packs |
 | Interface translations | 7 languages, plus 1 content overlay |
@@ -126,7 +126,7 @@ complicated it is. `art-picker.js` sits at tier 8 and is 159 lines of code.
 | **3** | `combat.js`, `game-time.js`, `glog.js`, `macros.js` |
 | **4** | `calendar-events.js`, `gear.js` |
 | **5** | `item/item.js`, `marketplace.js`, `party-pile.js`, `vald-calendar.js`, `weather-log.js` |
-| **6** | `actor/actor.js`, `grimoire.js`, `item-offer.js`, `watch-clock.js` |
+| **6** | `actor/actor.js`, `grimoire.js`, `item-offer.js`, `party-sheet.js`, `watch-clock.js` |
 | **7** | `character-generator.js` |
 | **8** | `art-picker.js`, `damage.js`, `encounters.js`, `faction-generator.js`, `kettlewright-import.js`, `monster-generator.js`, `take-over.js` |
 | **9** | `actor/actor-sheet.js`, `item/item-sheet.js`, `table-banner.js`, `warden-damage.js` |
@@ -212,10 +212,10 @@ on its own once the spine is familiar:
 `monster-generator.js` · `actor/tab-rail.js` · `table-banner.js` ·
 `warden-dashboard.js` · `watch-clock.js` · `weather-log.js` · `welcome.js`
 
-Three more are shared by a few features rather than the system:
+Four more are shared by a few features rather than the system:
 `vald-calendar.js` (imported by the boot file, the dashboard and the clock),
-`calendar-events.js` (by the Vald calendar, the weather log and the party pile)
-and `warden-damage.js` (by the boot file and the dashboard). `settings-menus.js`
+`calendar-events.js` (by the Vald calendar, the weather log and the party pile),
+`warden-damage.js` and `party-sheet.js` (each by the boot file and the dashboard). `settings-menus.js`
 is a leaf of `settings.js` rather than of the system, and `welcome-data.js` a
 leaf of `welcome.js` (it has no Foundry in it, so `tools/build-readme.mjs`
 reads it too: README.md's top and bottom are the welcome window's words). `party-pile.js` is NOT a

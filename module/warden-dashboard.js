@@ -30,6 +30,7 @@ import { findTableByName, resultText, resultPlainText } from "./compendium.js";
 import { cleanDescription } from "./utils.js";
 import { t } from "./i18n-content.js";
 import { openWardenDamage } from "./warden-damage.js";
+import { openPartySheet } from "./party-sheet.js";
 import {
   valdEnabled, describeTime, weatherTableForToday, monthChoices, WATCH_KEYS,
   advanceWatch, backWatch, advanceDay, toNextMorning, setDate, timeForDate, describeDateAt, describeShift,
@@ -1066,6 +1067,7 @@ class WardenDashboard extends foundry.applications.api.HandlebarsApplicationMixi
       rollWeather: WardenDashboard._onRollWeather,
       setWeather: WardenDashboard._onSetWeather,
       openCalendar: WardenDashboard._onOpenCalendar,
+      openPartySheet: WardenDashboard._onOpenPartySheet,
     },
   };
 
@@ -1377,6 +1379,11 @@ class WardenDashboard extends foundry.applications.api.HandlebarsApplicationMixi
   }
 
   /** @this {WardenDashboard} */
+  /** The Party sheet, from the footer beside the damage tool. */
+  static async _onOpenPartySheet() {
+    await openPartySheet();
+  }
+
   static async _onSetDate(event, target) {
     await this._whileDisabled(target, () => promptSetDate({ windowId: this.window?.windowId }));
   }

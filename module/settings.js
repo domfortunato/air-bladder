@@ -160,7 +160,7 @@ const rerenderItemSheets = () => rerenderSheetsOf(Item);
  */
 export const INTERNAL_SETTING_KEYS = [
   "custom-portrait-list", "disabled-backgrounds", "connections-ui-enabled",
-  "vald-weather-today", "welcome-on-start",
+  "vald-weather-today", "welcome-on-start", "party-marching-order",
 ];
 
 /**
@@ -1002,6 +1002,19 @@ export const registerSettings = () => {
     config: false,
     type: Boolean,
     default: true,
+  });
+
+  // The Party sheet's marching order (2026-11-21): actor ids, leader first.
+  // A RECORD of the table, like vald-weather-today, not configuration; the
+  // Party sheet is its only writer and only reader.
+  game.settings.register(SETTINGS_NS, "party-marching-order", {
+    scope: "world",
+    config: false,
+    type: Array,
+    default: [],
+    onChange: () => {
+      Hooks.callAll("cairnMarchingOrderChanged");
+    },
   });
 
   game.settings.register(SETTINGS_NS, "vald-weather-today", {
