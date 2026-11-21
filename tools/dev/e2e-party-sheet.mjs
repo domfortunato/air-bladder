@@ -116,6 +116,8 @@ try {
     }, { abNoStatusCard: true });
     const pad = b.system.slotsMax - 1 - b.system.slotsUsed;
     if (pad > 0) await b.createEmbeddedDocuments("Item", [{ name: "ZZ Probe Pebbles", type: "item", system: { quantity: pad } }]);
+    // C carries no shield and no light (round 3): both cells must be EMPTY.
+    const c = await Cls.create({ name: "ZZ Party C", type: "character", folder, flags }, { abNoStatusCard: true });
     const outside = await Cls.create({ name: "ZZ Party Outside", type: "character", flags }, { abNoStatusCard: true });
     const kid = (name, type, system) => Cls.create({ name, type, flags, system: { ...system, connectedTo: a.uuid } });
     await kid("ZZ Party Hireling", "hireling", {});
@@ -123,7 +125,7 @@ try {
     await kid("ZZ Party Sack", "npc", { role: "container", containerClass: "sack", hp: { value: 0, max: 0 } });
     await kid("ZZ Party Cart", "npc", { role: "transport", containerClass: "cart", hp: { value: 0, max: 0 } });
     return {
-      a: a.id, b: b.id, outside: outside.id, madeFolder: !hadFolder, savedOrder, alice: alice?.name ?? null,
+      a: a.id, b: b.id, c: c.id, outside: outside.id, madeFolder: !hadFolder, savedOrder, alice: alice?.name ?? null,
       want: {
         slots: `${a.system.slotsUsed}/${a.system.slotsMax}`, armor: String(a.system.armor),
         slotsB: `${b.system.slotsUsed}/${b.system.slotsMax}`,
@@ -150,6 +152,8 @@ try {
       conditions: [...tr.querySelectorAll('[data-col="conditions"] [data-condition]')].map((e) => e.dataset.condition),
       letters: [...tr.querySelectorAll('[data-col="conditions"] [data-condition]')].map((e) => e.textContent.trim()).join(""),
       tones: Object.fromEntries([...tr.querySelectorAll("[data-col]")].map((td) => [td.dataset.col, td.dataset.tone ?? ""])),
+      icons: { shield: !!tr.querySelector('[data-col="shield"] i'), light: !!tr.querySelector('[data-col="light"] i') },
+      boxed: { fatigue: !!tr.querySelector('[data-col="fatigue"] .cairn-party-box'), rations: !!tr.querySelector('[data-col="rations"] .cairn-party-box') },
       note: tr.querySelector('[data-col="notes"] input')?.value ?? null,
     }));
   });
@@ -192,6 +196,8 @@ try {
     const toneA = { hp: "warn", str: "alert", dex: "alert", wil: "", fatigue: "accent", shield: "accent", light: "accent", slots: "" };
     const offA = Object.entries(toneA).filter(([k, v]) => rowA.tones[k] !== v).map(([k, v]) => `${k}: want "${v}" got "${rowA.tones[k]}"`);
     check(!offA.length, "row A: HP amber, abilities red, held gear and Fatigue teal", offA.join("; "));
+    check(rowA.icons.shield && rowA.icons.light && rowA.boxed.fatigue && !rowA.boxed.rations && rowA.tones.rations === "",
+      "row A: both icons; Fatigue boxed, 5 rations plain", JSON.stringify({ icons: rowA.icons, boxed: rowA.boxed, rations: rowA.tones.rations }));
 
     const b = rowB.cells;
     const expectB = { name: "ZZ Party B", fatigue: "0", rations: "0", slots: setup.want.slotsB,
@@ -204,9 +210,16 @@ try {
       `shield="${rowB.shield}" held="${rowB.held}" lights="${rowB.lights}"`);
     check(JSON.stringify(rowB.conditions) === '["panicked"]' && rowB.letters === "P",
       "row B: Panicked shows, boxed as P", `${JSON.stringify(rowB.conditions)} "${rowB.letters}"`);
-    const toneB = { hp: "alert", slots: "warn", shield: "warn", light: "warn", fatigue: "", str: "" };
+    // Round 3 (user, 2026-11-21): colour means IN HAND and nothing else; a
+    // shield or light carried but not held shows its symbol uncoloured.
+    const toneB = { hp: "alert", slots: "warn", shield: "", light: "", fatigue: "", str: "", rations: "alert" };
     const offB = Object.entries(toneB).filter(([k, v]) => rowB.tones[k] !== v).map(([k, v]) => `${k}: want "${v}" got "${rowB.tones[k]}"`);
-    check(!offB.length, "row B: HP 0 red, one slot left amber, slung and unheld amber", offB.join("; "));
+    check(!offB.length, "row B: HP 0 red, one slot amber, carried gear uncoloured, no rations red", offB.join("; "));
+    check(rowB.icons.shield && rowB.icons.light && rowB.boxed.rations && !rowB.boxed.fatigue,
+      "row B: slung shield and unheld light still show; 0 rations boxed", JSON.stringify({ icons: rowB.icons, boxed: rowB.boxed }));
+    const rowC = rows.find((r) => r.id === setup.c);
+    check(rowC && !rowC.icons.shield && !rowC.icons.light && rowC.tones.shield === "" && rowC.tones.light === "",
+      "row C: no shield and no light leave both cells empty", JSON.stringify(rowC ? { icons: rowC.icons, tones: rowC.tones } : null));
     const ia = rows.indexOf(rowA);
     const ib = rows.indexOf(rowB);
     check(ia < ib, "with no stored order, A sorts before B by name", `A=${ia} B=${ib}`);
