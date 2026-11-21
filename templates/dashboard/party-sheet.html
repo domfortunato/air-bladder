@@ -46,25 +46,27 @@
                             <td class="cairn-party-wrap" data-col="player">{{row.player}}</td>
                             <td class="cairn-party-wrap" data-col="pronouns">{{row.pronouns}}</td>
                             <td class="cairn-party-wrap" data-col="background">{{row.background}}</td>
-                            <td class="cairn-party-num" data-col="hp">{{row.hp.value}}/{{row.hp.max}}</td>
-                            <td class="cairn-party-num" data-col="str">{{row.str.value}}/{{row.str.max}}</td>
-                            <td class="cairn-party-num" data-col="dex">{{row.dex.value}}/{{row.dex.max}}</td>
-                            <td class="cairn-party-num" data-col="wil">{{row.wil.value}}/{{row.wil.max}}</td>
+                            <td class="cairn-party-num cairn-party-tone-{{row.hpTone}}" data-col="hp" data-tone="{{row.hpTone}}">{{row.hp.value}}/{{row.hp.max}}</td>
+                            <td class="cairn-party-num cairn-party-tone-{{row.str.tone}}" data-col="str" data-tone="{{row.str.tone}}">{{row.str.value}}/{{row.str.max}}</td>
+                            <td class="cairn-party-num cairn-party-tone-{{row.dex.tone}}" data-col="dex" data-tone="{{row.dex.tone}}">{{row.dex.value}}/{{row.dex.max}}</td>
+                            <td class="cairn-party-num cairn-party-tone-{{row.wil.tone}}" data-col="wil" data-tone="{{row.wil.tone}}">{{row.wil.value}}/{{row.wil.max}}</td>
                             <td class="cairn-party-num" data-col="armor">{{row.armor}}</td>
                             <td class="cairn-party-num" data-col="gold">{{row.gold}}</td>
-                            <td class="cairn-party-num {{#if row.slots.full}}cairn-party-full{{/if}}" data-col="slots">{{row.slots.used}}/{{row.slots.max}}</td>
-                            <td class="cairn-party-num {{#if row.noFatigue}}cairn-party-none{{/if}}" data-col="fatigue">{{row.fatigue}}</td>
-                            <td data-col="shield" data-state="{{row.shield}}">{{row.shieldLabel}}</td>
-                            <td data-col="light" data-held="{{row.held}}" data-count="{{row.lights}}">
-                                {{#if row.held}}<span class="cairn-party-held" data-tooltip="{{localize 'CAIRN.PartySheet.InHand'}}"><i class="fa-solid fa-hand"></i> {{row.heldLabel}}</span>{{/if}}
-                                <span class="cairn-party-count {{#unless row.lights}}cairn-party-none{{/unless}}">{{row.lights}}</span>
+                            <td class="cairn-party-num cairn-party-tone-{{row.slots.tone}}" data-col="slots" data-tone="{{row.slots.tone}}">{{row.slots.used}}/{{row.slots.max}}</td>
+                            <td class="cairn-party-num cairn-party-tone-{{row.fatigueTone}} {{#unless row.fatigue}}cairn-party-none{{/unless}}" data-col="fatigue" data-tone="{{row.fatigueTone}}">{{row.fatigue}}</td>
+                            {{!-- Symbols, not words (user ruling 2026-11-21): teal in hand, amber carried but not in hand, blank with none. --}}
+                            <td class="cairn-party-num cairn-party-tone-{{row.shieldTone}}" data-col="shield" data-state="{{row.shield}}" data-tone="{{row.shieldTone}}">
+                                {{#if row.shield}}<i class="fa-solid fa-shield-halved" data-tooltip="{{row.shieldLabel}}" aria-label="{{row.shieldLabel}}"></i>{{/if}}
+                            </td>
+                            <td class="cairn-party-num cairn-party-tone-{{row.lightTone}}" data-col="light" data-held="{{row.held}}" data-count="{{row.lights}}" data-tone="{{row.lightTone}}">
+                                {{#if row.lightTone}}<i class="fa-solid fa-fire" data-tooltip="{{row.lightTip}}" aria-label="{{row.lightTip}}"></i>{{/if}}
                             </td>
                             <td class="cairn-party-num {{#if row.noRations}}cairn-party-none{{/if}}" data-col="rations">{{row.rations}}</td>
                             {{#each row.connections as |c|}}
                                 <td class="cairn-party-num {{#if c.none}}cairn-party-none{{/if}}" data-col="{{c.col}}">{{c.count}}</td>
                             {{/each}}
                             <td class="cairn-party-wrap" data-col="conditions">
-                                {{#each row.conditions as |cond|}}<span class="cairn-party-condition" data-condition="{{cond.id}}">{{cond.label}}</span>{{/each}}
+                                {{#each row.conditions as |cond|}}<span class="cairn-party-condition" data-condition="{{cond.id}}" data-tooltip="{{cond.label}}" aria-label="{{cond.label}}">{{cond.short}}</span>{{/each}}
                             </td>
                             <td class="cairn-party-notes" data-col="notes">
                                 <input type="text" data-note value="{{row.note}}" maxlength="{{@root.noteMax}}"

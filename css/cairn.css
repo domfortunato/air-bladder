@@ -4488,25 +4488,36 @@ ol.combat-tracker li.combatant.cairn-drop-below {
     color: var(--ab-faint);
 }
 
-.cairn-party-sheet .cairn-party-full {
+/* COLOUR DOES THE WARNING (user rulings 2026-11-21); `rowFor` decides the
+   tone, these only paint it. Listed AFTER `.cairn-party-none` so a tone wins
+   over the muted zero where both apply. */
+.cairn-party-sheet .cairn-party-tone-alert {
     color: var(--ab-peril);
     font-weight: bold;
 }
 
-.cairn-party-sheet .cairn-party-held {
-    margin-right: 6px;
+.cairn-party-sheet .cairn-party-tone-warn {
+    color: var(--ab-amber);
+    font-weight: bold;
+}
+
+.cairn-party-sheet .cairn-party-tone-accent {
     color: var(--ab-accent);
     font-weight: bold;
 }
 
+/* One letter in a square box: D, P, E. */
 .cairn-party-sheet .cairn-party-condition {
     display: inline-block;
-    margin-right: 4px;
-    padding: 0 5px;
+    min-width: 1.5em;
+    margin-right: 3px;
+    padding: 0 2px;
     border: 1px solid var(--ab-peril);
-    border-radius: 3px;
+    border-radius: 2px;
     color: var(--ab-peril);
-    font-size: var(--font-size-11, 11px);
+    font-weight: bold;
+    line-height: 1.4;
+    text-align: center;
 }
 
 /* The TEXT columns wrap; the numbers never do. A party's backgrounds and

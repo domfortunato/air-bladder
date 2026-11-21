@@ -139,11 +139,41 @@ const rowFor = (actor, index) => {
   });
 
   const fatigue = items.filter((i) => i.name === FATIGUE_NAME).length;
-  const conditions = [];
-  if (sys.encumbered) conditions.push({ id: "encumbered", label: game.i18n.localize("CAIRN.PartySheet.Encumbered") });
-  if (sys.deprived) conditions.push({ id: "deprived", label: game.i18n.localize("CAIRN.Deprived") });
 
-  const ab = (k) => sys.abilities?.[k] ?? {};
+  // Boxed letters, D P E, the full word as the tooltip (user ruling
+  // 2026-11-21). Panicked was missing from the first build: Bryn on CT 123
+  // was Deprived AND Panicked and showed only the D.
+  const condition = (id, short, label) => ({ id, short: game.i18n.localize(short), label: game.i18n.localize(label) });
+  const conditions = [];
+  if (sys.deprived) conditions.push(condition("deprived", "CAIRN.PartySheet.DeprivedShort", "CAIRN.Deprived"));
+  if (sys.panicked) conditions.push(condition("panicked", "CAIRN.PartySheet.PanickedShort", "CAIRN.Panicked"));
+  if (sys.encumbered) conditions.push(condition("encumbered", "CAIRN.PartySheet.EncumberedShort", "CAIRN.PartySheet.Encumbered"));
+
+  /*
+   * COLOUR DOES THE WARNING (user rulings 2026-11-21). Each cell gets a tone
+   * the template maps to a class, so the rule lives here, once:
+   *   alert  (red)   HP at 0; an ability below its max; no slot left
+   *   warn   (amber) HP below max; exactly one slot left; a shield slung;
+   *                  a light carried with none in hand
+   *   accent (teal)  a shield or a light in hand; any Fatigue
+   * HP is the DERIVED value, so a Panicked or encumbered character reads a red
+   * 0 — the number the rules use at the table, not the stored one.
+   */
+  const hp = { value: sys.hp?.value ?? 0, max: sys.hp?.max ?? 0 };
+  const hpTone = hp.value <= 0 ? "alert" : hp.value < hp.max ? "warn" : "";
+  const ab = (k) => {
+    const a = sys.abilities?.[k] ?? {};
+    return { value: a.value ?? 0, max: a.max ?? 0, tone: (a.value ?? 0) < (a.max ?? 0) ? "alert" : "" };
+  };
+  const slotsUsed = sys.slotsUsed ?? 0;
+  const slotsMax = sys.slotsMax ?? 0;
+  const slotsTone = sys.encumbered ? "alert" : slotsMax - slotsUsed === 1 ? "warn" : "";
+  const lightCount = lights.reduce((n, i) => n + qty(i), 0);
+  const lightTone = held ? "accent" : lightCount ? "warn" : "";
+  const lightTip = held
+    ? game.i18n.format("CAIRN.PartySheet.LightHeld", { name: t(nameNs, held.name), count: lightCount })
+    : lightCount ? game.i18n.format("CAIRN.PartySheet.LightCarried", { count: lightCount }) : "";
+
   return {
     id: actor.id,
     position: index + 1,
@@ -152,16 +182,16 @@ const rowFor = (actor, index) => {
     player: playerNamesFor(actor),
     pronouns: sys.pronouns ?? "",
     background: t("bg.name", sys.background ?? ""),
-    hp: { value: sys.hp?.value ?? 0, max: sys.hp?.max ?? 0 },
+    hp, hpTone,
     str: ab("STR"), dex: ab("DEX"), wil: ab("WIL"),
     armor: sys.armor ?? 0,
     gold: sys.gold ?? 0,
-    slots: { used: sys.slotsUsed ?? 0, max: sys.slotsMax ?? 0, full: !!sys.encumbered },
-    fatigue, noFatigue: fatigue === 0,
-    shield, shieldLabel: shield ? game.i18n.localize(`CAIRN.PartySheet.Shield${shield === "held" ? "Held" : "Slung"}`) : "",
+    slots: { used: slotsUsed, max: slotsMax, tone: slotsTone },
+    fatigue, fatigueTone: fatigue > 0 ? "accent" : "",
+    shield, shieldTone: shield === "held" ? "accent" : shield ? "warn" : "",
+    shieldLabel: shield ? game.i18n.localize(`CAIRN.PartySheet.Shield${shield === "held" ? "Held" : "Slung"}`) : "",
     held: held?.name ?? "",
-    heldLabel: held ? t(nameNs, held.name) : "",
-    lights: lights.reduce((n, i) => n + qty(i), 0),
+    lights: lightCount, lightTone, lightTip,
     rations, noRations: rations === 0,
     connections,
     conditions,
