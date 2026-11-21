@@ -20,9 +20,11 @@
  *   - the footer box writes the setting both ways;
  *   - Open the guide and Open the rulebook open the System Docs and Cairn 2e Rules
  *     compendiums;
- *   - the Settings sidebar button opens it;
+ *   - the Settings sidebar button opens it; the System Docs button directly
+ *     under it opens the System Docs compendium and carries the window's own
+ *     guide-button label (one string, user ruling 2026-11-21);
  *   - a player is never shown it unasked, gets no footer box, and opens it from
- *     the sidebar.
+ *     the sidebar, where the System Docs button is theirs too.
  *
  * Fails with the feature removed: no window, no sidebar button, no setting.
  */
@@ -219,7 +221,8 @@ try {
       const guide = await packOpen("journals-docs");
       el.querySelector('[data-action="openRulebook"]')?.click();
       const rules = await packOpen("journals-2e");
-      return { guide, rules };
+      const guideLabel = el.querySelector('[data-action="openGuide"]')?.textContent.trim() ?? null;
+      return { guide, rules, guideLabel };
     }, ID);
     check("Open the guide opens the System Docs compendium", opens.guide);
     check("Open the rulebook opens the Cairn 2e Rules compendium", opens.rules);
@@ -234,10 +237,25 @@ try {
       for (let i = 0; i < 40 && !foundry.applications.instances.get(id)?.rendered; i++) await new Promise((r) => setTimeout(r, 100));
       const opened = !!foundry.applications.instances.get(id)?.rendered;
       await foundry.applications.instances.get(id)?.close({ animate: false });
-      return { button: !!btn, opened };
+      // The System Docs button: the very next sibling, the window's own label,
+      // and it opens the pack.
+      const docs = document.querySelector("#settings [data-ab-docs]");
+      const docsNext = !!btn && btn.nextElementSibling === docs;
+      const docsLabel = docs?.textContent.trim() ?? null;
+      const pack = game.packs.get("air-bladder.journals-docs");
+      for (const a of pack.apps) await a.close({ animate: false });
+      docs?.click();
+      for (let i = 0; i < 40 && !pack.apps.some((a) => a.rendered); i++) await new Promise((r) => setTimeout(r, 100));
+      const docsOpened = pack.apps.some((a) => a.rendered);
+      for (const a of pack.apps) await a.close({ animate: false });
+      return { button: !!btn, opened, docs: !!docs, docsNext, docsLabel, docsOpened };
     }, ID);
-    check("the Settings sidebar has a Welcome & credits button", side.button);
+    check("the Settings sidebar has a Welcome & Credits button", side.button);
     check("...and it opens the welcome window", side.opened);
+    check("the sidebar has a System Docs button directly under it", side.docs && side.docsNext, JSON.stringify(side));
+    check("...labelled \"System Docs\", the same words as the window's guide button",
+      side.docsLabel === "System Docs" && side.docsLabel === opens.guideLabel, JSON.stringify({ side: side.docsLabel, window: opens.guideLabel }));
+    check("...and it opens the System Docs compendium", side.docsOpened);
 
     /* ---- unticked: a Warden's reload does NOT open it ---------------------- */
     await gm.evaluate(() => game.settings.set("air-bladder", "welcome-on-start", false));
@@ -258,13 +276,14 @@ try {
         document.querySelector("#settings [data-ab-welcome]")?.click();
         for (let i = 0; i < 40 && !foundry.applications.instances.get(id)?.rendered; i++) await new Promise((r) => setTimeout(r, 100));
         const app = foundry.applications.instances.get(id);
-        const out = { unasked, opened: !!app?.rendered, box: !!app?.element?.querySelector('input[name="welcome-on-start"]') };
+        const out = { unasked, opened: !!app?.rendered, box: !!app?.element?.querySelector('input[name="welcome-on-start"]'), docs: !!document.querySelector("#settings [data-ab-docs]") };
         await app?.close({ animate: false });
         return out;
       }, ID);
       check("a player is not shown the welcome window unasked", p.unasked === false);
       check("a player opens it from the Settings sidebar", p.opened);
       check("a player gets no footer box", p.box === false);
+      check("a player has the System Docs button too", p.docs);
       if (aliceErrors.length) fail("console errors on the player's client", aliceErrors.slice(0, 5).join(" | "));
     } finally {
       await alicePage.context().close();
