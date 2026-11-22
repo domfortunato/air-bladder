@@ -5,12 +5,14 @@
  * poison or a fright had to be applied by hand — no card, no STR save, no Scar,
  * no death bar, nothing in the log. A hazard is a weapon nobody is holding: the
  * Damage page posts the ORDINARY damage card and everything downstream already
- * works. What is new is the Token-controls button and the POOL.
+ * works. What is new is the way in and the POOL.
  *
  * The Damage PAGE of the Warden's Dashboard since 2026-11-21 (it was its own
- * dialog): the skull opens the Dashboard on it. Every leg that needs a FRESH
- * page — the pre-filled 1d6, the dice builder wired under the notation the leg
- * shadows — closes the Dashboard first, so the skull renders it anew.
+ * dialog). The way in is the Dashboard's one button (above the scene
+ * navigation, the same evening; it replaced the Token-controls skull) and the
+ * rail's Damage tab. Every leg that needs a FRESH page — the pre-filled 1d6,
+ * the dice builder wired under the notation the leg shadows — closes the
+ * Dashboard first, so the button renders it anew.
  *
  * Its own file rather than more legs in `dev:enc-damage`, which is already the
  * largest probe here. That means `docs/release-testing.md` and `check:probes`
@@ -34,46 +36,54 @@ const errors = watchErrors(page);
 await page.goto(FOUNDRY_URL);
 await joinAsGM(page);
 await dismissChrome(page);
-
-/* ---------------------------------------------------------------------------
- * 1. The tool exists for the Warden, and does not for a player.
- *
- * Read in BOTH places on purpose. `ui.controls.controls` is what the system
- * registered; the DOM button is what a Warden can actually click, and a tool
- * registered into a control set that never renders is invisible to the second
- * reading only. `visible: game.user.isGM` is evaluated ONCE, when the palette is
- * first prepared (scene-controls.mjs:378-380), so it is an affordance — the
- * refusal is asserted separately in section 2.
- * ------------------------------------------------------------------------- */
-console.log("\nthe Warden's damage tool");
-const gmTool = await page.evaluate(async () => {
-  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-  // The tools menu only renders for the ACTIVE control set, so make Token the
-  // active one rather than hoping it already is.
-  ui.controls.activate({ control: "tokens" });
-  await sleep(500);
-  return {
-    registered: !!ui.controls.controls?.tokens?.tools?.abWardenDamage,
-    title: ui.controls.controls?.tokens?.tools?.abWardenDamage?.title ?? null,
-    inDom: !!document.querySelector('button[data-tool="abWardenDamage"]'),
-    // The title is an i18n KEY in the registration; core localizes it into
-    // aria-label when it renders (scene-controls-tools.hbs:5). Reading the
-    // rendered label is what proves the key resolves — a missing one would show
-    // up here as the literal "CAIRN.WardenDamage.Tool".
-    label: document.querySelector('button[data-tool="abWardenDamage"]')?.getAttribute("aria-label") ?? null,
+// The way to the Damage page, as a Warden takes it (2026-11-21): the
+// Dashboard's one button, then the rail's Damage tab. Installed once, in-page.
+await page.evaluate(() => {
+  window.openDamagePage = async () => {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    document.querySelector("#cairn-dashboard-button")?.click();
+    let tab = null;
+    for (let i = 0; i < 40 && !tab; i++) {
+      tab = document.querySelector('#cairn-warden-dashboard nav.cairn-tab-rail button[data-tab="damage"]');
+      if (!tab) await sleep(150);
+    }
+    tab?.click();
+    await sleep(200);
   };
 });
-check("registered on the Token controls", gmTool.registered && gmTool.title === "CAIRN.WardenDamage.Tool",
-  `title=${JSON.stringify(gmTool.title)} — controls and tools are RECORDS keyed by name, not arrays`);
-check("and rendered as a button", gmTool.inDom, 'button[data-tool="abWardenDamage"]');
-check("its tooltip is localized", !!gmTool.label && !/^CAIRN\./.test(gmTool.label),
-  `aria-label="${gmTool.label}"`);
 
 /* ---------------------------------------------------------------------------
- * 2. A player gets neither the tool nor the action.
+ * 1. The way in exists for the Warden, and does not for a player.
  *
- * TWO readings, and they are different claims: the tool being absent from her
- * palette is the affordance, and the Dashboard and `rollWardenDamage` refusing her is the
+ * The Dashboard's one button (2026-11-21), and the Damage tab on its rail.
+ * The DOM button is what a Warden can actually click; the old skull is gone
+ * from the Token controls, registration and DOM both. The button is drawn for
+ * a GM alone, which is an affordance — the refusal is asserted separately in
+ * section 2.
+ * ------------------------------------------------------------------------- */
+console.log("\nthe way to the Warden's damage");
+const gmTool = await page.evaluate(async () => {
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  ui.controls.activate({ control: "tokens" });
+  await sleep(500);
+  const btn = document.querySelector("#cairn-dashboard-button");
+  return {
+    button: !!btn,
+    label: btn?.textContent.trim() ?? null,
+    skullRegistered: !!ui.controls.controls?.tokens?.tools?.abWardenDamage,
+    skullInDom: !!document.querySelector('button[data-tool="abWardenDamage"]'),
+  };
+});
+check("the Dashboard's button is there", gmTool.button && !!gmTool.label && !/^CAIRN\./.test(gmTool.label),
+  `label="${gmTool.label}" — localized, not a raw key`);
+check("and the old skull is gone", !gmTool.skullRegistered && !gmTool.skullInDom,
+  `registered=${gmTool.skullRegistered} inDom=${gmTool.skullInDom}`);
+
+/* ---------------------------------------------------------------------------
+ * 2. A player gets neither the button nor the action.
+ *
+ * TWO readings, and they are different claims: the button being absent from
+ * her screen is the affordance, and the Dashboard and `rollWardenDamage` refusing her is the
  * enforcement. Removing either alone leaves a change that looks landed and is
  * not, so they are witnessed separately.
  * ------------------------------------------------------------------------- */
@@ -107,8 +117,8 @@ try {
     const rolled = await rollWardenDamage({ formula: "1d6" });
     return {
       ran: true, isGM: game.user.isGM,
-      registered: !!ui.controls.controls?.tokens?.tools?.abWardenDamage,
-      inDom: !!document.querySelector('button[data-tool="abWardenDamage"]'),
+      button: !!document.querySelector("#cairn-dashboard-button"),
+      tool: !!document.querySelector('button[data-tool^="ab"]'),
       refused: result === null && rolled === null,
       // No dialog either: a refusal that still opened the form would let her
       // fill it in and only then be told no.
@@ -123,8 +133,8 @@ try {
 if (player.error) check("the player leg ran", false, player.error);
 check("the player leg ran", player.ran && !player.isGM,
   `ran=${player.ran} isGM=${player.isGM} (needs npm run dev:players)`);
-check("she has no tool", player.ran && !player.registered && !player.inDom,
-  `registered=${player.registered} inDom=${player.inDom} — the affordance`);
+check("she has no button", player.ran && !player.button && !player.tool,
+  `button=${player.button} tool=${player.tool} — the affordance`);
 check("and the action refuses her", player.refused && !player.dialogOpened && player.postedNothing,
   `refused=${player.refused} dialog=${player.dialogOpened} — the enforcement, which is the half that survives reaching the function another way`);
 
@@ -132,8 +142,8 @@ check("and the action refuses her", player.refused && !player.dialogOpened && pl
  * 3. The Damage page, driven end to end through the real button.
  *
  * Clicked rather than called: the whole claim is that a Warden can reach this
- * from the palette, and a helper invoked directly would prove only that the
- * helper works.
+ * from the Dashboard's button and the rail, and a helper invoked directly
+ * would prove only that the helper works.
  * ------------------------------------------------------------------------- */
 console.log("\nthe Damage page posts an ordinary damage card");
 const HAZARD_XSS = 'ZZ Pit <img src=x onerror="window.__abHazXSS=1">';
@@ -159,7 +169,7 @@ const dialog = await page.evaluate(async ({ xss }) => {
   const before = new Set(game.messages.contents.map((m) => m.id));
   await foundry.applications.instances.get("cairn-warden-dashboard")?.close();
   await sleep(300);
-  document.querySelector('button[data-tool="abWardenDamage"]')?.click();
+  await window.openDamagePage();
   let form = null;
   for (let i = 0; i < 40 && !form; i++) {
     form = document.querySelector("#cairn-warden-dashboard .cairn-damage-page input[name='formula']");
@@ -209,7 +219,7 @@ const dialog = await page.evaluate(async ({ xss }) => {
   // A BAD FORMULA is refused, not defaulted: silently substituting a die would
   // apply a number the Warden never chose.
   const beforeBad = game.messages.size;
-  document.querySelector('button[data-tool="abWardenDamage"]')?.click();
+  await window.openDamagePage();
   let f2 = null;
   for (let i = 0; i < 40 && !f2; i++) {
     f2 = document.querySelector("#cairn-warden-dashboard .cairn-damage-page input[name='formula']");
@@ -230,7 +240,7 @@ const dialog = await page.evaluate(async ({ xss }) => {
   // Asserted on the CARD, not just on the notification: "it warned" would pass
   // while a gutted card was posted anyway.
   const beforeAt = game.messages.size;
-  document.querySelector('button[data-tool="abWardenDamage"]')?.click();
+  await window.openDamagePage();
   let f3 = null;
   for (let i = 0; i < 40 && !f3; i++) {
     f3 = document.querySelector("#cairn-warden-dashboard .cairn-damage-page input[name='formula']");
@@ -249,7 +259,7 @@ const dialog = await page.evaluate(async ({ xss }) => {
   return r;
 }, { xss: HAZARD_XSS });
 
-check("the skull opens the Damage page", dialog.dialogOpened, "driven through the palette, not by calling the helper");
+check("the button and the rail open the Damage page", dialog.dialogOpened, "driven through the real controls, not by calling the helper");
 check("the formula field is pre-filled", dialog.formulaPrefilled === "1d6",
   `value="${dialog.formulaPrefilled}" — the builder's setAttribute default`);
 check("the placeholder survives", dialog.placeholder === "Spiked pit",
@@ -342,10 +352,10 @@ const builder = await page.evaluate(async () => {
     // when it is wired, so the shadow leg below must rebuild the page under
     // its shadow — an open page's listeners captured the OLD dialect, which
     // is exactly the wrong thing to click there. Closing discards the page;
-    // the skull renders it anew.
+    // the button renders it anew.
     await foundry.applications.instances.get("cairn-warden-dashboard")?.close();
     for (let i = 0; i < 40 && document.querySelector("#cairn-warden-dashboard"); i++) await sleep(150);
-    document.querySelector('button[data-tool="abWardenDamage"]')?.click();
+    await window.openDamagePage();
     let f = null;
     for (let i = 0; i < 40 && !f; i++) {
       f = document.querySelector("#cairn-warden-dashboard .cairn-damage-page input[name='formula']");
@@ -758,6 +768,178 @@ check("the status bar reads CAIRN.StatusBannerLine",
 check("and the sheet's banner is the SAME key",
   /ZZ-BANNER/.test(lines.sheetBanner),
   `npc-sheet.html renders through it — one key is what keeps a translator's reordering from splitting chat from sheet (got ${JSON.stringify(lines.sheetBanner.slice(0, 60))})`);
+
+/* ---------------------------------------------------------------------------
+ * 6. Who takes it, ticked before rolling (2026-11-21, user ask: "choose who
+ *    BEFORE rolling" and save the trip to the card's splat; rulings: tick
+ *    before rolling, nothing pre-ticked, the ticks CLEAR after a roll that
+ *    applied).
+ *
+ * The page lists the VIEWED scene's tokens in the splat picker's two groups
+ * (creatures, then the party), none ticked. A planted monster ticked and Roll
+ * pressed posts ONE roll card that is already applied — the monster down by
+ * the roll, the character untouched — through the splat's own path, so a
+ * second apply on that card is refused. The ticks are empty after. Nobody
+ * ticked is today's card exactly: no targets, the splat still live.
+ * A plain number is the formula ("4 deals 4"), so no die needs pinning.
+ * Fixtures are selected by id, stamped, and removed from the finally.
+ * ------------------------------------------------------------------------- */
+console.log("\nthe Damage page: who takes it");
+const TGT_XSS = 'ZZ Tgt <img src=x onerror="window.__abTgtXSS=1">';
+const picks = await page.evaluate(async ({ xss }) => {
+  const ActorImpl = CONFIG.Actor.documentClass;
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const until = async (fn, ms = 6000) => {
+    for (let t = 0; t < ms; t += 100) { const v = fn(); if (v) return v; await sleep(100); }
+    return null;
+  };
+  const r = {};
+  const made = { actors: [], scene: null };
+  const msgsBefore = new Set(game.messages.contents.map((m) => m.id));
+  const fixture = { flags: { "air-bladder": { probeFixture: "hazard-targets" } } };
+  const prevScene = canvas?.scene?.id ?? null;
+  try {
+    game.user.targets.forEach((t) => t.setTarget(false, { releaseOthers: false }));
+    const scene = await Scene.create({ name: "ZZ Targets Scene", width: 1400, height: 1000, ...fixture });
+    made.scene = scene.id;
+    await scene.view();
+    await sleep(600);
+    const mk = async (name, type, system, x, tokenData = {}) => {
+      const a = await ActorImpl.create({ name, type, system, ...fixture }, { abNoStatusCard: true });
+      made.actors.push(a.id);
+      const td = await a.getTokenDocument({ x, y: 100, ...tokenData });
+      const [t] = await scene.createEmbeddedDocuments("Token", [td]);
+      return { a, t };
+    };
+    const foe = await mk("ZZ Tgt Monster", "npc", { role: "monster", hp: { value: 9, max: 9 }, armor: 0 }, 100);
+    const pc = await mk("ZZ Tgt Character", "character", { hp: { value: 6, max: 6 }, armor: 0 }, 300);
+    const odd = await mk(xss, "npc", { role: "monster", hp: { value: 5, max: 5 }, armor: 0 }, 500);
+    // HIDDEN: the GM may name every token (nameableTokens), so it is listed.
+    const hid = await mk("ZZ Tgt Hidden", "npc", { role: "monster", hp: { value: 5, max: 5 }, armor: 0 }, 700, { hidden: true });
+    r.pcHpBefore = pc.a.toObject().system.hp.value;
+
+    await foundry.applications.instances.get("cairn-warden-dashboard")?.close();
+    await sleep(300);
+    await window.openDamagePage();
+    const list = () => document.querySelector("#cairn-warden-dashboard .cairn-damage-page .cairn-damage-targets");
+    await until(() => list()?.querySelector('input[name="abDamageTarget"]'));
+    const read = () => {
+      const out = { groups: [], rows: [] };
+      let group = null;
+      for (const el of list()?.children ?? []) {
+        if (el.classList.contains("ab-target-group")) { group = el.textContent.trim(); out.groups.push(group); continue; }
+        const box = el.querySelector?.('input[name="abDamageTarget"]');
+        if (box) out.rows.push({ id: box.value, group, checked: box.checked, name: el.textContent.trim() });
+      }
+      return out;
+    };
+    const first = read();
+    r.groups = first.groups;
+    r.wantGroups = [game.i18n.localize("CAIRN.DamageTargets.Foes"), game.i18n.localize("CAIRN.DamageTargets.Party")];
+    const rowOf = (id, rd = read()) => rd.rows.find((x) => x.id === id) ?? null;
+    r.foeRow = rowOf(foe.t.id, first);
+    r.pcRow = rowOf(pc.t.id, first);
+    r.hidRow = rowOf(hid.t.id, first);
+    r.oddRow = rowOf(odd.t.id, first);
+    r.noneTicked = first.rows.length > 0 && first.rows.every((x) => !x.checked);
+    r.head = list()?.querySelector(".cairn-damage-targets-head")?.textContent.trim() ?? null;
+    r.wantHead = game.i18n.localize("CAIRN.WardenDamage.Targets");
+    r.oddTags = list()?.querySelectorAll("img").length ?? -1;
+    r.xssFired = window.__abTgtXSS === 1;
+
+    // Tick the monster, then put a token on the scene: the list redraws and
+    // the tick survives it.
+    list().querySelector(`input[value="${foe.t.id}"]`).checked = true;
+    const staleList = list().querySelector(`input[value="${foe.t.id}"]`);
+    const extra = await mk("ZZ Tgt Late", "npc", { role: "monster", hp: { value: 5, max: 5 }, armor: 0 }, 900);
+    await until(() => rowOf(extra.t.id));
+    r.redrawn = !!rowOf(extra.t.id) && list()?.querySelector(`input[value="${foe.t.id}"]`) !== staleList;
+    r.tickSurvived = rowOf(foe.t.id)?.checked === true && rowOf(extra.t.id)?.checked === false;
+
+    // Roll with the monster ticked.
+    const q = (sel) => document.querySelector(`#cairn-warden-dashboard .cairn-damage-page ${sel}`);
+    q("input[name='source']").value = "ZZ Target Trap";
+    q("input[name='formula']").value = "4";
+    q("select[name='pool']").value = "hp";
+    const beforeRoll = new Set(game.messages.contents.map((m) => m.id));
+    q('button[data-action="rollDamage"]').click();
+    const isRollCard = (m) => /dmg-label/.test(String(m.flavor ?? ""));
+    await until(() => game.messages.contents.find((m) => !beforeRoll.has(m.id) && isRollCard(m)
+      && m.getFlag("air-bladder", "damageApplied")));
+    await sleep(900);
+    const rollCards = game.messages.contents.filter((m) => !beforeRoll.has(m.id) && isRollCard(m));
+    r.rollCards = rollCards.length;
+    const card = rollCards[0] ?? null;
+    r.cardApplied = card?.getFlag("air-bladder", "damageApplied")?.applied ?? null;
+    const row = card ? document.querySelector(`#chat [data-message-id="${card.id}"], [data-message-id="${card.id}"]`) : null;
+    r.cardTargets = row?.querySelector(".apply-dmg")?.dataset.targets ?? null;
+    r.splatSpent = !!row?.querySelector(".apply-dmg")?.hasAttribute("disabled");
+    r.foeHp = foe.t.actor.toObject().system.hp.value;
+    r.pcHp = pc.a.toObject().system.hp.value;
+    r.ticksAfter = read().rows.filter((x) => x.checked).map((x) => x.id);
+
+    // A second apply on that card is refused: the splat's own path, once only.
+    if (card) {
+      const { Damage } = await import("/systems/air-bladder/module/damage.js");
+      await Damage.applyDamageCard(card, [foe.t.id], scene);
+      await sleep(600);
+    }
+    r.foeHpAfterSecond = foe.t.actor.toObject().system.hp.value;
+
+    // Nobody ticked: today's card exactly, waiting on its splat.
+    const beforeBare = new Set(game.messages.contents.map((m) => m.id));
+    q("input[name='formula']").value = "2";
+    q('button[data-action="rollDamage"]').click();
+    const bare = await until(() => game.messages.contents.find((m) => !beforeBare.has(m.id) && isRollCard(m)));
+    await sleep(600);
+    const bareRow = bare ? document.querySelector(`[data-message-id="${bare.id}"]`) : null;
+    r.bare = {
+      posted: !!bare,
+      applied: !!bare?.getFlag("air-bladder", "damageApplied"),
+      targets: bareRow?.querySelector(".apply-dmg")?.dataset.targets ?? null,
+      live: !!bareRow?.querySelector(".apply-dmg") && !bareRow.querySelector(".apply-dmg").hasAttribute("disabled"),
+      foeHp: foe.t.actor.toObject().system.hp.value,
+    };
+    r.ids = { foe: foe.t.id, pc: pc.t.id, hid: hid.t.id, odd: odd.t.id };
+  } catch (e) {
+    r.error = `${e.name}: ${e.message}`;
+  } finally {
+    await foundry.applications.instances.get("cairn-warden-dashboard")?.close();
+    for (const m of game.messages.contents.filter((m) => !msgsBefore.has(m.id)
+      && (m.speaker?.scene === made.scene || made.actors.includes(m.speaker?.actor)))) {
+      await m.delete();
+    }
+    if (prevScene && game.scenes.get(prevScene)) await game.scenes.get(prevScene).view();
+    if (made.scene) await game.scenes.get(made.scene)?.delete();
+    for (const id of made.actors) await game.actors.get(id)?.delete();
+  }
+  return r;
+}, { xss: TGT_XSS });
+
+if (picks.error) check("the who-takes-it leg ran", false, picks.error);
+check("the page lists the scene's tokens in the picker's two groups",
+  JSON.stringify(picks.groups) === JSON.stringify(picks.wantGroups)
+  && picks.foeRow?.group === picks.wantGroups[0] && picks.pcRow?.group === picks.wantGroups[1]
+  && picks.head === picks.wantHead,
+  JSON.stringify({ groups: picks.groups, foe: picks.foeRow, pc: picks.pcRow, head: picks.head }));
+check("nothing is pre-ticked", picks.noneTicked, "the 2026-08-07 ruling holds on the page too");
+check("a hidden token is listed for the Warden", !!picks.hidRow, "the GM may name every token");
+check("a token's name is text, never markup", picks.oddRow?.name === TGT_XSS && picks.oddTags === 0 && !picks.xssFired,
+  JSON.stringify({ name: picks.oddRow?.name, imgs: picks.oddTags, fired: picks.xssFired }));
+check("a token added redraws the list, and the Warden's tick survives", picks.redrawn && picks.tickSurvived,
+  JSON.stringify({ redrawn: picks.redrawn, survived: picks.tickSurvived }));
+check("ticked and rolled: ONE card, already applied to the ticked monster",
+  picks.rollCards === 1 && picks.cardApplied?.length === 1 && picks.cardApplied[0].id === picks.ids?.foe
+  && picks.cardTargets === picks.ids?.foe && picks.splatSpent,
+  JSON.stringify({ cards: picks.rollCards, applied: picks.cardApplied, targets: picks.cardTargets, spent: picks.splatSpent }));
+check("the monster took the roll, the character nothing", picks.foeHp === 5 && picks.pcHp === picks.pcHpBefore,
+  `monster 9 -> ${picks.foeHp} after 4; character ${picks.pcHpBefore} -> ${picks.pcHp}`);
+check("a second apply on that card is refused", picks.foeHpAfterSecond === 5, `monster hp ${picks.foeHpAfterSecond}`);
+check("the ticks are empty after a roll that applied", Array.isArray(picks.ticksAfter) && picks.ticksAfter.length === 0,
+  JSON.stringify(picks.ticksAfter));
+check("nobody ticked: today's card, unapplied, its splat live",
+  picks.bare?.posted && !picks.bare.applied && !picks.bare.targets && picks.bare.live && picks.bare.foeHp === 5,
+  JSON.stringify(picks.bare));
 
 /* ----------------------------------------------------------- teardown ---- */
 await page.evaluate(async (ids) => {

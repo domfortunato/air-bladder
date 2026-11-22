@@ -26,12 +26,19 @@
  *
  * THE PAGES (2026-11-21, user ask: the Party sheet, Warden's Damage and this
  * window in one, "Party", "Damage", "Tables", on a rail), leg 1b: the rail
- * carries the three pages and a chat button; the clipboard opens on Tables,
- * the skull on Damage; each page has its own size and a resized page keeps
+ * carries the three pages and a chat button; the one button opens on Tables
+ * the first time and, on an open window, brings it forward on the page it was
+ * on; each page has its own size and a resized page keeps
  * the Warden's size; the clock band and the table tabs show on Tables only;
  * the chat button opens core's chat pop-out; and the page-tabs-side setting
  * moves this window's rail as it moves a sheet's. The Party page's own legs
  * are `dev:party-sheet`'s, the Damage page's `dev:hazard`'s.
+ *
+ * THE ONE BUTTON (2026-11-21, user ask, after db-mythic; it replaced the three
+ * Token-controls tools), leg 1: a labelled "Warden's Dashboard" button, first
+ * in `#ui-left-column-2` above the scene navigation, its glyph resolving; no
+ * Air Bladder tool is left on the Token controls; a redraw of the scene
+ * navigation adds no second copy; and Alice has no button.
  *
  * Creates chat messages and one actor, and deletes exactly the ids it added.
  */
@@ -104,9 +111,27 @@ try {
   /* ---- 1. the control, and the window ---------------------------------- */
 
   const opened = await page.evaluate(async () => {
-    const btn = document.querySelector('button.tool[data-tool="abWardenDashboard"]');
-    const out = { control: !!btn };
-    if (btn) btn.click();
+    const btn = document.querySelector("#ui-left-column-2 > nav.cairn-dashboard-nav > button#cairn-dashboard-button");
+    const column = document.getElementById("ui-left-column-2");
+    const nav = document.getElementById("scene-navigation");
+    const out = {
+      control: !!btn,
+      first: !!btn && column?.firstElementChild === btn.parentElement,
+      aboveNav: !!btn && !!nav && btn.getBoundingClientRect().bottom <= nav.getBoundingClientRect().top + 1,
+      label: btn?.textContent.trim() ?? null,
+      wantLabel: game.i18n.localize("CAIRN.Dashboard.Title"),
+      glyph: btn?.querySelector("i") ? getComputedStyle(btn.querySelector("i"), "::before").content : null,
+      height: btn?.getBoundingClientRect().height ?? 0,
+      oneLine: !!btn && btn.scrollHeight <= btn.clientHeight + 1,
+      // No Air Bladder tool is left on the Token controls (the three it replaced).
+      tools: Object.keys(ui.controls?.controls?.tokens?.tools ?? {}).filter((k) => /^ab/.test(k)),
+      toolButtons: document.querySelectorAll('button[data-tool^="ab"]').length,
+    };
+    // A redraw of the scene navigation must not draw a second button.
+    await ui.nav?.render({ force: true });
+    await new Promise((r) => setTimeout(r, 300));
+    out.copies = document.querySelectorAll("#cairn-dashboard-button").length;
+    document.querySelector("#cairn-dashboard-button")?.click();
     for (let i = 0; i < 40 && !document.querySelector("#cairn-warden-dashboard"); i++) {
       await new Promise((r) => setTimeout(r, 100));
     }
@@ -135,8 +160,19 @@ try {
     return out;
   });
 
-  opened.control ? ok("the Token controls carry the dashboard tool")
-    : fail("the Token controls carry the dashboard tool", "no button.tool[data-tool=abWardenDashboard]");
+  opened.control && opened.first && opened.aboveNav
+    ? ok("one Warden's Dashboard button, first in the left column, above the scene navigation")
+    : fail("the Dashboard's button", JSON.stringify({ control: opened.control, first: opened.first, aboveNav: opened.aboveNav }));
+  opened.label === opened.wantLabel && !["none", '""', "normal", null].includes(opened.glyph)
+    && opened.height >= 30 && opened.oneLine
+    ? ok(`...labelled "${opened.label}", its glyph resolving, on one line`, `${Math.round(opened.height)}px`)
+    : fail("the button's label, glyph or line", JSON.stringify({ label: opened.label, want: opened.wantLabel, glyph: opened.glyph, height: opened.height, oneLine: opened.oneLine }));
+  opened.tools.length === 0 && opened.toolButtons === 0
+    ? ok("no Air Bladder tool is left on the Token controls")
+    : fail("Token-controls tools still registered", JSON.stringify({ tools: opened.tools, buttons: opened.toolButtons }));
+  opened.copies === 1
+    ? ok("a redraw of the scene navigation leaves one button, not two")
+    : fail("the button after a navigation redraw", `${opened.copies} copies`);
   opened.rendered ? ok("clicking it opens the window") : fail("clicking it opens the window");
   opened.tabs?.length === 6
     ? ok("six tabs", opened.tabs.join(", "))
@@ -155,8 +191,8 @@ try {
     ? ok("the rail carries Party, Damage and Tables, then the chat button")
     : fail("the rail's pages", JSON.stringify({ pages: opened.pages, chat: opened.chat }));
   opened.onTables === "tables"
-    ? ok("the clipboard opens it on Tables")
-    : fail("the clipboard opens it on Tables", String(opened.onTables));
+    ? ok("the button opens it on Tables the first time")
+    : fail("the button opens it on Tables the first time", String(opened.onTables));
   opened.notButtons === 0
     ? ok("every button is type=button, so none submits the form")
     : fail("every button is type=button", `${opened.notButtons} would submit`);
@@ -221,13 +257,22 @@ try {
     out.resizedBack = await turn("tables");
     await app.setPosition({ width: PAGE_SIZE.tables.width, height: PAGE_SIZE.tables.height });
     await sleep(200);
-    // The skull and the clipboard on an OPEN window turn its page.
-    ui.controls.controls.tokens.tools.abWardenDamage.onChange();
+    // The button on an OPEN window, buried under another, brings it forward
+    // on the page it was left on (Damage here), and turns no page.
+    await turn("damage");
+    const cover = new foundry.applications.api.DialogV2({
+      window: { title: "ZZ cover" }, content: "<p>cover</p>",
+      buttons: [{ action: "ok", label: "OK" }],
+    });
+    await cover.render({ force: true });
+    await sleep(300);
+    out.coveredFirst = ui.activeWindow === cover;
+    document.querySelector("#cairn-dashboard-button")?.click();
     await sleep(900);
-    out.skull = app.tabGroups.page;
-    ui.controls.controls.tokens.tools.abWardenDashboard.onChange();
-    await sleep(900);
-    out.clipboard = app.tabGroups.page;
+    out.reopenPage = app.tabGroups.page;
+    out.reopenFront = ui.activeWindow === app;
+    await cover.close();
+    await turn("tables");
     // The chat button: core's own chat pop-out.
     await ui.chat.popout?.close();
     await sleep(200);
@@ -273,9 +318,9 @@ try {
   pages.resizedBack.width === 700 && pages.resizedBack.height === 600
     ? ok("a page the Warden resized keeps that size after a visit elsewhere")
     : fail("a resized page lost its size", JSON.stringify(pages.resizedBack));
-  pages.skull === "damage" && pages.clipboard === "tables"
-    ? ok("on the open window, the skull turns to Damage and the clipboard to Tables")
-    : fail("the tools on an open window", JSON.stringify({ skull: pages.skull, clipboard: pages.clipboard }));
+  pages.coveredFirst && pages.reopenFront && pages.reopenPage === "damage"
+    ? ok("on an open, buried window, the button brings it forward on the page it was on")
+    : fail("the button on an open window", JSON.stringify({ covered: pages.coveredFirst, front: pages.reopenFront, page: pages.reopenPage }));
   pages.chatPopout
     ? ok("the rail's chat button opens core's chat pop-out")
     : fail("the rail's chat button opened no chat pop-out");
@@ -1572,6 +1617,17 @@ try {
       ? ok("...with the real rows in it, read from a pack she cannot browse", `${onAlice.rows} rows`)
       : fail("...with the real rows in it", JSON.stringify(onAlice));
 
+    // The Dashboard's button is the Warden's alone (2026-11-21): a player's
+    // left column has none, and no Air Bladder tool either.
+    const aliceButton = await alice.evaluate(() => ({
+      button: document.querySelectorAll("#cairn-dashboard-button, .cairn-dashboard-nav").length,
+      tools: document.querySelectorAll('button[data-tool^="ab"]').length,
+      column: !!document.getElementById("ui-left-column-2"),
+    }));
+    aliceButton.column && aliceButton.button === 0 && aliceButton.tools === 0
+      ? ok("a player has no Dashboard button and no Air Bladder tool")
+      : fail("a player's left column", JSON.stringify(aliceButton));
+
     // A PLAYER emitting the action must be ignored. senderId is the guard and
     // is the one field the server authenticates, so a crafted emit gets
     // nowhere — assert the GM's client opens nothing new.
@@ -1597,8 +1653,8 @@ try {
     await alice.context().close();
   }
 
-  /* ---- 12. the tool, clicked again, keeps the Warden's visibility -------
-   * (review #36 S9). The Token-controls tool on an OPEN window is how a Warden
+  /* ---- 12. the button, clicked again, keeps the Warden's visibility -----
+   * (review #36 S9). The Dashboard's button on an OPEN window is how a Warden
    * brings a buried Dashboard forward, and it renders both parts: the body's
    * template stamps `selected` on the default, so the dropdown went back to
    * Private and the next rolls were whispered. "public", not "gm": a leg that
@@ -1619,11 +1675,11 @@ try {
     return out;
   });
   reopened.redrawn
-    ? ok("precondition: the tool on an open Dashboard redraws its body")
-    : fail("precondition: the tool no longer redraws the body, so leg 12 proves nothing", JSON.stringify(reopened));
+    ? ok("precondition: the button on an open Dashboard redraws its body")
+    : fail("precondition: the button no longer redraws the body, so leg 12 proves nothing", JSON.stringify(reopened));
   reopened.after === "public"
-    ? ok("the Dashboard tool, clicked on an open window, keeps the Warden's visibility choice (review #36)")
-    : fail("the Dashboard tool reset the visibility dropdown", `it now reads "${reopened.after}"`);
+    ? ok("the Dashboard's button, clicked on an open window, keeps the Warden's visibility choice (review #36)")
+    : fail("the Dashboard's button reset the visibility dropdown", `it now reads "${reopened.after}"`);
 
   /* ---- 13. Your Tables follows the world's tables ------------------------
    * (review #36 S9). The list was read off `game.tables` only when the body

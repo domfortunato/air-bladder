@@ -42,10 +42,11 @@ try {
     // every registered setting, grouped by namespace
     const ns = {};
     // The air-bladder rows on core's flat list, by design: each is per PERSON
-    // (client scope) — the calendar bar's tuck (2026-11-20) and the page tabs'
-    // side (2026-11-21) — and every submenu is Warden-only, so a player could
-    // not reach one inside it.
-    const PER_PERSON = ["air-bladder.tuck-calendar-bar", "air-bladder.tab-rail-side"];
+    // (client scope) — the calendar bar's tuck (2026-11-20; three choices
+    // under a new key since 2026-11-21) and the page tabs' side (2026-11-21)
+    // — and every submenu is Warden-only, so a player could not reach one
+    // inside it.
+    const PER_PERSON = ["air-bladder.calendar-bar-tuck", "air-bladder.tab-rail-side"];
     out.perPerson = PER_PERSON.map((k) => {
       const cfg = game.settings.settings.get(k);
       return { key: k, scope: cfg?.scope ?? null, config: cfg?.config ?? null };
@@ -118,9 +119,10 @@ try {
       // The Grimoires seed's completion marker (2026-11-20): a world that
       // already had GLOG on keeps Grimoires, once.
       "glog-grimoires-seeded",
-      // The calendar bar's per-person tuck (2026-11-20): client scope, and it
-      // postdates the namespace move, so no "cairn.<key>" value exists.
-      "tuck-calendar-bar",
+      // The calendar bar's per-person tuck (2026-11-20; `calendar-bar-tuck`
+      // since 2026-11-21): client scope, and it postdates the namespace move,
+      // so no "cairn.<key>" value exists.
+      "calendar-bar-tuck",
       // The page tabs' side (2026-11-21): per person, client scope, and it
       // postdates the namespace move — the tuck's case.
       "tab-rail-side",
@@ -285,7 +287,7 @@ try {
     // The per-person rows are the ones allowed here (see the registry walk
     // above): the calendar bar's tuck and the page tabs' side.
     out.looseRows = [...root.querySelectorAll(`[name^="${NS}."]`)].map((i) => i.name)
-      .filter((k) => k !== `${NS}.tuck-calendar-bar` && k !== `${NS}.tab-rail-side`);
+      .filter((k) => k !== `${NS}.calendar-bar-tuck` && k !== `${NS}.tab-rail-side`);
     out.indexed = buttons.map((b) => !!b.closest(".form-group")?.querySelector("[data-searchable]"));
     const search = root.querySelector("input[type=search]");
     out.hasSearch = !!search;

@@ -124,6 +124,14 @@ let start = null;
 try {
   await joinAsGM(page);
   await dismissChrome(page);
+  // The bar's legs measure an UNTUCKED bar, and since 2026-11-21 a world can
+  // tuck it for everyone (`tuck-calendar-bar-default`). This browser's own
+  // row is set to Not tucked for the run, so a Warden's table-wide tuck can't
+  // place the bar under them; the context is this run's own and goes with it.
+  // The tuck legs (7, 7c) set what they need themselves.
+  await page.evaluate(async () => {
+    await game.settings.set("air-bladder", "calendar-bar-tuck", "off");
+  });
 
   start = await page.evaluate(() => ({
     time: game.time.worldTime,
@@ -283,18 +291,27 @@ try {
   // tucks it again after half a second; Y pulls it down to stay and tucks it
   // again. The setting is this headless browser's own (client scope, written
   // to its localStorage, never the world) and is put back as found.
+  //
+  // THREE CHOICES since 2026-11-21 (user ruling "option 2"): As the Warden set
+  // it (the default) / Tucked / Not tucked, under the new key
+  // `calendar-bar-tuck`; the first follows the Warden's world setting
+  // `tuck-calendar-bar-default` (7c). This leg SETS "on" for itself.
   const tuck = await page.evaluate(async () => {
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     const el = () => document.getElementById("cairn-watch-clock");
     const tabs = () => el()?.querySelector(".cairn-bar-tabs")?.getBoundingClientRect();
     // `data-tooltip-text`, core's plain-text form (review #36, leg 32).
     const watchTip = () => el()?.querySelector(".cairn-bar-watch")?.dataset.tooltipText ?? null;
-    const cfg = game.settings.settings.get("air-bladder.tuck-calendar-bar");
-    const out = { scope: cfg?.scope ?? null, config: cfg?.config ?? null };
+    const cfg = game.settings.settings.get("air-bladder.calendar-bar-tuck");
+    const out = { scope: cfg?.scope ?? null, config: cfg?.config ?? null,
+      choices: Object.keys(cfg?.choices ?? {}), def: cfg?.default ?? null,
+      oldGone: !game.settings.settings.has("air-bladder.tuck-calendar-bar") };
     if (!cfg) return out;
-    const before = game.settings.get("air-bladder", "tuck-calendar-bar");
+    // What this browser had STORED (null: it never chose), put back as found.
+    const STORE = "air-bladder.calendar-bar-tuck";
+    const stored = localStorage.getItem(STORE);
     try {
-      await game.settings.set("air-bladder", "tuck-calendar-bar", true);
+      await game.settings.set("air-bladder", "calendar-bar-tuck", "on");
       await sleep(500);
       out.tucked = { cls: !!el()?.classList.contains("is-tucked"), bottom: Math.round(tabs()?.bottom ?? -99), tip: watchTip() };
       // 7b (review #35): today's weather pill goes up with the bar. A pill
@@ -327,18 +344,25 @@ try {
       await sleep(500);
       out.key.upAgain = !el().classList.contains("is-down");
     } finally {
-      await game.settings.set("air-bladder", "tuck-calendar-bar", before);
+      await game.settings.set("air-bladder", "calendar-bar-tuck", "off");
+      if (stored === null) localStorage.removeItem(STORE);
+      else localStorage.setItem(STORE, stored);
     }
     await sleep(500);
+    // Read with "off" in force: the restore above may hand this browser back
+    // to the Warden's default, which is 7c's to test, not this line's.
+    const wc = await import("/systems/air-bladder/module/watch-clock.js");
     out.untucked = { cls: !!el()?.classList.contains("is-tucked"), top: Math.round(tabs()?.top ?? -99) };
+    wc.followTuckSetting();
     // On a bar that is not tucked the key does nothing and says so.
     out.keyUntucked = game.keybindings.actions.get("air-bladder.pullCalendarBar")?.onDown?.({}) ?? null;
     return out;
   });
 
   tuck.scope === "client" && tuck.config === true
-    ? ok("the tuck is each person's own setting, on core's list (the submenus are Warden-only)")
-    : fail("the tuck setting's shape", JSON.stringify({ scope: tuck.scope, config: tuck.config }));
+    && JSON.stringify(tuck.choices) === JSON.stringify(["warden", "on", "off"]) && tuck.def === "warden" && tuck.oldGone
+    ? ok("the tuck is each person's own setting, on core's list: As the Warden set it (default) / Tucked / Not tucked")
+    : fail("the tuck setting's shape", JSON.stringify({ scope: tuck.scope, config: tuck.config, choices: tuck.choices, def: tuck.def, oldGone: tuck.oldGone }));
   tuck.tucked?.cls && tuck.tucked.bottom > 0 && tuck.tucked.bottom <= 8 && !tuck.tucked.tip
     ? ok("tucked, only a lip shows at the top edge, and no tab offers a tooltip", `bottom ${tuck.tucked.bottom}px`)
     : fail("the tucked bar", JSON.stringify(tuck.tucked));
@@ -358,6 +382,107 @@ try {
   tuck.untucked && !tuck.untucked.cls && tuck.untucked.top >= -1 && tuck.untucked.top <= 2 && tuck.keyUntucked === false
     ? ok("the setting put back, the bar shows again, and Y on a shown bar falls through")
     : fail("after the tuck leg", JSON.stringify({ untucked: tuck.untucked, key: tuck.keyUntucked }));
+
+  /* ---- 7c. the Warden's tuck for the table ----------------------------- */
+  // (2026-11-21, user ruling "option 2".) The Warden's world setting tucks
+  // the bar for every browser left at "As the Warden set it"; a person's own
+  // Tucked or Not tucked wins. SET what each case needs (this browser's row
+  // and the world setting), and put back what was READ: the world value and
+  // this browser's stored entry, an absent one included.
+  const wardenTuck = await page.evaluate(async () => {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const tucked = () => !!document.getElementById("cairn-watch-clock")?.classList.contains("is-tucked");
+    const STORE = "air-bladder.calendar-bar-tuck";
+    const out = {};
+    const wcfg = game.settings.settings.get("air-bladder.tuck-calendar-bar-default");
+    out.shape = { scope: wcfg?.scope ?? null, config: wcfg?.config ?? null, def: wcfg?.default ?? null };
+    const settingsMod = await import("/systems/air-bladder/module/settings.js");
+    out.inGeneral = !!settingsMod.SETTING_GROUPS.find((g) => g.id === "general")?.keys.includes("tuck-calendar-bar-default");
+    if (!wcfg) return out;
+    const worldWas = game.settings.get("air-bladder", "tuck-calendar-bar-default");
+    const stored = localStorage.getItem(STORE);
+    const setOwn = async (v) => {
+      if (v === null) localStorage.removeItem(STORE);
+      else await game.settings.set("air-bladder", "calendar-bar-tuck", v);
+    };
+    try {
+      // Off for the table, this browser untouched: the bar shows.
+      await game.settings.set("air-bladder", "tuck-calendar-bar-default", false);
+      await setOwn(null);
+      (await import("/systems/air-bladder/module/watch-clock.js")).followTuckSetting();
+      await sleep(400);
+      out.offUntouched = tucked();
+      // On for the table: the untouched browser tucks AT ONCE (the world
+      // setting's onChange, nothing else called here).
+      await game.settings.set("air-bladder", "tuck-calendar-bar-default", true);
+      for (let i = 0; i < 20 && !tucked(); i++) await sleep(100);
+      out.onUntouched = tucked();
+      // A person who chose Not tucked keeps it.
+      await setOwn("off");
+      await sleep(400);
+      out.onOwnOff = tucked();
+      // Off for the table again: a person who chose Tucked keeps that too.
+      await game.settings.set("air-bladder", "tuck-calendar-bar-default", false);
+      await setOwn("on");
+      await sleep(400);
+      out.offOwnOn = tucked();
+      // And "As the Warden set it", chosen on the row, follows the table again.
+      await setOwn("warden");
+      await sleep(400);
+      out.offOwnWarden = tucked();
+    } finally {
+      await game.settings.set("air-bladder", "tuck-calendar-bar-default", worldWas);
+      if (stored === null) localStorage.removeItem(STORE);
+      else localStorage.setItem(STORE, stored);
+      (await import("/systems/air-bladder/module/watch-clock.js")).followTuckSetting();
+    }
+    return out;
+  });
+  wardenTuck.shape?.scope === "world" && wardenTuck.shape.config === false && wardenTuck.shape.def === false && wardenTuck.inGeneral
+    ? ok("the Warden's tuck for the table is a world setting, off by default, in the General submenu")
+    : fail("the Warden's tuck setting's shape", JSON.stringify(wardenTuck));
+  wardenTuck.offUntouched === false && wardenTuck.onUntouched === true
+    ? ok("switched on, a browser that never chose tucks at once; off, it shows")
+    : fail("the Warden's default and an untouched browser", JSON.stringify(wardenTuck));
+  wardenTuck.onOwnOff === false && wardenTuck.offOwnOn === true && wardenTuck.offOwnWarden === false
+    ? ok("a person's own Not tucked or Tucked wins over the Warden's; As the Warden set it follows the table")
+    : fail("a person's own choice against the Warden's", JSON.stringify(wardenTuck));
+
+  /* ---- 7d. the old Boolean is carried, once ---------------------------- */
+  // A browser that tucked the bar under the old `tuck-calendar-bar` (true)
+  // lands on Tucked; a stored false is dropped (the old default, which can't
+  // be told from never choosing); a choice already made on the new row is
+  // never overwritten; and the old entry is gone after. Driven against this
+  // browser's own localStorage, restored as found.
+  const carry = await page.evaluate(async () => {
+    const OLD = "air-bladder.tuck-calendar-bar", NEW = "air-bladder.calendar-bar-tuck";
+    const keep = { old: localStorage.getItem(OLD), neu: localStorage.getItem(NEW) };
+    const mod = await import("/systems/air-bladder/module/settings.js");
+    const run = async (oldVal, newVal) => {
+      if (oldVal === null) localStorage.removeItem(OLD); else localStorage.setItem(OLD, oldVal);
+      if (newVal === null) localStorage.removeItem(NEW); else localStorage.setItem(NEW, newVal);
+      mod.carryTuckChoice();
+      await new Promise((r) => setTimeout(r, 200));
+      return { neu: localStorage.getItem(NEW), oldLeft: localStorage.getItem(OLD) };
+    };
+    const out = {};
+    try {
+      out.wasTrue = await run("true", null);
+      out.wasFalse = await run("false", null);
+      out.chosen = await run("true", JSON.stringify("off"));
+    } finally {
+      if (keep.old === null) localStorage.removeItem(OLD); else localStorage.setItem(OLD, keep.old);
+      if (keep.neu === null) localStorage.removeItem(NEW); else localStorage.setItem(NEW, keep.neu);
+      (await import("/systems/air-bladder/module/watch-clock.js")).followTuckSetting();
+    }
+    return out;
+  });
+  const asVal = (j) => { try { return JSON.parse(j); } catch { return j; } };
+  asVal(carry.wasTrue?.neu) === "on" && carry.wasTrue.oldLeft === null
+    && carry.wasFalse?.neu === null && carry.wasFalse.oldLeft === null
+    && asVal(carry.chosen?.neu) === "off" && carry.chosen.oldLeft === null
+    ? ok("the old tuck carries once: true becomes Tucked, false is dropped, a new choice is kept, the old entry goes")
+    : fail("carrying the old tuck", JSON.stringify(carry));
 
   /* ---- 9-14. the Vald calendar, shadowed in-page ----------------------- */
 
@@ -1561,6 +1686,31 @@ try {
     seen.movers === 0
       ? ok("...with nothing on it that could move the clock")
       : fail("the player's clock has controls that move it", String(seen.movers));
+
+    // 7e (2026-11-21): the Warden's tuck for the table reaches a PLAYER who
+    // never chose, at once, through the world setting's onChange on HER
+    // client. SET for the leg (off first, so "tucked" is the change and not
+    // inherited), the world value READ put back.
+    const worldTuckWas = await page.evaluate(() => game.settings.get("air-bladder", "tuck-calendar-bar-default"));
+    const aliceTuck = {};
+    try {
+      await page.evaluate(() => game.settings.set("air-bladder", "tuck-calendar-bar-default", false));
+      aliceTuck.untouched = await alice.evaluate(() => localStorage.getItem("air-bladder.calendar-bar-tuck") === null);
+      const isTucked = () => !!document.getElementById("cairn-watch-clock")?.classList.contains("is-tucked");
+      await alice.waitForFunction(() => !document.getElementById("cairn-watch-clock")?.classList.contains("is-tucked"),
+        null, { timeout: 5000 }).catch(() => {});
+      aliceTuck.before = await alice.evaluate(isTucked);
+      await page.evaluate(() => game.settings.set("air-bladder", "tuck-calendar-bar-default", true));
+      aliceTuck.after = await alice.waitForFunction(isTucked, null, { timeout: 5000 }).then(() => true).catch(() => false);
+    } finally {
+      await page.evaluate((v) => game.settings.set("air-bladder", "tuck-calendar-bar-default", v), worldTuckWas);
+    }
+    aliceTuck.untouched && aliceTuck.before === false && aliceTuck.after === true
+      ? ok("the Warden's tuck for the table reaches a player who never chose, at once")
+      : fail("the Warden's tuck on a player's screen", JSON.stringify(aliceTuck));
+    // Her own row to Not tucked for the rest of the run: the legs below read
+    // her bar, and the world value put back above may be the Warden's tuck.
+    await alice.evaluate(() => game.settings.set("air-bladder", "calendar-bar-tuck", "off"));
 
     // The enforcement, not the affordance: `core.time` is world-scoped, so the
     // SERVER refuses. If this ever passes, a player can move everyone's clock.

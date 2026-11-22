@@ -19,7 +19,8 @@
  *   3. every rail button turns to its own page, and only that page shows;
  *   4. the rail hangs OUTSIDE the frame on the right, flips to the left when
  *      the window stands at the screen's right edge, and flips back;
- *      `railHangsLeft` agrees, case by case;
+ *      `railHangsLeft` agrees, case by case; (4b) Left asked for, mirrored;
+ *      (4c, 2026-11-21) a browser that never chose hangs it on the LEFT;
  *   5. Growth holds Cairn's Growth sentence, the Scars and the growth journal;
  *      Description no longer holds the Scars;
  *   6. what is written to `system.growth` shows in the journal. That the SERVER
@@ -224,6 +225,9 @@ try {
       pages: [...(rail?.querySelectorAll('button[data-action="tab"]') ?? [])].map((b) => ({
         tab: b.dataset.tab,
         icon: b.querySelector("i")?.className ?? null,
+        // The RESOLVED mark (2026-11-21, the quill): a wrong Font Awesome class
+        // renders nothing and says nothing, so the class list alone proves little.
+        glyph: b.querySelector("i") ? getComputedStyle(b.querySelector("i"), "::before").content : null,
         tip: b.dataset.tooltipText ?? null,
         aria: b.getAttribute("aria-label"),
       })),
@@ -272,6 +276,9 @@ try {
     // default for these three, so a value this browser kept cannot place the
     // rail for them; the value READ is put back after the Left legs below.
     out.sideWas = game.settings.get("air-bladder", "tab-rail-side");
+    // What this browser had STORED (null: it never chose), for leg 4c's restore.
+    const SIDE_STORE = "air-bladder.tab-rail-side";
+    out.sideStored = localStorage.getItem(SIDE_STORE);
     await game.settings.set("air-bladder", "tab-rail-side", "right");
     await sleep(200);
     sheet.setPosition({ left: 100, top: 60 });
@@ -302,12 +309,31 @@ try {
       await sleep(300);
     }
     const mod = await import("/systems/air-bladder/module/actor/tab-rail.js");
+    // 4c (2026-11-21, user ask: "by default, tabs should be on the left
+    // side"): a browser that never chose a side hangs the tabs on the LEFT.
+    // The choice is cleared in-page (a client setting is this browser's
+    // localStorage entry, read on every get), and what was stored before this
+    // leg is put back as it was, an absent entry included.
+    try {
+      sheet.setPosition({ left: 100 });
+      localStorage.removeItem(SIDE_STORE);
+      mod.placeEveryRail();
+      await sleep(300);
+      out.untouched = { read: game.settings.get("air-bladder", "tab-rail-side"), ...boxes() };
+    } finally {
+      if (out.sideStored === null) localStorage.removeItem(SIDE_STORE);
+      else localStorage.setItem(SIDE_STORE, out.sideStored);
+      mod.placeEveryRail();
+      await sleep(200);
+    }
     out.unit = [
-      mod.railHangsLeft({ left: 100, right: 580 }, 44, 1600) === false,   // room on the right
-      mod.railHangsLeft({ left: 1100, right: 1580 }, 44, 1600) === true,  // 20px right, 1100 left
-      mod.railHangsLeft({ left: 0, right: 1590 }, 44, 1600) === false,    // no room either side: stay right
-      mod.railHangsLeft({ left: 1100, right: 1556 }, 44, 1600) === false, // exactly fits
+      mod.railHangsLeft({ left: 100, right: 580 }, 44, 1600, "right") === false,   // room on the right
+      mod.railHangsLeft({ left: 1100, right: 1580 }, 44, 1600, "right") === true,  // 20px right, 1100 left
+      mod.railHangsLeft({ left: 0, right: 1590 }, 44, 1600, "right") === false,    // no room either side: stay right
+      mod.railHangsLeft({ left: 1100, right: 1556 }, 44, 1600, "right") === false, // exactly fits
     ];
+    // Nothing asked for is the default side, LEFT, in the function too.
+    out.unitDefault = mod.railHangsLeft({ left: 100, right: 580 }, 44, 1600) === true;
     // The same four, mirrored, with Left asked for.
     out.unitLeft = [
       mod.railHangsLeft({ left: 100, right: 580 }, 44, 1600, "left") === true,    // room on the left
@@ -1257,6 +1283,13 @@ try {
         size: [s.position.width, s.position.height],
         pages: btns.map((b) => b.dataset.tab),
         page1Tip: btns.find((b) => b.dataset.tab === "character")?.dataset.tooltipText ?? null,
+        // The notes page's quill, on every sheet (2026-11-21, user ask: "make
+        // these changes for all character sheets"), and that it resolves.
+        notesIcon: btns.find((b) => b.dataset.tab === "notes")?.querySelector("i")?.className ?? null,
+        notesGlyph: (() => {
+          const i = btns.find((b) => b.dataset.tab === "notes")?.querySelector("i");
+          return i ? getComputedStyle(i, "::before").content : null;
+        })(),
         wantTip: L(ROLE_KEY[role]),
         opensOn: s.tabGroups.primary,
         activePage: wc?.querySelector('.tab.active[data-group="primary"]')?.dataset.tab ?? null,
@@ -1651,15 +1684,20 @@ else {
   // 2
   // No Description page since round 4 (leg 15).
   const want = ["character", "items", "growth", ...(r.showContainers ? ["containers"] : []), "notes"];
-  const icons = { character: "fa-mask", items: "fa-sack", growth: "fa-seedling", containers: "fa-link", notes: "fa-scroll" };
+  const icons = { character: "fa-mask", items: "fa-sack", growth: "fa-seedling", containers: "fa-link", notes: "fa-feather-pointed" };
   const got = r.rail.pages.map((b) => b.tab);
   r.rail.present && JSON.stringify(got) === JSON.stringify(want)
     ? ok(`the rail sits in .window-content with the pages in order: ${got.join(", ")}`)
     : fail(`rail present ${r.rail.present}, pages ${JSON.stringify(got)}, want ${JSON.stringify(want)}`);
   const badIcon = r.rail.pages.filter((b) => !b.icon?.split(/\s+/).includes(icons[b.tab]));
   badIcon.length === 0 && r.rail.pages.length
-    ? ok("each page wears its icon (mask, sack, seedling, scroll)")
+    ? ok("each page wears its icon (mask, sack, seedling, quill)")
     : fail(`icons: ${JSON.stringify(badIcon)}`);
+  const blank = (g) => !g || g === "none" || g === '""' || g === "normal";
+  const noMark = r.rail.pages.filter((b) => blank(b.glyph));
+  noMark.length === 0 && r.rail.pages.length
+    ? ok("...and every page's icon resolves to a real mark (read from ::before)")
+    : fail(`icons that render nothing: ${JSON.stringify(noMark)}`);
   const badTip = r.rail.pages.filter((b) => b.tab !== "containers" && (b.tip !== r.expectTips[b.tab] || b.aria !== r.expectTips[b.tab]));
   badTip.length === 0 && r.rail.pages.length
     ? ok(`each page's tooltip and label is its own word; Inventory's reads "${r.expectTips.items}"`)
@@ -1709,6 +1747,11 @@ else {
   r.unitLeft?.every(Boolean)
     ? ok("railHangsLeft, Left asked for: the four cases mirrored")
     : fail(`railHangsLeft left cases: ${JSON.stringify(r.unitLeft)}`);
+  // 4c, Left by default (2026-11-21, user ask).
+  const ut = r.untouched;
+  ut?.read === "left" && ut.left && ut.rr !== null && ut.rr <= ut.fl + 2 && ut.dir === "LEFT" && r.unitDefault
+    ? ok("a browser that never chose a side hangs the tabs on the frame's left (the default), and railHangsLeft agrees")
+    : fail(`untouched browser: ${JSON.stringify({ ...ut, unitDefault: r.unitDefault })}`);
 
   // 5
   const g = r.growth;
@@ -2019,6 +2062,9 @@ else {
     JSON.stringify(x.pages) === JSON.stringify(wantPages)
       ? ok(`${role}: the rail's pages ${x.pages.join(", ")}`)
       : fail(`${role} pages: ${JSON.stringify(x.pages)}, want ${JSON.stringify(wantPages)}`);
+    x.notesIcon?.split(/\s+/).includes("fa-feather-pointed") && !["none", '""', "normal", null].includes(x.notesGlyph)
+      ? ok(`${role}: the notes page wears the quill, and it resolves`)
+      : fail(`${role} notes icon: ${JSON.stringify({ icon: x.notesIcon, glyph: x.notesGlyph })}`);
     x.page1Tip === x.wantTip
       ? ok(`${role}: page 1's tab reads "${x.wantTip}"`)
       : fail(`${role} page 1 tooltip: ${JSON.stringify(x.page1Tip)}, want ${JSON.stringify(x.wantTip)}`);

@@ -374,7 +374,7 @@ try {
     // design: client scope, and every submenu is Warden-only. Anything else
     // here has escaped a submenu.
     out.looseRows = [...cfgEl.querySelectorAll(`[name^="${NS}."]`)].map((i) => i.name.slice(NS.length + 1))
-      .filter((k) => k !== "tuck-calendar-bar" && k !== "tab-rail-side");
+      .filter((k) => k !== "calendar-bar-tuck" && k !== "tab-rail-side");
     out.settingsUnmapped = /Unmapped/i.test(cfgEl.textContent);
     await cfg.close();
 

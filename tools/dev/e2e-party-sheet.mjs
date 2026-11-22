@@ -17,9 +17,11 @@
  *   3. The notes line writes the actor flag and survives a re-render.
  *   4. The table follows the actor: an HP write redraws the cell.
  *   5. A character outside the Party folder is not listed.
- *   6. The people-icon Token tool opens the Dashboard ON the Party page, and
- *      the rail turns to it from Tables. No Party sheet window of its own is
- *      left, and the Dashboard has no footer.
+ *   6. The Dashboard's one button (2026-11-21; it replaced the people-icon
+ *      Token tool) and the rail's Party tab open the Party page, and the rail
+ *      turns to it from Tables; `openWardenDashboard({page: "party"})` still
+ *      opens on it. No Party sheet window of its own is left, and the
+ *      Dashboard has no footer.
  *   7. As Alice (a player), `openWardenDashboard({page: "party"})` refuses and
  *      no window opens.
  *   8. (2026-11-21, user asks) An NPC and a hireling filed in the Party folder
@@ -630,12 +632,16 @@ try {
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     await foundry.applications.instances.get("cairn-warden-dashboard")?.close();
     await sleep(400);
-    const tool = ui.controls?.controls?.tokens?.tools?.abPartySheet;
-    tool?.onChange?.();
+    // The Dashboard's one button (2026-11-21; it replaced the people-icon
+    // tool), then the rail's Party tab: the way a Warden takes.
+    const button = document.querySelector("#cairn-dashboard-button");
+    button?.click();
     await sleep(900);
     const app = foundry.applications.instances.get("cairn-warden-dashboard");
+    app?.element.querySelector('nav.cairn-tab-rail button[data-tab="party"]')?.click();
+    await sleep(400);
     const out = {
-      tool: !!tool,
+      tool: !!button && !ui.controls?.controls?.tokens?.tools?.abPartySheet,
       opened: !!app?.rendered,
       onParty: app?.tabGroups?.page === "party"
         && !!app.element.querySelector(".cairn-party-inner.active"),
@@ -649,9 +655,18 @@ try {
     await sleep(400);
     out.railTurns = app.tabGroups.page === "party" && !!app.element.querySelector(".cairn-party-inner.active");
     await app.close();
+    await sleep(300);
+    // Code (and a probe) may still name the page.
+    const mod = await import("/systems/air-bladder/module/warden-dashboard.js");
+    await mod.openWardenDashboard({ page: "party" });
+    await sleep(600);
+    const again = foundry.applications.instances.get("cairn-warden-dashboard");
+    out.byName = again?.tabGroups?.page === "party" && !!again.element.querySelector(".cairn-party-inner.active");
+    await again?.close();
     return out;
   });
-  check(ways.tool && ways.opened && ways.onParty, "the people-icon tool opens the Dashboard on its Party page", JSON.stringify(ways));
+  check(ways.tool && ways.opened && ways.onParty, "the Dashboard's button, then the rail, opens its Party page (no people-icon tool)", JSON.stringify(ways));
+  check(ways.byName, "openWardenDashboard({page: \"party\"}) opens it on Party");
   check(ways.railTurns, "the rail turns to Party from Tables");
   check(ways.noOwnWindow && ways.noFooter, "no Party sheet window of its own, and no Dashboard footer");
 
@@ -670,14 +685,14 @@ try {
         const got = await mod.openWardenDashboard({ page: "party" });
         await new Promise((r) => setTimeout(r, 500));
         return { got: got ?? null, window: !!document.querySelector("#cairn-warden-dashboard"),
-          tool: !!ui.controls?.controls?.tokens?.tools?.abPartySheet?.visible };
+          tool: !!document.querySelector("#cairn-dashboard-button") || !!ui.controls?.controls?.tokens?.tools?.abPartySheet };
       } catch (e) {
         return { error: e.message };
       }
     });
     check(!refused.error && refused.got === null && !refused.window, "as Alice, the Dashboard's Party page refuses",
       JSON.stringify(refused));
-    check(!refused.tool, "as Alice, the tool is not visible");
+    check(!refused.tool, "as Alice, there is no Dashboard button");
     if (aliceErrors.length) fail("Alice's console is clean", aliceErrors.slice(0, 3).join(" | "));
     await ctx.close();
   }
