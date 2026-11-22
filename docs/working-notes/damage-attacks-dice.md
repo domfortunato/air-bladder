@@ -15,6 +15,17 @@ Moved word for word from CLAUDE.md (2026-11-01); CLAUDE.md points here.
   drops a Token HUD bar entry for HP, relative or typed, while the 0 is the
   rule's. Before that override "-2" on the bar stored 0 over the real value. The
   sheet's own strip is `#hpIsDerived` in `_processFormData`.
+- **ONE apply path for a damage card** (2026-11-21): `Damage.applyDamageCard`
+  (the once-only `DAMAGE_APPLIED_FLAG`, the in-flight lock, the picker for an
+  untargeted card, `applyToTargets`, the stamp; returns what landed). The splat
+  (`onClickChatMessageApplyButton`) calls it, and so does the Dashboard's
+  Damage page when the Warden ticked who takes it before rolling
+  (`rollWardenDamage`'s `targets`). With no rendered card the label is read off
+  the card's own flavor in an inert `<template>` (`labelOf`). The page's list and
+  the splat's picker share `damageTargetGroups` + `appendDamageTargetRows`
+  (utils.js): same groups, same rows, nothing pre-ticked (the 2026-08-07 ruling;
+  only the page's OWN ticks are carried across its redraw). Ticks clear after a
+  roll that applied (user ruling). Gate `dev:hazard` leg 6.
 - Damage to an ability (`Damage.applyToTarget`'s `pool` branch, the Warden's
   hazards) floors the rolled amount at 0: the Warden's formula may subtract
   ("1d4-2"), and a negative roll used to raise the score (review #36).

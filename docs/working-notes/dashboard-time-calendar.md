@@ -27,9 +27,13 @@ Moved word for word from CLAUDE.md (2026-11-01); CLAUDE.md points here.
   `rollWardenDamage`) and **Tables** (the time band and body, both wearing
   its tab; the band is on Tables only, user ruling), then a chat button. User
   rulings: each page keeps its own size (`PAGE_SIZE`, a resize remembered for
-  the session in `pageSizes`, written in `changeTab`); all three Token tools
-  stay, in their order, each opening its page (`registerWardenDashboardControl`
-  registers all three); the chat button opens core's chat pop-out (core keeps
+  the session in `pageSizes`, written in `changeTab`); ONE "Warden's Dashboard"
+  button opens it (the same evening, user ask after db-mythic, reversing "keep
+  all three tools": `placeDashboardButton`, a GM-only labelled `ui-control`
+  prepended to core's static `#ui-left-column-2`, above the scene navigation,
+  id-guarded, hung on `renderSceneNavigation` and `ready`; it opens on the page
+  it was left on, and the skull, clipboard and people tools are gone); the
+  chat button opens core's chat pop-out (core keeps
   the log in the sidebar and ONE pop-out only; a third copy gets no new
   messages and no input). Traps paid for:
   - core's inactive-`.tab` hide is in an earlier CSS layer, so our
@@ -39,8 +43,12 @@ Moved word for word from CLAUDE.md (2026-11-01); CLAUDE.md points here.
     prepares both, and the rail part gets its own context.
   - each page's listeners bind to that PART's element on that part's render,
     never the whole window, which renders its other parts alone.
-  - a tool pressed on an open window redraws every part but Damage (the
-    clipboard still refreshes the tables), then turns the page.
+  - the button pressed on an open window redraws every part but Damage (it
+    still refreshes the tables) and brings the window forward.
+  - the Damage page's "who takes it" redraws its part alone
+    (`refreshDashboardDamage`, debounced) on `canvasReady` and on a token on the
+    viewed scene made, deleted, renamed or hidden; fields and ticks ride
+    `_preSyncPartState`.
   - the Damage page's fields are built in `_onRender`, after core's part sync,
     so `_preSyncPartState` holds their values until then.
   - the old window classes (`cairn-party-sheet`, `cairn-warden-damage`) ride
@@ -108,8 +116,11 @@ Moved word for word from CLAUDE.md (2026-11-01); CLAUDE.md points here.
   only. Tabs: watch, date (the calendar's door under Vald, keeping the old
   `.cairn-watch-inner` class), season (Vald only); the weather HANGS UNDER the bar so
   it never widens it. Tones are fixed per watch/season in both schemes. Per-person
-  TUCK (`tuck-calendar-bar`, client scope, config: true — the one air-bladder row on
-  core's flat list, because the submenus are Warden-only) and the Y key
+  TUCK (`calendar-bar-tuck`, client scope, config: true, on core's flat list
+  because the submenus are Warden-only: As the Warden set it / Tucked / Not
+  tucked since 2026-11-21, user ruling "option 2"; the first follows the world
+  setting `tuck-calendar-bar-default` in the General submenu, and `tuckedHere`
+  is the one reading) and the Y key
   (`pullCalendarBar`), after db-mythic. Internal names (`WatchClock`,
   `#cairn-watch-clock`, `show-watch-clock`) stayed. **Check it in BOTH interface
   schemes** via `game.configureUI` (`dev:theme`, strict surface); `dev:vald-time`

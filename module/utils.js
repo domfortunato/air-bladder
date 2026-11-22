@@ -1839,6 +1839,73 @@ export const nameEditorToggles = (root) => {
 };
 
 /**
+ * The tokens on `scene` damage may be applied to, in the target picker's two
+ * groups: creatures first (monsters and NPCs, the common case), then the
+ * player characters. ONE builder for both lists that offer it (2026-11-21):
+ * the splat's picker (`askDamageTargets`) and the Dashboard's Damage page, so
+ * the two can never disagree about who is offered or in what order.
+ *
+ * Concealment is `nameableTokens`, the one test. NOTHING is read from the
+ * canvas — neither the selection nor `game.user.targets` — and nothing here
+ * proposes anybody (the 2026-08-07 ruling; see `askDamageTargets`).
+ * @param {Scene} [scene]
+ * @return {{foes: {id: string, name: string}[], pcs: {id: string, name: string}[]}}
+ */
+export const damageTargetGroups = (scene) => {
+  const listed = nameableTokens((scene?.tokens?.contents ?? []).map((tk) => tk.id), scene);
+  const foes = [];
+  const pcs = [];
+  for (const entry of listed) {
+    const isPC = scene.tokens.get(entry.id)?.actor?.type === "character";
+    (isPC ? pcs : foes).push(entry);
+  }
+  return { foes, pcs };
+};
+
+/**
+ * Append the target rows to `content`: a heading per non-empty group, then a
+ * checkbox row per token, `name="abDamageTarget"`, `value` the token id. Names
+ * go in as `textContent` on a node: token names are Warden-authored free
+ * text, and nothing authored is ever parsed as markup.
+ *
+ * Every attribute is SET (`setAttribute`), never an IDL property: the
+ * picker's element is serialized to HTML and re-parsed by DialogV2, and
+ * `box.value = id` does not reflect into the markup — every row would arrive
+ * with an empty value, silently.
+ *
+ * `keep` ticks rows: ONLY the Dashboard's own ticks carried across a redraw
+ * of its page, never a proposal. The picker passes nothing, so it ticks
+ * nobody (the 2026-08-07 ruling).
+ * @param {HTMLElement} content
+ * @param {{foes: {id: string, name: string}[], pcs: {id: string, name: string}[]}} groups
+ * @param {Set<string>} [keep]
+ */
+export const appendDamageTargetRows = (content, { foes, pcs }, keep = new Set()) => {
+  const group = (key, entries) => {
+    if (!entries.length) return; // no empty heading over an empty list
+    const head = document.createElement("p");
+    head.className = "ab-target-group";
+    head.textContent = game.i18n.localize(key);
+    content.append(head);
+    for (const entry of entries) {
+      const row = document.createElement("label");
+      row.className = "ab-target-row";
+      const box = document.createElement("input");
+      box.setAttribute("type", "checkbox");
+      box.setAttribute("name", "abDamageTarget");
+      box.setAttribute("value", entry.id);
+      if (keep.has(entry.id)) box.setAttribute("checked", "");
+      const name = document.createElement("span");
+      name.textContent = entry.name;
+      row.append(box, name);
+      content.append(row);
+    }
+  };
+  group("CAIRN.DamageTargets.Foes", foes);
+  group("CAIRN.DamageTargets.Party", pcs);
+};
+
+/**
  * Ask the Warden who takes an UNTARGETED damage roll.
  *
  * A roll made with nothing targeted used to carry no Apply control at all, so the
@@ -1881,21 +1948,15 @@ export const nameEditorToggles = (root) => {
  *   `askDamageQuality` follows: a ✕ is an instruction, not a default.
  */
 export const askDamageTargets = async (scene, { windowId } = {}) => {
-  const listed = nameableTokens((scene?.tokens?.contents ?? []).map((tk) => tk.id), scene);
-  if (!listed.length) {
+  // NOTHING is read from the canvas here — see the docblock. Neither
+  // `canvas.tokens.controlled` nor `game.user.targets`. The groups are the
+  // Dashboard's Damage page's too (`damageTargetGroups`).
+  const groups = damageTargetGroups(scene);
+  if (!groups.foes.length && !groups.pcs.length) {
     // A legacy card whose scene was deleted, or one whose creatures are all gone.
     // Saying so beats opening a picker with nothing in it and an Apply button.
     ui.notifications.warn(game.i18n.localize("CAIRN.Notify.NoTokensToDamage"));
     return [];
-  }
-
-  // NOTHING is read from the canvas here — see the docblock. Neither
-  // `canvas.tokens.controlled` nor `game.user.targets`.
-  const foes = [];
-  const pcs = [];
-  for (const entry of listed) {
-    const isPC = scene.tokens.get(entry.id)?.actor?.type === "character";
-    (isPC ? pcs : foes).push(entry);
   }
 
   // An HTMLDivElement rather than a string, and that is the security property
@@ -1912,35 +1973,9 @@ export const askDamageTargets = async (scene, { windowId } = {}) => {
   prompt.textContent = game.i18n.localize("CAIRN.DamageTargets.Prompt");
   content.append(prompt);
 
-  const group = (key, entries) => {
-    if (!entries.length) return; // no empty heading over an empty list
-    const head = document.createElement("p");
-    head.className = "ab-target-group";
-    head.textContent = game.i18n.localize(key);
-    content.append(head);
-    for (const entry of entries) {
-      const row = document.createElement("label");
-      row.className = "ab-target-row";
-      const box = document.createElement("input");
-      // setAttribute, NOT the properties. The element is serialized to HTML and
-      // re-parsed, so `box.value = id` sets an IDL property that does NOT reflect
-      // into the markup — every row would arrive with an empty value, silently.
-      // `type` and `name` do reflect; they are written the same way so the next
-      // reader is not left deciding which of three lines is safe.
-      //
-      // Nothing sets `checked` any more (the picker proposes nobody), which is
-      // why no row is ticked and not an oversight.
-      box.setAttribute("type", "checkbox");
-      box.setAttribute("name", "abDamageTarget");
-      box.setAttribute("value", entry.id);
-      const name = document.createElement("span");
-      name.textContent = entry.name;
-      row.append(box, name);
-      content.append(row);
-    }
-  };
-  group("CAIRN.DamageTargets.Foes", foes);
-  group("CAIRN.DamageTargets.Party", pcs);
+  // The rows, ticking nobody (`appendDamageTargetRows`, shared with the
+  // Dashboard's Damage page).
+  appendDamageTargetRows(content, groups);
 
   const picked = await foundry.applications.api.DialogV2.wait({
     classes: ["cairn-damage-targets"],

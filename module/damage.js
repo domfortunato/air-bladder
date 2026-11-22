@@ -13,6 +13,25 @@ import { FLAG_SCOPE } from './character-generator.js'
 /** Flag recording that a damage card's Apply control has already been used. */
 export const DAMAGE_APPLIED_FLAG = "damageApplied";
 
+/**
+ * A damage card's `.dmg-label`: off the RENDERED card when the caller has it
+ * (the splat), else off the card's own flavor (the Dashboard's Damage page,
+ * which applies the card it just posted, rendered or not). Parsed into an
+ * inert <template>, so nothing in it runs, and only its data attributes and
+ * text are read — what `dmg-roll-card.html` stamped.
+ * @param {HTMLElement|null} html
+ * @param {ChatMessage|null} message
+ * @return {HTMLElement|null}
+ */
+const labelOf = (html, message) => {
+    const rendered = html?.querySelector?.(".dmg-label");
+    if (rendered) return rendered;
+    if (!message?.flavor) return null;
+    const tpl = document.createElement("template");
+    tpl.innerHTML = String(message.flavor);
+    return tpl.content.querySelector(".dmg-label");
+};
+
 /** Cards whose Apply control is currently running on this client, keyed by
  *  message id. The damageApplied stamp lands only after target selection and
  *  the write, and the untargeted path holds a picker dialog open inside that
@@ -328,7 +347,7 @@ export class Damage {
         // threw the moment such a card was clicked. The filter also drops the
         // empty string a stray separator would otherwise leave behind.
         const targets = event.currentTarget.dataset.targets;
-        let targetsList = String(targets ?? "").split(';').map((s) => s.trim()).filter(Boolean);
+        const targetsList = String(targets ?? "").split(';').map((s) => s.trim()).filter(Boolean);
 
         // Shift Click allow to target the targeted tokens
         if (event.shiftKey) {
@@ -353,125 +372,156 @@ export class Damage {
                 token.setTarget(targeted, { releaseOthers: releaseOthers });
             }
         }
-        // Apply damage to targets
+        // Apply damage to targets: the card's own apply (`applyDamageCard`),
+        // which the Dashboard's Damage page calls too (2026-11-21).
         else {
-            // Once only. The control used to leave the card exactly as it found
-            // it, so nothing on the tile recorded that it had been used -- and a
-            // second click applied the whole roll again, silently, to a creature
-            // that had already taken it. The flag is the enforcement; the render
-            // hook disabling the anchor is the affordance, and a card left open
-            // in a scrolled-back log must not be a way past it.
-            if (message?.getFlag(FLAG_SCOPE, DAMAGE_APPLIED_FLAG)) {
-                ui.notifications.warn(game.i18n.localize("CAIRN.Notify.DamageAlreadyApplied"));
-                return;
-            }
-            // In-flight lock, taken SYNCHRONOUSLY before the untargeted picker
-            // opens and the write runs: the stamp lands only after both, so
-            // without this a second click while the target dialog sits open (or
-            // mid-write) clears the flag check and applies the whole roll twice
-            // -- two HP/STR passes, two Scar draws. The finally releases it
-            // however this exits, so a cancelled dialog or a throw cannot wedge
-            // the card out of ever applying. Keyed on the card; a null-message
-            // caller takes no lock. SILENT (review #34 finding 184): nothing has
-            // landed yet — the picker may sit open, or be cancelled — so "This
-            // card's damage has already been applied" was untrue; the encounter
-            // button's twin lock returns silently too.
-            if (message && damageApplyInFlight.has(message.id)) return;
-            if (message) damageApplyInFlight.add(message.id);
-            try {
-                // An UNTARGETED roll: ask who takes it. AFTER the once-only check
-                // above and not before -- a card that has already been spent must not
-                // open a picker, or the Warden chooses targets and is then refused.
-                if (!targetsList.length) {
-                    targetsList = await askDamageTargets(scene, { windowId: windowIdOf(event?.currentTarget ?? event?.target) });
-                    if (!targetsList.length) return; // dismissed, cancelled, or nothing ticked
-                }
+            await this.applyDamageCard(message, targetsList, scene, {
+                html, windowId: windowIdOf(event?.currentTarget ?? event?.target),
+            });
+        }
+    }
 
-                // THE ROLL THE CARD SHOWS, read off the message, never its HTML
-                // (review #34 findings 85, 180). The flavor AND the content are
-                // the card author's: a hidden `.dice-total` planted in the flavor
-                // was what the Warden's Apply read, whatever the card showed, and
-                // moving the read into `.message-content` did not close it —
-                // content an author writes is kept verbatim (core renders the
-                // rolls only into EMPTY content), and the flavor fallback still
-                // reached a card whose content had no total. `message.rolls[0]` is
-                // what core prints as the visible total. The DOM read stays only
-                // for a caller that hands no message.
-                const dmg = message
-                    ? Number(message.rolls?.[0]?.total)
-                    : parseInt((html.querySelector(".message-content .dice-total")
-                        ?? html.querySelector(".dice-total"))?.textContent);
-                // A card with no roll has no damage to apply; NaN must not reach
-                // the HP write.
-                if (!Number.isFinite(dmg)) return;
-                // Where it came from, read off the card that was clicked. Both halves
-                // are already here and neither has to be captured at roll time: the
-                // attacker is the message's own speaker, and the weapon is the datum
-                // dmg-roll-card.html stamps precisely so the sentence can be rebuilt
-                // from DATA rather than scraped back out of localized prose (the
-                // attack line reads the same attribute). `nameDamageTargets` rewrote
-                // that label with replaceChildren, which replaces child NODES and not
-                // attributes, so data-weapon is still here after it ran.
-                //
-                // Nothing is localized or formatted here. Ids and the raw name travel;
-                // the sentence is built per viewer at render — see DAMAGE_SOURCE_FLAG.
-                const label = html.querySelector(".dmg-label");
-                const source = {
-                    // THE ROLL CARD ITSELF (review #34 finding 125), so each
-                    // viewer's rebuild can ask whether THEY could read the card
-                    // that named the attacker — a private or blind roll shows
-                    // players "privately rolled some dice", and the public detail
-                    // card must not then tell them who it was. See nameDamageSource.
-                    sourceMessage: message?.id ?? null,
-                    token: message?.speaker?.token ?? null,
-                    actor: message?.speaker?.actor ?? null,
-                    alias: message?.speaker?.alias ?? "",
-                    weapon: label?.dataset.weapon ?? "",
-                    // THE KIND TRAVELS WITH THE WEAPON (review #33): an
-                    // improvised attack's `data-weapon` is a typed NOUN PHRASE
-                    // ("a chair leg"), and the possessive frame below read
-                    // "from Adobe's a chair leg". The rebuild picks a sentence
-                    // whose slot takes a phrase when this is true.
-                    unarmed: label?.dataset.unarmed === "1",
-                    // HAZARD-NESS IS THE BOOLEAN, NOT THE TEXT. The Warden may leave
-                    // Source blank on purpose — rollWardenDamage allows it, and the
-                    // roll card then carries the die alone. Deciding hazard-ness from
-                    // the text made a blank Source fall through to the attacker branch,
-                    // which resolved a null token to the speaker's alias and printed
-                    // "from <the Warden's login>" as the thing that hit the character.
-                    // The roll card never had this bug because it tests the ATTRIBUTE
-                    // (cairn.js, nameDamageTargets). Absent on every card already in a
-                    // log, so those keep their old, correct behaviour.
-                    isHazard: label?.dataset.hazard === "1",
-                    // The Warden's own words for it — the card's label, still intact
-                    // because the attack-line rewrite stands off a hazard card. Empty
-                    // for every ordinary roll, and for a deliberately unnamed hazard.
-                    hazard: label?.dataset.hazard === "1"
-                        ? (label.textContent ?? "").trim() : "",
-                };
-                // WHERE it lands rides on the card too, beside the weapon, and not
-                // in the dialog that made it: the Warden may spend this card minutes
-                // later, or on a second creature, and a poison must still be poison.
-                // `||` and not `??` — an empty attribute is not a pool.
-                //
-                // ONLY ON A WARDEN'S CARD (review #34 finding 85). The pool is
-                // displayed nowhere, and the card's author owns its flavor, so a
-                // player could add `data-pool="WIL"` to an ordinary dagger card and
-                // the Warden's routine Apply skipped armour and HP. Only
-                // `rollWardenDamage` mints a pool, and it refuses non-GMs.
-                const pool = message?.author?.isGM ? (label?.dataset.pool || "hp") : "hp";
-                const applied = await this.applyToTargets(
-                    targetsList, dmg, scene, source, pool);
-                // Only a GM reaches this line (the guard at the top), so the write
-                // needs no socket relay. Token ids, not names: the summary is
-                // rendered per VIEWER so it localizes and so a concealed token is
-                // never named -- see nameDamageTargets in cairn.js.
-                if (message && applied.length) {
-                    await message.setFlag(FLAG_SCOPE, DAMAGE_APPLIED_FLAG, { applied });
-                }
-            } finally {
-                if (message) damageApplyInFlight.delete(message.id);
+    /**
+     * APPLY A DAMAGE CARD to the token ids given, ONCE. The splat's own apply
+     * (`onClickChatMessageApplyButton`), split out on 2026-11-21 so the
+     * Dashboard's Damage page applies through exactly this when the Warden
+     * ticked who takes it before rolling: the once-only flag, the in-flight
+     * lock, the picker for an untargeted card, `applyToTargets` (detail cards,
+     * STR save, Scars, status bars) and the "applied" stamp are one path.
+     *
+     * Warden only: the callers refuse a player, and so does this.
+     * @param {ChatMessage|null} message  the damage card; null for a legacy caller
+     *   (no lock, no stamp, the total read off `html`)
+     * @param {string[]} targetsList  token ids on `scene`; empty asks the picker
+     * @param {Scene} [scene]  the scene the CARD was spoken in, never the viewer's
+     * @param {{html?: HTMLElement, windowId?: string}} [options]  the rendered card
+     *   (else its own flavor is read), and the window it was clicked in
+     * @return {Promise<object[]>}  what landed (`applyToTargets`); empty when
+     *   nothing was applied — refused, already spent, cancelled, no roll
+     */
+    static async applyDamageCard(message, targetsList, scene = canvas?.scene, { html = null, windowId } = {}) {
+        if (!game.user.isGM) {
+            ui.notifications.warn(game.i18n.localize("CAIRN.Notify.ApplyDamageWardenOnly"));
+            return [];
+        }
+        targetsList = [...(targetsList ?? [])];
+        // Once only. The control used to leave the card exactly as it found
+        // it, so nothing on the tile recorded that it had been used -- and a
+        // second click applied the whole roll again, silently, to a creature
+        // that had already taken it. The flag is the enforcement; the render
+        // hook disabling the anchor is the affordance, and a card left open
+        // in a scrolled-back log must not be a way past it.
+        if (message?.getFlag(FLAG_SCOPE, DAMAGE_APPLIED_FLAG)) {
+            ui.notifications.warn(game.i18n.localize("CAIRN.Notify.DamageAlreadyApplied"));
+            return [];
+        }
+        // In-flight lock, taken SYNCHRONOUSLY before the untargeted picker
+        // opens and the write runs: the stamp lands only after both, so
+        // without this a second click while the target dialog sits open (or
+        // mid-write) clears the flag check and applies the whole roll twice
+        // -- two HP/STR passes, two Scar draws. The finally releases it
+        // however this exits, so a cancelled dialog or a throw cannot wedge
+        // the card out of ever applying. Keyed on the card; a null-message
+        // caller takes no lock. SILENT (review #34 finding 184): nothing has
+        // landed yet — the picker may sit open, or be cancelled — so "This
+        // card's damage has already been applied" was untrue; the encounter
+        // button's twin lock returns silently too.
+        if (message && damageApplyInFlight.has(message.id)) return [];
+        if (message) damageApplyInFlight.add(message.id);
+        try {
+            // An UNTARGETED roll: ask who takes it. AFTER the once-only check
+            // above and not before -- a card that has already been spent must not
+            // open a picker, or the Warden chooses targets and is then refused.
+            if (!targetsList.length) {
+                targetsList = await askDamageTargets(scene, { windowId });
+                if (!targetsList.length) return []; // dismissed, cancelled, or nothing ticked
             }
+
+            // THE ROLL THE CARD SHOWS, read off the message, never its HTML
+            // (review #34 findings 85, 180). The flavor AND the content are
+            // the card author's: a hidden `.dice-total` planted in the flavor
+            // was what the Warden's Apply read, whatever the card showed, and
+            // moving the read into `.message-content` did not close it —
+            // content an author writes is kept verbatim (core renders the
+            // rolls only into EMPTY content), and the flavor fallback still
+            // reached a card whose content had no total. `message.rolls[0]` is
+            // what core prints as the visible total. The DOM read stays only
+            // for a caller that hands no message.
+            const dmg = message
+                ? Number(message.rolls?.[0]?.total)
+                : parseInt((html?.querySelector(".message-content .dice-total")
+                    ?? html?.querySelector(".dice-total"))?.textContent);
+            // A card with no roll has no damage to apply; NaN must not reach
+            // the HP write.
+            if (!Number.isFinite(dmg)) return [];
+            // Where it came from, read off the card that was clicked. Both halves
+            // are already here and neither has to be captured at roll time: the
+            // attacker is the message's own speaker, and the weapon is the datum
+            // dmg-roll-card.html stamps precisely so the sentence can be rebuilt
+            // from DATA rather than scraped back out of localized prose (the
+            // attack line reads the same attribute). `nameDamageTargets` rewrote
+            // that label with replaceChildren, which replaces child NODES and not
+            // attributes, so data-weapon is still here after it ran.
+            //
+            // Nothing is localized or formatted here. Ids and the raw name travel;
+            // the sentence is built per viewer at render — see DAMAGE_SOURCE_FLAG.
+            const label = labelOf(html, message);
+            const source = {
+                // THE ROLL CARD ITSELF (review #34 finding 125), so each
+                // viewer's rebuild can ask whether THEY could read the card
+                // that named the attacker — a private or blind roll shows
+                // players "privately rolled some dice", and the public detail
+                // card must not then tell them who it was. See nameDamageSource.
+                sourceMessage: message?.id ?? null,
+                token: message?.speaker?.token ?? null,
+                actor: message?.speaker?.actor ?? null,
+                alias: message?.speaker?.alias ?? "",
+                weapon: label?.dataset.weapon ?? "",
+                // THE KIND TRAVELS WITH THE WEAPON (review #33): an
+                // improvised attack's `data-weapon` is a typed NOUN PHRASE
+                // ("a chair leg"), and the possessive frame below read
+                // "from Adobe's a chair leg". The rebuild picks a sentence
+                // whose slot takes a phrase when this is true.
+                unarmed: label?.dataset.unarmed === "1",
+                // HAZARD-NESS IS THE BOOLEAN, NOT THE TEXT. The Warden may leave
+                // Source blank on purpose — rollWardenDamage allows it, and the
+                // roll card then carries the die alone. Deciding hazard-ness from
+                // the text made a blank Source fall through to the attacker branch,
+                // which resolved a null token to the speaker's alias and printed
+                // "from <the Warden's login>" as the thing that hit the character.
+                // The roll card never had this bug because it tests the ATTRIBUTE
+                // (cairn.js, nameDamageTargets). Absent on every card already in a
+                // log, so those keep their old, correct behaviour.
+                isHazard: label?.dataset.hazard === "1",
+                // The Warden's own words for it — the card's label, still intact
+                // because the attack-line rewrite stands off a hazard card. Empty
+                // for every ordinary roll, and for a deliberately unnamed hazard.
+                hazard: label?.dataset.hazard === "1"
+                    ? (label.textContent ?? "").trim() : "",
+            };
+            // WHERE it lands rides on the card too, beside the weapon, and not
+            // in the dialog that made it: the Warden may spend this card minutes
+            // later, or on a second creature, and a poison must still be poison.
+            // `||` and not `??` — an empty attribute is not a pool.
+            //
+            // ONLY ON A WARDEN'S CARD (review #34 finding 85). The pool is
+            // displayed nowhere, and the card's author owns its flavor, so a
+            // player could add `data-pool="WIL"` to an ordinary dagger card and
+            // the Warden's routine Apply skipped armour and HP. Only
+            // `rollWardenDamage` mints a pool, and it refuses non-GMs.
+            const pool = message?.author?.isGM ? (label?.dataset.pool || "hp") : "hp";
+            const applied = await this.applyToTargets(
+                targetsList, dmg, scene, source, pool);
+            // Only a GM reaches this line (the guard at the top), so the write
+            // needs no socket relay. Token ids, not names: the summary is
+            // rendered per VIEWER so it localizes and so a concealed token is
+            // never named -- see nameDamageTargets in cairn.js.
+            if (message && applied.length) {
+                await message.setFlag(FLAG_SCOPE, DAMAGE_APPLIED_FLAG, { applied });
+            }
+            return applied;
+        } finally {
+            if (message) damageApplyInFlight.delete(message.id);
         }
     }
 

@@ -176,7 +176,7 @@ Six things carry roughly half the logic, and nothing routes around them.
    It is the third-largest file in the system, and it is really
    four unrelated jobs sharing an address.
 
-2. **`module/settings.js` — the switches.** 57 setting registrations, grouped
+2. **`module/settings.js` — the switches.** 59 setting registrations, grouped
    into four submenus by one declaration (`SETTING_GROUPS`) that both the
    registration code and the tests read. Nineteen files import it. If a
    behaviour has an "unless the Warden turned it off" clause, it is here.
@@ -221,7 +221,7 @@ Five more are shared by a few features rather than the system:
 `vald-calendar.js` (imported by the boot file, the dashboard and the clock),
 `calendar-events.js` (by the Vald calendar, the weather log and the party pile),
 `warden-damage.js` and `party-sheet.js` (each by the dashboard alone, whose pages they are since
-2026-11-21), `actor/tab-rail.js` (by the actor sheet and the dashboard, both of which hang its rail). `settings-menus.js`
+2026-11-21), `actor/tab-rail.js` (by the actor sheet and the dashboard, both of which hang its rail, and by `settings.js` for the default side). `settings-menus.js`
 is a leaf of `settings.js` rather than of the system, and `welcome-data.js` a
 leaf of `welcome.js` (it has no Foundry in it, so `tools/build-readme.mjs`
 reads it too: README.md's top and bottom are the welcome window's words). `party-pile.js` is NOT a
@@ -247,7 +247,7 @@ estimating the blast radius of any change.
 Several of the biggest files are repetitive rather than complex, and reading
 them line by line wastes days.
 
-- **`settings.js`** is 57 near-identical registration calls. Read two of them
+- **`settings.js`** is 59 near-identical registration calls. Read two of them
   and you have read the file; the interesting part is `SETTING_GROUPS` at the
   top and the menu registration at the bottom.
 - **`data-models.js`** is nine schemas assembled from the same handful of field

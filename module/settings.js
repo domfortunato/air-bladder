@@ -1,5 +1,6 @@
 import { Cairn } from "./config.js";
 import { registerSettingMenus } from "./settings-menus.js";
+import { DEFAULT_RAIL_SIDE } from "./actor/tab-rail.js";
 
 /**
  * The namespace every game setting is registered under.
@@ -29,7 +30,7 @@ export const SETTING_KEYS = [
   // General
   "use-panic", "use-cairn-dice-notation", "use-item-icons", "show-grant-tags",
   "show-grant-tags-print", "show-traits", "show-omens", "show-watch-clock",
-  "weather-log", "use-warden-title", "change-log", "auto-record-scars",
+  "tuck-calendar-bar-default", "weather-log", "use-warden-title", "change-log", "auto-record-scars",
   "enable-glog-magic", "glog-grimoires", "enable-vald-calendar",
   "exploding-damage-dice", "fatigue-for-critical-damage", "maneuver-on-max-damage",
   "bulky-shields", "hands-full", "shield-weapon",
@@ -200,7 +201,7 @@ export const SETTING_GROUPS = [
     keys: [
       "use-panic", "use-cairn-dice-notation", "use-item-icons", "show-grant-tags",
       "show-grant-tags-print", "show-traits", "show-omens", "show-watch-clock",
-      "weather-log", "use-warden-title", "change-log", "auto-record-scars",
+      "tuck-calendar-bar-default", "weather-log", "use-warden-title", "change-log", "auto-record-scars",
     ],
   },
   {
@@ -315,6 +316,39 @@ const PC_DICE_CHOICES = {
   default: "CAIRN.Settings.PcDice.Default",
   adventurer: "CAIRN.Settings.PcDice.Adventurer",
   crawler: "CAIRN.Settings.PcDice.Crawler",
+};
+
+/** Each person's calendar-bar tuck: "warden" | "on" | "off" (2026-11-21). */
+export const CALENDAR_TUCK_KEY = "calendar-bar-tuck";
+
+/** The Boolean the per-person tuck was until 2026-11-21: read once, then gone. */
+const OLD_TUCK_KEY = "tuck-calendar-bar";
+
+/**
+ * Carry a browser's old tuck choice to the three-way row, ONCE (2026-11-21).
+ * A stored `true` becomes "on". A stored `false` is dropped: it was the old
+ * default, so it cannot be told from a person who never chose, and dropping
+ * it leaves them on "As the Warden set it". The old entry is removed either
+ * way, so the carry never runs twice, and a choice already made on the new
+ * row is never overwritten. A client setting is this browser's localStorage
+ * entry, which is all the old key ever was; it is no longer registered, so it
+ * is read there.
+ */
+export const carryTuckChoice = () => {
+  try {
+    const storage = game.settings.storage.get("client");
+    const oldId = `${SETTINGS_NS}.${OLD_TUCK_KEY}`;
+    const old = storage.getItem(oldId);
+    if (old === null) return;
+    storage.removeItem(oldId);
+    const chose = storage.getItem(`${SETTINGS_NS}.${CALENDAR_TUCK_KEY}`) !== null;
+    if (!chose && JSON.parse(old) === true) {
+      Promise.resolve(game.settings.set(SETTINGS_NS, CALENDAR_TUCK_KEY, "on"))
+        .catch((err) => console.warn("air-bladder | the old calendar-bar tuck could not be carried:", err));
+    }
+  } catch (err) {
+    console.warn("air-bladder | the old calendar-bar tuck could not be carried:", err);
+  }
 };
 
 /**
@@ -668,33 +702,67 @@ export const registerSettings = () => {
     },
   });
 
+  // The Warden's TUCK FOR THE TABLE (2026-11-21, user ruling "option 2"): on,
+  // every browser whose person left their own row at "As the Warden set it"
+  // tucks the calendar bar; a person who picked Tucked or Not tucked keeps
+  // that. WORLD scope, in the General submenu beside show-watch-clock. Every
+  // client follows at once (no reload), as show-watch-clock's does.
+  game.settings.register(SETTINGS_NS, "tuck-calendar-bar-default", {
+    name: "CAIRN.Settings.TuckCalendarBarDefault.label",
+    hint: "CAIRN.Settings.TuckCalendarBarDefault.hint",
+    scope: "world",
+    config: false,
+    type: Boolean,
+    default: false,
+    requiresReload: false,
+    onChange: async () => {
+      try {
+        const { followTuckSetting } = await import("./watch-clock.js");
+        followTuckSetting();
+      } catch (err) {
+        console.error("air-bladder | the calendar bar failed to follow the Warden's tuck:", err);
+      }
+    },
+  });
+
   // The calendar bar's TUCK, per person (2026-11-20, the user's pick, after
-  // their db-mythic): on, this browser's bar slides up to a 6px lip that pulls
-  // down on a point, a tab or the Y key (watch-clock.js). CLIENT scope, and the
-  // ONE air-bladder setting on core's flat list (`config: true`): every
-  // submenu is `restricted` (Warden-only, its settings all world-scoped), so a
-  // player could not reach a per-person row inside one. Unlisted in
-  // SETTING_KEYS for the reason the markers are: it postdates the namespace
-  // move, so there is no "cairn.<key>" value to carry. `dev:settings` names it
-  // as the one flat row.
-  game.settings.register(SETTINGS_NS, "tuck-calendar-bar", {
+  // their db-mythic): tucked, this browser's bar slides up to a 6px lip that
+  // pulls down on a point, a tab or the Y key (watch-clock.js). THREE choices
+  // since 2026-11-21 (user ruling): "warden" (the default, follows
+  // tuck-calendar-bar-default), "on", "off". A NEW key, not the old Boolean
+  // `tuck-calendar-bar`: a Boolean cannot tell "never touched" from "chose
+  // untucked", and a stored true must never meet a String type. The old key is
+  // not registered any more; `carryTuckChoice` below moves a browser's stored
+  // true to "on", once. CLIENT scope, on core's flat list (`config: true`):
+  // every submenu is `restricted` (Warden-only), so a player could not reach a
+  // per-person row inside one. Unlisted in SETTING_KEYS: it postdates the
+  // namespace move, so there is no "cairn.<key>" value to carry.
+  game.settings.register(SETTINGS_NS, CALENDAR_TUCK_KEY, {
     name: "CAIRN.Settings.TuckCalendarBar.label",
     hint: "CAIRN.Settings.TuckCalendarBar.hint",
     scope: "client",
     config: true,
-    type: Boolean,
-    default: false,
+    type: String,
+    choices: {
+      warden: "CAIRN.Settings.TuckCalendarBarChoice.Warden",
+      on: "CAIRN.Settings.TuckCalendarBarChoice.On",
+      off: "CAIRN.Settings.TuckCalendarBarChoice.Off",
+    },
+    default: "warden",
     onChange: async () => {
       const { followTuckSetting } = await import("./watch-clock.js");
       followTuckSetting();
     },
   });
+  carryTuckChoice();
 
   // Which side the page tabs hang on, per person (2026-11-21, user ask): every
   // actor sheet's rail and the Warden's Dashboard's. CLIENT scope and on core's
   // flat list for the tuck's reason (a player cannot open a submenu). The side
   // asked for still gives way when a window is too near that screen edge
-  // (tab-rail.js). Nothing re-renders: placeEveryRail moves a class.
+  // (tab-rail.js). Nothing re-renders: placeEveryRail moves a class. LEFT by
+  // default since the same evening (user ask), the side read from tab-rail.js
+  // so there is one statement of it; Left is listed first.
   game.settings.register(SETTINGS_NS, "tab-rail-side", {
     name: "CAIRN.Settings.TabRailSide.label",
     hint: "CAIRN.Settings.TabRailSide.hint",
@@ -702,10 +770,10 @@ export const registerSettings = () => {
     config: true,
     type: String,
     choices: {
-      right: "CAIRN.Settings.TabRailSideChoice.Right",
       left: "CAIRN.Settings.TabRailSideChoice.Left",
+      right: "CAIRN.Settings.TabRailSideChoice.Right",
     },
-    default: "right",
+    default: DEFAULT_RAIL_SIDE,
     onChange: async () => {
       const { placeEveryRail } = await import("./actor/tab-rail.js");
       placeEveryRail();

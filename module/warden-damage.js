@@ -1,5 +1,5 @@
 import { evaluateFormula, buildDiceBuilder } from "./utils.js";
-import { DAMAGE_POOLS } from "./damage.js";
+import { DAMAGE_POOLS, Damage } from "./damage.js";
 
 /**
  * The Warden's damage: traps, environments, conditions.
@@ -27,9 +27,9 @@ const CARD_TEMPLATE = "systems/air-bladder/templates/chat/dmg-roll-card.html";
 /** What the formula field starts at. A d6 trap is the commonest thing there is. */
 const DEFAULT_FORMULA = "1d6";
 
-/* The Token-controls skull lived here until 2026-11-21; it opens the Damage
-   page of the Warden's Dashboard now, and is registered with the Dashboard's
-   other two tools in warden-dashboard.js (`registerWardenDashboardControl`). */
+/* The Token-controls skull lived here until 2026-11-21. The Damage page is
+   reached through the Warden's Dashboard's one button now (warden-dashboard.js,
+   `placeDashboardButton`) and the Dashboard's rail. */
 
 /**
  * Build the Damage page's fields: a hint, Source, Damage, the dice builder and
@@ -102,21 +102,27 @@ export const buildForm = () => {
 /**
  * Roll what the Warden typed on the Damage page and post an ordinary damage card.
  *
- * WARDEN ONLY, stated here as well as by the tool's `visible` flag and the
- * Dashboard's own refusal: this is the half that survives someone reaching the
+ * WARDEN ONLY, stated here as well as by the Dashboard's button being drawn
+ * for a GM alone and the Dashboard's own refusal: this is the half that survives someone reaching the
  * function another way. Deciding what happened to somebody else's character is
  * the Warden's call.
  *
- * TARGETS come from `game.user.targets`, exactly as `#onRollDamage` does, so a
- * Warden who aimed first gets one gesture and one who did not gets the splat and
- * the picker. That is NOT the pre-tick the target picker rejected: targeting is
- * an aiming gesture the Warden made, where the pre-tick was a guess read off the
- * canvas selection.
+ * WHO TAKES IT (2026-11-21, user ask: "choose who before rolling" and save the
+ * trip to the card's splat). The Damage page's ticks arrive as `targets`, token
+ * ids on the VIEWED scene: the card names them (`data-targets`) and is applied
+ * at once through the splat's own path (`Damage.applyDamageCard`), so the
+ * detail cards, the STR save, the Scars and the "applied" mark are identical
+ * and the card can't be spent twice. With nobody ticked, it's what it always
+ * was: TARGETS come from `game.user.targets`, exactly as `#onRollDamage` does,
+ * so a Warden who aimed first gets them named on the card and one who did not
+ * gets the splat and the picker. Neither is the pre-tick the target picker
+ * rejected: a tick and a target are both gestures the Warden made, where the
+ * pre-tick was a guess read off the canvas selection.
  *
- * @param {{source?: string, formula?: string, pool?: string}} fields
+ * @param {{source?: string, formula?: string, pool?: string, targets?: string[]}} fields
  * @return {Promise<ChatMessage|null>} the card, or null if nothing was rolled
  */
-export const rollWardenDamage = async ({ source = "", formula = "", pool = "hp" } = {}) => {
+export const rollWardenDamage = async ({ source = "", formula = "", pool = "hp", targets = [] } = {}) => {
   if (!game.user.isGM) {
     ui.notifications.warn(game.i18n.localize("CAIRN.Notify.WardenDamageWardenOnly"));
     return null;
@@ -142,7 +148,11 @@ export const rollWardenDamage = async ({ source = "", formula = "", pool = "hp" 
   }
 
   const roll = await evaluateFormula(formula, {});
-  const targeted = Array.from(game.user.targets).map((tk) => tk.id);
+  // The Warden's ticks, kept to tokens still on the viewed scene; else their
+  // targets, as before.
+  const scene = canvas?.scene ?? null;
+  const ticked = [...new Set((targets ?? []).map(String))].filter((id) => scene?.tokens?.has(id));
+  const targeted = ticked.length ? ticked : Array.from(game.user.targets).map((tk) => tk.id);
   const flavor = await foundry.applications.handlebars.renderTemplate(CARD_TEMPLATE, {
     // The Warden's own words are the card's label, VERBATIM. The attack-line
     // rewrite stands off a hazard card (that is what data-hazard is for), so
@@ -164,10 +174,13 @@ export const rollWardenDamage = async ({ source = "", formula = "", pool = "hp" 
   // core builds it (chat-message.mjs:307-314); a trap has no actor and no token,
   // and saying so is honest.
   const speaker = {
-    scene: canvas?.scene?.id ?? null,
+    scene: scene?.id ?? null,
     actor: null,
     token: null,
     alias: game.user.name,
   };
-  return roll.toMessage({ speaker, flavor });
+  const message = await roll.toMessage({ speaker, flavor });
+  // Ticked: applied now, as the splat would apply it, on the card's scene.
+  if (ticked.length && message) await Damage.applyDamageCard(message, ticked, scene);
+  return message;
 };

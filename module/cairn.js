@@ -125,11 +125,10 @@ Hooks.once("init", async function () {
     onDown: () => pullCalendarBar(),
   });
   configureHandleBar();
-  // The Warden's Dashboard's three Token-controls tools (the skull, the
-  // clipboard and the people icon open its Damage, Tables and Party pages) and
-  // the hooks that keep its pages current. Registered from `init` rather than
-  // at import time so it sits with the rest of the system's registrations, and
-  // because the scene-controls palette is not built until well after this.
+  // The Warden's Dashboard's one button (above the scene navigation, GM only)
+  // and the hooks that keep its pages current. Registered from `init` rather
+  // than at import time so it sits with the rest of the system's
+  // registrations; the button itself is drawn at the navigation's render.
   registerWardenDashboardControl();
 
   // The Vald calendar, if the hack is on. AFTER registerSettings() — it reads

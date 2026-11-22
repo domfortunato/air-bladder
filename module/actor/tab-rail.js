@@ -22,18 +22,28 @@
 
 /**
  * The per-person setting choosing the side the rail hangs on (2026-11-21, user
- * ask): "right" (the default, the side it always had) or "left". Read from the
- * system's own namespace so this file keeps no imports. A side that has no room
- * still hands the rail to the other one, as the right always did.
+ * ask): "left" or "right". Read from the system's own namespace so this file
+ * keeps no imports. A side that has no room still hands the rail to the other
+ * one.
  */
 export const RAIL_SIDE_KEY = "tab-rail-side";
 
-/** The side this person asked for; "right" before the setting is registered. */
+/**
+ * The side a person who never chose hangs it on: LEFT since 2026-11-21 (user
+ * ask, "by default, tabs should be on the left side"; it was the right). The
+ * ONE statement of it: the setting's default (settings.js), the fallback
+ * below and `railHangsLeft`'s own default all read this. A person who picked
+ * a side keeps it (a client setting stores only an explicit choice).
+ */
+export const DEFAULT_RAIL_SIDE = "left";
+
+/** The side this person asked for; the default before the setting is registered. */
 export const preferredRailSide = () => {
   try {
-    return game.settings.get(game.system.id, RAIL_SIDE_KEY) === "left" ? "left" : "right";
+    const side = game.settings.get(game.system.id, RAIL_SIDE_KEY);
+    return side === "left" || side === "right" ? side : DEFAULT_RAIL_SIDE;
   } catch {
-    return "right";
+    return DEFAULT_RAIL_SIDE;
   }
 };
 
@@ -57,7 +67,7 @@ const railOf = (frame) => frame?.querySelector(RAIL_SELECTOR) ?? null;
  * @param {"right"|"left"} [prefer]  The side asked for (RAIL_SIDE_KEY)
  * @returns {boolean}
  */
-export const railHangsLeft = (frameBox, railWidth, viewWidth, prefer = "right") => {
+export const railHangsLeft = (frameBox, railWidth, viewWidth, prefer = DEFAULT_RAIL_SIDE) => {
   const spaceRight = viewWidth - frameBox.right;
   const spaceLeft = frameBox.left;
   if (prefer === "left") return !(railWidth > spaceLeft && spaceRight > spaceLeft);

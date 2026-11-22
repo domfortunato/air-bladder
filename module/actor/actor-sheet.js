@@ -110,7 +110,9 @@ const CHARACTER_RAIL = {
   items: { label: "CAIRN.Tab.Inventory", icon: "fa-solid fa-sack" },
   growth: { label: "CAIRN.Tab.Growth", icon: "fa-solid fa-seedling" },
   containers: { label: "CAIRN.Connections", icon: "fa-solid fa-link" },
-  notes: { label: "CAIRN.BackgroundAndNotes", icon: "fa-solid fa-scroll" },
+  // The quill since 2026-11-21 (user ask, "for all character sheets"): one
+  // glyph for one page on every sheet, and no longer the spell scroll's.
+  notes: { label: "CAIRN.BackgroundAndNotes", icon: "fa-solid fa-feather-pointed" },
 };
 
 /** Every other sheet's rail (2026-11-20). Page 1 is named by the actor's
@@ -119,7 +121,7 @@ const CHARACTER_RAIL = {
 const NPC_RAIL = {
   items: CHARACTER_RAIL.items,
   description: { label: "CAIRN.Description", icon: "fa-solid fa-book-open" },
-  notes: { label: "CAIRN.Notes", icon: "fa-solid fa-scroll" },
+  notes: { label: "CAIRN.Notes", icon: "fa-solid fa-feather-pointed" },
 };
 const ROLE_PAGE = {
   npc: { label: "CAIRN.RoleNpc", icon: "fa-solid fa-user" },

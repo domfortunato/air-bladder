@@ -13,11 +13,11 @@
  * A PAGE OF THE WARDEN'S DASHBOARD since 2026-11-21 (user ask: the Party
  * sheet, Warden's Damage and the Dashboard in one window). This file holds the
  * table's data and the page's behaviour (`PartyPage`); the window, its rail,
- * the people-icon tool and the hooks that redraw the page are
+ * the Dashboard's button and the hooks that redraw the page are
  * warden-dashboard.js's.
  *
- * WARDEN ONLY. The tool is hidden from players and `openWardenDashboard`
- * refuses them — the tool being absent is the affordance, the refusal the
+ * WARDEN ONLY. The button is drawn for a GM alone and `openWardenDashboard`
+ * refuses a player — the missing button is the affordance, the refusal the
  * enforcement.
  */
 import { SETTINGS_NS } from "./settings.js";

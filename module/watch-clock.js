@@ -1,4 +1,4 @@
-import { SETTINGS_NS } from "./settings.js";
+import { SETTINGS_NS, CALENDAR_TUCK_KEY } from "./settings.js";
 import { describeTime, currentWatch, currentSeason } from "./game-time.js";
 import { openValdCalendar, valdCalendarAvailable } from "./vald-calendar.js";
 
@@ -31,8 +31,11 @@ import { openValdCalendar, valdCalendarAvailable } from "./vald-calendar.js";
  * (db-mythic learned this with its holiday line). Each tab is coloured by its
  * watch or season, the same in both interface schemes.
  *
- * TUCKED, PER PERSON (the user's pick, after db-mythic): `tuck-calendar-bar`, a
- * client setting, slides the bar up to a 6px lip. Pointing at the lip, tabbing
+ * TUCKED (the user's pick, after db-mythic): the bar slides up to a 6px lip.
+ * Each person's row (`calendar-bar-tuck`, client scope) is As the Warden set
+ * it / Tucked / Not tucked; the first follows the Warden's table-wide
+ * `tuck-calendar-bar-default` (2026-11-21, user ruling: the Warden sets the
+ * table's default, a person's own choice wins). Pointing at the lip, tabbing
  * into a tab, or touching it pulls it down; it tucks itself again half a second
  * after the pointer or focus leaves (a touch-pulled bar, after a touch
  * elsewhere). The key (Y to start) pulls it down to stay, and tucks it again.
@@ -127,10 +130,17 @@ const SEASON_TONES = {
 /*  The tuck                                    */
 /* -------------------------------------------- */
 
-/** Is the bar tucked away on THIS browser? The setting is each person's own. */
-const tuckedHere = () => {
+/**
+ * Is the bar tucked away on THIS browser? This person's own choice, if they
+ * made one; else the Warden's for the table. The ONE reading, for the render
+ * and `followTuckSetting` alike.
+ */
+export const tuckedHere = () => {
   try {
-    return !!game.settings.get(SETTINGS_NS, "tuck-calendar-bar");
+    const own = game.settings.get(SETTINGS_NS, CALENDAR_TUCK_KEY);
+    if (own === "on") return true;
+    if (own === "off") return false;
+    return !!game.settings.get(SETTINGS_NS, "tuck-calendar-bar-default");
   } catch {
     return false;
   }
@@ -282,7 +292,7 @@ export const pullCalendarBar = () => {
   return true;
 };
 
-/** The tuck setting's onChange: this browser's bar tucks or shows at once. */
+/** The tuck settings' onChange (this person's and the Warden's): the bar tucks or shows at once. */
 export const followTuckSetting = () => {
   const el = barElement();
   if (!el) return;

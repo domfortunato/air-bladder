@@ -359,7 +359,6 @@
   "CAIRN.PartySheet.RationsTip": "Rations left",
   "CAIRN.PartySheet.ShieldHeld": "Equipped",
   "CAIRN.PartySheet.ShieldSlung": "Not equipped",
-  "CAIRN.PartySheet.Tool": "Party: the whole party at a glance",
   "CAIRN.PartySheet.Transports": "Transports",
   "CAIRN.Pile.Name": "Dropped Item Pile",
   "CAIRN.Pile.DropTip": "Drop this into the party's {pile}, where the Warden can hand it back.",
@@ -454,7 +453,6 @@
   "CAIRN.Dashboard.Page.Damage": "Damage",
   "CAIRN.Dashboard.Page.Tables": "Tables",
   "CAIRN.Dashboard.Chat": "Open the chat in its own window",
-  "CAIRN.Dashboard.Tool": "Tables: roll tables, generators and the clock",
   "CAIRN.Dashboard.Travel.Fall": "Fall",
   "CAIRN.Dashboard.Travel.PathDifficulty": "Path Difficulty",
   "CAIRN.Dashboard.Travel.PathDistance": "Path Distance",
@@ -743,6 +741,7 @@
     "ContainerNoPermission": "You can't attach {name} — you don't have permission to change it. Ask the Warden.",
     "DamageAlreadyApplied": "This card's damage has already been applied.",
     "DamageTargetsGone": "{count} of this card's targets are no longer on that scene — they took no damage.",
+    "DashboardFailed": "The Warden's Dashboard couldn't open. The console says why.",
     "DashboardNoTable": "No roll table named \"{name}\" was found, so nothing was rolled.",
     "DashboardShown": "Showed {name} to the players.",
     "DashboardWardenOnly": "Only the Warden can open the dashboard.",
@@ -1161,8 +1160,17 @@
       "Right": "Right"
     },
     "TuckCalendarBar": {
-      "hint": "Keep the calendar bar tucked up to a thin edge at the top of your screen. Point at it, or press Y, to pull it down. This changes only your own screen.",
+      "hint": "Keep the calendar bar tucked up to a thin edge at the top of your screen. Point at it, or press Y, to pull it down. As the Warden set it follows the Warden's choice for the table. This changes only your own screen.",
       "label": "Tuck the calendar bar"
+    },
+    "TuckCalendarBarChoice": {
+      "Off": "Not tucked",
+      "On": "Tucked",
+      "Warden": "As the Warden set it"
+    },
+    "TuckCalendarBarDefault": {
+      "hint": "Tucks the calendar bar up to a thin edge at the top of the screen for the whole table. Point at it, or press Y, to pull it down. Anyone who picked Tucked or Not tucked for themselves keeps their own choice.",
+      "label": "Tuck the calendar bar for everyone"
     },
     "UseBonds": {
       "hint": "Cairn 2e gives every new character a bond, and a bond can come with an item and coins. Turn this off for a game that does not use them: new characters get no bond and nothing a bond grants, bonds leave every character sheet and the Roll Character window, and printed sheets drop their Bonds section. Any bond a character already has is kept, along with what it gave them, and comes back if you switch this on again.",
@@ -1407,14 +1415,15 @@
   "CAIRN.WardenDamage.AddDie": "Add a {die}",
   "CAIRN.WardenDamage.Clear": "Clear the damage",
   "CAIRN.WardenDamage.Formula": "Damage",
-  "CAIRN.WardenDamage.Hint": "Damage from a trap, the environment or a condition. Enter a plain number for a fixed amount: 3 deals 3. Anyone you have targeted takes it; with nothing targeted, the card's splat asks who.",
+  "CAIRN.WardenDamage.Hint": "Damage from a trap, the environment or a condition. Enter a plain number for a fixed amount: 3 deals 3. Tick who takes it and it's applied when you roll. With nobody ticked, the card's splat applies it: to anyone you've targeted, or it asks who.",
   "CAIRN.WardenDamage.KeepHighest": "Keep highest",
+  "CAIRN.WardenDamage.NoTokens": "There's nobody on this scene to tick.",
   "CAIRN.WardenDamage.Pool": "Applies to",
   "CAIRN.WardenDamage.Roll": "Roll damage",
   "CAIRN.WardenDamage.Source": "Source",
   "CAIRN.WardenDamage.SourcePlaceholder": "Spiked pit",
   "CAIRN.WardenDamage.Sum": "Sum",
-  "CAIRN.WardenDamage.Tool": "Damage: traps, environments, conditions",
+  "CAIRN.WardenDamage.Targets": "Who takes it",
   "CAIRN.WardenRequired": "Character creation unavailable until a Warden logs in.",
   "CAIRN.WeatherLog.Entry": "{when} — {weather}",
   "CAIRN.WeatherLog.Marks": "On this day: {names}",

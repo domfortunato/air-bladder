@@ -3,10 +3,13 @@
 Moved word for word from CLAUDE.md (2026-11-01); CLAUDE.md points here.
 
 - **Four `registerMenu` submenus** (`module/settings-menus.js`), every setting
-  `config: false` but one: `tuck-calendar-bar` (2026-11-20) is client scope and
-  `config: true`, the one air-bladder row on core's flat list, because the
-  submenus are Warden-only and a player couldn't reach a per-person row inside
-  one. `SETTING_GROUPS` in `settings.js` is the one declaration;
+  `config: false` but the per-person rows: `calendar-bar-tuck` (the tuck,
+  2026-11-20; three choices under this key since 2026-11-21) and `tab-rail-side`
+  (2026-11-21) are client scope and `config: true`, on core's flat list, because
+  the submenus are Warden-only and a player couldn't reach a per-person row
+  inside one. The old Boolean `tuck-calendar-bar` is no longer registered:
+  `carryTuckChoice` moves a stored true to "on" once, at init, and drops the
+  entry. `SETTING_GROUPS` in `settings.js` is the one declaration;
   `INTERNAL_SETTING_KEYS` the only exemption (it holds records as well as
   switches: `vald-weather-today`, `party-marching-order`). Values switched ON are written before
   OFF; each app has its own Reset Defaults. Search via `[data-searchable]` stamping.

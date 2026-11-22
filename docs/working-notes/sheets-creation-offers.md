@@ -36,12 +36,13 @@ Moved word for word from CLAUDE.md (2026-11-01); CLAUDE.md points here.
   on every actor sheet now, and a rule scoped under `.cairn-character-sheet`
   reaches the npc sheet too.
 - **Which side** (2026-11-21, user ask): the per-person client setting
-  `tab-rail-side`, Right (default) or Left, on core's flat list beside the
+  `tab-rail-side`, Left (the default since the same evening, user ask;
+  `DEFAULT_RAIL_SIDE` in tab-rail.js is the one statement of it) or Right, on core's flat list beside the
   calendar bar's tuck. One setting for every sheet and the Warden's Dashboard,
   which hangs the same rail (user ruling). `railHangsLeft` takes the side asked
   for and gives way only when it has no room and the other side has more;
   `placeEveryRail` follows a change without a render. Gate `dev:sheet-rail`
-  leg 4b.
+  legs 4b, 4c (an untouched browser hangs it left).
 - No gameplay change: every control kept its class, name, id and data-action.
   `#set-equipment-limit` moved from the Items tab label to page 1's Slots line.
   Rail buttons, the rail's Improvised Attack and the character's Die of Fate carry

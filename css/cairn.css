@@ -1933,7 +1933,9 @@
 
 /* The "who takes this?" picker, offered when a damage roll was made with nothing
    targeted. A checkbox list rather than a form-group grid: these are not fields,
-   they are a roster, and core's .standard-form rules assume the former. */
+   they are a roster, and core's .standard-form rules assume the former. The
+   Dashboard's Damage page wears the same class on its "who takes it" list
+   (2026-11-21), built by the same rows, so the two look the same ON PURPOSE. */
 .cairn-damage-targets .ab-target-group {
     font-weight: 700;
     margin: 8px 0 2px;
@@ -4137,6 +4139,47 @@ ol.combat-tracker li.combatant.cairn-drop-below {
     color: var(--ab-muted);
 }
 
+/* ---- The Warden's Dashboard's one button --------------------------------
+   (2026-11-21, user ask, after db-mythic's: one labelled button at the top of
+   `#ui-left-column-2`, above the scene navigation, GM only; it replaced three
+   Token-controls tools.) It sits in Foundry's own interface, not on a sheet,
+   so it reads CORE's control chrome: `ui-control`'s ground, border and ink are
+   one set of variables that flips with the interface scheme, so the ink can
+   never be left on a ground of the other scheme (docs/theming.md, the
+   calendar bar's section). db-mythic paints a fixed dark ground instead; under
+   a light interface that would put core's dark ink on it. Full width of the
+   column, 34px, one line. */
+#ui-left-column-2 > .cairn-dashboard-nav {
+    flex: 0 0 auto;
+    margin-bottom: 8px;
+}
+#ui-left-column-2 > .cairn-dashboard-nav > .cairn-dashboard-button {
+    width: 100%;
+    height: 34px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 6px;
+    padding: 0 10px;
+    white-space: nowrap;
+    overflow: hidden;
+    font-size: var(--font-size-13);
+    color: var(--control-icon-color);
+    background: var(--control-bg-color);
+    border: 1px solid var(--control-border-color);
+    border-radius: 4px;
+}
+#ui-left-column-2 > .cairn-dashboard-nav > .cairn-dashboard-button:hover,
+#ui-left-column-2 > .cairn-dashboard-nav > .cairn-dashboard-button:focus-visible {
+    color: var(--control-hover-icon-color);
+    background: var(--control-hover-bg-color);
+    border-color: var(--control-hover-border-color);
+}
+#ui-left-column-2 > .cairn-dashboard-nav > .cairn-dashboard-button > span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
 /* ---- The Warden's Dashboard ---------------------------------------------
    A launcher, so it borrows core's button chrome and adds layout only.
 
@@ -4640,6 +4683,24 @@ ol.combat-tracker li.combatant.cairn-drop-below {
 }
 .cairn-warden-damage .cairn-damage-fields > p {
     margin: 0 0 4px;
+}
+/* "Who takes it" (2026-11-21): the rows are the picker's (above); the list
+   takes the page's slack and scrolls on a crowded scene, so Roll stays put. */
+.cairn-warden-damage .cairn-damage-page > .cairn-damage-targets {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    border-top: 1px solid var(--ab-line);
+    padding-top: 4px;
+}
+.cairn-warden-damage .cairn-damage-targets > .cairn-damage-targets-head {
+    margin: 0;
+    font-weight: 700;
+}
+.cairn-warden-damage .cairn-damage-targets > .cairn-damage-targets-none {
+    margin: 4px 0 0;
+    color: var(--ab-muted);
+    font-style: italic;
 }
 .cairn-warden-damage .cairn-damage-footer {
     display: flex;

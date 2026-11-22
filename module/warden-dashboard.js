@@ -26,13 +26,13 @@
  * sheet's own window until then), Damage (warden-damage.js, the Warden's
  * Damage dialog until then) and Tables (everything above), on a rail hung off
  * the frame the way a sheet's is (actor/tab-rail.js), with a button below
- * them that opens core's chat pop-out. This file owns the window and the
- * three Token-controls tools that open it on each page; the other two own
- * their page's data and behaviour.
+ * them that opens core's chat pop-out. This file owns the window and the one
+ * "Warden's Dashboard" button that opens it (`placeDashboardButton`); the
+ * other two own their page's data and behaviour.
  */
 
 import { findTableByName, resultText, resultPlainText } from "./compendium.js";
-import { cleanDescription, wireDiceBuilder } from "./utils.js";
+import { cleanDescription, wireDiceBuilder, damageTargetGroups, appendDamageTargetRows } from "./utils.js";
 import { t } from "./i18n-content.js";
 import { buildForm as buildDamageForm, rollWardenDamage } from "./warden-damage.js";
 import { PartyPage, partyContext, isPartyKind } from "./party-sheet.js";
@@ -1345,6 +1345,13 @@ class WardenDashboard extends foundry.applications.api.HandlebarsApplicationMixi
    * The Damage page's fields, built by warden-damage.js (they were its
    * dialog's), and the dice builder wired on the live nodes. Enter in a text
    * field rolls, as the dialog's default button did.
+   *
+   * WHO TAKES IT (2026-11-21, user ask): the VIEWED scene's tokens, in the
+   * splat picker's own two groups and through its own row builder
+   * (`damageTargetGroups`, `appendDamageTargetRows`), so the two lists can't
+   * disagree. NOTHING is pre-ticked (the 2026-08-07 ruling holds here too);
+   * only the Warden's own ticks are carried across a redraw, for tokens still
+   * on the scene. A scene with no tokens says so, and Roll works as before.
    */
   #fillDamagePage() {
     const page = this.element.querySelector(":scope > .window-content > .cairn-damage-page");
@@ -1352,11 +1359,27 @@ class WardenDashboard extends foundry.applications.api.HandlebarsApplicationMixi
     if (!holder) return;
     holder.replaceChildren(...buildDamageForm().childNodes);
     // What the Warden had typed before this redraw (`_preSyncPartState`).
-    for (const [name, value] of Object.entries(this.#damageValues ?? {})) {
+    const { ticks = [], ...fields } = this.#damageValues ?? {};
+    for (const [name, value] of Object.entries(fields)) {
       const field = holder.querySelector(`[name="${name}"]`);
       if (field && value !== undefined) field.value = value;
     }
     this.#damageValues = null;
+    const targets = page.querySelector(".cairn-damage-targets");
+    if (targets) {
+      const head = document.createElement("p");
+      head.className = "cairn-damage-targets-head";
+      head.textContent = game.i18n.localize("CAIRN.WardenDamage.Targets");
+      targets.replaceChildren(head);
+      const groups = damageTargetGroups(canvas?.scene);
+      if (groups.foes.length || groups.pcs.length) appendDamageTargetRows(targets, groups, new Set(ticks));
+      else {
+        const none = document.createElement("p");
+        none.className = "cairn-damage-targets-none";
+        none.textContent = game.i18n.localize("CAIRN.WardenDamage.NoTokens");
+        targets.append(none);
+      }
+    }
     wireDiceBuilder(page);
     for (const input of page.querySelectorAll('input[type="text"]')) {
       input.addEventListener("keydown", (event) => {
@@ -1386,7 +1409,7 @@ class WardenDashboard extends foundry.applications.api.HandlebarsApplicationMixi
   /**
    * Carry the visibility dropdown across a render of the body (review #36).
    * The template stamps `selected` on the default, so without this every body
-   * render — the Token-controls tool clicked again to bring the window
+   * render — the Dashboard's button clicked again to bring the window
    * forward, a table created or renamed — put the Warden's choice back to
    * Private underneath them, and the next rolls were whispered. A FIRST
    * render has no prior element, core calls neither hook, and the window
@@ -1401,6 +1424,9 @@ class WardenDashboard extends foundry.applications.api.HandlebarsApplicationMixi
     if (partId === "damage") {
       this.#damageValues = Object.fromEntries(["source", "formula", "pool"]
         .map((name) => [name, priorElement.querySelector(`[name="${name}"]`)?.value]));
+      // And who the Warden ticked (only tokens still listed come back ticked).
+      this.#damageValues.ticks = [...priorElement.querySelectorAll('input[name="abDamageTarget"]:checked')]
+        .map((box) => box.value);
     }
   }
 
@@ -1498,16 +1524,28 @@ class WardenDashboard extends foundry.applications.api.HandlebarsApplicationMixi
 
   /**
    * The Damage page's Roll: what the three fields say, rolled into an ordinary
-   * damage card (warden-damage.js). The page stays as it is, ready for the
-   * next trap.
+   * damage card (warden-damage.js), and applied at once to whoever is ticked
+   * (2026-11-21). The fields stay as they are, ready for the next trap; the
+   * ticks CLEAR after a roll that applied (user ruling), so the next trap
+   * can't land on the last one's victims by accident. A roll that didn't
+   * apply (a bad formula, a refusal) keeps them.
    * @this {WardenDashboard}
    */
   static async _onRollDamage(event, target) {
     const page = target.closest(".cairn-damage-page");
     const value = (name) => page?.querySelector(`[name="${name}"]`)?.value ?? "";
-    await this._whileDisabled(target, () => rollWardenDamage({
-      source: value("source"), formula: value("formula"), pool: value("pool"),
-    }));
+    const ticked = [...(page?.querySelectorAll('input[name="abDamageTarget"]:checked') ?? [])].map((box) => box.value);
+    let card = null;
+    await this._whileDisabled(target, async () => {
+      card = await rollWardenDamage({
+        source: value("source"), formula: value("formula"), pool: value("pool"), targets: ticked,
+      });
+    });
+    if (ticked.length && card?.getFlag(game.system.id, "damageApplied")) {
+      // The live page: a redraw while the roll ran may have replaced it.
+      const live = this.element?.querySelector(":scope > .window-content > .cairn-damage-page");
+      for (const box of live?.querySelectorAll('input[name="abDamageTarget"]') ?? []) box.checked = false;
+    }
   }
 
   /**
@@ -1689,11 +1727,12 @@ export const PAGE_IDS = ["party", "damage", "tables"];
  * Each page's opening size (user ruling 2026-11-21: each page keeps its own).
  * Party is the Party sheet's 1300 x 460, measured on CT 123 for its columns
  * (`dev:party-sheet`); Tables is the Dashboard's 640 x 680; Damage the
- * dialog's fields with room to breathe.
+ * dialog's fields with room to breathe, and since 2026-11-21 a "who takes it"
+ * list under them (taller, 440 before; the list scrolls past that).
  */
 export const PAGE_SIZE = {
   party: { width: 1300, height: 460 },
-  damage: { width: 480, height: 440 },
+  damage: { width: 480, height: 620 },
   tables: { width: 640, height: 680 },
 };
 
@@ -1705,18 +1744,18 @@ const sizeOfPage = (page) => ({ ...(pageSizes[page] ?? PAGE_SIZE[page] ?? PAGE_S
 
 /**
  * Open the Warden's Dashboard, reusing the one instance rather than stacking a
- * window per click, on the page asked for (the people icon opens Party, the
- * skull Damage, the clipboard Tables — user ruling 2026-11-21) or, with none
- * named, the page it was left on.
+ * window per click, on the page asked for or, with none named, the page it was
+ * left on (Tables the first time). The one button (`placeDashboardButton`)
+ * names none; code and probes may.
  *
- * Already open, it brings itself forward and turns the page, and redraws
- * every part BUT Damage, so the clipboard still refreshes the tables as it
- * always has while the Warden's half-typed trap survives.
+ * Already open, it brings itself forward (a forced render does) and turns the
+ * page if one was named, and redraws every part BUT Damage, so the button
+ * still refreshes the tables while the Warden's half-typed trap survives.
  *
- * WARDEN ONLY, stated here as well as by the tools' `visible` flag: the tool
- * being absent is the affordance, this is the enforcement, and it is the half
- * that survives someone reaching the function another way. Every table here is
- * the Warden's to roll, and several would spoil an encounter.
+ * WARDEN ONLY, stated here as well as by the button being drawn for a GM
+ * alone: the missing button is the affordance, this is the enforcement, and it
+ * is the half that survives someone reaching the function another way. Every
+ * table here is the Warden's to roll, and several would spoil an encounter.
  * @param {{page?: "party"|"damage"|"tables"}} [options]
  */
 export const openWardenDashboard = async ({ page } = {}) => {
@@ -1734,6 +1773,16 @@ export const openWardenDashboard = async ({ page } = {}) => {
   if (want) dashboard.tabGroups.page = want;
   return dashboard.render({ force: true, position: sizeOfPage(dashboard.tabGroups.page ?? "tables") });
 };
+
+/**
+ * Redraw the Damage page, soon and once, so its "who takes it" list follows
+ * the viewed scene's tokens (2026-11-21). The page carries its fields and the
+ * Warden's ticks across its own redraw. `dashboard` is null on a player's
+ * client, so the hooks firing everywhere cost nothing.
+ */
+const refreshDashboardDamage = foundry.utils.debounce(() => {
+  if (dashboard?.rendered) dashboard.render({ parts: ["damage"] });
+}, 100);
 
 /**
  * Redraw the Party page, soon and once (`PartyPage#queueRender`): every party
@@ -1774,16 +1823,59 @@ export const refreshDashboardTables = () => {
   if (dashboard?.rendered) dashboard.render({ parts: ["body"] });
 };
 
+/** The one button's id: the guard against a second copy reads it. */
+export const DASHBOARD_BUTTON_ID = "cairn-dashboard-button";
+
 /**
- * The Dashboard's three Token-controls tools (2026-11-21: one window, three
- * doors) — the skull opens Damage, the clipboard Tables, the people icon Party
- * — in the order the three separate tools had, so a Warden's hands keep their
- * places. Each is appended after core's own (`order`).
+ * THE ONE "Warden's Dashboard" BUTTON (2026-11-21, user ask, after their
+ * db-mythic's: "one big Warden's Dashboard button at the top"; it replaced the
+ * three Token-controls tools, skull, clipboard and people icon, the same
+ * evening they were kept). A labelled button at the top of
+ * `#ui-left-column-2`, the column beside the scene controls, above the scene
+ * navigation. GM only; drawn once (the id guard), so it is safe to call on
+ * every render of the scene navigation and at `ready`.
  *
- * The traps of a tool are unchanged: `tools` is a RECORD keyed by name, so
- * pushing onto it fails silently (scene-controls.mjs:382-392); and `visible`
- * is evaluated ONCE, when the palette first renders (:378-380), which is
- * correct for a GM check and is why the open function enforces on its own.
+ * `#ui-left-column-2` is core's static markup (templates/views/game.hbs): the
+ * navigation renders INTO its own `#scene-navigation` inside it, so a
+ * re-render of the navigation never takes this button with it.
+ *
+ * It opens the Dashboard on the page it was left on; the rail turns pages. A
+ * failure is reported rather than leaving a button that does nothing
+ * (db-mythic's lesson). Built as nodes: the label is our own key, but nothing
+ * is parsed from a string anyway.
+ */
+export const placeDashboardButton = () => {
+  if (!game.user?.isGM) return;
+  const column = document.getElementById("ui-left-column-2");
+  if (!column || document.getElementById(DASHBOARD_BUTTON_ID)) return;
+  const nav = document.createElement("nav");
+  nav.className = "flexcol cairn-dashboard-nav";
+  const button = document.createElement("button");
+  button.type = "button";
+  button.id = DASHBOARD_BUTTON_ID;
+  // `ui-control` is core's control chrome: its ground, border and ink are one
+  // set of variables that flips with the INTERFACE scheme, so ink and ground
+  // cannot come apart (docs/theming.md, the calendar bar's section).
+  button.className = "ui-control cairn-dashboard-button";
+  const icon = document.createElement("i");
+  icon.className = "fa-solid fa-clipboard-list";
+  icon.setAttribute("inert", "");
+  const label = document.createElement("span");
+  label.textContent = game.i18n.localize("CAIRN.Dashboard.Title");
+  button.append(icon, label);
+  button.addEventListener("click", () => {
+    openWardenDashboard().catch((err) => {
+      console.error("Air Bladder | the Warden's Dashboard could not open:", err);
+      ui.notifications.error("CAIRN.Notify.DashboardFailed", { localize: true });
+    });
+  });
+  nav.append(button);
+  column.prepend(nav);
+};
+
+/**
+ * The Dashboard's button (`placeDashboardButton`), hung on the scene
+ * navigation's render and on `ready`, whichever comes first.
  *
  * It also registers the three world-table hooks that keep Your Tables current
  * (`refreshDashboardTables`) — NAMED, so a probe can switch each off by name
@@ -1817,30 +1909,20 @@ export const registerWardenDashboardControl = () => {
   // drag redraws this one's table too.
   Hooks.on("cairnMarchingOrderChanged", refreshDashboardParty);
 
-  const TOOLS = [
-    { name: "abWardenDamage", title: "CAIRN.WardenDamage.Tool", icon: "fas fa-skull-crossbones", page: "damage" },
-    { name: "abWardenDashboard", title: "CAIRN.Dashboard.Tool", icon: "fas fa-clipboard-list", page: "tables" },
-    { name: "abPartySheet", title: "CAIRN.PartySheet.Tool", icon: "fas fa-users", page: "party" },
-  ];
-  Hooks.on("getSceneControlButtons", (controls) => {
-    const tools = controls?.tokens?.tools;
-    if (!tools) return;   // core renamed or removed the control set
-    for (const tool of TOOLS) {
-      tools[tool.name] = {
-        name: tool.name,
-        title: tool.title,
-        icon: tool.icon,
-        order: Object.keys(tools).length,
-        button: true,
-        visible: game.user.isGM,
-        onChange: () => {
-          // Not awaited — `onChange` is fire-and-forget, and an unhandled
-          // rejection out of a click handler is silent.
-          openWardenDashboard({ page: tool.page }).catch((err) => {
-            console.error("Air Bladder | the Warden's dashboard failed:", err);
-          });
-        },
-      };
+  // The Damage page's "who takes it" follows the VIEWED scene (2026-11-21):
+  // a scene viewed, or a token on it made, removed, renamed or hidden. Its
+  // fields and ticks ride the page's own redraw (`_preSyncPartState`).
+  // Debounced: an encounter's Add to scene makes its tokens one at a time.
+  const onViewed = (tokenDoc) => !tokenDoc || tokenDoc.parent === canvas?.scene;
+  Hooks.on("canvasReady", () => refreshDashboardDamage());
+  Hooks.on("createToken", (doc) => { if (onViewed(doc)) refreshDashboardDamage(); });
+  Hooks.on("deleteToken", (doc) => { if (onViewed(doc)) refreshDashboardDamage(); });
+  Hooks.on("updateToken", (doc, changes) => {
+    if (onViewed(doc) && ["name", "hidden", "disposition", "actorId"].some((k) => k in (changes ?? {}))) {
+      refreshDashboardDamage();
     }
   });
+
+  Hooks.on("renderSceneNavigation", placeDashboardButton);
+  Hooks.once("ready", placeDashboardButton);
 };

@@ -3,12 +3,14 @@
   2026-11-21). ONE ROOT ELEMENT, the page's tab.
 
   The fields are built in code (warden-damage.js `buildForm`, the dialog's own
-  builder) and appended to `.cairn-damage-fields` in `_onRender`; this is only
-  their frame and the Roll button. Every <button> is type="button": the window
-  is a <form>.
+  builder) and appended to `.cairn-damage-fields` in `_onRender`; so is "who
+  takes it" (2026-11-21), the viewed scene's tokens in the splat picker's own
+  rows, into `.cairn-damage-targets`. This is only their frame and the Roll
+  button. Every <button> is type="button": the window is a <form>.
 --}}
 <section class="cairn-damage-page tab {{pageTabs.damage.cssClass}}" data-group="page" data-tab="damage">
     <div class="cairn-damage-fields"></div>
+    <div class="cairn-damage-targets"></div>
     <footer class="cairn-damage-footer">
         <button type="button" data-action="rollDamage">
             <i class="fa-solid fa-burst" inert></i>
