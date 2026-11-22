@@ -27,7 +27,9 @@ the Dashboard. The tabs sit on the left; to have them on the right, change
 Each page has its own size: Party opens wide, Tables narrower. Drag the
 window's edge to resize a page, and it keeps that size when you come back to
 it. The **Pop Out** arrow in its title bar moves the window into its own
-browser window, for a second monitor. To put it back, use the **⋮ menu**.
+browser window, for a second monitor. Popped out, the Dashboard fills that
+window with its tabs inside it, and you resize it by resizing the window. To
+put it back, use the **⋮ menu**.
 
 ## Party
 

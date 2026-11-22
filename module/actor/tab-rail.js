@@ -103,6 +103,67 @@ export const placeRail = (app, position, retries = MEASURE_RETRIES) => {
   const left = railHangsLeft(box, width, view.innerWidth, preferredRailSide());
   frame.classList.toggle("cairn-rail-left", left);
   for (const button of rail.querySelectorAll("button")) button.dataset.tooltipDirection = left ? "LEFT" : "RIGHT";
+  // Popped out, the frame is fitted to its window with the rail inside it.
+  if (!inMain) fitDetachedSoon(app);
+};
+
+/**
+ * Is this app the one a popped-out (detached) browser window was opened for?
+ * Core hides such a frame's resize handle: the OS window is its resize control.
+ * @param {foundry.applications.api.ApplicationV2} app
+ */
+export const isPrimaryDetached = (app) => !!app?.element && app.element.ownerDocument !== document
+  && app.window?.windowId === app.id;
+
+/** Popup windows already listening for their own resize. */
+const fittedWindows = new WeakSet();
+
+/**
+ * FIT A POPPED-OUT RAILED WINDOW TO ITS POPUP (2026-11-21, user report: "when I
+ * pop out the warden's dashboard and resize it, I lose the tabs!"). The rail
+ * hangs OUTSIDE the frame, and core sizes the popup to the frame plus the rail
+ * when it detaches, but nothing keeps them together after: a page of another
+ * size, or any wider setPosition, and core clamps the frame to the popup's left
+ * edge, so a left rail lands at a negative x (a right one past the edge, the
+ * same way), and core hides the frame's own resize handle in a popup.
+ *
+ * So, popped out, the frame FILLS its popup less the rail's width, the rail on
+ * the side this person chose, and it follows the popup's own resize (the OS
+ * window is the resize control there). A no-op when it already fits, which is
+ * what stops this and `_onPosition` from feeding each other.
+ * @param {foundry.applications.api.ApplicationV2} app
+ */
+export const fitDetached = (app) => {
+  if (!app?.rendered || !isPrimaryDetached(app) || app.minimized) return;
+  const frame = app.element;
+  const rail = railOf(frame);
+  const width = railWidths.get(frame) ?? rail?.getBoundingClientRect().width;
+  if (!width) return;
+  const view = frame.ownerDocument.defaultView;
+  if (!fittedWindows.has(view)) {
+    fittedWindows.add(view);
+    view.addEventListener("resize", () => {
+      for (const other of foundry.applications.instances.values()) {
+        if (other.element?.ownerDocument?.defaultView === view && other.element.classList.contains("cairn-railed")) fitDetached(other);
+      }
+    });
+  }
+  const scale = app.position.scale || 1;
+  const onLeft = preferredRailSide() === "left";
+  const want = {
+    left: onLeft ? Math.round(width) : 0,
+    top: 0,
+    width: Math.max(0, Math.floor((view.innerWidth - width) / scale)),
+    height: Math.max(0, Math.floor(view.innerHeight / scale)),
+  };
+  const p = app.position;
+  if (p.left === want.left && p.top === want.top && p.width === want.width && p.height === want.height) return;
+  app.setPosition(want);
+};
+
+/** `fitDetached` on the popup's next frame, after whatever moved the frame has settled. */
+const fitDetachedSoon = (app) => {
+  app?.element?.ownerDocument?.defaultView?.requestAnimationFrame(() => fitDetached(app));
 };
 
 /**

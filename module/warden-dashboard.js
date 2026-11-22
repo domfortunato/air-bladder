@@ -37,7 +37,7 @@ import { t } from "./i18n-content.js";
 import { buildForm as buildDamageForm, rollWardenDamage } from "./warden-damage.js";
 import { PartyPage, partyContext, isPartyKind } from "./party-sheet.js";
 import { isHeldLight } from "./gear.js";
-import { placeRail, placeRailSoon } from "./actor/tab-rail.js";
+import { placeRail, placeRailSoon, isPrimaryDetached, fitDetached } from "./actor/tab-rail.js";
 import {
   valdEnabled, describeTime, weatherTableForToday, monthChoices, WATCH_KEYS,
   advanceWatch, backWatch, advanceDay, toNextMorning, setDate, timeForDate, describeDateAt, describeShift,
@@ -1163,7 +1163,10 @@ class WardenDashboard extends foundry.applications.api.HandlebarsApplicationMixi
       initial: "tables",
       tabs: [
         { id: "party", icon: "fa-solid fa-users", label: "CAIRN.Dashboard.Page.Party" },
-        { id: "damage", icon: "fa-solid fa-skull-crossbones", label: "CAIRN.Dashboard.Page.Damage" },
+        // The red splat since 2026-11-21 (user ask: "replace the Jolly Roger
+        // icon on the Damage tab with a red splat mark"), the sheets' Attack
+        // burst in the same peril colour (css/cairn.css).
+        { id: "damage", icon: "fa-solid fa-burst", label: "CAIRN.Dashboard.Page.Damage" },
         { id: "tables", icon: "fa-solid fa-clipboard-list", label: "CAIRN.Dashboard.Page.Tables" },
       ],
     },
@@ -1315,6 +1318,13 @@ class WardenDashboard extends foundry.applications.api.HandlebarsApplicationMixi
     if (group !== "page" || !this.rendered) return super.changeTab(tab, group, options);
     const from = this.tabGroups.page;
     if (from === tab && !options.force) return;
+    // Popped out, every page fills the popup (tab-rail.js `fitDetached`), so
+    // the popup's size is neither remembered as a page's nor replaced by one.
+    if (isPrimaryDetached(this)) {
+      super.changeTab(tab, group, { ...options, updatePosition: false });
+      fitDetached(this);
+      return;
+    }
     if (from && !this.minimized) pageSizes[from] = { width: this.position.width, height: this.position.height };
     super.changeTab(tab, group, { ...options, updatePosition: false });
     this.setPosition(sizeOfPage(tab));
@@ -1698,6 +1708,9 @@ class WardenDashboard extends foundry.applications.api.HandlebarsApplicationMixi
   _onAttach(from, to) {
     super._onAttach(from, to);
     this.#syncPopOut();
+    // Back in the main window, the page takes its own size again: popped out
+    // it filled the popup (tab-rail.js `fitDetached`).
+    this.setPosition(sizeOfPage(this.tabGroups.page ?? "tables"));
     placeRailSoon(this);
   }
 

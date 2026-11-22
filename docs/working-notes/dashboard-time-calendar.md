@@ -53,6 +53,9 @@ Moved word for word from CLAUDE.md (2026-11-01); CLAUDE.md points here.
     so `_preSyncPartState` holds their values until then.
   - the old window classes (`cairn-party-sheet`, `cairn-warden-damage`) ride
     the Dashboard so their CSS blocks still reach their pages.
+- The Damage page's tab is a red splat (`fa-burst` in `--ab-peril`, the sheets'
+  Attack burst), and Roll damage's burst is red too (2026-11-21, user ask;
+  replaced the skull). Gate `dev:warden-dashboard` leg 9c.
 - **The Party page** (`module/party-sheet.js`, 2026-11-21, user ask; the Party
   sheet's own window until the merge the same day): the Warden's table of the
   party, one row each, in marching order. Warden only (the tool is hidden and

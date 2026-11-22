@@ -4712,6 +4712,13 @@ ol.combat-tracker li.combatant.cairn-drop-below {
     flex: 1 1 auto;
     margin: 0;
 }
+/* The red splat (2026-11-21, user ask): Roll damage's burst and the Damage
+   page's tab on the Dashboard's rail, in the peril colour the sheets' Attack
+   burst wears, so a splat means damage wherever it shows. */
+.cairn-warden-damage .cairn-damage-footer button[data-action="rollDamage"] > i,
+.cairn.cairn-dashboard > .window-content > nav.cairn-tab-rail button[data-tab="damage"] i {
+    color: var(--ab-peril);
+}
 
 /* ---- The Warden's clock, on the Dashboard --------------------------------
    A BAND above the tabs, and its own ApplicationV2 part so it can re-render
