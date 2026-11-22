@@ -34,17 +34,22 @@ Without the bar, players can't see today's weather there and don't have a way
 to open the Vald calendar. You can still open the calendar from **Calendar** on
 the Dashboard.
 
-**Tucking it away.** Anyone can tuck the bar on their own screen with Configure
-Settings → Air Bladder → **Tuck the calendar bar**. Only a thin edge shows.
-Point at it and it slides down, and it tucks away again when you move off.
-Press **Y** to pull it down and keep it there, and press it again to tuck it
-back. You can change the key in Configure Controls.
+**Tucking it away.** A tucked bar shows only a thin edge. Point at it and it
+slides down, and it tucks away again when you move off. Press **Y** to pull it
+down and keep it there, and press it again to tuck it back. You can change the
+key in Configure Controls.
+
+The Warden can tuck it for the whole table with **Configure Settings → Air
+Bladder → Configure General Settings → Tuck the calendar bar for everyone**.
+Anyone can still choose for themselves with Configure Settings → Air Bladder →
+**Tuck the calendar bar**: **As the Warden set it** (where everyone starts),
+**Tucked** or **Not tucked**. Your own choice wins over the Warden's.
 
 ## Moving the clock
 
 The controls are at the top of the Tables page of the
-[Warden's Dashboard](warden-dashboard.md), the clipboard in the Token controls
-down the left of the map.
+[Warden's Dashboard](warden-dashboard.md), the button at the top left of the
+screen.
 
 | Button | What it does |
 |---|---|

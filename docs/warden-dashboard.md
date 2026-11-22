@@ -14,17 +14,14 @@ Only the Warden (GM) can open it.
 
 ## Opening it
 
-Three buttons in the Token controls, down the left of the map, open it:
-
-- the **skull** opens it on **Damage**,
-- the **clipboard** opens it on **Tables**,
-- the **people** icon opens it on **Party**.
-
-If it's already open, the button turns it to that page.
+Press the **Warden's Dashboard** button at the top left of the screen, above
+the scene list. It opens on the page you were last on, which is Tables the
+first time. If the Dashboard is already open, the button brings it to the
+front. Players don't see the button.
 
 You turn the pages with the tabs on the window's edge. Below them, the
 **chat** button opens the chat in its own window, so you can keep it beside
-the Dashboard. The tabs sit on the right; to have them on the left, change
+the Dashboard. The tabs sit on the left; to have them on the right, change
 **Page tabs side** in Configure Settings, which moves your sheets' tabs too.
 
 Each page has its own size: Party opens wide, Tables narrower. Drag the
@@ -85,9 +82,18 @@ over capacity, which puts their HP at 0 until they free a slot.
 ## Damage
 
 **Damage** is for a trap, the environment or a condition. Type what did it
-under **Source**, the damage under **Damage** (dice, or a plain number), pick
-what it **Applies to**, and press **Roll damage**. Anyone you've targeted
-takes it. If you haven't targeted anyone, the card asks who.
+under **Source**, the damage under **Damage** (dice, or a plain number), and
+pick what it **Applies to**.
+
+Under **Who takes it** is everyone on the scene you're looking at, monsters
+and NPCs first, then the player characters. Tick whoever takes it and press
+**Roll damage**: the card goes to chat with the damage already applied to them,
+so there's nothing to click on the card. Your ticks clear after each roll.
+
+If you don't tick anyone, **Roll damage** just posts the card, and you apply it
+with the card's **Apply damage** control, as you would an attack. Anyone
+you've targeted is named on the card. If you haven't targeted anyone, the card
+asks who.
 
 The page keeps what you typed, ready for the next roll.
 

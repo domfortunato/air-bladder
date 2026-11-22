@@ -116,7 +116,7 @@ You turn the sheet's pages with the tabs on its edge:
 - **Background & Notes** — the bond, the background questions and their
   answers, the Omen, a description and notes.
 
-The tabs sit on the sheet's right edge. To have them on the left, change
+The tabs sit on the sheet's left edge. To have them on the right, change
 **Page tabs side** in Configure Settings. It changes only your own screen,
 and it moves the Warden's Dashboard's tabs too. If a sheet is too close to
 that edge of the screen, its tabs move to the other side until you move it
