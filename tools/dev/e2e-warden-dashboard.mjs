@@ -1354,6 +1354,111 @@ try {
     : fail("...and is visible while docked, matching core's _canDetach",
       JSON.stringify({ hidden: detach.hiddenNow, canDetach: detach.canDetach }));
 
+  /* ---- 9b. popped out for real, the rail stays in the popup -------------
+   * (2026-11-21, user report: "when I pop out the warden's dashboard and
+   * resize it, I lose the tabs!"). The rail hangs OUTSIDE the frame; in a
+   * popup, core clamped a wider frame to the popup's left edge, so the left
+   * rail landed at x < 0. Popped out, the frame now fills its popup less the
+   * rail (tab-rail.js `fitDetached`). Driven through the real Pop Out click
+   * (a popup needs a user gesture), checked after a bigger page, a wider
+   * setPosition and the side swapped, then re-docked at the page's own size.
+   * The side setting is SET for the leg and the value READ put back.
+   * -------------------------------------------------------------------- */
+  await page.evaluate(async () => {
+    const wd = await import("/systems/air-bladder/module/warden-dashboard.js");
+    await wd.openWardenDashboard({ page: "tables" });
+  });
+  await page.click('#cairn-warden-dashboard .window-header button[data-action="detach"]');
+  const popped = await page.evaluate(async () => {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const app = foundry.applications.instances.get("cairn-warden-dashboard");
+    for (let i = 0; i < 50 && app.element?.ownerDocument === document; i++) await sleep(100);
+    const out = { detached: app.element?.ownerDocument !== document };
+    if (!out.detached) return out;
+    const view = app.element.ownerDocument.defaultView;
+    const railIn = () => {
+      const r = app.element.querySelector(":scope > .window-content > nav.cairn-tab-rail")?.getBoundingClientRect();
+      const f = app.element.getBoundingClientRect();
+      return { rl: Math.round(r?.left ?? -999), rr: Math.round(r?.right ?? -999), fl: Math.round(f.left), fr: Math.round(f.right),
+        vw: view.innerWidth, inside: !!r && r.width > 0 && r.left >= -1 && r.right <= view.innerWidth + 1,
+        left: app.element.classList.contains("cairn-rail-left") };
+    };
+    const KEY = "tab-rail-side";
+    const sideWas = game.settings.get("air-bladder", KEY);
+    try {
+      await game.settings.set("air-bladder", KEY, "left");
+      await sleep(500);
+      out.opened = railIn();
+      app.element.querySelector('nav.cairn-tab-rail button[data-tab="party"]')?.click();
+      await sleep(700);
+      out.party = railIn();
+      app.setPosition({ width: app.position.width + 150 });
+      await sleep(700);
+      out.wider = railIn();
+      await game.settings.set("air-bladder", KEY, "right");
+      await sleep(700);
+      out.right = railIn();
+    } finally {
+      await game.settings.set("air-bladder", KEY, sideWas);
+    }
+    // Re-dock: back in the main window at the page's own size.
+    const { PAGE_SIZE } = await import("/systems/air-bladder/module/warden-dashboard.js");
+    app.attachWindow();
+    for (let i = 0; i < 50 && app.element?.ownerDocument !== document; i++) await sleep(100);
+    await sleep(500);
+    out.docked = { home: app.element?.ownerDocument === document, page: app.tabGroups.page,
+      width: app.position.width, want: PAGE_SIZE[app.tabGroups.page]?.width };
+    app.changeTab("tables", "page");
+    return out;
+  });
+  popped.detached
+    ? ok("Pop Out moves the Dashboard into its own window")
+    : fail("Pop Out did not detach the Dashboard", JSON.stringify(popped));
+  popped.opened?.inside && popped.opened.left
+    ? ok("popped out, the tabs are inside the popup, on the left")
+    : fail("popped out, the tabs", JSON.stringify(popped.opened));
+  popped.party?.inside && popped.wider?.inside
+    ? ok("...still inside after turning to the wider Party page and after a wider frame")
+    : fail("the tabs left the popup", JSON.stringify({ party: popped.party, wider: popped.wider }));
+  popped.right?.inside && popped.right.left === false
+    ? ok("...and inside on the right when the side is swapped")
+    : fail("the tabs on the right, popped out", JSON.stringify(popped.right));
+  popped.docked?.home && popped.docked.width === popped.docked.want
+    ? ok("re-docked, the page takes its own size again", JSON.stringify(popped.docked))
+    : fail("re-docking", JSON.stringify(popped.docked));
+
+  /* ---- 9c. the Damage page's red splat ----------------------------------
+   * (2026-11-21, user ask: the Jolly Roger on the Damage tab becomes a red
+   * splat, and Roll damage's splat is red.) Both read off the rendered glyph
+   * and its computed colour, against --ab-peril (the sheets' Attack burst).
+   * -------------------------------------------------------------------- */
+  const splat = await page.evaluate(async () => {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const wd = await import("/systems/air-bladder/module/warden-dashboard.js");
+    const app = await wd.openWardenDashboard({ page: "damage" });
+    await sleep(500);
+    const probe = document.createElement("span");
+    probe.style.color = "var(--ab-peril)";
+    app.element.append(probe);
+    const peril = getComputedStyle(probe).color;
+    probe.remove();
+    const read = (i) => i ? { cls: i.className, glyph: getComputedStyle(i, "::before").content, color: getComputedStyle(i).color } : null;
+    const out = {
+      peril,
+      tab: read(app.element.querySelector('nav.cairn-tab-rail button[data-tab="damage"] i')),
+      roll: read(app.element.querySelector('.cairn-damage-page button[data-action="rollDamage"] > i')),
+    };
+    app.changeTab("tables", "page");
+    return out;
+  });
+  const isSplat = (g) => !!g && g.cls.split(/\s+/).includes("fa-burst") && !["none", '""', "normal"].includes(g.glyph);
+  isSplat(splat.tab) && splat.tab.color === splat.peril
+    ? ok("the Damage tab wears the red splat (fa-burst, in the peril colour)", splat.peril)
+    : fail("the Damage tab's mark", JSON.stringify(splat));
+  isSplat(splat.roll) && splat.roll.color === splat.peril
+    ? ok("...and Roll damage's splat is red too")
+    : fail("Roll damage's splat", JSON.stringify(splat.roll));
+
   /* ---- 10. narrow it: the body scrolls, the chrome stays --------------- */
 
   const narrow = await page.evaluate(async () => {
