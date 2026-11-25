@@ -1,6 +1,6 @@
 # Customizing bonds
 
-All Cairn 2e characters characters start with: a short piece of prose,
+All Cairn 2e characters start with a **bond**: a short piece of prose,
 sometimes with gold or an item attached. Barebones characters don't get one. Bonds are kept on the character sheet's **Background & Notes** page. With Character Creation Mode on, each bond there has a re-roll die and a list button, a bond after the first has a ✕, and an **Add a bond** link appears when the character is owed another.
 
 Bonds are rolled from the shipped **Bonds** table, twenty rows in the
