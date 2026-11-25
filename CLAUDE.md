@@ -17,8 +17,8 @@ is an independent system with its own `id`, content and history — **not** a gi
 
 ## Version reality
 
-- **Minimum Foundry 14.368, `verified` 14.369.** `system.json`:
-  `compatibility: {minimum: "14.368", verified: "14.369"}`. 14.365 was dropped on
+- **Minimum Foundry 14.368, `verified` 14.370.** `system.json`:
+  `compatibility: {minimum: "14.368", verified: "14.370"}`. 14.365 was dropped on
   2026-11-02: nothing tested it any more, and a minimum nobody has tested is a
   claim, not a fact. **THE TEST RANGE (user ruling 2026-11-09, replacing the
   three-build window of 11-02): EVERY Foundry 14 stable build from 14.368 onward,
@@ -34,12 +34,15 @@ is an independent system with its own `id`, content and history — **not** a gi
   here (six until the landing page was retired, 2026-11-19). Change the minimum, change
   all five. Moving `verified` alone does NOT touch them
   (they state the floor, "or higher").
-- **`verified` = the newest build actually proven green** (14.369, via `dev:upgrade`
-  0.1.24→0.1.25 then `dev:smoke` on `foundry/app-14369` — the upgrade leg never
-  leaves Setup, so the world launch is smoke's — and the whole probe suite on the
-  fleet), never whatever Foundry has released since. It is
+- **`verified` = the newest build actually proven green**, never whatever Foundry
+  has released since. The bar is `dev:upgrade` then `dev:smoke` on that build (the
+  upgrade leg never leaves Setup, so the world launch is smoke's) and the whole
+  probe suite on the fleet; 14.369 cleared all three (`foundry/app-14369`).
+  **14.370 (0.1.27) on the fleet alone, by user ruling 2026-11-24**: 113/113 on all
+  three builds at `a3acca4b`, but there is no local 14.370 server, so `dev:upgrade`
+  and `dev:smoke` did not run on it. It is
   submitted by `npm run publish:foundry` and shown on the Marketplace listing.
-- Latest release **0.1.26**. `system.json`'s `version` is bumped by `npm run
+- Latest release **0.1.27**. `system.json`'s `version` is bumped by `npm run
   release` on `master` only, so on `dev` it lags — read the tag, not the file.
   Update this line in the post-release master→dev sync, however that sync lands
   (merge or fast-forward).
