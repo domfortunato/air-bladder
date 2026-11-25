@@ -95,6 +95,20 @@ in a batch. A red on a different box in each run, with the same message every ti
 baseline world. A red that follows one box's queue points at an earlier probe on that box that leaked
 something.
 
+## Review #37, on all three builds (2026-11-24)
+
+**Still 113 probes. The whole suite was GREEN, 113/113, at `a3acca4b` on every build: 14.370
+(`20261125T021147Z`), 14.369 (`20261125T021944Z-air-bladder-14369`) and 14.368
+(`20261125T022754Z-air-bladder-14368`). This is the release run.**
+
+- **Red first:** the probes-only commit `3e8e6402` was red on all five probes it touched, 13 checks,
+  each one a new leg (`20261125T020646Z`): `glog-books` 2, `hazard` 2, `marketplace` 1,
+  `party-sheet` 3, `warden-dashboard` 5. Party-sheet's three were red for the wrong reason (the leg
+  read its actor id from the wrong argument and threw); `d6a2019b` fixed the leg, and it was red
+  again for the right reasons (`20261125T020938Z`): scroll back to 0, focus on `<body>`.
+- The first attempt (`20261125T020521Z`) ran nothing: the Damage page's probe is `hazard`, not
+  `warden-damage`.
+
 ## One Warden's Dashboard and the page tabs' side (2026-11-21, late)
 
 **Still 113 probes. Newest build only (14.370). The whole suite was GREEN, 113/113, at `c7668e31`
