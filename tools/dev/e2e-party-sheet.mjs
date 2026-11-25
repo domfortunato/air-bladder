@@ -678,7 +678,7 @@ try {
       await app.render({ parts: ["party"] });
     }
     return out;
-  }, setup.a).catch((e) => ({ error: e.message }));
+  }, { a: setup.a }).catch((e) => ({ error: e.message }));
   check(place.overflows && place.scrolledTo === 20 && place.scrollAfter === 20,
     "a redraw keeps the Party table's scroll", place.error ?? JSON.stringify({ overflows: place.overflows, to: place.scrolledTo, after: place.scrollAfter }));
   check(place.tickFocused && place.tickAfter?.pick && place.tickAfter.row === setup.a,
