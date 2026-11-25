@@ -383,23 +383,23 @@ const acquire = async (actor, data, pay) => {
     ui.notifications.warn("CAIRN.Notify.NotEnoughGold", { format: { name: shown, cost } });
     return false;
   }
-  // A THING is strict (refuses anything that won't fit, never holds equipped
-  // gear); a CHARACTER is refused once they have NO FREE SLOT. `isThing` and not
-  // the retired `container` TYPE — the same correction review #5 made to the
+  // A THING is strict (refuses anything that won't fit); a CHARACTER is
+  // refused once they have NO FREE SLOT. `isThing` and not the retired
+  // `container` TYPE — the same correction review #5 made to the
   // nesting guard below, which this pair was missed in, so an npc sack took
   // stock past its capacity and equipped it.
   //
   // A COMPANION OR MONSTER is strict too (review #34 finding 47): it never
   // overflows, and the offer route has always refused it as `full`
   // (`capacityVerdict`, gear.js). It was falling through to the person branch
-  // below and taking a bulky item to 11/10. Only a THING stows unequipped.
+  // below and taking a bulky item to 11/10. Everything arrives unequipped,
+  // for every buyer (below).
   if (!actor.livesByPlayerRules) {
     const need = slotCost(data.system);
     if (capacityVerdict(actor, need) === "full") {
       ui.notifications.warn("CAIRN.Notify.ContainerFull", { format: { name: shown } });
       return false;
     }
-    if (actor.isThing) data.system.equipped = false;
   } else if (actor.isEncumbered() && !data.system?.weightless) {
     // Shopping is ORDINARY ACQUISITION, so a full pack refuses it — the same
     // rule and the same words as `createOwnedItem` and a drop onto a full
@@ -422,6 +422,11 @@ const acquire = async (actor, data, pay) => {
   // `_preCreate`, a module's preCreateItem veto — and this charged the gold
   // and said "Bought" for nothing. The refusing seam says why (the wall's own
   // toast), so this says nothing more; a THROW still reaches AcquireFailed.
+  //
+  // UNEQUIPPED, for every buyer (user ruling 2026-11-24, review #37). The
+  // pack's Shield is stored equipped, and it used to arrive worn on anyone but
+  // a thing, beside a held spellbook that casting with both hands refuses.
+  data.system.equipped = false;
   const [created] = await actor.createEmbeddedDocuments("Item", [data]);
   if (!created) return false;
   if (pay) {

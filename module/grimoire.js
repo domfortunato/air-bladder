@@ -37,7 +37,9 @@ import { castRefusal } from "./gear.js";
  */
 const refusedForHands = (actor, item) => {
   const why = castRefusal(actor, item);
-  if (why) ui.notifications.warn(why.key, why.format ? { format: why.format } : undefined);
+  // Core translates a toast only when asked (`localize` or `format`): with
+  // neither, the hands refusal showed its raw key (review #37).
+  if (why) ui.notifications.warn(why.key, why.format ? { format: why.format } : { localize: true });
   return !!why;
 };
 

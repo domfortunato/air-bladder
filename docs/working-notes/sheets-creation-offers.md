@@ -49,9 +49,16 @@ Moved word for word from CLAUDE.md (2026-11-01); CLAUDE.md points here.
   landed at x < 0. `fitDetached` (tab-rail.js) fills the popup with the frame
   less the rail's width, on the chosen side, and follows the popup's own
   `resize`; `placeRail` schedules it whenever a popped-out frame moves, a no-op
-  once it fits. Every railed window, sheets included. The Dashboard keeps no
-  page size while popped out and takes its page's size back on re-dock. Gate
-  `dev:warden-dashboard` leg 9b.
+  once it fits, and a no-op once core has clamped the same ask (review #37: a
+  popup smaller than the frame's CSS minimum can't be fitted, and it asked once
+  a frame). Every railed window, sheets included. Re-docked, every railed
+  window comes home at the size it left with (`_onDetach` keeps it; core maps
+  only top and left back): a sheet its own, the Dashboard its page's, the
+  Warden's resize included. Gate `dev:warden-dashboard` legs 9b, 9d, 9e, 9f.
+- **A Dashboard page is never wider than the screen less the rail** (review
+  #37, user ruling 2026-11-24): `sizeOfPage` caps it and leaves `RAIL_ROOM`
+  (tab-rail.js) on the chosen side, so the 1300-wide Party page keeps its tabs
+  on a 1280 screen. Gate leg 9g.
 - No gameplay change: every control kept its class, name, id and data-action.
   `#set-equipment-limit` moved from the Items tab label to page 1's Slots line.
   Rail buttons, the rail's Improvised Attack and the character's Die of Fate carry

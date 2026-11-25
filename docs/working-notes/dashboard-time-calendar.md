@@ -50,7 +50,14 @@ Moved word for word from CLAUDE.md (2026-11-01); CLAUDE.md points here.
     viewed scene made, deleted, renamed or hidden; fields and ticks ride
     `_preSyncPartState`.
   - the Damage page's fields are built in `_onRender`, after core's part sync,
-    so `_preSyncPartState` holds their values until then.
+    so `_preSyncPartState` holds their values until then, and the focused
+    field, its caret and the list's scroll too: core's own focus restore runs
+    before the fields exist (review #37, `dev:hazard` leg 7).
+  - the Party part declares `scrollable: [".cairn-party-scroll"]` and its ticks
+    and bulk buttons carry ids, so a party write's redraw keeps the Warden's
+    place (review #37, `dev:party-sheet` leg 13).
+  - a page turn core defers mid-render (`_deferred`) goes straight to core:
+    the first pass already did the size bookkeeping (review #37, leg 9h).
   - the old window classes (`cairn-party-sheet`, `cairn-warden-damage`) ride
     the Dashboard so their CSS blocks still reach their pages.
 - The Damage page's tab is a red splat (`fa-burst` in `--ab-peril`, the sheets'

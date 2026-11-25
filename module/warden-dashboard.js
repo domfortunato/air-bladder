@@ -37,7 +37,7 @@ import { t } from "./i18n-content.js";
 import { buildForm as buildDamageForm, rollWardenDamage } from "./warden-damage.js";
 import { PartyPage, partyContext, isPartyKind } from "./party-sheet.js";
 import { isHeldLight } from "./gear.js";
-import { placeRail, placeRailSoon, isPrimaryDetached, fitDetached } from "./actor/tab-rail.js";
+import { placeRail, placeRailSoon, isPrimaryDetached, fitDetached, preferredRailSide, RAIL_ROOM } from "./actor/tab-rail.js";
 import {
   valdEnabled, describeTime, weatherTableForToday, monthChoices, WATCH_KEYS,
   advanceWatch, backWatch, advanceDay, toNextMorning, setDate, timeForDate, describeDateAt, describeShift,
@@ -1143,7 +1143,10 @@ class WardenDashboard extends foundry.applications.api.HandlebarsApplicationMixi
   // each part still renders on its own.
   static PARTS = {
     rail: { template: "systems/air-bladder/templates/parts/tab-rail.html" },
-    party: { template: "systems/air-bladder/templates/dashboard/party-sheet.html" },
+    // The table's scroller is declared, and its ticks and bulk buttons carry
+    // ids, so a redraw (any party write) keeps the Warden's place: core keeps
+    // only a declared scroll, and focus only by id or name (review #37).
+    party: { template: "systems/air-bladder/templates/dashboard/party-sheet.html", scrollable: [".cairn-party-scroll"] },
     damage: { template: "systems/air-bladder/templates/dashboard/warden-damage.html" },
     time: { template: "systems/air-bladder/templates/dashboard/warden-dashboard-time.html" },
     body: { template: "systems/air-bladder/templates/dashboard/warden-dashboard.html" },
@@ -1316,6 +1319,11 @@ class WardenDashboard extends foundry.applications.api.HandlebarsApplicationMixi
    */
   changeTab(tab, group, options = {}) {
     if (group !== "page" || !this.rendered) return super.changeTab(tab, group, options);
+    // Core's own retry of a turn made mid-render (it queues THIS method again
+    // with `_deferred`). The first pass already stored the old page's size
+    // and sized the new one; a second pass read the old page as `from` still
+    // and stored the new page's size under its name (review #37).
+    if (options._deferred) return super.changeTab(tab, group, options);
     const from = this.tabGroups.page;
     if (from === tab && !options.force) return;
     // Popped out, every page fills the popup (tab-rail.js `fitDetached`), so
@@ -1361,7 +1369,9 @@ class WardenDashboard extends foundry.applications.api.HandlebarsApplicationMixi
    * (`damageTargetGroups`, `appendDamageTargetRows`), so the two lists can't
    * disagree. NOTHING is pre-ticked (the 2026-08-07 ruling holds here too);
    * only the Warden's own ticks are carried across a redraw, for tokens still
-   * on the scene. A scene with no tokens says so, and Roll works as before.
+   * on the scene, and only while it's the same scene (review #37). A redraw
+   * also keeps the focused field, its caret and the list's scroll. A scene
+   * with no tokens says so, and Roll works as before.
    */
   #fillDamagePage() {
     const page = this.element.querySelector(":scope > .window-content > .cairn-damage-page");
@@ -1369,12 +1379,16 @@ class WardenDashboard extends foundry.applications.api.HandlebarsApplicationMixi
     if (!holder) return;
     holder.replaceChildren(...buildDamageForm().childNodes);
     // What the Warden had typed before this redraw (`_preSyncPartState`).
-    const { ticks = [], ...fields } = this.#damageValues ?? {};
+    const { ticks = [], scene: tickScene = null, focus = null, scroll = 0, ...fields } = this.#damageValues ?? {};
     for (const [name, value] of Object.entries(fields)) {
       const field = holder.querySelector(`[name="${name}"]`);
       if (field && value !== undefined) field.value = value;
     }
     this.#damageValues = null;
+    // The scene this list is of, so the next redraw can tell its ticks apart.
+    const viewed = canvas?.scene?.id ?? null;
+    page.dataset.abScene = viewed ?? "";
+    const keep = tickScene === (viewed ?? "") ? ticks : [];
     const targets = page.querySelector(".cairn-damage-targets");
     if (targets) {
       const head = document.createElement("p");
@@ -1382,13 +1396,14 @@ class WardenDashboard extends foundry.applications.api.HandlebarsApplicationMixi
       head.textContent = game.i18n.localize("CAIRN.WardenDamage.Targets");
       targets.replaceChildren(head);
       const groups = damageTargetGroups(canvas?.scene);
-      if (groups.foes.length || groups.pcs.length) appendDamageTargetRows(targets, groups, new Set(ticks));
+      if (groups.foes.length || groups.pcs.length) appendDamageTargetRows(targets, groups, new Set(keep));
       else {
         const none = document.createElement("p");
         none.className = "cairn-damage-targets-none";
         none.textContent = game.i18n.localize("CAIRN.WardenDamage.NoTokens");
         targets.append(none);
       }
+      if (scroll) targets.scrollTop = scroll;
     }
     wireDiceBuilder(page);
     for (const input of page.querySelectorAll('input[type="text"]')) {
@@ -1397,6 +1412,20 @@ class WardenDashboard extends foundry.applications.api.HandlebarsApplicationMixi
         event.preventDefault();
         page.querySelector('button[data-action="rollDamage"]')?.click();
       });
+    }
+    if (focus) {
+      const named = `[name="${CSS.escape(focus.name)}"]`;
+      const field = page.querySelector(focus.value === null ? named : `${named}[value="${CSS.escape(focus.value)}"]`);
+      if (field) {
+        field.focus({ preventScroll: true });
+        if (focus.start !== null && typeof field.setSelectionRange === "function") {
+          try {
+            field.setSelectionRange(focus.start, focus.end ?? focus.start);
+          } catch {
+            // Not a text field (a checkbox, a select): focus alone is right.
+          }
+        }
+      }
     }
   }
 
@@ -1434,9 +1463,25 @@ class WardenDashboard extends foundry.applications.api.HandlebarsApplicationMixi
     if (partId === "damage") {
       this.#damageValues = Object.fromEntries(["source", "formula", "pool"]
         .map((name) => [name, priorElement.querySelector(`[name="${name}"]`)?.value]));
-      // And who the Warden ticked (only tokens still listed come back ticked).
+      // And who the Warden ticked (only tokens still listed come back ticked),
+      // on WHICH scene: a duplicated scene keeps its tokens' ids, so ticks
+      // carried by id alone came back ticked on the copy (review #37).
       this.#damageValues.ticks = [...priorElement.querySelectorAll('input[name="abDamageTarget"]:checked')]
         .map((box) => box.value);
+      this.#damageValues.scene = priorElement.dataset.abScene ?? null;
+      // And where the Warden was. Core restores focus by name, but before
+      // `_onRender` builds these fields, so it found nothing and focus fell to
+      // <body>, where the next keystrokes fire Foundry's keybindings (review
+      // #37); and the list's scroll is put back by hand for the same reason.
+      const active = priorElement.ownerDocument.activeElement;
+      const name = active && priorElement.contains(active) ? active.getAttribute("name") : null;
+      this.#damageValues.focus = name ? {
+        name,
+        value: active.type === "checkbox" ? active.value : null,
+        start: typeof active.selectionStart === "number" ? active.selectionStart : null,
+        end: typeof active.selectionEnd === "number" ? active.selectionEnd : null,
+      } : null;
+      this.#damageValues.scroll = priorElement.querySelector(".cairn-damage-targets")?.scrollTop ?? 0;
     }
   }
 
@@ -1699,6 +1744,11 @@ class WardenDashboard extends foundry.applications.api.HandlebarsApplicationMixi
    */
   _onDetach(from, to) {
     super._onDetach(from, to);
+    // The page's size in the main window is the Warden's, kept for the
+    // re-dock: it was stored only on leaving a page, so a page resized and
+    // then popped out came back at its default (review #37).
+    const page = this.tabGroups.page;
+    if (page && !this.minimized) pageSizes[page] = { width: this.position.width, height: this.position.height };
     this.#syncPopOut();
     // A move between browser windows: the rail's side is decided against the new one.
     placeRailSoon(this);
@@ -1752,8 +1802,23 @@ export const PAGE_SIZE = {
 /** What the Warden resized each page to, this session (`WardenDashboard#changeTab`). */
 const pageSizes = {};
 
-/** The size a page opens at: the Warden's own, else its default. */
-const sizeOfPage = (page) => ({ ...(pageSizes[page] ?? PAGE_SIZE[page] ?? PAGE_SIZE.tables) });
+/**
+ * The size a page opens at: the Warden's own, else its default, never wider
+ * than the screen less the rail (review #37, user ruling 2026-11-24). The
+ * Party page is 1300 wide, and on a narrower screen core clamped the frame to
+ * the screen and left 0, so the rail hung outside on both sides and the page
+ * tabs and the chat button couldn't be reached. A capped page is placed with
+ * the rail's room on the side this person chose.
+ */
+const sizeOfPage = (page) => {
+  const size = { ...(pageSizes[page] ?? PAGE_SIZE[page] ?? PAGE_SIZE.tables) };
+  const room = document.documentElement.clientWidth - RAIL_ROOM;
+  if (room > 0 && size.width > room) {
+    size.width = room;
+    size.left = preferredRailSide() === "left" ? RAIL_ROOM : 0;
+  }
+  return size;
+};
 
 /**
  * Open the Warden's Dashboard, reusing the one instance rather than stacking a

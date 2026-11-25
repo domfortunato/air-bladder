@@ -24,8 +24,9 @@ Moved word for word from CLAUDE.md (2026-11-01); CLAUDE.md points here.
   the card's own flavor in an inert `<template>` (`labelOf`). The page's list and
   the splat's picker share `damageTargetGroups` + `appendDamageTargetRows`
   (utils.js): same groups, same rows, nothing pre-ticked (the 2026-08-07 ruling;
-  only the page's OWN ticks are carried across its redraw). Ticks clear after a
-  roll that applied (user ruling). Gate `dev:hazard` leg 6.
+  only the page's OWN ticks are carried across its redraw, and only while it's
+  the same scene: a duplicated scene keeps its tokens' ids, review #37). Ticks
+  clear after a roll that applied (user ruling). Gate `dev:hazard` legs 6, 7.
 - Damage to an ability (`Damage.applyToTarget`'s `pool` branch, the Warden's
   hazards) floors the rolled amount at 0: the Warden's formula may subtract
   ("1d4-2"), and a negative roll used to raise the score (review #36).

@@ -262,11 +262,11 @@ const auditSystem = (type, system, where) => {
 //     verbatim, so a mixed pack decides by which row the die hit whether a
 //     character starts with the book in hand, or holds two at once. Items
 //     EMBEDDED on a pack Actor are exempt: a monster's armour is worn on
-//     purpose. `armor` and `weapons` are exempt TOO, and that is a debt, not a
-//     decision: both ship mixed (5 of 8, 14 of 18), and flattening them changes
-//     whether a bought weapon or armour arrives worn — a rule for the
-//     maintainer to set in the marketplace's `acquire`, never for the pack.
-//     Delete a name from EQUIPPED_UNRULED once its pack says one thing.
+//     purpose. `armor` and `weapons` are exempt TOO: both ship mixed (5 of 8,
+//     14 of 18). Ruled 2026-11-24 (review #37): a bought or dragged item
+//     arrives unequipped whatever its pack says (`acquire`, `_onDropItem`), and
+//     generation sets `equipped` itself, so the flag no longer decides
+//     anything. Delete a name from EQUIPPED_UNRULED once its pack says one thing.
 const EQUIPPED_UNRULED = new Set(["armor", "weapons"]);
 const KEEP_OF_ONE_DIE = /(?<![\d)])1?d\d+k/i;
 const auditStatblock = (doc, rel) => {

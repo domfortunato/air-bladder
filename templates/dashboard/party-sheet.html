@@ -18,7 +18,7 @@
         <div class="cairn-party-bulk" role="toolbar" aria-label="{{localize 'CAIRN.PartySheet.BulkLabel'}}">
             <span class="cairn-party-bulk-label">{{localize "CAIRN.PartySheet.BulkLabel"}}</span>
             {{#each bulk as |b|}}
-                <button type="button" data-action="partyBulk" data-bulk="{{b.id}}" {{#if @root.nonePicked}}disabled{{/if}}>
+                <button type="button" id="cairn-party-bulk-{{b.id}}" data-action="partyBulk" data-bulk="{{b.id}}" {{#if @root.nonePicked}}disabled{{/if}}>
                     {{b.label}}
                 </button>
             {{/each}}
@@ -28,7 +28,7 @@
             <table class="cairn-party-table">
                 <thead>
                     <tr>
-                        <th class="cairn-party-pick"><input type="checkbox" data-pick-all {{#if allPicked}}checked{{/if}}
+                        <th class="cairn-party-pick"><input type="checkbox" id="cairn-party-pick-all" data-pick-all {{#if allPicked}}checked{{/if}}
                             aria-label="{{localize 'CAIRN.PartySheet.PickAll'}}" data-tooltip="{{localize 'CAIRN.PartySheet.PickAll'}}"></th>
                         <th class="cairn-party-order" data-tooltip="{{localize 'CAIRN.PartySheet.OrderTip'}}">{{localize "CAIRN.PartySheet.Order"}}</th>
                         <th class="cairn-party-name">{{localize "CAIRN.PartySheet.Character"}}</th>
@@ -56,7 +56,7 @@
                 <tbody>
                     {{#each rows as |row|}}
                         <tr data-actor-id="{{row.id}}">
-                            <td class="cairn-party-pick" data-col="pick"><input type="checkbox" data-pick {{#if row.picked}}checked{{/if}}
+                            <td class="cairn-party-pick" data-col="pick"><input type="checkbox" id="cairn-party-pick-{{row.id}}" data-pick {{#if row.picked}}checked{{/if}}
                                 aria-label="{{localize 'CAIRN.PartySheet.Pick' name=row.name}}"></td>
                             <td class="cairn-party-order" data-col="order"><i class="fa-solid fa-grip-vertical"></i> {{row.position}}</td>
                             <td class="cairn-party-name" data-col="name">

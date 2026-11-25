@@ -22,6 +22,9 @@ The rule itself, and EXTRACT BEFORE YOU BUILD, stay in CLAUDE.md (Deliberate dev
     truncated `2d6k`); a top-level Item in an Item pack doesn't ship
     `equipped: true`. Items embedded on a pack Actor are exempt (a monster's
     armour is worn on purpose). **`armor` and `weapons` are exempt too
-    (`EQUIPPED_UNRULED`), and that's a debt, not a decision**: both ship mixed,
-    until the maintainer rules whether bought or dragged gear arrives worn.
-    Delete a name from the set once its pack says one thing.
+    (`EQUIPPED_UNRULED`)**: both ship mixed. **Ruled 2026-11-24 (review #37):
+    a bought or dragged item arrives UNEQUIPPED whatever its pack says**
+    (`_onDropItem` in actor-sheet.js, `acquire` in marketplace.js), and
+    generation sets `equipped` itself, so the mixed flag no longer decides
+    anything. Flattening the two packs is now tidiness; delete a name from the
+    set once its pack says one thing.

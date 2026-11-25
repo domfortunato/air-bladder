@@ -47,6 +47,13 @@ export const preferredRailSide = () => {
   }
 };
 
+/**
+ * The room a window leaves beside it for its rail, before the rail is drawn to
+ * be measured: the rail is 43px (32px tabs, 5px padding each side, a 1px
+ * border; css/cairn.css), and a little over that.
+ */
+export const RAIL_ROOM = 48;
+
 /** Each frame's rail width, measured once: _onPosition runs on every drag frame. */
 const railWidths = new WeakMap();
 
@@ -118,6 +125,13 @@ export const isPrimaryDetached = (app) => !!app?.element && app.element.ownerDoc
 /** Popup windows already listening for their own resize. */
 const fittedWindows = new WeakSet();
 
+/** What `fitDetached` last asked of each app, and what core gave it back. */
+const lastFit = new WeakMap();
+
+/** Two positions with the same box. */
+const sameBox = (a, b) => !!a && !!b && a.left === b.left && a.top === b.top
+  && a.width === b.width && a.height === b.height;
+
 /**
  * FIT A POPPED-OUT RAILED WINDOW TO ITS POPUP (2026-11-21, user report: "when I
  * pop out the warden's dashboard and resize it, I lose the tabs!"). The rail
@@ -131,6 +145,13 @@ const fittedWindows = new WeakSet();
  * the side this person chose, and it follows the popup's own resize (the OS
  * window is the resize control there). A no-op when it already fits, which is
  * what stops this and `_onPosition` from feeding each other.
+ *
+ * And a no-op when core has already answered the same ask (review #37). Core
+ * clamps a frame to its CSS minimum (`_updatePosition`), so a popup too small
+ * for the frame and its rail can't be fitted at all: the clamped answer never
+ * equals the ask, and this asked again on every animation frame for as long as
+ * the popup stayed that size. A new ask (the popup resized, the side swapped)
+ * or a frame moved by something else is fitted again.
  * @param {foundry.applications.api.ApplicationV2} app
  */
 export const fitDetached = (app) => {
@@ -157,8 +178,11 @@ export const fitDetached = (app) => {
     height: Math.max(0, Math.floor(view.innerHeight / scale)),
   };
   const p = app.position;
-  if (p.left === want.left && p.top === want.top && p.width === want.width && p.height === want.height) return;
+  if (sameBox(p, want)) return;
+  const last = lastFit.get(app);
+  if (last && sameBox(last.want, want) && sameBox(last.got, p)) return;
   app.setPosition(want);
+  lastFit.set(app, { want, got: { ...app.position } });
 };
 
 /** `fitDetached` on the popup's next frame, after whatever moved the frame has settled. */

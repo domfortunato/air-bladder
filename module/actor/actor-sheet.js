@@ -945,6 +945,11 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    */
   _onDetach(from, to) {
     super._onDetach(from, to);
+    // The size it had in the main window, before the popup's fit takes it
+    // over (tab-rail.js `fitDetached`): core maps only top and left back on
+    // Attach, so a sheet maximised in its popup came home at that size,
+    // covering the canvas (review #37).
+    if (!this.minimized) this.#dockedSize = { width: this.position.width, height: this.position.height };
     this.#syncPopOut();
     // A move between browser windows: the rail's side is decided against the new one.
     placeRailSoon(this);
@@ -954,8 +959,14 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
   _onAttach(from, to) {
     super._onAttach(from, to);
     this.#syncPopOut();
+    // Home at the size it left with (`_onDetach`).
+    if (this.#dockedSize) this.setPosition({ ...this.#dockedSize });
+    this.#dockedSize = null;
     placeRailSoon(this);
   }
+
+  /** The sheet's size in the main window while it's popped out (`_onDetach`). */
+  #dockedSize = null;
 
   /**
    * Every move, a drag's every frame included, decides the character rail's
@@ -6790,15 +6801,17 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       // copy kept the giver's `sort` (#appendSort places only a sort of 0, so
       // it landed mid-list, in someone else's number space — a world item's
       // is the sidebar's) and its `equipped`: worn armour arrived worn. Give
-      // builds sort 0 and equipped false; a drag is the same hand-over. A
-      // world or compendium item is not a hand-over and keeps what it says
-      // about `equipped`; `fromCompendium` already drops the sort.
+      // builds sort 0 and equipped false; a drag is the same hand-over.
+      // A world or compendium item arrives unequipped too (user ruling
+      // 2026-11-24, review #37): the pack's Shield is stored equipped, and
+      // worn on arrival it sat beside a held spellbook, which casting with
+      // both hands refuses. `fromCompendium` already drops the sort.
       const keepId = !this.actor.items.has(originalItem.id);
       const data = originalItem.inCompendium
         ? game.items.fromCompendium(originalItem, { clearFolder: true, keepId })
         : originalItem.toObject();
       data.sort = 0;
-      if (originalActor) foundry.utils.setProperty(data, "system.equipped", false);
+      foundry.utils.setProperty(data, "system.equipped", false);
       // The pile's "Where?" note is written only by the pile's own Drop
       // (review #34 finding 157), so a drag carries none in — off the pile, or
       // onto it by the Warden, where it showed an old place, or a note of any
