@@ -13,16 +13,22 @@ Releases before 0.1.23 have their notes on the
 
 **Requires Foundry VTT 14.368 or higher.**
 
-- A new player character sheet, laid out after Base Knavery's: its pages on a rail at the side, and the Cairn credit under every page
-- An **Attack** button opens one window for every attack: the target, the weapon or an Improvised Attack, and Standard, Impaired or Enhanced
-- HP and each ability have + and − buttons, and HP shows a bar of what is left
-- **Hold shield**: a switch beside Armor holds or slings a shield
-- An item can be marked **Broken**: it keeps its slot but gives no armor, damage, uses or spells while it is broken
-- Traits are picked or rolled in their own window, opened from the trait sentence in Character Creation Mode; the title-bar toggle now reads **CharGen**
-- A **welcome window** greets the Warden: what the system is, where to get Cairn, the guide and the credits. A box in it turns it off
-- A Warden can switch bonds off: **Use bonds** under Character Generation
+- Actor sheets with a thumb rail, and a **Growth** tab on a player character's sheet:
+  - An **Attack** button opens one window for every attack: the target, the weapon or an Improvised Attack, and Standard, Impaired or Enhanced
+  - HP and each ability have + and − buttons, and HP shows a bar of what is left
+  - **Equip** badges beside Armor for a shield, a light and a spellbook
+  - An item can be marked **Broken**: it keeps its slot but gives no armor, damage, uses or spells while it is broken
+  - Traits are picked or rolled in their own window, opened from the trait sentence in Character Creation Mode, whose title-bar toggle now reads **CharGen**
+- Items bought in the Marketplace or dragged onto a sheet arrive unequipped
+- New optional hacks: **Shields are Bulky**, **Shields are d4 weapons** and **Hands full**. Under GLoG Magic, Grimoires are now optional
+- The watch clock is now a **calendar bar** across the top, with today's weather. Anyone can tuck it away, and the Warden sets the default
+- One **Warden's Dashboard** button, top left, opens the Party, Damage and Tables pages
+- The Party page shows the whole party, NPCs and hirelings included, in a marching order you drag to set
+- A **welcome window** greets the Warden: what the system is, where to get Cairn, the guide and the credits
+- A Warden can switch bonds off, so none are dealt or shown: see **Use bonds** under **Configure Character Generation** in Game Settings
 - Re-rolling a Barebones character's background or starting gear deals its equipment again
-- A **Party sheet** for the Warden: the whole party, NPCs and hirelings included, in one table, in a marching order you drag to set, with a line of notes only you see
+- Every System Docs guide is rewritten, and a **System Docs** button sits under **Welcome & Credits** in Settings
+- Spanish: this release changes much of the interface, and about 225 new interface strings appear in English until the translation catches up. Help is welcome on [the repository](https://github.com/domfortunato/air-bladder)
 
 ## 0.1.26
 
