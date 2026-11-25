@@ -83,10 +83,11 @@ is permanent. Full model in `docs/git-flow.md`; summary in `CONTRIBUTING.md`.
 - `npm run release X.Y.Z -- --dry-run` prints the body and runs on `dev`. **The `--`
   is npm's**; without it npm eats `--dry-run`. (`npm_config_dry_run` is honoured too.)
 - **GITHUB PAGES RETIRED (user, 2026-11-19); the repo is the address.** `system.json`
-  `url` is `https://github.com/domfortunato/air-bladder` on `dev`; it reaches installed
-  copies only at the next release, so **Pages is switched off in GitHub's settings
-  (by the user) only AFTER that release** — before it, every installed copy's "View
-  Package Website" would 404. `airbladder.xyz` stays, retargeted by the user to the
+  `url` is `https://github.com/domfortunato/air-bladder`, shipped in 0.1.27. **Pages
+  is OFF since 2026-11-24** (after 0.1.27): `domfortunato.github.io/air-bladder/`
+  answers 404. GitHub still reports `has_pages: true` because the source is GitHub
+  Actions, which has no off switch; with no Pages workflow nothing can publish.
+  `airbladder.xyz` stays, retargeted by the user to the
   repo; it is used only where a person types it by hand (the printed sheet footer
   `CAIRN.PrintCreditGenerated`; the two setting hints that sent readers "to
   airbladder.xyz under Guides" dropped it 2026-11-19, user-approved). The old github.io page is not
