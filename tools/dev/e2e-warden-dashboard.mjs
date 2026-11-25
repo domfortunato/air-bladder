@@ -1459,6 +1459,193 @@ try {
     ? ok("...and Roll damage's splat is red too")
     : fail("Roll damage's splat", JSON.stringify(splat.roll));
 
+  /* ---- 9d. popped out below the frame's minimum, the fit settles ---------
+   * (review #37.) Core clamps a frame to its CSS min-width, so a popup too
+   * narrow for the frame plus its rail can never be "fitted": fitDetached
+   * asked again on every animation frame (setPosition -> _onPosition ->
+   * placeRail -> rAF -> fitDetached). The frame's minimum is RAISED in-page
+   * past the popup's width for the leg and put back after; the popup's own
+   * resize event starts the fit. A settled fit asks a handful of times, never
+   * once a frame.
+   * -------------------------------------------------------------------- */
+  await page.evaluate(async () => {
+    const wd = await import("/systems/air-bladder/module/warden-dashboard.js");
+    await wd.openWardenDashboard({ page: "tables" });
+  });
+  await page.click('#cairn-warden-dashboard .window-header button[data-action="detach"]');
+  const settles = await page.evaluate(async () => {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const app = foundry.applications.instances.get("cairn-warden-dashboard");
+    for (let i = 0; i < 50 && app.element?.ownerDocument === document; i++) await sleep(100);
+    const out = { detached: app.element?.ownerDocument !== document };
+    if (!out.detached) return out;
+    const view = app.element.ownerDocument.defaultView;
+    await sleep(500);
+    const own = app.setPosition;
+    let calls = 0;
+    app.setPosition = function (...args) { calls++; return own.apply(this, args); };
+    try {
+      app.element.style.minWidth = `${view.innerWidth + 60}px`;
+      view.dispatchEvent(new view.Event("resize"));
+      await sleep(1000);
+      out.calls = calls;
+    } finally {
+      delete app.setPosition;
+      app.element.style.minWidth = "";
+    }
+    app.attachWindow();
+    for (let i = 0; i < 50 && app.element?.ownerDocument !== document; i++) await sleep(100);
+    await sleep(300);
+    out.home = app.element?.ownerDocument === document;
+    return out;
+  });
+  settles.detached && Number.isFinite(settles.calls) && settles.calls <= 3 && settles.home
+    ? ok("popped out narrower than the frame's minimum, the fit settles", `${settles.calls} setPosition call(s) in 1s`)
+    : fail("popped out below the minimum, the fit never settles", JSON.stringify(settles));
+
+  /* ---- 9e. re-docked, the Dashboard keeps the size the Warden gave it ----
+   * (review #37.) A page's size was remembered only on leaving it, so a page
+   * the Warden resized and then popped out came back at PAGE_SIZE. Tables is
+   * made 700 wide in the main window, popped out (where it fills the popup),
+   * and re-docked: 700 again.
+   * -------------------------------------------------------------------- */
+  const keptSize = await page.evaluate(async () => {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const app = foundry.applications.instances.get("cairn-warden-dashboard");
+    app.changeTab("tables", "page");
+    await sleep(300);
+    app.setPosition({ width: 700 });
+    await sleep(300);
+    return { before: app.position.width };
+  });
+  await page.click('#cairn-warden-dashboard .window-header button[data-action="detach"]');
+  const reDocked = await page.evaluate(async () => {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const app = foundry.applications.instances.get("cairn-warden-dashboard");
+    for (let i = 0; i < 50 && app.element?.ownerDocument === document; i++) await sleep(100);
+    const detached = app.element?.ownerDocument !== document;
+    await sleep(600);
+    app.attachWindow();
+    for (let i = 0; i < 50 && app.element?.ownerDocument !== document; i++) await sleep(100);
+    await sleep(500);
+    return { detached, width: app.position.width };
+  });
+  reDocked.detached && keptSize.before === 700 && reDocked.width === 700
+    ? ok("re-docked, the Dashboard's page keeps the size the Warden gave it", "700 wide")
+    : fail("re-docking discarded the Warden's resize", JSON.stringify({ ...keptSize, ...reDocked }));
+
+  /* ---- 9f. re-docked, a sheet keeps its own size -------------------------
+   * (review #37.) Popped out, a sheet takes the popup's size (fitDetached);
+   * core maps only top and left back on Attach, so a sheet maximised in its
+   * popup landed in the main window at that size. The popup's size is stood
+   * in for by a setPosition just before Attach (before the fit's next frame
+   * can undo it); the sheet must come home at the size it left with.
+   * A probe-stamped character, removed in the finally.
+   * -------------------------------------------------------------------- */
+  const sheetSetup = await page.evaluate(async () => {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const a = await getDocumentClass("Actor").create({ name: "ZZ Dock Sheet", type: "character",
+      flags: { "air-bladder": { probeFixture: "warden-dashboard" } } }, { abNoStatusCard: true });
+    await a.sheet.render(true);
+    for (let i = 0; i < 40 && !a.sheet.rendered; i++) await sleep(100);
+    await sleep(500);
+    return { id: a.id, appId: a.sheet.id, width: a.sheet.position.width, height: a.sheet.position.height };
+  });
+  let sheetDock = {};
+  try {
+    await page.click(`#${sheetSetup.appId} .window-header button[data-action="detach"]`);
+    sheetDock = await page.evaluate(async (id) => {
+      const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+      const app = game.actors.get(id).sheet;
+      for (let i = 0; i < 50 && app.element?.ownerDocument === document; i++) await sleep(100);
+      const out = { detached: app.element?.ownerDocument !== document };
+      await sleep(600);
+      app.setPosition({ width: app.position.width + 300, height: app.position.height + 120 });
+      out.big = { width: app.position.width, height: app.position.height };
+      app.attachWindow();
+      for (let i = 0; i < 50 && app.element?.ownerDocument !== document; i++) await sleep(100);
+      await sleep(600);
+      out.home = { width: app.position.width, height: app.position.height };
+      return out;
+    }, sheetSetup.id);
+  } finally {
+    await page.evaluate(async (id) => {
+      const a = game.actors.get(id);
+      if (a?.sheet?.rendered) await a.sheet.close();
+      await a?.delete();
+    }, sheetSetup.id);
+  }
+  sheetDock.detached && sheetDock.home?.width === sheetSetup.width && sheetDock.home?.height === sheetSetup.height
+    ? ok("re-docked, a sheet comes home at the size it left with", `${sheetSetup.width} x ${sheetSetup.height}`)
+    : fail("a re-docked sheet kept the popup's size", JSON.stringify({ left: sheetSetup, ...sheetDock }));
+
+  /* ---- 9g. the Party page on a 1280-wide screen keeps its tabs -----------
+   * (review #37.) The Party page is 1300 wide; on a screen narrower than
+   * that plus the rail, core clamped the frame to the screen and left 0, and
+   * the rail hung outside on both sides. Every page now fits the screen less
+   * the rail. Read on the first open and on a turn from Tables. The viewport
+   * is set for the leg and put back.
+   * -------------------------------------------------------------------- */
+  await page.setViewportSize({ width: 1280, height: VIEWPORT.height });
+  let narrowParty = {};
+  try {
+    narrowParty = await page.evaluate(async () => {
+      const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+      const wd = await import("/systems/air-bladder/module/warden-dashboard.js");
+      const railIn = (app) => {
+        const r = app.element.querySelector(":scope > .window-content > nav.cairn-tab-rail")?.getBoundingClientRect();
+        const f = app.element.getBoundingClientRect();
+        return { rl: Math.round(r?.left ?? -999), rr: Math.round(r?.right ?? -999), fl: Math.round(f.left), fr: Math.round(f.right),
+          vw: window.innerWidth, inside: !!r && r.width > 0 && r.left >= 0 && r.right <= window.innerWidth };
+      };
+      await foundry.applications.instances.get("cairn-warden-dashboard")?.close();
+      await sleep(400);
+      const app = await wd.openWardenDashboard({ page: "party" });
+      await sleep(800);
+      const out = { opened: railIn(app) };
+      app.changeTab("tables", "page");
+      await sleep(400);
+      app.changeTab("party", "page");
+      await sleep(800);
+      out.turned = railIn(app);
+      app.changeTab("tables", "page");
+      await sleep(300);
+      return out;
+    });
+  } finally {
+    await page.setViewportSize(VIEWPORT);
+  }
+  narrowParty.opened?.inside && narrowParty.turned?.inside
+    ? ok("on a 1280-wide screen, the Party page's tabs stay on screen", JSON.stringify(narrowParty.opened))
+    : fail("on a 1280-wide screen, the Party page's tabs", JSON.stringify(narrowParty));
+
+  /* ---- 9h. a page turn during a redraw keeps each page's size ------------
+   * (review #37.) Core defers a changeTab made while a render is in flight
+   * and calls the override again; that second pass stored the NEW page's
+   * size under the OLD page's name, so Party came back 480 wide. A Party
+   * redraw and a turn to Damage in the same tick, then back to Party.
+   * -------------------------------------------------------------------- */
+  const race = await page.evaluate(async () => {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const app = foundry.applications.instances.get("cairn-warden-dashboard");
+    app.changeTab("party", "page");
+    await sleep(600);
+    const partyWidth = app.position.width;
+    app.render({ parts: ["party"] });
+    app.changeTab("damage", "page");
+    await sleep(1000);
+    const damageWidth = app.position.width;
+    app.changeTab("party", "page");
+    await sleep(800);
+    const back = app.position.width;
+    app.changeTab("tables", "page");
+    await sleep(300);
+    return { partyWidth, damageWidth, back };
+  });
+  race.partyWidth > race.damageWidth && race.back === race.partyWidth
+    ? ok("a page turn during a redraw keeps Party's own size", JSON.stringify(race))
+    : fail("a page turn during a redraw stored the wrong size", JSON.stringify(race));
+
   /* ---- 10. narrow it: the body scrolls, the chrome stays --------------- */
 
   const narrow = await page.evaluate(async () => {

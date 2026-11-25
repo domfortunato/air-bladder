@@ -941,6 +941,97 @@ check("nobody ticked: today's card, unapplied, its splat live",
   picks.bare?.posted && !picks.bare.applied && !picks.bare.targets && picks.bare.live && picks.bare.foeHp === 5,
   JSON.stringify(picks.bare));
 
+/* ---------------------------------------------------------------------------
+ * 7. A redraw keeps the Warden's place; ticks stay on their scene (review #37).
+ *
+ * a) Core restores focus by name before `_onRender` builds the page's
+ *    fields, so a token added while the Warden typed a formula dropped
+ *    focus to <body> (digits then fire hotbar macros). The formula field is
+ *    focused with its caret placed, a token is added, and after the redraw
+ *    the focus is on the NEW formula field, caret where it was.
+ * b) The ticks were carried by token id alone, and a duplicated scene keeps
+ *    its tokens' ids (keepEmbeddedIds), so a tick made on one scene came
+ *    back ticked on its copy. The monster is ticked, the scene duplicated
+ *    the way the sidebar does it, and the copy viewed: nothing ticked there.
+ * Fixtures are stamped, selected by id, and removed from the finally.
+ * ------------------------------------------------------------------------- */
+console.log("\nthe Damage page: focus across a redraw, and ticks that stay on their scene");
+const place = await page.evaluate(async () => {
+  const ActorImpl = CONFIG.Actor.documentClass;
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const until = async (fn, ms = 6000) => {
+    for (let t = 0; t < ms; t += 100) { const v = fn(); if (v) return v; await sleep(100); }
+    return null;
+  };
+  const r = {};
+  const made = { actors: [], scenes: [] };
+  const fixture = { flags: { "air-bladder": { probeFixture: "hazard-place" } } };
+  const prevScene = canvas?.scene?.id ?? null;
+  try {
+    const scene = await Scene.create({ name: "ZZ Place Scene", width: 1400, height: 1000, ...fixture });
+    made.scenes.push(scene.id);
+    await scene.view();
+    await sleep(600);
+    const mk = async (name, x) => {
+      const a = await ActorImpl.create({ name, type: "npc", system: { role: "monster", hp: { value: 5, max: 5 }, armor: 0 },
+        ...fixture }, { abNoStatusCard: true });
+      made.actors.push(a.id);
+      const td = await a.getTokenDocument({ x, y: 100 });
+      const [t] = await scene.createEmbeddedDocuments("Token", [td]);
+      return t;
+    };
+    const foe = await mk("ZZ Place Monster", 100);
+    await foundry.applications.instances.get("cairn-warden-dashboard")?.close();
+    await sleep(300);
+    await window.openDamagePage();
+    const list = () => document.querySelector("#cairn-warden-dashboard .cairn-damage-page .cairn-damage-targets");
+    const boxOf = (id) => list()?.querySelector(`input[name="abDamageTarget"][value="${id}"]`);
+    await until(() => boxOf(foe.id));
+
+    // a) focus and caret across a redraw.
+    const formula = () => document.querySelector("#cairn-warden-dashboard .cairn-damage-page input[name='formula']");
+    const f0 = formula();
+    f0.value = "2d6+1";
+    f0.focus();
+    f0.setSelectionRange(2, 2);
+    r.focusedBefore = document.activeElement === f0;
+    const late = await mk("ZZ Place Late", 400);
+    await until(() => boxOf(late.id));
+    await sleep(300);
+    const f1 = formula();
+    r.focus = { redrawn: !!f1 && f1 !== f0, active: document.activeElement === f1,
+      activeIs: document.activeElement?.getAttribute?.("name") ?? document.activeElement?.tagName ?? null,
+      value: f1?.value ?? null, caret: f1?.selectionStart ?? null };
+    f1?.blur();
+
+    // b) ticks stay on their scene.
+    boxOf(foe.id).checked = true;
+    const dup = await scene.clone({ name: "ZZ Place Copy" }, { save: true, addSource: true });
+    made.scenes.push(dup.id);
+    r.dupSharesId = dup.tokens.has(foe.id);
+    const stale = list();
+    await dup.view();
+    await until(() => canvas.scene?.id === dup.id && list() && list() !== stale && boxOf(foe.id), 8000);
+    await sleep(400);
+    r.onCopy = { listed: !!boxOf(foe.id), ticked: [...(list()?.querySelectorAll('input[name="abDamageTarget"]:checked') ?? [])].map((b) => b.value) };
+  } catch (e) {
+    r.error = `${e.name}: ${e.message}`;
+  } finally {
+    await foundry.applications.instances.get("cairn-warden-dashboard")?.close();
+    if (prevScene && game.scenes.get(prevScene)) await game.scenes.get(prevScene).view();
+    for (const id of made.scenes) await game.scenes.get(id)?.delete();
+    for (const id of made.actors) await game.actors.get(id)?.delete();
+  }
+  return r;
+});
+if (place.error) check("the focus-and-scene leg ran", false, place.error);
+check("a redraw keeps the formula field focused, its text and caret",
+  place.focusedBefore && place.focus?.redrawn && place.focus.active && place.focus.value === "2d6+1" && place.focus.caret === 2,
+  JSON.stringify(place.focus));
+check("a tick made on one scene is not carried onto its copy",
+  place.dupSharesId === true && place.onCopy?.listed && place.onCopy.ticked.length === 0,
+  JSON.stringify({ sharesId: place.dupSharesId, onCopy: place.onCopy }));
+
 /* ----------------------------------------------------------- teardown ---- */
 await page.evaluate(async (ids) => {
   if (ids.msgId) await game.messages.get(ids.msgId)?.delete();

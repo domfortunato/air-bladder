@@ -170,6 +170,16 @@ try {
     await poll(() => actor.items.find((i) => i.name === "Torch"));
     const torch = actor.items.find((i) => i.name === "Torch");
 
+    // (review #37) The pack's Shield is stored equipped. A purchase arrives
+    // unequipped for everyone (user ruling 2026-11-24), not only for a thing:
+    // worn on arrival, it put away a held spellbook's hands. Selected by id
+    // difference; removed with the actor.
+    const hadBeforeShield = new Set(actor.items.map((i) => i.id));
+    const shieldBtn = document.querySelector('.marketplace .mkt-row[data-name="shield"] .mkt-take');
+    shieldBtn?.click();
+    await poll(() => actor.items.some((i) => !hadBeforeShield.has(i.id) && i.name === "Shield"));
+    const shopShield = actor.items.find((i) => !hadBeforeShield.has(i.id) && i.name === "Shield");
+
     const buy = {
       hadBuyButton: !!buyBtn,
       bought,
@@ -182,6 +192,9 @@ try {
       daggerPrice: origCost,
       torchHadButton: !!torchBtn,
       torchUses: torch ? `${torch.system.uses?.value}/${torch.system.uses?.max}` : null,
+      shieldHadButton: !!shieldBtn,
+      shieldArrived: !!shopShield,
+      shieldEquipped: shopShield ? !!shopShield.system.equipped : null,
     };
 
     // 4. A FULL PACK refuses the shop (2026-08-05 ruling). Shopping is ordinary
@@ -369,6 +382,9 @@ try {
   r.buy.torchHadButton && r.buy.torchUses === "3/3"
     ? ok("a shop Torch arrives with 3/3 uses — the pool item carries them itself")
     : fail(`shop Torch uses ${r.buy.torchUses} (want 3/3; row found=${r.buy.torchHadButton}) — the pool YAML is the source, and generation's annotation masks it`);
+  r.buy.shieldHadButton && r.buy.shieldArrived && r.buy.shieldEquipped === false
+    ? ok("a shop Shield (stored equipped in its pack) arrives unequipped")
+    : fail(`shop Shield: ${JSON.stringify({ row: r.buy.shieldHadButton, arrived: r.buy.shieldArrived, equipped: r.buy.shieldEquipped })}`);
 
   const F = r.full;
   F.encumbered && F.closedOk && F.openedOk && F.shopRoots === 1

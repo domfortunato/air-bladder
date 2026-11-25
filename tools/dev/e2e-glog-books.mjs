@@ -318,8 +318,14 @@ try {
       {
         const recorded = [];
         const origWarn = ui.notifications.warn;
+        // The text is what CORE would show (notifications.mjs `notify`): a
+        // message is translated only when it's asked for, with `localize` or
+        // `format`. Translating every key here hid a toast that showed its
+        // raw key (review #37).
         ui.notifications.warn = (m, o) => {
-          recorded.push({ key: String(m), text: o?.format ? game.i18n.format(String(m), o.format) : game.i18n.localize(String(m)) });
+          const key = String(m);
+          const text = o?.format ? game.i18n.format(key, o.format) : o?.localize ? game.i18n.localize(key) : key;
+          recorded.push({ key, text });
           return null;
         };
         // A cast either refuses at once or opens its dice window; the window,
@@ -412,6 +418,22 @@ try {
           // e) the scroll's hand: the shield is put away, the scroll casts.
           await hand(scroll9, (e) => e.scroll && !e.shield);
           out.hands.scrollHeld = { state: eq(), cast: await tryCast(() => grim.castScroll(pc9, it(scroll9))) };
+          // e2) (review #37) the pack's Shield, stored equipped, dropped from
+          //     the compendium onto a character holding the scroll: a dragged
+          //     item arrives unequipped (user ruling 2026-11-24), so the
+          //     scroll stays in hand and nothing is refused. Selected by id
+          //     difference; removed with pc9.
+          {
+            const packShield = await fromUuid("Compendium.air-bladder.armor.Item.7r2YpGYPQI2SarO3");
+            const had = new Set(pc9.items.map((i) => i.id));
+            await open9();
+            await s9._onDropItem(null, packShield);
+            await until(() => pc9.items.some((i) => !had.has(i.id)), 4000);
+            await sleep(400);
+            const arrived = pc9.items.find((i) => !had.has(i.id));
+            out.hands.dropped = { packEquipped: !!packShield?.system?.equipped, arrived: !!arrived,
+              arrivedEquipped: !!arrived?.system?.equipped, state: eq() };
+          }
           await s9.close();
           // f) the Grimoire, with Grimoires on: refused until it's equipped.
           mode(true, true);
@@ -615,6 +637,15 @@ gn.transmute && gn.grimoireBox && !gn.bookCast
   h.both?.state?.book && h.both.state.shield && refused(h.both.cast, "CAIRN.Notify.CastHandsBusy")
     ? ok("9: a book and a shield both equipped (planted in-page): the cast is refused, casting takes both hands")
     : fail(`9: book and shield both equipped: ${JSON.stringify(h.both)}`);
+  // (review #37) ...and the refusal is the sentence, not its key.
+  const busyText = h.both?.cast?.text?.[0] ?? null;
+  busyText && !busyText.startsWith("CAIRN.") && h.both.cast.warned[0] === "CAIRN.Notify.CastHandsBusy"
+    ? ok(`9: the hands refusal reads as a sentence ("${busyText}")`)
+    : fail(`9: the hands refusal toast: ${JSON.stringify(h.both?.cast)}`);
+  const dr = h.dropped ?? {};
+  dr.packEquipped && dr.arrived && !dr.arrivedEquipped && dr.state?.scroll
+    ? ok("9: the pack's Shield (stored equipped) dropped beside a held scroll arrives unequipped; the scroll stays in hand")
+    : fail(`9: the pack Shield dropped beside a held scroll: ${JSON.stringify(dr)}`);
   h.scrollHeld?.state?.scroll && !h.scrollHeld.state.shield && opened(h.scrollHeld.cast)
     ? ok("9: equipping the scroll puts the shield away, and it casts")
     : fail(`9: scroll equipped: ${JSON.stringify(h.scrollHeld)}`);

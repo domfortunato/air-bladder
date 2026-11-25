@@ -627,6 +627,65 @@ try {
     "and the notice names B as over capacity", JSON.stringify({ got: gift.overWarn, want: gift.wantWarn }));
   check(gift.ownNoop, "a row's own item dropped on its row changes nothing");
 
+  /* --- 13. a redraw keeps the Warden's place (review #37) ----------------
+   * The party part declared no `scrollable` and its ticks and bulk buttons
+   * carried no id, so every party write (any player's HP) snapped the table
+   * to the top and dropped keyboard focus. The window is made short so the
+   * rows scroll; the size READ is put back, and the ticks are cleared. */
+  const place = await gm.evaluate(async ({ a }) => {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const mod = await import("/systems/air-bladder/module/warden-dashboard.js");
+    const app = await mod.openWardenDashboard({ page: "party" });
+    await sleep(500);
+    const was = { width: app.position.width, height: app.position.height };
+    const sc = () => app.element.querySelector(".cairn-party-scroll");
+    const out = {};
+    try {
+      app.party.picks.clear();
+      await app.render({ parts: ["party"] });
+      app.setPosition({ height: 260 });
+      await sleep(400);
+      out.overflows = sc().scrollHeight > sc().clientHeight + 20;
+      sc().scrollTop = 20;
+      await sleep(100);
+      out.scrolledTo = sc().scrollTop;
+      await app.render({ parts: ["party"] });
+      await sleep(400);
+      out.scrollAfter = sc().scrollTop;
+      // A row's tick, focused, across a redraw.
+      const box = app.element.querySelector(`tr[data-actor-id="${a}"] input[data-pick]`);
+      box.focus();
+      out.tickFocused = document.activeElement === box;
+      await app.render({ parts: ["party"] });
+      await sleep(400);
+      const act = document.activeElement;
+      out.tickAfter = { pick: !!act?.matches?.("input[data-pick]"), row: act?.closest?.("tr")?.dataset.actorId ?? null };
+      // A bulk button, focused (a tick turns them on), across a redraw.
+      app.element.querySelector(`tr[data-actor-id="${a}"] input[data-pick]`).click();
+      await sleep(200);
+      const btn = app.element.querySelector('button[data-bulk="addFatigue"]');
+      btn.focus();
+      out.bulkFocused = document.activeElement === btn;
+      await app.render({ parts: ["party"] });
+      await sleep(400);
+      out.bulkAfter = document.activeElement?.dataset?.bulk ?? document.activeElement?.tagName ?? null;
+    } catch (e) {
+      out.error = e.message;
+    } finally {
+      document.activeElement?.blur?.();
+      app.party.picks.clear();
+      app.setPosition(was);
+      await app.render({ parts: ["party"] });
+    }
+    return out;
+  }, setup.a).catch((e) => ({ error: e.message }));
+  check(place.overflows && place.scrolledTo === 20 && place.scrollAfter === 20,
+    "a redraw keeps the Party table's scroll", place.error ?? JSON.stringify({ overflows: place.overflows, to: place.scrolledTo, after: place.scrollAfter }));
+  check(place.tickFocused && place.tickAfter?.pick && place.tickAfter.row === setup.a,
+    "a redraw keeps a row's tick focused", JSON.stringify(place.tickAfter));
+  check(place.bulkFocused && place.bulkAfter === "addFatigue",
+    "a redraw keeps a bulk button focused", JSON.stringify({ focused: place.bulkFocused, after: place.bulkAfter }));
+
   /* --- 5. the ways in ----------------------------------------------------- */
   const ways = await gm.evaluate(async () => {
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
