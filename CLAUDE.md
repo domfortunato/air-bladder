@@ -85,8 +85,8 @@ is permanent. Full model in `docs/git-flow.md`; summary in `CONTRIBUTING.md`.
 - **GITHUB PAGES RETIRED (user, 2026-11-19); the repo is the address.** `system.json`
   `url` is `https://github.com/domfortunato/air-bladder`, shipped in 0.1.27. **Pages
   is OFF since 2026-11-24** (after 0.1.27): `domfortunato.github.io/air-bladder/`
-  answers 404. GitHub still reports `has_pages: true` because the source is GitHub
-  Actions, which has no off switch; with no Pages workflow nothing can publish.
+  answers 404, and the user set Settings → Pages → Source to None (`has_pages`
+  false).
   `airbladder.xyz` stays, retargeted by the user to the
   repo; it is used only where a person types it by hand (the printed sheet footer
   `CAIRN.PrintCreditGenerated`; the two setting hints that sent readers "to
