@@ -1,18 +1,12 @@
 # Customizing bonds
 
-A **bond** is the tie a Cairn 2e character starts with: a short piece of prose,
-sometimes with gold or an item attached. Generation rolls one for every 2e
-character. Barebones characters don't get one. Bonds are kept on the character
-sheet's **Background & Notes** page. With Character Creation Mode on, each bond
-there has a re-roll die and a list button, a bond after the first has a ✕, and
-an **Add a bond** link appears when the character is owed another.
+All Cairn 2e characters characters start with: a short piece of prose,
+sometimes with gold or an item attached. Barebones characters don't get one. Bonds are kept on the character sheet's **Background & Notes** page. With Character Creation Mode on, each bond there has a re-roll die and a list button, a bond after the first has a ✕, and an **Add a bond** link appears when the character is owed another.
 
 Bonds are rolled from the shipped **Bonds** table, twenty rows in the
 **Tables (2e)** compendium. This page covers replacing them with your own. To
 play without bonds, switch off **Use bonds** under **Configure Character
 Generation** (see [Generating Characters](generating-characters.md)).
-
-You need to be the Warden.
 
 ---
 

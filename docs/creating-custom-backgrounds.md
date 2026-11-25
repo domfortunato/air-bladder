@@ -1,14 +1,16 @@
 # Creating a custom 2e background
 
-A **custom background** is a Cairn 2e background you write yourself: a
-description, example names, starting gear, and two d6 question tables. It works
-the same way a shipped one does. It shows up in the background picker, gives
-its gear and rolls its questions.
+A **custom background** is a Cairn 2e background you write yourself: All custom, or "home-brewed" backgrounds include:
+- a description
+- example names
+- starting gear
+- Two d6 question tables.
 
-This page covers writing one. To move one to another world or another Warden,
-see [Sharing & moving custom backgrounds](sharing-custom-backgrounds.md).
+They work the same way that a background in published in the Cairn 2e Player's Guide do and appear in the Background Picker unless you hide them from the picker or disable custom 2e backgrounds.
 
-You need to be the Warden, in a world.
+This page covers writing a custom background. To move one of your custom backgrounds to another world or another Warden, see [Sharing & moving custom backgrounds](sharing-custom-backgrounds.md).
+
+Only wardens can create custom backgrounds. 
 
 ---
 
@@ -29,41 +31,32 @@ The first time you use it, the button creates a world compendium called
 original with *(Copy)* added, and opens it. Rename the copy and replace its
 content using the fields described under [The sheet](#the-sheet).
 
-## Taking over every shipped background at once
+## Editing the backgrounds that ship with Air Bladder
 
 To edit the shipped backgrounds themselves, open the **Rollable Tables** or
 **Compendium** sidebar tab and press **Create Custom 2e Backgrounds and
-Tables…** (Wardens only). A window explains what will be copied. Press **Copy**.
+Tables…** at the top (Wardens only). A window explains what will be copied. Press **Copy**.
 
-It copies all 27 shipped 2e backgrounds into your **Custom 2e Backgrounds**
-compendium under their own names, with no *(Copy)* added, and switches custom
+It copies all 27 shipped 2e backgrounds (20 from the Cairn 2e Player's Guide, plus 7 classic D&D style backgrounds) into your **Custom 2e Backgrounds**
+compendium under their own names, with and switches custom
 backgrounds on. The 27 are the Player's Guide's twenty and the seven in
 **Backgrounds (Custom)**.
 
-Treat the shipped compendiums as templates. Copy from them, and edit the copy.
+Treat these shipped backgrounds as templates; copy them and edit them as needed.
 
-Each copy **stands in** for the shipped background. The picker and the
-generators use your copy, in the group the original had. If you delete a copy,
-the shipped one comes back. To take a background out of play without deleting
-it, use the eye toggle in the background picker. A background you switched off
-before copying stays off. See
-[Taking a background out of play](generating-characters.md#taking-a-background-out-of-play)
+## Air Bladder uses the Custom Background before using the another background with the same name in the compendium
+
+Each custom background **stands in** for the shipped background of the same name in all pickers and character generators. If you delete a custom background that was copied from a canon background, Air Bladder will revert to using the canon background in the compendium. To take any background out of play without deleting it, use the eye toggle in the background picker. A background you switched off before copying stays off. See [Taking a background out of play](generating-characters.md#taking-a-background-out-of-play)
 in Generating Characters.
 
-The same button copies the **eleven tables a 2e character rolls on** into a
-**Custom 2e Character Creation** folder in your Rollable Tables: Bonds, Omens,
-Scars (the one in **Utils**, which gives a scar when damage calls for one), and
-the eight trait tables (Physique, Skin, Hair, Face, Speech, Clothing, Vice,
-Virtue). A table in your world with a shipped table's name is rolled instead of
+The "Create Custom 2e Background" button copies the **eleven tables a 2e character rolls on** into a **Custom 2e Character Creation** folder in your Rollable Tables: Bonds, Omens, scars (the one in **Utils**, which gives a scar when damage calls for one), and the eight trait tables (Physique, Skin, Hair, Face, Speech, Clothing, Vice, Virtue). A table in your world with a shipped table's name is rolled instead of
 the shipped one, and the trait lists on the character sheet offer your rows.
 See [Customizing Bonds](customizing-bonds.md).
 
-A window then lists what was copied, with two buttons: **Open Custom 2e
-Backgrounds on the Compendium tab** and **Show the Custom 2e Character Creation
-folder in Rollable Tables**. The backgrounds compendium sits on the Compendium
-tab, outside the Air Bladder folders.
+A window then tells you what was copied, with two buttons: **Open Custom 2e
+Backgrounds on the Compendium tab** and **Show the Custom 2e Character Creation folder in Rollable Tables**. The backgrounds compendium sits on the Compendium tab, outside the Air Bladder folders.
 
-Running it again never overwrites anything. A copy you've edited is kept, and
+**Running it again never overwrites anything.** A copy you've edited is kept, and
 only what's missing is added. If your Custom 2e Backgrounds compendium is
 locked, the backgrounds aren't copied. Unlock it and run it again.
 
