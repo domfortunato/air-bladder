@@ -21,7 +21,7 @@ system:
   cost: 20
   description: A long, straight blade wielded in two hands. Heavy, but devastating.
   weightless: false
-  equipped: true
+  equipped: false
   bulky: true
   damageFormula: 1d10
   criticalDamage: ''

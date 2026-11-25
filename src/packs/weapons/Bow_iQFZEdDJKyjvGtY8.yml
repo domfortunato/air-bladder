@@ -21,7 +21,7 @@ system:
   cost: 20
   description: A wooden bow that looses arrows at range. Keep your quiver stocked.
   weightless: false
-  equipped: true
+  equipped: false
   bulky: true
   damageFormula: 1d6
   criticalDamage: ''

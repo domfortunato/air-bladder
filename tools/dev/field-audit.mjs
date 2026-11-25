@@ -262,15 +262,14 @@ const auditSystem = (type, system, where) => {
 //     verbatim, so a mixed pack decides by which row the die hit whether a
 //     character starts with the book in hand, or holds two at once. Items
 //     EMBEDDED on a pack Actor are exempt: a monster's armour is worn on
-//     purpose. `armor` and `weapons` are exempt TOO: both ship mixed (5 of 8,
-//     14 of 18). Ruled 2026-11-24 (review #37): a bought or dragged item
-//     arrives unequipped whatever its pack says (`acquire`, `_onDropItem`), and
-//     generation sets `equipped` itself, so the flag no longer decides
-//     anything. Delete a name from EQUIPPED_UNRULED once its pack says one thing.
-const EQUIPPED_UNRULED = new Set(["armor", "weapons"]);
+//     purpose. `armor` and `weapons` were exempt until 2026-11-25, when both
+//     were flattened to unequipped (they had shipped mixed: 5 of 8, 14 of 18,
+//     and a Kettlewright import copied whichever it matched). Ruled 2026-11-24
+//     (review #37): a bought or dragged item arrives unequipped whatever its
+//     pack says (`acquire`, `_onDropItem`), and generation sets `equipped`
+//     itself. No pack is exempt now.
 const KEEP_OF_ONE_DIE = /(?<![\d)])1?d\d+k/i;
 const auditStatblock = (doc, rel) => {
-  const pack = rel.split("/")[2];
   const isActor = doc.type in ACTOR_DATA_MODELS;
   if (isActor) {
     const pools = { hp: doc.system?.hp, ...(doc.system?.abilities ?? {}) };
@@ -282,7 +281,7 @@ const auditStatblock = (doc, rel) => {
     if (doc.prototypeToken && doc.prototypeToken.name !== doc.name) {
       problems.push(`${rel} is "${doc.name}" but its prototype token is "${doc.prototypeToken.name}" — placed tokens, the combat tracker and chat cards read the token's name`);
     }
-  } else if (doc.type in ITEM_DATA_MODELS && doc.system?.equipped === true && !EQUIPPED_UNRULED.has(pack)) {
+  } else if (doc.type in ITEM_DATA_MODELS && doc.system?.equipped === true) {
     problems.push(`${rel} ships equipped: true — an Item pack's documents arrive unequipped; whoever grants one decides whether it's worn`);
   }
   for (const it of [doc, ...(Array.isArray(doc.items) ? doc.items : [])]) {

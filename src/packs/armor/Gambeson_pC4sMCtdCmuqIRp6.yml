@@ -23,7 +23,7 @@ system:
     A thick quilted coat worn under or in place of mail. Quiet, warm, and proof
     against a careless knife.
   weightless: false
-  equipped: true
+  equipped: false
   bulky: false
   uses:
     value: 0

@@ -418,21 +418,31 @@ try {
           // e) the scroll's hand: the shield is put away, the scroll casts.
           await hand(scroll9, (e) => e.scroll && !e.shield);
           out.hands.scrollHeld = { state: eq(), cast: await tryCast(() => grim.castScroll(pc9, it(scroll9))) };
-          // e2) (review #37) the pack's Shield, stored equipped, dropped from
+          // e2) (review #37) the pack's Shield, PLANTED equipped, dropped from
           //     the compendium onto a character holding the scroll: a dragged
           //     item arrives unequipped (user ruling 2026-11-24), so the
-          //     scroll stays in hand and nothing is refused. Selected by id
+          //     scroll stays in hand and nothing is refused. The armor pack
+          //     ships unequipped since 2026-11-25, and a Warden's own
+          //     compendium can store it either way, so the source is set
+          //     equipped in page memory only (the cached pack document) and
+          //     put back in the finally: never a write. Selected by id
           //     difference; removed with pc9.
           {
             const packShield = await fromUuid("Compendium.air-bladder.armor.Item.7r2YpGYPQI2SarO3");
-            const had = new Set(pc9.items.map((i) => i.id));
-            await open9();
-            await s9._onDropItem(null, packShield);
-            await until(() => pc9.items.some((i) => !had.has(i.id)), 4000);
-            await sleep(400);
-            const arrived = pc9.items.find((i) => !had.has(i.id));
-            out.hands.dropped = { packEquipped: !!packShield?.system?.equipped, arrived: !!arrived,
-              arrivedEquipped: !!arrived?.system?.equipped, state: eq() };
+            const stored = packShield?._source.system.equipped ?? false;
+            try {
+              packShield?.updateSource({ "system.equipped": true });
+              const had = new Set(pc9.items.map((i) => i.id));
+              await open9();
+              await s9._onDropItem(null, packShield);
+              await until(() => pc9.items.some((i) => !had.has(i.id)), 4000);
+              await sleep(400);
+              const arrived = pc9.items.find((i) => !had.has(i.id));
+              out.hands.dropped = { packEquipped: packShield?._source.system.equipped === true, arrived: !!arrived,
+                arrivedEquipped: !!arrived?.system?.equipped, state: eq() };
+            } finally {
+              packShield?.updateSource({ "system.equipped": stored });
+            }
           }
           await s9.close();
           // f) the Grimoire, with Grimoires on: refused until it's equipped.
@@ -644,7 +654,7 @@ gn.transmute && gn.grimoireBox && !gn.bookCast
     : fail(`9: the hands refusal toast: ${JSON.stringify(h.both?.cast)}`);
   const dr = h.dropped ?? {};
   dr.packEquipped && dr.arrived && !dr.arrivedEquipped && dr.state?.scroll
-    ? ok("9: the pack's Shield (stored equipped) dropped beside a held scroll arrives unequipped; the scroll stays in hand")
+    ? ok("9: the pack's Shield (planted equipped) dropped beside a held scroll arrives unequipped; the scroll stays in hand")
     : fail(`9: the pack Shield dropped beside a held scroll: ${JSON.stringify(dr)}`);
   h.scrollHeld?.state?.scroll && !h.scrollHeld.state.shield && opened(h.scrollHeld.cast)
     ? ok("9: equipping the scroll puts the shield away, and it casts")

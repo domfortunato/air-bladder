@@ -21,7 +21,7 @@ system:
   cost: 10
   description: A spiked head on a chain that swings round shields and past a raised guard.
   weightless: false
-  equipped: true
+  equipped: false
   bulky: false
   damageFormula: 1d8
   criticalDamage: ''

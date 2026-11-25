@@ -6803,9 +6803,11 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       // is the sidebar's) and its `equipped`: worn armour arrived worn. Give
       // builds sort 0 and equipped false; a drag is the same hand-over.
       // A world or compendium item arrives unequipped too (user ruling
-      // 2026-11-24, review #37): the pack's Shield is stored equipped, and
-      // worn on arrival it sat beside a held spellbook, which casting with
-      // both hands refuses. `fromCompendium` already drops the sort.
+      // 2026-11-24, review #37): the pack's Shield was stored equipped until
+      // 2026-11-25, and worn on arrival it sat beside a held spellbook, which
+      // casting with both hands refuses. A world item or a Warden's own
+      // compendium can still store it either way. `fromCompendium` already
+      // drops the sort.
       const keepId = !this.actor.items.has(originalItem.id);
       const data = originalItem.inCompendium
         ? game.items.fromCompendium(originalItem, { clearFolder: true, keepId })

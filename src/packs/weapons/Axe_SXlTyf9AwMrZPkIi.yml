@@ -21,7 +21,7 @@ system:
   cost: 10
   description: A broad chopping axe, as at home splitting wood as splitting shields.
   weightless: false
-  equipped: true
+  equipped: false
   bulky: false
   damageFormula: 1d8
   criticalDamage: ''

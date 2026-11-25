@@ -21,7 +21,7 @@ system:
   cost: 20
   description: A long polearm crowned with axe, spike, and hook. Reach and menace both.
   weightless: false
-  equipped: true
+  equipped: false
   bulky: true
   damageFormula: 1d10
   criticalDamage: ''

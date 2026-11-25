@@ -23,7 +23,7 @@ system:
     A broad wooden shield banded with iron. Ready to catch what your armor
     can't.
   weightless: false
-  equipped: true
+  equipped: false
   bulky: false
   uses:
     value: 0

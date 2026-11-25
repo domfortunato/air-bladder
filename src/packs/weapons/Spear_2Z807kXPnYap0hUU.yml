@@ -21,7 +21,7 @@ system:
   cost: 10
   description: A simple hafted point. Cheap, deadly, and best kept between you and trouble.
   weightless: false
-  equipped: true
+  equipped: false
   bulky: false
   damageFormula: 1d8
   criticalDamage: ''

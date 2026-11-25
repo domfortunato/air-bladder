@@ -971,10 +971,10 @@ export const withGrantSource = (item, source) => ({
  * A weapon or armour a background's QUESTION or a BOND grants arrives
  * EQUIPPED, as the starting gear does (review #34 finding 224), so Armor derives
  * to what the prose promises. The pack document's own `equipped` is copied
- * verbatim by itemDataFromDocument and the shipped data is mixed — every
- * Fletchwind's question-2 bow is stored unequipped, a Kettlewright's Gambeson
- * equipped and its Tin Helm not — and nobody chose that per grant. A new
- * object, never a write into the resolved data it was given.
+ * verbatim by itemDataFromDocument, and every shipped Item pack stores it
+ * false (`check:fields` holds that since 2026-11-25), so without this every
+ * Fletchwind's question-2 bow arrived unequipped. A new object, never a
+ * write into the resolved data it was given.
  * @param {Object} item  item data
  * @returns {Object}
  */

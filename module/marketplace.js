@@ -424,8 +424,10 @@ const acquire = async (actor, data, pay) => {
   // toast), so this says nothing more; a THROW still reaches AcquireFailed.
   //
   // UNEQUIPPED, for every buyer (user ruling 2026-11-24, review #37). The
-  // pack's Shield is stored equipped, and it used to arrive worn on anyone but
-  // a thing, beside a held spellbook that casting with both hands refuses.
+  // pack's Shield was stored equipped until 2026-11-25, and it arrived worn on
+  // anyone but a thing, beside a held spellbook that casting with both hands
+  // refuses. The shipped packs are flat now, but a world table can stock a
+  // Warden's own item, stored however they left it.
   data.system.equipped = false;
   const [created] = await actor.createEmbeddedDocuments("Item", [data]);
   if (!created) return false;

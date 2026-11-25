@@ -21,7 +21,7 @@ system:
   cost: 5
   description: A stout walking-staff that doubles as a cudgel at need.
   weightless: false
-  equipped: true
+  equipped: false
   bulky: false
   damageFormula: 1d6
   criticalDamage: ''

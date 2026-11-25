@@ -25,7 +25,7 @@ system:
     A full harness of shaped steel plates. The best protection coin can buy, and
     the heaviest.
   weightless: false
-  equipped: true
+  equipped: false
   bulky: true
   uses:
     value: 0

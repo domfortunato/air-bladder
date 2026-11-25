@@ -21,7 +21,7 @@ system:
   cost: 10
   description: A heavy flanged head on a short haft, made for caving in armor.
   weightless: false
-  equipped: true
+  equipped: false
   bulky: false
   damageFormula: 1d8
   criticalDamage: ''

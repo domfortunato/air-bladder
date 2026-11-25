@@ -21,7 +21,7 @@ system:
   cost: 20
   description: A great two-handed hammer that turns armor into a liability.
   weightless: false
-  equipped: true
+  equipped: false
   bulky: true
   damageFormula: 1d10
   criticalDamage: ''

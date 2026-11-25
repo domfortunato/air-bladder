@@ -23,7 +23,7 @@ system:
     A leather sling that hurls stones with surprising force. Ammunition lies
     free underfoot.
   weightless: false
-  equipped: true
+  equipped: false
   bulky: false
   damageFormula: 1d6
   criticalDamage: ''

@@ -21,7 +21,7 @@ system:
   cost: 30
   description: A mechanical bow that fires heavy bolts. Slow to reload, but it hits hard.
   weightless: false
-  equipped: true
+  equipped: false
   bulky: true
   damageFormula: 1d8
   criticalDamage: ''

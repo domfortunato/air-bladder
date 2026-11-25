@@ -23,7 +23,7 @@ system:
     A blunt length of hardwood. Cheap, quiet, and rarely lethal — unless you
     mean it.
   weightless: false
-  equipped: true
+  equipped: false
   bulky: false
   damageFormula: 1d6
   criticalDamage: ''

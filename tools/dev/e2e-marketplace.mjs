@@ -141,6 +141,16 @@ try {
       if (wasLocked) await pack.configure({ locked: true });
     }
 
+    // (review #37) The shop's Shield is the armor pack's, which ships unequipped
+    // since 2026-11-25. A world table can stock a Warden's own item stored
+    // equipped, so the source is PLANTED equipped, in page memory only: the
+    // cached pack document the catalogue reads (CompendiumCollection#getDocument
+    // returns the cached instance). Never a write; put back once it has landed.
+    const shieldDoc = await fromUuid("Compendium.air-bladder.armor.Item.7r2YpGYPQI2SarO3");
+    const shieldStored = shieldDoc?._source.system.equipped ?? false;
+    shieldDoc?.updateSource({ "system.equipped": true });
+    const shieldPlanted = (await fromUuid(shieldDoc?.uuid ?? ""))?._source?.system?.equipped === true;
+
     // 3. Buy flow with a temp character.
     const actor = await Actor.create({ type: "character", name: "MKT Probe", system: { gold: 100 } });
     await mkt.openMarketplace(actor);
@@ -170,7 +180,7 @@ try {
     await poll(() => actor.items.find((i) => i.name === "Torch"));
     const torch = actor.items.find((i) => i.name === "Torch");
 
-    // (review #37) The pack's Shield is stored equipped. A purchase arrives
+    // (review #37) The planted Shield, stored equipped. A purchase arrives
     // unequipped for everyone (user ruling 2026-11-24), not only for a thing:
     // worn on arrival, it put away a held spellbook's hands. Selected by id
     // difference; removed with the actor.
@@ -178,6 +188,7 @@ try {
     const shieldBtn = document.querySelector('.marketplace .mkt-row[data-name="shield"] .mkt-take');
     shieldBtn?.click();
     await poll(() => actor.items.some((i) => !hadBeforeShield.has(i.id) && i.name === "Shield"));
+    shieldDoc?.updateSource({ "system.equipped": shieldStored });
     const shopShield = actor.items.find((i) => !hadBeforeShield.has(i.id) && i.name === "Shield");
 
     const buy = {
@@ -192,6 +203,7 @@ try {
       daggerPrice: origCost,
       torchHadButton: !!torchBtn,
       torchUses: torch ? `${torch.system.uses?.value}/${torch.system.uses?.max}` : null,
+      shieldPlanted,
       shieldHadButton: !!shieldBtn,
       shieldArrived: !!shopShield,
       shieldEquipped: shopShield ? !!shopShield.system.equipped : null,
@@ -382,9 +394,9 @@ try {
   r.buy.torchHadButton && r.buy.torchUses === "3/3"
     ? ok("a shop Torch arrives with 3/3 uses — the pool item carries them itself")
     : fail(`shop Torch uses ${r.buy.torchUses} (want 3/3; row found=${r.buy.torchHadButton}) — the pool YAML is the source, and generation's annotation masks it`);
-  r.buy.shieldHadButton && r.buy.shieldArrived && r.buy.shieldEquipped === false
-    ? ok("a shop Shield (stored equipped in its pack) arrives unequipped")
-    : fail(`shop Shield: ${JSON.stringify({ row: r.buy.shieldHadButton, arrived: r.buy.shieldArrived, equipped: r.buy.shieldEquipped })}`);
+  r.buy.shieldPlanted && r.buy.shieldHadButton && r.buy.shieldArrived && r.buy.shieldEquipped === false
+    ? ok("a shop Shield (its source planted equipped) arrives unequipped")
+    : fail(`shop Shield: ${JSON.stringify({ planted: r.buy.shieldPlanted, row: r.buy.shieldHadButton, arrived: r.buy.shieldArrived, equipped: r.buy.shieldEquipped })}`);
 
   const F = r.full;
   F.encumbered && F.closedOk && F.openedOk && F.shopRoots === 1

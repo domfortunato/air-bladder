@@ -21,10 +21,10 @@ The rule itself, and EXTRACT BEFORE YOU BUILD, stay in CLAUDE.md (Deliberate dev
     `name`; a `damageFormula` never keeps the highest of ONE die (`d6k` is a
     truncated `2d6k`); a top-level Item in an Item pack doesn't ship
     `equipped: true`. Items embedded on a pack Actor are exempt (a monster's
-    armour is worn on purpose). **`armor` and `weapons` are exempt too
-    (`EQUIPPED_UNRULED`)**: both ship mixed. **Ruled 2026-11-24 (review #37):
-    a bought or dragged item arrives UNEQUIPPED whatever its pack says**
-    (`_onDropItem` in actor-sheet.js, `acquire` in marketplace.js), and
-    generation sets `equipped` itself, so the mixed flag no longer decides
-    anything. Flattening the two packs is now tidiness; delete a name from the
-    set once its pack says one thing.
+    armour is worn on purpose). No pack is exempt: `armor` and `weapons`
+    shipped mixed until 2026-11-25 and are flat now. **Ruled 2026-11-24
+    (review #37): a bought or dragged item arrives UNEQUIPPED whatever its
+    pack says** (`_onDropItem` in actor-sheet.js, `acquire` in marketplace.js),
+    and generation sets `equipped` itself. A Kettlewright import copies the
+    matched pack item's flag, so its weapons and armour arrive unequipped,
+    as its unmatched gear always did (its Armor comes from `armorOverride`).

@@ -23,7 +23,7 @@ system:
   cost: 40
   description: A shirt of interlocking rings. Heavy, but it turns worse than claws.
   weightless: false
-  equipped: true
+  equipped: false
   bulky: true
   uses:
     value: 0

@@ -26,7 +26,7 @@ system:
     A stiff coat lined with riveted metal plates. Heavier protection than plain
     leather.
   weightless: false
-  equipped: true
+  equipped: false
   bulky: true
   uses:
     value: 0
