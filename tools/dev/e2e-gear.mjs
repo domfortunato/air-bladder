@@ -300,6 +300,13 @@ try {
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     const pp = await import("/systems/air-bladder/module/party-pile.js");
     const made = [];
+    // THE PILE THIS LEG MAKES GOES WITH IT (2026-11-27). It deleted the two
+    // items it dropped and left the pile itself, empty, in a world that had
+    // none, so the next probe on the same box met a pile it had not made:
+    // combat-options' "pile made" leg went red on 14.370
+    // (20261127T161115Z-air-bladder-14370-dev, CT 112, gear just before it).
+    // Undefined until read, so a throw before the read deletes nothing.
+    let pileWas;
     try {
       const kit = (tag) => [
         { name: `ZZ Hand ${tag} Mail`, type: "armor", sort: 100000, system: { armor: 1, equipped: true } },
@@ -324,6 +331,7 @@ try {
       // The Chalk (sort 300000) goes first, so even an EMPTY pile holds a row
       // the Rope (sort 200000) would land above if it kept the giver's place.
       const pile0 = pp.findDroppedPile();
+      pileWas = pile0?.id ?? null;
       const before = new Set(pile0?.items.map((i) => i.id) ?? []);
       for (const name of ["ZZ Hand B Chalk", "ZZ Hand B Rope"]) {
         const it = giver.items.find((i) => i.name === name);
@@ -337,6 +345,7 @@ try {
       const out = {
         drag: arrived ? { sort: arrived.sort, equipped: arrived.system.equipped, maxOther: Math.max(...others) } : null,
         pile: copy ? { sort: copy.sort, maxOther: pileOthers.length ? Math.max(...pileOthers) : 0 } : null,
+        pileWas,
       };
       for (const it of mine) { try { await it.delete(); } catch { /* gone */ } }
       return out;
@@ -344,6 +353,14 @@ try {
       for (const a of made) { try { await a.delete(); } catch { /* gone */ } }
     }
   });
+  // Read after the leg's own cleanup, in a world that had no pile when it began.
+  if (handOver.pileWas === null) {
+    const left = await page.evaluate(async () =>
+      (await import("/systems/air-bladder/module/party-pile.js")).findDroppedPile()?.id ?? null);
+    left === null
+      ? ok("the hand-over leg leaves no pile behind in a world that had none")
+      : fail(`the hand-over leg left a pile it made (${left}), so the next probe on this box meets one it did not make`);
+  }
   handOver.drag && handOver.drag.equipped === false && handOver.drag.sort > handOver.drag.maxOther
     ? ok("a dragged-across item lands at the BOTTOM, unworn, like a gift", JSON.stringify(handOver.drag))
     : fail(`a dragged-across item kept the giver's place or its worn state: ${JSON.stringify(handOver.drag)}`);
