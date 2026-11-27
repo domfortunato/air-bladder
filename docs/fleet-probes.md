@@ -13,14 +13,14 @@ a probe, the dev world or the system is this repo's to fix.
 
 - **CT 120** (`fleet@192.168.30.50`) conducts. It starts runs, collects the logs and writes the report.
 - **Eleven probe boxes** (CT 112 to 118, 129 to 131 and 138) each run the newest stable Foundry build
-  (14.370 since 2026-11-09) with this system's world `air-bladder-dev`, served by the PM2 app
+  (14.371 since 2026-11-27) with this system's world `air-bladder-dev`, served by the PM2 app
   `foundry-air-bladder` from `/home/foundry/probe-air-bladder`. Nobody plays on them.
 - **Each box also carries every older build the system supports** (CLAUDE.md, *Version reality*: every
   14 stable build from 14.368 onward, ruled 2026-11-09; none drops out). Each is its own fleet project:
-  `air-bladder-14369` (since 2026-11-09) and `air-bladder-14368` (since 2026-11-03), each with its app
-  `foundry-air-bladder-<build>` from `/opt/foundry-<version>` and its own world in
-  `/home/foundry/probe-air-bladder-<build>`. Same repo, same probes, their own run ids. **A release
-  runs the whole suite on all three.**
+  `air-bladder-14370` (since 2026-11-27), `air-bladder-14369` (since 2026-11-09) and
+  `air-bladder-14368` (since 2026-11-03), each with its app `foundry-air-bladder-<build>` from
+  `/opt/foundry-<version>` and its own world in `/home/foundry/probe-air-bladder-<build>`. Same repo,
+  same probes, their own run ids. **A release runs the whole suite on all four.**
 - **The browsers run on VM 200's RTX 3060**, one Playwright container per probe. Air Bladder runs only
   there, never on the driver boxes.
 - **A run** rolls every box back to its `pristine` snapshot and deploys the ref under test into the box's

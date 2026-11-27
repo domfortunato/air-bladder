@@ -43,11 +43,12 @@ Run from `c:\Users\domin\code\air-bladder`, on the branch you are about to merge
 ### On the probe fleet — every supported Foundry build
 
 **The whole suite runs on every Foundry 14 stable build from 14.368 onward before every
-release** (user ruling 2026-11-09). Today that is three fleet projects, one per build:
+release** (user ruling 2026-11-09). Today that is four fleet projects, one per build:
 
 | Fleet project | Foundry |
 |---|---|
-| `air-bladder` | the newest stable build (14.370 since 2026-11-09) |
+| `air-bladder` | the newest stable build (14.371 since 2026-11-27) |
+| `air-bladder-14370` | 14.370 |
 | `air-bladder-14369` | 14.369 |
 | `air-bladder-14368` | 14.368 |
 
