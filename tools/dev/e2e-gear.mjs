@@ -351,6 +351,8 @@ try {
       return out;
     } finally {
       for (const a of made) { try { await a.delete(); } catch { /* gone */ } }
+      const pile = pp.findDroppedPile();
+      if (pile && pileWas === null) { try { await pile.delete(); } catch { /* gone */ } }
     }
   });
   // Read after the leg's own cleanup, in a world that had no pile when it began.
