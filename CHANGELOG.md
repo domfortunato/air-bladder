@@ -9,6 +9,13 @@ anything is written. The procedure is in [RELEASE.md](RELEASE.md).
 Releases before 0.1.23 have their notes on the
 [releases page](https://github.com/domfortunato/air-bladder/releases) only.
 
+## 0.1.28
+
+**Requires Foundry VTT 14.368 or higher.**
+
+- Validated on Foundry VTT 14.371
+- Weapons and armor imported from Kettlewright arrive unequipped, like the rest of the imported gear
+
 ## 0.1.27
 
 **Requires Foundry VTT 14.368 or higher.**
