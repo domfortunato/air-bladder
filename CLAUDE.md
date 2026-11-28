@@ -17,16 +17,17 @@ is an independent system with its own `id`, content and history — **not** a gi
 
 ## Version reality
 
-- **Minimum Foundry 14.368, `verified` 14.370.** `system.json`:
-  `compatibility: {minimum: "14.368", verified: "14.370"}`. 14.365 was dropped on
+- **Minimum Foundry 14.368, `verified` 14.371.** `system.json`:
+  `compatibility: {minimum: "14.368", verified: "14.371"}`. 14.365 was dropped on
   2026-11-02: nothing tested it any more, and a minimum nobody has tested is a
   claim, not a fact. **THE TEST RANGE (user ruling 2026-11-09, replacing the
   three-build window of 11-02): EVERY Foundry 14 stable build from 14.368 onward,
-  before every release** — today 14.368, 14.369 and 14.370 — each installed on every
+  before every release** — today 14.368, 14.369, 14.370 and 14.371 — each installed on every
   probe box and tested there, never from the workstation. A new stable build joins
   and **nothing drops out**; the minimum stays 14.368. **14.367 is left alone** (the
   user drew the line at 14.368 the same hour). Farm projects: `air-bladder` (newest),
-  `air-bladder-14369`, `air-bladder-14368`; a release runs the suite on every one.
+  `air-bladder-14370`, `air-bladder-14369`, `air-bladder-14368`; a release runs the
+  suite on every one.
   **Day to day, test on the NEWEST build only** (`air-bladder`) — the older
   builds run only once a release has been decided (user ruling 2026-11-20).
 - **The minimum is stated in five places** — `README.md` (held to `system.json` by
@@ -40,7 +41,9 @@ is an independent system with its own `id`, content and history — **not** a gi
   probe suite on the fleet; 14.369 cleared all three (`foundry/app-14369`).
   **14.370 (0.1.27) on the fleet alone, by user ruling 2026-11-24**: 113/113 on all
   three builds at `a3acca4b`, but there is no local 14.370 server, so `dev:upgrade`
-  and `dev:smoke` did not run on it. It is
+  and `dev:smoke` did not run on it. **14.371 (0.1.28) cleared all three**
+  (2026-11-27): `dev:upgrade` 0.1.26→0.1.27 and `dev:smoke` on `:30001` from
+  `foundry/app-14371`, and 113/113 on all four builds at `26facf9e`. It is
   submitted by `npm run publish:foundry` and shown on the Marketplace listing.
 - Latest release **0.1.27**. `system.json`'s `version` is bumped by `npm run
   release` on `master` only, so on `dev` it lags — read the tag, not the file.

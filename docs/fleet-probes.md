@@ -95,6 +95,26 @@ in a batch. A red on a different box in each run, with the same message every ti
 baseline world. A red that follows one box's queue points at an earlier probe on that box that leaked
 something.
 
+## Foundry 14.371, on all four builds (2026-11-27)
+
+**Still 113 probes. The whole suite was GREEN, 113/113, at `26facf9e` on every build: 14.371
+(`20261127T232245Z`), 14.370 (`20261127T233029Z-air-bladder-14370`), 14.369
+(`20261128T001748Z-air-bladder-14369`) and 14.368 (`20261128T002548Z-air-bladder-14368`). This is
+the 0.1.28 release run.**
+
+- **14.370's `combat-options` red at `1b86b9fd` was `gear`'s leak** (`20261127T161115Z-air-bladder-14370`):
+  `gear`'s hand-over leg deleted the two items it dropped on the Dropped Item Pile and left the pile,
+  and `combat-options` ran next on the same box (CT 112), met a pile it hadn't made, and failed its
+  "pile made" leg. The boxes' 14.370 world holds no pile (read on CT 116). Red first: the check alone at
+  `303d36eb` was red on 14.371 (`20261127T231651Z`, "the hand-over leg left a pile it made"); the
+  fix `26facf9e` was green with `combat-options` on 14.370 (`20261127T231840Z`).
+- **The first 14.369 and 14.368 runs at `26facf9e` had three reds, all Chromium's GPU process on VM 200**:
+  `encounters` and `companions` on 14.369 lost the GPU in the same second in two containers
+  (`gpu_process_host` exit 8704, then `CONTEXT_LOST_WEBGL`, `20261127T234552Z`), and `enc-damage`
+  on 14.368 couldn't create a WebGL context, so its join page never showed a form
+  (`20261128T000930Z`). The card read 212 MiB used with nothing else on it afterwards. Both builds were
+  green on a whole second run.
+
 ## Review #37, on all three builds (2026-11-24)
 
 **Still 113 probes. The whole suite was GREEN, 113/113, at `a3acca4b` on every build: 14.370
