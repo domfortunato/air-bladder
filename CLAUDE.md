@@ -45,7 +45,7 @@ is an independent system with its own `id`, content and history — **not** a gi
   (2026-11-27): `dev:upgrade` 0.1.26→0.1.27 and `dev:smoke` on `:30001` from
   `foundry/app-14371`, and 113/113 on all four builds at `26facf9e`. It is
   submitted by `npm run publish:foundry` and shown on the Marketplace listing.
-- Latest release **0.1.27**. `system.json`'s `version` is bumped by `npm run
+- Latest release **0.1.28** (2026-11-27; the listing reads Verified 14.371). `system.json`'s `version` is bumped by `npm run
   release` on `master` only, so on `dev` it lags — read the tag, not the file.
   Update this line in the post-release master→dev sync, however that sync lands
   (merge or fast-forward).
